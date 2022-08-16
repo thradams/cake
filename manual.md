@@ -12,6 +12,7 @@ Options
   -rm Outputs preprocessed code after compilation.
   
 ```
+The ouput dir is `./out`
 
 ## Transformations
 
