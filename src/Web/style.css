@@ -1,0 +1,9 @@
+pre {
+    min-width: 30em;
+    vertical-align: text-top;
+    display: inline-block;
+}
+code {
+    vertical-align: text-top;
+    display: inline-block;
+}

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <link rel="stylesheet" href="default.min.css">
+    <script src="highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+     <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a>  
+
+    <h1>C back end manual</h1>
+
+
+    <pre>
+    cake source.c
+    </pre>
+    
+    <p>Generates the source.c at out/source.c.</p>
+    <p>When you run cake at visual C++ command prompt it automatically detects the include directories</p>
+
+
+    <h3>Options</h3>
+    <ul>
+        <li>-r remove comments</li>                     
+        <li>-rm remove comments and macros</li>                             
+        <li>-I include directory</li>     
+        <li>-D define macro</li>     
+        <li>-E preprocess only</li>     
+        <li>-std=c99, -std=c11, -std=c2x target standard</li>     
+    </ul>
+
+    <h2>Transformations before AST visit</h2>
+    <ul>
+        <li>C11 u8 literals</li>                     
+        <li>C23 Digit separators</li>        
+        <li>C23 Binary Literals</li>        
+        <li>C23 elifdef</li>
+        <li>C23 bool, true, false</li>
+        <li>C23 nullptr</li>        
+        <li>C23 #warning</li>        
+        <li>C23 #embed (Not implemented yet)</li>
+        <li></li>
+    </ul>
+    <h3>C11 u8 literals</h3>
+    <p>
+        The source code encode for cake must be utf8. 
+        u8 literals are converted to utf8 using escapes.
+    </p>
+
+    <h2>AST visit transformations</h2>
+    <ul>
+        <li>C11 _Static_assert</li>        
+        <li>C11 _Generic (parsed)</li>   
+        <li>C23 single-argument _Static_assert and keyword static_assert</li>
+        <li>C23 empty initializer</li> 
+        <li>C23 Attributes (parsed)</li> 
+        <li>C23 typeof</li>                
+        <li>C23 Decimal floating-point types (just parsed)<li>         
+
+        <li>typeid (extension)</li>
+        <li>_Hashof (extension)</li>        
+        <li>try catch (extension)</li>
+        <li>defer (extension)</li>
+        <li>if with initialization (extension)</li>
+        <li>function literals / lambdas (extension)</li>
+        <li>#pragma expand MACRO (extension)</li>
+    </ul>
+
+    <h3>C23 typeof</h3>
+
+    <h3>typeid</h3>
+
+    <h3>_Hashof</h3>
+
+    <h3>try catch</h3>
+    <p>
+        try catch blocks creates a block that you can jump off using throw.</br>
+        throw will jump to the catch stament that is optional.
+        <b>this is always local jump</b>
+    </p>
+
+    <h3>defer</h3>
+
+    <h3>if with initialization</h3>
+
+    <h3>Lambdas</h3>
+
+    <h3>pragma expand</h3>
+
+    <p>pragma expand tells the back end to not hide macro expansions.
+    
+    Sample:
+    </p>
+    <pre><code class="language-c">
+#define SWAP(a, b) \
+    do { \
+      typeof(a) temp = a; a = b; b = temp; \
+    } while(0)
+
+#pragma expand SWAP
+
+int main()
+{
+   int a = 1;
+   typeof(a) b = 2;
+   SWAP(a, b);
+   return 1;
+}
+    </code></pre>
+    <pre><code class="language-c">
+ #define SWAP(a, b) \
+    do { \
+      typeof(a) temp = a; a = b; b = temp; \
+    } while(0)
+
+#pragma expand SWAP
+
+int main()
+{
+   int a = 1;
+   int b = 2;
+    do {int temp = a; a = b; b = temp; } while(0);
+   return 1;
+}
+    </code></pre>
+
+    <h2>Source code</h2>
+    <p>
+        Source code for this project is not published yet.
+    </p>
+
+    <h2>References</h2>
+    <a target="_blank" href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2912.pdf">n2912.pdf (C23 Draft)</a>
+    </br>
+    <a target="_blank" href="https://clang.llvm.org/c_status.html">clang C23 status</a>
+    </br>
+    C23 gcc status?
+    </br>
+    <a target="_blank" href="https://en.cppreference.com/w/c/23">cppreference</a>
+</body>
+</html>

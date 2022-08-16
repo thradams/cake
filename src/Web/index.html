@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <link rel="stylesheet" href="default.min.css">
+    <script src="highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+     <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a>  
+
+    <h1>Cake is a C23 front end</h1>
+
+    <p>
+        This is a C23 front end compiler written from scratch in C by (twitter @thradams) 
+        as a hobby project. 
+    </p>
+
+    <h2>It can be used for:</h2>
+    <ul>
+        <li>Static Analisys</li>        
+        <li>Refatoring</li>        
+        <li>Code Documentation</li>
+        <li>Add a backend (webassembly for instance)</li>
+        <li>Code transformation</li>
+    </ul>
+
+    <p>My main motivation was static analsis and 
+       experiment new ideas for the C language compiling experimental code to standard C.
+    </p>
+    <p>C23 have introduced many features like attributes,digit separators etc.. that 
+       would not even parse in previous compilers. So I decided to experiment some 
+       code transformation from C23 to C99. The front end has a C input standard and a C output standard.
+    </p>
+        
+    
+    <h2>Features</h2>
+    <ul>
+        <li>Preprocessor</li>        
+        <li>Syntax analisys</li>
+        <li>Semantic analyss (incomplete)</li>
+        <li>Stantandard C back end</li>
+    </ul>
+    <p>
+     Semantic analisys is required for static_analisys and sometimes
+     for code generation.
+    </p>
+
+    <p>
+        The source code is multiplatform. I use Visual Studio to debug
+        and and the front end can parse and generate itself. 
+        Some microsoft extensions where added.
+    </p>
+
+    <h2>Source code</h2>
+    <p>
+        Source code for this project is not published yet.
+    </p>
+
+    <h2>References</h2>
+    
+    <a target="_blank" href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3047.pdf">n3047.pdf (C23 Draft)</a>
+    </br>
+    <a target="_blank" href="https://clang.llvm.org/c_status.html">clang C23 status</a>
+    </br>
+    C23 gcc status?
+    </br>
+    <a target="_blank" href="https://en.cppreference.com/w/c/23">cppreference</a>
+</body>
+</html>
