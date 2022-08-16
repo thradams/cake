@@ -55,7 +55,7 @@ emscriptem https://emscripten.org/  is required.
 
 First do the normal build. 
 
-The normal build also generates a file lib.c that is the amalgameted  version of the "core lib".
+The normal build also generates a file `lib.c` that is the amalgameted  version of the "core lib".
 
 Then at `./src` dir type:
 
