@@ -51,14 +51,18 @@ gcc -DTEST build.c -o build && ./build
 ```
 
 ## Build web
-emscriptem is required. First do the normal build. The normal build also generates a file lib.c that
-is the amalgameted  version of the "core lib".
+emscriptem https://emscripten.org/  is required. 
 
-Then at `./src` dir
+First do the normal build. 
+
+The normal build also generates a file lib.c that is the amalgameted  version of the "core lib".
+
+Then at `./src` dir type:
 
 ```
 call emcc -DMOCKFILES "lib.c" -o "Web\cake.js" -s WASM=0 -s EXPORTED_FUNCTIONS="['_CompileText']" -s EXTRA_EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap']"
 ```
+
 This will generate the cake.js
 
 
