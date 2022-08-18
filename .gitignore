@@ -59,3 +59,4 @@ dkms.conf
 /vc/x64/Release
 /src/out
 /src/build
+/vc/DebugTest

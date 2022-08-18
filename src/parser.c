@@ -101,11 +101,14 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
     int line = 0;
     if (p_token)
     {
-        line = p_token->line;
-        ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->pFile->lexeme,
-            p_token->line,
-            p_token->col);
+        if (p_token->pFile)
+        {
+            line = p_token->line;
+            ctx->printf(WHITE "%s:%d:%d: ",
+                p_token->pFile->lexeme,
+                p_token->line,
+                p_token->col);
+        }
     }
     else
     {
@@ -529,8 +532,8 @@ bool first_of_selection_statement(struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_KEYWORD_IF ||
-           ctx->current->type == TK_KEYWORD_SWITCH ||
-           ctx->current->type == TK_KEYWORD_TRY;
+        ctx->current->type == TK_KEYWORD_SWITCH ||
+        ctx->current->type == TK_KEYWORD_TRY;
 }
 
 bool first_of_iteration_statement(struct parser_ctx* ctx)
@@ -538,7 +541,7 @@ bool first_of_iteration_statement(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    return 
+    return
         ctx->current->type == TK_KEYWORD_REPEAT || /*extension*/
         ctx->current->type == TK_KEYWORD_WHILE ||
         ctx->current->type == TK_KEYWORD_DO ||
@@ -649,7 +652,7 @@ enum token_type is_keyword(const char* text)
         if (strcmp("case", text) == 0) result = TK_KEYWORD_CASE;
         else if (strcmp("char", text) == 0) result = TK_KEYWORD_CHAR;
         else if (strcmp("const", text) == 0) result = TK_KEYWORD_CONST;
-        else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;        
+        else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;
         else if (strcmp("continue", text) == 0) result = TK_KEYWORD_CONTINUE;
         else if (strcmp("catch", text) == 0) result = TK_KEYWORD_CATCH;
         break;
@@ -678,7 +681,7 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
         break;
     case 'N':
-        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULL;        
+        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULL;
         break;
     case 'n':
         if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULL;
@@ -689,7 +692,7 @@ enum token_type is_keyword(const char* text)
     case 'r':
         if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
         else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
-        else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;        
+        else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
         else if (strcmp("repeat", text) == 0) result = TK_KEYWORD_REPEAT;
         break;
     case 's':
@@ -967,15 +970,23 @@ void exponent_part_opt(struct stream* stream)
     }
 }
 
-void floating_suffix_opt(struct stream* stream)
+enum type_specifier_flags floating_suffix_opt(struct stream* stream)
 {
-    if (stream->current[0] == 'l' ||
-        stream->current[0] == 'L' ||
-        stream->current[0] == 'f' ||
-        stream->current[0] == 'F')
+    enum type_specifier_flags f = type_specifier_double;
+
+
+    if (stream->current[0] == 'l' || stream->current[0] == 'L')
     {
+        f = type_specifier_long | type_specifier_double;
         stream_match(stream);
     }
+    else if (stream->current[0] == 'f' || stream->current[0] == 'F')
+    {
+        f = type_specifier_float;
+        stream_match(stream);
+    }
+
+    return f;
 }
 
 bool is_nonzero_digit(struct stream* stream)
@@ -996,16 +1007,17 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
     enum token_type type = TK_NONE;
     if (stream->current[0] == '.')
     {
-        if (flags_opt)
-        {
-            *flags_opt = type_specifier_double;
-        }
+        
 
         type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
         stream_match(stream);
         digit_sequence(stream);
         exponent_part_opt(stream);
-        floating_suffix_opt(stream);
+        enum type_specifier_flags f = floating_suffix_opt(stream);
+        if (flags_opt)
+        {
+            *flags_opt = f;
+        }
     }
     else if (stream->current[0] == '0' && (stream->current[1] == 'x' || stream->current[1] == 'X'))
     {
@@ -1023,7 +1035,11 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
         {
             type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
             hexadecimal_digit_sequence(stream);
-            floating_suffix_opt(stream);
+            enum type_specifier_flags f = floating_suffix_opt(stream);
+            if (flags_opt)
+            {
+                *flags_opt = f;
+            }
         }
     }
     else if (stream->current[0] == '0' && (stream->current[1] == 'b' || stream->current[1] == 'B'))
@@ -1051,7 +1067,11 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
         if (stream->current[0] == '.')
         {
             hexadecimal_digit_sequence(stream);
-            floating_suffix_opt(stream);
+            enum type_specifier_flags f = floating_suffix_opt(stream);
+            if (flags_opt)
+            {
+                *flags_opt = f;
+            }
         }
     }
     else if (is_nonzero_digit(stream)) //decimal
@@ -1068,14 +1088,23 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
         if (stream->current[0] == 'e' || stream->current[0] == 'E')
         {
             exponent_part_opt(stream);
-            floating_suffix_opt(stream);
+            enum type_specifier_flags f = floating_suffix_opt(stream);
+            if (flags_opt)
+            {
+                *flags_opt = f;
+            }
         }
         else if (stream->current[0] == '.')
         {
+
             type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
             digit_sequence(stream);
             exponent_part_opt(stream);
-            floating_suffix_opt(stream);
+            enum type_specifier_flags f = floating_suffix_opt(stream);
+            if (flags_opt)
+            {
+                *flags_opt = f;
+            }
         }
     }
 
@@ -1302,7 +1331,7 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
                             throw;
                         }
 
-                       
+
                         if (p_declaration_specifier->type_specifier_qualifier->pType_specifier->struct_or_union_specifier)
                         {
                             p_declaration_specifiers->struct_or_union_specifier = p_declaration_specifier->type_specifier_qualifier->pType_specifier->struct_or_union_specifier;
@@ -3458,11 +3487,11 @@ struct statement* statement(struct parser_ctx* ctx, struct error* error)
 {
     struct statement* p_statement = calloc(1, sizeof(struct statement));
     if (first_of_labeled_statement(ctx))
-    {        
+    {
         p_statement->labeled_statement = labeled_statement(ctx, error);
     }
     else
-    {     
+    {
         p_statement->unlabeled_statement = unlabeled_statement(ctx, error);
     }
     //labeled_statement
@@ -3500,10 +3529,10 @@ struct secondary_block* secondary_block(struct parser_ctx* ctx, struct error* er
 {
     struct secondary_block* p_secondary_block = calloc(1, sizeof(struct secondary_block));
     p_secondary_block->first = ctx->current;
-    
+
 
     p_secondary_block->statement = statement(ctx, error);
-    
+
     p_secondary_block->last = previous_parser_token(ctx->current);
 
     return p_secondary_block;
@@ -3807,11 +3836,11 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
     else if (ctx->current->type == TK_KEYWORD_TRY)
     {
         ctx->try_catch_block_index++;
-        
+
         /*facilita geração de código*/
         p_selection_statement->try_catch_block_index = ctx->try_catch_block_index;
 
-        parser_match(ctx);        
+        parser_match(ctx);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
         ctx->try_catch_block_index--;
 
@@ -3819,14 +3848,14 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         {
             p_selection_statement->else_catch_token = ctx->current;
             parser_match(ctx);
-            
+
             p_selection_statement->else_secondary_block = secondary_block(ctx, error);
         }
         else
-        {            
+        {
             p_selection_statement->else_catch_token = previous_parser_token(ctx->current);
         }
-        
+
     }
 
     p_selection_statement->last_token = ctx->current->prev;
@@ -3874,7 +3903,7 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
     else if (ctx->current->type == TK_KEYWORD_REPEAT)
     {
         parser_match(ctx);
-        p_iteration_statement->secondary_block = secondary_block(ctx, error);                
+        p_iteration_statement->secondary_block = secondary_block(ctx, error);
     }
     else if (ctx->current->type == TK_KEYWORD_WHILE)
     {
@@ -3936,7 +3965,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
             break ;
             return expressionopt ;
     */
-    
+
     /*
        throw; (extension)
     */
@@ -3966,7 +3995,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
             error->code = 1;
             parser_seterror_with_token(ctx, ctx->current, "throw must be inside try blocks");
         }
-        
+
         /*helps code generation*/
         p_jump_statement->try_catch_block_index = ctx->try_catch_block_index;
 
@@ -4113,7 +4142,7 @@ void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_
     for (; p_array_function_type; p_array_function_type = p_array_function_type->next)
     {
         if (p_array_function_type->bIsArray)
-        {            
+        {
             ss_fprintf(ss, "[%d]", p_array_function_type->array_size);
         }
         else if (p_array_function_type->bIsFunction)
@@ -4150,7 +4179,7 @@ void print_type(struct osstream* ss, struct type* type)
     {
         print_item(ss, &first, "enum ");
         if (type->enum_specifier->tag_token)
-          ss_fprintf(ss, "%s", type->enum_specifier->tag_token->lexeme);
+            ss_fprintf(ss, "%s", type->enum_specifier->tag_token->lexeme);
 
     }
     else if (type->type_specifier_flags & type_specifier_typedef)
@@ -4188,26 +4217,49 @@ int fill_options(struct options* options, int argc, char** argv, struct preproce
             options->bRemoveMacros = true;
             continue;
         }
-        if (strcmp(argv[i], "-std=c99") == 0)
+        //
+        if (strcmp(argv[i], "-target=c99") == 0)
         {
             options->target = LANGUAGE_C99;
             continue;
         }
-        if (strcmp(argv[i], "-std=c11") == 0)
+        if (strcmp(argv[i], "-target=c11") == 0)
         {
             options->target = LANGUAGE_C11;
             continue;
         }
-        if (strcmp(argv[i], "-std=c2x") == 0)
+        if (strcmp(argv[i], "-target=c2x") == 0)
         {
             options->target = LANGUAGE_C2X;
             continue;
         }
-        if (strcmp(argv[i], "-std=cxx") == 0)
+        if (strcmp(argv[i], "-target=cxx") == 0)
         {
             options->target = LANGUAGE_CXX;
             continue;
         }
+        //
+        if (strcmp(argv[i], "-std=c99") == 0)
+        {
+            options->input = LANGUAGE_C99;
+            continue;
+        }
+        if (strcmp(argv[i], "-std=c11") == 0)
+        {
+            options->input = LANGUAGE_C11;
+            continue;
+        }
+        if (strcmp(argv[i], "-std=c2x") == 0)
+        {
+            options->input = LANGUAGE_C2X;
+            continue;
+        }
+        if (strcmp(argv[i], "-std=cxx") == 0)
+        {
+            options->input = LANGUAGE_CXX;
+            continue;
+        }
+        //
         if (argv[i][1] == 'I')
         {
             include_dir_add(&prectx->include_dir, argv[i] + 2);
@@ -4325,6 +4377,7 @@ int compile_one_file(const char* file_name,
         {
             throw;
         }
+        prectx.options = options;
         append_msvc_include_dir(&prectx);
 
         //printf("%-20s ", file_name);
@@ -4349,7 +4402,7 @@ int compile_one_file(const char* file_name,
 
         char path[200] = { 0 };
         snprintf(path, sizeof path, "./out/%s", file_name);
-        
+
         mkdir("./out", 0777);
 
         //printf(".");//3
@@ -4357,7 +4410,7 @@ int compile_one_file(const char* file_name,
         {
             const char* s = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s);
-            free(s);            
+            free(s);
         }
         else
         {
@@ -4442,7 +4495,7 @@ int compile(int argc, char** argv, struct error* error)
 }
 
 
-struct ast get_ast(enum LanguageVersion inputLanguage, const char* fileName, const char* source, struct error* error)
+struct ast get_ast(struct options *options, const char* fileName, const char* source, struct error* error)
 {
     struct ast ast = { 0 };
 
@@ -4451,6 +4504,8 @@ struct ast get_ast(enum LanguageVersion inputLanguage, const char* fileName, con
         return ast;
 
     struct preprocessor_ctx prectx = { 0 };
+    prectx.options = *options;
+
 #ifdef TEST
     prectx.printf = printf_nothing;
 #else
@@ -4463,7 +4518,7 @@ struct ast get_ast(enum LanguageVersion inputLanguage, const char* fileName, con
     if (error->code != 0)
         return ast;
 
-    ast.declaration_list = parse(inputLanguage, &ast.token_list, error);
+    ast.declaration_list = parse(options->input, &ast.token_list, error);
     return ast;
 }
 
@@ -4521,6 +4576,7 @@ char* compile_source(const char* pszoptions, const char* content)
             throw;
         }
 
+        prectx.options = options;
 
         struct error error = { 0 };
 
@@ -4546,7 +4602,7 @@ char* compile_source(const char* pszoptions, const char* content)
         {
             struct visit_ctx visit_ctx = { 0 };
             visit_ctx.target = options.target;
-            struct ast ast = get_ast(options.input, "source", content, &error);
+            struct ast ast = get_ast(&options, "source", content, &error);
             visit_ctx.ast = ast;
             visit(&visit_ctx, &error);
 
@@ -4594,7 +4650,8 @@ void parser_specifier_test()
 {
     const char* source = "long long long i;";
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code != 0); //esperado erro    
 }
 
@@ -4606,7 +4663,8 @@ void take_address_type_test()
         "    (*p)[0] = 'a';"
         "}";
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
 
     assert(error.code == 0);
 }
@@ -4615,7 +4673,8 @@ void parser_scope_test()
 {
     const char* source = "void f() {int i; char i;}";
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code != 0); //tem que dar erro
 }
 
@@ -4624,7 +4683,8 @@ void parser_tag_test()
     //mudou tipo do tag no mesmo escopo
     const char* source = "enum E { A }; struct E { int i; };";
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code != 0); //tem que dar erro        
 }
 
@@ -4632,7 +4692,8 @@ void string_concatenation_test()
 {
     const char* source = " \"part1\" \"part2\"";
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code == 0);
 }
 
@@ -4661,7 +4722,8 @@ void type_test2()
         ;
 
     struct error error = { 0 };
-    get_ast(LANGUAGE_C2X, "source", src, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    get_ast(&options, "source", src, &error);
     assert(error.code == 0);
 
 }
@@ -4676,7 +4738,8 @@ void type_test3()
         ;
 
     struct error error = { 0 };
-    get_ast(LANGUAGE_C2X, "source", src, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    get_ast(&options, "source", src, &error);
     assert(error.code == 0);
 
 }
@@ -4687,20 +4750,21 @@ void expand_test()
         "typedef int A[2];"
         "typedef A *B [1];"
         "static_assert(typeid(B) == typeid(int (*[1])[2]);";
-        ;
+    ;
 
-        struct error error = { 0 };
-        get_ast(LANGUAGE_C2X, "source", src, &error);
-        assert(error.code == 0);
-        clearerror(&error);
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C2X };
+    get_ast(&options, "source", src, &error);
+    assert(error.code == 0);
+    clearerror(&error);
 
 
     char* src2 =
-      "typedef char* A;"
-      "typedef const A* B; "
-      "static_assert(typeid(B) == typeid(char * const *);";
-    
-    get_ast(LANGUAGE_C2X, "source", src2, &error);
+        "typedef char* A;"
+        "typedef const A* B; "
+        "static_assert(typeid(B) == typeid(char * const *);";
+
+    get_ast(&options, "source", src2, & error);
     assert(error.code == 0);
     clearerror(&error);
 
@@ -4711,8 +4775,10 @@ void expand_test()
         "typedef T1(*f[3])(int); "
         "static_assert(typeid(f) == typeid(char* (* [3])(int)));";
     //char* (* [3])(int)
+
     
-    get_ast(LANGUAGE_C2X, "source", src3, &error);
+
+    get_ast(&options, "source", src3, &error);
     assert(error.code == 0);
     clearerror(&error);
 

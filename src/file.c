@@ -1,7 +1,1 @@
-
-#warning Teste
-/*teste*/
-int main()
-{
-
-}
+#include <string.h>

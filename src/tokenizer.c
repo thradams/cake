@@ -106,8 +106,6 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
     ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 
 
-
-
     struct token* prev = p_token;
     while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
     {
@@ -139,6 +137,43 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
         }
         ctx->printf(LIGHTGREEN "^\n");
     }
+}
+void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_token, bool bError)
+{
+    ctx->n_warnings++;
+    //er->code = 1;
+
+    if (p_token)
+    {
+        ctx->printf(WHITE "%s:%d:%d: ",
+            p_token->pFile->lexeme,
+            p_token->line,
+            p_token->col);
+    }
+    else
+    {
+        ctx->printf(WHITE "<>");
+    }
+
+    if (bError)
+          ctx->printf(LIGHTRED "error: " WHITE );
+    else 
+        ctx->printf(LIGHTMAGENTA "warning: " WHITE );
+
+
+    struct token* prev = p_token;
+    while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
+    {
+        prev = prev->prev;
+    }
+    struct token* next = prev;
+    while (next && next->type != TK_NEWLINE)
+    {
+        ctx->printf("%s", next->lexeme);
+        next = next->next;
+    }
+    ctx->printf("\n");
+    
 }
 
 
@@ -959,21 +994,44 @@ struct token* ppnumber(struct stream* stream)
 struct token_list embed_tokenizer(const char* filename_opt, int level, enum token_flags addflags, struct error* error)
 {
     struct token_list list = { 0 };
-    
+
     FILE* file = NULL;
-    
+
     bool bFirst = true;
     int line = 1;
     int col = 1;
+    int count = 0;
     try
     {
+#ifndef MOCKFILES
         file = fopen(filename_opt, "rb");
         if (file == NULL)
+        {
+            seterror(error, "file '%s' not found", filename_opt);
             throw;
+        }
+#else
+        /*web versions only text files that are included*/
+        const char* textfile = readfile(filename_opt);
+        if (textfile == NULL)
+        {
+            seterror(error, "file '%s' not found", filename_opt);
+            throw;
+        }
+
+        const char* pch = textfile;
+#endif
 
         unsigned char ch;
+#ifndef MOCKFILES
         while (fread(&ch, 1, 1, file))
-        {            
+        {
+#else
+        while (*pch)
+        {
+            ch = *pch;
+            pch++;
+#endif                    
             if (bFirst)
             {
                 bFirst = false;
@@ -988,6 +1046,18 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
+
+                if (count > 0 && count % 25 == 0)
+                {
+                    /*new line*/
+                    char newline[] = "\n";
+                    struct token* pNew3 = new_token(newline, &newline[1], TK_NEWLINE);
+                    pNew3->level = level;
+                    pNew3->pFile = NULL;
+                    pNew3->line = line;
+                    pNew3->col = col;
+                    token_list_add(&list, pNew3);
+                }
             }
 
             char buffer[30];
@@ -1000,13 +1070,30 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
             pNew->line = line;
             pNew->col = col;
             token_list_add(&list, pNew);
+
+            
+            count++;
         }
+#ifdef MOCKFILES   
+        free(textfile);
+#endif
     }
     catch
     {
     }
-    
+
+    /*new line*/
+    char newline[] = "\n";
+    struct token* pNew = new_token(newline, &newline[1], TK_NEWLINE);
+    pNew->level = level;
+    pNew->pFile = NULL;
+    pNew->line = line;
+    pNew->col = col;
+    token_list_add(&list, pNew);
+
     if (file) fclose(file);
+
+
 
     assert(list.head != NULL);
     return list;
@@ -1323,7 +1410,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
 }
 
 
-bool fread2(void* buffer, size_t size, size_t count, FILE* stream, size_t* sz)
+bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
 {
     *sz = 0;//out
     bool result = false;
@@ -2185,7 +2272,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         //snprintf(line, sizeof line, "%s(%d,%d):\n", inputList->head->pFile->lexeme, inputList->head->line, inputList->head->col);
         //OutputDebugStringA(line);
 #endif
-
+        struct token* const ptoken = inputList->head;
         match_token_level(&r, inputList, TK_PREPROCESSOR_LINE, level, ctx, error);
         skip_blanks_level(&r, inputList, level);
         if (strcmp(inputList->head->lexeme, "include") == 0)
@@ -2235,7 +2322,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 free(content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1, error);
-                token_list_append_list(&r, &list2);                
+                token_list_append_list(&r, &list2);
             }
             else
             {
@@ -2252,45 +2339,84 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         }
         else if (strcmp(inputList->head->lexeme, "embed") == 0)
         {
+            struct token_list discard0 = { 0 };
+            struct token_list* p_list = &r;
+            if (ctx->options.target < LANGUAGE_C2X)
+            {
+                p_list = &discard0;
+                
+                free(ptoken->lexeme);
+                ptoken->lexeme = strdup(" ");
+                
+            }
+
             /*
               C23
               # embed pp-tokens new-line
             */
-            match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error); //embed
-            skip_blanks_level(&r, inputList, level);
+            match_token_level(p_list, inputList, TK_IDENTIFIER, level, ctx, error); //embed
+            skip_blanks_level(p_list, inputList, level);
             char path[100] = { 0 };
 
             if (inputList->head->type == TK_STRING_LITERAL)
             {
                 strcat(path, inputList->head->lexeme);
-                prematch_level(&r, inputList, level);
+                prematch_level(p_list, inputList, level);
             }
             else
             {
                 while (inputList->head->type != '>')
                 {
                     strcat(path, inputList->head->lexeme);
-                    prematch_level(&r, inputList, level);
+                    prematch_level(p_list, inputList, level);
                 }
                 strcat(path, inputList->head->lexeme);
-                prematch_level(&r, inputList, level);
+                prematch_level(p_list, inputList, level);
             }
 
             if (inputList->head)
             {
                 while (inputList->head->type != TK_NEWLINE)
                 {
-                    prematch_level(&r, inputList, level);
+                    prematch_level(p_list, inputList, level);
                 }
             }
-            match_token_level(&r, inputList, TK_NEWLINE, level, ctx, error);
+            match_token_level(p_list, inputList, TK_NEWLINE, level, ctx, error);
+
+
 
             char fullpath[300] = { 0 };
             path[strlen(path) - 1] = '\0';
+
+            snprintf(fullpath, sizeof(fullpath), "%s", path + 1);
+            struct error localerror = { 0 };
             
-            snprintf(fullpath, sizeof(fullpath), "%s", path+1);
-            struct token_list list = embed_tokenizer(fullpath, level + 1, TK_FLAG_FINAL, error);                
-            token_list_append_list(&r, &list);                
+            int nlevel = level;
+
+            enum token_flags f = 0;
+            if (ctx->options.target < LANGUAGE_C2X)
+            {
+                //we can see it
+                f = TK_FLAG_FINAL;
+            }
+            else
+            {
+                f = TK_FLAG_FINAL;
+                //we cannot see it just like include
+                nlevel = nlevel + 1;
+            }
+
+            struct token_list list = embed_tokenizer(fullpath, nlevel, f, &localerror);
+            if (localerror.code != 0)
+            {
+                pre_seterror_with_token(ctx, inputList->head, "embed error: %s", localerror.message);
+            }
+
+            token_list_append_list(&r, &list);
+            token_list_destroy(&discard0);
+
+
+
         }
         else if (strcmp(inputList->head->lexeme, "define") == 0)
         {
@@ -2433,14 +2559,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             /*
               # error pp-tokensopt new-line
             */
+            ctx->n_warnings++;
             match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);//error
-            struct token_list r5 = pp_tokens_opt(ctx, inputList, level);
-            token_list_append_list(&r, &r5);
-
-            pre_seterror_with_token(ctx, inputList->head, "#error");
-
+            struct token_list r6 = pp_tokens_opt(ctx, inputList, level);
+            pre_error_warning_with_token(ctx, inputList->head, true);
+            token_list_append_list(&r, &r6);
             match_token_level(&r, inputList, TK_NEWLINE, level, ctx, error);
-
 
 
         }
@@ -2450,20 +2574,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
               # warning pp-tokensopt new-line
             */
             ctx->n_warnings++;
-
-            match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);//warning
-            struct token_list r6 = pp_tokens_opt(ctx, inputList, level);
-
-            ctx->printf("#warning");
-
-            struct token* pCurrent = r6.head;
-            while (pCurrent)
+            if (ctx->options.target < LANGUAGE_C2X)
             {
-                ctx->printf("%s", pCurrent->lexeme);
-                pCurrent = pCurrent->next;
+                /*insert comment before #*/
+                free(ptoken->lexeme);
+                ptoken->lexeme = strdup("//#");                                
             }
-            ctx->printf("\n");
+            match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);//warning
 
+            struct token_list r6 = pp_tokens_opt(ctx, inputList, level);
+            pre_error_warning_with_token(ctx, inputList->head, false);
             token_list_append_list(&r, &r6);
             match_token_level(&r, inputList, TK_NEWLINE, level, ctx, error);
         }

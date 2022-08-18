@@ -602,6 +602,23 @@ static void visit_argument_expression_list(struct visit_ctx* ctx, struct argumen
     }
 }
 
+static void visit_generic_selection(struct visit_ctx* ctx, struct generic_selection* p_generic_selection, struct error* error)
+{
+    visit_expression(ctx, p_generic_selection->expression, error);
+    if (ctx->target < LANGUAGE_C11)
+    {
+        token_range_add_flag(p_generic_selection->firstToken, p_generic_selection->lastToken, TK_FLAG_HIDE);
+        if (p_generic_selection->p_view_selected_expression)
+        {
+            token_range_remove_flag(p_generic_selection->p_view_selected_expression->first,
+                p_generic_selection->p_view_selected_expression->last,
+                TK_FLAG_HIDE);
+        }
+    }
+
+}
+
+
 static void visit_expression(struct visit_ctx* ctx, struct expression* p_expression, struct error* error)
 {
     switch (p_expression->expression_type)
@@ -627,6 +644,9 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
         break;
 
+    case PRIMARY_EXPRESSION_GENERIC:
+        visit_generic_selection(ctx, p_expression->generic_selection, error);
+        break;
 
     case POSTFIX_DOT:
         break;

@@ -1,8 +1,48 @@
 ﻿var sample = {};
 
+sample["C11 _Generic"] =
+    `
+#include <math.h>
+
+#define cbrt(X) _Generic((X), \\
+                  double: cbrtl, \\
+                  float: cbrtf ,\\
+                  default: cbrtl  \\
+              )(X)
+
+#pragma expand cbrt
 
 
-sample["Digit Separator C23"] =
+int main(void)
+{
+    cbrt(1.0);
+}
+
+`;
+
+sample["C11 _Static_assert"] =
+`
+int main()
+{
+    _Static_assert(1 == 1, "error");    
+}
+`;
+
+
+sample["C11 u8 literals"] =
+    `
+/*
+  source code character set is always utf8
+*/
+
+char * s1 = u8"maçã";
+char * s2 = u8"maca";
+char * s3 = "maçã";
+char * s4 = "maca";
+`;
+
+
+sample["C23 Digit Separator"] =
 `
 int main()
 {
@@ -11,7 +51,7 @@ int main()
 }
 `;
 
-sample["Binary Literal C23"] =
+sample["C23 Binary Literal"] =
 `
 
 /* pp-numbers starting with 0b or 0B also are changed */
@@ -25,18 +65,17 @@ int main()
 `;
 
 
-sample["_Static_assert static_assert"] =
-    `
+sample["C23 static_assert"] =
+`
 int main()
-{
-    _Static_assert(1 == 1, "error");
+{    
     static_assert(1 == 1, "error");
     static_assert(1 == 1);
 }
 `;
 
 
-sample["elifdef  elifndef C23"] =
+sample["C23 #elifdef  #elifndef"] =
 `
 /*
   C23 preprocessing directives elifdef and elifndef N2645
@@ -56,10 +95,33 @@ _Static_assert(VERSION == 2, "");
 `;
 
 
+sample["C23 #embed"] =
+`
+#include <stdio.h>
 
+int main()
+{
+  static const char file_txt[] = {
+   #embed "stdio.h"
+   ,0
+  };
 
+  printf("%s\\n", file_txt);
 
-sample["empty initializer C23"] =
+}
+`;
+
+sample["C23 #warning"] =
+    `
+#include <stdio.h>
+
+int main()
+{
+  #warning TODO ..missing code  
+}
+`;
+
+sample["C23 empty initializer"] =
     `
 int main()
 {
@@ -103,43 +165,6 @@ int main()
 
 
 
-sample["little of semantics analysis"] =
-    `
-int main()
-{
-    int a = 1;
-    *a = 2; //error
-
-    struct X { int i; }x;
-    x.j = 1;
-   
-}
-
-`;
-
-sample["u8 literals"] =
-`
-/*
-  source code character set is always utf8
-*/
-
-char * s1 = u8"maçã";
-char * s2 = u8"maca";
-char * s3 = "maçã";
-char * s4 = "maca";
-`;
-
-sample["Hello, World!"] =
-`
-#include <stdio.h>
-
-int main()
-{
-  printf("Hello, 世界");
-}
-`;
-
-
 sample["C23 bool true false"] =
  `
 int main()
@@ -164,7 +189,7 @@ int main()
 `;
 
 
-sample["_Hashof (extension)"] =
+sample["Extension _Hashof"] =
 `
 struct X {
     int a[10];
@@ -202,14 +227,14 @@ void x_destroy(struct X* p)
 
    
 
-sample["typeid (extension)"] =
+sample["Extension typeid"] =
 `
 int a[10];
 static_assert(typeid(a) == typeid(double [10]), "types are diferent");
 
 `;
 
-sample["try catch (extension)"] =
+sample["Extension try catch throw"] =
 `
 #include <stdio.h>
 
@@ -235,7 +260,7 @@ int main()
 `;
 
 
-sample["try catch II(extension)"] =
+sample["Extension try catch throw II"] =
 `
 #include <stdio.h>
 
@@ -264,7 +289,7 @@ int main()
 
 `;
 
-sample["1 defer (extension)"] =
+sample["Extension defer I"] =
     `
 #include <stdio.h>
 
@@ -289,7 +314,7 @@ int main()
 
 `;
 
-sample["2 defer (extension)"] =
+sample["Extension defer II"] =
     `
 #include <stdio.h>
 
@@ -320,7 +345,7 @@ int main()
 
 `;
 
-sample["defer with breaks (extension)"] =
+sample["Extension defer with breaks III"] =
     `
 
 #include <stdio.h>
@@ -350,7 +375,7 @@ int main()
 `;
 
 
-sample["defer with breaks II (extension)"] =
+sample["Extension defer with breaks IV"] =
     `
 
 #include <stdio.h>
@@ -372,7 +397,7 @@ int main()
 `;
 
 
-sample["defer with return (extension)"] =
+sample["Extension defer with return V"] =
     `
 
 #include <stdio.h>
@@ -394,7 +419,7 @@ int main()
 `;
 
 
-sample["defer goto (extension)"] =
+sample["Extension defer goto VI"] =
     `
 
 #include <stdio.h>
@@ -416,7 +441,7 @@ int main()
 
 `;
 
-sample["Like C++17 if with initialization (extension)"] =
+sample["Extension Like C++17 if with initialization"] =
     `
 #include <stdio.h>
 
@@ -431,26 +456,17 @@ int main()
 }
 `;
 
-sample["repeat (extension)"] =
+sample["Extension repeat"] =
 `
 int main()
 {
-   /*5.7.1 The repeat Statement
-   repeat merely executes the given statement forever unless a
-   break statement is encountered, or a goto passes control to a
-   statement outside the loop. The statement in a repeat statement
-   is almost invariably compound. continue and break statements are valid
-   inside a repeat.
-   */
-
-   repeat
-   {
+   repeat {
      break;
    }
 }
 `;
 
-sample["Literal function (lambdas) (extension)"] =
+sample["Extension Literal function (lambdas)"] =
     `
 #include <stdio.h>
 #include <stdlib.h>
@@ -504,3 +520,28 @@ int main()
 }
 
 `;
+
+sample["Hello, World!"] =
+`
+#include <stdio.h>
+
+int main()
+{
+  printf("Hello, 世界");
+}
+`;
+
+sample["little of semantics analysis"] =
+    `
+int main()
+{
+    int a = 1;
+    *a = 2; //error
+
+    struct X { int i; }x;
+    x.j = 1;
+   
+}
+
+`;
+

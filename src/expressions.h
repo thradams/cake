@@ -14,7 +14,7 @@ enum expression_type
     PRIMARY_EXPRESSION_STRING_LITERAL,
     PRIMARY_EXPRESSION_CHAR_LITERAL,
     PRIMARY_EXPRESSION_PREDEFINED_CONSTANT, /*true false*/
-
+    PRIMARY_EXPRESSION_GENERIC,    
     PRIMARY_EXPRESSION_NUMBER,
 
     POSTFIX_EXPRESSION_FUNCTION_LITERAL,
@@ -77,6 +77,46 @@ struct argument_expression_list
 };
 
 
+
+struct generic_association
+{
+    /*
+     generic-association:
+       type-name : assignment-expression
+       default : assignment-expression
+    */
+
+    struct type type;
+    struct type_name* p_type_name;
+    struct expression* expression;
+    
+    struct token* firstToken;
+    struct token* lastToken;
+
+    struct generic_assoc* next;
+};
+
+struct generic_assoc_list
+{
+    struct generic_association* head;
+    struct generic_association* tail;
+};
+
+struct generic_selection
+{
+    /*
+      generic-selection: 
+      _Generic ( assignment-expression , generic-assoc-list )
+    */
+
+    
+    struct expression* expression;
+    struct expression* p_view_selected_expression;
+    struct generic_assoc_list generic_assoc_list;
+    struct token* firstToken;
+    struct token* lastToken;
+};
+
 struct expression
 {
     enum expression_type expression_type;
@@ -90,6 +130,7 @@ struct expression
     struct type_name* type_name; //cast or compound literal    
     struct braced_initializer* braced_initializer;
     struct compound_statement* compound_statement; //function literal (lambda)
+    struct generic_selection * generic_selection; //_Generic
 
     struct token* first;
     struct token* last;

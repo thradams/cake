@@ -5,14 +5,19 @@
 cake [options] source1.c source2.c ...
 
 Options
-  -I Adds a directory to the list of directories searched for include files.
-  -D Defines a preprocessing symbol for a source file.
-  -E Copies preprocessor output to standard output.
-  -r Remove all comments from the ouput file.
-  -rm Outputs preprocessed code after compilation.
-  
+  -I               Adds a directory to the list of directories searched for include files.
+  -D               Defines a preprocessing symbol for a source file.
+  -E               Copies preprocessor output to standard output.
+  -r               Remove all comments from the ouput file.
+  -rm              Outputs preprocessed code after compilation.
+  -target=standard Output target C standard (c99, c11, c2x, cxx).
+  -std=standard    Assume that the input sources are for standard (c99, c11, c2x, cxx).
+
 ```
 The ouput dir is `./out`
+
+On windows, if you run cake at the visual studio command prompt cake 
+uses the same include files used by msvc. (No need for -I)
 
 ## Transformations
 
@@ -23,7 +28,7 @@ C99 is the minimum target. Do you need C89?
 Parsed but not transformed.
 
 ## C11 Generics
-`_Generics` are been parsed but not transformed yet.
+When compiling to versions < C11 we keep the expression that matches the type.
 
 ## C11 u8"literals"
 u8 literals are converted to escape sequecences. (I don't recoment u8"")
@@ -83,15 +88,17 @@ Yes but need work/review.
 Yes but need work/review.
 
 ## C23 warning
-parsed, printed but not removed when compiling to c99.
+When compiling to versions < 23 it is commented
+
+## C23 embed
+When compiling to versions < 23 the line is replaces by the numbers
 
 ## C23 VAOPT
 Yes but need work.
+
 ## C23 BitInt(N))
 Not implemented
 
-## embed
-An initial implementation is already there. More work is necessary.
 
 ## elifdef elifndef
 Are implemented
@@ -236,7 +243,55 @@ void create_app(const char* appname)
   _lit_func_0(&capture);  
 }
 ```
+### typeid
+typeid returns a object that can be compared (== !=) againt other typeid object.
+At this point, it is usefull to debug the type system.
 
 ### Repeat
 Repeat is equivalent of `for(;;)`
+
+### pragma expand
+
+pragma expand tells the back end to not hide macro expansions.
+
+Sample: 
+
+
+```c
+
+#define SWAP(a, b) \
+    do { \
+      typeof(a) temp = a; a = b; b = temp; \
+    } while(0)
+
+#pragma expand SWAP
+
+int main()
+{
+   int a = 1;
+   typeof(a) b = 2;
+   SWAP(a, b);
+   return 1;
+}
+```
+
+Becomes
+
+```c
+#define SWAP(a, b) \
+    do { \
+      typeof(a) temp = a; a = b; b = temp; \
+    } while(0)
+
+#pragma expand SWAP
+
+int main()
+{
+   int a = 1;
+   int b = 2;
+    do {int temp = a; a = b; b = temp; } while(0);
+   return 1;
+}
+
+```
 

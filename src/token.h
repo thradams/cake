@@ -202,6 +202,7 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);
 bool token_is_blank(struct token* p);
 void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag);
+void token_range_remove_flag(struct token* first, struct token* last, enum token_flags flag);
 void token_range_add_show(struct token* first, struct token* last);
 
 struct stream

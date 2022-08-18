@@ -49,9 +49,6 @@
     <ClCompile Include="..\src\type.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\unit_test.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\visit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -94,9 +91,6 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\type.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\unit_test.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\visit.h">

@@ -41,7 +41,6 @@
     <ClCompile Include="..\src\token.c" />
     <ClCompile Include="..\src\tokenizer.c" />
     <ClCompile Include="..\src\type.c" />
-    <ClCompile Include="..\src\unit_test.c" />
     <ClCompile Include="..\src\visit.c" />
   </ItemGroup>
   <ItemGroup>
@@ -58,7 +57,6 @@
     <ClInclude Include="..\src\token.h" />
     <ClInclude Include="..\src\tokenizer.h" />
     <ClInclude Include="..\src\type.h" />
-    <ClInclude Include="..\src\unit_test.h" />
     <ClInclude Include="..\src\visit.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

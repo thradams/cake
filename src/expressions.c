@@ -208,38 +208,65 @@ bool is_first_of_primary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_TYPEID;
 }
 
-void generic_association(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct generic_association* generic_association(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
-    /*generic - association:
-        type-name : assignment-expression
-        default : assignment-expression
-        */
-    if (ctx->current && ctx->current->type == TK_KEYWORD_DEFAULT)
+    struct generic_association* p_generic_association = NULL;
+    try
     {
-        parser_match(ctx);
+        p_generic_association = calloc(1, sizeof * p_generic_association);
+        
+
+        /*generic - association:
+            type-name : assignment-expression
+            default : assignment-expression
+            */
+        if (ctx->current && ctx->current->type == TK_KEYWORD_DEFAULT)
+        {
+            parser_match(ctx);
+        }
+        else if (first_of_type_name(ctx))
+        {            
+            p_generic_association->p_type_name = type_name(ctx, error);
+            p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);            
+        }
+        else
+        {
+            seterror(error, "error");
+            error->code = 1;
+        }
+        parser_match_tk(ctx, ':', error);
+        p_generic_association->expression =  assignment_expression(ctx, error, ectx);
     }
-    else if (first_of_type_name(ctx))
-    {
-        type_name(ctx, error);
+    catch{
     }
-    else
-    {
-        seterror(error, "error");
-        error->code = 1;
-    }
-    parser_match_tk(ctx, ':', error);
-    assignment_expression(ctx, error, ectx);
+
+    return p_generic_association;
 }
 
-void generic_association_list(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
-    generic_association(ctx, error, ectx);
-    while (error->code == 0 &&
-        ctx->current->type == ',')
+    struct generic_assoc_list list = { 0 };
+    try
     {
-        parser_match(ctx);
-        generic_association(ctx, error, ectx);
+        struct generic_association* p_generic_association = 
+          generic_association(ctx, error, ectx);
+        
+        list_add(&list, p_generic_association);
+        
+        while (error->code == 0 &&
+            ctx->current->type == ',')
+        {
+            parser_match(ctx);
+
+            struct generic_association* p_generic_association2 =
+                generic_association(ctx, error, ectx);
+            list_add(&list, p_generic_association2);
+        }
     }
+    catch
+    {
+    }
+    return list;
 }
 
 static void print_clean_list(struct token_list* list)
@@ -260,26 +287,57 @@ static void print_clean_list(struct token_list* list)
     }
 }
 
-void generic_selection(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct generic_selection * generic_selection(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
     /*
     generic-selection:
     _Generic ( assignment-expression , generic-assoc-ctx )
     */
-    parser_match_tk(ctx, TK_KEYWORD__GENERIC, error);
-    parser_match_tk(ctx, '(', error);
-    struct token_list l = { 0 };
-    l.head = ctx->current;
-    assignment_expression(ctx, error, ectx);
-    l.tail = ctx->current->prev;
-    printf("_Generic(");
-    print_clean_list(&l);
-    printf(") = (");
-    //print_clean_list(&ectx->type);
-    printf(")\n");
-    parser_match_tk(ctx, ',', error);
-    generic_association_list(ctx, error, ectx);
-    parser_match_tk(ctx, ')', error);
+    struct generic_selection* p_generic_selection = NULL;
+    try
+    {
+        p_generic_selection = calloc(1, sizeof * p_generic_selection);
+        
+        p_generic_selection->firstToken = ctx->current;
+        
+
+        parser_match_tk(ctx, TK_KEYWORD__GENERIC, error);
+        parser_match_tk(ctx, '(', error);
+        struct token_list l = { 0 };
+        l.head = ctx->current;
+        p_generic_selection->expression = assignment_expression(ctx, error, ectx);
+        l.tail = ctx->current->prev;
+        
+        parser_match_tk(ctx, ',', error);
+
+        p_generic_selection->generic_assoc_list = generic_association_list(ctx, error, ectx);
+        
+        struct generic_association* current = p_generic_selection->generic_assoc_list.head;
+        while (current)
+        {
+            if (current->p_type_name)
+            {
+                if (type_is_same(&p_generic_selection->expression->type, &current->type))
+                {
+                    p_generic_selection->p_view_selected_expression = current->expression;                    
+                    break;
+                }
+            }
+            else
+            {
+                /*default*/
+                p_generic_selection->p_view_selected_expression = current->expression;
+            }
+            current = current->next;
+        }
+        
+        p_generic_selection->lastToken= ctx->current;
+        parser_match_tk(ctx, ')', error);
+    }
+    catch
+    {
+    }
+    return p_generic_selection;
 }
 
 
@@ -288,12 +346,15 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
     struct expression* p_expression_node = NULL;
     try
     {
+        p_expression_node = calloc(1, sizeof * p_expression_node);
+        p_expression_node->expression_type = TYPEID_EXPRESSION_TYPE;
+        p_expression_node->first = ctx->current;
+
         parser_match_tk(ctx, TK_KEYWORD_TYPEID, error);
         parser_match_tk(ctx, '(', error);
         if (first_of_type_name(ctx))
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
-            p_expression_node->expression_type = TYPEID_EXPRESSION_TYPE;
+            
             p_expression_node->type_name = type_name(ctx, error);
             p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
             //printf("typeid() = ");
@@ -302,9 +363,7 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
         }
         else
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
-            p_expression_node->expression_type = TYPEID_EXPRESSION_TYPE;
-
+        
             bool  bConstantExpressionRequiredOld = ectx->bConstantExpressionRequired;
             ectx->bConstantExpressionRequired = false;
             p_expression_node->right = expression(ctx, error, ectx);
@@ -319,6 +378,8 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
             //print_type(&p_expression_node->type);
             //printf("\n");
         }
+
+        p_expression_node->last = ctx->current;
         parser_match_tk(ctx, ')', error);
     }
     catch
@@ -391,11 +452,11 @@ int convert_to_number(struct token* token, struct expression* p_expression_node,
     case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
         //p_expression_node->type.type_specifier_flags |= type_specifier_double;
         //result = atof(buffer, 0, 10); 
-        assert(false);
+        //assert(false);
         break;
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
         //p_expression_node->type.type_specifier_flags |= type_specifier_double;
-        assert(false);
+        //assert(false);
         break;
     default:
         assert(false);
@@ -431,7 +492,11 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         if (ctx->current->type == TK_IDENTIFIER)
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
+
             if (p_expression_node == NULL) throw;
+            
+            p_expression_node->first = ctx->current;
+            p_expression_node->last = ctx->current;
 
             struct enumerator* p_enumerator = find_enumerator(ctx, ctx->current->lexeme, NULL);
             if (p_enumerator)
@@ -471,7 +536,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
-
+            p_expression_node->first = ctx->current;
+            p_expression_node->last = ctx->current;
             p_expression_node->type.type_qualifier_flags = type_qualifier_const;
             p_expression_node->type.type_specifier_flags = type_specifier_char;
 
@@ -509,6 +575,9 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->constant_value = char_constant_to_int(ctx->current->lexeme);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_CHAR_LITERAL;
+            p_expression_node->first = ctx->current;
+            p_expression_node->last = ctx->current;
+
             type_set_int(&p_expression_node->type);
 
             parser_match(ctx);
@@ -519,6 +588,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
+            p_expression_node->first = ctx->current;
+            p_expression_node->last = ctx->current;
 
             p_expression_node->constant_value =
                 ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0;
@@ -534,6 +605,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
+            p_expression_node->first = ctx->current;
+            p_expression_node->last = ctx->current;
 
             p_expression_node->constant_value = 0;
 
@@ -555,6 +628,9 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         }
         else if (ctx->current->type == TK_KEYWORD__GENERIC)
         {
+            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node->expression_type = PRIMARY_EXPRESSION_GENERIC;
+
             if (ectx->bConstantExpressionRequired)
             {
                 parser_seterror_with_token(ctx, ctx->current, "not constant");
@@ -562,7 +638,20 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             }
             else
             {
-                //p_expression_node = generic_selection(ctx, error, ectx);
+                
+                p_expression_node->generic_selection = generic_selection(ctx, error, ectx);
+                p_expression_node->first = p_expression_node->generic_selection->firstToken;
+                p_expression_node->last = p_expression_node->generic_selection->lastToken;
+
+                if (p_expression_node->generic_selection->p_view_selected_expression)
+                {
+                    p_expression_node->type = type_copy(&p_expression_node->generic_selection->p_view_selected_expression->type);
+                }
+                else
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "no match for generic");
+                    error->code = 1;
+                }
             }
         }
         else if (ctx->current->type == TK_KEYWORD_TYPEID)
@@ -590,6 +679,9 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
     generic-association
     generic-assoc-ctx , generic-association
     */
+    //assert(p_expression_node&& p_expression_node->first);
+    //assert(p_expression_node&& p_expression_node->last);
+    
     return p_expression_node;
 }
 
@@ -1070,7 +1162,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             else if (op == '&')
             {
                 //TODO nao tem como tirar endereco de uma constante
-                pNew->type = get_address_of_type(&pNew->right->type);                
+                pNew->type = get_address_of_type(&pNew->right->type);
             }
             else
             {
@@ -1245,6 +1337,8 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
     catch
     {
     }
+    if (p_expression_node && ctx->current)
+      p_expression_node->last = previous_parser_token(ctx->current);
     return p_expression_node;
 }
 
@@ -2138,7 +2232,8 @@ void sizeoftest1()
         ;
 
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C2X, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code == 0);
 }
 
@@ -2151,7 +2246,8 @@ void sizeof_struct_test()
         ;
 
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code != 0);
 }
 
@@ -2160,7 +2256,8 @@ static int expression_type(const char* expression, const char* result)
     char source[200] = { 0 };
     snprintf(source, sizeof source, "_Static_assert(typeid(%s) == typeid(%s));", expression, result);
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     return error.code;
 }
 
@@ -2209,7 +2306,8 @@ void type_suffix_test()
         ;
 
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code == 0);
 }
 
@@ -2220,7 +2318,8 @@ void type_test()
         "_Static_assert(typeid(*(p + 1)) == typeid(int));"
         ;
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code == 0);
 }
 
@@ -2230,7 +2329,8 @@ void digit_separator_test()
         "_Static_assert(1'00'00 == 10000);"
         ;
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code == 0);
 }
 
@@ -2242,7 +2342,8 @@ void numbers_test()
         "#endif"
         ;
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code == 0);
 }
 
@@ -2254,7 +2355,8 @@ void binary_digits_test()
         "_Static_assert(052 == 42);"
         ;
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code == 0);
 }
 
@@ -2266,7 +2368,8 @@ void is_arithmetic_test()
         "long double d3;"
         ;
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
 
     struct declarator* d1 = ast.declaration_list.head->init_declarator_list->head->declarator;
     struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list->head->declarator;
@@ -2295,7 +2398,8 @@ void type_is_pointer_test()
         "char* (*f)(void);\n"
         ;
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
 
     struct declarator* d1 = ast.declaration_list.head->init_declarator_list->head->declarator;
     struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list->head->declarator;
@@ -2323,7 +2427,8 @@ void params_test()
         "}"
         ;
     struct error error = { 0 };
-    struct ast ast = get_ast(LANGUAGE_C99, "source", source, &error);
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
     assert(error.code == 0);
 }
 #endif

@@ -796,7 +796,6 @@ struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* c
 //struct attribute* attribute(struct parser_ctx* ctx, struct error* error);
 
 
-
 struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
 
 bool is_first_of_conditional_expression(struct parser_ctx* ctx);
@@ -832,7 +831,7 @@ struct ast
 };
 
 
-struct ast get_ast(enum LanguageVersion inputLanguage, const char* fileName, const char* source, struct error* error);
+struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error);
 void ast_destroy(struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 

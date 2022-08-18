@@ -2,7 +2,7 @@
 #include "hashmap.h"
 #include "token.h"
 #include "error.h"
-
+#include "options.h"
 
 
 struct include_dir
@@ -26,6 +26,7 @@ enum preprocessor_ctx_flags
 
 struct preprocessor_ctx
 {
+    struct options options;
     enum preprocessor_ctx_flags flags;
     struct hash_map macros;
     struct include_dir_list include_dir;

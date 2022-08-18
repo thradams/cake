@@ -35,6 +35,16 @@ void token_range_add_show(struct token* first, struct token* last)
     }
 }
 
+void token_range_remove_flag(struct token* first, struct token* last, enum token_flags flag)
+{
+    for (struct token* current = first;
+        current != last->next;
+        current = current->next)
+    {
+        current->flags = current->flags & ~flag;        
+    }
+}
+
 void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag)
 {
     for (struct token* current = first;

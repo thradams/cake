@@ -159,6 +159,7 @@ int build_main()
     
     if (system(COMPILER_NAME " -D_CRT_SECURE_NO_WARNINGS maketest.c -o ../maketest.exe") != 0) exit(1);
     if (system(COMPILER_NAME " -D_CRT_SECURE_NO_WARNINGS amalgamator.c -o ../amalgamator.exe") != 0) exit(1);
+    if (system(COMPILER_NAME " -D_CRT_SECURE_NO_WARNINGS embed.c -o ../embed.exe") != 0) exit(1);
 
     chdir("..");
     if (system(RUN "maketest.exe unit_test.c " SOURCE_FILES) != 0) exit(1);
@@ -166,6 +167,16 @@ int build_main()
 
     if (system(RUN "amalgamator.exe -olib.c" SOURCE_FILES) != 0) exit(1);
     remove("amalgamator.exe");
+
+#define EMBED_SRC \
+    " ./web_include/stdio.h " \
+    " ./web_include/stdlib.h " \
+    " ./web_include/math.h " \
+    " ./web_include/errno.h " \
+    " ./web_include/string.h " 
+    
+        if (system(RUN "embed.exe " EMBED_SRC) != 0) exit(1);
+    remove("embed.exe");
 
 
     compile_cprime();

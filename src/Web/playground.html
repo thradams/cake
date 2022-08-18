@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>CPrime V3 online compiler</title>
+    <title>Cake online compiler</title>
 
     <script src="codemirror.js"></script>
     <link rel="stylesheet" href="codemirror.css">
@@ -60,9 +60,7 @@
     <p>ouput</p>
     <pre id="output" rows="8" style="background-color:black; width: 100%"></pre>
 
-    <p>CPrime was compiled with emscripten and it is running in your browser.</p>
-
-
+    <p>Cake is compiled with emscripten and it is running in your browser.</p>
 
 
     <script>
@@ -102,7 +100,7 @@
 
         const urlParams = new URLSearchParams(window.location.search);
 
-        
+
         var to = urlParams.get('to');
         if (to)
         {
@@ -124,35 +122,35 @@
             } catch { }
         }
 
-  
+
         var code = urlParams.get('code');
         if (code)
         {
             code = atob(decodeURIComponent(code));
-            
-            
+
+
             inputEditor.setValue(code);
 
-            
+
         }
 
         function Share()
         {
-            
-            
-                var source = inputEditor.getValue();
-                var to = document.getElementById("outtype").value;
-                var options = document.getElementById("options").value;
-
-                var link = "thradams.com/web3/playground.html?code=" + encodeURIComponent(btoa(source)) +
-                    "&to=" + encodeURI(to) +
-                    "&options=" + encodeURI(options);
 
 
-                document.getElementById("sharelink").value = link;
-                document.getElementById("sharelink").style.display = "block";
-                document.getElementById("sharelink").select();
-            
+            var source = inputEditor.getValue();
+            var to = document.getElementById("outtype").value;
+            var options = document.getElementById("options").value;
+
+            var link = "thradams.com/web3/playground.html?code=" + encodeURIComponent(btoa(source)) +
+                "&to=" + encodeURI(to) +
+                "&options=" + encodeURI(options);
+
+
+            document.getElementById("sharelink").value = link;
+            document.getElementById("sharelink").style.display = "block";
+            document.getElementById("sharelink").select();
+
         }
 
         function OnSwap()
@@ -207,13 +205,13 @@
             if (outputLanguage == 0)
                 options += " -E ";
             else if (outputLanguage == 1)
-                options += " -std=c99 ";
+                options += " -target=c99 ";
             else if (outputLanguage == 2)
-                options += " -std=c11 ";
+                options += " -target=c11 ";
             else if (outputLanguage == 3)
-                options += " -std=c2x ";
+                options += " -target=c2x ";
             else if (outputLanguage == 4)
-                options += " -std=cxx ";
+                options += " -target=cxx ";
 
             var source = inputEditor.getValue();
             var ot = CompileText(options, source);
@@ -226,8 +224,8 @@
         {
             inputEditor.setValue(sample[index], -1);
         }
-        
-        
+
+
     </script>
 
 
