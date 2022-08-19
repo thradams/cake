@@ -78,24 +78,27 @@ cake source.c
 ```
 this will ouput `./out/source.c`
 
-See [Manual](manual.md)
+See [Manual](manual.html)
 
 
 
 # Road map
 
- * Complete semantic analisys
- * Static analysis
- * Backend, maybe qbe https://c9x.me/compile/?
+* Complete semantic analisys
+* Static analysis
+* Backend, maybe qbe [QBE](https://c9x.me/compile/)
+  
  
- 
- # References
+# References
+
  A copy of each C standard draft in included in `docs` folder. The parser is based on C23.
  
- # Influenced by
- * Typescript
- * Small C compilers
- 
+# Influenced by
+
+* Typescript
+* Small C compilers
+
+
 # How cake is tested?
 
 I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using

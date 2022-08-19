@@ -2301,7 +2301,9 @@ void type_suffix_test()
         "0b1l == typeid(long) && "
         "0b1ll == typeid(long long)   &&"
         "0b1ul == typeid(unsigned long)  &&"
-        "0b1ull == typeid(unsigned long long) "
+        "0b1ull == typeid(unsigned long long) && "
+        "1.0f == typeid(float) && "
+        "1.0 == typeid(double) "        
         ");"
         ;
 

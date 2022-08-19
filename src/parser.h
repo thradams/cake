@@ -252,6 +252,16 @@ struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx, stru
 
 struct enum_specifier
 {
+    /*
+     enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+      { enumerator-list }
+
+     enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+          { enumerator-list , }
+     
+     enum identifier enum-type-specifieropt
+    */
+    struct type_specifier_qualifier* type_specifier_qualifier;
     struct enumerator_list* enumerator_list;
     struct type_tag_id type_id;
     struct token* tag_token;

@@ -161,7 +161,19 @@ int build_main()
     if (system(COMPILER_NAME " -D_CRT_SECURE_NO_WARNINGS amalgamator.c -o ../amalgamator.exe") != 0) exit(1);
     if (system(COMPILER_NAME " -D_CRT_SECURE_NO_WARNINGS embed.c -o ../embed.exe") != 0) exit(1);
 
+    chdir("./hoedown");
+
+#define HOEDOWN_SRC " autolink.c buffer.c document.c escape.c hoedown.c html.c html_blocks.c html_smartypants.c stack.c version.c"
+
+    if (system(COMPILER_NAME HOEDOWN_SRC  " -o ../../hoedown.exe") != 0) exit(1);
+
     chdir("..");
+    chdir("..");
+
+    if (system(RUN "hoedown.exe --autolink --fenced-code ../manual.md > ./web/manual.html ") != 0) exit(1);
+    if (system(RUN "hoedown.exe --autolink --fenced-code ../README.md > ./web/index.html ") != 0) exit(1);
+    remove("hoedown.exe");
+
     if (system(RUN "maketest.exe unit_test.c " SOURCE_FILES) != 0) exit(1);
     remove("maketest.exe");
 

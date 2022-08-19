@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    
+  
     <link rel="stylesheet" href="default.min.css">
     <script src="highlight.min.js"></script>
     <script>hljs.highlightAll();</script>
@@ -9,92 +9,316 @@
 </head>
 <body>
 
-    <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a>  
+<p><a href="index.html">Home</a> | <a href="playground.html">Playground</a></p>
 
-    <h1>C back end manual</h1>
+<h1>Manual</h1>
 
+<pre><code>cake [options] source1.c source2.c ...
 
-    <pre>
-    cake source.c
-    </pre>
-    
-    <p>Generates the source.c at out/source.c.</p>
-    <p>When you run cake at visual C++ command prompt it automatically detects the include directories</p>
+Options
+  -I               Adds a directory to the list of directories searched for include files.
+  -D               Defines a preprocessing symbol for a source file.
+  -E               Copies preprocessor output to standard output.
+  -r               Remove all comments from the ouput file.
+  -rm              Outputs preprocessed code after compilation.
+  -target=standard Output target C standard (c99, c11, c2x, cxx).
+  -std=standard    Assume that the input sources are for standard (c99, c11, c2x, cxx).
 
+</code></pre>
 
-    <h3>Options</h3>
-    <ul>
-        <li>-r remove comments</li>                     
-        <li>-rm remove comments and macros</li>                             
-        <li>-I include directory</li>     
-        <li>-D define macro</li>     
-        <li>-E preprocess only</li>     
-        <li>-std=c99, -std=c11, -std=c2x target standard</li>     
-    </ul>
+<p>The ouput dir is <code>./out</code></p>
 
-    <h2>Transformations before AST visit</h2>
-    <ul>
-        <li>C11 u8 literals</li>                     
-        <li>C23 Digit separators</li>        
-        <li>C23 Binary Literals</li>        
-        <li>C23 elifdef</li>
-        <li>C23 bool, true, false</li>
-        <li>C23 nullptr</li>        
-        <li>C23 #warning</li>        
-        <li>C23 #embed (Not implemented yet)</li>
-        <li></li>
-    </ul>
-    <h3>C11 u8 literals</h3>
-    <p>
-        The source code encode for cake must be utf8. 
-        u8 literals are converted to utf8 using escapes.
-    </p>
+<p>On windows, if you run cake at the visual studio command prompt cake 
+uses the same include files used by msvc. (No need for -I)</p>
 
-    <h2>AST visit transformations</h2>
-    <ul>
-        <li>C11 _Static_assert</li>        
-        <li>C11 _Generic (parsed)</li>   
-        <li>C23 single-argument _Static_assert and keyword static_assert</li>
-        <li>C23 empty initializer</li> 
-        <li>C23 Attributes (parsed)</li> 
-        <li>C23 typeof</li>                
-        <li>C23 Decimal floating-point types (just parsed)<li>         
+<h2>Transformations</h2>
 
-        <li>typeid (extension)</li>
-        <li>_Hashof (extension)</li>        
-        <li>try catch (extension)</li>
-        <li>defer (extension)</li>
-        <li>if with initialization (extension)</li>
-        <li>function literals / lambdas (extension)</li>
-        <li>#pragma expand MACRO (extension)</li>
-    </ul>
+<h2>C99</h2>
 
-    <h3>C23 typeof</h3>
+<p>C99 is the minimum target. Do you need C89?</p>
 
-    <h3>typeid</h3>
+<h2>C11 Thread_local/Atomic</h2>
 
-    <h3>_Hashof</h3>
+<p>Parsed but not transformed.</p>
 
-    <h3>try catch</h3>
-    <p>
-        try catch blocks creates a block that you can jump off using throw.</br>
-        throw will jump to the catch stament that is optional.
-        <b>this is always local jump</b>
-    </p>
+<h2>C11 Generics</h2>
 
-    <h3>defer</h3>
+<p>When compiling to versions &lt; C11 we keep the expression that matches the type.</p>
 
-    <h3>if with initialization</h3>
+<h2>C11 u8&quot;literals&quot;</h2>
 
-    <h3>Lambdas</h3>
+<p>u8 literals are converted to escape sequecences. (I don&#39;t recoment u8&quot;&quot;)</p>
 
-    <h3>pragma expand</h3>
+<h2>C11 Static_assert</h2>
 
-    <p>pragma expand tells the back end to not hide macro expansions.
-    
-    Sample:
-    </p>
-    <pre><code class="language-c">
+<p>When compiling to versions &lt; C11 static_assert is removed</p>
+
+<h2>C23 Decimal32, Decimal64, and Decimal128</h2>
+
+<p>Not implemented (maybe parsed?)</p>
+
+<h2>C11 Noreturn</h2>
+
+<p>Parsed. Todo needs to be replaced by <code>[[_Noreturn]]</code> in C23</p>
+
+<h2>C23 static<em>assert / Single-argument Static</em>assert</h2>
+
+<p>In C23 <code>static_assert</code> can be used as keyword and the message is optional.
+Compiling to C11 we add some dumy message is necessary and we use the previous keyword <code>_Static_assert</code></p>
+
+<h2>C23 u8 char literal</h2>
+
+<p>not implemented yet.</p>
+
+<h3>C23 Digit separators</h3>
+
+<p>When compiling to versions &lt; 23 the compiler removes the &#39; delimiter from tokens. </p>
+
+<h3>C23 Binary literals</h3>
+
+<p>When compiling to versions &lt; 23 the compiler translater the binary literal to a hexadecimal constant.</p>
+
+<h3>C23 nullptr</h3>
+
+<p>When compiling to version &lt; 23 nullptr is replaced with <code>((void*)0)</code></p>
+
+<h3>C23 bool true false</h3>
+
+<p>When compiling to version &lt; 23 bool is replaced with <code>_Bool</code>, true is replaced with <code>((_Bool)1)</code> and false
+with <code>(_Bool)0)</code></p>
+
+<h2>C23 {} empty initializer</h2>
+
+<p>Cake transform {} into {0}. </p>
+
+<h2>C23 auto</h2>
+
+<p>not implemented yet</p>
+
+<h2>C23 typeof / typeof_unqual</h2>
+
+<p>When compiling to versions &lt; 23 we replace typeof by the equivalent type. 
+This can be a little complex in some cases.</p>
+
+<h2>C23 constexpr</h2>
+
+<p>Not implemented yet (maybe parsed?)</p>
+
+<h2>C23 enuns with type</h2>
+
+<p>Not implemented yet (not parsed yet)</p>
+
+<h2>C23 Attributes</h2>
+
+<p>Attributes are being parsed and removed in some places. More work is necessary.</p>
+
+<h2>C23 has_attribute</h2>
+
+<p>Yes but need work/review.</p>
+
+<h2>C23 has_include</h2>
+
+<p>Yes. But this does not make sense unless for direct compilation -mr.
+Transpiling to 1 or 0 would represent the machine where the code
+was transpiled but not where generated code will be compiled.</p>
+
+<h2>C23 warning</h2>
+
+<p>When compiling to versions &lt; 23 it is commented</p>
+
+<h2>C23 embed</h2>
+
+<p>When compiling to versions &lt; 23 the line is replaces by the numbers</p>
+
+<h2>C23 VAOPT</h2>
+
+<p>Yes but need work.</p>
+
+<h2>C23 BitInt(N))</h2>
+
+<p>Not implemented</p>
+
+<h2>elifdef elifndef</h2>
+
+<p>Are implemented</p>
+
+<h2>Extensions</h2>
+
+<h3>try catch throw</h3>
+
+<p>try cath is a external block that we can jump off. (local jump only)</p>
+
+<pre><code class="language-c">try
+{
+   for (int i = 0 ; i &lt; 10; i++) {
+      for (int j = 0 ; j &lt; 10; j++) {
+        ... 
+        if (error) throw;
+        ...
+      }
+   }
+}
+catch
+{
+}
+</code></pre>
+
+<h3>defer</h3>
+
+<p><code>defer</code> will call the defer statement before the block exit at inverse orden of declaration.</p>
+
+<p>For instance:</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int main() {
+  do {
+     FILE* f = fopen(&quot;in.txt&quot;, &quot;r&quot;);
+     if (f == NULL) break;
+     defer fclose(f);
+
+     FILE* f2 = fopen(&quot;out.txt&quot;, &quot;w&quot;);
+     if (f2 == NULL) break;
+     defer fclose(f2);
+     //...    
+  }
+  while(0);
+}
+</code></pre>
+
+<p>Becomes:</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int main() {
+  do {
+     FILE* f = fopen(&quot;in.txt&quot;, &quot;r&quot;);
+     if (f == ((void*)0)) break;
+
+     FILE* f2 = fopen(&quot;out.txt&quot;, &quot;w&quot;);
+     if (f2 == ((void*)0)) {  fclose(f); break;}
+     
+     fclose(f2); fclose(f);
+   }
+  while(0);
+}
+</code></pre>
+
+<p>I guess everthing is working including <code>goto</code>s.</p>
+
+<h3>if with initializer</h3>
+
+<p>No idea why C++ 17 if with initializer was not proposed for C23!
+But in cake it is implemented.</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+int main()
+{
+   int size = 10;
+   if (FILE* f = fopen(&quot;file.txt&quot;, &quot;r&quot;); f)
+   {
+     /*...*/
+     fclose(f);
+   }
+}
+</code></pre>
+
+<p>Becomes</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int main()
+{
+   int size = 10;
+   {FILE* f = fopen(&quot;file.txt&quot;, &quot;r&quot;);if ( f)
+   {
+     /*...*/
+     fclose(f);
+   }}
+}
+</code></pre>
+
+<p>An extension if + initializer + defer expression was considered but not implemented yet.</p>
+
+<h3>lambdas</h3>
+
+<p>Lambdas without capture where implemented using a syntax similar of 
+compound literal for function pointer.</p>
+
+<p>Lambdas are the most complex code transformation so far because sometimes function scope 
+types needs to be transformed to file scope. This is important because manual lambda capture
+is something we want to use in function scope.</p>
+
+<p>For instance:</p>
+
+<pre><code class="language-c">extern char* strdup(const char* s);
+void create_app(const char* appname)
+{
+  struct capture {
+     char * name;
+  } capture = { .name = strdup(appname) };
+
+  (void (void* p)) {
+    struct capture* capture = p;    
+  }(&amp;capture); 
+}
+</code></pre>
+
+<p>Because struct capture was in function scope and the lambda function will be created
+at file scope the type <code>struct capture</code> had to be moved from function scope to file scope.</p>
+
+<pre><code class="language-c">extern char* strdup(const char* s);
+
+struct _capture0 {
+     char * name;
+  };
+  
+void _lit_func_0(void *p) {
+    struct _capture0* capture = p;    
+  }
+
+void create_app(const char* appname)
+{
+  struct _capture0  capture = { .name = strdup(appname) };
+  _lit_func_0(&amp;capture);  
+}
+</code></pre>
+
+<h3>typeid</h3>
+
+<p>syntax:</p>
+
+<pre><code class="language-c">  typeid (expression)
+  typeid (type-name)
+</code></pre>
+
+<p>typeid returns a <code>type object</code> that can be used with <code>==</code> and <code>!=</code>.
+If any left or right side of the <code>==</code>/<code>!=</code> contains a <code>type object</code> then
+the evaluation is based on type comparison not value.</p>
+
+<p>Sample:
+<code>c
+static_assert(1 == typeid(int));
+static_assert(typeid(1) == typeid(int));
+</code></p>
+
+<h3>Repeat</h3>
+
+<pre><code class="language-c">  repeat {
+       if (condition) 
+         break;
+  }
+</code></pre>
+
+<p>Repeat is equivalent of <code>for(;;)</code></p>
+
+<h3>pragma expand</h3>
+
+<p>pragma expand tells the back end to not hide macro expansions.</p>
+
+<p>Sample: </p>
+
+<pre><code class="language-c">
 #define SWAP(a, b) \
     do { \
       typeof(a) temp = a; a = b; b = temp; \
@@ -109,9 +333,11 @@ int main()
    SWAP(a, b);
    return 1;
 }
-    </code></pre>
-    <pre><code class="language-c">
- #define SWAP(a, b) \
+</code></pre>
+
+<p>Becomes</p>
+
+<pre><code class="language-c">#define SWAP(a, b) \
     do { \
       typeof(a) temp = a; a = b; b = temp; \
     } while(0)
@@ -125,20 +351,6 @@ int main()
     do {int temp = a; a = b; b = temp; } while(0);
    return 1;
 }
-    </code></pre>
 
-    <h2>Source code</h2>
-    <p>
-        Source code for this project is not published yet.
-    </p>
-
-    <h2>References</h2>
-    <a target="_blank" href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2912.pdf">n2912.pdf (C23 Draft)</a>
-    </br>
-    <a target="_blank" href="https://clang.llvm.org/c_status.html">clang C23 status</a>
-    </br>
-    C23 gcc status?
-    </br>
-    <a target="_blank" href="https://en.cppreference.com/w/c/23">cppreference</a>
-</body>
-</html>
+</code></pre>
+</body></html>

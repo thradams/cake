@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    
+  
     <link rel="stylesheet" href="default.min.css">
     <script src="highlight.min.js"></script>
     <script>hljs.highlightAll();</script>
@@ -9,64 +9,108 @@
 </head>
 <body>
 
-    <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a>  
+<h1>Cake</h1>
 
-    <h1>Cake is a C23 front end</h1>
+<p>Cake is a C23 compiler frond end written from scratch in C.</p>
 
-    <p>
-        This is a C23 front end compiler written from scratch in C by (twitter @thradams) 
-        as a hobby project. 
-    </p>
+<p>The compiler can be used to translate new versions of C (like C23)
+to C99.</p>
 
-    <h2>It can be used for:</h2>
-    <ul>
-        <li>Static Analisys</li>        
-        <li>Refatoring</li>        
-        <li>Code Documentation</li>
-        <li>Add a backend (webassembly for instance)</li>
-        <li>Code transformation</li>
-    </ul>
+<p>It also can be used to try out new features for the C language. </p>
 
-    <p>My main motivation was static analsis and 
-       experiment new ideas for the C language compiling experimental code to standard C.
-    </p>
-    <p>C23 have introduced many features like attributes,digit separators etc.. that 
-       would not even parse in previous compilers. So I decided to experiment some 
-       code transformation from C23 to C99. The front end has a C input standard and a C output standard.
-    </p>
-        
-    
-    <h2>Features</h2>
-    <ul>
-        <li>Preprocessor</li>        
-        <li>Syntax analisys</li>
-        <li>Semantic analyss (incomplete)</li>
-        <li>Stantandard C back end</li>
-    </ul>
-    <p>
-     Semantic analisys is required for static_analisys and sometimes
-     for code generation.
-    </p>
+<p>Extensions like lambdas,  defer and more where implemented.</p>
 
-    <p>
-        The source code is multiplatform. I use Visual Studio to debug
-        and and the front end can parse and generate itself. 
-        Some microsoft extensions where added.
-    </p>
+<h1>Web Playground</h1>
 
-    <h2>Source code</h2>
-    <p>
-        Source code for this project is not published yet.
-    </p>
+<p>This is the best way to try.</p>
 
-    <h2>References</h2>
-    
-    <a target="_blank" href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3047.pdf">n3047.pdf (C23 Draft)</a>
-    </br>
-    <a target="_blank" href="https://clang.llvm.org/c_status.html">clang C23 status</a>
-    </br>
-    C23 gcc status?
-    </br>
-    <a target="_blank" href="https://en.cppreference.com/w/c/23">cppreference</a>
-</body>
-</html>
+<p><a href="http://thradams.com/web3/playground.html">http://thradams.com/web3/playground.html</a></p>
+
+<h1>Features</h1>
+
+<ul>
+<li>C23 preprocessor</li>
+<li>syntax analisys</li>
+<li>semantic analisys</li>
+<li>c backend</li>
+<li>Builds AST </li>
+</ul>
+
+<h1>Build</h1>
+
+<h2>Windows</h2>
+
+<p>Open the Developer Command Prompt of visual studio. Go to the src directoy and type</p>
+
+<pre><code>cl build.c &amp;&amp; build
+</code></pre>
+
+<p>This will build <code>cake.exe</code>.</p>
+
+<h2>Linux</h2>
+
+<p>Got to the <code>src</code> directory and type:</p>
+
+<pre><code>gcc build.c -o build &amp;&amp; ./build
+</code></pre>
+
+<p>To run unit tests windows/linux add <code>-DTEST</code> for instance:</p>
+
+<pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
+</code></pre>
+
+<h2>Build web</h2>
+
+<p>emscriptem <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
+
+<p>First do the normal build. </p>
+
+<p>The normal build also generates a file <code>lib.c</code> that is the amalgameted  version of the &quot;core lib&quot;.</p>
+
+<p>Then at <code>./src</code> dir type:</p>
+
+<pre><code>call emcc -DMOCKFILES &quot;lib.c&quot; -o &quot;Web\cake.js&quot; -s WASM=0 -s EXPORTED_FUNCTIONS=&quot;[&#39;_CompileText&#39;]&quot; -s EXTRA_EXPORTED_RUNTIME_METHODS=&quot;[&#39;ccall&#39;, &#39;cwrap&#39;]&quot;
+</code></pre>
+
+<p>This will generate the cake.js</p>
+
+<h1>Command line</h1>
+
+<p>Make sure cake is on your system path.</p>
+
+<p>Samples</p>
+
+<pre><code>cake source.c
+</code></pre>
+
+<p>this will ouput <code>./out/source.c</code></p>
+
+<p>See <a href="manual.html">Manual</a></p>
+
+<h1>Road map</h1>
+
+<ul>
+<li>Complete semantic analisys</li>
+<li>Static analysis</li>
+<li>Backend, maybe qbe <a href="https://c9x.me/compile/">QBE</a></li>
+</ul>
+
+<h1>References</h1>
+
+<p>A copy of each C standard draft in included in <code>docs</code> folder. The parser is based on C23.</p>
+
+<h1>Influenced by</h1>
+
+<ul>
+<li>Typescript</li>
+<li>Small C compilers</li>
+</ul>
+
+<h1>How cake is tested?</h1>
+
+<p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
+the includes of MSVC and it generates the <code>out</code> dir after build.</p>
+
+<p>Cake source code is not using any extension so the output is the same of input. 
+This compilation is usefull for tracking errors.</p>
+</body></html>

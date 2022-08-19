@@ -7,3 +7,15 @@ code {
     vertical-align: text-top;
     display: inline-block;
 }
+
+body {
+    font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";    
+}
+
+     h1 {
+        margin: .67em 0;
+        font-weight: 600;
+        padding-bottom: .3em;
+        font-size: 2em;
+        border-bottom: 1px solid hsla(210,18%,87%,1);
+    }

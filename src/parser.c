@@ -1007,7 +1007,7 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
     enum token_type type = TK_NONE;
     if (stream->current[0] == '.')
     {
-        
+
 
         type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
         stream_match(stream);
@@ -1096,7 +1096,7 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
         }
         else if (stream->current[0] == '.')
         {
-
+            stream_match(stream);
             type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
             digit_sequence(stream);
             exponent_part_opt(stream);
@@ -2376,16 +2376,26 @@ struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx
 }
 
 
-
 struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* error)
 {
-    //'enum' attribute_specifier_sequence_opt identifier_opt '{' enumerator_list '}'
-    //'enum' attribute_specifier_sequence_opt identifier_opt '{' enumerator_list ',' '}'
-    //'enum' identifier
+    /*
+        enum-specifier:
+
+        enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+        { enumerator-list }
+
+        enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+        { enumerator-list , }
+        enum identifier enum-type-specifiero
+    */
+
     struct enum_specifier* p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
     p_enum_specifier->type_id.type = TAG_TYPE_ENUN_SPECIFIER;
+
     parser_match_tk(ctx, TK_KEYWORD_ENUM, error);
+
     attribute_specifier_sequence_opt(ctx, error);
+
     bool bHasIdentifier = false;
     if (ctx->current->type == TK_IDENTIFIER)
     {
@@ -2397,6 +2407,14 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
         bHasIdentifier = true;
         parser_match(ctx);
     }
+
+    if (ctx->current->type == ':')
+    {
+        /*C23*/
+        parser_match(ctx);
+        p_enum_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx, error);
+    }
+
     if (ctx->current->type == '{')
     {
         parser_match_tk(ctx, '{', error);
@@ -3317,8 +3335,11 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
 struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct parser_ctx* ctx, struct error* error)
 {
     //attribute_specifier_sequence_opt attribute_specifier
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
-    while (error->code == 0 && ctx->current != NULL &&
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence =
+        calloc(1, sizeof(struct attribute_specifier_sequence));
+
+    while (error->code == 0 &&
+        ctx->current != NULL &&
         first_of_attribute_specifier(ctx))
     {
         list_add(p_attribute_specifier_sequence, attribute_specifier(ctx, error));
@@ -4495,7 +4516,7 @@ int compile(int argc, char** argv, struct error* error)
 }
 
 
-struct ast get_ast(struct options *options, const char* fileName, const char* source, struct error* error)
+struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error)
 {
     struct ast ast = { 0 };
 
@@ -4764,7 +4785,7 @@ void expand_test()
         "typedef const A* B; "
         "static_assert(typeid(B) == typeid(char * const *);";
 
-    get_ast(&options, "source", src2, & error);
+    get_ast(&options, "source", src2, &error);
     assert(error.code == 0);
     clearerror(&error);
 
@@ -4776,7 +4797,7 @@ void expand_test()
         "static_assert(typeid(f) == typeid(char* (* [3])(int)));";
     //char* (* [3])(int)
 
-    
+
 
     get_ast(&options, "source", src3, &error);
     assert(error.code == 0);

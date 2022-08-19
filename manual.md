@@ -1,3 +1,7 @@
+
+[Home](index.html) | [Playground](playground.html)
+
+
 # Manual
 
 
@@ -112,7 +116,8 @@ Are implemented
 
 ### try catch throw
 try cath is a external block that we can jump off. (local jump only)
-```cpp
+
+```c
 try
 {
    for (int i = 0 ; i < 10; i++) {
@@ -249,11 +254,35 @@ void create_app(const char* appname)
 }
 ```
 ### typeid
-typeid returns a object that can be compared (== !=) againt other typeid object.
-At this point, it is usefull to debug the type system.
+
+syntax:
+
+```c
+  typeid (expression)
+  typeid (type-name)
+```
+
+typeid returns a `type object` that can be used with `==` and `!=`.
+If any left or right side of the `==`/`!=` contains a `type object` then
+the evaluation is based on type comparison not value.
+
+Sample:
+```c
+static_assert(1 == typeid(int));
+static_assert(typeid(1) == typeid(int));
+```
 
 ### Repeat
+
+```c
+  repeat {
+       if (condition) 
+         break;
+  }
+```
+
 Repeat is equivalent of `for(;;)`
+
 
 ### pragma expand
 
