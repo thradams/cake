@@ -95,6 +95,19 @@ _Static_assert(VERSION == 2, "");
 `;
 
 
+sample["C23 _has_include"] =
+`
+#if __has_include(<stdio.h>)
+#warning  YES
+#endif
+
+#if __has_include(<any.h>)
+#warning  YES
+#else
+#warning  NO
+#endif
+`;
+
 sample["C23 #embed"] =
 `
 #include <stdio.h>

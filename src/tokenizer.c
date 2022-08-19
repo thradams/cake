@@ -1677,12 +1677,17 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     token_list_pop_front(inputList); //pop >					
                 }
 
-                //TODO ver se existe criar unit test
-                assert(false);
-                //bool bAlreadyIncluded = false;
-                //char* content = find_and_read_file(ctx, path + 1, path, &bAlreadyIncluded);
-                bool bHasInclude = false;
-                //free(content);
+                char fullpath[300] = { 0 };
+
+
+
+                bool bAlreadyIncluded = false;
+                char* s = find_and_read_include_file(ctx, path, fullpath, &bAlreadyIncluded);
+
+
+                
+                bool bHasInclude = s != NULL;
+                free(s);
 
                 struct token* pNew = calloc(1, sizeof * pNew);
                 pNew->type = TK_PPNUMBER;

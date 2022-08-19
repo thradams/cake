@@ -88,7 +88,9 @@ Attributes are being parsed and removed in some places. More work is necessary.
 Yes but need work/review.
 
 ## C23 has_include
-Yes but need work/review.
+Yes. But this does not make sense unless for direct compilation -mr.
+Transpiling to 1 or 0 would represent the machine where the code
+was transpiled but not where generated code will be compiled.
 
 ## C23 warning
 When compiling to versions < 23 it is commented
