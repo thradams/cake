@@ -68,6 +68,9 @@ with `(_Bool)0)`
 
 Cake transform {} into {0}. 
 
+## C23 auto
+not implemented yet
+
 ## C23 typeof / typeof_unqual
 When compiling to versions < 23 we replace typeof by the equivalent type. 
 This can be a little complex in some cases.
