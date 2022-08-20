@@ -250,6 +250,14 @@ struct atomic_type_specifier
 };
 struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx, struct error* error);
 
+struct enumerator_list
+{
+    struct enumerator* head;
+    struct enumerator* tail;
+};
+struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* error);
+
+
 struct enum_specifier
 {
     /*
@@ -262,9 +270,12 @@ struct enum_specifier
      enum identifier enum-type-specifieropt
     */
     struct type_specifier_qualifier* type_specifier_qualifier;
-    struct enumerator_list* enumerator_list;
+    struct enumerator_list enumerator_list;
     struct type_tag_id type_id;
     struct token* tag_token;
+
+    /*points to the complete enum (can be self pointed)*/
+    struct enum_specifier* complete_enum_specifier;
 };
 
 struct enum_specifier* enum_specifier(struct parser_ctx*, struct error* error);
@@ -769,12 +780,6 @@ struct attribute_list* attribute_list(struct parser_ctx* ctx, struct error* erro
 
 //struct token_list enum_specifier(struct parser_ctx* ctx, struct error* error);
 
-struct enumerator_list
-{
-    struct enumerator* head;
-    struct enumerator* tail;
-};
-struct enumerator_list* enumerator_list(struct parser_ctx* ctx, struct error* error);
 
 struct enumerator
 {

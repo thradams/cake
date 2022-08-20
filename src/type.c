@@ -262,15 +262,22 @@ struct type get_address_of_type(struct type* p_type)
     {
         assert(false);
     }
+
+    //TODO no need to add declarator always
+    
+    struct declarator_type* p2 = calloc(1, sizeof *p);
+    p->direct_declarator_type->declarator_opt = p2;
+    
     struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
-    list_add(&p->pointers, p_pointer_type);
+    list_add(&p2->pointers, p_pointer_type);
+    
     return r;
 }
 
 struct type get_pointer_content_type(struct type* p_type)
 {
     struct type r = type_copy(p_type);
-    struct declarator_type* p_inner_declarator = find_inner_declarator(p_type->declarator_type);
+    struct declarator_type* p_inner_declarator = find_inner_declarator(r.declarator_type);
     if (p_inner_declarator->pointers.head != NULL)
     {
         pointer_type_list_pop_front(&p_inner_declarator->pointers);
@@ -946,8 +953,8 @@ void type_merge(struct type* t1, struct type* typedef_type_copy)
         else
             break;
     }
-    
-//    typedef_type_copy->type_qualifier_flags = t1->type_qualifier_flags;
+
+    //    typedef_type_copy->type_qualifier_flags = t1->type_qualifier_flags;
 
     if (p_typedef_decl)
     {
@@ -960,7 +967,7 @@ void type_merge(struct type* t1, struct type* typedef_type_copy)
         typedef int A[2];
         typedef A *B ;
         =>int (*) [2]
- 
+
         typedef int *A;
         typedef A *B;
         =>int**
@@ -973,7 +980,7 @@ void type_merge(struct type* t1, struct type* typedef_type_copy)
         if (p_typedef_decl->direct_declarator_type &&
             p_typedef_decl->direct_declarator_type->array_function_type_list.head)
         {
-            p_typedef_decl->direct_declarator_type->declarator_opt = 
+            p_typedef_decl->direct_declarator_type->declarator_opt =
                 declarator_type_copy(t1->declarator_type);
         }
         else
@@ -998,8 +1005,8 @@ void type_merge(struct type* t1, struct type* typedef_type_copy)
             }
             p_typedef_decl->direct_declarator_type->declarator_opt = copy->direct_declarator_type->declarator_opt;
         }
-        
-      
+
+
         //p_typedef_decl->direct_declarator_type->declarator_opt =
           //  declarator_type_copy(t1->declarator_type);
     }
@@ -1119,14 +1126,239 @@ void type_set_int(struct type* p_type)
     p_type->declarator_type = NULL;
 }
 
+
+bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b)
+{
+    if (a && b)
+    {
+        if (a->type_qualifier_flags != b->type_qualifier_flags)
+            return false;
+        
+        return true;
+    }
+    return a == NULL && b == NULL;
+}
+
+bool pointer_type_list_is_same(struct pointer_type_list* a, struct pointer_type_list* b)
+{
+    if (a && b)
+    {
+        struct pointer_type* pa = a->head;
+        struct pointer_type* pb = b->head;
+
+        if (pa && pb)
+        {
+            while (pa && pb)
+            {
+                if (!pointer_type_is_same(pa, pb))
+                    return false;
+                pa = pa->next;
+                pb = pb->next;
+            }
+            return pa == NULL && pb == NULL;
+        }
+        return true;
+    }
+
+    return a == NULL && b == NULL;
+}
+
+bool type_is_same(struct type* a, struct type* b);
+bool type_list_is_same(struct type_list* a, struct type_list* b)
+{
+    if (a && b)
+    {
+        struct type* pa = a->head;
+        struct type* pb = b->head;
+
+        if (pa && pb)
+        {
+            while (pa && pb)
+            {
+                if (!type_is_same(pa, pb))
+                    return false;
+                pa = pa->next;
+                pb = pb->next;
+            }
+            return pa == NULL && pb == NULL;
+        }
+        return pa == NULL && pb == NULL;
+
+    }
+    return a == NULL && b == NULL;
+}
+
+bool array_function_type_is_same(struct array_function_type* a, struct array_function_type* b)
+{
+    if (a && b)
+    {
+        if (a->array_size != b->array_size)
+            return false;
+        if (a->bIsArray != b->bIsArray)
+            return false;
+        if (a->bIsFunction != b->bIsFunction)
+            return false;
+        if (a->bVarArg && b->bVarArg)
+            return false;
+
+        if (a->array_size != b->array_size)
+            return false;
+
+        if (!type_list_is_same(&a->params, &b->params))
+            return false;
+
+        return true;
+    }
+    return a == NULL && b == NULL;
+}
+
+bool array_function_type_list_is_same(struct array_function_type_list* a, struct array_function_type_list* b)
+{
+    if (a && b)
+    {
+        struct array_function_type* pa = a->head;
+        struct array_function_type* pb = b->head;
+        if (pa && pb)
+        {
+            while (pa && pb)
+            {
+                if (!array_function_type_is_same(pa, pb))
+                    return false;
+                pa = pa->next;
+                pb = pb->next;
+            }
+            return pa == NULL && pb == NULL;
+        }
+        return pa == NULL && pb == NULL;
+
+    }
+    return a == NULL && b == NULL;
+}
+
+bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b);
+
+bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b)
+{
+    if (a && b)
+    {
+
+        if (!array_function_type_list_is_same(&a->array_function_type_list, &b->array_function_type_list))
+        {
+            return false;
+        }
+
+        if (!declarator_type_is_same(a->declarator_opt, b->declarator_opt))
+        {
+            return false;
+        }
+
+        return true;
+    }
+    return a == NULL && b == NULL;
+}
+
+bool struct_or_union_specifier_is_same(struct struct_or_union_specifier* a, struct struct_or_union_specifier* b)
+{
+    if (a && b)
+    {
+        if (a->struct_or_union_specifier != NULL && b->struct_or_union_specifier != NULL)
+        {
+            if (a->struct_or_union_specifier != b->struct_or_union_specifier)
+            {
+                return false;
+            }
+            return true;
+        }
+        return a->struct_or_union_specifier == NULL &&
+               b->struct_or_union_specifier == NULL;
+    }
+    return a == NULL && b == NULL;
+}
+
+bool enum_specifier_is_same(struct enum_specifier* a, struct enum_specifier* b)
+{
+    if (a && b)
+    {
+        if (a->complete_enum_specifier && b->complete_enum_specifier)
+        {
+            if (a->complete_enum_specifier != b->complete_enum_specifier)
+                return false;
+            return true;
+        }
+        return a->complete_enum_specifier == NULL && 
+               b->complete_enum_specifier == NULL;
+    }
+    return a == NULL && b == NULL;
+}
+
+bool declarator_type_is_empty(struct declarator_type* a)
+{
+    if (a == NULL)
+        return true;
+
+    if (a->direct_declarator_type)
+    {
+        if (a->direct_declarator_type->array_function_type_list.head != NULL ||
+            a->direct_declarator_type->declarator_opt != NULL)
+        {
+            return false;
+        }
+    }
+    if (a->pointers.head != NULL)
+    {
+        return false;
+    }
+
+    return true;    
+}
+
+bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b)
+{
+    if (!declarator_type_is_empty(a) && !declarator_type_is_empty(b))
+    {        
+        if (!pointer_type_list_is_same(&a->pointers, &b->pointers))
+            return false;
+        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
+            return false;
+
+        return true;
+    }
+    return declarator_type_is_empty(a) && declarator_type_is_empty(b);
+}
+
+
 bool type_is_same(struct type* a, struct type* b)
 {
-#pragma message ("TODO: corrigir comparação de tipos ")
-    if (a->type_qualifier_flags != b->type_qualifier_flags)
-        return false;
-    if (a->type_specifier_flags != b->type_specifier_flags)
-        return false;
+    if (a && b)
+    {
+        if (a->type_qualifier_flags != b->type_qualifier_flags)
+        {
+            return false;
+        }
 
-    return true;
+        if (a->type_specifier_flags != b->type_specifier_flags)
+        {
+            return false;
+        }
+
+        if (!declarator_type_is_same(a->declarator_type, b->declarator_type))
+        {
+            return false;
+        }
+
+        if (!enum_specifier_is_same(a->enum_specifier, b->enum_specifier))
+        {
+            return false;
+        }
+
+        if (!struct_or_union_specifier_is_same(a->struct_or_union_specifier, b->struct_or_union_specifier))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    return a == NULL && b == NULL;
 }
 

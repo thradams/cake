@@ -1237,10 +1237,9 @@ static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list*
 
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error)
 {
-    if (p_enum_specifier->enumerator_list)
-    {
-        visit_enumerator_list(ctx, p_enum_specifier->enumerator_list, error);
-    }
+    
+    visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list, error);
+    
 }
 
 

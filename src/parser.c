@@ -345,6 +345,31 @@ struct type_tag_id* find_variables(struct parser_ctx* ctx, const char* lexeme, s
 
 
 
+struct enum_specifier  * find_enum_specifier(struct parser_ctx* ctx, const char* lexeme)
+{
+
+    struct enum_specifier* best = NULL;
+    struct scope* scope = ctx->scopes.tail;
+    while (scope)
+    {
+        struct type_tag_id* type_id = hashmap_find(&scope->tags, lexeme);
+        if (type_id &&
+            type_id->type == TAG_TYPE_ENUN_SPECIFIER)
+        {
+
+            best = container_of(type_id, struct enum_specifier, type_id);
+            if (best->enumerator_list.head != NULL)
+                return best; //OK bem completo
+            else
+            {
+                //nao eh completo vamos continuar subindo
+            }
+
+        }
+        scope = scope->previous;
+    }
+    return best; //mesmo que nao seja tao completo vamos retornar.    
+}
 
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme)
 {
@@ -1954,20 +1979,15 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         if (tag_type_id)
         {
             /*este tag já existe neste escopo*/
-            if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
-            {
-                parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
-            }
-            else if (tag_type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
+            if (tag_type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
             {
                 pPreviousTagInThisScope = container_of(tag_type_id, struct struct_or_union_specifier, type_id);
                 pStruct_or_union_specifier->struct_or_union_specifier = pPreviousTagInThisScope;
             }
             else
             {
-                parser_seterror_with_token(ctx, ctx->current, "unexpected", ctx->current->lexeme);
+                parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
             }
-
         }
         else
         {
@@ -2388,70 +2408,117 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
         { enumerator-list , }
         enum identifier enum-type-specifiero
     */
-
-    struct enum_specifier* p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
-    p_enum_specifier->type_id.type = TAG_TYPE_ENUN_SPECIFIER;
-
-    parser_match_tk(ctx, TK_KEYWORD_ENUM, error);
-
-    attribute_specifier_sequence_opt(ctx, error);
-
-    bool bHasIdentifier = false;
-    if (ctx->current->type == TK_IDENTIFIER)
+    struct enum_specifier* p_enum_specifier = NULL;
+    try
     {
-        p_enum_specifier->tag_token = ctx->current;
+        p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
+        p_enum_specifier->type_id.type = TAG_TYPE_ENUN_SPECIFIER;
 
-        //all other identifiers, called ordinary identifiers
-        // (declared in ordinary declarators or as enumeration constants).
-        hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, &p_enum_specifier->type_id);
-        bHasIdentifier = true;
-        parser_match(ctx);
-    }
+        parser_match_tk(ctx, TK_KEYWORD_ENUM, error);
 
-    if (ctx->current->type == ':')
-    {
-        /*C23*/
-        parser_match(ctx);
-        p_enum_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx, error);
-    }
-
-    if (ctx->current->type == '{')
-    {
-        parser_match_tk(ctx, '{', error);
-        p_enum_specifier->enumerator_list = enumerator_list(ctx, error);
-        if (ctx->current->type == ',')
+        attribute_specifier_sequence_opt(ctx, error);
+        struct enum_specifier* pPreviousTagInThisScope = NULL;
+        bool bHasIdentifier = false;
+        if (ctx->current->type == TK_IDENTIFIER)
         {
+            bHasIdentifier = true;
+            p_enum_specifier->tag_token = ctx->current;
             parser_match(ctx);
         }
-        parser_match_tk(ctx, '}', error);
-    }
-    else
-    {
-        if (!bHasIdentifier)
+
+        if (ctx->current->type == ':')
         {
-            parser_seterror_with_token(ctx, ctx->current, "missing enum tag name");
-            error->code = 1;
+            /*C23*/
+            parser_match(ctx);
+            p_enum_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx, error);
         }
+
+        if (ctx->current->type == '{')
+        {
+            /*TODO redeclaration?*/
+            /*adicionar no escopo*/
+            if (p_enum_specifier->tag_token)
+            {
+                hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, &p_enum_specifier->type_id);
+            }
+
+            /*self*/
+            p_enum_specifier->complete_enum_specifier = p_enum_specifier;
+
+            parser_match_tk(ctx, '{', error);
+            p_enum_specifier->enumerator_list = enumerator_list(ctx, error);
+            if (ctx->current->type == ',')
+            {
+                parser_match(ctx);
+            }
+            parser_match_tk(ctx, '}', error);
+        }
+        else
+        {
+            if (!bHasIdentifier)
+            {
+                parser_seterror_with_token(ctx, ctx->current, "missing enum tag name");
+                error->code = 1;
+                throw;
+            }
+
+            
+            /*searches for this tag in the current scope*/
+            struct type_tag_id* tag_type_id = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
+            if (tag_type_id)
+            {
+                /*we have this tag at this scope*/
+                if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
+                {
+                    pPreviousTagInThisScope = container_of(tag_type_id, struct enum_specifier, type_id);
+                    p_enum_specifier->complete_enum_specifier = pPreviousTagInThisScope;
+                }
+                else
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
+                    throw;
+                }
+            }
+            else
+            {
+                struct enum_specifier* pOther = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
+                /*ok neste escopo nao tinha este tag..vamos escopos para cima*/
+                if (pOther == NULL)
+                {
+                    hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, &p_enum_specifier->type_id);
+                }
+                else
+                {
+                    /*achou a tag em um escopo mais a cima*/
+                    p_enum_specifier->complete_enum_specifier = pOther;
+                }
+            }
+
+
+        }     
     }
+    catch
+    {}
     return p_enum_specifier;
 }
 
-struct enumerator_list* enumerator_list(struct parser_ctx* ctx, struct error* error)
+struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* error)
 {
-    struct enumerator_list* p_enumerator_list = calloc(1, sizeof(struct enumerator_list));
+    struct enumerator_list enumeratorlist = { 0 };
+
     //enumerator
     //enumerator_list ',' enumerator
-    list_add(p_enumerator_list, enumerator(ctx, error));
+    list_add(&enumeratorlist, enumerator(ctx, error));
     while (error->code == 0 && ctx->current != NULL &&
         ctx->current->type == ',')
     {
         parser_match(ctx);  /*pode ter uma , vazia no fim*/
 
         if (ctx->current->type != '}')
-            list_add(p_enumerator_list, enumerator(ctx, error));
+            list_add(&enumeratorlist, enumerator(ctx, error));
 
     }
-    return p_enumerator_list;
+    return enumeratorlist;
 }
 
 struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
@@ -2700,22 +2767,30 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
             parser_match(ctx);
             attribute_specifier_sequence_opt(ctx, error);
         }
-        else if (ctx->current->type == '(' &&
-            (!first_of_type_specifier_token(ctx, p_token_ahead) &&
-                !first_of_type_qualifier_token(p_token_ahead)))
+        else if (ctx->current->type == '(')
         {
-            //look ahead para nao confundir (declarator) com parametros funcao ex void (int)
-            parser_match(ctx);
+            struct token* ahead = parser_look_ahead(ctx);
 
-            p_direct_declarator->declarator = declarator(ctx,
-                p_specifier_qualifier_list,
-                p_declaration_specifiers,
-                bAbstractAcceptable,
-                pptokenName,
-                error);
+            if (!first_of_type_specifier_token(ctx, p_token_ahead) &&
+                !first_of_type_qualifier_token(p_token_ahead) && 
+                ahead->type != ')' && 
+                ahead->type != '...')
+            {
+                //look ahead para nao confundir (declarator) com parametros funcao ex void (int)
+                //or function int ()
+
+                parser_match(ctx);
+
+                p_direct_declarator->declarator = declarator(ctx,
+                    p_specifier_qualifier_list,
+                    p_declaration_specifiers,
+                    bAbstractAcceptable,
+                    pptokenName,
+                    error);
 
 
-            parser_match(ctx); //)
+                parser_match(ctx); //)
+            }
         }
 
 
@@ -4736,7 +4811,7 @@ void test_lit()
 void type_test2()
 {
     char* src =
-        "struct X { int a[10]; };"
+        "int a[10]; "
         "struct X* F() { return 0; }"
         " static_assert(typeid(*F()) == typeid(struct X));"
         " static_assert(typeid(&a) == typeid(int (*)[10]));"
