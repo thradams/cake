@@ -2263,9 +2263,78 @@ static int expression_type(const char* expression, const char* result)
 
 void test_expressions()
 {
-    assert(expression_type("1", "int") == 0);
-    assert(expression_type("(((int*)0) + 1)", "int*") == 0);
-    assert(expression_type("*(((int*)0) + 1)", "int") == 0);
+    const char* source =
+        "\n"
+        "\n"
+        "struct X {\n"
+        "    int i;\n"
+        "};\n"
+        "\n"
+        "struct Y {\n"
+        "    double d;\n"
+        "};\n"
+        "\n"
+        "enum E { A = 1 };\n"
+        "enum E e1;\n"
+        "struct X* F() { return 0; }\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    enum E { B } e2; \n"
+        "    static_assert(typeid(e2) == typeid(enum E));\n"
+        "    static_assert(typeid(e2) != typeid(e1));\n"
+        "\n"
+        "    struct X x;\n"
+        "    struct Y y;\n"
+        "\n"
+        "    static_assert(typeid(x) == typeid(struct X));\n"
+        "    static_assert(typeid(x) != typeid(struct Y));\n"
+        "\n"
+        "    static_assert(typeid(int(double)) != typeid(int()));\n"
+        "    int aa[10];\n"
+        "\n"
+        "    static_assert(typeid(*F()) == typeid(struct X));\n"
+        "    static_assert(typeid(&aa) == typeid(int(*)[10]));\n"
+        "\n"
+        "    int* p = 0;\n"
+        "    static_assert(typeid(*(p + 1)) == typeid(int));\n"
+        "    \n"
+        "    static_assert(1 == typeid(int));\n"
+        "\n"
+        "    static_assert(typeid(main) == typeid(int()));\n"
+        "    \n"
+        "    \n"
+        "    static_assert(typeid(main) != typeid(int(double)));\n"
+        "    static_assert(typeid(main) != typeid(int));\n"
+        "\n"
+        "\n"
+        "    struct X x;\n"
+        "    enum E e;\n"
+        "    static_assert(typeid(e) == typeid(enum E));\n"
+        "    static_assert(typeid(x) == typeid(struct X));\n"
+        "    static_assert(typeid(e) != typeid(struct X));\n"
+        "\n"
+        "    \n"
+        "        \n"
+        "    static_assert(1L == typeid(long));\n"
+        "    static_assert(1UL == typeid(unsigned long));\n"
+        "    static_assert(1ULL == typeid(unsigned long long));\n"
+        "    static_assert(A == typeid(int));\n"
+        "    static_assert(1.0 == typeid(double));\n"
+        "    static_assert(1.0f == typeid(float));\n"
+        "    static_assert(1.0L == typeid(long double));\n"
+        "\n"
+        "    static_assert(typeid((((int*)0) + 1))  == typeid(int*));\n"
+        "    static_assert(typeid(*(((int*)0) + 1))  == typeid(int));\n"
+        "  \n"
+        "}\n"
+        "\n"
+        ;
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
+    assert(error.code == 0);    
 }
 
 void type_suffix_test()

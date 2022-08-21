@@ -1,11 +1,4 @@
-int a[10];
-struct X* F() { return 0; }
-//static_assert(typeid(*F()) == typeid(struct X));
-static_assert(typeid(&a) == typeid(int (*)[10]));
 
-#if 0
-int * p = 0;
-static_assert(typeid(*(p + 1)) == typeid(int));
 
 struct X {
     int i;
@@ -17,6 +10,7 @@ struct Y {
 
 enum E { A = 1 };
 enum E e1;
+struct X* F() { return 0; }
 
 int main()
 {
@@ -29,12 +23,17 @@ int main()
 
     static_assert(typeid(x) == typeid(struct X));
     static_assert(typeid(x) != typeid(struct Y));
-    
-    
 
+    static_assert(typeid(int(double)) != typeid(int()));
+    int aa[10];
+
+    static_assert(typeid(*F()) == typeid(struct X));
+    static_assert(typeid(&aa) == typeid(int(*)[10]));
+
+    int* p = 0;
+    static_assert(typeid(*(p + 1)) == typeid(int));
+    
     static_assert(1 == typeid(int));
-
-    static_assert(typeid(int (double)) != typeid(int()));
 
     static_assert(typeid(main) == typeid(int()));
     
@@ -50,8 +49,7 @@ int main()
     static_assert(typeid(e) != typeid(struct X));
 
     
-
-    
+        
     static_assert(1L == typeid(long));
     static_assert(1UL == typeid(unsigned long));
     static_assert(1ULL == typeid(unsigned long long));
@@ -61,5 +59,3 @@ int main()
     static_assert(1.0L == typeid(long double));
   
 }
-#endif
-

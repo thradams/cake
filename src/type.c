@@ -9,6 +9,14 @@
 
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
+void type_print(struct type* a) {
+    struct osstream ss = { 0 };
+    print_type(&ss, a);
+    puts(ss.c_str);
+    puts("\n");
+    ss_close(&ss);
+}
+
 void pointer_type_list_pop_front(struct pointer_type_list* list)
 {
     if (list->head != NULL)
@@ -49,7 +57,7 @@ struct type_list params_copy(struct type_list* input)
     while (p_param_type)
     {
         struct type* par = calloc(1, sizeof * par);
-        par->type_qualifier_flags = p_param_type->type_specifier_flags;
+        par->type_qualifier_flags = p_param_type->type_qualifier_flags;
         par->type_specifier_flags = p_param_type->type_specifier_flags;
 
         par->enum_specifier = p_param_type->enum_specifier;
@@ -263,14 +271,25 @@ struct type get_address_of_type(struct type* p_type)
         assert(false);
     }
 
-    //TODO no need to add declarator always
-    
-    struct declarator_type* p2 = calloc(1, sizeof *p);
-    p->direct_declarator_type->declarator_opt = p2;
-    
-    struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
-    list_add(&p2->pointers, p_pointer_type);
-    
+    if (p->direct_declarator_type &&
+        p->direct_declarator_type->array_function_type_list.head &&
+        (p->direct_declarator_type->array_function_type_list.head->bIsArray ||
+            p->direct_declarator_type->array_function_type_list.head->bIsFunction))
+    {
+        struct declarator_type* p2 = calloc(1, sizeof * p);
+        p->direct_declarator_type->declarator_opt = p2;
+
+        struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
+        list_add(&p2->pointers, p_pointer_type);
+    }
+    else
+    {
+        struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
+        list_add(&p->pointers, p_pointer_type);
+    }
+
+
+
     return r;
 }
 
@@ -703,7 +722,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
             if (p_struct_or_union_specifier->member_declaration_list.head == NULL)
             {
                 p_struct_or_union_specifier =
-                    p_type->struct_or_union_specifier->struct_or_union_specifier;
+                    p_type->struct_or_union_specifier->complete_struct_or_union_specifier;
             }
 
             struct token* current = p_struct_or_union_specifier->first;
@@ -916,8 +935,7 @@ bool is_empty_declarator_type(struct declarator_type* p_declarator_type)
 
 void type_merge(struct type* t1, struct type* typedef_type_copy)
 {
-#if 0
-    *
+#if 0    
 #include <stdio.h>
 #include <typeinfo>
 #include <cxxabi.h>
@@ -1133,7 +1151,7 @@ bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b)
     {
         if (a->type_qualifier_flags != b->type_qualifier_flags)
             return false;
-        
+
         return true;
     }
     return a == NULL && b == NULL;
@@ -1237,9 +1255,26 @@ bool array_function_type_list_is_same(struct array_function_type_list* a, struct
 
 bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b);
 
+bool direct_declarator_type_is_empty(struct direct_declarator_type* a)
+{
+    if (a == NULL)
+        return true;
+
+    if (a->declarator_opt != NULL)
+    {
+        return false;
+    }
+
+    if (a->array_function_type_list.head != NULL)
+    {
+        return false;
+    }
+
+    return true;
+}
 bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b)
 {
-    if (a && b)
+    if (!direct_declarator_type_is_empty(a) && !direct_declarator_type_is_empty(b))
     {
 
         if (!array_function_type_list_is_same(&a->array_function_type_list, &b->array_function_type_list))
@@ -1254,23 +1289,32 @@ bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct dir
 
         return true;
     }
-    return a == NULL && b == NULL;
+    return direct_declarator_type_is_empty(a) && direct_declarator_type_is_empty(b);
 }
 
 bool struct_or_union_specifier_is_same(struct struct_or_union_specifier* a, struct struct_or_union_specifier* b)
 {
     if (a && b)
     {
-        if (a->struct_or_union_specifier != NULL && b->struct_or_union_specifier != NULL)
+        if (a->complete_struct_or_union_specifier != NULL && b->complete_struct_or_union_specifier != NULL)
         {
-            if (a->struct_or_union_specifier != b->struct_or_union_specifier)
+            if (a->complete_struct_or_union_specifier != b->complete_struct_or_union_specifier)
             {
                 return false;
             }
             return true;
         }
-        return a->struct_or_union_specifier == NULL &&
-               b->struct_or_union_specifier == NULL;
+        else
+        {
+            /*both incomplete then we compare tag names*/
+            if (a->tagtoken != NULL && b->tagtoken != NULL)
+            {
+                if (strcmp(a->tagtoken->lexeme, b->tagtoken->lexeme) == 0)
+                    return true;
+            }
+        }
+        return a->complete_struct_or_union_specifier == NULL &&
+            b->complete_struct_or_union_specifier == NULL;
     }
     return a == NULL && b == NULL;
 }
@@ -1285,8 +1329,8 @@ bool enum_specifier_is_same(struct enum_specifier* a, struct enum_specifier* b)
                 return false;
             return true;
         }
-        return a->complete_enum_specifier == NULL && 
-               b->complete_enum_specifier == NULL;
+        return a->complete_enum_specifier == NULL &&
+            b->complete_enum_specifier == NULL;
     }
     return a == NULL && b == NULL;
 }
@@ -1309,13 +1353,13 @@ bool declarator_type_is_empty(struct declarator_type* a)
         return false;
     }
 
-    return true;    
+    return true;
 }
 
 bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b)
 {
     if (!declarator_type_is_empty(a) && !declarator_type_is_empty(b))
-    {        
+    {
         if (!pointer_type_list_is_same(&a->pointers, &b->pointers))
             return false;
         if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
@@ -1327,8 +1371,13 @@ bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* 
 }
 
 
+
 bool type_is_same(struct type* a, struct type* b)
 {
+    //debug
+    //type_print(a);
+    //type_print(b);
+
     if (a && b)
     {
         if (a->type_qualifier_flags != b->type_qualifier_flags)

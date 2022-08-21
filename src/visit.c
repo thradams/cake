@@ -1175,26 +1175,26 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
     if (p_struct_or_union_specifier->attribute_specifier_sequence)
         visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence, error);
 
-    if (p_struct_or_union_specifier->struct_or_union_specifier)
+    if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
     {
         if (ctx->bInsideLambda && ctx->lambda_step == 1)
         {
             /*
               Na primeira passada marcamos os tipos que são renomeados
             */
-            if (p_struct_or_union_specifier->struct_or_union_specifier->scope_level >
+            if (p_struct_or_union_specifier->complete_struct_or_union_specifier->scope_level >
                 p_struct_or_union_specifier->scope_level &&
-                p_struct_or_union_specifier->struct_or_union_specifier->visit_moved == 0)
+                p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved == 0)
             {
                 char newtag[200];
                 snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tagName, ctx->captureindex);
                 ctx->captureindex++;
 
-                free(p_struct_or_union_specifier->struct_or_union_specifier->tagtoken->lexeme);
-                p_struct_or_union_specifier->struct_or_union_specifier->tagtoken->lexeme =
+                free(p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme);
+                p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme =
                     strdup(newtag);
 
-                p_struct_or_union_specifier->struct_or_union_specifier->visit_moved = 1;
+                p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved = 1;
             }
         }
         else if (ctx->lambda_step == 2)
@@ -1202,11 +1202,11 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
             /*
              Na segunda passada vou renomear quem usa este tag exporado
             */
-            if (p_struct_or_union_specifier->struct_or_union_specifier->visit_moved == 1)
+            if (p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved == 1)
             {
                 free(p_struct_or_union_specifier->tagtoken->lexeme);
                 p_struct_or_union_specifier->tagtoken->lexeme =
-                    strdup(p_struct_or_union_specifier->struct_or_union_specifier->tagtoken->lexeme);
+                    strdup(p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme);
             }
         }
     }

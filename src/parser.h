@@ -314,7 +314,7 @@ struct struct_or_union_specifier
     * O tag de uma struct aponta para uma especificação completa (se existir)
     * da struct. Aqui apontamos para esta struct completa.
     */
-    struct struct_or_union_specifier* struct_or_union_specifier;
+    struct struct_or_union_specifier* complete_struct_or_union_specifier;
 };
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error);
 

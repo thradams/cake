@@ -7890,6 +7890,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
 bool type_is_same(struct type* a, struct type* b);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
 struct type get_address_of_type(struct type* p_type);
+void type_print(struct type* a);
 
 
 struct parser_ctx;
@@ -8358,7 +8359,7 @@ struct struct_or_union_specifier
     * O tag de uma struct aponta para uma especificação completa (se existir)
     * da struct. Aqui apontamos para esta struct completa.
     */
-    struct struct_or_union_specifier* struct_or_union_specifier;
+    struct struct_or_union_specifier* complete_struct_or_union_specifier;
 };
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error);
 
@@ -11149,9 +11150,78 @@ static int expression_type(const char* expression, const char* result)
 
 void test_expressions()
 {
-    assert(expression_type("1", "int") == 0);
-    assert(expression_type("(((int*)0) + 1)", "int*") == 0);
-    assert(expression_type("*(((int*)0) + 1)", "int") == 0);
+    const char* source =
+        "\n"
+        "\n"
+        "struct X {\n"
+        "    int i;\n"
+        "};\n"
+        "\n"
+        "struct Y {\n"
+        "    double d;\n"
+        "};\n"
+        "\n"
+        "enum E { A = 1 };\n"
+        "enum E e1;\n"
+        "struct X* F() { return 0; }\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    enum E { B } e2; \n"
+        "    static_assert(typeid(e2) == typeid(enum E));\n"
+        "    static_assert(typeid(e2) != typeid(e1));\n"
+        "\n"
+        "    struct X x;\n"
+        "    struct Y y;\n"
+        "\n"
+        "    static_assert(typeid(x) == typeid(struct X));\n"
+        "    static_assert(typeid(x) != typeid(struct Y));\n"
+        "\n"
+        "    static_assert(typeid(int(double)) != typeid(int()));\n"
+        "    int aa[10];\n"
+        "\n"
+        "    static_assert(typeid(*F()) == typeid(struct X));\n"
+        "    static_assert(typeid(&aa) == typeid(int(*)[10]));\n"
+        "\n"
+        "    int* p = 0;\n"
+        "    static_assert(typeid(*(p + 1)) == typeid(int));\n"
+        "    \n"
+        "    static_assert(1 == typeid(int));\n"
+        "\n"
+        "    static_assert(typeid(main) == typeid(int()));\n"
+        "    \n"
+        "    \n"
+        "    static_assert(typeid(main) != typeid(int(double)));\n"
+        "    static_assert(typeid(main) != typeid(int));\n"
+        "\n"
+        "\n"
+        "    struct X x;\n"
+        "    enum E e;\n"
+        "    static_assert(typeid(e) == typeid(enum E));\n"
+        "    static_assert(typeid(x) == typeid(struct X));\n"
+        "    static_assert(typeid(e) != typeid(struct X));\n"
+        "\n"
+        "    \n"
+        "        \n"
+        "    static_assert(1L == typeid(long));\n"
+        "    static_assert(1UL == typeid(unsigned long));\n"
+        "    static_assert(1ULL == typeid(unsigned long long));\n"
+        "    static_assert(A == typeid(int));\n"
+        "    static_assert(1.0 == typeid(double));\n"
+        "    static_assert(1.0f == typeid(float));\n"
+        "    static_assert(1.0L == typeid(long double));\n"
+        "\n"
+        "    static_assert(typeid((((int*)0) + 1))  == typeid(int*));\n"
+        "    static_assert(typeid(*(((int*)0) + 1))  == typeid(int));\n"
+        "  \n"
+        "}\n"
+        "\n"
+        ;
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
+    assert(error.code == 0);    
 }
 
 void type_suffix_test()
@@ -12061,6 +12131,14 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, struct error* error, l
 
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
+void type_print(struct type* a) {
+    struct osstream ss = { 0 };
+    print_type(&ss, a);
+    puts(ss.c_str);
+    puts("\n");
+    ss_close(&ss);
+}
+
 void pointer_type_list_pop_front(struct pointer_type_list* list)
 {
     if (list->head != NULL)
@@ -12101,7 +12179,7 @@ struct type_list params_copy(struct type_list* input)
     while (p_param_type)
     {
         struct type* par = calloc(1, sizeof * par);
-        par->type_qualifier_flags = p_param_type->type_specifier_flags;
+        par->type_qualifier_flags = p_param_type->type_qualifier_flags;
         par->type_specifier_flags = p_param_type->type_specifier_flags;
 
         par->enum_specifier = p_param_type->enum_specifier;
@@ -12314,16 +12392,25 @@ struct type get_address_of_type(struct type* p_type)
     {
         assert(false);
     }
-    
-    //r.declarator_type->direct_declarator_type->declarator_opt->pointers
-    struct declarator_type* p2 = calloc(1, sizeof *p);
-    p->direct_declarator_type->declarator_opt = p2;
-    
-    struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
-    list_add(&p2->pointers, p_pointer_type);
-    
-    //struct osstream ss = { 0 };
-    //print_type(& ss, &r);
+
+    if (p->direct_declarator_type &&
+        p->direct_declarator_type->array_function_type_list.head &&
+        (p->direct_declarator_type->array_function_type_list.head->bIsArray ||
+            p->direct_declarator_type->array_function_type_list.head->bIsFunction))
+    {
+        struct declarator_type* p2 = calloc(1, sizeof * p);
+        p->direct_declarator_type->declarator_opt = p2;
+
+        struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
+        list_add(&p2->pointers, p_pointer_type);
+    }
+    else
+    {
+        struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
+        list_add(&p->pointers, p_pointer_type);
+    }
+
+
 
     return r;
 }
@@ -12757,7 +12844,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
             if (p_struct_or_union_specifier->member_declaration_list.head == NULL)
             {
                 p_struct_or_union_specifier =
-                    p_type->struct_or_union_specifier->struct_or_union_specifier;
+                    p_type->struct_or_union_specifier->complete_struct_or_union_specifier;
             }
 
             struct token* current = p_struct_or_union_specifier->first;
@@ -12970,8 +13057,7 @@ bool is_empty_declarator_type(struct declarator_type* p_declarator_type)
 
 void type_merge(struct type* t1, struct type* typedef_type_copy)
 {
-#if 0
-    *
+#if 0    
 
 
 #include <typeinfo>
@@ -13190,7 +13276,7 @@ bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b)
     {
         if (a->type_qualifier_flags != b->type_qualifier_flags)
             return false;
-        
+
         return true;
     }
     return a == NULL && b == NULL;
@@ -13294,9 +13380,26 @@ bool array_function_type_list_is_same(struct array_function_type_list* a, struct
 
 bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b);
 
+bool direct_declarator_type_is_empty(struct direct_declarator_type* a)
+{
+    if (a == NULL)
+        return true;
+
+    if (a->declarator_opt != NULL)
+    {
+        return false;
+    }
+
+    if (a->array_function_type_list.head != NULL)
+    {
+        return false;
+    }
+
+    return true;
+}
 bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b)
 {
-    if (a && b)
+    if (!direct_declarator_type_is_empty(a) && !direct_declarator_type_is_empty(b))
     {
 
         if (!array_function_type_list_is_same(&a->array_function_type_list, &b->array_function_type_list))
@@ -13311,23 +13414,32 @@ bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct dir
 
         return true;
     }
-    return a == NULL && b == NULL;
+    return direct_declarator_type_is_empty(a) && direct_declarator_type_is_empty(b);
 }
 
 bool struct_or_union_specifier_is_same(struct struct_or_union_specifier* a, struct struct_or_union_specifier* b)
 {
     if (a && b)
     {
-        if (a->struct_or_union_specifier != NULL && b->struct_or_union_specifier != NULL)
+        if (a->complete_struct_or_union_specifier != NULL && b->complete_struct_or_union_specifier != NULL)
         {
-            if (a->struct_or_union_specifier != b->struct_or_union_specifier)
+            if (a->complete_struct_or_union_specifier != b->complete_struct_or_union_specifier)
             {
                 return false;
             }
             return true;
         }
-        return a->struct_or_union_specifier == NULL &&
-               b->struct_or_union_specifier == NULL;
+        else
+        {
+            /*both incomplete then we compare tag names*/
+            if (a->tagtoken != NULL && b->tagtoken != NULL)
+            {
+                if (strcmp(a->tagtoken->lexeme, b->tagtoken->lexeme) == 0)
+                    return true;
+            }
+        }
+        return a->complete_struct_or_union_specifier == NULL &&
+            b->complete_struct_or_union_specifier == NULL;
     }
     return a == NULL && b == NULL;
 }
@@ -13342,8 +13454,8 @@ bool enum_specifier_is_same(struct enum_specifier* a, struct enum_specifier* b)
                 return false;
             return true;
         }
-        return a->complete_enum_specifier == NULL && 
-               b->complete_enum_specifier == NULL;
+        return a->complete_enum_specifier == NULL &&
+            b->complete_enum_specifier == NULL;
     }
     return a == NULL && b == NULL;
 }
@@ -13366,13 +13478,13 @@ bool declarator_type_is_empty(struct declarator_type* a)
         return false;
     }
 
-    return true;    
+    return true;
 }
 
 bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b)
 {
     if (!declarator_type_is_empty(a) && !declarator_type_is_empty(b))
-    {        
+    {
         if (!pointer_type_list_is_same(&a->pointers, &b->pointers))
             return false;
         if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
@@ -13384,8 +13496,13 @@ bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* 
 }
 
 
+
 bool type_is_same(struct type* a, struct type* b)
 {
+    //debug
+    //type_print(a);
+    //type_print(b);
+
     if (a && b)
     {
         if (a->type_qualifier_flags != b->type_qualifier_flags)
@@ -15441,7 +15558,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             if (tag_type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
             {
                 pPreviousTagInThisScope = container_of(tag_type_id, struct struct_or_union_specifier, type_id);
-                pStruct_or_union_specifier->struct_or_union_specifier = pPreviousTagInThisScope;
+                pStruct_or_union_specifier->complete_struct_or_union_specifier = pPreviousTagInThisScope;
             }
             else
             {
@@ -15461,7 +15578,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             else
             {
                 /*achou a tag em um escopo mais a cima*/
-                pStruct_or_union_specifier->struct_or_union_specifier = pOther;
+                pStruct_or_union_specifier->complete_struct_or_union_specifier = pOther;
             }
         }
 
@@ -15672,6 +15789,10 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & type_specifier_long)
         print_item(ss, first, "long");
+
+    if (e_type_specifier_flags & type_specifier_long_long)
+        print_item(ss, first, "long long");
+
 
     if (e_type_specifier_flags & type_specifier_char)
         print_item(ss, first, "char");
@@ -18284,9 +18405,9 @@ void type_test2()
 
 void type_test3()
 {
-    char* src =
+    char* src =        
         "int i;"
-        "int (*f)(void);"
+        "int (*f)(void);"  
         " static_assert(typeid(&i) == typeid(int *));"
         " static_assert(typeid(&f) == typeid(int (**)(void)));"
         ;
@@ -19519,26 +19640,26 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
     if (p_struct_or_union_specifier->attribute_specifier_sequence)
         visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence, error);
 
-    if (p_struct_or_union_specifier->struct_or_union_specifier)
+    if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
     {
         if (ctx->bInsideLambda && ctx->lambda_step == 1)
         {
             /*
               Na primeira passada marcamos os tipos que são renomeados
             */
-            if (p_struct_or_union_specifier->struct_or_union_specifier->scope_level >
+            if (p_struct_or_union_specifier->complete_struct_or_union_specifier->scope_level >
                 p_struct_or_union_specifier->scope_level &&
-                p_struct_or_union_specifier->struct_or_union_specifier->visit_moved == 0)
+                p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved == 0)
             {
                 char newtag[200];
                 snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tagName, ctx->captureindex);
                 ctx->captureindex++;
 
-                free(p_struct_or_union_specifier->struct_or_union_specifier->tagtoken->lexeme);
-                p_struct_or_union_specifier->struct_or_union_specifier->tagtoken->lexeme =
+                free(p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme);
+                p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme =
                     strdup(newtag);
 
-                p_struct_or_union_specifier->struct_or_union_specifier->visit_moved = 1;
+                p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved = 1;
             }
         }
         else if (ctx->lambda_step == 2)
@@ -19546,11 +19667,11 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
             /*
              Na segunda passada vou renomear quem usa este tag exporado
             */
-            if (p_struct_or_union_specifier->struct_or_union_specifier->visit_moved == 1)
+            if (p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved == 1)
             {
                 free(p_struct_or_union_specifier->tagtoken->lexeme);
                 p_struct_or_union_specifier->tagtoken->lexeme =
-                    strdup(p_struct_or_union_specifier->struct_or_union_specifier->tagtoken->lexeme);
+                    strdup(p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme);
             }
         }
     }

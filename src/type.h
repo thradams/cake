@@ -148,3 +148,4 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
 bool type_is_same(struct type* a, struct type* b);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
 struct type get_address_of_type(struct type* p_type);
+void type_print(struct type* a);

@@ -1982,7 +1982,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             if (tag_type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
             {
                 pPreviousTagInThisScope = container_of(tag_type_id, struct struct_or_union_specifier, type_id);
-                pStruct_or_union_specifier->struct_or_union_specifier = pPreviousTagInThisScope;
+                pStruct_or_union_specifier->complete_struct_or_union_specifier = pPreviousTagInThisScope;
             }
             else
             {
@@ -2002,7 +2002,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             else
             {
                 /*achou a tag em um escopo mais a cima*/
-                pStruct_or_union_specifier->struct_or_union_specifier = pOther;
+                pStruct_or_union_specifier->complete_struct_or_union_specifier = pOther;
             }
         }
 
@@ -2213,6 +2213,10 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & type_specifier_long)
         print_item(ss, first, "long");
+
+    if (e_type_specifier_flags & type_specifier_long_long)
+        print_item(ss, first, "long long");
+
 
     if (e_type_specifier_flags & type_specifier_char)
         print_item(ss, first, "char");
@@ -4826,9 +4830,9 @@ void type_test2()
 
 void type_test3()
 {
-    char* src =
+    char* src =        
         "int i;"
-        "int (*f)(void);"
+        "int (*f)(void);"  
         " static_assert(typeid(&i) == typeid(int *));"
         " static_assert(typeid(&f) == typeid(int (**)(void)));"
         ;
