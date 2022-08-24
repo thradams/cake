@@ -1273,8 +1273,13 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
                 if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
                 {
-                    bHasPointers =
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type->pointers.head != NULL;
+                    
+                    if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type)
+                    {
+                        bHasPointers =
+                            p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type->pointers.head != NULL;
+                    }
+                    
 
                     if (bHasPointers)
                         ss_fprintf(&ss, "typedef ");

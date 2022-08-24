@@ -6,7 +6,7 @@
 #include <assert.h>
 #include "hash.h"
 #include <string.h>
-
+#include <stdio.h>
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
 void type_print(struct type* a) {
@@ -238,10 +238,11 @@ bool type_is_arithmetic(struct type* p_type)
 
 bool type_is_compatible_type_function_call(struct type* a, struct type* b)
 {
-    //TODO TODO TODO TODO
-    //retorna true se o tipo a pode ser usado para chamar uma funcao parametro tipo b
-    //if (a->type_specifier_flags != b->type_specifier_flags)
-        //return false;
+    //TODO
+    
+    //if (!type_is_same(a, b))
+      //  return false;
+
     return true;
 }
 

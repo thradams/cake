@@ -74,8 +74,9 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 
             if (!type_is_compatible_type_function_call(&current_argument->expression->type, current_parameter_type) != 0)
             {
-                seterror(error, "incompatible type");
-                throw;
+                parser_seterror_with_token(ctx,
+                    current_argument->expression->first,
+                    " incompatible types");
             }
             //compare
             current_argument = current_argument->next;
@@ -887,6 +888,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->type = type_copy(&p_expression_node->type);
                 parser_match(ctx);
                 p_expression_node = p_expression_node_new;
             }
@@ -1033,11 +1035,12 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
         {
             p_expression_node = primary_expression(ctx, error, ectx);
         }
-
-        p_expression_node = postfix_expression_tail(ctx,
-            error,
-            p_expression_node,
-            ectx);
+        
+            p_expression_node = postfix_expression_tail(ctx,
+                error,
+                p_expression_node,
+                ectx);
+        
     }
     catch
     {
@@ -1112,13 +1115,13 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 || ctx->current->type == '!'))
         {
             struct expression* pNew = calloc(1, sizeof * pNew);
-
+            pNew->first = ctx->current;
             struct token* op_position = ctx->current; //marcar posicao
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             pNew->right = cast_expression(ctx, error, ectx);
             if (error->code != 0) throw;
-
+            pNew->last = pNew->right->last;
             if (op == '!')
             {
                 pNew->constant_value = !pNew->right->constant_value;
@@ -1144,7 +1147,6 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 if (!type_is_pointer(&pNew->right->type))
                 {
                     parser_seterror_with_token(ctx, op_position, "indirection requires pointer operand");
-                    throw;
                 }
                 pNew->type = get_pointer_content_type(&pNew->right->type);
 

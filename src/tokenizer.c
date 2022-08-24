@@ -3917,6 +3917,15 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE";
     case TK_KEYWORD_NULL: return "TK_KEYWORD_NULL";
     case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER";
+    case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT";
+    case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
+    case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH";
+    case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY";
+    case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
+    case TK_KEYWORD_REPEAT: return "TK_KEYWORD_REPEAT";
+    case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
+    
+    
     }
     assert(false);
     return "";
