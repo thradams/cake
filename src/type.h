@@ -132,6 +132,7 @@ bool type_is_array(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
 bool type_is_integer(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
+bool type_is_compatible(struct type* a, struct type* b);
 bool type_is_compatible_type_function_call(struct type* a, struct type* b);
 bool type_is_function_or_function_pointer(struct type* p_type);
 struct type get_pointer_content_type(struct type* p_type);

@@ -93,7 +93,7 @@ struct generic_association
     struct token* firstToken;
     struct token* lastToken;
 
-    struct generic_assoc* next;
+    struct generic_association* next;
 };
 
 struct generic_assoc_list

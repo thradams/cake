@@ -45,6 +45,11 @@ struct parser_ctx
     */
     struct scope_list scopes;
     
+    /*
+    * Points the the function we are inside or null
+    */
+    struct declaration* p_current_function_opt;
+
     struct token_list inputList;
     struct token* current;
     struct token* previous;

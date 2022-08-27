@@ -1479,6 +1479,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     struct declaration* p_declaration = declaration_core(ctx, true, &is_function_definition, error);
     if (is_function_definition)
     {
+        ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
         assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator);
@@ -1525,7 +1526,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
 
         scope_list_pop(&ctx->scopes);
-
+        ctx->p_current_function_opt = NULL;
     }
 
     return p_declaration;
@@ -4111,6 +4112,15 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
         {
             struct expression_ctx ectx = { 0 };
             p_jump_statement->expression = expression(ctx, error, &ectx);
+
+            /*
+            * Check is return type is compatible with function return
+            */
+            if (!type_is_compatible(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
+                &p_jump_statement->expression->type))
+            {
+                parser_seterror_with_token(ctx, p_jump_statement->expression->first, "return type is incompatible");
+            }
         }
     }
     else
@@ -4679,8 +4689,6 @@ char* compile_source(const char* pszoptions, const char* content)
         }
 
         prectx.options = options;
-
-        struct error error = { 0 };
 
 
         if (options.bPreprocessOnly)

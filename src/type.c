@@ -236,6 +236,16 @@ bool type_is_arithmetic(struct type* p_type)
             );
 }
 
+bool type_is_compatible(struct type* a, struct type* b)
+{
+    //TODO
+
+    //if (!type_is_same(a, b))
+      //  return false;
+
+    return true;
+}
+
 bool type_is_compatible_type_function_call(struct type* a, struct type* b)
 {
     //TODO
