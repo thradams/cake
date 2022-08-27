@@ -1606,7 +1606,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                 free(current->lexeme);
                 current->lexeme = strdup("((_Bool)0)");
             }
-            else if (current->type == TK_KEYWORD_NULL)
+            else if (current->type == TK_KEYWORD_NULLPTR)
             {
                 free(current->lexeme);
                 current->lexeme = strdup("((void*)0)");

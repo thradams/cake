@@ -320,10 +320,10 @@ enum token_type
     TK_KEYWORD__THREAD_LOCAL,
 
     TK_KEYWORD_TYPEOF, /*C23*/
-    TK_KEYWORD_TYPEID, //Thiago extension
+    TK_KEYWORD_TYPEID, //Extension
     TK_KEYWORD_TRUE,  /*C23*/
     TK_KEYWORD_FALSE,  /*C23*/
-    TK_KEYWORD_NULL,  /*Thiago extension*/
+    TK_KEYWORD_NULLPTR,  /*C23*/
     TK_KEYWORD_TYPEOF_UNQUAL, /*C23*/
     TK_KEYWORD__BITINT /*C23*/
 };
@@ -5254,7 +5254,7 @@ const char* get_token_name(enum token_type tk)
 
     case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE";
     case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE";
-    case TK_KEYWORD_NULL: return "TK_KEYWORD_NULL";
+    case TK_KEYWORD_NULLPTR: return "TK_KEYWORD_NULLPTR";
     case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER";
     case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT";
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
@@ -7983,7 +7983,7 @@ struct generic_association
     /*
      generic-association:
        type-name : assignment-expression
-       default : assignment-expression
+       "default" : assignment-expression
     */
 
     struct type type;
@@ -8006,12 +8006,17 @@ struct generic_selection
 {
     /*
       generic-selection: 
-      _Generic ( assignment-expression , generic-assoc-list )
+      "_Generic" ( assignment-expression , generic-assoc-list )
     */
 
     
     struct expression* expression;
+    
+    /*
+    * Points to the matching expression
+    */
     struct expression* p_view_selected_expression;
+
     struct generic_assoc_list generic_assoc_list;
     struct token* firstToken;
     struct token* lastToken;
@@ -8322,13 +8327,13 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* err
 struct enum_specifier
 {
     /*
-     enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+     "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt
       { enumerator-list }
 
-     enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+     "enum" attribute-specifier-sequenceopt identifieropt enum-type-specifier opt
           { enumerator-list , }
      
-     enum identifier enum-type-specifieropt
+     "enum" identifier enum-type-specifier opt
     */
     struct type_specifier_qualifier* type_specifier_qualifier;
     struct enumerator_list enumerator_list;
@@ -8850,7 +8855,7 @@ struct enumerator
     struct type_tag_id type_id;
     struct token* token;
 
-    struct expression* constant_expression;
+    struct expression* constant_expression_opt;
 
     struct enumerator* next;
     long long value;
@@ -9074,7 +9079,7 @@ bool is_predefined_constant(struct parser_ctx* ctx)
 {
     return ctx->current->type == TK_KEYWORD_TRUE ||
         ctx->current->type == TK_KEYWORD_FALSE ||
-        ctx->current->type == TK_KEYWORD_NULL;
+        ctx->current->type == TK_KEYWORD_NULLPTR;
 }
 
 bool is_first_of_constant(struct parser_ctx* ctx)
@@ -9509,7 +9514,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
             parser_match(ctx);
         }
-        else if (ctx->current->type == TK_KEYWORD_NULL)
+        else if (ctx->current->type == TK_KEYWORD_NULLPTR)
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
@@ -9517,8 +9522,9 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->last = ctx->current;
 
             p_expression_node->constant_value = 0;
-
-            p_expression_node->type.type_specifier_flags = type_specifier_long; //TODO
+            
+            /*TODO nullptr type*/
+            p_expression_node->type.type_specifier_flags = type_specifier_long;
             p_expression_node->type.type_qualifier_flags = 0;
             p_expression_node->type.declarator_type = NULL;
 
@@ -13730,12 +13736,12 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
     ctx->printf(" %s |", nbuffer);
 
     struct token* prev = p_token;
-    while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
+    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
     {
         prev = prev->prev;
     }
     struct token* next = prev;
-    while (next && next->type != TK_NEWLINE)
+    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
     {
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
@@ -14303,10 +14309,11 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
         break;
     case 'N':
-        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULL;
+        /*extension NULL alias for nullptr*/
+        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULLPTR;
         break;
     case 'n':
-        if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULL;
+        if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
         break;
     case 'l':
         if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
@@ -14784,15 +14791,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
 
     if (ctx->current->type != type)
     {
-        //print_scope(ctx->current_scope);
-        parser_seterror_with_token(ctx, ctx->current, "unexpected token ");
-        error->code = 1;
-
-        //printf("unexpected token %s %d:%d\n", ctx->current->pFile->lexeme, ctx->current->line, ctx->current->col);
-        //print_line(ctx->current);
-        printf("%s", error->message);
-
-        error->code = 1;
+        parser_seterror_with_token(ctx, ctx->current, "expected %s", get_token_name(type));
         return;
     }
     ctx->current = ctx->current->next;
@@ -16106,19 +16105,29 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
 struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* error)
 {
     struct enumerator_list enumeratorlist = { 0 };
-
-    //enumerator
-    //enumerator_list ',' enumerator
-    list_add(&enumeratorlist, enumerator(ctx, error));
-    while (error->code == 0 && ctx->current != NULL &&
-        ctx->current->type == ',')
+    try
     {
-        parser_match(ctx);  /*pode ter uma , vazia no fim*/
 
-        if (ctx->current->type != '}')
-            list_add(&enumeratorlist, enumerator(ctx, error));
+        //enumerator
+        //enumerator_list ',' enumerator
+        list_add(&enumeratorlist, enumerator(ctx, error));
+        if (error->code != 0) throw;
 
+        while (ctx->current != NULL &&
+               ctx->current->type == ',')
+        {
+            parser_match(ctx);  /*pode ter uma , vazia no fim*/
+
+            if (ctx->current->type != '}')
+                list_add(&enumeratorlist, enumerator(ctx, error));
+            
+            if (error->code != 0) throw;
+        }
     }
+    catch
+    {
+    }
+
     return enumeratorlist;
 }
 
@@ -16144,8 +16153,8 @@ struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
     {
         parser_match(ctx);
         struct expression_ctx ectx = { .bConstantExpressionRequired = true };
-        p_enumerator->constant_expression = constant_expression(ctx, error, &ectx);
-        p_enumerator->value = p_enumerator->constant_expression->constant_value;
+        p_enumerator->constant_expression_opt = constant_expression(ctx, error, &ectx);
+        p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
     }
 
     return p_enumerator;
@@ -19703,8 +19712,8 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 
 static void visit_enumerator(struct visit_ctx* ctx, struct enumerator* p_enumerator, struct error* error)
 {
-    if (p_enumerator->constant_expression)
-        visit_expression(ctx, p_enumerator->constant_expression, error);
+    if (p_enumerator->constant_expression_opt)
+        visit_expression(ctx, p_enumerator->constant_expression_opt, error);
 
 }
 
@@ -20091,7 +20100,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                 free(current->lexeme);
                 current->lexeme = strdup("((_Bool)0)");
             }
-            else if (current->type == TK_KEYWORD_NULL)
+            else if (current->type == TK_KEYWORD_NULLPTR)
             {
                 free(current->lexeme);
                 current->lexeme = strdup("((void*)0)");

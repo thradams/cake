@@ -142,10 +142,10 @@ enum token_type
     TK_KEYWORD__THREAD_LOCAL,
 
     TK_KEYWORD_TYPEOF, /*C23*/
-    TK_KEYWORD_TYPEID, //Thiago extension
+    TK_KEYWORD_TYPEID, //Extension
     TK_KEYWORD_TRUE,  /*C23*/
     TK_KEYWORD_FALSE,  /*C23*/
-    TK_KEYWORD_NULL,  /*Thiago extension*/
+    TK_KEYWORD_NULLPTR,  /*C23*/
     TK_KEYWORD_TYPEOF_UNQUAL, /*C23*/
     TK_KEYWORD__BITINT /*C23*/
 };

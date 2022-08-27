@@ -706,10 +706,11 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
         break;
     case 'N':
-        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULL;
+        /*extension NULL alias for nullptr*/
+        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULLPTR;
         break;
     case 'n':
-        if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULL;
+        if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
         break;
     case 'l':
         if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;

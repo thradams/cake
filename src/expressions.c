@@ -167,7 +167,7 @@ bool is_predefined_constant(struct parser_ctx* ctx)
 {
     return ctx->current->type == TK_KEYWORD_TRUE ||
         ctx->current->type == TK_KEYWORD_FALSE ||
-        ctx->current->type == TK_KEYWORD_NULL;
+        ctx->current->type == TK_KEYWORD_NULLPTR;
 }
 
 bool is_first_of_constant(struct parser_ctx* ctx)
@@ -602,7 +602,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
             parser_match(ctx);
         }
-        else if (ctx->current->type == TK_KEYWORD_NULL)
+        else if (ctx->current->type == TK_KEYWORD_NULLPTR)
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
@@ -610,8 +610,9 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->last = ctx->current;
 
             p_expression_node->constant_value = 0;
-
-            p_expression_node->type.type_specifier_flags = type_specifier_long; //TODO
+            
+            /*TODO nullptr type*/
+            p_expression_node->type.type_specifier_flags = type_specifier_long;
             p_expression_node->type.type_qualifier_flags = 0;
             p_expression_node->type.declarator_type = NULL;
 

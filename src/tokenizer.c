@@ -3915,7 +3915,7 @@ const char* get_token_name(enum token_type tk)
 
     case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE";
     case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE";
-    case TK_KEYWORD_NULL: return "TK_KEYWORD_NULL";
+    case TK_KEYWORD_NULLPTR: return "TK_KEYWORD_NULLPTR";
     case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER";
     case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT";
     case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";

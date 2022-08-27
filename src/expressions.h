@@ -83,7 +83,7 @@ struct generic_association
     /*
      generic-association:
        type-name : assignment-expression
-       default : assignment-expression
+       "default" : assignment-expression
     */
 
     struct type type;
@@ -106,7 +106,7 @@ struct generic_selection
 {
     /*
       generic-selection: 
-      _Generic ( assignment-expression , generic-assoc-list )
+      "_Generic" ( assignment-expression , generic-assoc-list )
     */
 
     
