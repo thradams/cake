@@ -544,8 +544,16 @@ struct type_qualifier* type_qualifier(struct parser_ctx* ctx, struct error* erro
 
 struct member_declaration
 {
+    /*
+     member-declaration:
+       attribute-specifier-sequence opt specifier-qualifier-list member-declarator-list opt ;
+       static_assert-declaration
+    */
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct member_declarator_list* member_declarator_list_opt;
+
+    struct static_assert_declaration* p_static_assert_declaration;
+
     struct member_declaration* next;
 };
 

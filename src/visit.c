@@ -551,19 +551,20 @@ static void visit_specifier_qualifier(struct visit_ctx* ctx, struct specifier_qu
         visit_type_qualifier(ctx, p_specifier_qualifier->type_qualifier, error);
 }
 
-static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list, struct error* error)
+static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt, struct error* error)
 {
-    //p_specifier_qualifier_list->enum_specifier
+    if (p_specifier_qualifier_list_opt == NULL)
+        return;
 
-    if (p_specifier_qualifier_list->struct_or_union_specifier)
+    if (p_specifier_qualifier_list_opt->struct_or_union_specifier)
     {
-        visit_struct_or_union_specifier(ctx, p_specifier_qualifier_list->struct_or_union_specifier, error);
+        visit_struct_or_union_specifier(ctx, p_specifier_qualifier_list_opt->struct_or_union_specifier, error);
     }
-    else if (p_specifier_qualifier_list->enum_specifier)
+    else if (p_specifier_qualifier_list_opt->enum_specifier)
     {
-        visit_enum_specifier(ctx, p_specifier_qualifier_list->enum_specifier, error);
+        visit_enum_specifier(ctx, p_specifier_qualifier_list_opt->enum_specifier, error);
     }
-    else if (p_specifier_qualifier_list->typedef_declarator)
+    else if (p_specifier_qualifier_list_opt->typedef_declarator)
     {
         //typedef name
     }
@@ -573,7 +574,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
     //}
     else
     {
-        struct specifier_qualifier* p_specifier_qualifier = p_specifier_qualifier_list->head;
+        struct specifier_qualifier* p_specifier_qualifier = p_specifier_qualifier_list_opt->head;
         while (p_specifier_qualifier)
         {
             visit_specifier_qualifier(ctx, p_specifier_qualifier, error);
