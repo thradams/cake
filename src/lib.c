@@ -7883,6 +7883,7 @@ bool type_is_array(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
 bool type_is_integer(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
+bool type_is_compatible(struct type* a, struct type* b);
 bool type_is_compatible_type_function_call(struct type* a, struct type* b);
 bool type_is_function_or_function_pointer(struct type* p_type);
 struct type get_pointer_content_type(struct type* p_type);
@@ -7993,7 +7994,7 @@ struct generic_association
     struct token* firstToken;
     struct token* lastToken;
 
-    struct generic_assoc* next;
+    struct generic_association* next;
 };
 
 struct generic_assoc_list
@@ -8104,9 +8105,10 @@ struct parser_ctx
     */
     struct scope_list scopes;
     
-
+    /*
+    * Points the the function we are inside or null
+    */
     struct declaration* p_current_function_opt;
-
 
     struct token_list inputList;
     struct token* current;
@@ -12386,6 +12388,16 @@ bool type_is_arithmetic(struct type* p_type)
             type_specifier_int64 |
             type_specifier_long_long
             );
+}
+
+bool type_is_compatible(struct type* a, struct type* b)
+{
+    //TODO
+
+    //if (!type_is_same(a, b))
+      //  return false;
+
+    return true;
 }
 
 bool type_is_compatible_type_function_call(struct type* a, struct type* b)
@@ -17720,7 +17732,10 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
             struct expression_ctx ectx = { 0 };
             p_jump_statement->expression = expression(ctx, error, &ectx);
 
-            if (!type_is_same(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
+            /*
+            * Check is return type is compatible with function return
+            */
+            if (!type_is_compatible(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
                 &p_jump_statement->expression->type))
             {
                 parser_seterror_with_token(ctx, p_jump_statement->expression->first, "return type is incompatible");
@@ -18293,8 +18308,6 @@ char* compile_source(const char* pszoptions, const char* content)
         }
 
         prectx.options = options;
-
-        struct error error = { 0 };
 
 
         if (options.bPreprocessOnly)
