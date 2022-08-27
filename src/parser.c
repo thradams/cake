@@ -2547,8 +2547,8 @@ struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
     {
         parser_match(ctx);
         struct expression_ctx ectx = { .bConstantExpressionRequired = true };
-        p_enumerator->constant_expression = constant_expression(ctx, error, &ectx);
-        p_enumerator->value = p_enumerator->constant_expression->constant_value;
+        p_enumerator->constant_expression_opt = constant_expression(ctx, error, &ectx);
+        p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
     }
 
     return p_enumerator;

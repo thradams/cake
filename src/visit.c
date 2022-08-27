@@ -1218,8 +1218,8 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 
 static void visit_enumerator(struct visit_ctx* ctx, struct enumerator* p_enumerator, struct error* error)
 {
-    if (p_enumerator->constant_expression)
-        visit_expression(ctx, p_enumerator->constant_expression, error);
+    if (p_enumerator->constant_expression_opt)
+        visit_expression(ctx, p_enumerator->constant_expression_opt, error);
 
 }
 

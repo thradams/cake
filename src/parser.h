@@ -796,7 +796,7 @@ struct enumerator
     struct type_tag_id type_id;
     struct token* token;
 
-    struct expression* constant_expression;
+    struct expression* constant_expression_opt;
 
     struct enumerator* next;
     long long value;
