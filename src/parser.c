@@ -133,12 +133,12 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
     ctx->printf(" %s |", nbuffer);
 
     struct token* prev = p_token;
-    while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
+    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
     {
         prev = prev->prev;
     }
     struct token* next = prev;
-    while (next && next->type != TK_NEWLINE)
+    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
     {
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
@@ -1187,15 +1187,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
 
     if (ctx->current->type != type)
     {
-        //print_scope(ctx->current_scope);
-        parser_seterror_with_token(ctx, ctx->current, "unexpected token ");
-        error->code = 1;
-
-        //printf("unexpected token %s %d:%d\n", ctx->current->pFile->lexeme, ctx->current->line, ctx->current->col);
-        //print_line(ctx->current);
-        printf("%s", error->message);
-
-        error->code = 1;
+        parser_seterror_with_token(ctx, ctx->current, "expected %s", get_token_name(type));
         return;
     }
     ctx->current = ctx->current->next;
@@ -2509,19 +2501,29 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
 struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* error)
 {
     struct enumerator_list enumeratorlist = { 0 };
-
-    //enumerator
-    //enumerator_list ',' enumerator
-    list_add(&enumeratorlist, enumerator(ctx, error));
-    while (error->code == 0 && ctx->current != NULL &&
-        ctx->current->type == ',')
+    try
     {
-        parser_match(ctx);  /*pode ter uma , vazia no fim*/
 
-        if (ctx->current->type != '}')
-            list_add(&enumeratorlist, enumerator(ctx, error));
+        //enumerator
+        //enumerator_list ',' enumerator
+        list_add(&enumeratorlist, enumerator(ctx, error));
+        if (error->code != 0) throw;
 
+        while (ctx->current != NULL &&
+               ctx->current->type == ',')
+        {
+            parser_match(ctx);  /*pode ter uma , vazia no fim*/
+
+            if (ctx->current->type != '}')
+                list_add(&enumeratorlist, enumerator(ctx, error));
+            
+            if (error->code != 0) throw;
+        }
     }
+    catch
+    {
+    }
+
     return enumeratorlist;
 }
 

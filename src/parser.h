@@ -268,13 +268,13 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* err
 struct enum_specifier
 {
     /*
-     enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+     "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt
       { enumerator-list }
 
-     enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+     "enum" attribute-specifier-sequenceopt identifieropt enum-type-specifier opt
           { enumerator-list , }
      
-     enum identifier enum-type-specifieropt
+     "enum" identifier enum-type-specifier opt
     */
     struct type_specifier_qualifier* type_specifier_qualifier;
     struct enumerator_list enumerator_list;
