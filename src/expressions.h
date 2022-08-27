@@ -111,7 +111,12 @@ struct generic_selection
 
     
     struct expression* expression;
+    
+    /*
+    * Points to the matching expression
+    */
     struct expression* p_view_selected_expression;
+
     struct generic_assoc_list generic_assoc_list;
     struct token* firstToken;
     struct token* lastToken;
