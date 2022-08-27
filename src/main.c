@@ -18,16 +18,16 @@ void help()
 {
 	printf("Cake " __DATE__ "\n"
 		"\n"
-		"usage: cake [options] source1.c source2.c ...\n"
-		"OPTIONS:\n"
-		"  --help                   Display this information.\n"
-		"  -E                       Preprocess only; do not compile, assemble or link.\n"
-		"  -o <file>                Place the output into <file>.\n"
-		"  -od <directory>          Output directory.\n"
-		"  -B <directory>           Add <directory> to the compiler's search paths.\n"
-		"  -r                       Remove comments\n"
-		"  -std=<standard>          input language: use -std=c99 -std=c11 -std=c2x\n"
-		"  -target-std=<standard>   ouput language: use -std=c99 -std=c11 -std=c2x\n"
+		"cake [options] source1.c source2.c ...\n"
+		"\n"
+		"Options\n"
+		"  -I               Adds a directory to the list of directories searched for include files.\n"
+		"  -D               Defines a preprocessing symbol for a source file.\n"
+		"  -E               Copies preprocessor output to standard output.\n"
+		"  -r               Remove all comments from the ouput file.\n"
+		"  -rm              Outputs preprocessed code after compilation.\n"
+		"  -target=standard Output target C standard (c99, c11, c2x, cxx).\n"
+		"  -std=standard    Assume that the input sources are for standard (c99, c11, c2x, cxx).\n"
 	);
 }
 
