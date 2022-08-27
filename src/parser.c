@@ -1488,10 +1488,10 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     {
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
-        assert(p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator);
+        assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator);
 
         struct scope* parameters_scope =
-            &p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator->parameters_scope;
+            &p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameters_scope;
 
 
         scope_list_push(&ctx->scopes, parameters_scope);
@@ -1504,11 +1504,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
         struct parameter_declaration* parameter = NULL;
 
-        if (p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator &&
-            p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt &&
-            p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list)
+        if (p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator &&
+            p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt &&
+            p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list)
         {
-            parameter = p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list->head;
+            parameter = p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
 
         /*parametros nao usados*/
@@ -1633,7 +1633,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
     return p_init_declarator;
 }
 
-struct init_declarator_list* init_declarator_list(struct parser_ctx* ctx,
+struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
     struct error* error)
 {
@@ -1642,16 +1642,16 @@ struct init_declarator_list* init_declarator_list(struct parser_ctx* ctx,
       init-declarator
       init-declarator-list , init-declarator
     */
-    struct init_declarator_list* p_init_declarator_list = calloc(1, sizeof(struct init_declarator_list));
-    list_add(p_init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
+    struct init_declarator_list init_declarator_list = { 0 };
+    list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
     while (error->code == 0 &&
         ctx->current != NULL && ctx->current->type == ',')
     {
         parser_match(ctx);
-        list_add(p_init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
+        list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
         if (error->code) break;
     }
-    return p_init_declarator_list;
+    return init_declarator_list;
 }
 
 struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx, struct error* error)
@@ -3898,9 +3898,8 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         if (first_of_declaration_specifier(ctx))
         {
             struct declaration_specifiers* p_declaration_specifiers = declaration_specifiers(ctx, error);
-            struct init_declarator_list* list = init_declarator_list(ctx, p_declaration_specifiers, error);
-            p_selection_statement->init_declarator = list->head; //so pode ter 1 
-            free(list);
+            struct init_declarator_list list = init_declarator_list(ctx, p_declaration_specifiers, error);
+            p_selection_statement->init_declarator = list.head; //only one
             parser_match_tk(ctx, ';', error);
         }
 

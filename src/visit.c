@@ -1489,7 +1489,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 token_list_append_list(&ctx->insert_before_declaration, &list3);
 
 
-                if (p_declaration->init_declarator_list == NULL)
+                if (p_declaration->init_declarator_list.head == NULL)
                 {
                     token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->first,
                         p_declaration->declaration_specifiers->struct_or_union_specifier->last,
@@ -1506,9 +1506,9 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     }
 
 
-    if (p_declaration->init_declarator_list)
+    if (p_declaration->init_declarator_list.head)
     {
-        visit_init_declarator_list(ctx, p_declaration->init_declarator_list, error);
+        visit_init_declarator_list(ctx, &p_declaration->init_declarator_list, error);
     }
 
     if (p_declaration->function_body)

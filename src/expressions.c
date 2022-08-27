@@ -2444,9 +2444,9 @@ void is_arithmetic_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct ast ast = get_ast(&options, "source", source, &error);
 
-    struct declarator* d1 = ast.declaration_list.head->init_declarator_list->head->declarator;
-    struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list->head->declarator;
-    struct declarator* d3 = ast.declaration_list.head->next->next->init_declarator_list->head->declarator;
+    struct declarator* d1 = ast.declaration_list.head->init_declarator_list.head->declarator;
+    struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list.head->declarator;
+    struct declarator* d3 = ast.declaration_list.head->next->next->init_declarator_list.head->declarator;
 
 
 
@@ -2474,8 +2474,8 @@ void type_is_pointer_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct ast ast = get_ast(&options, "source", source, &error);
 
-    struct declarator* d1 = ast.declaration_list.head->init_declarator_list->head->declarator;
-    struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list->head->declarator;
+    struct declarator* d1 = ast.declaration_list.head->init_declarator_list.head->declarator;
+    struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list.head->declarator;
 
     assert(!type_is_pointer(&d1->type));
     assert(type_is_array(&d1->type));

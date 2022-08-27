@@ -219,6 +219,13 @@ struct type_specifier
 };
 struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* error);
 
+struct init_declarator_list
+{
+    struct init_declarator* head;
+    struct init_declarator* tail;
+};
+struct init_declarator_list init_declarator_list(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
+
 
 struct declaration
 {
@@ -231,7 +238,7 @@ struct declaration
     struct static_assert_declaration* static_assert_declaration;
 
     struct declaration_specifiers* declaration_specifiers;
-    struct init_declarator_list* init_declarator_list;
+    struct init_declarator_list init_declarator_list;
 
     struct compound_statement* function_body;
 
@@ -318,12 +325,6 @@ struct struct_or_union_specifier
 };
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error);
 
-struct init_declarator_list
-{
-    struct init_declarator* head;
-    struct init_declarator* tail;
-};
-struct init_declarator_list* init_declarator_list(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
 
 struct init_declarator
 {

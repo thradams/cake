@@ -8273,6 +8273,13 @@ struct type_specifier
 };
 struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* error);
 
+struct init_declarator_list
+{
+    struct init_declarator* head;
+    struct init_declarator* tail;
+};
+struct init_declarator_list init_declarator_list(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
+
 
 struct declaration
 {
@@ -8285,7 +8292,7 @@ struct declaration
     struct static_assert_declaration* static_assert_declaration;
 
     struct declaration_specifiers* declaration_specifiers;
-    struct init_declarator_list* init_declarator_list;
+    struct init_declarator_list init_declarator_list;
 
     struct compound_statement* function_body;
 
@@ -8372,12 +8379,6 @@ struct struct_or_union_specifier
 };
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error);
 
-struct init_declarator_list
-{
-    struct init_declarator* head;
-    struct init_declarator* tail;
-};
-struct init_declarator_list* init_declarator_list(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
 
 struct init_declarator
 {
@@ -11340,9 +11341,9 @@ void is_arithmetic_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct ast ast = get_ast(&options, "source", source, &error);
 
-    struct declarator* d1 = ast.declaration_list.head->init_declarator_list->head->declarator;
-    struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list->head->declarator;
-    struct declarator* d3 = ast.declaration_list.head->next->next->init_declarator_list->head->declarator;
+    struct declarator* d1 = ast.declaration_list.head->init_declarator_list.head->declarator;
+    struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list.head->declarator;
+    struct declarator* d3 = ast.declaration_list.head->next->next->init_declarator_list.head->declarator;
 
 
 
@@ -11370,8 +11371,8 @@ void type_is_pointer_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct ast ast = get_ast(&options, "source", source, &error);
 
-    struct declarator* d1 = ast.declaration_list.head->init_declarator_list->head->declarator;
-    struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list->head->declarator;
+    struct declarator* d1 = ast.declaration_list.head->init_declarator_list.head->declarator;
+    struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list.head->declarator;
 
     assert(!type_is_pointer(&d1->type));
     assert(type_is_array(&d1->type));
@@ -12370,8 +12371,11 @@ bool type_is_arithmetic(struct type* p_type)
 
 bool type_is_compatible_type_function_call(struct type* a, struct type* b)
 {
+    //TODO
+    
     //if (!type_is_same(a, b))
       //  return false;
+
     return true;
 }
 
@@ -14243,157 +14247,132 @@ struct token* previous_parser_token(struct token* token)
 
 enum token_type is_keyword(const char* text)
 {
-    int ch = text[0];
+    enum token_type result = 0;
+    switch (text[0])
+    {
+    case 'a':
+        if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+        else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
+        else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
+        else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+        break;
+    case 'b':
+        if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
+        else if (strcmp("bool", text) == 0) result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
 
-    text++;
-    if (ch == 'i') {
-        if (strcmp("nt", text) == 0) return TK_KEYWORD_INT;
-        if (strcmp("f", text) == 0) return TK_KEYWORD_IF;
-        if (strcmp("nline", text) == 0) return TK_KEYWORD_INLINE;
-        return TK_NONE;
-    }
+        break;
+    case 'c':
+        if (strcmp("case", text) == 0) result = TK_KEYWORD_CASE;
+        else if (strcmp("char", text) == 0) result = TK_KEYWORD_CHAR;
+        else if (strcmp("const", text) == 0) result = TK_KEYWORD_CONST;
+        else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;
+        else if (strcmp("continue", text) == 0) result = TK_KEYWORD_CONTINUE;
+        else if (strcmp("catch", text) == 0) result = TK_KEYWORD_CATCH;
+        break;
+    case 'd':
+        if (strcmp("default", text) == 0) result = TK_KEYWORD_DEFAULT;
+        else if (strcmp("do", text) == 0) result = TK_KEYWORD_DO;
+        else if (strcmp("defer", text) == 0) result = TK_KEYWORD_DEFER;
+        else if (strcmp("double", text) == 0) result = TK_KEYWORD_DOUBLE;
+        break;
+    case 'e':
+        if (strcmp("else", text) == 0) result = TK_KEYWORD_ELSE;
+        else if (strcmp("enum", text) == 0) result = TK_KEYWORD_ENUM;
+        else if (strcmp("extern", text) == 0) result = TK_KEYWORD_EXTERN;
+        break;
+    case 'f':
+        if (strcmp("float", text) == 0) result = TK_KEYWORD_FLOAT;
+        else if (strcmp("for", text) == 0) result = TK_KEYWORD_FOR;
+        else if (strcmp("false", text) == 0) result = TK_KEYWORD_FALSE;
+        break;
+    case 'g':
+        if (strcmp("goto", text) == 0) result = TK_KEYWORD_GOTO;
+        break;
+    case 'i':
+        if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
+        else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
+        break;
+    case 'N':
+        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULL;
+        break;
+    case 'n':
+        if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULL;
+        break;
+    case 'l':
+        if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
+        break;
+    case 'r':
+        if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
+        else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
+        else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
+        else if (strcmp("repeat", text) == 0) result = TK_KEYWORD_REPEAT;
+        break;
+    case 's':
+        if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
+        else if (strcmp("signed", text) == 0) result = TK_KEYWORD_SIGNED;
+        else if (strcmp("sizeof", text) == 0) result = TK_KEYWORD_SIZEOF;
+        else if (strcmp("static", text) == 0) result = TK_KEYWORD_STATIC;
+        else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
+        else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
+        else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
 
-    if (ch == 'N') {
-        if (strcmp("ULL", text) == 0) return TK_KEYWORD_NULL;
-        return TK_NONE;
-    }
-
-
-    if (ch == 'b') {
-        if (strcmp("reak", text) == 0) return TK_KEYWORD_BREAK;
-        if (strcmp("ool", text) == 0) return TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
-        return TK_NONE;
-    }
-    if (ch == 'c') {
-        if (strcmp("ase", text) == 0) return TK_KEYWORD_CASE;
-        if (strcmp("har", text) == 0) return TK_KEYWORD_CHAR;
-        if (strcmp("onst", text) == 0) return TK_KEYWORD_CONST;
-        if (strcmp("onstexpr", text) == 0) return TK_KEYWORD_CONSTEXPR;
-        if (strcmp("ontinue", text) == 0) return TK_KEYWORD_CONTINUE;
-        if (strcmp("atch", text) == 0) return TK_KEYWORD_CATCH;
-        return TK_NONE;
-    }
-    if (ch == 'd') {
-        if (strcmp("efault", text) == 0) return TK_KEYWORD_DEFAULT;
-        if (strcmp("o", text) == 0) return TK_KEYWORD_DO;
-        if (strcmp("efer", text) == 0) return TK_KEYWORD_DEFER;
-        if (strcmp("ouble", text) == 0) return TK_KEYWORD_DOUBLE;
-        return TK_NONE;
-    }
-    if (ch == 'e') {
-        if (strcmp("lse", text) == 0) return TK_KEYWORD_ELSE;
-        if (strcmp("num", text) == 0) return TK_KEYWORD_ENUM;
-        if (strcmp("xtern", text) == 0) return TK_KEYWORD_EXTERN;
-        return TK_NONE;
-    }
-    if (ch == 'f') {
-        if (strcmp("alse", text) == 0) return TK_KEYWORD_FALSE;
-        if (strcmp("or", text) == 0) return TK_KEYWORD_FOR;
-        if (strcmp("loat", text) == 0) return TK_KEYWORD_FLOAT;
-
-        return TK_NONE;
-    }
-
-
-    if (ch == 'g') {
-        if (strcmp("oto", text) == 0) return TK_KEYWORD_GOTO;
-        return TK_NONE;
-    }
-
-
-    if (ch == 'n') {
-        if (strcmp("ullptr", text) == 0) return TK_KEYWORD_NULL;
-        return TK_NONE;
-    }
-    if (ch == 'l') {
-        if (strcmp("ong", text) == 0) return TK_KEYWORD_LONG;
-        return TK_NONE;
-    }
-    if (ch == 'r') {
-        if (strcmp("eturn", text) == 0) return TK_KEYWORD_RETURN;
-        if (strcmp("egister", text) == 0) return TK_KEYWORD_REGISTER;
-        if (strcmp("estrict", text) == 0) return TK_KEYWORD_RESTRICT;
-
-        if (strcmp("epeat", text) == 0) return TK_KEYWORD_REPEAT;
-        return TK_NONE;
-    }
-
-    if (ch == 's') {
-        if (strcmp("truct", text) == 0) return TK_KEYWORD_STRUCT;
-        if (strcmp("hort", text) == 0) return TK_KEYWORD_SHORT;
-        if (strcmp("igned", text) == 0) return TK_KEYWORD_SIGNED;
-        if (strcmp("izeof", text) == 0) return TK_KEYWORD_SIZEOF;
-        if (strcmp("tatic", text) == 0) return TK_KEYWORD_STATIC;
-        if (strcmp("witch", text) == 0) return TK_KEYWORD_SWITCH;
-        if (strcmp("tatic_assert", text) == 0) return TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
-        return TK_NONE;
-
-    }
-    if (ch == 't') {
-        if (strcmp("ypedef", text) == 0) return TK_KEYWORD_TYPEDEF;
-        if (strcmp("ypeof", text) == 0) return TK_KEYWORD_TYPEOF; /*C23*/
-        if (strcmp("ypeof_unqual", text) == 0) return TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
-        if (strcmp("ypeid", text) == 0) return TK_KEYWORD_TYPEID; /*EXTENSION*/
-        if (strcmp("rue", text) == 0) return TK_KEYWORD_TRUE; /*C23*/
-        if (strcmp("hread_local", text) == 0) return TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
-        if (strcmp("ry", text) == 0) return TK_KEYWORD_TRY;
-        if (strcmp("hrow", text) == 0) return TK_KEYWORD_THROW;
-        return TK_NONE;
-    }
-    if (ch == 'u') {
-        if (strcmp("nion", text) == 0) return TK_KEYWORD_UNION;
-        if (strcmp("nsigned", text) == 0) return TK_KEYWORD_UNSIGNED;
-        return TK_NONE;
-    }
-    if (ch == 'v') {
-        if (strcmp("oid", text) == 0) return TK_KEYWORD_VOID;
-        if (strcmp("olatile", text) == 0) return TK_KEYWORD_VOLATILE;
-        return TK_NONE;
-    }
-    if (ch == 'w') {
-        if (strcmp("hile", text) == 0) return TK_KEYWORD_WHILE;
-        return TK_NONE;
-    }
-    if (ch == 'a') {
-        if (strcmp("lignof", text) == 0) return TK_KEYWORD__ALIGNOF;
-        if (strcmp("uto", text) == 0) return TK_KEYWORD_AUTO;
-        if (strcmp("lignas", text) == 0) return TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
-        if (strcmp("lignof", text) == 0) return TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
-        return TK_NONE;
-    }
-
-    if (ch == '_') {
+        break;
+    case 't':
+        if (strcmp("typedef", text) == 0) result = TK_KEYWORD_TYPEDEF;
+        else if (strcmp("typeof", text) == 0) result = TK_KEYWORD_TYPEOF; /*C23*/
+        else if (strcmp("typeof_unqual", text) == 0) result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
+        else if (strcmp("typeid", text) == 0) result = TK_KEYWORD_TYPEID; /*EXTENSION*/
+        else if (strcmp("true", text) == 0) result = TK_KEYWORD_TRUE; /*C23*/
+        else if (strcmp("thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
+        else if (strcmp("try", text) == 0) result = TK_KEYWORD_TRY;
+        else if (strcmp("throw", text) == 0) result = TK_KEYWORD_THROW;
+        break;
+    case 'u':
+        if (strcmp("union", text) == 0) result = TK_KEYWORD_UNION;
+        else if (strcmp("unsigned", text) == 0) result = TK_KEYWORD_UNSIGNED;
+        break;
+    case 'v':
+        if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
+        else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
+        break;
+    case 'w':
+        if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
+        break;
+    case '_':
 
         //begin microsoft
-        if (strcmp("_int8", text) == 0) return TK_KEYWORD__INT8;
-        if (strcmp("_int16", text) == 0) return TK_KEYWORD__INT16;
-        if (strcmp("_int32", text) == 0) return TK_KEYWORD__INT32;
-        if (strcmp("_int64", text) == 0) return TK_KEYWORD__INT64;
-        if (strcmp("_forceinline", text) == 0) return TK_KEYWORD_INLINE;
-        if (strcmp("_inline", text) == 0) return TK_KEYWORD_INLINE;
-        if (strcmp("asm", text) == 0) return TK_KEYWORD__ASM;
-        if (strcmp("_asm", text) == 0) return TK_KEYWORD__ASM;
-        if (strcmp("_alignof", text) == 0) return TK_KEYWORD__ALIGNOF;
+        if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
+        else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
+        else if (strcmp("__int32", text) == 0) result = TK_KEYWORD__INT32;
+        else if (strcmp("__int64", text) == 0) result = TK_KEYWORD__INT64;
+        else if (strcmp("__forceinline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("__inline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0) result = TK_KEYWORD__ASM;
+        else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
         //
         //end microsoft
-        if (strcmp("Hashof", text) == 0) return TK_KEYWORD_HASHOF;
-        if (strcmp("Alignas", text) == 0) return TK_KEYWORD__ALIGNAS;
-        if (strcmp("Atomic", text) == 0) return TK_KEYWORD__ATOMIC;
-        if (strcmp("Bool", text) == 0) return TK_KEYWORD__BOOL;
-        if (strcmp("Complex", text) == 0) return TK_KEYWORD__COMPLEX;
-        if (strcmp("Decimal128", text) == 0) return TK_KEYWORD__DECIMAL32;
-        if (strcmp("Decimal64", text) == 0) return TK_KEYWORD__DECIMAL64;
-        if (strcmp("Decimal128", text) == 0) return TK_KEYWORD__DECIMAL128;
-        if (strcmp("Generic", text) == 0) return TK_KEYWORD__GENERIC;
-        if (strcmp("Imaginary", text) == 0) return TK_KEYWORD__IMAGINARY;
-        if (strcmp("Noreturn", text) == 0) return TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
-        if (strcmp("Static_assert", text) == 0) return TK_KEYWORD__STATIC_ASSERT;
-        if (strcmp("Thread_local", text) == 0) return TK_KEYWORD__THREAD_LOCAL;
-        if (strcmp("BitInt", text) == 0) return TK_KEYWORD__BITINT; /*(C23)*/
-        return TK_NONE;
+        else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
+        else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
+        else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
+        else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
+        else if (strcmp("_Complex", text) == 0) result = TK_KEYWORD__COMPLEX;
+        else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL32;
+        else if (strcmp("_Decimal64", text) == 0) result = TK_KEYWORD__DECIMAL64;
+        else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL128;
+        else if (strcmp("_Generic", text) == 0) result = TK_KEYWORD__GENERIC;
+        else if (strcmp("_Imaginary", text) == 0) result = TK_KEYWORD__IMAGINARY;
+        else if (strcmp("_Noreturn", text) == 0) result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
+        else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
+        else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
+        else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
+        break;
+    default:
+        break;
     }
-    return TK_NONE;
+    return result;
 }
+
 
 static void token_promote(struct token* token, struct error* error)
 {
@@ -15097,10 +15076,10 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     {
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
-        assert(p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator);
+        assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator);
 
         struct scope* parameters_scope =
-            &p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator->parameters_scope;
+            &p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameters_scope;
 
 
         scope_list_push(&ctx->scopes, parameters_scope);
@@ -15113,11 +15092,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
         struct parameter_declaration* parameter = NULL;
 
-        if (p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator &&
-            p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt &&
-            p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list)
+        if (p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator &&
+            p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt &&
+            p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list)
         {
-            parameter = p_declaration->init_declarator_list->head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list->head;
+            parameter = p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
 
         /*parametros nao usados*/
@@ -15242,7 +15221,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
     return p_init_declarator;
 }
 
-struct init_declarator_list* init_declarator_list(struct parser_ctx* ctx,
+struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
     struct error* error)
 {
@@ -15251,16 +15230,16 @@ struct init_declarator_list* init_declarator_list(struct parser_ctx* ctx,
       init-declarator
       init-declarator-list , init-declarator
     */
-    struct init_declarator_list* p_init_declarator_list = calloc(1, sizeof(struct init_declarator_list));
-    list_add(p_init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
+    struct init_declarator_list init_declarator_list = { 0 };
+    list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
     while (error->code == 0 &&
         ctx->current != NULL && ctx->current->type == ',')
     {
         parser_match(ctx);
-        list_add(p_init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
+        list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
         if (error->code) break;
     }
-    return p_init_declarator_list;
+    return init_declarator_list;
 }
 
 struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx, struct error* error)
@@ -17507,9 +17486,8 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         if (first_of_declaration_specifier(ctx))
         {
             struct declaration_specifiers* p_declaration_specifiers = declaration_specifiers(ctx, error);
-            struct init_declarator_list* list = init_declarator_list(ctx, p_declaration_specifiers, error);
-            p_selection_statement->init_declarator = list->head; //so pode ter 1 
-            free(list);
+            struct init_declarator_list list = init_declarator_list(ctx, p_declaration_specifiers, error);
+            p_selection_statement->init_declarator = list.head; //only one
             parser_match_tk(ctx, ';', error);
         }
 
@@ -19987,7 +19965,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 token_list_append_list(&ctx->insert_before_declaration, &list3);
 
 
-                if (p_declaration->init_declarator_list == NULL)
+                if (p_declaration->init_declarator_list.head == NULL)
                 {
                     token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->first,
                         p_declaration->declaration_specifiers->struct_or_union_specifier->last,
@@ -20004,9 +19982,9 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     }
 
 
-    if (p_declaration->init_declarator_list)
+    if (p_declaration->init_declarator_list.head)
     {
-        visit_init_declarator_list(ctx, p_declaration->init_declarator_list, error);
+        visit_init_declarator_list(ctx, &p_declaration->init_declarator_list, error);
     }
 
     if (p_declaration->function_body)
