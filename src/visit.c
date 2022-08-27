@@ -163,11 +163,10 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
 {
     if (p_unlabeled_statement->primary_block)
     {
-        if (p_unlabeled_statement->primary_block->compound_statement &&
-            p_unlabeled_statement->primary_block->compound_statement->block_item_list_opt)
+        if (p_unlabeled_statement->primary_block->compound_statement)
         {            
             struct block_item* block_item =
-                p_unlabeled_statement->primary_block->compound_statement->block_item_list_opt->head;
+                p_unlabeled_statement->primary_block->compound_statement->block_item_list.head;
             while (block_item)
             {
                 if (block_item->label &&
@@ -800,10 +799,9 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
     ctx->bInsideCompoundStatement = true;
-    if (p_compound_statement->block_item_list_opt)
-    {
-        visit_block_item_list(ctx, p_compound_statement->block_item_list_opt, error);
-    }
+    
+    visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
+    
     ctx->bInsideCompoundStatement = false;
 }
 
@@ -1430,13 +1428,12 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
 */
 static bool is_last_item_return(struct compound_statement* p_compound_statement)
 {
-    if (p_compound_statement &&
-        p_compound_statement->block_item_list_opt &&
-        p_compound_statement->block_item_list_opt->tail &&
-        p_compound_statement->block_item_list_opt->tail->unlabeled_statement &&
-        p_compound_statement->block_item_list_opt->tail->unlabeled_statement->jump_statement &&
-        p_compound_statement->block_item_list_opt->tail->unlabeled_statement->jump_statement->token &&
-        p_compound_statement->block_item_list_opt->tail->unlabeled_statement->jump_statement->token->type == TK_KEYWORD_RETURN)
+    if (p_compound_statement &&        
+        p_compound_statement->block_item_list.tail &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->token &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->token->type == TK_KEYWORD_RETURN)
     {
         return true;
     }

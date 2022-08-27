@@ -8598,8 +8598,16 @@ struct type_qualifier* type_qualifier(struct parser_ctx* ctx, struct error* erro
 
 struct member_declaration
 {
+    /*
+     member-declaration:
+       attribute-specifier-sequence opt specifier-qualifier-list member-declarator-list opt ;
+       static_assert-declaration
+    */
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct member_declarator_list* member_declarator_list_opt;
+
+    struct static_assert_declaration* p_static_assert_declaration;
+
     struct member_declaration* next;
 };
 
@@ -8621,13 +8629,20 @@ struct member_declarator_list* member_declarator_list(struct parser_ctx* ctx,
     struct specifier_qualifier_list* specifier_qualifier_list,
     struct error* error);
 
+struct block_item_list
+{
+    struct block_item* head;
+    struct block_item* tail;
+};
+struct block_item_list block_item_list(struct parser_ctx* ctx, struct error* error);
+
 
 struct compound_statement
 {
     struct token* first;
     struct token* last;
 
-    struct block_item_list* block_item_list_opt;
+    struct block_item_list block_item_list;
 };
 struct compound_statement* compound_statement(struct parser_ctx* ctx, struct error* error);
 
@@ -8695,12 +8710,6 @@ struct expression_statement
 };
 struct expression_statement* expression_statement(struct parser_ctx* ctx, struct error* error);
 
-struct block_item_list
-{
-    struct block_item* head;
-    struct block_item* tail;
-};
-struct block_item_list* block_item_list(struct parser_ctx* ctx, struct error* error);
 
 struct block_item
 {
@@ -15706,7 +15715,7 @@ struct member_declaration* member_declaration(struct parser_ctx* ctx, struct err
     //static_assert_declaration
     if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
     {
-        static_assert_declaration(ctx, error);
+        p_member_declaration->p_static_assert_declaration = static_assert_declaration(ctx, error);
     }
     else
     {
@@ -17310,7 +17319,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
     if (ctx->current->type != '}')
     {
-        p_compound_statement->block_item_list_opt = block_item_list(ctx, error);
+        p_compound_statement->block_item_list = block_item_list(ctx, error);
     }
 
     p_compound_statement->last = ctx->current;
@@ -17357,21 +17366,21 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
     return p_compound_statement;
 }
 
-struct block_item_list* block_item_list(struct parser_ctx* ctx, struct error* error)
+struct block_item_list block_item_list(struct parser_ctx* ctx, struct error* error)
 {
     /*
       block_item_list:
       block_item
       block_item_list block_item
     */
-    struct block_item_list* p_block_item_list = calloc(1, sizeof(struct block_item_list));
-    list_add(p_block_item_list, block_item(ctx, error));
+    struct block_item_list block_item_list = { 0 };
+    list_add(&block_item_list, block_item(ctx, error));
     while (error->code == 0 && ctx->current != NULL &&
         ctx->current->type != '}') //follow
     {
-        list_add(p_block_item_list, block_item(ctx, error));
+        list_add(&block_item_list, block_item(ctx, error));
     }
-    return p_block_item_list;
+    return block_item_list;
 }
 
 struct block_item* block_item(struct parser_ctx* ctx, struct error* error)
@@ -18639,11 +18648,10 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
 {
     if (p_unlabeled_statement->primary_block)
     {
-        if (p_unlabeled_statement->primary_block->compound_statement &&
-            p_unlabeled_statement->primary_block->compound_statement->block_item_list_opt)
+        if (p_unlabeled_statement->primary_block->compound_statement)
         {            
             struct block_item* block_item =
-                p_unlabeled_statement->primary_block->compound_statement->block_item_list_opt->head;
+                p_unlabeled_statement->primary_block->compound_statement->block_item_list.head;
             while (block_item)
             {
                 if (block_item->label &&
@@ -19027,19 +19035,20 @@ static void visit_specifier_qualifier(struct visit_ctx* ctx, struct specifier_qu
         visit_type_qualifier(ctx, p_specifier_qualifier->type_qualifier, error);
 }
 
-static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list, struct error* error)
+static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt, struct error* error)
 {
-    //p_specifier_qualifier_list->enum_specifier
+    if (p_specifier_qualifier_list_opt == NULL)
+        return;
 
-    if (p_specifier_qualifier_list->struct_or_union_specifier)
+    if (p_specifier_qualifier_list_opt->struct_or_union_specifier)
     {
-        visit_struct_or_union_specifier(ctx, p_specifier_qualifier_list->struct_or_union_specifier, error);
+        visit_struct_or_union_specifier(ctx, p_specifier_qualifier_list_opt->struct_or_union_specifier, error);
     }
-    else if (p_specifier_qualifier_list->enum_specifier)
+    else if (p_specifier_qualifier_list_opt->enum_specifier)
     {
-        visit_enum_specifier(ctx, p_specifier_qualifier_list->enum_specifier, error);
+        visit_enum_specifier(ctx, p_specifier_qualifier_list_opt->enum_specifier, error);
     }
-    else if (p_specifier_qualifier_list->typedef_declarator)
+    else if (p_specifier_qualifier_list_opt->typedef_declarator)
     {
         //typedef name
     }
@@ -19049,7 +19058,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
     //}
     else
     {
-        struct specifier_qualifier* p_specifier_qualifier = p_specifier_qualifier_list->head;
+        struct specifier_qualifier* p_specifier_qualifier = p_specifier_qualifier_list_opt->head;
         while (p_specifier_qualifier)
         {
             visit_specifier_qualifier(ctx, p_specifier_qualifier, error);
@@ -19275,10 +19284,9 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
     ctx->bInsideCompoundStatement = true;
-    if (p_compound_statement->block_item_list_opt)
-    {
-        visit_block_item_list(ctx, p_compound_statement->block_item_list_opt, error);
-    }
+    
+    visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
+    
     ctx->bInsideCompoundStatement = false;
 }
 
@@ -19905,13 +19913,12 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
 */
 static bool is_last_item_return(struct compound_statement* p_compound_statement)
 {
-    if (p_compound_statement &&
-        p_compound_statement->block_item_list_opt &&
-        p_compound_statement->block_item_list_opt->tail &&
-        p_compound_statement->block_item_list_opt->tail->unlabeled_statement &&
-        p_compound_statement->block_item_list_opt->tail->unlabeled_statement->jump_statement &&
-        p_compound_statement->block_item_list_opt->tail->unlabeled_statement->jump_statement->token &&
-        p_compound_statement->block_item_list_opt->tail->unlabeled_statement->jump_statement->token->type == TK_KEYWORD_RETURN)
+    if (p_compound_statement &&        
+        p_compound_statement->block_item_list.tail &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->token &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->token->type == TK_KEYWORD_RETURN)
     {
         return true;
     }

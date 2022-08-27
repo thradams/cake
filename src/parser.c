@@ -3722,7 +3722,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
     if (ctx->current->type != '}')
     {
-        p_compound_statement->block_item_list_opt = block_item_list(ctx, error);
+        p_compound_statement->block_item_list = block_item_list(ctx, error);
     }
 
     p_compound_statement->last = ctx->current;
@@ -3769,21 +3769,21 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
     return p_compound_statement;
 }
 
-struct block_item_list* block_item_list(struct parser_ctx* ctx, struct error* error)
+struct block_item_list block_item_list(struct parser_ctx* ctx, struct error* error)
 {
     /*
       block_item_list:
       block_item
       block_item_list block_item
     */
-    struct block_item_list* p_block_item_list = calloc(1, sizeof(struct block_item_list));
-    list_add(p_block_item_list, block_item(ctx, error));
+    struct block_item_list block_item_list = { 0 };
+    list_add(&block_item_list, block_item(ctx, error));
     while (error->code == 0 && ctx->current != NULL &&
         ctx->current->type != '}') //follow
     {
-        list_add(p_block_item_list, block_item(ctx, error));
+        list_add(&block_item_list, block_item(ctx, error));
     }
-    return p_block_item_list;
+    return block_item_list;
 }
 
 struct block_item* block_item(struct parser_ctx* ctx, struct error* error)

@@ -575,13 +575,20 @@ struct member_declarator_list* member_declarator_list(struct parser_ctx* ctx,
     struct specifier_qualifier_list* specifier_qualifier_list,
     struct error* error);
 
+struct block_item_list
+{
+    struct block_item* head;
+    struct block_item* tail;
+};
+struct block_item_list block_item_list(struct parser_ctx* ctx, struct error* error);
+
 
 struct compound_statement
 {
     struct token* first;
     struct token* last;
 
-    struct block_item_list* block_item_list_opt;
+    struct block_item_list block_item_list;
 };
 struct compound_statement* compound_statement(struct parser_ctx* ctx, struct error* error);
 
@@ -649,12 +656,6 @@ struct expression_statement
 };
 struct expression_statement* expression_statement(struct parser_ctx* ctx, struct error* error);
 
-struct block_item_list
-{
-    struct block_item* head;
-    struct block_item* tail;
-};
-struct block_item_list* block_item_list(struct parser_ctx* ctx, struct error* error);
 
 struct block_item
 {
