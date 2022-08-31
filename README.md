@@ -1,4 +1,4 @@
-# Cake
+# Description
 
 Cake is a C23 compiler frond end written from scratch in C.
 

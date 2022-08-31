@@ -474,6 +474,11 @@ struct options
     bool bRemoveComments;
     bool bPreprocessOnly;
     bool bRemoveMacros;
+    
+    /*
+    * true - to info about name convensions violations
+    */
+    bool bCheckNamingConventions;
 };
 
 
@@ -8095,6 +8100,8 @@ void scope_list_pop(struct scope_list* list);
 struct parser_ctx
 {
     enum LanguageVersion inputLanguage;
+    bool bCheckNamingConventions;
+
     /*
     There are four kinds of scopes:
     function,
@@ -8139,6 +8146,7 @@ void parser_seterror_with_token(struct parser_ctx* er, struct token* p_token, co
 char* CompileText(const char* options, const char* content);
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
+void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, char** argv, struct error* error);
 struct declaration_list parse(enum LanguageVersion input, struct token_list* list, struct error* error);
@@ -13643,6 +13651,16 @@ struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* er
 
 static int anonymous_struct_count = 0;
 
+///////////////////////////////////////////////////////////////////////////////
+void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token);
+void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token);
+void naming_convention_function(struct parser_ctx* ctx, struct token* token);
+void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token);
+void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type);
+void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type);
+
+///////////////////////////////////////////////////////////////////////////////
+
 /*coisas que vao em hash map possuim um id
 assim é possivel usar o mesmo mapa para achar tipos diferentes
 */
@@ -13787,6 +13805,150 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
 }
 
 
+void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
+{
+    ctx->n_warnings++;
+    int line = 0;
+    if (p_token)
+    {
+        if (p_token->pFile)
+        {
+            line = p_token->line;
+            ctx->printf(WHITE "%s:%d:%d: ",
+                p_token->pFile->lexeme,
+                p_token->line,
+                p_token->col);
+        }
+    }
+    else
+    {
+        ctx->printf(WHITE "<>");
+    }
+
+    char buffer[200] = { 0 };
+    va_list args;
+    va_start(args, fmt);
+    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+
+
+
+
+    ctx->printf(LIGHTGRAY);
+
+    char nbuffer[20] = { 0 };
+    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
+    ctx->printf(" %s |", nbuffer);
+
+    struct token* prev = p_token;
+    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
+    {
+        prev = prev->prev;
+    }
+    struct token* next = prev;
+    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
+    {
+        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+        {
+            /*
+            tokens expandidos da macro nao tem espaco entre
+            vamos adicionar para ver melhor
+            */
+            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            {
+                ctx->printf(" ");
+            }
+        }
+        ctx->printf("%s", next->lexeme);
+        next = next->next;
+    }
+    ctx->printf("\n");
+    ctx->printf(LIGHTGRAY);
+    ctx->printf(" %*s |", n, " ");
+    if (p_token)
+    {
+        for (int i = 1; i < (p_token->col - 1); i++)
+        {
+            ctx->printf(" ");
+        }
+    }
+    ctx->printf(LIGHTGREEN "^\n");
+}
+
+
+void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
+{
+    ctx->n_warnings++;
+    int line = 0;
+    if (p_token)
+    {
+        if (p_token->pFile)
+        {
+            line = p_token->line;
+            ctx->printf(WHITE "%s:%d:%d: ",
+                p_token->pFile->lexeme,
+                p_token->line,
+                p_token->col);
+        }
+    }
+    else
+    {
+        ctx->printf(WHITE "<>");
+    }
+
+    char buffer[200] = { 0 };
+    va_list args;
+    va_start(args, fmt);
+    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    ctx->printf(LIGHTCYAN "info: " WHITE "%s\n", buffer);
+
+
+
+
+    ctx->printf(LIGHTGRAY);
+
+    char nbuffer[20] = { 0 };
+    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
+    ctx->printf(" %s |", nbuffer);
+
+    struct token* prev = p_token;
+    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
+    {
+        prev = prev->prev;
+    }
+    struct token* next = prev;
+    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
+    {
+        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+        {
+            /*
+            tokens expandidos da macro nao tem espaco entre
+            vamos adicionar para ver melhor
+            */
+            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            {
+                ctx->printf(" ");
+            }
+        }
+        ctx->printf("%s", next->lexeme);
+        next = next->next;
+    }
+    ctx->printf("\n");
+    ctx->printf(LIGHTGRAY);
+    ctx->printf(" %*s |", n, " ");
+    if (p_token)
+    {
+        for (int i = 1; i < (p_token->col - 1); i++)
+        {
+            ctx->printf(" ");
+        }
+    }
+    ctx->printf(LIGHTGREEN "^\n");
+}
 
 
 void print_scope(struct scope_list* e)
@@ -13964,7 +14126,7 @@ struct type_tag_id* find_variables(struct parser_ctx* ctx, const char* lexeme, s
 
 
 
-struct enum_specifier  * find_enum_specifier(struct parser_ctx* ctx, const char* lexeme)
+struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* lexeme)
 {
 
     struct enum_specifier* best = NULL;
@@ -15098,6 +15260,8 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     struct declaration* p_declaration = declaration_core(ctx, true, &is_function_definition, error);
     if (is_function_definition)
     {
+        naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name);
+
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
@@ -15635,6 +15799,9 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
 
     if (ctx->current->type == '{')
     {
+        if (pStruct_or_union_specifier->tagtoken)
+            naming_convention_struct_tag(ctx, pStruct_or_union_specifier->tagtoken);
+
         struct token* first = ctx->current;
         parser_match(ctx);
         pStruct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, error);
@@ -15681,7 +15848,9 @@ struct member_declarator* member_declarator(struct parser_ctx* ctx,
     p_member_declarator->declarator->type =
         make_type_using_declarator(ctx, p_member_declarator->declarator);
 
-    //push_declarator(ctx, pdeclarator);
+    if (p_member_declarator->name)
+        naming_convention_struct_member(ctx, p_member_declarator->name, &p_member_declarator->declarator->type);
+
     if (ctx->current->type == ':')
     {
         parser_match(ctx);
@@ -16052,6 +16221,9 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
 
         if (ctx->current->type == '{')
         {
+            if (p_enum_specifier->tag_token)
+                naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
+
             /*TODO redeclaration?*/
             /*adicionar no escopo*/
             if (p_enum_specifier->tag_token)
@@ -16079,7 +16251,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
                 throw;
             }
 
-            
+
             /*searches for this tag in the current scope*/
             struct type_tag_id* tag_type_id = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
             if (tag_type_id)
@@ -16112,7 +16284,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             }
 
 
-        }     
+        }
     }
     catch
     {}
@@ -16131,13 +16303,13 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* err
         if (error->code != 0) throw;
 
         while (ctx->current != NULL &&
-               ctx->current->type == ',')
+            ctx->current->type == ',')
         {
             parser_match(ctx);  /*pode ter uma , vazia no fim*/
 
             if (ctx->current->type != '}')
                 list_add(&enumeratorlist, enumerator(ctx, error));
-            
+
             if (error->code != 0) throw;
         }
     }
@@ -16157,7 +16329,9 @@ struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
     //enumeration_constant attribute_specifier_sequence_opt
     //enumeration_constant attribute_specifier_sequence_opt '=' constant_expression
     struct token* name = ctx->current;
-    //printf("case %s: return \"%s\";\n", ctx->current->lexeme, ctx->current->lexeme);
+
+    naming_convention_enumerator(ctx, name);
+
 
     parser_match_tk(ctx, TK_IDENTIFIER, error);
     attribute_specifier_sequence_opt(ctx, error);
@@ -16282,11 +16456,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx, error);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pptokenName, error);
 
-    if (p_declarator->direct_declarator &&
-        p_declarator->direct_declarator->name)
-    {
-        p_declarator->name = p_declarator->direct_declarator->name;
-    }
+
     return p_declarator;
 }
 
@@ -16399,8 +16569,8 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
             struct token* ahead = parser_look_ahead(ctx);
 
             if (!first_of_type_specifier_token(ctx, p_token_ahead) &&
-                !first_of_type_qualifier_token(p_token_ahead) && 
-                ahead->type != ')' && 
+                !first_of_type_qualifier_token(p_token_ahead) &&
+                ahead->type != ')' &&
                 ahead->type != '...')
             {
                 //look ahead para nao confundir (declarator) com parametros funcao ex void (int)
@@ -16676,6 +16846,9 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx, stru
 
     p_parameter_declaration->declarator->type =
         make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+
+    if (p_parameter_declaration->name)
+        naming_convention_parameter(ctx, p_parameter_declaration->name, &p_parameter_declaration->declarator->type);
 
     //coloca o pametro no escpo atual que deve apontar para escopo paramtros
     // da funcao .
@@ -18370,7 +18543,101 @@ void ast_destroy(struct ast* ast)
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);
 }
+static bool is_all_upper(const char* text)
+{
+    const char* p = text;
+    while (*p)
+    {
+        if (*p != toupper(*p))
+        {
+            return false;            
+        }
+        p++;
+    }
+    return true;
+}
 
+static bool is_snake_case(const char* text)
+{
+    if (text == NULL)
+        return true;
+
+    return (text[0] >= 'a' && text[0] <= 'z');
+}
+
+static bool is_camel_case(const char* text)
+{
+    return (text[0] >= 'a' && text[0] <= 'z');
+}
+
+static bool is_pascal_case(const char* text)
+{
+    return (text[0] >= 'A' && text[0] <= 'Z');
+}
+/*
+ * This naming conventions are not ready yet...
+ * but not dificult to implement.maybe options to choose style
+ */
+void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
+{
+    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+        return;
+
+    if (!is_snake_case(token->lexeme)) {
+        parser_set_info_with_token(ctx, token, "use snake_case for struct/union tags");
+    }
+}
+
+void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
+{
+    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+        return;
+
+    if (!is_snake_case(token->lexeme)) {
+        parser_set_info_with_token(ctx, token, "use snake_case for enum tags");
+    }
+}
+
+void naming_convention_function(struct parser_ctx* ctx, struct token* token)
+{
+    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+        return;
+
+
+    if (!is_snake_case(token->lexeme)) {
+        parser_set_info_with_token(ctx, token, "use snake_case for functions");
+    }
+}
+
+void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
+{
+    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+        return;
+
+    if (!is_all_upper(token->lexeme)) {
+        parser_set_info_with_token(ctx, token, "use UPPERCASE for enumerators");
+    }
+}
+
+void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
+{
+    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+        return;
+
+    if (!is_snake_case(token->lexeme)) {
+        parser_set_info_with_token(ctx, token, "use snake_case for struct members");
+    }
+}
+
+void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
+{
+    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+        return;
+
+    if (!is_snake_case(token->lexeme)) {
+        parser_set_info_with_token(ctx, token, "use snake_case for arguments");
+    }
+}
 
 #ifdef TEST
 
@@ -18458,9 +18725,9 @@ void type_test2()
 
 void type_test3()
 {
-    char* src =        
+    char* src =
         "int i;"
-        "int (*f)(void);"  
+        "int (*f)(void);"
         " static_assert(typeid(&i) == typeid(int *));"
         " static_assert(typeid(&f) == typeid(int (**)(void)));"
         ;

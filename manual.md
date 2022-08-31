@@ -1,8 +1,5 @@
 
-[Home](index.html) | [Playground](playground.html)
-
-
-# Manual
+# Command line
 
 
 ```
@@ -23,7 +20,7 @@ The ouput dir is `./out`
 On windows, if you run cake at the visual studio command prompt cake 
 uses the same include files used by msvc. (No need for -I)
 
-## Transformations
+# Transformations
 
 ## C99
 C99 is the minimum target. Do you need C89?

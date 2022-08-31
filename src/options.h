@@ -20,4 +20,9 @@ struct options
     bool bRemoveComments;
     bool bPreprocessOnly;
     bool bRemoveMacros;
+    
+    /*
+    * true - to info about name convensions violations
+    */
+    bool bCheckNamingConventions;
 };

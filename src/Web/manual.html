@@ -8,10 +8,88 @@
      <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
-<p><a href="index.html">Home</a> | <a href="playground.html">Playground</a></p>
-
-<h1>Manual</h1>
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
+<h1>Cake</h1>
+<ul>
+<li>
+<a href="#toc_0">Command line</a>
+</li>
+<li>
+<a href="#toc_1">Transformations</a>
+<ul>
+<li>
+<a href="#toc_2">C99</a>
+</li>
+<li>
+<a href="#toc_3">C11 Thread_local/Atomic</a>
+</li>
+<li>
+<a href="#toc_4">C11 Generics</a>
+</li>
+<li>
+<a href="#toc_5">C11 u8&quot;literals&quot;</a>
+</li>
+<li>
+<a href="#toc_6">C11 Static_assert</a>
+</li>
+<li>
+<a href="#toc_7">C23 Decimal32, Decimal64, and Decimal128</a>
+</li>
+<li>
+<a href="#toc_8">C11 Noreturn</a>
+</li>
+<li>
+<a href="#toc_9">C23 static<em>assert / Single-argument Static</em>assert</a>
+</li>
+<li>
+<a href="#toc_10">C23 u8 char literal</a>
+</li>
+<li>
+<a href="#toc_11">C23 {} empty initializer</a>
+</li>
+<li>
+<a href="#toc_12">C23 auto</a>
+</li>
+<li>
+<a href="#toc_13">C23 typeof / typeof_unqual</a>
+</li>
+<li>
+<a href="#toc_14">C23 constexpr</a>
+</li>
+<li>
+<a href="#toc_15">C23 enuns with type</a>
+</li>
+<li>
+<a href="#toc_16">C23 Attributes</a>
+</li>
+<li>
+<a href="#toc_17">C23 has_attribute</a>
+</li>
+<li>
+<a href="#toc_18">C23 has_include</a>
+</li>
+<li>
+<a href="#toc_19">C23 warning</a>
+</li>
+<li>
+<a href="#toc_20">C23 embed</a>
+</li>
+<li>
+<a href="#toc_21">C23 VAOPT</a>
+</li>
+<li>
+<a href="#toc_22">C23 BitInt(N))</a>
+</li>
+<li>
+<a href="#toc_23">elifdef elifndef</a>
+</li>
+<li>
+<a href="#toc_24">Extensions</a>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="toc_0">Command line</h1>
 
 <pre><code>cake [options] source1.c source2.c ...
 
@@ -31,42 +109,42 @@ Options
 <p>On windows, if you run cake at the visual studio command prompt cake 
 uses the same include files used by msvc. (No need for -I)</p>
 
-<h2>Transformations</h2>
+<h1 id="toc_1">Transformations</h1>
 
-<h2>C99</h2>
+<h2 id="toc_2">C99</h2>
 
 <p>C99 is the minimum target. Do you need C89?</p>
 
-<h2>C11 Thread_local/Atomic</h2>
+<h2 id="toc_3">C11 Thread_local/Atomic</h2>
 
 <p>Parsed but not transformed.</p>
 
-<h2>C11 Generics</h2>
+<h2 id="toc_4">C11 Generics</h2>
 
 <p>When compiling to versions &lt; C11 we keep the expression that matches the type.</p>
 
-<h2>C11 u8&quot;literals&quot;</h2>
+<h2 id="toc_5">C11 u8&quot;literals&quot;</h2>
 
 <p>u8 literals are converted to escape sequecences. (I don&#39;t recoment u8&quot;&quot;)</p>
 
-<h2>C11 Static_assert</h2>
+<h2 id="toc_6">C11 Static_assert</h2>
 
 <p>When compiling to versions &lt; C11 static_assert is removed</p>
 
-<h2>C23 Decimal32, Decimal64, and Decimal128</h2>
+<h2 id="toc_7">C23 Decimal32, Decimal64, and Decimal128</h2>
 
 <p>Not implemented (maybe parsed?)</p>
 
-<h2>C11 Noreturn</h2>
+<h2 id="toc_8">C11 Noreturn</h2>
 
 <p>Parsed. Todo needs to be replaced by <code>[[_Noreturn]]</code> in C23</p>
 
-<h2>C23 static<em>assert / Single-argument Static</em>assert</h2>
+<h2 id="toc_9">C23 static<em>assert / Single-argument Static</em>assert</h2>
 
 <p>In C23 <code>static_assert</code> can be used as keyword and the message is optional.
 Compiling to C11 we add some dumy message is necessary and we use the previous keyword <code>_Static_assert</code></p>
 
-<h2>C23 u8 char literal</h2>
+<h2 id="toc_10">C23 u8 char literal</h2>
 
 <p>not implemented yet.</p>
 
@@ -87,62 +165,62 @@ Compiling to C11 we add some dumy message is necessary and we use the previous k
 <p>When compiling to version &lt; 23 bool is replaced with <code>_Bool</code>, true is replaced with <code>((_Bool)1)</code> and false
 with <code>(_Bool)0)</code></p>
 
-<h2>C23 {} empty initializer</h2>
+<h2 id="toc_11">C23 {} empty initializer</h2>
 
 <p>Cake transform {} into {0}. </p>
 
-<h2>C23 auto</h2>
+<h2 id="toc_12">C23 auto</h2>
 
 <p>not implemented yet</p>
 
-<h2>C23 typeof / typeof_unqual</h2>
+<h2 id="toc_13">C23 typeof / typeof_unqual</h2>
 
 <p>When compiling to versions &lt; 23 we replace typeof by the equivalent type. 
 This can be a little complex in some cases.</p>
 
-<h2>C23 constexpr</h2>
+<h2 id="toc_14">C23 constexpr</h2>
 
 <p>Not implemented yet (maybe parsed?)</p>
 
-<h2>C23 enuns with type</h2>
+<h2 id="toc_15">C23 enuns with type</h2>
 
 <p>Not implemented yet (not parsed yet)</p>
 
-<h2>C23 Attributes</h2>
+<h2 id="toc_16">C23 Attributes</h2>
 
 <p>Attributes are being parsed and removed in some places. More work is necessary.</p>
 
-<h2>C23 has_attribute</h2>
+<h2 id="toc_17">C23 has_attribute</h2>
 
 <p>Yes but need work/review.</p>
 
-<h2>C23 has_include</h2>
+<h2 id="toc_18">C23 has_include</h2>
 
 <p>Yes. But this does not make sense unless for direct compilation -mr.
 Transpiling to 1 or 0 would represent the machine where the code
 was transpiled but not where generated code will be compiled.</p>
 
-<h2>C23 warning</h2>
+<h2 id="toc_19">C23 warning</h2>
 
 <p>When compiling to versions &lt; 23 it is commented</p>
 
-<h2>C23 embed</h2>
+<h2 id="toc_20">C23 embed</h2>
 
 <p>When compiling to versions &lt; 23 the line is replaces by the numbers</p>
 
-<h2>C23 VAOPT</h2>
+<h2 id="toc_21">C23 VAOPT</h2>
 
 <p>Yes but need work.</p>
 
-<h2>C23 BitInt(N))</h2>
+<h2 id="toc_22">C23 BitInt(N))</h2>
 
 <p>Not implemented</p>
 
-<h2>elifdef elifndef</h2>
+<h2 id="toc_23">elifdef elifndef</h2>
 
 <p>Are implemented</p>
 
-<h2>Extensions</h2>
+<h2 id="toc_24">Extensions</h2>
 
 <h3>try catch throw</h3>
 

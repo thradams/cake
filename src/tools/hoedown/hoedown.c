@@ -432,24 +432,11 @@ main(int argc, char **argv)
 
 	/* Write the result to stdout */
 
-#define STR \
-"<!DOCTYPE html>\n"\
-"<html>\n"\
-"<head>\n"\
-"  \n"\
-"    <link rel=\"stylesheet\" href=\"default.min.css\">\n"\
-"    <script src=\"highlight.min.js\"></script>\n"\
-"    <script>hljs.highlightAll();</script>\n"\
-"     <link rel=\"stylesheet\" href=\"style.css\" />\n"\
-"</head>\n"\
-"<body>\n"
 	
-	puts(STR);
 
 	(void)fwrite(ob->data, 1, ob->size, stdout);
 	hoedown_buffer_free(ob);
-
-	puts("</body></html>");
+	
 		
 	if (ferror(stdout)) {
 		fprintf(stderr, "I/O errors found while writing output.\n");

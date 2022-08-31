@@ -35,6 +35,8 @@ void scope_list_pop(struct scope_list* list);
 struct parser_ctx
 {
     enum LanguageVersion inputLanguage;
+    bool bCheckNamingConventions;
+
     /*
     There are four kinds of scopes:
     function,
@@ -79,6 +81,7 @@ void parser_seterror_with_token(struct parser_ctx* er, struct token* p_token, co
 char* CompileText(const char* options, const char* content);
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
+void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, char** argv, struct error* error);
 struct declaration_list parse(enum LanguageVersion input, struct token_list* list, struct error* error);

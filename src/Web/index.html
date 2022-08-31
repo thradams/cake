@@ -8,8 +8,49 @@
      <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
 <h1>Cake</h1>
+<ul>
+<li>
+<a href="#toc_0">Description</a>
+</li>
+<li>
+<a href="#toc_1">Web Playground</a>
+</li>
+<li>
+<a href="#toc_2">Features</a>
+</li>
+<li>
+<a href="#toc_3">Build</a>
+<ul>
+<li>
+<a href="#toc_4">Windows</a>
+</li>
+<li>
+<a href="#toc_5">Linux</a>
+</li>
+<li>
+<a href="#toc_6">Build web</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_7">Command line</a>
+</li>
+<li>
+<a href="#toc_8">Road map</a>
+</li>
+<li>
+<a href="#toc_9">References</a>
+</li>
+<li>
+<a href="#toc_10">Influenced by</a>
+</li>
+<li>
+<a href="#toc_11">How cake is tested?</a>
+</li>
+</ul>
+<h1 id="toc_0">Description</h1>
 
 <p>Cake is a C23 compiler frond end written from scratch in C.</p>
 
@@ -20,13 +61,13 @@ to C99.</p>
 
 <p>Extensions like lambdas,  defer and more where implemented.</p>
 
-<h1>Web Playground</h1>
+<h1 id="toc_1">Web Playground</h1>
 
 <p>This is the best way to try.</p>
 
 <p><a href="http://thradams.com/web3/playground.html">http://thradams.com/web3/playground.html</a></p>
 
-<h1>Features</h1>
+<h1 id="toc_2">Features</h1>
 
 <ul>
 <li>C23 preprocessor</li>
@@ -36,9 +77,9 @@ to C99.</p>
 <li>Builds AST </li>
 </ul>
 
-<h1>Build</h1>
+<h1 id="toc_3">Build</h1>
 
-<h2>Windows</h2>
+<h2 id="toc_4">Windows</h2>
 
 <p>Open the Developer Command Prompt of visual studio. Go to the src directoy and type</p>
 
@@ -47,7 +88,7 @@ to C99.</p>
 
 <p>This will build <code>cake.exe</code>.</p>
 
-<h2>Linux</h2>
+<h2 id="toc_5">Linux</h2>
 
 <p>Got to the <code>src</code> directory and type:</p>
 
@@ -59,7 +100,7 @@ to C99.</p>
 <pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<h2>Build web</h2>
+<h2 id="toc_6">Build web</h2>
 
 <p>emscriptem <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
 
@@ -74,7 +115,7 @@ to C99.</p>
 
 <p>This will generate the cake.js</p>
 
-<h1>Command line</h1>
+<h1 id="toc_7">Command line</h1>
 
 <p>Make sure cake is on your system path.</p>
 
@@ -87,7 +128,7 @@ to C99.</p>
 
 <p>See <a href="manual.html">Manual</a></p>
 
-<h1>Road map</h1>
+<h1 id="toc_8">Road map</h1>
 
 <ul>
 <li>Complete semantic analisys</li>
@@ -95,18 +136,18 @@ to C99.</p>
 <li>Backend, maybe qbe <a href="https://c9x.me/compile/">QBE</a></li>
 </ul>
 
-<h1>References</h1>
+<h1 id="toc_9">References</h1>
 
 <p>A copy of each C standard draft in included in <code>docs</code> folder. The parser is based on C23.</p>
 
-<h1>Influenced by</h1>
+<h1 id="toc_10">Influenced by</h1>
 
 <ul>
 <li>Typescript</li>
 <li>Small C compilers</li>
 </ul>
 
-<h1>How cake is tested?</h1>
+<h1 id="toc_11">How cake is tested?</h1>
 
 <p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
 the includes of MSVC and it generates the <code>out</code> dir after build.</p>

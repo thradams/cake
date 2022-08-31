@@ -151,6 +151,43 @@ void compile_cprime()
 #endif
 }
 
+void generate_doc(const char* mdfilename, const char* outfile)
+{
+    const char* header =
+        "<!DOCTYPE html>\n"
+        "<html>\n"
+        "<head>\n"
+        "  \n"
+        "    <link rel=\"stylesheet\" href=\"default.min.css\">\n"
+        "    <script src=\"highlight.min.js\"></script>\n"
+        "    <script>hljs.highlightAll();</script>\n"
+        "     <link rel=\"stylesheet\" href=\"style.css\" />\n"
+        "</head>\n"
+        "<body>\n"
+        "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"playground.html\">Playground</a></p>\n"
+        "<h1>Cake</h1>\n";
+
+    FILE* f2 = fopen(outfile /*"./web/index.html"*/, "w");
+    if (f2)
+    {
+        fwrite(header, 1, strlen(header), f2);
+        fclose(f2);
+    }
+    char cmd[200];
+    snprintf(cmd, sizeof cmd, RUN "hoedown.exe --html-toc --toc-level 2 --autolink --fenced-code %s >> %s", mdfilename, outfile);
+    if (system(cmd) != 0) exit(1);
+
+    snprintf(cmd, sizeof cmd, RUN "hoedown.exe  --toc-level 2 --autolink --fenced-code %s >> %s", mdfilename, outfile);
+    if (system(cmd) != 0) exit(1);
+
+    FILE* f3 = fopen(outfile /*"./web/index.html"*/, "a");
+    if (f3)
+    {
+        fwrite("</body></html>", 1, strlen("</body></html>"), f3);
+        fclose(f3);
+    }
+}
+
 int build_main()
 {
 
@@ -169,9 +206,14 @@ int build_main()
 
     chdir("..");
     chdir("..");
+    
+   /*
+    * Generates documentation from md files
+    */
 
-    if (system(RUN "hoedown.exe --autolink --fenced-code ../manual.md > ./web/manual.html ") != 0) exit(1);
-    if (system(RUN "hoedown.exe --autolink --fenced-code ../README.md > ./web/index.html ") != 0) exit(1);
+    generate_doc("../manual.md", "./web/manual.html");
+    generate_doc("../README.md", "./web/index.html");
+
     remove("hoedown.exe");
 
     if (system(RUN "maketest.exe unit_test.c " SOURCE_FILES) != 0) exit(1);
