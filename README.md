@@ -98,6 +98,14 @@ See [Manual](manual.html)
 * Typescript
 * Small C compilers
 
+# Status?
+Even if not necessary for most features, I want Cake to make a full semantic analysis.
+
+It is necessary more work it is not complete yet.
+
+One thing that is missing is check for type compatibility  for instance when
+calling a function void F(int i) with F(1.2);
+
 
 # How cake is tested?
 
@@ -107,8 +115,7 @@ the includes of MSVC and it generates the `out` dir after build.
 Cake source code is not using any extension so the output is the same of input. 
 This compilation is usefull for tracking errors.
 
-
-
+Cake uses unit tests that are called automatically.
 
 
 
