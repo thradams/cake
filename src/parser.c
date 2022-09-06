@@ -983,8 +983,8 @@ struct token* parser_look_ahead(struct parser_ctx* ctx)
 bool is_binary_digit(struct stream* stream)
 {
     return stream->current[0] >= '0' && stream->current[0] <= '1';
-
 }
+
 bool is_hexadecimal_digit(struct stream* stream)
 {
     return (stream->current[0] >= '0' && stream->current[0] <= '9') ||
@@ -3393,7 +3393,6 @@ struct type_name* type_name(struct parser_ctx* ctx, struct error* error)
 struct braced_initializer* braced_initializer(struct parser_ctx* ctx, struct error* error)
 {
     /*
-     Não esta  no padrão. foi adicionado
      { }
      { initializer-list }
      { initializer-list , }
@@ -3415,13 +3414,9 @@ struct braced_initializer* braced_initializer(struct parser_ctx* ctx, struct err
 struct initializer* initializer(struct parser_ctx* ctx, struct error* error)
 {
     /*
-     initializer:
-       assignment-expression
-
-      bracket-initializer-list: modified from C23 grammar
-      { }
-      { initializer-list }
-      { initializer-list , }
+    initializer:
+      assignment-expression
+      braced-initializer
     */
 
     struct initializer* p_initializer = calloc(1, sizeof(struct initializer));
@@ -3445,12 +3440,10 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx, struct error* 
 {
     /*
     initializer-list:
-     designation_opt initializer
-     initializer-list , designation_opt initializer
+       designation opt initializer
+       initializer-list , designation opt initializer
     */
-
-    //designation_opt initializer
-    //initializer_list ',' designation_opt initializer
+    
 
     struct initializer_list* p_initializer_list = calloc(1, sizeof(struct initializer_list));
 
@@ -3535,8 +3528,12 @@ struct designator* designator(struct parser_ctx* ctx, struct error* error)
 struct static_assert_declaration* static_assert_declaration(struct parser_ctx* ctx, struct error* error)
 {
 
-    //'_Static_assert' '(' constant_expression ',' string_literal ')' ';'
-    //'_Static_assert' '(' constant_expression ')' ';'
+   /*
+    static_assert-declaration:
+     "static_assert" ( constant-expression , string-literal ) ;
+     "static_assert" ( constant-expression ) ;
+   */
+
     struct static_assert_declaration* p_static_assert_declaration = calloc(1, sizeof(struct static_assert_declaration));
     try
     {
@@ -3768,6 +3765,7 @@ struct statement* statement(struct parser_ctx* ctx, struct error* error)
     //unlabeled_statement
     return p_statement;
 }
+
 struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
 {
     struct primary_block* p_primary_block = calloc(1, sizeof(struct primary_block));
