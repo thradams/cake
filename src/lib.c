@@ -8951,11 +8951,11 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
 struct expression* shift_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
 struct expression* relational_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
 struct expression* equality_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* AND_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* exclusive_OR_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* inclusive_OR_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* logical_AND_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* logical_OR_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct expression* and_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
 struct expression* conditional_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
 struct expression* expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
 struct expression* conditional_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
@@ -10667,7 +10667,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
     return p_expression_node;
 }
 
-struct expression* AND_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* and_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
     if (error->code != 0)
         return NULL;
@@ -10715,7 +10715,7 @@ struct expression* AND_expression(struct parser_ctx* ctx, struct error* error, s
     return p_expression_node;
 }
 
-struct expression* exclusive_OR_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
     if (error->code != 0)
         return NULL;
@@ -10728,7 +10728,7 @@ struct expression* exclusive_OR_expression(struct parser_ctx* ctx, struct error*
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = AND_expression(ctx, error, ectx);
+        p_expression_node = and_expression(ctx, error, ectx);
         if (error->code != 0)
             throw;
 
@@ -10739,7 +10739,7 @@ struct expression* exclusive_OR_expression(struct parser_ctx* ctx, struct error*
             struct expression* pNew = calloc(1, sizeof * pNew);
             pNew->expression_type = EXCLUSIVE_OR_EXPRESSION;
             pNew->left = p_expression_node;
-            pNew->right = AND_expression(ctx, error, ectx);
+            pNew->right = and_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
@@ -10763,7 +10763,7 @@ struct expression* exclusive_OR_expression(struct parser_ctx* ctx, struct error*
     return p_expression_node;
 }
 
-struct expression* inclusive_OR_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
     if (error->code != 0)
         return NULL;
@@ -10776,7 +10776,7 @@ struct expression* inclusive_OR_expression(struct parser_ctx* ctx, struct error*
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = exclusive_OR_expression(ctx, error, ectx);
+        p_expression_node = exclusive_or_expression(ctx, error, ectx);
         if (error->code != 0)
             throw;
 
@@ -10788,7 +10788,7 @@ struct expression* inclusive_OR_expression(struct parser_ctx* ctx, struct error*
 
             pNew->expression_type = INCLUSIVE_OR_EXPRESSION;
             pNew->left = p_expression_node;
-            pNew->right = exclusive_OR_expression(ctx, error, ectx);
+            pNew->right = exclusive_or_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
@@ -10811,7 +10811,7 @@ struct expression* inclusive_OR_expression(struct parser_ctx* ctx, struct error*
     return p_expression_node;
 }
 
-struct expression* logical_AND_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
     if (error->code != 0)
         return NULL;
@@ -10824,7 +10824,7 @@ struct expression* logical_AND_expression(struct parser_ctx* ctx, struct error* 
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = inclusive_OR_expression(ctx, error, ectx);
+        p_expression_node = inclusive_or_expression(ctx, error, ectx);
         if (error->code != 0)
             throw;
 
@@ -10835,7 +10835,7 @@ struct expression* logical_AND_expression(struct parser_ctx* ctx, struct error* 
             struct expression* pNew = calloc(1, sizeof * pNew);
             pNew->expression_type = INCLUSIVE_AND_EXPRESSION;
             pNew->left = p_expression_node;
-            pNew->right = inclusive_OR_expression(ctx, error, ectx);
+            pNew->right = inclusive_or_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
@@ -10858,7 +10858,7 @@ struct expression* logical_AND_expression(struct parser_ctx* ctx, struct error* 
     return p_expression_node;
 }
 
-struct expression* logical_OR_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
     /*
       logical-OR-expression:
@@ -10871,7 +10871,7 @@ struct expression* logical_OR_expression(struct parser_ctx* ctx, struct error* e
         if (error->code != 0)
             throw;
 
-        p_expression_node = logical_AND_expression(ctx, error, ectx);
+        p_expression_node = logical_and_expression(ctx, error, ectx);
         if (error->code != 0)
             throw;
 
@@ -10882,7 +10882,7 @@ struct expression* logical_OR_expression(struct parser_ctx* ctx, struct error* e
             struct expression* pNew = calloc(1, sizeof * pNew);
             pNew->expression_type = LOGICAL_OR_EXPRESSION;
             pNew->left = p_expression_node;
-            pNew->right = logical_AND_expression(ctx, error, ectx);
+            pNew->right = logical_and_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
@@ -11025,7 +11025,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx, struct error* 
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = logical_OR_expression(ctx, error, ectx);
+        p_expression_node = logical_or_expression(ctx, error, ectx);
         if (error->code != 0)
             throw;
 
@@ -17082,7 +17082,7 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx, struct error* 
        designation opt initializer
        initializer-list , designation opt initializer
     */
-    
+
 
     struct initializer_list* p_initializer_list = calloc(1, sizeof(struct initializer_list));
 
@@ -17167,11 +17167,11 @@ struct designator* designator(struct parser_ctx* ctx, struct error* error)
 struct static_assert_declaration* static_assert_declaration(struct parser_ctx* ctx, struct error* error)
 {
 
-   /*
-    static_assert-declaration:
-     "static_assert" ( constant-expression , string-literal ) ;
-     "static_assert" ( constant-expression ) ;
-   */
+    /*
+     static_assert-declaration:
+      "static_assert" ( constant-expression , string-literal ) ;
+      "static_assert" ( constant-expression ) ;
+    */
 
     struct static_assert_declaration* p_static_assert_declaration = calloc(1, sizeof(struct static_assert_declaration));
     try
@@ -18566,7 +18566,7 @@ static bool is_all_upper(const char* text)
     {
         if (*p != toupper(*p))
         {
-            return false;            
+            return false;
         }
         p++;
     }

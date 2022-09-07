@@ -3456,7 +3456,7 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx, struct error* 
        designation opt initializer
        initializer-list , designation opt initializer
     */
-    
+
 
     struct initializer_list* p_initializer_list = calloc(1, sizeof(struct initializer_list));
 
@@ -3541,11 +3541,11 @@ struct designator* designator(struct parser_ctx* ctx, struct error* error)
 struct static_assert_declaration* static_assert_declaration(struct parser_ctx* ctx, struct error* error)
 {
 
-   /*
-    static_assert-declaration:
-     "static_assert" ( constant-expression , string-literal ) ;
-     "static_assert" ( constant-expression ) ;
-   */
+    /*
+     static_assert-declaration:
+      "static_assert" ( constant-expression , string-literal ) ;
+      "static_assert" ( constant-expression ) ;
+    */
 
     struct static_assert_declaration* p_static_assert_declaration = calloc(1, sizeof(struct static_assert_declaration));
     try
@@ -4940,7 +4940,7 @@ static bool is_all_upper(const char* text)
     {
         if (*p != toupper(*p))
         {
-            return false;            
+            return false;
         }
         p++;
     }
