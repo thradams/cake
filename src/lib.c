@@ -7765,44 +7765,44 @@ struct parser_ctx;
 
 enum type_specifier_flags
 {
-    type_specifier_none = 0,
-    type_specifier_void = 1 << 0,
-    type_specifier_char = 1 << 1,
-    type_specifier_short = 1 << 2,
-    type_specifier_int = 1 << 3,
-    type_specifier_long = 1 << 4,
+    TYPE_SPECIFIER_NONE = 0,
+    TYPE_SPECIFIER_VOID = 1 << 0,
+    TYPE_SPECIFIER_CHAR = 1 << 1,
+    TYPE_SPECIFIER_SHORT = 1 << 2,
+    TYPE_SPECIFIER_INT = 1 << 3,
+    TYPE_SPECIFIER_LONG = 1 << 4,
 
-    type_specifier_float = 1 << 5,
-    type_specifier_double = 1 << 6,
-    type_specifier_signed = 1 << 7,
-    type_specifier_unsigned = 1 << 8,
-    type_specifier_bool = 1 << 9,
-    type_specifier_complex = 1 << 10,
-    type_specifier_decimal32 = 1 << 11,
-    type_specifier_decimal64 = 1 << 12,
-    type_specifier_decimal128 = 1 << 13,
-    type_specifier_atomic = 1 << 14,
-    type_specifier_struct_or_union = 1 << 15,
-    type_specifier_enum = 1 << 16,
-    type_specifier_typedef = 1 << 17,
+    TYPE_SPECIFIER_FLOAT = 1 << 5,
+    TYPE_SPECIFIER_DOUBLE = 1 << 6,
+    TYPE_SPECIFIER_SIGNED = 1 << 7,
+    TYPE_SPECIFIER_UNSIGNED = 1 << 8,
+    TYPE_SPECIFIER_BOOL = 1 << 9,
+    TYPE_SPECIFIER_COMPLEX = 1 << 10,
+    TYPE_SPECIFIER_DECIMAL32 = 1 << 11,
+    TYPE_SPECIFIER_DECIMAL64 = 1 << 12,
+    TYPE_SPECIFIER_DECIMAL128 = 1 << 13,
+    TYPE_SPECIFIER_ATOMIC = 1 << 14,
+    TYPE_SPECIFIER_STRUCT_OR_UNION = 1 << 15,
+    TYPE_SPECIFIER_ENUM = 1 << 16,
+    TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-    //microsoft
-    type_specifier_int8 = 1 << 18,
-    type_specifier_int16 = 1 << 19,
-    type_specifier_int32 = 1 << 20,
-    type_specifier_int64 = 1 << 21,
+    //MICROSOFT
+    TYPE_SPECIFIER_INT8 = 1 << 18,
+    TYPE_SPECIFIER_INT16 = 1 << 19,
+    TYPE_SPECIFIER_INT32 = 1 << 20,
+    TYPE_SPECIFIER_INT64 = 1 << 21,
 
-    type_specifier_long_long = 1 << 22,
-    type_specifier_typeof = 1 << 23,
+    TYPE_SPECIFIER_LONG_LONG = 1 << 22,
+    TYPE_SPECIFIER_TYPEOF = 1 << 23,
 };
 
 enum type_qualifier_flags
 {
-    type_qualifier_none,
-    type_qualifier_const = 1 << 0,
-    type_qualifier_restrict = 1 << 1,
-    type_qualifier_volatile = 1 << 2,
-    type_qualifier__Atomic = 1 << 3,
+    TYPE_QUALIFIER_NONE,
+    TYPE_QUALIFIER_CONST = 1 << 0,
+    TYPE_QUALIFIER_RESTRICT = 1 << 1,
+    TYPE_QUALIFIER_VOLATILE = 1 << 2,
+    TYPE_QUALIFIER__ATOMIC = 1 << 3,
 };
 
 
@@ -8986,7 +8986,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             /*detectar que o parametro é (void)*/
             bVoid =
                 p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head &&
-                p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->type_specifier_flags == type_specifier_void &&
+                p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
                 p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->declarator_type->pointers.head == NULL;
         }
 
@@ -9357,7 +9357,7 @@ int convert_to_number(struct token* token, struct expression* p_expression_node,
     {
     case TK_COMPILER_DECIMAL_CONSTANT:
 
-        if (flags && type_specifier_unsigned)
+        if (flags && TYPE_SPECIFIER_UNSIGNED)
         {
             p_expression_node->constant_value = strtoll(buffer, 0, 10);
         }
@@ -9377,12 +9377,12 @@ int convert_to_number(struct token* token, struct expression* p_expression_node,
         p_expression_node->constant_value = strtoll(buffer + 2, 0, 2);
         break;
     case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
-        //p_expression_node->type.type_specifier_flags |= type_specifier_double;
+        //p_expression_node->type.type_specifier_flags |= TYPE_SPECIFIER_DOUBLE;
         //result = atof(buffer, 0, 10); 
         //assert(false);
         break;
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        //p_expression_node->type.type_specifier_flags |= type_specifier_double;
+        //p_expression_node->type.type_specifier_flags |= TYPE_SPECIFIER_DOUBLE;
         //assert(false);
         break;
     default:
@@ -9465,8 +9465,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
             p_expression_node->first = ctx->current;
             p_expression_node->last = ctx->current;
-            p_expression_node->type.type_qualifier_flags = type_qualifier_const;
-            p_expression_node->type.type_specifier_flags = type_specifier_char;
+            p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
 
             //printf("TODO warning correct type for literals not implemented yet\n");
             //DECLARE_AND_CREATE_STRUCT_POINTER(direct_declarator_type);
@@ -9521,7 +9521,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->constant_value =
                 ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0;
 
-            p_expression_node->type.type_specifier_flags = type_specifier_bool;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
             p_expression_node->type.declarator_type = NULL;
 
@@ -9538,7 +9538,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->constant_value = 0;
             
             /*TODO nullptr type*/
-            p_expression_node->type.type_specifier_flags = type_specifier_long;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             p_expression_node->type.type_qualifier_flags = 0;
             p_expression_node->type.declarator_type = NULL;
 
@@ -9735,7 +9735,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 p_expression_node_new->left = p_expression_node;
 
                 parser_match(ctx);
-                if (p_expression_node->type.type_specifier_flags & type_specifier_struct_or_union)
+                if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p =
                         find_struct_or_union_specifier(ctx,
@@ -9776,7 +9776,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 p_expression_node_new->left = p_expression_node;
 
                 parser_match(ctx);
-                if (p_expression_node->type.type_specifier_flags & type_specifier_struct_or_union)
+                if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p = find_struct_or_union_specifier(ctx,
                         p_expression_node->type.struct_or_union_specifier->tagName);
@@ -12349,22 +12349,22 @@ bool type_is_integer(struct type* p_type)
         return false;
 
     //TODO long double
-    if (p_type->type_specifier_flags & (type_specifier_float | type_specifier_double))
+    if (p_type->type_specifier_flags & (TYPE_SPECIFIER_FLOAT | TYPE_SPECIFIER_DOUBLE))
     {
         return false;
     }
 
     return p_type->type_specifier_flags &
-        (type_specifier_char |
-            type_specifier_short |
-            type_specifier_int |
-            type_specifier_long |
-            type_specifier_signed |
-            type_specifier_unsigned |
-            type_specifier_int8 |
-            type_specifier_int16 |
-            type_specifier_int64 |
-            type_specifier_long_long);
+        (TYPE_SPECIFIER_CHAR |
+            TYPE_SPECIFIER_SHORT |
+            TYPE_SPECIFIER_INT |
+            TYPE_SPECIFIER_LONG |
+            TYPE_SPECIFIER_SIGNED |
+            TYPE_SPECIFIER_UNSIGNED |
+            TYPE_SPECIFIER_INT8 |
+            TYPE_SPECIFIER_INT16 |
+            TYPE_SPECIFIER_INT64 |
+            TYPE_SPECIFIER_LONG_LONG);
 }
 
 /*beeem amplo*/
@@ -12378,23 +12378,23 @@ bool type_is_arithmetic(struct type* p_type)
 
     return p_type->type_specifier_flags &
         (
-            type_specifier_float |
-            type_specifier_double |
+            TYPE_SPECIFIER_FLOAT |
+            TYPE_SPECIFIER_DOUBLE |
 
-            type_specifier_decimal32 |
-            type_specifier_decimal64 |
-            type_specifier_decimal128 |
+            TYPE_SPECIFIER_DECIMAL32 |
+            TYPE_SPECIFIER_DECIMAL64 |
+            TYPE_SPECIFIER_DECIMAL128 |
 
-            type_specifier_char |
-            type_specifier_short |
-            type_specifier_int |
-            type_specifier_long |
-            type_specifier_signed |
-            type_specifier_unsigned |
-            type_specifier_int8 |
-            type_specifier_int16 |
-            type_specifier_int64 |
-            type_specifier_long_long
+            TYPE_SPECIFIER_CHAR |
+            TYPE_SPECIFIER_SHORT |
+            TYPE_SPECIFIER_INT |
+            TYPE_SPECIFIER_LONG |
+            TYPE_SPECIFIER_SIGNED |
+            TYPE_SPECIFIER_UNSIGNED |
+            TYPE_SPECIFIER_INT8 |
+            TYPE_SPECIFIER_INT16 |
+            TYPE_SPECIFIER_INT64 |
+            TYPE_SPECIFIER_LONG_LONG
             );
 }
 
@@ -12613,44 +12613,44 @@ int type_get_rank(struct type* p_type1, struct error* error)
     }
 
     int rank = 0;
-    if ((p_type1->type_specifier_flags & type_specifier_bool))
+    if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL))
     {
         rank = 10;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_char) ||
-        (p_type1->type_specifier_flags & type_specifier_int8))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT8))
     {
         rank = 20;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_short) ||
-        (p_type1->type_specifier_flags & type_specifier_int16))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT16))
     {
         rank = 30;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_int) ||
-        (p_type1->type_specifier_flags & type_specifier_enum))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_INT) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_ENUM))
     {
         rank = 40;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_long) ||
-        (p_type1->type_specifier_flags & type_specifier_int32))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT32))
     {
         rank = 50;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_float))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_FLOAT))
     {
         rank = 60;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_double))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_DOUBLE))
     {
         rank = 70;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_long_long) ||
-        (p_type1->type_specifier_flags & type_specifier_int64))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT64))
     {
         rank = 80;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_struct_or_union))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
     {
         seterror(error, "internal error - struct is not valid for rank");
     }
@@ -12736,71 +12736,71 @@ int type_get_sizeof(struct parser_ctx* ctx, struct type* p_type, struct error* e
         }
         else {
 
-            if (p_type->type_specifier_flags & type_specifier_char)
+            if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
             {
                 size = sizeof(char);
             }
-            else if (p_type->type_specifier_flags & type_specifier_bool)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
                 size = sizeof(_Bool);
             }
-            else if (p_type->type_specifier_flags & type_specifier_short)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
             {
                 size = sizeof(int);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
             {
                 size = sizeof(int);
             }
-            else if (p_type->type_specifier_flags & type_specifier_long)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
             {
                 size = sizeof(long);
             }
-            else if (p_type->type_specifier_flags & type_specifier_long_long)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             {
                 size = sizeof(long long);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int64)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
             {
                 size = sizeof(long long);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int32)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
             {
                 size = sizeof(long);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int16)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
             {
                 size = sizeof(short);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int8)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
             {
                 size = sizeof(char);
             }
-            else if (p_type->type_specifier_flags & type_specifier_double)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
             {
                 size = sizeof(double);
             }
-            else if (p_type->type_specifier_flags & type_specifier_struct_or_union)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
             {
                 size = 1;       //TODO
             }
-            else if (p_type->type_specifier_flags & type_specifier_enum)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
             {
                 size = sizeof(int);
             }
-            else if (p_type->type_specifier_flags == type_specifier_none)
+            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
             {
                 seterror(error, "type information is missing");
                 throw;
             }
-            else if (p_type->type_specifier_flags == type_specifier_typeof)
+            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
             {
                 size = 1; //TODO
                 //assert(false);
                 //;; size =
                     //  type_get_sizeof(ctx, struct type* p_type, struct error* error)
             }
-            else if (p_type->type_specifier_flags == type_specifier_void)
+            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
             {
                 //
             }
@@ -12841,51 +12841,51 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
     try
     {
 
-        if (p_type->type_specifier_flags & type_specifier_char)
+        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
             //size = sizeof(char);
         }
-        else if (p_type->type_specifier_flags & type_specifier_bool)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
         {
             //size = sizeof(_Bool);
         }
-        else if (p_type->type_specifier_flags & type_specifier_short)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
             //size = sizeof(int);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
         {
             //size = sizeof(int);
         }
-        else if (p_type->type_specifier_flags & type_specifier_long)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
         {
             //size = sizeof(long);
         }
-        else if (p_type->type_specifier_flags & type_specifier_long_long)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
             //size = sizeof(long long);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int64)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
         {
             //size = sizeof(long long);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int32)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
         {
             //size = sizeof(long);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int16)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
         {
             //size = sizeof(short);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int8)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
         {
             //size = sizeof(char);
         }
-        else if (p_type->type_specifier_flags & type_specifier_double)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
             //size = sizeof(double);
         }
-        else if (p_type->type_specifier_flags & type_specifier_struct_or_union)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
             struct osstream ss = { 0 };
 
@@ -12912,23 +12912,23 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
             hash = stringhash(ss.c_str);
             ss_close(&ss);
         }
-        else if (p_type->type_specifier_flags & type_specifier_enum)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
             //size = sizeof(int);
         }
-        else if (p_type->type_specifier_flags == type_specifier_none)
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
             seterror(error, "type information is missing");
             throw;
         }
-        else if (p_type->type_specifier_flags == type_specifier_typeof)
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
         {
             //s//ize = 1; //TODO
             //assert(false);
             //;; size =
                 //  type_get_sizeof(ctx, struct type* p_type, struct error* error)
         }
-        else if (p_type->type_specifier_flags == type_specifier_void)
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
         {
             if (p_type->declarator_type &&
                 p_type->declarator_type->pointers.head != NULL)
@@ -13315,7 +13315,7 @@ struct declarator_type* find_inner_declarator(struct declarator_type* p_declarat
 
 void type_set_int(struct type* p_type)
 {
-    p_type->type_specifier_flags = type_specifier_int;
+    p_type->type_specifier_flags = TYPE_SPECIFIER_INT;
     p_type->type_qualifier_flags = 0;
     p_type->declarator_type = NULL;
 }
@@ -14699,7 +14699,7 @@ void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* flags_
 
         if (flags_opt)
         {
-            *flags_opt |= type_specifier_unsigned;
+            *flags_opt |= TYPE_SPECIFIER_UNSIGNED;
         }
 
         /*long-suffixopt*/
@@ -14707,8 +14707,8 @@ void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* flags_
         {
             if (flags_opt)
             {
-                *flags_opt = *flags_opt & ~type_specifier_int;
-                *flags_opt |= type_specifier_long;
+                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_INT;
+                *flags_opt |= TYPE_SPECIFIER_LONG;
             }
             stream_match(stream);
         }
@@ -14718,8 +14718,8 @@ void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* flags_
         {
             if (flags_opt)
             {
-                *flags_opt = *flags_opt & ~type_specifier_long;
-                *flags_opt |= type_specifier_long_long;
+                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_LONG;
+                *flags_opt |= TYPE_SPECIFIER_LONG_LONG;
             }
 
             stream_match(stream);
@@ -14729,8 +14729,8 @@ void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* flags_
     {
         if (flags_opt)
         {
-            *flags_opt = *flags_opt & ~type_specifier_int;
-            *flags_opt |= type_specifier_long;
+            *flags_opt = *flags_opt & ~TYPE_SPECIFIER_INT;
+            *flags_opt |= TYPE_SPECIFIER_LONG;
         }
 
         /*long-suffix*/
@@ -14741,8 +14741,8 @@ void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* flags_
         {
             if (flags_opt)
             {
-                *flags_opt = *flags_opt & ~type_specifier_long;
-                *flags_opt |= type_specifier_long_long;
+                *flags_opt = *flags_opt & ~TYPE_SPECIFIER_LONG;
+                *flags_opt |= TYPE_SPECIFIER_LONG_LONG;
             }
             stream_match(stream);
         }
@@ -14752,7 +14752,7 @@ void integer_suffix_opt(struct stream* stream, enum type_specifier_flags* flags_
         {
             if (flags_opt)
             {
-                *flags_opt |= type_specifier_unsigned;
+                *flags_opt |= TYPE_SPECIFIER_UNSIGNED;
             }
             stream_match(stream);
         }
@@ -14780,17 +14780,17 @@ void exponent_part_opt(struct stream* stream)
 
 enum type_specifier_flags floating_suffix_opt(struct stream* stream)
 {
-    enum type_specifier_flags f = type_specifier_double;
+    enum type_specifier_flags f = TYPE_SPECIFIER_DOUBLE;
 
 
     if (stream->current[0] == 'l' || stream->current[0] == 'L')
     {
-        f = type_specifier_long | type_specifier_double;
+        f = TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE;
         stream_match(stream);
     }
     else if (stream->current[0] == 'f' || stream->current[0] == 'F')
     {
-        f = type_specifier_float;
+        f = TYPE_SPECIFIER_FLOAT;
         stream_match(stream);
     }
 
@@ -14808,7 +14808,7 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
 {
     if (flags_opt)
     {
-        *flags_opt = type_specifier_int;
+        *flags_opt = TYPE_SPECIFIER_INT;
     }
 
 
@@ -15011,16 +15011,16 @@ void print_declaration_specifiers(struct osstream* ss, struct declaration_specif
 
 bool type_specifier_is_integer(enum type_specifier_flags flags)
 {
-    if ((flags & type_specifier_char) ||
-        (flags & type_specifier_short) ||
-        (flags & type_specifier_int) ||
-        (flags & type_specifier_long) ||
-        (flags & type_specifier_int) ||
-        (flags & type_specifier_int8) ||
-        (flags & type_specifier_int16) ||
-        (flags & type_specifier_int32) ||
-        (flags & type_specifier_int64) ||
-        (flags & type_specifier_long_long))
+    if ((flags & TYPE_SPECIFIER_CHAR) ||
+        (flags & TYPE_SPECIFIER_SHORT) ||
+        (flags & TYPE_SPECIFIER_INT) ||
+        (flags & TYPE_SPECIFIER_LONG) ||
+        (flags & TYPE_SPECIFIER_INT) ||
+        (flags & TYPE_SPECIFIER_INT8) ||
+        (flags & TYPE_SPECIFIER_INT16) ||
+        (flags & TYPE_SPECIFIER_INT32) ||
+        (flags & TYPE_SPECIFIER_INT64) ||
+        (flags & TYPE_SPECIFIER_LONG_LONG))
     {
         return true;
     }
@@ -15031,13 +15031,13 @@ int final_specifier(struct parser_ctx* ctx,
     struct error* error)
 {
     ctx;
-    if (((*flags) & type_specifier_unsigned) ||
-        ((*flags) & type_specifier_signed))
+    if (((*flags) & TYPE_SPECIFIER_UNSIGNED) ||
+        ((*flags) & TYPE_SPECIFIER_SIGNED))
     {
         if (!type_specifier_is_integer(*flags))
         {
             //se nao especificou nada vira integer
-            (*flags) |= type_specifier_int;
+            (*flags) |= TYPE_SPECIFIER_INT;
         }
     }
 
@@ -15054,24 +15054,24 @@ int add_specifier(struct parser_ctx* ctx,
     * Verifica as combinaçòes possíveis
     */
 
-    if (newFlag & type_specifier_long) //adicionando um long
+    if (newFlag & TYPE_SPECIFIER_LONG) //adicionando um long
     {
-        if ((*flags) & type_specifier_long_long) //ja tinha long long
+        if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
             parser_seterror_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
             error->code = 1;
 
             return 1;
         }
-        else if ((*flags) & type_specifier_long) //ja tinha um long
+        else if ((*flags) & TYPE_SPECIFIER_LONG) //ja tinha um long
         {
-            (*flags) = (*flags) & ~type_specifier_long;
-            (*flags) |= type_specifier_long_long;
+            (*flags) = (*flags) & ~TYPE_SPECIFIER_LONG;
+            (*flags) |= TYPE_SPECIFIER_LONG_LONG;
         }
         else //nao tinha nenhum long
         {
-            (*flags) = (*flags) & ~type_specifier_int;
-            (*flags) |= type_specifier_long;
+            (*flags) = (*flags) & ~TYPE_SPECIFIER_INT;
+            (*flags) |= TYPE_SPECIFIER_LONG;
         }
     }
     else
@@ -15104,7 +15104,7 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
         {
             if (ctx->current->flags & TK_FLAG_IDENTIFIER_IS_TYPEDEF)
             {
-                if (p_declaration_specifiers->type_specifier_flags != type_specifier_none)
+                if (p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
                 {
                     //typedef tem que aparecer sozinho
                     //exemplo Socket eh nome e nao typdef
@@ -15570,26 +15570,26 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
     {
     case TK_KEYWORD_VOID:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_void;
+        pType_specifier->flags = TYPE_SPECIFIER_VOID;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD_CHAR:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_char;
+        pType_specifier->flags = TYPE_SPECIFIER_CHAR;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD_SHORT:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_short;
+        pType_specifier->flags = TYPE_SPECIFIER_SHORT;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD_INT:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_int;
+        pType_specifier->flags = TYPE_SPECIFIER_INT;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
@@ -15597,26 +15597,26 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
         //microsoft
     case TK_KEYWORD__INT8:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_int8;
+        pType_specifier->flags = TYPE_SPECIFIER_INT8;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD__INT16:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_int16;
+        pType_specifier->flags = TYPE_SPECIFIER_INT16;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
     case TK_KEYWORD__INT32:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_int32;
+        pType_specifier->flags = TYPE_SPECIFIER_INT32;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
     case TK_KEYWORD__INT64:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_int64;
+        pType_specifier->flags = TYPE_SPECIFIER_INT64;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
@@ -15624,69 +15624,69 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
 
     case TK_KEYWORD_LONG:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_long;
+        pType_specifier->flags = TYPE_SPECIFIER_LONG;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD_FLOAT:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_float;
+        pType_specifier->flags = TYPE_SPECIFIER_FLOAT;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD_DOUBLE:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_double;
+        pType_specifier->flags = TYPE_SPECIFIER_DOUBLE;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD_SIGNED:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_signed;
+        pType_specifier->flags = TYPE_SPECIFIER_SIGNED;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD_UNSIGNED:
 
-        pType_specifier->flags = type_specifier_unsigned;
+        pType_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD__BOOL:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_bool;
+        pType_specifier->flags = TYPE_SPECIFIER_BOOL;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD__COMPLEX:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_complex;
+        pType_specifier->flags = TYPE_SPECIFIER_COMPLEX;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD__DECIMAL32:
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_decimal32;
+        pType_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD__DECIMAL64:
 
-        pType_specifier->flags = type_specifier_decimal64;
+        pType_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
 
     case TK_KEYWORD__DECIMAL128:
-        pType_specifier->flags = type_specifier_decimal128;
+        pType_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
         pType_specifier->token = ctx->current;
         parser_match(ctx);
         return pType_specifier;
@@ -15697,31 +15697,31 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
     if (first_of_typeof_specifier(ctx))
     {
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_typeof;
+        pType_specifier->flags = TYPE_SPECIFIER_TYPEOF;
         pType_specifier->typeof_specifier = typeof_specifier(ctx, error);
     }
     else if (first_of_atomic_type_specifier(ctx))
     {
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_atomic;
+        pType_specifier->flags = TYPE_SPECIFIER_ATOMIC;
         pType_specifier->atomic_type_specifier = atomic_type_specifier(ctx, error);
     }
     else if (first_of_struct_or_union(ctx))
     {
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_struct_or_union;
+        pType_specifier->flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
         pType_specifier->struct_or_union_specifier = struct_or_union_specifier(ctx, error);
     }
     else if (first_of_enum_specifier(ctx))
     {
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_enum;
+        pType_specifier->flags = TYPE_SPECIFIER_ENUM;
         pType_specifier->enum_specifier = enum_specifier(ctx, error);
     }
     else if (ctx->current->type == TK_IDENTIFIER)
     {
         pType_specifier->token = ctx->current;
-        pType_specifier->flags = type_specifier_typedef;
+        pType_specifier->flags = TYPE_SPECIFIER_TYPEDEF;
 
         pType_specifier->typedef_declarator =
             find_declarator(ctx, ctx->current->lexeme, NULL);
@@ -15993,55 +15993,55 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 {
 
 
-    if (e_type_specifier_flags & type_specifier_void)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_VOID)
         print_item(ss, first, "void");
 
 
-    if (e_type_specifier_flags & type_specifier_unsigned)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
         print_item(ss, first, "unsigned");
 
-    if (e_type_specifier_flags & type_specifier_int)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT)
         print_item(ss, first, "int");
 
-    if (e_type_specifier_flags & type_specifier_short)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_SHORT)
         print_item(ss, first, "short");
 
-    if (e_type_specifier_flags & type_specifier_long)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG)
         print_item(ss, first, "long");
 
-    if (e_type_specifier_flags & type_specifier_long_long)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
 
 
-    if (e_type_specifier_flags & type_specifier_char)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
 
-    if (e_type_specifier_flags & type_specifier_double)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         print_item(ss, first, "double");
 
-    if (e_type_specifier_flags & type_specifier_float)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         print_item(ss, first, "float");
 
-    if (e_type_specifier_flags & type_specifier_signed)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_SIGNED)
         print_item(ss, first, "signed");
 
-    if (e_type_specifier_flags & type_specifier_bool)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
         print_item(ss, first, "_Bool");
 
-    if (e_type_specifier_flags & type_specifier_complex)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_COMPLEX)
         print_item(ss, first, "_Complex");
 
-    if (e_type_specifier_flags & type_specifier_decimal32)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL32)
         print_item(ss, first, "_Decimal32");
 
-    if (e_type_specifier_flags & type_specifier_decimal64)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL64)
         print_item(ss, first, "_Decimal64");
 
-    if (e_type_specifier_flags & type_specifier_decimal128)
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
         print_item(ss, first, "_Decimal128");
     //if (e_type_specifier_flags & type_specifier_Actomi)
       //  print_item(&first, "_Decimal128");
-//        type_specifier_atomic = 1 << 14,
+//        TYPE_SPECIFIER_ATOMIC = 1 << 14,
 
     return first;
 }
@@ -16049,13 +16049,13 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags)
 {
 
-    if (e_type_qualifier_flags & type_qualifier_const)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CONST)
         print_item(ss, first, "const");
 
-    if (e_type_qualifier_flags & type_qualifier_restrict)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_RESTRICT)
         print_item(ss, first, "restrict");
 
-    if (e_type_qualifier_flags & type_qualifier_volatile)
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
         print_item(ss, first, "volatile");
 
 }
@@ -16109,7 +16109,7 @@ struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx
 
             if (ctx->current->flags & TK_FLAG_IDENTIFIER_IS_TYPEDEF)
             {
-                if (p_specifier_qualifier_list->type_specifier_flags != type_specifier_none)
+                if (p_specifier_qualifier_list->type_specifier_flags != TYPE_SPECIFIER_NONE)
                 {
                     //typedef tem que aparecer sozinho
                     //exemplo Socket eh nome e nao typdef
@@ -16410,16 +16410,16 @@ struct type_qualifier* type_qualifier(struct parser_ctx* ctx, struct error* erro
     switch (ctx->current->type)
     {
     case TK_KEYWORD_CONST:
-        pType_qualifier->flags = type_qualifier_const;
+        pType_qualifier->flags = TYPE_QUALIFIER_CONST;
         break;
     case TK_KEYWORD_RESTRICT:
-        pType_qualifier->flags = type_qualifier_restrict;
+        pType_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
         break;
     case TK_KEYWORD_VOLATILE:
-        pType_qualifier->flags = type_qualifier_volatile;
+        pType_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
         break;
     case TK_KEYWORD__ATOMIC:
-        pType_qualifier->flags = type_qualifier__Atomic;
+        pType_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
         break;
     }
     //'const'
@@ -18085,19 +18085,19 @@ void print_type(struct osstream* ss, struct type* type)
     bool first = true;
     print_type_qualifier_flags(ss, &first, type->type_qualifier_flags);
 
-    if (type->type_specifier_flags & type_specifier_struct_or_union)
+    if (type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
         print_item(ss, &first, "struct ");
         ss_fprintf(ss, "%s", type->struct_or_union_specifier->tagName);
     }
-    else if (type->type_specifier_flags & type_specifier_enum)
+    else if (type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
         print_item(ss, &first, "enum ");
         if (type->enum_specifier->tag_token)
             ss_fprintf(ss, "%s", type->enum_specifier->tag_token->lexeme);
 
     }
-    else if (type->type_specifier_flags & type_specifier_typedef)
+    else if (type->type_specifier_flags & TYPE_SPECIFIER_TYPEDEF)
     {
         assert(false);
     }
@@ -20057,7 +20057,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 
 static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error)
 {
-    if (p_type_specifier->flags & type_specifier_typeof)
+    if (p_type_specifier->flags & TYPE_SPECIFIER_TYPEOF)
     {
         if (ctx->target < LANGUAGE_C2X)
         {
@@ -20270,7 +20270,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     {
 
         if (p_declaration->declaration_specifiers &&
-            p_declaration->declaration_specifiers->type_specifier_flags == type_specifier_struct_or_union)
+            p_declaration->declaration_specifiers->type_specifier_flags == TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
             if (p_declaration->declaration_specifiers->struct_or_union_specifier->visit_moved == 1)
             {

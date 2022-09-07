@@ -1244,7 +1244,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 
 static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error)
 {
-    if (p_type_specifier->flags & type_specifier_typeof)
+    if (p_type_specifier->flags & TYPE_SPECIFIER_TYPEOF)
     {
         if (ctx->target < LANGUAGE_C2X)
         {
@@ -1457,7 +1457,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     {
 
         if (p_declaration->declaration_specifiers &&
-            p_declaration->declaration_specifiers->type_specifier_flags == type_specifier_struct_or_union)
+            p_declaration->declaration_specifiers->type_specifier_flags == TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
             if (p_declaration->declaration_specifiers->struct_or_union_specifier->visit_moved == 1)
             {

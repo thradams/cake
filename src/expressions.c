@@ -60,7 +60,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             /*detectar que o parametro é (void)*/
             bVoid =
                 p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head &&
-                p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->type_specifier_flags == type_specifier_void &&
+                p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
                 p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->declarator_type->pointers.head == NULL;
         }
 
@@ -431,7 +431,7 @@ int convert_to_number(struct token* token, struct expression* p_expression_node,
     {
     case TK_COMPILER_DECIMAL_CONSTANT:
 
-        if (flags && type_specifier_unsigned)
+        if (flags && TYPE_SPECIFIER_UNSIGNED)
         {
             p_expression_node->constant_value = strtoll(buffer, 0, 10);
         }
@@ -451,12 +451,12 @@ int convert_to_number(struct token* token, struct expression* p_expression_node,
         p_expression_node->constant_value = strtoll(buffer + 2, 0, 2);
         break;
     case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
-        //p_expression_node->type.type_specifier_flags |= type_specifier_double;
+        //p_expression_node->type.type_specifier_flags |= TYPE_SPECIFIER_DOUBLE;
         //result = atof(buffer, 0, 10); 
         //assert(false);
         break;
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        //p_expression_node->type.type_specifier_flags |= type_specifier_double;
+        //p_expression_node->type.type_specifier_flags |= TYPE_SPECIFIER_DOUBLE;
         //assert(false);
         break;
     default:
@@ -539,8 +539,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
             p_expression_node->first = ctx->current;
             p_expression_node->last = ctx->current;
-            p_expression_node->type.type_qualifier_flags = type_qualifier_const;
-            p_expression_node->type.type_specifier_flags = type_specifier_char;
+            p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
 
             //printf("TODO warning correct type for literals not implemented yet\n");
             //DECLARE_AND_CREATE_STRUCT_POINTER(direct_declarator_type);
@@ -595,7 +595,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->constant_value =
                 ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0;
 
-            p_expression_node->type.type_specifier_flags = type_specifier_bool;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
             p_expression_node->type.declarator_type = NULL;
 
@@ -612,7 +612,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->constant_value = 0;
             
             /*TODO nullptr type*/
-            p_expression_node->type.type_specifier_flags = type_specifier_long;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             p_expression_node->type.type_qualifier_flags = 0;
             p_expression_node->type.declarator_type = NULL;
 
@@ -809,7 +809,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 p_expression_node_new->left = p_expression_node;
 
                 parser_match(ctx);
-                if (p_expression_node->type.type_specifier_flags & type_specifier_struct_or_union)
+                if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p =
                         find_struct_or_union_specifier(ctx,
@@ -850,7 +850,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 p_expression_node_new->left = p_expression_node;
 
                 parser_match(ctx);
-                if (p_expression_node->type.type_specifier_flags & type_specifier_struct_or_union)
+                if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p = find_struct_or_union_specifier(ctx,
                         p_expression_node->type.struct_or_union_specifier->tagName);

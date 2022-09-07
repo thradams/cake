@@ -9,44 +9,44 @@ struct parser_ctx;
 
 enum type_specifier_flags
 {
-    type_specifier_none = 0,
-    type_specifier_void = 1 << 0,
-    type_specifier_char = 1 << 1,
-    type_specifier_short = 1 << 2,
-    type_specifier_int = 1 << 3,
-    type_specifier_long = 1 << 4,
+    TYPE_SPECIFIER_NONE = 0,
+    TYPE_SPECIFIER_VOID = 1 << 0,
+    TYPE_SPECIFIER_CHAR = 1 << 1,
+    TYPE_SPECIFIER_SHORT = 1 << 2,
+    TYPE_SPECIFIER_INT = 1 << 3,
+    TYPE_SPECIFIER_LONG = 1 << 4,
 
-    type_specifier_float = 1 << 5,
-    type_specifier_double = 1 << 6,
-    type_specifier_signed = 1 << 7,
-    type_specifier_unsigned = 1 << 8,
-    type_specifier_bool = 1 << 9,
-    type_specifier_complex = 1 << 10,
-    type_specifier_decimal32 = 1 << 11,
-    type_specifier_decimal64 = 1 << 12,
-    type_specifier_decimal128 = 1 << 13,
-    type_specifier_atomic = 1 << 14,
-    type_specifier_struct_or_union = 1 << 15,
-    type_specifier_enum = 1 << 16,
-    type_specifier_typedef = 1 << 17,
+    TYPE_SPECIFIER_FLOAT = 1 << 5,
+    TYPE_SPECIFIER_DOUBLE = 1 << 6,
+    TYPE_SPECIFIER_SIGNED = 1 << 7,
+    TYPE_SPECIFIER_UNSIGNED = 1 << 8,
+    TYPE_SPECIFIER_BOOL = 1 << 9,
+    TYPE_SPECIFIER_COMPLEX = 1 << 10,
+    TYPE_SPECIFIER_DECIMAL32 = 1 << 11,
+    TYPE_SPECIFIER_DECIMAL64 = 1 << 12,
+    TYPE_SPECIFIER_DECIMAL128 = 1 << 13,
+    TYPE_SPECIFIER_ATOMIC = 1 << 14,
+    TYPE_SPECIFIER_STRUCT_OR_UNION = 1 << 15,
+    TYPE_SPECIFIER_ENUM = 1 << 16,
+    TYPE_SPECIFIER_TYPEDEF = 1 << 17,
 
-    //microsoft
-    type_specifier_int8 = 1 << 18,
-    type_specifier_int16 = 1 << 19,
-    type_specifier_int32 = 1 << 20,
-    type_specifier_int64 = 1 << 21,
+    //MICROSOFT
+    TYPE_SPECIFIER_INT8 = 1 << 18,
+    TYPE_SPECIFIER_INT16 = 1 << 19,
+    TYPE_SPECIFIER_INT32 = 1 << 20,
+    TYPE_SPECIFIER_INT64 = 1 << 21,
 
-    type_specifier_long_long = 1 << 22,
-    type_specifier_typeof = 1 << 23,
+    TYPE_SPECIFIER_LONG_LONG = 1 << 22,
+    TYPE_SPECIFIER_TYPEOF = 1 << 23,
 };
 
 enum type_qualifier_flags
 {
-    type_qualifier_none,
-    type_qualifier_const = 1 << 0,
-    type_qualifier_restrict = 1 << 1,
-    type_qualifier_volatile = 1 << 2,
-    type_qualifier__Atomic = 1 << 3,
+    TYPE_QUALIFIER_NONE,
+    TYPE_QUALIFIER_CONST = 1 << 0,
+    TYPE_QUALIFIER_RESTRICT = 1 << 1,
+    TYPE_QUALIFIER_VOLATILE = 1 << 2,
+    TYPE_QUALIFIER__ATOMIC = 1 << 3,
 };
 
 

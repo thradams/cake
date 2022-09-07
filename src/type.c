@@ -187,22 +187,22 @@ bool type_is_integer(struct type* p_type)
         return false;
 
     //TODO long double
-    if (p_type->type_specifier_flags & (type_specifier_float | type_specifier_double))
+    if (p_type->type_specifier_flags & (TYPE_SPECIFIER_FLOAT | TYPE_SPECIFIER_DOUBLE))
     {
         return false;
     }
 
     return p_type->type_specifier_flags &
-        (type_specifier_char |
-            type_specifier_short |
-            type_specifier_int |
-            type_specifier_long |
-            type_specifier_signed |
-            type_specifier_unsigned |
-            type_specifier_int8 |
-            type_specifier_int16 |
-            type_specifier_int64 |
-            type_specifier_long_long);
+        (TYPE_SPECIFIER_CHAR |
+            TYPE_SPECIFIER_SHORT |
+            TYPE_SPECIFIER_INT |
+            TYPE_SPECIFIER_LONG |
+            TYPE_SPECIFIER_SIGNED |
+            TYPE_SPECIFIER_UNSIGNED |
+            TYPE_SPECIFIER_INT8 |
+            TYPE_SPECIFIER_INT16 |
+            TYPE_SPECIFIER_INT64 |
+            TYPE_SPECIFIER_LONG_LONG);
 }
 
 /*beeem amplo*/
@@ -216,23 +216,23 @@ bool type_is_arithmetic(struct type* p_type)
 
     return p_type->type_specifier_flags &
         (
-            type_specifier_float |
-            type_specifier_double |
+            TYPE_SPECIFIER_FLOAT |
+            TYPE_SPECIFIER_DOUBLE |
 
-            type_specifier_decimal32 |
-            type_specifier_decimal64 |
-            type_specifier_decimal128 |
+            TYPE_SPECIFIER_DECIMAL32 |
+            TYPE_SPECIFIER_DECIMAL64 |
+            TYPE_SPECIFIER_DECIMAL128 |
 
-            type_specifier_char |
-            type_specifier_short |
-            type_specifier_int |
-            type_specifier_long |
-            type_specifier_signed |
-            type_specifier_unsigned |
-            type_specifier_int8 |
-            type_specifier_int16 |
-            type_specifier_int64 |
-            type_specifier_long_long
+            TYPE_SPECIFIER_CHAR |
+            TYPE_SPECIFIER_SHORT |
+            TYPE_SPECIFIER_INT |
+            TYPE_SPECIFIER_LONG |
+            TYPE_SPECIFIER_SIGNED |
+            TYPE_SPECIFIER_UNSIGNED |
+            TYPE_SPECIFIER_INT8 |
+            TYPE_SPECIFIER_INT16 |
+            TYPE_SPECIFIER_INT64 |
+            TYPE_SPECIFIER_LONG_LONG
             );
 }
 
@@ -451,44 +451,44 @@ int type_get_rank(struct type* p_type1, struct error* error)
     }
 
     int rank = 0;
-    if ((p_type1->type_specifier_flags & type_specifier_bool))
+    if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_BOOL))
     {
         rank = 10;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_char) ||
-        (p_type1->type_specifier_flags & type_specifier_int8))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT8))
     {
         rank = 20;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_short) ||
-        (p_type1->type_specifier_flags & type_specifier_int16))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT16))
     {
         rank = 30;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_int) ||
-        (p_type1->type_specifier_flags & type_specifier_enum))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_INT) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_ENUM))
     {
         rank = 40;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_long) ||
-        (p_type1->type_specifier_flags & type_specifier_int32))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT32))
     {
         rank = 50;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_float))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_FLOAT))
     {
         rank = 60;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_double))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_DOUBLE))
     {
         rank = 70;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_long_long) ||
-        (p_type1->type_specifier_flags & type_specifier_int64))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG) ||
+        (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT64))
     {
         rank = 80;
     }
-    else if ((p_type1->type_specifier_flags & type_specifier_struct_or_union))
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
     {
         seterror(error, "internal error - struct is not valid for rank");
     }
@@ -574,71 +574,71 @@ int type_get_sizeof(struct parser_ctx* ctx, struct type* p_type, struct error* e
         }
         else {
 
-            if (p_type->type_specifier_flags & type_specifier_char)
+            if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
             {
                 size = sizeof(char);
             }
-            else if (p_type->type_specifier_flags & type_specifier_bool)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
             {
                 size = sizeof(_Bool);
             }
-            else if (p_type->type_specifier_flags & type_specifier_short)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
             {
                 size = sizeof(int);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
             {
                 size = sizeof(int);
             }
-            else if (p_type->type_specifier_flags & type_specifier_long)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
             {
                 size = sizeof(long);
             }
-            else if (p_type->type_specifier_flags & type_specifier_long_long)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
             {
                 size = sizeof(long long);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int64)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
             {
                 size = sizeof(long long);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int32)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
             {
                 size = sizeof(long);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int16)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
             {
                 size = sizeof(short);
             }
-            else if (p_type->type_specifier_flags & type_specifier_int8)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
             {
                 size = sizeof(char);
             }
-            else if (p_type->type_specifier_flags & type_specifier_double)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
             {
                 size = sizeof(double);
             }
-            else if (p_type->type_specifier_flags & type_specifier_struct_or_union)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
             {
                 size = 1;       //TODO
             }
-            else if (p_type->type_specifier_flags & type_specifier_enum)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
             {
                 size = sizeof(int);
             }
-            else if (p_type->type_specifier_flags == type_specifier_none)
+            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
             {
                 seterror(error, "type information is missing");
                 throw;
             }
-            else if (p_type->type_specifier_flags == type_specifier_typeof)
+            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
             {
                 size = 1; //TODO
                 //assert(false);
                 //;; size =
                     //  type_get_sizeof(ctx, struct type* p_type, struct error* error)
             }
-            else if (p_type->type_specifier_flags == type_specifier_void)
+            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
             {
                 //
             }
@@ -679,51 +679,51 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
     try
     {
 
-        if (p_type->type_specifier_flags & type_specifier_char)
+        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
             //size = sizeof(char);
         }
-        else if (p_type->type_specifier_flags & type_specifier_bool)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
         {
             //size = sizeof(_Bool);
         }
-        else if (p_type->type_specifier_flags & type_specifier_short)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
             //size = sizeof(int);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
         {
             //size = sizeof(int);
         }
-        else if (p_type->type_specifier_flags & type_specifier_long)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
         {
             //size = sizeof(long);
         }
-        else if (p_type->type_specifier_flags & type_specifier_long_long)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
             //size = sizeof(long long);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int64)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
         {
             //size = sizeof(long long);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int32)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
         {
             //size = sizeof(long);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int16)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
         {
             //size = sizeof(short);
         }
-        else if (p_type->type_specifier_flags & type_specifier_int8)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
         {
             //size = sizeof(char);
         }
-        else if (p_type->type_specifier_flags & type_specifier_double)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
             //size = sizeof(double);
         }
-        else if (p_type->type_specifier_flags & type_specifier_struct_or_union)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
             struct osstream ss = { 0 };
 
@@ -750,23 +750,23 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
             hash = stringhash(ss.c_str);
             ss_close(&ss);
         }
-        else if (p_type->type_specifier_flags & type_specifier_enum)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
             //size = sizeof(int);
         }
-        else if (p_type->type_specifier_flags == type_specifier_none)
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
             seterror(error, "type information is missing");
             throw;
         }
-        else if (p_type->type_specifier_flags == type_specifier_typeof)
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
         {
             //s//ize = 1; //TODO
             //assert(false);
             //;; size =
                 //  type_get_sizeof(ctx, struct type* p_type, struct error* error)
         }
-        else if (p_type->type_specifier_flags == type_specifier_void)
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
         {
             if (p_type->declarator_type &&
                 p_type->declarator_type->pointers.head != NULL)
@@ -1150,7 +1150,7 @@ struct declarator_type* find_inner_declarator(struct declarator_type* p_declarat
 
 void type_set_int(struct type* p_type)
 {
-    p_type->type_specifier_flags = type_specifier_int;
+    p_type->type_specifier_flags = TYPE_SPECIFIER_INT;
     p_type->type_qualifier_flags = 0;
     p_type->declarator_type = NULL;
 }
