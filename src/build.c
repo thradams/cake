@@ -44,7 +44,7 @@
 " error.c " 
 
 
-void compile_cprime()
+void compile_cake()
 {
 
 #ifdef BUILD_WINDOWS_MSC
@@ -233,10 +233,10 @@ int build_main()
     remove("embed.exe");
 
 
-    compile_cprime();
+    compile_cake();
 #ifndef TEST
     /*compila usando ele mesmo*/
-    if (system(RUN OUTPUT ".exe " HEADER_FILES SOURCE_FILES) != 0) exit(1);
+    if (system(RUN OUTPUT ".exe -n " HEADER_FILES SOURCE_FILES) != 0) exit(1);
 #endif
 
 }

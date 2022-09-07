@@ -8149,7 +8149,7 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
 void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, char** argv, struct error* error);
-struct declaration_list parse(enum LanguageVersion input, struct token_list* list, struct error* error);
+struct declaration_list parse(struct options* options, struct token_list* list, struct error* error);
 
 
 struct token* parser_skip_blanks(struct parser_ctx* ctx);
@@ -13658,6 +13658,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token);
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token);
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type);
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type);
+void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -14609,8 +14610,8 @@ struct token* parser_look_ahead(struct parser_ctx* ctx)
 bool is_binary_digit(struct stream* stream)
 {
     return stream->current[0] >= '0' && stream->current[0] <= '1';
-
 }
+
 bool is_hexadecimal_digit(struct stream* stream)
 {
     return (stream->current[0] >= '0' && stream->current[0] <= '9') ||
@@ -15310,6 +15311,18 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
         scope_list_pop(&ctx->scopes);
         ctx->p_current_function_opt = NULL;
+    }
+    else
+    {
+        struct init_declarator* p = p_declaration->init_declarator_list.head;
+        while (p)
+        {
+            if (p->declarator && p->declarator->name)
+            {
+                naming_convention_global_var(ctx, p->declarator->name, &p->declarator->type);
+            }
+            p = p->next;
+        }
     }
 
     return p_declaration;
@@ -17019,7 +17032,6 @@ struct type_name* type_name(struct parser_ctx* ctx, struct error* error)
 struct braced_initializer* braced_initializer(struct parser_ctx* ctx, struct error* error)
 {
     /*
-     Não esta  no padrão. foi adicionado
      { }
      { initializer-list }
      { initializer-list , }
@@ -17041,13 +17053,9 @@ struct braced_initializer* braced_initializer(struct parser_ctx* ctx, struct err
 struct initializer* initializer(struct parser_ctx* ctx, struct error* error)
 {
     /*
-     initializer:
-       assignment-expression
-
-      bracket-initializer-list: modified from C23 grammar
-      { }
-      { initializer-list }
-      { initializer-list , }
+    initializer:
+      assignment-expression
+      braced-initializer
     */
 
     struct initializer* p_initializer = calloc(1, sizeof(struct initializer));
@@ -17071,12 +17079,10 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx, struct error* 
 {
     /*
     initializer-list:
-     designation_opt initializer
-     initializer-list , designation_opt initializer
+       designation opt initializer
+       initializer-list , designation opt initializer
     */
-
-    //designation_opt initializer
-    //initializer_list ',' designation_opt initializer
+    
 
     struct initializer_list* p_initializer_list = calloc(1, sizeof(struct initializer_list));
 
@@ -17161,8 +17167,12 @@ struct designator* designator(struct parser_ctx* ctx, struct error* error)
 struct static_assert_declaration* static_assert_declaration(struct parser_ctx* ctx, struct error* error)
 {
 
-    //'_Static_assert' '(' constant_expression ',' string_literal ')' ';'
-    //'_Static_assert' '(' constant_expression ')' ';'
+   /*
+    static_assert-declaration:
+     "static_assert" ( constant-expression , string-literal ) ;
+     "static_assert" ( constant-expression ) ;
+   */
+
     struct static_assert_declaration* p_static_assert_declaration = calloc(1, sizeof(struct static_assert_declaration));
     try
     {
@@ -17394,6 +17404,7 @@ struct statement* statement(struct parser_ctx* ctx, struct error* error)
     //unlabeled_statement
     return p_statement;
 }
+
 struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
 {
     struct primary_block* p_primary_block = calloc(1, sizeof(struct primary_block));
@@ -17978,13 +17989,13 @@ struct compound_statement* function_body(struct parser_ctx* ctx, struct error* e
 }
 
 
-struct declaration_list parse(enum LanguageVersion input, struct token_list* list, struct error* error)
+struct declaration_list parse(struct options* options, struct token_list* list, struct error* error)
 {
 
     anonymous_struct_count = 0;
 
     struct scope file_scope = { 0 };
-    struct parser_ctx ctx = { .inputLanguage = input };
+    struct parser_ctx ctx = { .inputLanguage = options->input , .bCheckNamingConventions = options->bCheckNamingConventions };
 #ifdef TEST
     ctx.printf = printf_nothing;
 #else
@@ -18119,6 +18130,11 @@ int fill_options(struct options* options, int argc, char** argv, struct preproce
         if (strcmp(argv[i], "-rm") == 0)
         {
             options->bRemoveMacros = true;
+            continue;
+        }
+        if (strcmp(argv[i], "-n") == 0)
+        {
+            options->bCheckNamingConventions = true;
             continue;
         }
         //
@@ -18319,7 +18335,7 @@ int compile_one_file(const char* file_name,
         else
         {
             //printf(".");//4
-            ast.declaration_list = parse(options.input, &ast.token_list, error);
+            ast.declaration_list = parse(&options, &ast.token_list, error);
             if (error->code != 0)
             {
                 throw;
@@ -18422,7 +18438,7 @@ struct ast get_ast(struct options* options, const char* fileName, const char* so
     if (error->code != 0)
         return ast;
 
-    ast.declaration_list = parse(options->input, &ast.token_list, error);
+    ast.declaration_list = parse(&options, &ast.token_list, error);
     return ast;
 }
 
@@ -18580,7 +18596,7 @@ static bool is_pascal_case(const char* text)
  */
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+    if (!ctx->bCheckNamingConventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -18590,7 +18606,7 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+    if (!ctx->bCheckNamingConventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -18600,7 +18616,7 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+    if (!ctx->bCheckNamingConventions || token->level != 0)
         return;
 
 
@@ -18608,10 +18624,22 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
         parser_set_info_with_token(ctx, token, "use snake_case for functions");
     }
 }
+void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type)
+{
+    if (!ctx->bCheckNamingConventions || token->level != 0)
+        return;
+
+    if (!type_is_function_or_function_pointer(type))
+    {
+        if (!is_snake_case(token->lexeme)) {
+            parser_set_info_with_token(ctx, token, "use snake_case for functions");
+        }
+    }
+}
 
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+    if (!ctx->bCheckNamingConventions || token->level != 0)
         return;
 
     if (!is_all_upper(token->lexeme)) {
@@ -18621,7 +18649,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+    if (!ctx->bCheckNamingConventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -18631,7 +18659,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
 
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->bCheckNamingConventions || ctx->current->level != 0)
+    if (!ctx->bCheckNamingConventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {

@@ -84,7 +84,7 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
 void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, char** argv, struct error* error);
-struct declaration_list parse(enum LanguageVersion input, struct token_list* list, struct error* error);
+struct declaration_list parse(struct options* options, struct token_list* list, struct error* error);
 
 
 struct token* parser_skip_blanks(struct parser_ctx* ctx);
