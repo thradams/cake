@@ -5,7 +5,7 @@
 * Compiler options shared with compiler and preprocessor
 */
 
-enum LanguageVersion
+enum language_version
 {
     LANGUAGE_C99 = 0, /*default*/
     LANGUAGE_C11,
@@ -15,8 +15,8 @@ enum LanguageVersion
 
 struct options
 {
-    enum LanguageVersion input;
-    enum LanguageVersion target;
+    enum language_version input;
+    enum language_version target;
     bool bRemoveComments;
     bool bPreprocessOnly;
     bool bRemoveMacros;

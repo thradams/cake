@@ -34,7 +34,7 @@ void scope_list_pop(struct scope_list* list);
 
 struct parser_ctx
 {
-    enum LanguageVersion inputLanguage;
+    enum language_version inputLanguage;
     bool bCheckNamingConventions;
 
     /*

@@ -459,7 +459,7 @@ int windows_error_to_posix(int i);
 * Compiler options shared with compiler and preprocessor
 */
 
-enum LanguageVersion
+enum language_version
 {
     LANGUAGE_C99 = 0, /*default*/
     LANGUAGE_C11,
@@ -469,8 +469,8 @@ enum LanguageVersion
 
 struct options
 {
-    enum LanguageVersion input;
-    enum LanguageVersion target;
+    enum language_version input;
+    enum language_version target;
     bool bRemoveComments;
     bool bPreprocessOnly;
     bool bRemoveMacros;
@@ -1609,8 +1609,6 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
     pMacro->name = strdup(name);
     hashmap_set(&ctx->macros, name, &pMacro->type_id);
 }
-
-
 
 
 struct macro_argument
@@ -8093,7 +8091,7 @@ void scope_list_pop(struct scope_list* list);
 
 struct parser_ctx
 {
-    enum LanguageVersion inputLanguage;
+    enum language_version inputLanguage;
     bool bCheckNamingConventions;
 
     /*
@@ -13828,7 +13826,7 @@ struct visit_ctx
     struct token_list insert_before_block_item;
     struct token_list instanciations;
     struct ast ast;
-    enum LanguageVersion target;
+    enum language_version target;
     struct defer_scope* tail_block;
 };
 

@@ -41,7 +41,7 @@ struct visit_ctx
     struct token_list insert_before_block_item;
     struct token_list instanciations;
     struct ast ast;
-    enum LanguageVersion target;
+    enum language_version target;
     struct defer_scope* tail_block;
 };
 
