@@ -1834,7 +1834,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
 
     int flags = ctx->flags;
-    ctx->flags |= preprocessor_ctx_flags_only_final;
+    ctx->flags |= PREPROCESSOR_CTX_FLAGS_ONLY_FINAL;
 
     /*defined X  por exemplo é mantido sem ser expandido*/
 
@@ -3495,7 +3495,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
 
                 token_list_append_list_at_beginning(inputList, &startMacro);
 
-                if (ctx->flags & preprocessor_ctx_flags_only_final)
+                if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
                 }
                 else
@@ -3523,7 +3523,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                             struct macro_argument_list arguments2 = collect_macro_arguments(ctx, pMacro, inputList, level, error);
                             if (error->code) throw;
 
-                            if (ctx->flags & preprocessor_ctx_flags_only_final)
+                            if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                             {
                             }
                             else
@@ -3558,7 +3558,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 bool blanks = token_is_blank(inputList->head) || inputList->head->type == TK_NEWLINE;
                 bool bFinal = bActive && !is_never_final(inputList->head->type);
 
-                if (ctx->flags & preprocessor_ctx_flags_only_final)
+                if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
                     if (bFinal)
                     {

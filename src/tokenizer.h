@@ -20,8 +20,8 @@ struct include_dir_list
 
 enum preprocessor_ctx_flags
 {
-    preprocessor_ctx_flags_none = 0,
-    preprocessor_ctx_flags_only_final = 1 << 0
+    PREPROCESSOR_CTX_FLAGS_NONE = 0,
+    PREPROCESSOR_CTX_FLAGS_ONLY_FINAL = 1 << 0
 };
 
 struct preprocessor_ctx
