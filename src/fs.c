@@ -418,12 +418,3 @@ char* readfile(const char* path)
 }
 
 
-void NewCode(char dest[], int destsize)
-{
-    assert(destsize > 4);
-    int range_min = 1000;
-    int range_max = 9999;
-    int u = range_min + rand() % (range_max - range_min);
-    snprintf(dest, destsize, "%d", u);
-}
-

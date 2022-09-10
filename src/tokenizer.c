@@ -1802,7 +1802,7 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token
     return list2;
 }
 
-struct token_list IgnorePreprocessorLine(struct token_list* inputList)
+struct token_list ignore_preprocessor_line(struct token_list* inputList)
 {
     struct token_list r = { 0 };
     while (inputList->head->type != TK_NEWLINE)
@@ -1980,7 +1980,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             }
             else
             {
-                struct token_list r0 = IgnorePreprocessorLine(inputList);
+                struct token_list r0 = ignore_preprocessor_line(inputList);
                 token_list_append_list(&r, &r0);
             }
             match_token_level(&r, inputList, TK_NEWLINE, level, ctx, error);
@@ -2033,7 +2033,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
         }
         else
         {
-            IgnorePreprocessorLine(inputList);
+            ignore_preprocessor_line(inputList);
         }
     }
     else if (strcmp(inputList->head->lexeme, "elifdef") == 0)

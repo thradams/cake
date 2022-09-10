@@ -3146,7 +3146,7 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token
     return list2;
 }
 
-struct token_list IgnorePreprocessorLine(struct token_list* inputList)
+struct token_list ignore_preprocessor_line(struct token_list* inputList)
 {
     struct token_list r = { 0 };
     while (inputList->head->type != TK_NEWLINE)
@@ -3324,7 +3324,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             }
             else
             {
-                struct token_list r0 = IgnorePreprocessorLine(inputList);
+                struct token_list r0 = ignore_preprocessor_line(inputList);
                 token_list_append_list(&r, &r0);
             }
             match_token_level(&r, inputList, TK_NEWLINE, level, ctx, error);
@@ -3377,7 +3377,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
         }
         else
         {
-            IgnorePreprocessorLine(inputList);
+            ignore_preprocessor_line(inputList);
         }
     }
     else if (strcmp(inputList->head->lexeme, "elifdef") == 0)
@@ -7738,15 +7738,6 @@ char* readfile(const char* path)
     return readfile_core(path);
 }
 
-
-void NewCode(char dest[], int destsize)
-{
-    assert(destsize > 4);
-    int range_min = 1000;
-    int range_max = 9999;
-    int u = range_min + rand() % (range_max - range_min);
-    snprintf(dest, destsize, "%d", u);
-}
 
 
 
