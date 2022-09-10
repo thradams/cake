@@ -101,14 +101,14 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
 enum storage_class_specifier_flags
 {
-    storage_specifier_none = 0,
-    storage_specifier_typedef = 1 << 0,
-    storage_specifier_extern = 1 << 1,
-    storage_specifier_static = 1 << 2,
-    storage_specifier__Thread_local = 1 << 3,
-    storage_specifier_auto = 1 << 4,
-    storage_specifier_register = 1 << 5,
-    storage_specifier_constexpr = 1 << 6,
+    STORAGE_SPECIFIER_NONE = 0,
+    STORAGE_SPECIFIER_TYPEDEF = 1 << 0,
+    STORAGE_SPECIFIER_EXTERN = 1 << 1,
+    STORAGE_SPECIFIER_STATIC = 1 << 2,
+    STORAGE_SPECIFIER_THREAD_LOCAL = 1 << 3,
+    STORAGE_SPECIFIER_AUTO = 1 << 4,
+    STORAGE_SPECIFIER_REGISTER = 1 << 5,
+    STORAGE_SPECIFIER_CONSTEXPR = 1 << 6,
 };
 
 struct expression_ctx;

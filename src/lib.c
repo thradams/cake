@@ -8158,14 +8158,14 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
 enum storage_class_specifier_flags
 {
-    storage_specifier_none = 0,
-    storage_specifier_typedef = 1 << 0,
-    storage_specifier_extern = 1 << 1,
-    storage_specifier_static = 1 << 2,
-    storage_specifier__Thread_local = 1 << 3,
-    storage_specifier_auto = 1 << 4,
-    storage_specifier_register = 1 << 5,
-    storage_specifier_constexpr = 1 << 6,
+    STORAGE_SPECIFIER_NONE = 0,
+    STORAGE_SPECIFIER_TYPEDEF = 1 << 0,
+    STORAGE_SPECIFIER_EXTERN = 1 << 1,
+    STORAGE_SPECIFIER_STATIC = 1 << 2,
+    STORAGE_SPECIFIER_THREAD_LOCAL = 1 << 3,
+    STORAGE_SPECIFIER_AUTO = 1 << 4,
+    STORAGE_SPECIFIER_REGISTER = 1 << 5,
+    STORAGE_SPECIFIER_CONSTEXPR = 1 << 6,
 };
 
 struct expression_ctx;
@@ -14417,7 +14417,7 @@ bool first_of_typedef_name(struct parser_ctx* ctx, struct token* p_token)
     //pdeclarator->declaration_specifiers->
     if (pdeclarator &&
         pdeclarator->declaration_specifiers &&
-        (pdeclarator->declaration_specifiers->storage_class_specifier_flags & storage_specifier_typedef))
+        (pdeclarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
     {
         p_token->flags |= TK_FLAG_IDENTIFIER_IS_TYPEDEF;
         return true;
@@ -15647,25 +15647,25 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx, 
     switch (ctx->current->type)
     {
     case TK_KEYWORD_TYPEDEF:
-        p_storage_class_specifier->flags = storage_specifier_typedef;
+        p_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
         break;
     case TK_KEYWORD_EXTERN:
-        p_storage_class_specifier->flags = storage_specifier_extern;
+        p_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
         break;
     case TK_KEYWORD_CONSTEXPR:
-        p_storage_class_specifier->flags = storage_specifier_constexpr;
+        p_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
         break;
     case TK_KEYWORD_STATIC:
-        p_storage_class_specifier->flags = storage_specifier_static;
+        p_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
         break;
     case TK_KEYWORD__THREAD_LOCAL:
-        p_storage_class_specifier->flags = storage_specifier__Thread_local;
+        p_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
         break;
     case TK_KEYWORD_AUTO:
-        p_storage_class_specifier->flags = storage_specifier_auto;
+        p_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
         break;
     case TK_KEYWORD_REGISTER:
-        p_storage_class_specifier->flags = storage_specifier_register;
+        p_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
         break;
     default:
         assert(false);
