@@ -179,6 +179,80 @@ bool type_is_pointer(struct type* p_type)
     return type == 3;
 }
 
+
+bool type_is_enum(struct type* p_type)
+{
+    int type = 0;
+    visit_declarator_get(&type, p_type->declarator_type);
+    if (type != 0)
+        return false;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool type_is_struct_or_union(struct type* p_type)
+{
+    int type = 0;
+    visit_declarator_get(&type, p_type->declarator_type);
+    if (type != 0)
+        return false;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+    {
+        return true;
+    }
+
+    return false;
+
+}
+
+/*
+* The three types char, signed char, and unsigned char are collectively called the character types.
+The implementation shall define char to have the same range, representation, and behavior as either
+signed char or unsigned char.50)
+*/
+
+bool type_is_character(struct type* p_type)
+{
+    int type = 0;
+    visit_declarator_get(&type, p_type->declarator_type);
+    if (type != 0)
+        return false;
+
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool type_is_bool(struct type* p_type)
+{
+    int type = 0;
+    visit_declarator_get(&type, p_type->declarator_type);
+    if (type != 0)
+        return false;
+
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+/*
+  The type char, the signed and unsigned integer types, and the enumerated types are collectively
+  called integer types. The integer and real floating types are collectively called real types
+*/
 bool type_is_integer(struct type* p_type)
 {
     int type = 0;
@@ -205,13 +279,15 @@ bool type_is_integer(struct type* p_type)
             TYPE_SPECIFIER_LONG_LONG);
 }
 
-/*beeem amplo*/
+/*
+* Integer and floating types are collectively called arithmetic types.
+*/
 bool type_is_arithmetic(struct type* p_type)
 {
     int type = 0;
     visit_declarator_get(&type, p_type->declarator_type);
     if (type == 3 || type == 2)
-        return true;
+        return false;
 
 
     return p_type->type_specifier_flags &
@@ -236,7 +312,29 @@ bool type_is_arithmetic(struct type* p_type)
             );
 }
 
-bool type_is_compatible(struct type* a, struct type* b)
+/*
+ Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types. Array
+and structure types are collectively called aggregate types51).
+*/
+bool type_is_scalar(struct type* p_type)
+{
+
+    if (type_is_arithmetic(p_type))
+        return true;
+
+    if (type_is_pointer_or_array(p_type))
+        return true;
+
+    int type = 0;
+    visit_declarator_get(&type, p_type->declarator_type);
+    if (type == 3 || type == 2)
+        return false;
+
+
+    return p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR;
+}
+
+bool type_is_compatible(struct type* expression_type, struct type* return_type)
 {
     //TODO
 
@@ -246,13 +344,76 @@ bool type_is_compatible(struct type* a, struct type* b)
     return true;
 }
 
-bool type_is_compatible_type_function_call(struct type* a, struct type* b)
+bool type_is_compatible_type_function_call(struct type* argument_type, struct type* paramer_type)
 {
-    //TODO
-    
-    //if (!type_is_same(a, b))
-      //  return false;
+    if (type_is_arithmetic(argument_type) && type_is_arithmetic(paramer_type))
+    {
+        return true;
+    }
 
+    if (type_is_arithmetic(argument_type) && type_is_bool(paramer_type))
+    {
+        /*passar 0 or 1 to bool*/
+        return true;
+    }
+
+
+    if (type_is_bool(argument_type) && type_is_bool(paramer_type))
+    {
+        return true;
+    }
+
+    if (type_is_pointer(argument_type) && type_is_pointer(paramer_type))
+    {
+        if (argument_type->type_specifier_flags & TYPE_SPECIFIER_VOID)
+        {
+            /*void pointer can be converted to any type*/
+            return true;
+        }
+
+        if (!type_is_same(argument_type, paramer_type, false))
+        {
+            //disabled for now util it works correctly
+            //return false;
+        }
+        return true;
+    }
+
+    if (type_is_array(argument_type) && type_is_pointer(paramer_type))
+    {
+        //TODO
+        return true;
+    }
+
+    if (type_is_pointer(argument_type) && type_is_array(paramer_type))
+    {
+        //TODO
+        return true;
+    }
+
+    if (type_is_enum(argument_type) && type_is_enum(paramer_type))
+    {
+        if (!type_is_same(argument_type, paramer_type, false))
+        {
+            //disabled for now util it works correctly
+            //return false;
+        }
+        return true;
+    }
+
+    if (type_is_arithmetic(argument_type) && type_is_enum(paramer_type))
+    {
+        return true;
+    }
+
+    if (type_is_enum(argument_type) && type_is_arithmetic(paramer_type))
+    {
+        return true;
+    }
+
+
+    //disabled for now util it works correctly
+    //return false;
     return true;
 }
 
@@ -951,7 +1112,7 @@ void type_merge(struct type* t1, struct type* typedef_type_copy)
 #include <typeinfo>
 #include <cxxabi.h>
 
-        int status;
+    int status;
 #define TYPE(EXPR) \
  printf("%s=", #EXPR); \
  printf("%s\n", abi::__cxa_demangle(typeid(typeof(EXPR)).name(),0,0,&status))
@@ -1192,7 +1353,7 @@ bool pointer_type_list_is_same(struct pointer_type_list* a, struct pointer_type_
     return a == NULL && b == NULL;
 }
 
-bool type_is_same(struct type* a, struct type* b);
+bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 bool type_list_is_same(struct type_list* a, struct type_list* b)
 {
     if (a && b)
@@ -1204,7 +1365,7 @@ bool type_list_is_same(struct type_list* a, struct type_list* b)
         {
             while (pa && pb)
             {
-                if (!type_is_same(pa, pb))
+                if (!type_is_same(pa, pb, true))
                     return false;
                 pa = pa->next;
                 pb = pb->next;
@@ -1383,11 +1544,13 @@ bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* 
 
 
 
-bool type_is_same(struct type* a, struct type* b)
+bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers)
 {
     //debug
     //type_print(a);
     //type_print(b);
+    //TODO compare_qualifiers inner declarator
+    compare_qualifiers;
 
     if (a && b)
     {

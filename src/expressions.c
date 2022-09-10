@@ -67,6 +67,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 
         struct type* current_parameter_type = parameter_type.head;
 
+        int param_num = 1;
         struct argument_expression* current_argument =
             p_argument_expression_list->head;
         while (current_argument && current_parameter_type)
@@ -76,11 +77,12 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             {
                 parser_seterror_with_token(ctx,
                     current_argument->expression->first,
-                    " incompatible types");
+                    " incompatible types at argument %d", param_num);
             }
             //compare
             current_argument = current_argument->next;
             current_parameter_type = current_parameter_type->next;
+            param_num++;
         }
 
         if (current_argument != NULL && !bVarArgs)
@@ -318,7 +320,7 @@ struct generic_selection * generic_selection(struct parser_ctx* ctx, struct erro
         {
             if (current->p_type_name)
             {
-                if (type_is_same(&p_generic_selection->expression->type, &current->type))
+                if (type_is_same(&p_generic_selection->expression->type, &current->type, true))
                 {
                     p_generic_selection->p_view_selected_expression = current->expression;                    
                     break;
@@ -539,9 +541,25 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
             p_expression_node->first = ctx->current;
             p_expression_node->last = ctx->current;
+
             p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
+            
+            struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
+            struct array_function_type* p_array_function_type = calloc(1, sizeof * p_array_function_type);
+            struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
 
+            p_declarator_type->direct_declarator_type = p_direct_declarator_type;
+            
+            //TODO decode before get size
+            p_array_function_type->array_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
+
+            p_array_function_type->bIsArray = true;
+            list_add(&p_declarator_type->direct_declarator_type->array_function_type_list, p_array_function_type);
+            
+            p_expression_node->type.declarator_type = p_declarator_type;
+            
+            //type_print(&p_expression_node->type);
             //printf("TODO warning correct type for literals not implemented yet\n");
             //DECLARE_AND_CREATE_STRUCT_POINTER(direct_declarator_type);
             //p_expression_node->type.declarator_type->direct_declarator_type.array_function_type_list;// = direct_declarator_type;
@@ -1458,13 +1476,13 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
             if (error->code != 0)
                 throw;
 
-            if (!type_is_arithmetic(&pNew->left->type))
+            if (!type_is_scalar(&pNew->left->type))
             {
-                parser_seterror_with_token(ctx, operator_position, "left operator is not arithmetic");
+                parser_seterror_with_token(ctx, operator_position, "left operator is not scalar");
             }
-            if (!type_is_arithmetic(&pNew->right->type))
+            if (!type_is_scalar(&pNew->right->type))
             {
-                parser_seterror_with_token(ctx, operator_position, "right operator is not arithmetic");
+                parser_seterror_with_token(ctx, operator_position, "right operator is not scalar");
             }
 
             if (op == '+')
@@ -1494,7 +1512,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
                     //tem que ser do mesmo tipo..
                     if (op == '-')
                     {
-                        if (type_is_same(&pNew->left->type, &pNew->right->type))
+                        if (type_is_same(&pNew->left->type, &pNew->right->type, true))
                         {
                             type_set_int(&pNew->type);//
                         }
@@ -1710,7 +1728,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
             if (pNew->left->expression_type == TYPEID_EXPRESSION_TYPE ||
                 pNew->right->expression_type == TYPEID_EXPRESSION_TYPE)
             {
-                pNew->constant_value = type_is_same(&pNew->left->type, &pNew->right->type);
+                pNew->constant_value = type_is_same(&pNew->left->type, &pNew->right->type, true);
             }
             else
             {
@@ -1724,7 +1742,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
             if (pNew->left->expression_type == TYPEID_EXPRESSION_TYPE ||
                 pNew->right->expression_type == TYPEID_EXPRESSION_TYPE)
             {
-                pNew->constant_value = !type_is_same(&pNew->left->type, &pNew->right->type);
+                pNew->constant_value = !type_is_same(&pNew->left->type, &pNew->right->type, true);
             }
             else
             {
@@ -2340,6 +2358,19 @@ void test_expressions()
     assert(error.code == 0);    
 }
 
+void literal_string_type()
+{
+    const char* source =
+        "\n"
+        "    static_assert(typeid(\"A\") == typeid(const char [2]);\n"
+        "    static_assert(typeid(\"A\\n\") != typeid(const char [3]));\n"
+        ;
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct ast ast = get_ast(&options, "source", source, &error);
+    assert(error.code == 0);
+}
 void type_suffix_test()
 {
 
@@ -2453,7 +2484,7 @@ void is_arithmetic_test()
 
     assert(!type_is_array(&d1->type));
     assert(type_is_pointer(&d1->type));
-    assert(type_is_arithmetic(&d1->type));
+    assert(type_is_scalar(&d1->type));
     assert(!type_is_integer(&d1->type));
 
     assert(!type_is_array(&d2->type));

@@ -326,3 +326,33 @@ int main()
 
 ```
 
+### _Hashof
+
+_Hashof is a compile time function that returns a hash of the parsing tokens
+of some struct enum etc.
+
+
+```c
+
+struct X {
+    int a[10];
+  
+    /*uncomment the next line*/
+    //char * text;
+};
+
+void x_destroy(struct X* p);
+
+int main()
+{
+    struct X x = {};
+    x_destroy(&x);
+}
+
+void x_destroy(struct X* p)
+{
+    /*In a far away galaxy*/
+    static_assert(_Hashof(p) == 283780300, "check this function x_destroy");
+}
+
+```

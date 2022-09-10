@@ -309,7 +309,11 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
                 ctx->printf(" ");
             }
         }
-        ctx->printf("%s", next->lexeme);
+        else
+        {
+            ctx->printf("%s", next->lexeme);
+        }
+        
         next = next->next;
     }
     ctx->printf("\n");
