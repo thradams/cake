@@ -15,7 +15,7 @@
 
 #ifndef WIN32
 
-bool EnableVTMode(void)
+bool enable_vt_mode(void)
 {
     return true;
 }
@@ -69,7 +69,7 @@ int c_getch(void)
 
 #else
 
-bool EnableVTMode(void)
+bool enable_vt_mode(void)
 {
     DWORD dwMode = 0;
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);

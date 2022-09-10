@@ -30,7 +30,7 @@
 #define ESC "\x1b"
 #define CSI "\x1b["
 
-bool EnableVTMode(void);
+bool enable_vt_mode(void);
 
 //#define DISABLE_COLORS 1
 
@@ -498,8 +498,8 @@ struct include_dir_list
 
 enum preprocessor_ctx_flags
 {
-    preprocessor_ctx_flags_none = 0,
-    preprocessor_ctx_flags_only_final = 1 << 0
+    PREPROCESSOR_CTX_FLAGS_NONE = 0,
+    PREPROCESSOR_CTX_FLAGS_ONLY_FINAL = 1 << 0
 };
 
 struct preprocessor_ctx
@@ -1182,7 +1182,7 @@ int hashmap_set(struct hash_map* pMap, const char* key, struct type_tag_id* pNew
 
 #ifndef WIN32
 
-bool EnableVTMode(void)
+bool enable_vt_mode(void)
 {
     return true;
 }
@@ -1236,7 +1236,7 @@ int c_getch(void)
 
 #else
 
-bool EnableVTMode(void)
+bool enable_vt_mode(void)
 {
     DWORD dwMode = 0;
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -3178,7 +3178,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
 
     int flags = ctx->flags;
-    ctx->flags |= preprocessor_ctx_flags_only_final;
+    ctx->flags |= PREPROCESSOR_CTX_FLAGS_ONLY_FINAL;
 
     /*defined X  por exemplo é mantido sem ser expandido*/
 
@@ -4839,7 +4839,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
 
                 token_list_append_list_at_beginning(inputList, &startMacro);
 
-                if (ctx->flags & preprocessor_ctx_flags_only_final)
+                if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
                 }
                 else
@@ -4867,7 +4867,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                             struct macro_argument_list arguments2 = collect_macro_arguments(ctx, pMacro, inputList, level, error);
                             if (error->code) throw;
 
-                            if (ctx->flags & preprocessor_ctx_flags_only_final)
+                            if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                             {
                             }
                             else
@@ -4902,7 +4902,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 bool blanks = token_is_blank(inputList->head) || inputList->head->type == TK_NEWLINE;
                 bool bFinal = bActive && !is_never_final(inputList->head->type);
 
-                if (ctx->flags & preprocessor_ctx_flags_only_final)
+                if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
                     if (bFinal)
                     {

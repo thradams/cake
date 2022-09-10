@@ -34,7 +34,7 @@ void help()
 #ifndef TEST
 int main(int argc, char** argv)
 {
-	EnableVTMode();
+	enable_vt_mode();
 	
 
 	if (argc < 2)
@@ -65,7 +65,7 @@ int main(int argc, char** argv)
 int main(int argc, char** argv)
 {
 
-	EnableVTMode();
+	enable_vt_mode();
 	
 	int r = test_main();
 	printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);

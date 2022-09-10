@@ -11,7 +11,7 @@
 #define ESC "\x1b"
 #define CSI "\x1b["
 
-bool EnableVTMode(void);
+bool enable_vt_mode(void);
 
 //#define DISABLE_COLORS 1
 
