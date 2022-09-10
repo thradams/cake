@@ -1672,8 +1672,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         {
             if (parameter->declarator->nUses == 0)
             {
-                if (parameter->name)
+                if (parameter->name && 
+                    parameter->name->level == 0 /*direct source*/
+                    )
                 {
+                    
                     ctx->printf(WHITE "%s:%d:%d: ",
                         parameter->name->pFile->lexeme,
                         parameter->name->line,
@@ -4937,6 +4940,7 @@ void ast_destroy(struct ast* ast)
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);
 }
+
 static bool is_all_upper(const char* text)
 {
     const char* p = text;
@@ -4955,18 +4959,80 @@ static bool is_snake_case(const char* text)
 {
     if (text == NULL)
         return true;
+    
+    if (!(*text >= 'a' && *text <= 'z'))
+    {
+        return false;
+    }
 
-    return (text[0] >= 'a' && text[0] <= 'z');
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') || 
+            *text == '_' ||
+            (*text >= '0' && *text <= '9'))
+            
+        {
+            //ok
+        }
+        else 
+            return false;
+        text++;
+    }
+
+    return true;
 }
 
 static bool is_camel_case(const char* text)
 {
-    return (text[0] >= 'a' && text[0] <= 'z');
+    if (text == NULL)
+        return true;
+
+    if (!(*text >= 'a' && *text <= 'z'))
+    {
+        return false;
+    }
+
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') ||
+            (*text >= 'A' && *text <= 'Z') ||
+            (*text >= '0' && *text <= '9'))
+        {
+            //ok
+        }
+        else
+            return false;
+        text++;
+    }
+
+    return true;    
 }
 
 static bool is_pascal_case(const char* text)
 {
-    return (text[0] >= 'A' && text[0] <= 'Z');
+    if (text == NULL)
+        return true;
+
+    if (!(text[0] >= 'A' && text[0] <= 'Z'))
+    {
+        /*first letter uppepr case*/
+        return false;
+    }
+
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') ||
+            (*text >= 'A' && *text <= 'Z') ||
+            (*text >= '0' && *text <= '9'))
+        {
+            //ok
+        }
+        else
+            return false;
+        text++;
+    }
+
+    return true;
 }
 /*
  * This naming conventions are not ready yet...

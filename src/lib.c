@@ -1416,6 +1416,10 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, struct error* error, l
 */
 #define INCLUDE_ALL 1
 
+///////////////////////////////////////////////////////////////////////////////
+void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
+///////////////////////////////////////////////////////////////////////////////
+
 void preprocessor_ctx_destroy(struct preprocessor_ctx* p)
 {
     hashmap_destroy(&p->macros);
@@ -1482,6 +1486,64 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
         ctx->printf(LIGHTGREEN "^\n");
     }
 }
+
+
+
+void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token, const char* fmt, ...)
+{
+    if (p_token)
+    {
+        ctx->printf(WHITE "%s:%d:%d: ",
+            p_token->pFile->lexeme,
+            p_token->line,
+            p_token->col);
+    }
+    else
+    {
+        ctx->printf(WHITE "<>");
+    }
+
+    char buffer[200] = { 0 };
+    va_list args;
+    va_start(args, fmt);
+    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    ctx->printf(LIGHTCYAN "info: " WHITE "%s\n", buffer);
+
+    struct token* prev = p_token;
+    while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
+    {
+        prev = prev->prev;
+    }
+    struct token* next = prev;
+    while (next && next->type != TK_NEWLINE)
+    {
+        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+        {
+            /*
+            tokens expandidos da macro nao tem espaco entre
+            vamos adicionar para ver melhor
+            */
+            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            {
+                ctx->printf(" ");
+            }
+        }
+        ctx->printf("%s", next->lexeme);
+        next = next->next;
+    }
+    ctx->printf("\n");
+    if (p_token)
+    {
+        for (int i = 1; i < p_token->col - 1; i++)
+        {
+            ctx->printf(" ");
+        }
+        ctx->printf(LIGHTGREEN "^\n");
+    }
+}
+
 void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_token, bool bError)
 {
     ctx->n_warnings++;
@@ -1500,9 +1562,9 @@ void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_
     }
 
     if (bError)
-          ctx->printf(LIGHTRED "error: " WHITE );
-    else 
-        ctx->printf(LIGHTMAGENTA "warning: " WHITE );
+        ctx->printf(LIGHTRED "error: " WHITE);
+    else
+        ctx->printf(LIGHTMAGENTA "warning: " WHITE);
 
 
     struct token* prev = p_token;
@@ -1517,7 +1579,7 @@ void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_
         next = next->next;
     }
     ctx->printf("\n");
-    
+
 }
 
 
@@ -2413,7 +2475,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
             pNew->col = col;
             token_list_add(&list, pNew);
 
-            
+
             count++;
         }
 #ifdef MOCKFILES   
@@ -3027,7 +3089,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 char* s = find_and_read_include_file(ctx, path, fullpath, &bAlreadyIncluded);
 
 
-                
+
                 bool bHasInclude = s != NULL;
                 free(s);
 
@@ -3691,10 +3753,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (ctx->options.target < LANGUAGE_C2X)
             {
                 p_list = &discard0;
-                
+
                 free(ptoken->lexeme);
                 ptoken->lexeme = strdup(" ");
-                
+
             }
 
             /*
@@ -3737,7 +3799,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             snprintf(fullpath, sizeof(fullpath), "%s", path + 1);
             struct error localerror = { 0 };
-            
+
             int nlevel = level;
 
             enum token_flags f = 0;
@@ -3790,11 +3852,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 # define identifier ( identifier-list , ... ) replacement-list new-line
             */
             //p = preprocessor_match_identifier(p, bActive, level, false, "define");
+
             match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error); //define
             skip_blanks_level(&r, inputList, level);
 
             // printf("define %s\n%s : %d\n", inputList->head->lexeme, inputList->head->pFile->lexeme, inputList->head->line);
 
+            struct token* macro_name_token = inputList->head;
+            
 
             if (hashmap_find(&ctx->macros, inputList->head->lexeme) != NULL)
             {
@@ -3867,6 +3932,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token_list r4 = replacement_list(pMacro, inputList, level);
             token_list_append_list(&r, &r4);
             match_token_level(&r, inputList, TK_NEWLINE, level, ctx, error);
+
+            if (macro_name_token)
+              naming_convention_macro(ctx, macro_name_token);
         }
         else if (strcmp(inputList->head->lexeme, "undef") == 0)
         {
@@ -3925,7 +3993,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 /*insert comment before #*/
                 free(ptoken->lexeme);
-                ptoken->lexeme = strdup("//#");                                
+                ptoken->lexeme = strdup("//#");
             }
             match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);//warning
 
@@ -5266,8 +5334,8 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
     case TK_KEYWORD_REPEAT: return "TK_KEYWORD_REPEAT";
     case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
-    
-    
+
+
     }
     assert(false);
     return "";
@@ -5523,6 +5591,45 @@ void print_preprocessed(struct token* p_token)
         printf("%s", s);
         free((void*)s);
     }
+}
+
+static bool is_screaming_case(const char* text)
+{
+    if (text == NULL)
+        return true;
+
+    if (!(text[0] >= 'A' && text[0] <= 'Z'))
+    {
+        /*first letter lower case*/
+        return false;
+    }
+
+    while (*text)
+    {
+        if ((*text >= 'A' && *text <= 'Z') ||
+            (*text >= '0' && *text <= '9') ||
+            (*text == '_'))
+        {
+            //ok
+        }
+        else
+            return false;
+        text++;
+    }
+
+    return true;
+
+}
+
+void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
+{
+    if (!ctx->options.bCheckNamingConventions || token->level != 0)
+        return;
+
+    if (!is_screaming_case(token->lexeme)) {
+        pre_setinfo_with_token(ctx, token, "use SCREAMING_CASE for macros");
+    }
+    
 }
 
 
@@ -15484,8 +15591,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         {
             if (parameter->declarator->nUses == 0)
             {
-                if (parameter->name)
+                if (parameter->name && 
+                    parameter->name->level == 0 /*direct source*/
+                    )
                 {
+                    
                     ctx->printf(WHITE "%s:%d:%d: ",
                         parameter->name->pFile->lexeme,
                         parameter->name->line,
@@ -18749,6 +18859,7 @@ void ast_destroy(struct ast* ast)
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);
 }
+
 static bool is_all_upper(const char* text)
 {
     const char* p = text;
@@ -18767,18 +18878,80 @@ static bool is_snake_case(const char* text)
 {
     if (text == NULL)
         return true;
+    
+    if (!(*text >= 'a' && *text <= 'z'))
+    {
+        return false;
+    }
 
-    return (text[0] >= 'a' && text[0] <= 'z');
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') || 
+            *text == '_' ||
+            (*text >= '0' && *text <= '9'))
+            
+        {
+            //ok
+        }
+        else 
+            return false;
+        text++;
+    }
+
+    return true;
 }
 
 static bool is_camel_case(const char* text)
 {
-    return (text[0] >= 'a' && text[0] <= 'z');
+    if (text == NULL)
+        return true;
+
+    if (!(*text >= 'a' && *text <= 'z'))
+    {
+        return false;
+    }
+
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') ||
+            (*text >= 'A' && *text <= 'Z') ||
+            (*text >= '0' && *text <= '9'))
+        {
+            //ok
+        }
+        else
+            return false;
+        text++;
+    }
+
+    return true;    
 }
 
 static bool is_pascal_case(const char* text)
 {
-    return (text[0] >= 'A' && text[0] <= 'Z');
+    if (text == NULL)
+        return true;
+
+    if (!(text[0] >= 'A' && text[0] <= 'Z'))
+    {
+        /*first letter uppepr case*/
+        return false;
+    }
+
+    while (*text)
+    {
+        if ((*text >= 'a' && *text <= 'z') ||
+            (*text >= 'A' && *text <= 'Z') ||
+            (*text >= '0' && *text <= '9'))
+        {
+            //ok
+        }
+        else
+            return false;
+        text++;
+    }
+
+    return true;
 }
 /*
  * This naming conventions are not ready yet...
