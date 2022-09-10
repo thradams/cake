@@ -250,10 +250,10 @@ struct macro
 };
 
 /*usado para verificar recursividade*/
-struct MacroExpanded
+struct macro_expanded
 {
     const char* name;
-    struct MacroExpanded* pPrevious;
+    struct macro_expanded* pPrevious;
 };
 
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
@@ -267,13 +267,11 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
 }
 
 
-
-
-struct MacroArgument
+struct macro_argument
 {
     const char* name;
     struct token_list tokens;
-    struct MacroArgument* next;
+    struct macro_argument* next;
 };
 
 
@@ -330,7 +328,7 @@ struct token_list  copy_argument_list_tokens(struct token_list* list)
 }
 
 
-struct token_list copy_argument_list(struct MacroArgument* pMacroArgument)
+struct token_list copy_argument_list(struct macro_argument* pMacroArgument)
 {
     //pnew->tokens
     struct token_list list = copy_argument_list_tokens(&pMacroArgument->tokens);
@@ -347,16 +345,16 @@ struct token_list copy_argument_list(struct MacroArgument* pMacroArgument)
 }
 
 
-struct MacroArgumentList
+struct macro_argument_list
 {
     struct token_list tokens;
-    struct MacroArgument* head;
-    struct MacroArgument* tail;
+    struct macro_argument* head;
+    struct macro_argument* tail;
 };
 
-void print_macro_arguments(struct MacroArgumentList* arguments)
+void print_macro_arguments(struct macro_argument_list* arguments)
 {
-    struct MacroArgument* pArgument = arguments->head;
+    struct macro_argument* pArgument = arguments->head;
     while (pArgument)
     {
         printf("%s:", pArgument->name);
@@ -365,13 +363,13 @@ void print_macro_arguments(struct MacroArgumentList* arguments)
     }
 }
 
-struct MacroArgument* find_macro_argument_by_name(struct MacroArgumentList* parameters, const char* name)
+struct macro_argument* find_macro_argument_by_name(struct macro_argument_list* parameters, const char* name)
 {
     /*
     * Os argumentos são coletados na expansão da macro e cada um (exceto ...)
     * é associado a um dos parametros da macro.
     */
-    struct MacroArgument* p = parameters->head;
+    struct macro_argument* p = parameters->head;
     while (p)
     {
         if (strcmp(p->name, name) == 0)
@@ -384,7 +382,7 @@ struct MacroArgument* find_macro_argument_by_name(struct MacroArgumentList* para
 }
 
 
-void argument_list_add(struct MacroArgumentList* list, struct MacroArgument* pnew)
+void argument_list_add(struct macro_argument_list* list, struct macro_argument* pnew)
 {
     assert(pnew->next == NULL);
     if (list->head == NULL)
@@ -2648,11 +2646,11 @@ struct token_list non_directive(struct preprocessor_ctx* ctx, struct token_list*
     return r;
 }
 
-struct MacroArgumentList collect_macro_arguments(struct preprocessor_ctx* ctx,
+struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
     struct macro* pMacro,
     struct token_list* inputList, int level, struct error* error)
 {
-    struct MacroArgumentList macroArgumentList = { 0 };
+    struct macro_argument_list macroArgumentList = { 0 };
     try
     {
         assert(inputList->head->type == TK_IDENTIFIER); //nome da macro
@@ -2673,14 +2671,14 @@ struct MacroArgumentList collect_macro_arguments(struct preprocessor_ctx* ctx,
         {
             if (pMacro->pParameters != NULL)
             {
-                struct MacroArgument* pArgument = calloc(1, sizeof(struct MacroArgument));
+                struct macro_argument* pArgument = calloc(1, sizeof(struct macro_argument));
                 pArgument->name = strdup(pCurrentParameter->name);
                 argument_list_add(&macroArgumentList, pArgument);
             }
             match_token_level(&macroArgumentList.tokens, inputList, ')', level, ctx, error);
             return macroArgumentList;
         }
-        struct MacroArgument* pCurrentArgument = calloc(1, sizeof(struct MacroArgument));
+        struct macro_argument* pCurrentArgument = calloc(1, sizeof(struct macro_argument));
         pCurrentArgument->name = strdup(pCurrentParameter->name);
         while (inputList->head != NULL)
         {
@@ -2704,7 +2702,7 @@ struct MacroArgumentList collect_macro_arguments(struct preprocessor_ctx* ctx,
                         if (strcmp(pCurrentParameter->name, "__VA_ARGS__") == 0)
                         {
                             //adicionamos este argumento como sendo vazio
-                            pCurrentArgument = calloc(1, sizeof(struct MacroArgument));
+                            pCurrentArgument = calloc(1, sizeof(struct macro_argument));
                             pCurrentArgument->name = strdup(pCurrentParameter->name);
                             argument_list_add(&macroArgumentList, pCurrentArgument);
                         }
@@ -2738,7 +2736,7 @@ struct MacroArgumentList collect_macro_arguments(struct preprocessor_ctx* ctx,
                     match_token_level(&macroArgumentList.tokens, inputList, ',', level, ctx, error);
                     argument_list_add(&macroArgumentList, pCurrentArgument);
                     pCurrentArgument = NULL; /*tem mais?*/
-                    pCurrentArgument = calloc(1, sizeof(struct MacroArgument));
+                    pCurrentArgument = calloc(1, sizeof(struct macro_argument));
                     pCurrentParameter = pCurrentParameter->next;
                     if (pCurrentParameter == NULL)
                     {
@@ -2766,8 +2764,8 @@ struct MacroArgumentList collect_macro_arguments(struct preprocessor_ctx* ctx,
     return macroArgumentList;
 }
 
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct MacroExpanded* pList, struct macro* pMacro, struct MacroArgumentList* arguments, int level, struct error* error);
-struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct MacroExpanded* pList, struct token_list* oldlist, int level, struct error* error);
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct macro* pMacro, struct macro_argument_list* arguments, int level, struct error* error);
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct token_list* oldlist, int level, struct error* error);
 
 
 struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* pMacro, struct error* error);
@@ -2934,7 +2932,7 @@ struct token_list replace_vaopt(struct preprocessor_ctx* ctx, struct token_list*
     }
     return r;
 }
-struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct MacroExpanded* pList, struct token_list* inputList, struct MacroArgumentList* arguments, struct error* error)
+struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct token_list* inputList, struct macro_argument_list* arguments, struct error* error)
 {
     struct token_list r = { 0 };
     bool bVarArgsWasEmpty = false;
@@ -2946,7 +2944,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct M
             assert(!(inputList->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
             assert(!token_is_blank(inputList->head));
             assert(r.tail == NULL || !token_is_blank(r.tail));
-            struct MacroArgument* pArgument = NULL;
+            struct macro_argument* pArgument = NULL;
             if (inputList->head->type == TK_IDENTIFIER)
             {
                 pArgument = find_macro_argument_by_name(arguments, inputList->head->lexeme);
@@ -3078,9 +3076,9 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct M
 
 struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* inputList, struct error* error);
 
-bool macro_already_expanded(struct MacroExpanded* pList, const char* name)
+bool macro_already_expanded(struct macro_expanded* pList, const char* name)
 {
-    struct MacroExpanded* pItem = pList;
+    struct macro_expanded* pItem = pList;
     while (pItem)
     {
         if (strcmp(name, pItem->name) == 0)
@@ -3092,7 +3090,7 @@ bool macro_already_expanded(struct MacroExpanded* pList, const char* name)
     return false;
 }
 
-struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct MacroExpanded* pList, struct token_list* oldlist, int level, struct error* error)
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct token_list* oldlist, int level, struct error* error)
 {
     struct token_list r = { 0 };
     try
@@ -3156,7 +3154,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
             if (pMacro)
             {
                 int flags = newList.head->flags;
-                struct MacroArgumentList arguments = collect_macro_arguments(ctx, pMacro, &newList, level, error);
+                struct macro_argument_list arguments = collect_macro_arguments(ctx, pMacro, &newList, level, error);
                 if (error->code) throw;
 
 
@@ -3343,7 +3341,7 @@ void print_literal2(const char* s);
     para o primeiro item da expansao
     caso contrario, se p nao for macro, retorna null.
 */
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct MacroExpanded* pList, struct macro* pMacro, struct MacroArgumentList* arguments, int level, struct error* error)
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct macro* pMacro, struct macro_argument_list* arguments, int level, struct error* error)
 {
     pMacro->usage++;
 
@@ -3355,7 +3353,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct MacroExpande
     try
     {
         assert(!macro_already_expanded(pList, pMacro->name));
-        struct MacroExpanded macro;
+        struct macro_expanded macro;
         macro.name = pMacro->name;
         macro.pPrevious = pList;
         if (pMacro->bIsFunction)
@@ -3462,7 +3460,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 //F(1)`a` acho que vou imprimir desta forma ou so fundo diferente
                 //
                 enum token_flags flags = inputList->head->flags;
-                struct MacroArgumentList arguments = collect_macro_arguments(ctx, pMacro, inputList, level, error);
+                struct macro_argument_list arguments = collect_macro_arguments(ctx, pMacro, inputList, level, error);
                 if (error->code) throw;
 
 
@@ -3522,7 +3520,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                         {
                             // printf("tetris\n");
                             int flags2 = inputList->head->flags;
-                            struct MacroArgumentList arguments2 = collect_macro_arguments(ctx, pMacro, inputList, level, error);
+                            struct macro_argument_list arguments2 = collect_macro_arguments(ctx, pMacro, inputList, level, error);
                             if (error->code) throw;
 
                             if (ctx->flags & preprocessor_ctx_flags_only_final)
