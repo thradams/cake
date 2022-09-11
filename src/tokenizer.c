@@ -271,10 +271,10 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
     char* content = readfile(fullpath);
     if (content == NULL)
     {
-        struct include_dir* pCurrent = ctx->include_dir.head;
-        while (pCurrent)
+        struct include_dir* current = ctx->include_dir.head;
+        while (current)
         {
-            snprintf(fullpath, 300, "%s%s", pCurrent->path, path);
+            snprintf(fullpath, 300, "%s%s", current->path, path);
 
             if (hashmap_find(&ctx->pragmaOnce, fullpath) != NULL)
             {
@@ -285,7 +285,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
             content = readfile(fullpath);
             if (content != NULL)
                 break;
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
     }
     return content;
@@ -344,29 +344,29 @@ struct token_list  copy_argument_list_tokens(struct token_list* list)
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
     struct token_list r = { 0 };
-    struct token* pCurrent = list->head;
+    struct token* current = list->head;
     //sai de cima de todos brancos iniciais
-    while (pCurrent &&
-        (token_is_blank(pCurrent) ||
-            pCurrent->type == TK_NEWLINE))
+    while (current &&
+        (token_is_blank(current) ||
+            current->type == TK_NEWLINE))
     {
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     //remover flag de espaco antes se tiver
     bool bIsFirst = true;
     bool previousIsBlank = false;
-    for (; pCurrent;)
+    for (; current;)
     {
-        if (pCurrent && (token_is_blank(pCurrent) ||
-            pCurrent->type == TK_NEWLINE))
+        if (current && (token_is_blank(current) ||
+            current->type == TK_NEWLINE))
         {
-            if (pCurrent == list->tail)
+            if (current == list->tail)
                 break;
 
-            pCurrent = pCurrent->next;
+            current = current->next;
             continue;
         }
-        struct token* pAdded = token_list_clone_and_add(&r, pCurrent);
+        struct token* pAdded = token_list_clone_and_add(&r, current);
         if (pAdded->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
             pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
@@ -381,9 +381,9 @@ struct token_list  copy_argument_list_tokens(struct token_list* list)
         remove_line_continuation(pAdded->lexeme);
         previousIsBlank = false;
 
-        if (pCurrent == list->tail)
+        if (current == list->tail)
             break;
-        pCurrent = pCurrent->next;
+        current = current->next;
 
     }
     return r;
@@ -1188,7 +1188,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
         }
 
 
-        //struct token* pCurrent = pFirst;
+        //struct token* current = pFirst;
         bool bNewLine = true;
         bool bHasSpace = false;
         while (1)
@@ -1570,18 +1570,18 @@ struct token* preprocessor_look_ahead_core(struct token* p)
     {
         return NULL;
     }
-    struct token* pCurrent = p->next;
-    if (pCurrent == NULL)
+    struct token* current = p->next;
+    if (current == NULL)
         return NULL;
-    while (pCurrent &&
-        (pCurrent->type == TK_BLANKS ||
-            pCurrent->type == TK_PLACEMARKER ||
-            pCurrent->type == TK_LINE_COMMENT ||
-            pCurrent->type == TK_COMENT))
+    while (current &&
+        (current->type == TK_BLANKS ||
+            current->type == TK_PLACEMARKER ||
+            current->type == TK_LINE_COMMENT ||
+            current->type == TK_COMENT))
     {
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
-    return pCurrent;
+    return current;
 }
 
 bool preprocessor_token_ahead_is(struct token* p, enum token_type t)
@@ -1598,18 +1598,18 @@ bool preprocessor_token_previous_is(struct token* p, enum token_type t)
     {
         return false;
     }
-    struct token* pCurrent = p->prev;
-    if (pCurrent == NULL)
+    struct token* current = p->prev;
+    if (current == NULL)
         return false;
-    while (pCurrent &&
-        (pCurrent->type == TK_BLANKS ||
-            pCurrent->type == TK_LINE_COMMENT ||
-            pCurrent->type == TK_PLACEMARKER ||
-            pCurrent->type == TK_COMENT))
+    while (current &&
+        (current->type == TK_BLANKS ||
+            current->type == TK_LINE_COMMENT ||
+            current->type == TK_PLACEMARKER ||
+            current->type == TK_COMENT))
     {
-        pCurrent = pCurrent->prev;
+        current = current->prev;
     }
-    return (pCurrent && pCurrent->type == t);
+    return (current && current->type == t);
 }
 
 bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
@@ -3327,26 +3327,26 @@ struct token_list  copy_replacement_list(struct token_list* list)
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
     struct token_list r = { 0 };
-    struct token* pCurrent = list->head;
+    struct token* current = list->head;
     //sai de cima de todos brancos iniciais
-    while (pCurrent && token_is_blank(pCurrent))
+    while (current && token_is_blank(current))
     {
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     //remover flag de espaco antes se tiver
     bool bIsFirst = true;
     bool previousIsBlank = false;
-    for (; pCurrent;)
+    for (; current;)
     {
-        if (pCurrent && token_is_blank(pCurrent))
+        if (current && token_is_blank(current))
         {
-            if (pCurrent == list->tail)
+            if (current == list->tail)
                 break;
 
-            pCurrent = pCurrent->next;
+            current = current->next;
             continue;
         }
-        struct token* pAdded = token_list_clone_and_add(&r, pCurrent);
+        struct token* pAdded = token_list_clone_and_add(&r, current);
         if (pAdded->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
             pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
@@ -3361,9 +3361,9 @@ struct token_list  copy_replacement_list(struct token_list* list)
         remove_line_continuation(pAdded->lexeme);
         previousIsBlank = false;
 
-        if (pCurrent == list->tail)
+        if (current == list->tail)
             break;
-        pCurrent = pCurrent->next;
+        current = current->next;
 
     }
     return r;
@@ -4029,20 +4029,20 @@ void print_literal(const char* s)
 const char* get_code_as_we_see_plusmacros(struct token_list* list)
 {
     struct osstream ss = { 0 };
-    struct token* pCurrent = list->head;
-    while (pCurrent)
+    struct token* current = list->head;
+    while (current)
     {
-        if (pCurrent->level == 0 &&
-            pCurrent->type != TK_BEGIN_OF_FILE)
+        if (current->level == 0 &&
+            current->type != TK_BEGIN_OF_FILE)
         {
-            if (pCurrent->flags & TK_FLAG_MACRO_EXPANDED)
+            if (current->flags & TK_FLAG_MACRO_EXPANDED)
                 ss_fprintf(&ss, LIGHTCYAN);
             else
                 ss_fprintf(&ss, WHITE);
-            ss_fprintf(&ss, "%s", pCurrent->lexeme);
+            ss_fprintf(&ss, "%s", current->lexeme);
             ss_fprintf(&ss, RESET);
         }
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     return ss.c_str;
 }
@@ -4050,16 +4050,16 @@ const char* get_code_as_we_see_plusmacros(struct token_list* list)
 const char* get_code_as_we_see(struct token_list* list, bool removeComments)
 {
     struct osstream ss = { 0 };
-    struct token* pCurrent = list->head;
-    while (pCurrent != list->tail->next)
+    struct token* current = list->head;
+    while (current != list->tail->next)
     {
-        if (pCurrent->level == 0 &&
-            !(pCurrent->flags & TK_FLAG_MACRO_EXPANDED) &&
-            !(pCurrent->flags & TK_FLAG_HIDE) &&
-            pCurrent->type != TK_BEGIN_OF_FILE)
+        if (current->level == 0 &&
+            !(current->flags & TK_FLAG_MACRO_EXPANDED) &&
+            !(current->flags & TK_FLAG_HIDE) &&
+            current->type != TK_BEGIN_OF_FILE)
         {
-            if ((pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
-                (pCurrent->prev != NULL && pCurrent->prev->type != TK_BLANKS))
+            if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
+                (current->prev != NULL && current->prev->type != TK_BLANKS))
             {
                 //se uma macro expandida for mostrada ele nao tem espacos entao inserimos
                 ss_fprintf(&ss, " ");
@@ -4067,19 +4067,19 @@ const char* get_code_as_we_see(struct token_list* list, bool removeComments)
 
             if (removeComments)
             {
-                if (pCurrent->type == TK_LINE_COMMENT)
+                if (current->type == TK_LINE_COMMENT)
                     ss_fprintf(&ss, "\n");
-                else if (pCurrent->type == TK_COMENT)
+                else if (current->type == TK_COMENT)
                     ss_fprintf(&ss, " ");
                 else
-                    ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                    ss_fprintf(&ss, "%s", current->lexeme);
             }
             else
             {
-                ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                ss_fprintf(&ss, "%s", current->lexeme);
             }
         }
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     return ss.c_str;
 }
@@ -4088,27 +4088,27 @@ const char* get_code_as_we_see(struct token_list* list, bool removeComments)
 const char* get_code_as_compiler_see(struct token_list* list)
 {
     struct osstream ss = { 0 };
-    struct token* pCurrent = list->head;
-    while (pCurrent != list->tail->next)
+    struct token* current = list->head;
+    while (current != list->tail->next)
     {
-        if (!(pCurrent->flags & TK_FLAG_HIDE) &&
-            pCurrent->type != TK_BEGIN_OF_FILE &&
-            (pCurrent->flags & TK_FLAG_FINAL))
+        if (!(current->flags & TK_FLAG_HIDE) &&
+            current->type != TK_BEGIN_OF_FILE &&
+            (current->flags & TK_FLAG_FINAL))
         {
-            if (pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            if (current->flags & TK_FLAG_HAS_SPACE_BEFORE)
                 ss_fprintf(&ss, " ");
 
-            if (pCurrent->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+            if (current->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
                 ss_fprintf(&ss, "\n");
 
-            if (pCurrent->type == TK_LINE_COMMENT)
+            if (current->type == TK_LINE_COMMENT)
                 ss_fprintf(&ss, "\n");
-            else if (pCurrent->type == TK_COMENT)
+            else if (current->type == TK_COMENT)
                 ss_fprintf(&ss, " ");
             else
-                ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                ss_fprintf(&ss, "%s", current->lexeme);
         }
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     return ss.c_str;
 }
@@ -4129,25 +4129,25 @@ const char* print_preprocessed_to_string2(struct token* p_token)
         return strdup("(null)");
 
     struct osstream ss = { 0 };
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
 
         //Nós ignorados a line continuation e ela pode aparecer em qualquer parte
         //dos lexemes.
         //inves de remover poderia so pular ao imprimir
-        remove_line_continuation(pCurrent->lexeme);
+        remove_line_continuation(current->lexeme);
 
-        if (pCurrent->flags & TK_FLAG_FINAL)
+        if (current->flags & TK_FLAG_FINAL)
         {
-            if (pCurrent->level > 0)
+            if (current->level > 0)
             {
                 //nos niveis de include nos podemos estar ignorando todos
                 //os espacos. neste caso eh preciso incluilos para nao juntar os tokens
 
-                if ((pCurrent->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
+                if ((current->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
                     ss_fprintf(&ss, "\n");
-                else if ((pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE))
+                else if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE))
                     ss_fprintf(&ss, " ");
             }
             else
@@ -4156,35 +4156,35 @@ const char* print_preprocessed_to_string2(struct token* p_token)
                   no nivel 0 nos imprimimos os espacos.. porem no caso das macros
                   eh preciso colocar um espaco pq ele nao existe.
                 */
-                if (pCurrent->flags & TK_FLAG_MACRO_EXPANDED)
+                if (current->flags & TK_FLAG_MACRO_EXPANDED)
                 {
-                    if ((pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE))
+                    if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE))
                         ss_fprintf(&ss, " ");
                 }
             }
 
             //}
 
-            if (pCurrent->lexeme[0] != '\0')
+            if (current->lexeme[0] != '\0')
             {
-                ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                ss_fprintf(&ss, "%s", current->lexeme);
             }
 
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
         else
         {
-            if (pCurrent->level == 0)
+            if (current->level == 0)
             {
-                if (pCurrent->type == TK_BLANKS ||
-                    pCurrent->type == TK_NEWLINE)
+                if (current->type == TK_BLANKS ||
+                    current->type == TK_NEWLINE)
                 {
-                    ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                    ss_fprintf(&ss, "%s", current->lexeme);
                 }
             }
 
 
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
     }
     return ss.c_str; //MOVED
@@ -4199,41 +4199,41 @@ const char* print_preprocessed_to_string(struct token* p_token)
     */
 
     struct osstream ss = { 0 };
-    struct token* pCurrent = p_token;
+    struct token* current = p_token;
 
     /*
     * Ignora tudo o que é espaço no início
     */
-    while (!(pCurrent->flags & TK_FLAG_FINAL) ||
-        pCurrent->type == TK_BLANKS ||
-        pCurrent->type == TK_COMENT ||
-        pCurrent->type == TK_LINE_COMMENT ||
-        pCurrent->type == TK_NEWLINE ||
-        pCurrent->type == TK_PREPROCESSOR_LINE)
+    while (!(current->flags & TK_FLAG_FINAL) ||
+        current->type == TK_BLANKS ||
+        current->type == TK_COMENT ||
+        current->type == TK_LINE_COMMENT ||
+        current->type == TK_NEWLINE ||
+        current->type == TK_PREPROCESSOR_LINE)
     {
-        pCurrent = pCurrent->next;
-        if (pCurrent == NULL)
+        current = current->next;
+        if (current == NULL)
             return ss.c_str;
     }
 
     bool first = true;
-    while (pCurrent)
+    while (current)
     {
-        assert(pCurrent->pFile != NULL);
-        if (pCurrent->flags & TK_FLAG_FINAL)
+        assert(current->pFile != NULL);
+        if (current->flags & TK_FLAG_FINAL)
         {
-            if (!first && pCurrent->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+            if (!first && current->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
                 ss_fprintf(&ss, "\n");
-            else if (!first && pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            else if (!first && current->flags & TK_FLAG_HAS_SPACE_BEFORE)
                 ss_fprintf(&ss, " ");
-            if (pCurrent->lexeme[0] != '\0')
-                ss_fprintf(&ss, "%s", pCurrent->lexeme);
+            if (current->lexeme[0] != '\0')
+                ss_fprintf(&ss, "%s", current->lexeme);
             first = false;
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
         else
         {
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
     }
     return ss.c_str;
@@ -4295,40 +4295,40 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 
 void print_asserts(struct token* p_token)
 {
-    struct token* pCurrent = p_token;
+    struct token* current = p_token;
     printf("struct { const char* lexeme; enum token_type token; int bActive; int bFinal; } result[] = { \n");
-    while (pCurrent)
+    while (current)
     {
-        printf("{ %-20s, %d, ", get_token_name(pCurrent->type), (pCurrent->flags & TK_FLAG_FINAL));
-        print_literal(pCurrent->lexeme);
+        printf("{ %-20s, %d, ", get_token_name(current->type), (current->flags & TK_FLAG_FINAL));
+        print_literal(current->lexeme);
         printf("},\n");
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     printf("}\n");
 }
 
 void show_all(struct token* p_token)
 {
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
-        if (pCurrent->flags & TK_FLAG_FINAL)
+        if (current->flags & TK_FLAG_FINAL)
         {
-            if (pCurrent->level == 0)
+            if (current->level == 0)
                 printf(WHITE);
             else
                 printf(BROWN);
         }
         else
         {
-            if (pCurrent->level == 0)
+            if (current->level == 0)
                 printf(LIGHTGRAY);
             else
                 printf(BLACK);
         }
-        printf("%s", pCurrent->lexeme);
+        printf("%s", current->lexeme);
         printf(RESET);
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
 }
 
@@ -4354,26 +4354,26 @@ void print_preprocessed_to_file(struct token* p_token, const char* filename)
 void show_visible(struct token* p_token)
 {
     printf(WHITE "visible used   / " LIGHTGRAY "visible ignored\n" RESET);
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
-        if (pCurrent->level == 0)
+        if (current->level == 0)
         {
-            if (pCurrent->flags & TK_FLAG_FINAL)
+            if (current->flags & TK_FLAG_FINAL)
                 printf(WHITE);
             else
                 printf(LIGHTGRAY);
         }
         else
         {
-            if (pCurrent->level == 0)
+            if (current->level == 0)
                 printf(BLACK);
             else
                 printf(BLACK);
         }
-        printf("%s", pCurrent->lexeme);
+        printf("%s", current->lexeme);
         printf(RESET);
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
 }
 
@@ -4381,26 +4381,26 @@ void show_visible_and_invisible(struct token* p_token)
 {
     printf(LIGHTGREEN "visible used   / " LIGHTGRAY "visible ignored\n" RESET);
     printf(LIGHTBLUE  "invisible used / " BROWN     "invisible ignored\n" RESET);
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
-        if (pCurrent->level == 0)
+        if (current->level == 0)
         {
-            if (pCurrent->flags & TK_FLAG_FINAL)
+            if (current->flags & TK_FLAG_FINAL)
                 printf(LIGHTGREEN);
             else
                 printf(LIGHTGRAY);
         }
         else
         {
-            if (pCurrent->flags & TK_FLAG_FINAL)
+            if (current->flags & TK_FLAG_FINAL)
                 printf(LIGHTBLUE);
             else
                 printf(BROWN);
         }
-        printf("%s", pCurrent->lexeme);
+        printf("%s", current->lexeme);
         printf(RESET);
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
 }
 
