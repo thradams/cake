@@ -16,8 +16,6 @@ struct scope
     struct hash_map tags;
     struct hash_map variables;
 
-    bool bParametersScope; /*true se for escopo parametros*/
-
     struct scope* next;
     struct scope* previous;
 };

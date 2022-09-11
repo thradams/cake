@@ -8177,8 +8177,6 @@ struct scope
     struct hash_map tags;
     struct hash_map variables;
 
-    bool bParametersScope; /*true se for escopo parametros*/
-
     struct scope* next;
     struct scope* previous;
 };
@@ -17009,7 +17007,7 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
     //direct_declarator '(' parameter_type_list_opt ')'
 
 
-    p_function_declarator->parameters_scope.bParametersScope = true;
+    
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
 
     scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
