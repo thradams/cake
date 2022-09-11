@@ -1112,18 +1112,18 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
     {
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
-            struct expression* pNew = calloc(1, sizeof * pNew);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
 
             if (ctx->current->type == '++')
-                pNew->expression_type = UNARY_EXPRESSION_INCREMENT;
+                new_expression->expression_type = UNARY_EXPRESSION_INCREMENT;
             else
-                pNew->expression_type = UNARY_EXPRESSION_DECREMENT;
+                new_expression->expression_type = UNARY_EXPRESSION_DECREMENT;
             parser_match(ctx);
-            pNew->right = unary_expression(ctx, error, ectx);
+            new_expression->right = unary_expression(ctx, error, ectx);
             if (error->code != 0) throw;
 
-            pNew->type = type_copy(&pNew->right->type);
-            p_expression_node = pNew;
+            new_expression->type = type_copy(&new_expression->right->type);
+            p_expression_node = new_expression;
         }
         else if (ctx->current != NULL &&
             (ctx->current->type == '&'
@@ -1133,147 +1133,136 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 || ctx->current->type == '~'
                 || ctx->current->type == '!'))
         {
-            struct expression* pNew = calloc(1, sizeof * pNew);
-            pNew->first = ctx->current;
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->first = ctx->current;
             struct token* op_position = ctx->current; //marcar posicao
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            pNew->right = cast_expression(ctx, error, ectx);
+            new_expression->right = cast_expression(ctx, error, ectx);
             if (error->code != 0) throw;
-            pNew->last = pNew->right->last;
+            new_expression->last = new_expression->right->last;
             if (op == '!')
             {
-                pNew->constant_value = !pNew->right->constant_value;
-                pNew->type = type_copy(&pNew->right->type);
+                new_expression->constant_value = !new_expression->right->constant_value;
+                new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '~')
             {
-                pNew->constant_value = ~pNew->right->constant_value;
-                pNew->type = type_copy(&pNew->right->type);
+                new_expression->constant_value = ~new_expression->right->constant_value;
+                new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '-')
             {
-                pNew->constant_value = -pNew->right->constant_value;
-                pNew->type = type_copy(&pNew->right->type);
+                new_expression->constant_value = -new_expression->right->constant_value;
+                new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '+')
             {
-                pNew->constant_value = +pNew->right->constant_value;
-                pNew->type = type_copy(&pNew->right->type);
+                new_expression->constant_value = +new_expression->right->constant_value;
+                new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '*')
             {
-                if (!type_is_pointer(&pNew->right->type))
+                if (!type_is_pointer(&new_expression->right->type))
                 {
                     parser_seterror_with_token(ctx, op_position, "indirection requires pointer operand");
                 }
-                pNew->type = get_pointer_content_type(&pNew->right->type);
-
-                //pNew->type = type_copy(&pNew->right->type);
-                //struct declarator_type* p_inner_declarator = find_inner_declarator(pNew->type.declarator_type);
-                //if (p_inner_declarator->pointers.head != NULL)
-                //{
-                  //  pointer_type_list_pop_front(&p_inner_declarator->pointers);
-                //}
-                //else
-                //{
-                  //  seterror_with_token(ctx, ctx->current, "indirection requires pointer operand");
-                //}
+                new_expression->type = get_pointer_content_type(&new_expression->right->type);                
             }
             else if (op == '&')
             {
                 //TODO nao tem como tirar endereco de uma constante
-                pNew->type = get_address_of_type(&pNew->right->type);
+                new_expression->type = get_address_of_type(&new_expression->right->type);
             }
             else
             {
                 parser_seterror_with_token(ctx, ctx->current, "invalid token");
                 throw;
             }
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             parser_match(ctx);
-            struct expression* pNew = calloc(1, sizeof * pNew);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
             if (first_of_type_name_ahead(ctx))
             {
-                pNew->expression_type = UNARY_EXPRESSION_SIZEOF_TYPE;
+                new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_TYPE;
                 parser_match_tk(ctx, '(', error);
-                pNew->type_name = type_name(ctx, error);
-                pNew->type = make_type_using_declarator(ctx, pNew->type_name->declarator);
+                new_expression->type_name = type_name(ctx, error);
+                new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
                 parser_match_tk(ctx, ')', error);
-                pNew->constant_value = type_get_sizeof(ctx, &pNew->type, error);
+                new_expression->constant_value = type_get_sizeof(ctx, &new_expression->type, error);
             }
             else
             {
                 bool old = ectx->bConstantExpressionRequired;
                 ectx->bConstantExpressionRequired = false;
-                pNew->right = unary_expression(ctx, error, ectx);
+                new_expression->right = unary_expression(ctx, error, ectx);
                 ectx->bConstantExpressionRequired = old;
 
                 if (error->code != 0)
                     throw;
 
-                pNew->expression_type = UNARY_EXPRESSION_SIZEOF_EXPRESSION;
-                pNew->constant_value = type_get_sizeof(ctx, &pNew->right->type, error);
+                new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_EXPRESSION;
+                new_expression->constant_value = type_get_sizeof(ctx, &new_expression->right->type, error);
             }
-            type_set_int(&pNew->type); //resultado sizeof
-            p_expression_node = pNew;
+            type_set_int(&new_expression->type); //resultado sizeof
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
         {
-            struct expression* pNew = calloc(1, sizeof * pNew);
-            pNew->first = ctx->current;
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->first = ctx->current;
 
             parser_match(ctx);
 
             if (first_of_type_name_ahead(ctx))
             {
-                pNew->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
+                new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
                 parser_match_tk(ctx, '(', error);
-                pNew->type_name = type_name(ctx, error);
-                pNew->type = make_type_using_declarator(ctx, pNew->type_name->declarator);
+                new_expression->type_name = type_name(ctx, error);
+                new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
 
-                pNew->last = ctx->current;
+                new_expression->last = ctx->current;
 
                 parser_match_tk(ctx, ')', error);
-                pNew->constant_value = type_get_hashof(ctx, &pNew->type, error);
+                new_expression->constant_value = type_get_hashof(ctx, &new_expression->type, error);
             }
             else
             {
                 bool old = ectx->bConstantExpressionRequired;
                 ectx->bConstantExpressionRequired = false;
-                pNew->right = unary_expression(ctx, error, ectx);
+                new_expression->right = unary_expression(ctx, error, ectx);
                 ectx->bConstantExpressionRequired = old;
 
                 if (error->code != 0)
                     throw;
 
-                pNew->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
-                pNew->constant_value = type_get_hashof(ctx, &pNew->right->type, error);
-                pNew->last = previous_parser_token(ctx->current);
+                new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
+                new_expression->constant_value = type_get_hashof(ctx, &new_expression->right->type, error);
+                new_expression->last = previous_parser_token(ctx->current);
             }
 
-            type_set_int(&pNew->type); //resultado sizeof
-            p_expression_node = pNew;
+            type_set_int(&new_expression->type); //resultado sizeof
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
             parser_match(ctx);
-            struct expression* pNew = calloc(1, sizeof * pNew);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
 
 
-            pNew->expression_type = UNARY_EXPRESSION_ALIGNOF;
+            new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
             parser_match_tk(ctx, '(', error);
-            pNew->type_name = type_name(ctx, error);
-            pNew->type = make_type_using_declarator(ctx, pNew->type_name->declarator);
+            new_expression->type_name = type_name(ctx, error);
+            new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
             parser_match_tk(ctx, ')', error);
-            pNew->constant_value = type_get_sizeof(ctx, &pNew->type, error);
+            new_expression->constant_value = type_get_sizeof(ctx, &new_expression->type, error);
 
 
-            type_set_int(&pNew->type); //resultado sizeof
-            p_expression_node = pNew;
+            type_set_int(&new_expression->type); //resultado sizeof
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNAS)
         {
@@ -1328,12 +1317,12 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
             {
                 // Achar que era um cast_expression foi um engano...
                 // porque apareceu o { então é compound literal que eh postfix.
-                struct expression* pNew = postfix_expression_type_name(ctx, p_expression_node->type_name, error, ectx);
+                struct expression* new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, error, ectx);
 
-                pNew->first = p_expression_node->first;
+                new_expression->first = p_expression_node->first;
 
                 free(p_expression_node);
-                p_expression_node = pNew;
+                p_expression_node = new_expression;
             }
             else
             {
@@ -1389,25 +1378,25 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx, struct erro
                 ctx->current->type == '/' ||
                 ctx->current->type == '%'))
         {
-            struct expression* pNew = calloc(1, sizeof * pNew);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            pNew->left = p_expression_node;
-            pNew->right = cast_expression(ctx, error, ectx);
+            new_expression->left = p_expression_node;
+            new_expression->right = cast_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
             if (op == '*')
             {
-                pNew->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
-                pNew->constant_value = (pNew->left->constant_value * pNew->right->constant_value);
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
+                new_expression->constant_value = (new_expression->left->constant_value * new_expression->right->constant_value);
             }
             else if (op == '/')
             {
-                pNew->expression_type = MULTIPLICATIVE_EXPRESSION_DIV;
-                if (pNew->right->constant_value != 0)
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV;
+                if (new_expression->right->constant_value != 0)
                 {
-                    pNew->constant_value = (pNew->left->constant_value / pNew->right->constant_value);
+                    new_expression->constant_value = (new_expression->left->constant_value / new_expression->right->constant_value);
                 }
                 else
                 {
@@ -1415,20 +1404,20 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx, struct erro
             }
             else if (op == '%')
             {
-                pNew->expression_type = MULTIPLICATIVE_EXPRESSION_MOD;
-                if (pNew->right->constant_value != 0)
-                    pNew->constant_value = (pNew->left->constant_value % pNew->right->constant_value);
+                new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD;
+                if (new_expression->right->constant_value != 0)
+                    new_expression->constant_value = (new_expression->left->constant_value % new_expression->right->constant_value);
             }
 
             struct error localerror = { 0 };
-            pNew->type = type_common(&pNew->left->type, &pNew->right->type, &localerror);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, &localerror);
             if (localerror.code != 0)
             {
                 parser_seterror_with_token(ctx, ctx->current, "%s", localerror.message);
                 throw;
             }
 
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -1447,7 +1436,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
     */
 
     struct expression* p_expression_node = NULL;
-    struct expression* pNew = NULL;
+    struct expression* new_expression = NULL;
 
     try
     {
@@ -1464,57 +1453,57 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
         {
             struct token* operator_position = ctx->current;
 
-            assert(pNew == NULL);
-            pNew = calloc(1, sizeof * pNew);
+            assert(new_expression == NULL);
+            new_expression = calloc(1, sizeof * new_expression);
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            pNew->left = p_expression_node;
+            new_expression->left = p_expression_node;
 
             static int count = 0;
             count++;
-            pNew->right = multiplicative_expression(ctx, error, ectx);
+            new_expression->right = multiplicative_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
-            if (!type_is_scalar(&pNew->left->type))
+            if (!type_is_scalar(&new_expression->left->type))
             {
                 parser_seterror_with_token(ctx, operator_position, "left operator is not scalar");
             }
-            if (!type_is_scalar(&pNew->right->type))
+            if (!type_is_scalar(&new_expression->right->type))
             {
                 parser_seterror_with_token(ctx, operator_position, "right operator is not scalar");
             }
 
             if (op == '+')
             {
-                pNew->expression_type = ADDITIVE_EXPRESSION_PLUS;
-                pNew->constant_value = (pNew->left->constant_value + pNew->right->constant_value);
+                new_expression->expression_type = ADDITIVE_EXPRESSION_PLUS;
+                new_expression->constant_value = (new_expression->left->constant_value + new_expression->right->constant_value);
 
 
             }
             else if (op == '-')
             {
-                pNew->expression_type = ADDITIVE_EXPRESSION_MINUS;
-                pNew->constant_value = (pNew->left->constant_value - pNew->right->constant_value);
+                new_expression->expression_type = ADDITIVE_EXPRESSION_MINUS;
+                new_expression->constant_value = (new_expression->left->constant_value - new_expression->right->constant_value);
             }
 
-            if (type_is_pointer(&pNew->left->type))
+            if (type_is_pointer(&new_expression->left->type))
             {
                 /*
                  pointer +- integer
                 */
-                if (type_is_integer(&pNew->right->type))
+                if (type_is_integer(&new_expression->right->type))
                 {
-                    pNew->type = type_copy(&pNew->left->type);
+                    new_expression->type = type_copy(&new_expression->left->type);
                 }
-                else if (type_is_pointer_or_array(&pNew->right->type))
+                else if (type_is_pointer_or_array(&new_expression->right->type))
                 {
                     //tem que ser do mesmo tipo..
                     if (op == '-')
                     {
-                        if (type_is_same(&pNew->left->type, &pNew->right->type, true))
+                        if (type_is_same(&new_expression->left->type, &new_expression->right->type, true))
                         {
-                            type_set_int(&pNew->type);//
+                            type_set_int(&new_expression->type);//
                         }
                         else
                         {
@@ -1534,7 +1523,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
             else
             {
                 struct error localerror = { 0 };
-                pNew->type = type_common(&pNew->left->type, &pNew->right->type, &localerror);
+                new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, &localerror);
                 if (localerror.code != 0)
                 {
                     parser_seterror_with_token(ctx, ctx->current, "%s", localerror.message);
@@ -1545,8 +1534,8 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
             if (error->code != 0)
                 throw;
 
-            p_expression_node = pNew;
-            pNew = NULL; /*MOVED*/
+            p_expression_node = new_expression;
+            new_expression = NULL; /*MOVED*/
         }
     }
     catch
@@ -1555,7 +1544,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
         {
             //expression_node_delete(p_expression_node);
         }
-        if (pNew)
+        if (new_expression)
         {
             //expression_node_delete(p_expression_node);
         }
@@ -1588,34 +1577,34 @@ struct expression* shift_expression(struct parser_ctx* ctx, struct error* error,
             (ctx->current->type == '>>' ||
                 ctx->current->type == '<<'))
         {
-            struct expression* pNew = calloc(1, sizeof * pNew);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            pNew->left = p_expression_node;
-            pNew->right = multiplicative_expression(ctx, error, ectx);
+            new_expression->left = p_expression_node;
+            new_expression->right = multiplicative_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
             if (op == '>>')
             {
-                pNew->expression_type = SHIFT_EXPRESSION_RIGHT;
-                pNew->constant_value = (pNew->left->constant_value >> pNew->right->constant_value);
+                new_expression->expression_type = SHIFT_EXPRESSION_RIGHT;
+                new_expression->constant_value = (new_expression->left->constant_value >> new_expression->right->constant_value);
             }
             else if (op == '<<')
             {
-                pNew->expression_type = SHIFT_EXPRESSION_LEFT;
-                pNew->constant_value = (pNew->left->constant_value << pNew->right->constant_value);
+                new_expression->expression_type = SHIFT_EXPRESSION_LEFT;
+                new_expression->constant_value = (new_expression->left->constant_value << new_expression->right->constant_value);
             }
 
             struct error localerror = { 0 };
-            pNew->type = type_common(&pNew->left->type, &pNew->right->type, &localerror);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, &localerror);
             if (localerror.code != 0)
             {
                 parser_seterror_with_token(ctx, ctx->current, "%s", localerror.message);
                 throw;
             }
 
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -1648,38 +1637,38 @@ struct expression* relational_expression(struct parser_ctx* ctx, struct error* e
             ctx->current->type == '>=' ||
             ctx->current->type == '<='))
     {
-        struct expression* pNew = calloc(1, sizeof * pNew);
+        struct expression* new_expression = calloc(1, sizeof * new_expression);
         enum token_type op = ctx->current->type;
         parser_match(ctx);
-        pNew->left = p_expression_node;
-        pNew->right = shift_expression(ctx, error, ectx);
+        new_expression->left = p_expression_node;
+        new_expression->right = shift_expression(ctx, error, ectx);
         if (error->code != 0)
             break;
 
         if (op == '>')
         {
-            pNew->expression_type = RELATIONAL_EXPRESSION_BIGGER_THAN;
-            pNew->constant_value = (pNew->left->constant_value > pNew->right->constant_value);
+            new_expression->expression_type = RELATIONAL_EXPRESSION_BIGGER_THAN;
+            new_expression->constant_value = (new_expression->left->constant_value > new_expression->right->constant_value);
         }
         else if (op == '<')
         {
-            pNew->expression_type = RELATIONAL_EXPRESSION_LESS_THAN;
-            pNew->constant_value = (pNew->left->constant_value < pNew->right->constant_value);
+            new_expression->expression_type = RELATIONAL_EXPRESSION_LESS_THAN;
+            new_expression->constant_value = (new_expression->left->constant_value < new_expression->right->constant_value);
         }
         else if (op == '>=')
         {
-            pNew->expression_type = RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN;
-            pNew->constant_value = (pNew->left->constant_value >= pNew->right->constant_value);
+            new_expression->expression_type = RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN;
+            new_expression->constant_value = (new_expression->left->constant_value >= new_expression->right->constant_value);
         }
         else if (op == '<=')
         {
-            pNew->expression_type = RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN;
-            pNew->constant_value = (pNew->left->constant_value <= pNew->right->constant_value);
+            new_expression->expression_type = RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN;
+            new_expression->constant_value = (new_expression->left->constant_value <= new_expression->right->constant_value);
         }
 
-        type_set_int(&pNew->type);
+        type_set_int(&new_expression->type);
 
-        p_expression_node = pNew;
+        p_expression_node = new_expression;
     }
     return p_expression_node;
 }
@@ -1713,48 +1702,48 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
         (ctx->current->type == '==' ||
             ctx->current->type == '!='))
     {
-        struct expression* pNew = calloc(1, sizeof * pNew);
+        struct expression* new_expression = calloc(1, sizeof * new_expression);
         enum token_type op = ctx->current->type;
         parser_match(ctx);
-        pNew->left = p_expression_node;
-        pNew->right = relational_expression(ctx, error, ectx);
+        new_expression->left = p_expression_node;
+        new_expression->right = relational_expression(ctx, error, ectx);
         if (error->code != 0)
             break;
 
         if (op == '==')
         {
-            pNew->expression_type = EQUALITY_EXPRESSION_EQUAL;
+            new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
 
-            if (pNew->left->expression_type == TYPEID_EXPRESSION_TYPE ||
-                pNew->right->expression_type == TYPEID_EXPRESSION_TYPE)
+            if (new_expression->left->expression_type == TYPEID_EXPRESSION_TYPE ||
+                new_expression->right->expression_type == TYPEID_EXPRESSION_TYPE)
             {
-                pNew->constant_value = type_is_same(&pNew->left->type, &pNew->right->type, true);
+                new_expression->constant_value = type_is_same(&new_expression->left->type, &new_expression->right->type, true);
             }
             else
             {
-                pNew->constant_value = (pNew->left->constant_value == pNew->right->constant_value);
+                new_expression->constant_value = (new_expression->left->constant_value == new_expression->right->constant_value);
             }
         }
         else if (op == '!=')
         {
-            pNew->expression_type = EQUALITY_EXPRESSION_EQUAL;
+            new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
 
-            if (pNew->left->expression_type == TYPEID_EXPRESSION_TYPE ||
-                pNew->right->expression_type == TYPEID_EXPRESSION_TYPE)
+            if (new_expression->left->expression_type == TYPEID_EXPRESSION_TYPE ||
+                new_expression->right->expression_type == TYPEID_EXPRESSION_TYPE)
             {
-                pNew->constant_value = !type_is_same(&pNew->left->type, &pNew->right->type, true);
+                new_expression->constant_value = !type_is_same(&new_expression->left->type, &new_expression->right->type, true);
             }
             else
             {
-                pNew->constant_value = (pNew->left->constant_value != pNew->right->constant_value);
+                new_expression->constant_value = (new_expression->left->constant_value != new_expression->right->constant_value);
             }
         }
         else
         {
             assert(false);
         }
-        type_set_int(&pNew->type);
-        p_expression_node = pNew;
+        type_set_int(&new_expression->type);
+        p_expression_node = new_expression;
     }
     return p_expression_node;
 }
@@ -1780,24 +1769,24 @@ struct expression* and_expression(struct parser_ctx* ctx, struct error* error, s
             (ctx->current->type == '&'))
         {
             parser_match(ctx);
-            struct expression* pNew = calloc(1, sizeof * pNew);
-            pNew->expression_type = AND_EXPRESSION;
-            pNew->left = p_expression_node;
-            pNew->right = equality_expression(ctx, error, ectx);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->expression_type = AND_EXPRESSION;
+            new_expression->left = p_expression_node;
+            new_expression->right = equality_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
-            pNew->constant_value = (pNew->left->constant_value & pNew->right->constant_value);
+            new_expression->constant_value = (new_expression->left->constant_value & new_expression->right->constant_value);
 
             struct error localerror = { 0 };
-            pNew->type = type_common(&pNew->left->type, &pNew->right->type, &localerror);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, &localerror);
             if (localerror.code != 0)
             {
                 parser_seterror_with_token(ctx, ctx->current, "%s", localerror.message);
                 throw;
             }
 
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -1828,24 +1817,24 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error*
             (ctx->current->type == '^'))
         {
             parser_match(ctx);
-            struct expression* pNew = calloc(1, sizeof * pNew);
-            pNew->expression_type = EXCLUSIVE_OR_EXPRESSION;
-            pNew->left = p_expression_node;
-            pNew->right = and_expression(ctx, error, ectx);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
+            new_expression->left = p_expression_node;
+            new_expression->right = and_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
-            pNew->constant_value = (pNew->left->constant_value ^ pNew->right->constant_value);
+            new_expression->constant_value = (new_expression->left->constant_value ^ new_expression->right->constant_value);
 
             struct error localerror = { 0 };
-            pNew->type = type_common(&pNew->left->type, &pNew->right->type, &localerror);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, &localerror);
             if (localerror.code != 0)
             {
                 parser_seterror_with_token(ctx, ctx->current, "%s", localerror.message);
                 throw;
             }
 
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -1876,24 +1865,24 @@ struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error*
             (ctx->current->type == '|'))
         {
             parser_match(ctx);
-            struct expression* pNew = calloc(1, sizeof * pNew);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
 
-            pNew->expression_type = INCLUSIVE_OR_EXPRESSION;
-            pNew->left = p_expression_node;
-            pNew->right = exclusive_or_expression(ctx, error, ectx);
+            new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
+            new_expression->left = p_expression_node;
+            new_expression->right = exclusive_or_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
-            pNew->constant_value = (pNew->left->constant_value | pNew->right->constant_value);
+            new_expression->constant_value = (new_expression->left->constant_value | new_expression->right->constant_value);
 
             struct error localerror = { 0 };
-            pNew->type = type_common(&pNew->left->type, &pNew->right->type, &localerror);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, &localerror);
             if (localerror.code != 0)
             {
                 parser_seterror_with_token(ctx, ctx->current, "%s", localerror.message);
                 throw;
             }
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -1924,23 +1913,23 @@ struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* 
             (ctx->current->type == '&&'))
         {
             parser_match(ctx);
-            struct expression* pNew = calloc(1, sizeof * pNew);
-            pNew->expression_type = INCLUSIVE_AND_EXPRESSION;
-            pNew->left = p_expression_node;
-            pNew->right = inclusive_or_expression(ctx, error, ectx);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->expression_type = INCLUSIVE_AND_EXPRESSION;
+            new_expression->left = p_expression_node;
+            new_expression->right = inclusive_or_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
-            pNew->constant_value = (pNew->left->constant_value && pNew->right->constant_value);
+            new_expression->constant_value = (new_expression->left->constant_value && new_expression->right->constant_value);
 
             struct error localerror = { 0 };
-            pNew->type = type_common(&pNew->left->type, &pNew->right->type, &localerror);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, &localerror);
             if (localerror.code != 0)
             {
                 parser_seterror_with_token(ctx, ctx->current, "%s", localerror.message);
                 throw;
             }
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -1971,26 +1960,26 @@ struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* e
             (ctx->current->type == '||'))
         {
             parser_match(ctx);
-            struct expression* pNew = calloc(1, sizeof * pNew);
-            pNew->expression_type = LOGICAL_OR_EXPRESSION;
-            pNew->left = p_expression_node;
-            pNew->right = logical_and_expression(ctx, error, ectx);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->expression_type = LOGICAL_OR_EXPRESSION;
+            new_expression->left = p_expression_node;
+            new_expression->right = logical_and_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
             //TODO converter cada lado para bool
 
 
-            pNew->constant_value = (pNew->left->constant_value || pNew->right->constant_value);
+            new_expression->constant_value = (new_expression->left->constant_value || new_expression->right->constant_value);
 
             struct error localerror = { 0 };
-            pNew->type = type_common(&pNew->left->type, &pNew->right->type, &localerror);
+            new_expression->type = type_common(&new_expression->left->type, &new_expression->right->type, &localerror);
             if (localerror.code != 0)
             {
                 parser_seterror_with_token(ctx, ctx->current, "%s", localerror.message);
                 throw;
             }
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -2047,17 +2036,17 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
                 throw;
             }
 
-            struct expression* pNew = calloc(1, sizeof * pNew);
-            pNew->expression_type = ASSIGNMENT_EXPRESSION;
-            pNew->left = p_expression_node;
-            pNew->right = assignment_expression(ctx, error, ectx);
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->expression_type = ASSIGNMENT_EXPRESSION;
+            new_expression->left = p_expression_node;
+            new_expression->right = assignment_expression(ctx, error, ectx);
             if (error->code != 0)
                 throw;
 
 
-            pNew->type = type_copy(&pNew->right->type);
+            new_expression->type = type_copy(&new_expression->right->type);
 
-            p_expression_node = pNew;
+            p_expression_node = new_expression;
         }
     }
     catch
