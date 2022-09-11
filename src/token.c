@@ -137,21 +137,21 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
-    struct token* pCurrent = list->head;
+    struct token* current = list->head;
     
-    while (pCurrent)
+    while (current)
     {
-        if (token_is_blank(pCurrent))
+        if (token_is_blank(current))
         {
             has_space = true;
-            pCurrent = pCurrent->next;
+            current = current->next;
             continue;
         }
 
         if (has_space)
             ss_fprintf(&ss, " ");
 
-        const char* p = pCurrent->lexeme;
+        const char* p = current->lexeme;
         while (*p)
         {
             if (*p == '"')
@@ -162,9 +162,9 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
         }
         
 
-        pCurrent = pCurrent->next;
-        if (pCurrent)
-          has_space = pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE;
+        current = current->next;
+        if (current)
+          has_space = current->flags & TK_FLAG_HAS_SPACE_BEFORE;
     }
 
     if (bliteral)
@@ -188,7 +188,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
     else
     {
-        struct token* pFollow = after->next;
+        struct token* follow = after->next;
         if (token_list->tail == after)
         {
             token_list->tail = append_list->tail;
@@ -196,7 +196,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         else if (token_list->head == after)
         {
         }
-        append_list->tail->next = pFollow;
+        append_list->tail->next = follow;
         after->next = append_list->head;
     }
 }
@@ -294,17 +294,14 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 
 struct token* clone_token(struct token* p)
 {
-    struct token* pNew = calloc(1, sizeof * pNew);
-    if (pNew)
+    struct token* token = calloc(1, sizeof * token);
+    if (token)
     {
-        //*pNew = *p;
-        pNew->flags = p->flags;
-        pNew->lexeme = strdup(p->lexeme);
-        pNew->type = p->type;
-        //pNew->next = NULL;
-        //pNew->prev = NULL;
+        token->flags = p->flags;
+        token->lexeme = strdup(p->lexeme);
+        token->type = p->type;        
     }
-    return pNew;
+    return token;
 }
 
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last)
@@ -339,21 +336,21 @@ bool token_list_is_empty(struct token_list* p)
 
 void print_list(struct token_list* list)
 {
-    struct token* pCurrent = list->head;
-    while (pCurrent)
+    struct token* current = list->head;
+    while (current)
     {
-        if (pCurrent != list->head)
+        if (current != list->head)
         {
             printf(u8"˰");
             //printf("`");
         }
-        print_literal2(pCurrent->lexeme);
+        print_literal2(current->lexeme);
         printf(RESET);
-        if (pCurrent == list->tail)
+        if (current == list->tail)
         {
             //printf("`");
         }
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     printf(u8"\n");
 }
@@ -429,11 +426,11 @@ void print_token(struct token* p_token)
 void print_tokens(struct token* p_token)
 {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
-        print_token(pCurrent);
-        pCurrent = pCurrent->next;
+        print_token(current);
+        current = current->next;
     }
     printf("\n");
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
