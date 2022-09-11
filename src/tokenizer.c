@@ -3421,16 +3421,16 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
     try
     {
         assert(!macro_already_expanded(pList, pMacro->name));
-        struct macro_expanded macro;
-        macro.name = pMacro->name;
-        macro.pPrevious = pList;
+        struct macro_expanded macro_expanded = {0};
+        macro_expanded.name = pMacro->name;
+        macro_expanded.pPrevious = pList;
         if (pMacro->bIsFunction)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, pMacro, error);
-            struct token_list copy2 = replace_macro_arguments(ctx, &macro, &copy, arguments, error);
+            struct token_list copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments, error);
             if (error->code) throw;
 
-            struct token_list r2 = replacement_list_reexamination(ctx, &macro, &copy2, level, error);
+            struct token_list r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level, error);
             if (error->code) throw;
 
             token_list_append_list(&r, &r2);
@@ -3438,7 +3438,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
         else
         {
             struct token_list copy = macro_copy_replacement_list(ctx, pMacro, error);
-            struct token_list r3 = replacement_list_reexamination(ctx, &macro, &copy, level, error);
+            struct token_list r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level, error);
             if (error->code) throw;
 
             token_list_append_list(&r, &r3);
