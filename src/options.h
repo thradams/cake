@@ -24,5 +24,5 @@ struct options
     /*
     * true - to info about name convensions violations
     */
-    bool bCheckNamingConventions;
+    bool check_naming_conventions;
 };

@@ -35,7 +35,7 @@ struct preprocessor_ctx
     struct hash_map pragmaOnce;
     
     struct token* current;
-    struct token_list inputList;
+    struct token_list input_list;
 
     bool bConditionalInclusion;
     int n_warnings;
@@ -49,7 +49,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
 void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error);
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path);
 
-struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* inputList, int level, struct error* error);
+struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level, struct error* error);
 struct token_list  copy_replacement_list(struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* source);

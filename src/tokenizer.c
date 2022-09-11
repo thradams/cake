@@ -1923,7 +1923,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
     struct preprocessor_ctx pre_ctx = { 0 };
     //struct parser_ctx parser_ctx = { 0 };
-    pre_ctx.inputList = list4;
+    pre_ctx.input_list = list4;
     pre_ctx.current = list4.head;
     //pre_skip_blanks(&parser_ctx);
 
@@ -4279,7 +4279,7 @@ static bool is_screaming_case(const char* text)
 
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
-    if (!ctx->options.bCheckNamingConventions || token->level != 0)
+    if (!ctx->options.check_naming_conventions || token->level != 0)
         return;
 
     if (!is_screaming_case(token->lexeme)) {

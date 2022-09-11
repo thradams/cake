@@ -2170,8 +2170,8 @@ struct type type_make_using_string(const char* expr)
     struct scope file_scope = { 0 };
     struct parser_ctx parser_ctx = { 0 };
     scope_list_push(&parser_ctx.scopes, &file_scope);
-    parser_ctx.inputList = input;
-    parser_ctx.current = parser_ctx.inputList.head;
+    parser_ctx.input_list = input;
+    parser_ctx.current = parser_ctx.input_list.head;
     parser_skip_blanks(&parser_ctx);
 
     struct expression_ctx expression_ctx = { .bConstantExpressionRequired = true };
@@ -2192,8 +2192,8 @@ int test_constant_expression(const char* expr, int result)
     struct scope file_scope = { 0 };
     struct parser_ctx parser_ctx = { 0 };
     scope_list_push(&parser_ctx.scopes, &file_scope);
-    parser_ctx.inputList = input;
-    parser_ctx.current = parser_ctx.inputList.head;
+    parser_ctx.input_list = input;
+    parser_ctx.current = parser_ctx.input_list.head;
     parser_skip_blanks(&parser_ctx);
 
     struct expression_ctx expression_ctx = { .bConstantExpressionRequired = true };

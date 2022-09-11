@@ -34,8 +34,8 @@ void scope_list_pop(struct scope_list* list);
 
 struct parser_ctx
 {
-    enum language_version inputLanguage;
-    bool bCheckNamingConventions;
+    enum language_version input_language;
+    bool check_naming_conventions;
 
     /*
     There are four kinds of scopes:
@@ -52,7 +52,7 @@ struct parser_ctx
     */
     struct declaration* p_current_function_opt;
 
-    struct token_list inputList;
+    struct token_list input_list;
     struct token* current;
     struct token* previous;
     int try_catch_block_index;

@@ -1342,7 +1342,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
         return;
     if (ctx->current == NULL)
     {
-        parser_seterror_with_token(ctx, ctx->inputList.tail, "unexpected end of file after");
+        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");
         error->code = 1;
         return;
     }
@@ -4386,7 +4386,7 @@ struct declaration_list parse(struct options* options, struct token_list* list, 
     anonymous_struct_count = 0;
 
     struct scope file_scope = { 0 };
-    struct parser_ctx ctx = { .inputLanguage = options->input , .bCheckNamingConventions = options->bCheckNamingConventions };
+    struct parser_ctx ctx = { .input_language = options->input , .check_naming_conventions = options->check_naming_conventions };
 #ifdef TEST
     ctx.printf = printf_nothing;
 #else
@@ -4395,8 +4395,8 @@ struct declaration_list parse(struct options* options, struct token_list* list, 
 
 
     scope_list_push(&ctx.scopes, &file_scope);
-    ctx.inputList = *list;
-    ctx.current = ctx.inputList.head;
+    ctx.input_list = *list;
+    ctx.current = ctx.input_list.head;
     parser_skip_blanks(&ctx);
 
     struct declaration_list l = translation_unit(&ctx, error);
@@ -4525,7 +4525,7 @@ int fill_options(struct options* options, int argc, char** argv, struct preproce
         }
         if (strcmp(argv[i], "-n") == 0)
         {
-            options->bCheckNamingConventions = true;
+            options->check_naming_conventions = true;
             continue;
         }
         //
@@ -5050,7 +5050,7 @@ static bool is_pascal_case(const char* text)
  */
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->bCheckNamingConventions || token->level != 0)
+    if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -5060,7 +5060,7 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->bCheckNamingConventions || token->level != 0)
+    if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -5070,7 +5070,7 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->bCheckNamingConventions || token->level != 0)
+    if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
 
@@ -5080,7 +5080,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 }
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->bCheckNamingConventions || token->level != 0)
+    if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!type_is_function_or_function_pointer(type))
@@ -5093,7 +5093,7 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
 
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->bCheckNamingConventions || token->level != 0)
+    if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!type_is_function_or_function_pointer(type))
@@ -5106,7 +5106,7 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->bCheckNamingConventions || token->level != 0)
+    if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!is_all_upper(token->lexeme)) {
@@ -5116,7 +5116,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->bCheckNamingConventions || token->level != 0)
+    if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -5126,7 +5126,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
 
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->bCheckNamingConventions || token->level != 0)
+    if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
