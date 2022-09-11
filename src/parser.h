@@ -152,10 +152,16 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
 
 struct static_assert_declaration
 {
+    /*
+     static_assert-declaration:
+       "static_assert" ( constant-expression , string-literal ) ;
+       "static_assert" ( constant-expression ) ;
+    */
+
     struct token* first_token;
     struct token* last_token;
-    struct expression* p_conditional_expression;
-    struct token* text_opt;
+    struct expression* constant_expression;
+    struct token* string_literal_opt;
 };
 struct static_assert_declaration* static_assert_declaration(struct parser_ctx* ctx, struct error* error);
 

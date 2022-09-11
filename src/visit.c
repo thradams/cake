@@ -1042,7 +1042,7 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
 
 static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration, struct error* error)
 {
-    visit_expression(ctx, p_static_assert_declaration->p_conditional_expression, error);
+    visit_expression(ctx, p_static_assert_declaration->constant_expression, error);
 
     if (ctx->target < LANGUAGE_C11)
     {
@@ -1062,7 +1062,7 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
     }
     else if (ctx->target == LANGUAGE_C11)
     {
-        if (p_static_assert_declaration->text_opt == NULL)
+        if (p_static_assert_declaration->string_literal_opt == NULL)
         {
             struct token* rp = previous_parser_token(p_static_assert_declaration->last_token);
             rp = previous_parser_token(rp);

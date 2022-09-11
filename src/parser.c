@@ -3563,7 +3563,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT, error);
         parser_match_tk(ctx, '(', error);
         struct expression_ctx ectx = { .bConstantExpressionRequired = true };
-        p_static_assert_declaration->p_conditional_expression = constant_expression(ctx, error, &ectx);
+        p_static_assert_declaration->constant_expression = constant_expression(ctx, error, &ectx);
 
         if (error->code != 0)
             throw;
@@ -3571,7 +3571,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         if (ctx->current->type == ',')
         {
             parser_match(ctx);
-            p_static_assert_declaration->text_opt = ctx->current;
+            p_static_assert_declaration->string_literal_opt = ctx->current;
             parser_match_tk(ctx, TK_STRING_LITERAL, error);
         }
 
@@ -3579,12 +3579,12 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         p_static_assert_declaration->last_token = ctx->current;
         parser_match_tk(ctx, ';', error);
 
-        if (p_static_assert_declaration->p_conditional_expression->constant_value == 0)
+        if (p_static_assert_declaration->constant_expression->constant_value == 0)
         {
-            if (p_static_assert_declaration->text_opt)
+            if (p_static_assert_declaration->string_literal_opt)
             {
                 parser_seterror_with_token(ctx, position, "_Static_assert failed %s\n",
-                    p_static_assert_declaration->text_opt->lexeme);
+                    p_static_assert_declaration->string_literal_opt->lexeme);
             }
             else
             {
