@@ -152,8 +152,8 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
 
 struct static_assert_declaration
 {
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
     struct expression* p_conditional_expression;
     struct token* text_opt;
 };

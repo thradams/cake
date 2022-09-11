@@ -1050,8 +1050,8 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
         * Vamos apagar a parte do static assert. Não adianta so commentar
         * pq poderia ter um comentario dentro. (so se verificar que nao tem)
         */
-        for (struct token* p = p_static_assert_declaration->first;
-            p != p_static_assert_declaration->last->next;
+        for (struct token* p = p_static_assert_declaration->first_token;
+            p != p_static_assert_declaration->last_token->next;
             p = p->next)
         {
             /*
@@ -1064,17 +1064,17 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
     {
         if (p_static_assert_declaration->text_opt == NULL)
         {
-            struct token* rp = previous_parser_token(p_static_assert_declaration->last);
+            struct token* rp = previous_parser_token(p_static_assert_declaration->last_token);
             rp = previous_parser_token(rp);
 
             struct token_list list1 = tokenizer(", \"error\"", "", 0, TK_FLAG_NONE, error);
             token_list_insert_after(&ctx->ast.token_list, rp, &list1);
         }
-        if (strcmp(p_static_assert_declaration->first->lexeme, "static_assert") == 0)
+        if (strcmp(p_static_assert_declaration->first_token->lexeme, "static_assert") == 0)
         {
             /*C23 has static_assert but C11 _Static_assert*/
-            free(p_static_assert_declaration->first->lexeme);
-            p_static_assert_declaration->first->lexeme = strdup("_Static_assert");
+            free(p_static_assert_declaration->first_token->lexeme);
+            p_static_assert_declaration->first_token->lexeme = strdup("_Static_assert");
         }
     }
 }

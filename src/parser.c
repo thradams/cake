@@ -3558,7 +3558,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
     struct static_assert_declaration* p_static_assert_declaration = calloc(1, sizeof(struct static_assert_declaration));
     try
     {
-        p_static_assert_declaration->first = ctx->current;
+        p_static_assert_declaration->first_token = ctx->current;
         struct token* position = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT, error);
         parser_match_tk(ctx, '(', error);
@@ -3576,7 +3576,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         }
 
         parser_match_tk(ctx, ')', error);
-        p_static_assert_declaration->last = ctx->current;
+        p_static_assert_declaration->last_token = ctx->current;
         parser_match_tk(ctx, ';', error);
 
         if (p_static_assert_declaration->p_conditional_expression->constant_value == 0)
