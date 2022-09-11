@@ -3757,17 +3757,17 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 }
 
 
-void mark_macros_as_used(struct hash_map* pMap)
+void mark_macros_as_used(struct hash_map* map)
 {
     /*
      *  Objetivo era alertar macros nao usadas...
      */
 
-    if (pMap->table != NULL)
+    if (map->table != NULL)
     {
-        for (int i = 0; i < pMap->capacity; i++)
+        for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* pentry = pMap->table[i];
+            struct map_entry* pentry = map->table[i];
 
             while (pentry != NULL)
             {
@@ -3779,17 +3779,17 @@ void mark_macros_as_used(struct hash_map* pMap)
     }
 }
 
-void check_unused_macros(struct hash_map* pMap)
+void check_unused_macros(struct hash_map* map)
 {
     /*
      *  Objetivo era alertar macros nao usadas...
      */
 
-    if (pMap->table != NULL)
+    if (map->table != NULL)
     {
-        for (int i = 0; i < pMap->capacity; i++)
+        for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* pentry = pMap->table[i];
+            struct map_entry* pentry = map->table[i];
 
             while (pentry != NULL)
             {
