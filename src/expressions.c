@@ -46,8 +46,8 @@ int  compare_function_arguments(struct parser_ctx* ctx,
         struct type_list parameter_type = { 0 };
 
 
-        bool bVarArgs = false;
-        bool bVoid = false;
+        bool is_var_args = false;
+        bool is_void = false;
 
         if (p_type &&
             p_type->declarator_type &&
@@ -55,10 +55,10 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             p_type->declarator_type->direct_declarator_type->array_function_type_list.head)
         {
             parameter_type = p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params;
-            bVarArgs = p_type->declarator_type->direct_declarator_type->array_function_type_list.head->bVarArg;
+            is_var_args = p_type->declarator_type->direct_declarator_type->array_function_type_list.head->bVarArg;
 
             /*detectar que o parametro é (void)*/
-            bVoid =
+            is_void =
                 p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head &&
                 p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
                 p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->declarator_type->pointers.head == NULL;
@@ -85,7 +85,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             param_num++;
         }
 
-        if (current_argument != NULL && !bVarArgs)
+        if (current_argument != NULL && !is_var_args)
         {
             parser_seterror_with_token(ctx,
                 p_argument_expression_list->tail->expression->first,
@@ -93,7 +93,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             throw;
         }
 
-        if (current_parameter_type != NULL && !bVoid)
+        if (current_parameter_type != NULL && !is_void)
         {
             parser_seterror_with_token(ctx,
                 p_argument_expression_list->tail->expression->first,
@@ -124,9 +124,9 @@ bool is_enumeration_constant(struct parser_ctx* ctx)
     if (ctx->current->flags & TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR)
         return false;
 
-    const bool bIsEnumerator = find_enumerator(ctx, ctx->current->lexeme, NULL) != NULL;
+    const bool is_enumerator = find_enumerator(ctx, ctx->current->lexeme, NULL) != NULL;
 
-    if (bIsEnumerator)
+    if (is_enumerator)
     {
         ctx->current->flags |= TK_FLAG_IDENTIFIER_IS_ENUMERATOR;
     }
@@ -135,7 +135,7 @@ bool is_enumeration_constant(struct parser_ctx* ctx)
         ctx->current->flags |= TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR;
     }
 
-    return bIsEnumerator;
+    return is_enumerator;
 }
 
 bool is_first_of_floating_constant(struct parser_ctx* ctx)
@@ -274,19 +274,19 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
 
 static void print_clean_list(struct token_list* list)
 {
-    struct token* pCurrent = list->head;
-    while (pCurrent)
+    struct token* current = list->head;
+    while (current)
     {
-        if (pCurrent != list->head &&
-            (pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE ||
-                pCurrent->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
+        if (current != list->head &&
+            (current->flags & TK_FLAG_HAS_SPACE_BEFORE ||
+                current->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
         {
             printf(" ");
         }
-        printf("%s", pCurrent->lexeme);
-        if (pCurrent == list->tail)
+        printf("%s", current->lexeme);
+        if (current == list->tail)
             break;
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
 }
 
@@ -367,14 +367,14 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
         else
         {
         
-            bool  bConstantExpressionRequiredOld = ectx->bConstantExpressionRequired;
+            bool constant_expr_required_old = ectx->bConstantExpressionRequired;
             ectx->bConstantExpressionRequired = false;
             p_expression_node->right = expression(ctx, error, ectx);
 
             if (p_expression_node->right == NULL)
                 throw;
 
-            ectx->bConstantExpressionRequired = bConstantExpressionRequiredOld;
+            ectx->bConstantExpressionRequired = constant_expr_required_old;
             p_expression_node->type = type_copy(&p_expression_node->right->type);
 
             //printf("typeid() = ");
@@ -949,20 +949,20 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
     p_expression_node->first = ctx->current;
     p_expression_node->type_name = p_type_name;
     p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
-    bool bFunctionType = false;
+    bool is_function_type = false;
     if (p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head &&
         p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head->bIsFunction)
     {
         if (p_expression_node->type.declarator_type->direct_declarator_type->declarator_opt == NULL)
         {
-            bFunctionType = true;
+            is_function_type = true;
         }
         else
         {
             /*funtion pointer*/
         }
     }
-    if (bFunctionType)
+    if (is_function_type)
     {
         p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
@@ -1023,20 +1023,20 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
             parser_match_tk(ctx, ')', error);
             //printf("\n");
             //print_type(&p_expression_node->type);
-            bool bFunctionType = false;
+            bool is_function_type = false;
             if (p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head &&
                 p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head->bIsFunction)
             {
                 if (p_expression_node->type.declarator_type->direct_declarator_type->declarator_opt == NULL)
                 {
-                    bFunctionType = true;
+                    is_function_type = true;
                 }
                 else
                 {
                     /*funtion pointer*/
                 }
             }
-            if (bFunctionType)
+            if (is_function_type)
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
                 p_expression_node->compound_statement = compound_statement(ctx, error);
