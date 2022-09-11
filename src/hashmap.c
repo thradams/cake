@@ -12,13 +12,13 @@ extern void node_delete(struct type_tag_id* pNode);
 
 
 
-void hashmap_remove_all(struct hash_map* pMap)
+void hashmap_remove_all(struct hash_map* map)
 {
-    if (pMap->table != NULL)
+    if (map->table != NULL)
     {
-        for (int i = 0; i < pMap->capacity; i++)
+        for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* pentry = pMap->table[i];
+            struct map_entry* pentry = map->table[i];
 
             while (pentry != NULL)
             {
@@ -32,28 +32,28 @@ void hashmap_remove_all(struct hash_map* pMap)
             }
         }
 
-        free(pMap->table);
-        pMap->table = NULL;
-        pMap->size = 0;
+        free(map->table);
+        map->table = NULL;
+        map->size = 0;
     }
 }
 
-void hashmap_destroy(struct hash_map* pMap)
+void hashmap_destroy(struct hash_map* map)
 {
-    hashmap_remove_all(pMap);
+    hashmap_remove_all(map);
 }
 
-struct type_tag_id* hashmap_find(struct hash_map* pMap, const char* key)
+struct type_tag_id* hashmap_find(struct hash_map* map, const char* key)
 {
-    if (pMap->table == NULL)
+    if (map->table == NULL)
       return NULL;
 
     struct type_tag_id* p = NULL;
 
     unsigned int hash = stringhash(key);
-    int index = hash % pMap->capacity;
+    int index = hash % map->capacity;
 
-    struct map_entry* pentry = pMap->table[index];
+    struct map_entry* pentry = map->table[index];
 
     for (; pentry != NULL; pentry = pentry->next)
     {
@@ -94,25 +94,25 @@ struct type_tag_id* hashmap_remove(struct hash_map* map, const char* key)
     return p;
 }
 
-int hashmap_set(struct hash_map* pMap, const char* key, struct type_tag_id* pNew)
+int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* pNew)
 {
     int result = 0;
 
-    if (pMap->table == NULL)
+    if (map->table == NULL)
     {
-        if (pMap->capacity < 1) {
-            pMap->capacity = 1000;
+        if (map->capacity < 1) {
+            map->capacity = 1000;
         }
 
-        pMap->table = calloc(pMap->capacity, sizeof(pMap->table[0]));
+        map->table = calloc(map->capacity, sizeof(map->table[0]));
     }
 
-    if (pMap->table != NULL)
+    if (map->table != NULL)
     {
         unsigned int hash = stringhash(key);
-        int index = hash % pMap->capacity;
+        int index = hash % map->capacity;
 
-        struct map_entry* pentry = pMap->table[index];
+        struct map_entry* pentry = map->table[index];
 
         for (; pentry != NULL; pentry = pentry->next) {
             if (pentry->hash == hash && strcmp(pentry->key, key) == 0) {
@@ -126,9 +126,9 @@ int hashmap_set(struct hash_map* pMap, const char* key, struct type_tag_id* pNew
             pentry->hash = hash;
             pentry->p = pNew;
             pentry->key = strdup(key);
-            pentry->next = pMap->table[index];
-            pMap->table[index] = pentry;
-            pMap->size++;
+            pentry->next = map->table[index];
+            map->table[index] = pentry;
+            map->size++;
             result = 0;
         }
         else
