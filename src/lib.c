@@ -695,21 +695,21 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
-    struct token* pCurrent = list->head;
+    struct token* current = list->head;
     
-    while (pCurrent)
+    while (current)
     {
-        if (token_is_blank(pCurrent))
+        if (token_is_blank(current))
         {
             has_space = true;
-            pCurrent = pCurrent->next;
+            current = current->next;
             continue;
         }
 
         if (has_space)
             ss_fprintf(&ss, " ");
 
-        const char* p = pCurrent->lexeme;
+        const char* p = current->lexeme;
         while (*p)
         {
             if (*p == '"')
@@ -720,9 +720,9 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
         }
         
 
-        pCurrent = pCurrent->next;
-        if (pCurrent)
-          has_space = pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE;
+        current = current->next;
+        if (current)
+          has_space = current->flags & TK_FLAG_HAS_SPACE_BEFORE;
     }
 
     if (bliteral)
@@ -746,7 +746,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
     else
     {
-        struct token* pFollow = after->next;
+        struct token* follow = after->next;
         if (token_list->tail == after)
         {
             token_list->tail = append_list->tail;
@@ -754,7 +754,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         else if (token_list->head == after)
         {
         }
-        append_list->tail->next = pFollow;
+        append_list->tail->next = follow;
         after->next = append_list->head;
     }
 }
@@ -852,17 +852,14 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 
 struct token* clone_token(struct token* p)
 {
-    struct token* pNew = calloc(1, sizeof * pNew);
-    if (pNew)
+    struct token* token = calloc(1, sizeof * token);
+    if (token)
     {
-        //*pNew = *p;
-        pNew->flags = p->flags;
-        pNew->lexeme = strdup(p->lexeme);
-        pNew->type = p->type;
-        //pNew->next = NULL;
-        //pNew->prev = NULL;
+        token->flags = p->flags;
+        token->lexeme = strdup(p->lexeme);
+        token->type = p->type;        
     }
-    return pNew;
+    return token;
 }
 
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last)
@@ -897,21 +894,21 @@ bool token_list_is_empty(struct token_list* p)
 
 void print_list(struct token_list* list)
 {
-    struct token* pCurrent = list->head;
-    while (pCurrent)
+    struct token* current = list->head;
+    while (current)
     {
-        if (pCurrent != list->head)
+        if (current != list->head)
         {
             printf(u8"˰");
             //printf("`");
         }
-        print_literal2(pCurrent->lexeme);
+        print_literal2(current->lexeme);
         printf(RESET);
-        if (pCurrent == list->tail)
+        if (current == list->tail)
         {
             //printf("`");
         }
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     printf(u8"\n");
 }
@@ -987,11 +984,11 @@ void print_token(struct token* p_token)
 void print_tokens(struct token* p_token)
 {
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
-        print_token(pCurrent);
-        pCurrent = pCurrent->next;
+        print_token(current);
+        current = current->next;
     }
     printf("\n");
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
@@ -1011,17 +1008,17 @@ unsigned int stringhash(const char* key)
 {
     // hash key to unsigned int value by pseudorandomizing transform
     // (algorithm copied from STL char hash in xfunctional)
-    unsigned int uHashVal = 2166136261U;
-    unsigned int uFirst = 0;
-    unsigned int uLast = (unsigned int)strlen(key);
-    unsigned int uStride = 1 + uLast / 10;
+    unsigned int hash_val = 2166136261U;
+    unsigned int first = 0;
+    unsigned int last = (unsigned int)strlen(key);
+    unsigned int stride = 1 + last / 10;
 
-    for (; uFirst < uLast; uFirst += uStride)
+    for (; first < last; first += stride)
     {
-        uHashVal = 16777619U * uHashVal ^ (unsigned int)key[uFirst];
+        hash_val = 16777619U * hash_val ^ (unsigned int)key[first];
     }
 
-    return (uHashVal);
+    return (hash_val);
 }
 
 
@@ -1615,10 +1612,10 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
     char* content = readfile(fullpath);
     if (content == NULL)
     {
-        struct include_dir* pCurrent = ctx->include_dir.head;
-        while (pCurrent)
+        struct include_dir* current = ctx->include_dir.head;
+        while (current)
         {
-            snprintf(fullpath, 300, "%s%s", pCurrent->path, path);
+            snprintf(fullpath, 300, "%s%s", current->path, path);
 
             if (hashmap_find(&ctx->pragmaOnce, fullpath) != NULL)
             {
@@ -1629,7 +1626,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
             content = readfile(fullpath);
             if (content != NULL)
                 break;
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
     }
     return content;
@@ -1664,12 +1661,12 @@ struct macro_expanded
 
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct macro* pMacro = calloc(1, sizeof * pMacro);
-    if (pMacro == NULL)
+    struct macro* macro = calloc(1, sizeof * macro);
+    if (macro == NULL)
     {
     }
-    pMacro->name = strdup(name);
-    hashmap_set(&ctx->macros, name, &pMacro->type_id);
+    macro->name = strdup(name);
+    hashmap_set(&ctx->macros, name, &macro->type_id);
 }
 
 
@@ -1688,29 +1685,29 @@ struct token_list  copy_argument_list_tokens(struct token_list* list)
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
     struct token_list r = { 0 };
-    struct token* pCurrent = list->head;
+    struct token* current = list->head;
     //sai de cima de todos brancos iniciais
-    while (pCurrent &&
-        (token_is_blank(pCurrent) ||
-            pCurrent->type == TK_NEWLINE))
+    while (current &&
+        (token_is_blank(current) ||
+            current->type == TK_NEWLINE))
     {
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     //remover flag de espaco antes se tiver
     bool bIsFirst = true;
     bool previousIsBlank = false;
-    for (; pCurrent;)
+    for (; current;)
     {
-        if (pCurrent && (token_is_blank(pCurrent) ||
-            pCurrent->type == TK_NEWLINE))
+        if (current && (token_is_blank(current) ||
+            current->type == TK_NEWLINE))
         {
-            if (pCurrent == list->tail)
+            if (current == list->tail)
                 break;
 
-            pCurrent = pCurrent->next;
+            current = current->next;
             continue;
         }
-        struct token* pAdded = token_list_clone_and_add(&r, pCurrent);
+        struct token* pAdded = token_list_clone_and_add(&r, current);
         if (pAdded->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
             pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
@@ -1725,9 +1722,9 @@ struct token_list  copy_argument_list_tokens(struct token_list* list)
         remove_line_continuation(pAdded->lexeme);
         previousIsBlank = false;
 
-        if (pCurrent == list->tail)
+        if (current == list->tail)
             break;
-        pCurrent = pCurrent->next;
+        current = current->next;
 
     }
     return r;
@@ -1804,29 +1801,29 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
 }
 
 
-void print_macro(struct macro* pMacro)
+void print_macro(struct macro* macro)
 {
-    printf("%s", pMacro->name);
-    if (pMacro->bIsFunction)
+    printf("%s", macro->name);
+    if (macro->bIsFunction)
         printf("(");
-    struct macro_parameter* pParameter = pMacro->pParameters;
+    struct macro_parameter* pParameter = macro->pParameters;
     while (pParameter)
     {
-        if (pMacro->pParameters != pParameter)
+        if (macro->pParameters != pParameter)
             printf(",");
         printf("%s", pParameter->name);
         pParameter = pParameter->next;
     }
-    if (pMacro->bIsFunction)
+    if (macro->bIsFunction)
         printf(") ");
-    print_list(&pMacro->replacementList);
+    print_list(&macro->replacementList);
 }
 
-void delete_macro(struct macro* pMacro)
+void delete_macro(struct macro* macro)
 {
-    if (pMacro)
+    if (macro)
     {
-        free(pMacro);
+        free(macro);
     }
 }
 
@@ -1835,8 +1832,8 @@ struct macro* find_macro(struct preprocessor_ctx* ctx, const char* name)
     struct type_tag_id* pNode = hashmap_find(&ctx->macros, name);
     if (pNode == NULL)
         return NULL;
-    struct macro* pMacro = container_of(pNode, struct macro, type_id);
-    return pMacro;
+    struct macro* macro = container_of(pNode, struct macro, type_id);
+    return macro;
 }
 
 
@@ -2532,7 +2529,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
         }
 
 
-        //struct token* pCurrent = pFirst;
+        //struct token* current = pFirst;
         bool bNewLine = true;
         bool bHasSpace = false;
         while (1)
@@ -2914,18 +2911,18 @@ struct token* preprocessor_look_ahead_core(struct token* p)
     {
         return NULL;
     }
-    struct token* pCurrent = p->next;
-    if (pCurrent == NULL)
+    struct token* current = p->next;
+    if (current == NULL)
         return NULL;
-    while (pCurrent &&
-        (pCurrent->type == TK_BLANKS ||
-            pCurrent->type == TK_PLACEMARKER ||
-            pCurrent->type == TK_LINE_COMMENT ||
-            pCurrent->type == TK_COMENT))
+    while (current &&
+        (current->type == TK_BLANKS ||
+            current->type == TK_PLACEMARKER ||
+            current->type == TK_LINE_COMMENT ||
+            current->type == TK_COMENT))
     {
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
-    return pCurrent;
+    return current;
 }
 
 bool preprocessor_token_ahead_is(struct token* p, enum token_type t)
@@ -2942,18 +2939,18 @@ bool preprocessor_token_previous_is(struct token* p, enum token_type t)
     {
         return false;
     }
-    struct token* pCurrent = p->prev;
-    if (pCurrent == NULL)
+    struct token* current = p->prev;
+    if (current == NULL)
         return false;
-    while (pCurrent &&
-        (pCurrent->type == TK_BLANKS ||
-            pCurrent->type == TK_LINE_COMMENT ||
-            pCurrent->type == TK_PLACEMARKER ||
-            pCurrent->type == TK_COMENT))
+    while (current &&
+        (current->type == TK_BLANKS ||
+            current->type == TK_LINE_COMMENT ||
+            current->type == TK_PLACEMARKER ||
+            current->type == TK_COMENT))
     {
-        pCurrent = pCurrent->prev;
+        current = current->prev;
     }
-    return (pCurrent && pCurrent->type == t);
+    return (current && current->type == t);
 }
 
 bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
@@ -3026,11 +3023,11 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
 
-                struct macro* pMacro = find_macro(ctx, inputList->head->lexeme);
+                struct macro* macro = find_macro(ctx, inputList->head->lexeme);
                 struct token* pNew = token_list_pop_front(inputList);
                 pNew->type = TK_PPNUMBER;
                 free(pNew->lexeme);
-                if (pMacro)
+                if (macro)
                 {
                     pNew->lexeme = strdup("1");
                 }
@@ -3161,11 +3158,11 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token
         if (list->head->type == TK_IDENTIFIER)
         {
 
-            struct macro* pMacro = find_macro(ctx, list->head->lexeme);
+            struct macro* macro = find_macro(ctx, list->head->lexeme);
             struct token* pNew = token_list_pop_front(list);
             pNew->type = TK_PPNUMBER;
 
-            if (pMacro)
+            if (macro)
             {
                 free(pNew->lexeme);
                 pNew->lexeme = strdup("1");
@@ -3351,8 +3348,8 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             skip_blanks_level(&r, inputList, level);
             if (bActive)
             {
-                struct macro* pMacro = find_macro(ctx, inputList->head->lexeme);
-                *pbIfResult = (pMacro != NULL) ? 1 : 0;
+                struct macro* macro = find_macro(ctx, inputList->head->lexeme);
+                *pbIfResult = (macro != NULL) ? 1 : 0;
                 //printf("#ifdef %s (%s)\n", inputList->head->lexeme, *pbIfResult ? "true" : "false");
             }
             match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);
@@ -3365,8 +3362,8 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             skip_blanks_level(&r, inputList, level);
             if (bActive)
             {
-                struct macro* pMacro = find_macro(ctx, inputList->head->lexeme);
-                *pbIfResult = (pMacro == NULL) ? 1 : 0;
+                struct macro* macro = find_macro(ctx, inputList->head->lexeme);
+                *pbIfResult = (macro == NULL) ? 1 : 0;
             }
             match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);
             skip_blanks_level(&r, inputList, level);
@@ -3587,7 +3584,7 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
     return r;
 }
 
-struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* pMacro, struct token_list* inputList, int level, struct error* error)
+struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* inputList, int level, struct error* error)
 {
     struct token_list r = { 0 };
     /*
@@ -3598,7 +3595,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* pM
     skip_blanks(&r, inputList);
     struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
     pMacroParameter->name = strdup(inputList->head->lexeme);
-    pMacro->pParameters = pMacroParameter;
+    macro->pParameters = pMacroParameter;
     match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);
     skip_blanks(&r, inputList);
     while (inputList->head->type == ',')
@@ -3619,7 +3616,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* pM
 }
 
 
-struct token_list replacement_list(struct macro* pMacro, struct token_list* inputList, int level)
+struct token_list replacement_list(struct macro* macro, struct token_list* inputList, int level)
 {
     struct token_list r = { 0 };
     while (inputList->head->type != TK_NEWLINE)
@@ -3630,9 +3627,9 @@ struct token_list replacement_list(struct macro* pMacro, struct token_list* inpu
             //terminou define sem quebra de linha
         }
     }
-    assert(pMacro->replacementList.head == NULL);
+    assert(macro->replacementList.head == NULL);
     struct token_list copy = copy_replacement_list(&r);
-    token_list_append_list(&pMacro->replacementList, &copy);
+    token_list_append_list(&macro->replacementList, &copy);
     return r;
 }
 
@@ -3838,8 +3835,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             A
             */
 
-            struct macro* pMacro = calloc(1, sizeof * pMacro);
-            if (pMacro == NULL)
+            struct macro* macro = calloc(1, sizeof * macro);
+            if (macro == NULL)
             {
                 seterror(error, "out of memory");
                 throw;
@@ -3870,8 +3867,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
 
-            hashmap_set(&ctx->macros, inputList->head->lexeme, &pMacro->type_id);
-            pMacro->name = strdup(inputList->head->lexeme);
+            hashmap_set(&ctx->macros, inputList->head->lexeme, &macro->type_id);
+            macro->name = strdup(inputList->head->lexeme);
 
 
             match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error); //nome da macro
@@ -3880,7 +3877,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (inputList->head->type == '(')
             {
 
-                pMacro->bIsFunction = true;
+                macro->bIsFunction = true;
 
 
                 match_token_level(&r, inputList, '(', level, ctx, error); //nome da macro
@@ -3889,7 +3886,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
                     pMacroParameter->name = strdup("__VA_ARGS__");
-                    pMacro->pParameters = pMacroParameter;
+                    macro->pParameters = pMacroParameter;
 
                     // assert(false);
                     match_token_level(&r, inputList, '...', level, ctx, error); //nome da macro
@@ -3903,14 +3900,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 }
                 else
                 {
-                    struct token_list r3 = identifier_list(ctx, pMacro, inputList, level, error);
+                    struct token_list r3 = identifier_list(ctx, macro, inputList, level, error);
                     token_list_append_list(&r, &r3);
                     skip_blanks_level(&r, inputList, level);
                     if (inputList->head->type == '...')
                     {
                         struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
                         pMacroParameter->name = strdup("__VA_ARGS__");
-                        struct macro_parameter* pLast = pMacro->pParameters;
+                        struct macro_parameter* pLast = macro->pParameters;
                         assert(pLast != NULL);
                         while (pLast->next)
                         {
@@ -3927,9 +3924,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             else
             {
-                pMacro->bIsFunction = false;
+                macro->bIsFunction = false;
             }
-            struct token_list r4 = replacement_list(pMacro, inputList, level);
+            struct token_list r4 = replacement_list(macro, inputList, level);
             token_list_append_list(&r, &r4);
             match_token_level(&r, inputList, TK_NEWLINE, level, ctx, error);
 
@@ -3947,8 +3944,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             assert(find_macro(ctx, inputList->head->lexeme) == NULL);
             if (pNode)
             {
-                struct macro* pMacro = container_of(pNode, struct macro, type_id);
-                delete_macro(pMacro);
+                struct macro* macro = container_of(pNode, struct macro, type_id);
+                delete_macro(macro);
                 match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);//undef
             }
             else
@@ -4022,10 +4019,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);//pragma
                     skip_blanks_level(&r, inputList, level);
 
-                    struct macro* pMacro = find_macro(ctx, inputList->head->lexeme);
-                    if (pMacro)
+                    struct macro* macro = find_macro(ctx, inputList->head->lexeme);
+                    if (macro)
                     {
-                        pMacro->bExpand = true;
+                        macro->bExpand = true;
                     }
 
                     match_token_level(&r, inputList, TK_IDENTIFIER, level, ctx, error);//pragma
@@ -4059,7 +4056,7 @@ struct token_list non_directive(struct preprocessor_ctx* ctx, struct token_list*
 }
 
 struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
-    struct macro* pMacro,
+    struct macro* macro,
     struct token_list* inputList, int level, struct error* error)
 {
     struct macro_argument_list macroArgumentList = { 0 };
@@ -4068,20 +4065,20 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
         assert(inputList->head->type == TK_IDENTIFIER); //nome da macro
 
         match_token_level(&macroArgumentList.tokens, inputList, TK_IDENTIFIER, level, ctx, error); //NOME DA MACRO
-        if (!pMacro->bIsFunction)
+        if (!macro->bIsFunction)
         {
             //se nao eh funcao so faz isso e retorna o nome da macro
             return macroArgumentList;
         }
 
-        struct macro_parameter* pCurrentParameter = pMacro->pParameters;
+        struct macro_parameter* pCurrentParameter = macro->pParameters;
         int count = 1;
         skip_blanks(&macroArgumentList.tokens, inputList);
         match_token_level(&macroArgumentList.tokens, inputList, '(', level, ctx, error);
         skip_blanks(&macroArgumentList.tokens, inputList);
         if (inputList->head->type == ')')
         {
-            if (pMacro->pParameters != NULL)
+            if (macro->pParameters != NULL)
             {
                 struct macro_argument* pArgument = calloc(1, sizeof(struct macro_argument));
                 pArgument->name = strdup(pCurrentParameter->name);
@@ -4176,11 +4173,11 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
     return macroArgumentList;
 }
 
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct macro* pMacro, struct macro_argument_list* arguments, int level, struct error* error);
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct macro* macro, struct macro_argument_list* arguments, int level, struct error* error);
 struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct token_list* oldlist, int level, struct error* error);
 
 
-struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* pMacro, struct error* error);
+struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, struct error* error);
 
 /*#define hash_hash # ## #
 #define mkstr(a) # a
@@ -4519,21 +4516,21 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
         {
             assert(!(newList.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
             assert(!token_is_blank(newList.head));
-            struct macro* pMacro = NULL;
+            struct macro* macro = NULL;
             if (newList.head->type == TK_IDENTIFIER)
             {
-                pMacro = find_macro(ctx, newList.head->lexeme);
-                if (pMacro &&
-                    pMacro->bIsFunction &&
+                macro = find_macro(ctx, newList.head->lexeme);
+                if (macro &&
+                    macro->bIsFunction &&
                     !preprocessor_token_ahead_is(newList.head, '('))
                 {
-                    pMacro = NULL;
+                    macro = NULL;
                 }
 
-                if (pMacro && macro_already_expanded(pList, newList.head->lexeme))
+                if (macro && macro_already_expanded(pList, newList.head->lexeme))
                 {
                     newList.head->type = TK_IDENTIFIER_RECURSIVE_MACRO;
-                    pMacro = NULL;
+                    macro = NULL;
                 }
 
 
@@ -4547,7 +4544,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
                         r.tail->type == TK_IDENTIFIER &&
                         strcmp(r.tail->lexeme, "defined") == 0)
                     {
-                        pMacro = NULL;
+                        macro = NULL;
                     }
                     else if (r.tail &&
                         r.tail->type == '(')
@@ -4557,20 +4554,20 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
                             previous->type == TK_IDENTIFIER &&
                             strcmp(previous->lexeme, "defined") == 0)
                         {
-                            pMacro = NULL;
+                            macro = NULL;
                         }
                     }
                 }
 
             }
-            if (pMacro)
+            if (macro)
             {
                 int flags = newList.head->flags;
-                struct macro_argument_list arguments = collect_macro_arguments(ctx, pMacro, &newList, level, error);
+                struct macro_argument_list arguments = collect_macro_arguments(ctx, macro, &newList, level, error);
                 if (error->code) throw;
 
 
-                struct token_list r3 = expand_macro(ctx, pList, pMacro, &arguments, level, error);
+                struct token_list r3 = expand_macro(ctx, pList, macro, &arguments, level, error);
                 if (error->code) throw;
 
                 if (r3.head)
@@ -4671,26 +4668,26 @@ struct token_list  copy_replacement_list(struct token_list* list)
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
     struct token_list r = { 0 };
-    struct token* pCurrent = list->head;
+    struct token* current = list->head;
     //sai de cima de todos brancos iniciais
-    while (pCurrent && token_is_blank(pCurrent))
+    while (current && token_is_blank(current))
     {
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     //remover flag de espaco antes se tiver
     bool bIsFirst = true;
     bool previousIsBlank = false;
-    for (; pCurrent;)
+    for (; current;)
     {
-        if (pCurrent && token_is_blank(pCurrent))
+        if (current && token_is_blank(current))
         {
-            if (pCurrent == list->tail)
+            if (current == list->tail)
                 break;
 
-            pCurrent = pCurrent->next;
+            current = current->next;
             continue;
         }
-        struct token* pAdded = token_list_clone_and_add(&r, pCurrent);
+        struct token* pAdded = token_list_clone_and_add(&r, current);
         if (pAdded->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
             pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
@@ -4705,9 +4702,9 @@ struct token_list  copy_replacement_list(struct token_list* list)
         remove_line_continuation(pAdded->lexeme);
         previousIsBlank = false;
 
-        if (pCurrent == list->tail)
+        if (current == list->tail)
             break;
-        pCurrent = pCurrent->next;
+        current = current->next;
 
     }
     return r;
@@ -4715,24 +4712,24 @@ struct token_list  copy_replacement_list(struct token_list* list)
 
 
 
-struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* pMacro, struct error* error)
+struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, struct error* error)
 {
     /*macros de conteudo dinamico*/
-    if (strcmp(pMacro->name, "__LINE__") == 0)
+    if (strcmp(macro->name, "__LINE__") == 0)
     {
         struct token_list r = tokenizer("1", "", 0, TK_FLAG_NONE, error);
         token_list_pop_front(&r);
         r.head->flags = 0;
         return r;
     }
-    else if (strcmp(pMacro->name, "__FILE__") == 0)
+    else if (strcmp(macro->name, "__FILE__") == 0)
     {
         struct token_list r = tokenizer("\"file\"", "", 0, TK_FLAG_NONE, error);
         token_list_pop_front(&r);
         r.head->flags = 0;
         return r;
     }
-    else if (strcmp(pMacro->name, "__COUNT__") == 0)
+    else if (strcmp(macro->name, "__COUNT__") == 0)
     {
         assert(false);//TODO
         struct token_list r = tokenizer("1", "", 0, TK_FLAG_NONE, error);
@@ -4741,7 +4738,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
         return r;
     }
 
-    return copy_replacement_list(&pMacro->replacementList);
+    return copy_replacement_list(&macro->replacementList);
 }
 
 void print_literal2(const char* s);
@@ -4753,36 +4750,36 @@ void print_literal2(const char* s);
     para o primeiro item da expansao
     caso contrario, se p nao for macro, retorna null.
 */
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct macro* pMacro, struct macro_argument_list* arguments, int level, struct error* error)
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct macro* macro, struct macro_argument_list* arguments, int level, struct error* error)
 {
-    pMacro->usage++;
+    macro->usage++;
 
     //printf("\nexpanding ");
-    //print_macro(pMacro);
+    //print_macro(macro);
     //print_macro_arguments(arguments);
     //printf("\n");
     struct token_list r = { 0 };
     try
     {
-        assert(!macro_already_expanded(pList, pMacro->name));
-        struct macro_expanded macro;
-        macro.name = pMacro->name;
-        macro.pPrevious = pList;
-        if (pMacro->bIsFunction)
+        assert(!macro_already_expanded(pList, macro->name));
+        struct macro_expanded macro_expanded = {0};
+        macro_expanded.name = macro->name;
+        macro_expanded.pPrevious = pList;
+        if (macro->bIsFunction)
         {
-            struct token_list copy = macro_copy_replacement_list(ctx, pMacro, error);
-            struct token_list copy2 = replace_macro_arguments(ctx, &macro, &copy, arguments, error);
+            struct token_list copy = macro_copy_replacement_list(ctx, macro, error);
+            struct token_list copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments, error);
             if (error->code) throw;
 
-            struct token_list r2 = replacement_list_reexamination(ctx, &macro, &copy2, level, error);
+            struct token_list r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level, error);
             if (error->code) throw;
 
             token_list_append_list(&r, &r2);
         }
         else
         {
-            struct token_list copy = macro_copy_replacement_list(ctx, pMacro, error);
-            struct token_list r3 = replacement_list_reexamination(ctx, &macro, &copy, level, error);
+            struct token_list copy = macro_copy_replacement_list(ctx, macro, error);
+            struct token_list r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level, error);
             if (error->code) throw;
 
             token_list_append_list(&r, &r3);
@@ -4810,7 +4807,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
         while (inputList->head &&
             inputList->head->type != TK_PREPROCESSOR_LINE)
         {
-            struct macro* pMacro = NULL;
+            struct macro* macro = NULL;
             struct token* start_token = inputList->head;
             //assert(start_token->pFile != NULL);
 
@@ -4818,12 +4815,12 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
             {
 
 
-                pMacro = find_macro(ctx, inputList->head->lexeme);
-                if (pMacro &&
-                    pMacro->bIsFunction &&
+                macro = find_macro(ctx, inputList->head->lexeme);
+                if (macro &&
+                    macro->bIsFunction &&
                     !preprocessor_token_ahead_is(inputList->head, '('))
                 {
-                    pMacro = NULL;
+                    macro = NULL;
                 }
 
                 if (ctx->bConditionalInclusion)
@@ -4837,7 +4834,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                         r.tail->type == TK_IDENTIFIER &&
                         strcmp(r.tail->lexeme, "defined") == 0)
                     {
-                        pMacro = NULL;
+                        macro = NULL;
                     }
                     else if (r.tail &&
                         r.tail->type == '(')
@@ -4847,12 +4844,12 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                             previous->type == TK_IDENTIFIER &&
                             strcmp(previous->lexeme, "defined") == 0)
                         {
-                            pMacro = NULL;
+                            macro = NULL;
                         }
                     }
                 }
             }
-            if (pMacro)
+            if (macro)
             {
 #ifdef _WIN32
                 if (inputList->head->pFile)
@@ -4872,17 +4869,17 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 //F(1)`a` acho que vou imprimir desta forma ou so fundo diferente
                 //
                 enum token_flags flags = inputList->head->flags;
-                struct macro_argument_list arguments = collect_macro_arguments(ctx, pMacro, inputList, level, error);
+                struct macro_argument_list arguments = collect_macro_arguments(ctx, macro, inputList, level, error);
                 if (error->code) throw;
 
 
-                struct token_list startMacro = expand_macro(ctx, NULL, pMacro, &arguments, level, error);
+                struct token_list startMacro = expand_macro(ctx, NULL, macro, &arguments, level, error);
                 if (startMacro.head)
                 {
                     startMacro.head->flags |= flags;
                 }
 
-                if (pMacro->bExpand)
+                if (macro->bExpand)
                 {
                     //Esconde a macro e os argumentos
                     for (struct token* current = arguments.tokens.head;
@@ -4917,22 +4914,22 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 }
 
                 //print_tokens(r.head);
-                while (pMacro)
+                while (macro)
                 {
-                    pMacro = NULL;
+                    macro = NULL;
                     if (inputList->head->type == TK_IDENTIFIER)
                     {
-                        pMacro = find_macro(ctx, inputList->head->lexeme);
-                        if (pMacro && pMacro->bIsFunction &&
+                        macro = find_macro(ctx, inputList->head->lexeme);
+                        if (macro && macro->bIsFunction &&
                             !preprocessor_token_ahead_is(inputList->head, '('))
                         {
-                            pMacro = NULL;
+                            macro = NULL;
                         }
-                        if (pMacro)
+                        if (macro)
                         {
                             // printf("tetris\n");
                             int flags2 = inputList->head->flags;
-                            struct macro_argument_list arguments2 = collect_macro_arguments(ctx, pMacro, inputList, level, error);
+                            struct macro_argument_list arguments2 = collect_macro_arguments(ctx, macro, inputList, level, error);
                             if (error->code) throw;
 
                             if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
@@ -4947,7 +4944,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                             }
 
 
-                            struct token_list r3 = expand_macro(ctx, NULL, pMacro, &arguments2, level, error);
+                            struct token_list r3 = expand_macro(ctx, NULL, macro, &arguments2, level, error);
                             if (error->code) throw;
 
                             //seta nos tokens expandidos da onde eles vieram
@@ -5115,8 +5112,8 @@ void mark_macros_as_used(struct hash_map* pMap)
 
             while (pentry != NULL)
             {
-                struct macro* pMacro = container_of(pentry->p, struct macro, type_id);
-                pMacro->usage = 1;
+                struct macro* macro = container_of(pentry->p, struct macro, type_id);
+                macro->usage = 1;
                 pentry = pentry->next;
             }
         }
@@ -5137,11 +5134,11 @@ void check_unused_macros(struct hash_map* pMap)
 
             while (pentry != NULL)
             {
-                struct macro* pMacro = container_of(pentry->p, struct macro, type_id);
-                if (pMacro->usage == 0)
+                struct macro* macro = container_of(pentry->p, struct macro, type_id);
+                if (macro->usage == 0)
                 {
                     //TODO adicionar conceito meu codigo , codigo de outros nao vou colocar erro
-                    printf("%s not used\n", pMacro->name);
+                    printf("%s not used\n", macro->name);
                 }
                 pentry = pentry->next;
             }
@@ -5373,20 +5370,20 @@ void print_literal(const char* s)
 const char* get_code_as_we_see_plusmacros(struct token_list* list)
 {
     struct osstream ss = { 0 };
-    struct token* pCurrent = list->head;
-    while (pCurrent)
+    struct token* current = list->head;
+    while (current)
     {
-        if (pCurrent->level == 0 &&
-            pCurrent->type != TK_BEGIN_OF_FILE)
+        if (current->level == 0 &&
+            current->type != TK_BEGIN_OF_FILE)
         {
-            if (pCurrent->flags & TK_FLAG_MACRO_EXPANDED)
+            if (current->flags & TK_FLAG_MACRO_EXPANDED)
                 ss_fprintf(&ss, LIGHTCYAN);
             else
                 ss_fprintf(&ss, WHITE);
-            ss_fprintf(&ss, "%s", pCurrent->lexeme);
+            ss_fprintf(&ss, "%s", current->lexeme);
             ss_fprintf(&ss, RESET);
         }
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     return ss.c_str;
 }
@@ -5394,16 +5391,16 @@ const char* get_code_as_we_see_plusmacros(struct token_list* list)
 const char* get_code_as_we_see(struct token_list* list, bool removeComments)
 {
     struct osstream ss = { 0 };
-    struct token* pCurrent = list->head;
-    while (pCurrent != list->tail->next)
+    struct token* current = list->head;
+    while (current != list->tail->next)
     {
-        if (pCurrent->level == 0 &&
-            !(pCurrent->flags & TK_FLAG_MACRO_EXPANDED) &&
-            !(pCurrent->flags & TK_FLAG_HIDE) &&
-            pCurrent->type != TK_BEGIN_OF_FILE)
+        if (current->level == 0 &&
+            !(current->flags & TK_FLAG_MACRO_EXPANDED) &&
+            !(current->flags & TK_FLAG_HIDE) &&
+            current->type != TK_BEGIN_OF_FILE)
         {
-            if ((pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
-                (pCurrent->prev != NULL && pCurrent->prev->type != TK_BLANKS))
+            if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
+                (current->prev != NULL && current->prev->type != TK_BLANKS))
             {
                 //se uma macro expandida for mostrada ele nao tem espacos entao inserimos
                 ss_fprintf(&ss, " ");
@@ -5411,19 +5408,19 @@ const char* get_code_as_we_see(struct token_list* list, bool removeComments)
 
             if (removeComments)
             {
-                if (pCurrent->type == TK_LINE_COMMENT)
+                if (current->type == TK_LINE_COMMENT)
                     ss_fprintf(&ss, "\n");
-                else if (pCurrent->type == TK_COMENT)
+                else if (current->type == TK_COMENT)
                     ss_fprintf(&ss, " ");
                 else
-                    ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                    ss_fprintf(&ss, "%s", current->lexeme);
             }
             else
             {
-                ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                ss_fprintf(&ss, "%s", current->lexeme);
             }
         }
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     return ss.c_str;
 }
@@ -5432,27 +5429,27 @@ const char* get_code_as_we_see(struct token_list* list, bool removeComments)
 const char* get_code_as_compiler_see(struct token_list* list)
 {
     struct osstream ss = { 0 };
-    struct token* pCurrent = list->head;
-    while (pCurrent != list->tail->next)
+    struct token* current = list->head;
+    while (current != list->tail->next)
     {
-        if (!(pCurrent->flags & TK_FLAG_HIDE) &&
-            pCurrent->type != TK_BEGIN_OF_FILE &&
-            (pCurrent->flags & TK_FLAG_FINAL))
+        if (!(current->flags & TK_FLAG_HIDE) &&
+            current->type != TK_BEGIN_OF_FILE &&
+            (current->flags & TK_FLAG_FINAL))
         {
-            if (pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            if (current->flags & TK_FLAG_HAS_SPACE_BEFORE)
                 ss_fprintf(&ss, " ");
 
-            if (pCurrent->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+            if (current->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
                 ss_fprintf(&ss, "\n");
 
-            if (pCurrent->type == TK_LINE_COMMENT)
+            if (current->type == TK_LINE_COMMENT)
                 ss_fprintf(&ss, "\n");
-            else if (pCurrent->type == TK_COMENT)
+            else if (current->type == TK_COMENT)
                 ss_fprintf(&ss, " ");
             else
-                ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                ss_fprintf(&ss, "%s", current->lexeme);
         }
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     return ss.c_str;
 }
@@ -5473,25 +5470,25 @@ const char* print_preprocessed_to_string2(struct token* p_token)
         return strdup("(null)");
 
     struct osstream ss = { 0 };
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
 
         //Nós ignorados a line continuation e ela pode aparecer em qualquer parte
         //dos lexemes.
         //inves de remover poderia so pular ao imprimir
-        remove_line_continuation(pCurrent->lexeme);
+        remove_line_continuation(current->lexeme);
 
-        if (pCurrent->flags & TK_FLAG_FINAL)
+        if (current->flags & TK_FLAG_FINAL)
         {
-            if (pCurrent->level > 0)
+            if (current->level > 0)
             {
                 //nos niveis de include nos podemos estar ignorando todos
                 //os espacos. neste caso eh preciso incluilos para nao juntar os tokens
 
-                if ((pCurrent->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
+                if ((current->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
                     ss_fprintf(&ss, "\n");
-                else if ((pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE))
+                else if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE))
                     ss_fprintf(&ss, " ");
             }
             else
@@ -5500,35 +5497,35 @@ const char* print_preprocessed_to_string2(struct token* p_token)
                   no nivel 0 nos imprimimos os espacos.. porem no caso das macros
                   eh preciso colocar um espaco pq ele nao existe.
                 */
-                if (pCurrent->flags & TK_FLAG_MACRO_EXPANDED)
+                if (current->flags & TK_FLAG_MACRO_EXPANDED)
                 {
-                    if ((pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE))
+                    if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE))
                         ss_fprintf(&ss, " ");
                 }
             }
 
             //}
 
-            if (pCurrent->lexeme[0] != '\0')
+            if (current->lexeme[0] != '\0')
             {
-                ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                ss_fprintf(&ss, "%s", current->lexeme);
             }
 
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
         else
         {
-            if (pCurrent->level == 0)
+            if (current->level == 0)
             {
-                if (pCurrent->type == TK_BLANKS ||
-                    pCurrent->type == TK_NEWLINE)
+                if (current->type == TK_BLANKS ||
+                    current->type == TK_NEWLINE)
                 {
-                    ss_fprintf(&ss, "%s", pCurrent->lexeme);
+                    ss_fprintf(&ss, "%s", current->lexeme);
                 }
             }
 
 
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
     }
     return ss.c_str; //MOVED
@@ -5543,41 +5540,41 @@ const char* print_preprocessed_to_string(struct token* p_token)
     */
 
     struct osstream ss = { 0 };
-    struct token* pCurrent = p_token;
+    struct token* current = p_token;
 
     /*
     * Ignora tudo o que é espaço no início
     */
-    while (!(pCurrent->flags & TK_FLAG_FINAL) ||
-        pCurrent->type == TK_BLANKS ||
-        pCurrent->type == TK_COMENT ||
-        pCurrent->type == TK_LINE_COMMENT ||
-        pCurrent->type == TK_NEWLINE ||
-        pCurrent->type == TK_PREPROCESSOR_LINE)
+    while (!(current->flags & TK_FLAG_FINAL) ||
+        current->type == TK_BLANKS ||
+        current->type == TK_COMENT ||
+        current->type == TK_LINE_COMMENT ||
+        current->type == TK_NEWLINE ||
+        current->type == TK_PREPROCESSOR_LINE)
     {
-        pCurrent = pCurrent->next;
-        if (pCurrent == NULL)
+        current = current->next;
+        if (current == NULL)
             return ss.c_str;
     }
 
     bool first = true;
-    while (pCurrent)
+    while (current)
     {
-        assert(pCurrent->pFile != NULL);
-        if (pCurrent->flags & TK_FLAG_FINAL)
+        assert(current->pFile != NULL);
+        if (current->flags & TK_FLAG_FINAL)
         {
-            if (!first && pCurrent->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+            if (!first && current->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
                 ss_fprintf(&ss, "\n");
-            else if (!first && pCurrent->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            else if (!first && current->flags & TK_FLAG_HAS_SPACE_BEFORE)
                 ss_fprintf(&ss, " ");
-            if (pCurrent->lexeme[0] != '\0')
-                ss_fprintf(&ss, "%s", pCurrent->lexeme);
+            if (current->lexeme[0] != '\0')
+                ss_fprintf(&ss, "%s", current->lexeme);
             first = false;
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
         else
         {
-            pCurrent = pCurrent->next;
+            current = current->next;
         }
     }
     return ss.c_str;
@@ -5680,40 +5677,40 @@ static void assert_func(bool condition, const char* func, const char* file, int 
 
 void print_asserts(struct token* p_token)
 {
-    struct token* pCurrent = p_token;
+    struct token* current = p_token;
     printf("struct { const char* lexeme; enum token_type token; int bActive; int bFinal; } result[] = { \n");
-    while (pCurrent)
+    while (current)
     {
-        printf("{ %-20s, %d, ", get_token_name(pCurrent->type), (pCurrent->flags & TK_FLAG_FINAL));
-        print_literal(pCurrent->lexeme);
+        printf("{ %-20s, %d, ", get_token_name(current->type), (current->flags & TK_FLAG_FINAL));
+        print_literal(current->lexeme);
         printf("},\n");
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
     printf("}\n");
 }
 
 void show_all(struct token* p_token)
 {
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
-        if (pCurrent->flags & TK_FLAG_FINAL)
+        if (current->flags & TK_FLAG_FINAL)
         {
-            if (pCurrent->level == 0)
+            if (current->level == 0)
                 printf(WHITE);
             else
                 printf(BROWN);
         }
         else
         {
-            if (pCurrent->level == 0)
+            if (current->level == 0)
                 printf(LIGHTGRAY);
             else
                 printf(BLACK);
         }
-        printf("%s", pCurrent->lexeme);
+        printf("%s", current->lexeme);
         printf(RESET);
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
 }
 
@@ -5739,26 +5736,26 @@ void print_preprocessed_to_file(struct token* p_token, const char* filename)
 void show_visible(struct token* p_token)
 {
     printf(WHITE "visible used   / " LIGHTGRAY "visible ignored\n" RESET);
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
-        if (pCurrent->level == 0)
+        if (current->level == 0)
         {
-            if (pCurrent->flags & TK_FLAG_FINAL)
+            if (current->flags & TK_FLAG_FINAL)
                 printf(WHITE);
             else
                 printf(LIGHTGRAY);
         }
         else
         {
-            if (pCurrent->level == 0)
+            if (current->level == 0)
                 printf(BLACK);
             else
                 printf(BLACK);
         }
-        printf("%s", pCurrent->lexeme);
+        printf("%s", current->lexeme);
         printf(RESET);
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
 }
 
@@ -5766,26 +5763,26 @@ void show_visible_and_invisible(struct token* p_token)
 {
     printf(LIGHTGREEN "visible used   / " LIGHTGRAY "visible ignored\n" RESET);
     printf(LIGHTBLUE  "invisible used / " BROWN     "invisible ignored\n" RESET);
-    struct token* pCurrent = p_token;
-    while (pCurrent)
+    struct token* current = p_token;
+    while (current)
     {
-        if (pCurrent->level == 0)
+        if (current->level == 0)
         {
-            if (pCurrent->flags & TK_FLAG_FINAL)
+            if (current->flags & TK_FLAG_FINAL)
                 printf(LIGHTGREEN);
             else
                 printf(LIGHTGRAY);
         }
         else
         {
-            if (pCurrent->flags & TK_FLAG_FINAL)
+            if (current->flags & TK_FLAG_FINAL)
                 printf(LIGHTBLUE);
             else
                 printf(BROWN);
         }
-        printf("%s", pCurrent->lexeme);
+        printf("%s", current->lexeme);
         printf(RESET);
-        pCurrent = pCurrent->next;
+        current = current->next;
     }
 }
 
