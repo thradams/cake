@@ -90,8 +90,8 @@ struct generic_association
     struct type_name* p_type_name;
     struct expression* expression;
     
-    struct token* firstToken;
-    struct token* lastToken;
+    struct token* first_token;
+    struct token* last_token;
 
     struct generic_association* next;
 };
@@ -118,8 +118,8 @@ struct generic_selection
     struct expression* p_view_selected_expression;
 
     struct generic_assoc_list generic_assoc_list;
-    struct token* firstToken;
-    struct token* lastToken;
+    struct token* first_token;
+    struct token* last_token;
 };
 
 struct expression

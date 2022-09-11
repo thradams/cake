@@ -301,7 +301,7 @@ struct generic_selection * generic_selection(struct parser_ctx* ctx, struct erro
     {
         p_generic_selection = calloc(1, sizeof * p_generic_selection);
         
-        p_generic_selection->firstToken = ctx->current;
+        p_generic_selection->first_token = ctx->current;
         
 
         parser_match_tk(ctx, TK_KEYWORD__GENERIC, error);
@@ -334,7 +334,7 @@ struct generic_selection * generic_selection(struct parser_ctx* ctx, struct erro
             current = current->next;
         }
         
-        p_generic_selection->lastToken= ctx->current;
+        p_generic_selection->last_token= ctx->current;
         parser_match_tk(ctx, ')', error);
     }
     catch
@@ -660,8 +660,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             {
                 
                 p_expression_node->generic_selection = generic_selection(ctx, error, ectx);
-                p_expression_node->first = p_expression_node->generic_selection->firstToken;
-                p_expression_node->last = p_expression_node->generic_selection->lastToken;
+                p_expression_node->first = p_expression_node->generic_selection->first_token;
+                p_expression_node->last = p_expression_node->generic_selection->last_token;
 
                 if (p_expression_node->generic_selection->p_view_selected_expression)
                 {

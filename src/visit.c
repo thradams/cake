@@ -607,7 +607,7 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
     visit_expression(ctx, p_generic_selection->expression, error);
     if (ctx->target < LANGUAGE_C11)
     {
-        token_range_add_flag(p_generic_selection->firstToken, p_generic_selection->lastToken, TK_FLAG_HIDE);
+        token_range_add_flag(p_generic_selection->first_token, p_generic_selection->last_token, TK_FLAG_HIDE);
         if (p_generic_selection->p_view_selected_expression)
         {
             token_range_remove_flag(p_generic_selection->p_view_selected_expression->first,
