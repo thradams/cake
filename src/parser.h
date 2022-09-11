@@ -185,10 +185,21 @@ struct attribute* attribute(struct parser_ctx* ctx, struct error* error);
 
 struct storage_class_specifier
 {
+    /*
+     storage-class-specifier:
+      "auto"
+      "constexpr"
+      "extern"
+      "register"
+      "static"
+      "thread_local"
+      "typedef"
+    */
     enum storage_class_specifier_flags flags;
+
     struct token* token;
 };
-struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx, struct error* error);
+struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx);
 
 struct function_specifier
 {

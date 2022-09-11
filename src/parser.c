@@ -1731,7 +1731,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
     struct declaration_specifier* pDeclaration_specifier = calloc(1, sizeof * pDeclaration_specifier);
     if (first_of_storage_class_specifier(ctx))
     {
-        pDeclaration_specifier->storage_class_specifier = storage_class_specifier(ctx, error);
+        pDeclaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
     }
     else if (first_of_type_specifier_qualifier(ctx))
     {
@@ -1826,68 +1826,71 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     return init_declarator_list;
 }
 
-struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx, struct error* error)
+struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
 {
-    if (error->code)
-        return NULL;
     if (ctx->current == NULL)
         return NULL;
 
-    struct storage_class_specifier* p_storage_class_specifier = calloc(1, sizeof(struct storage_class_specifier));
+    struct storage_class_specifier* new_storage_class_specifier = calloc(1, sizeof(struct storage_class_specifier));
+    if (new_storage_class_specifier == NULL)
+        return NULL;
 
-    p_storage_class_specifier->token = ctx->current;
+    new_storage_class_specifier->token = ctx->current;
     switch (ctx->current->type)
     {
     case TK_KEYWORD_TYPEDEF:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
         break;
     case TK_KEYWORD_EXTERN:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
         break;
     case TK_KEYWORD_CONSTEXPR:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
         break;
     case TK_KEYWORD_STATIC:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
         break;
     case TK_KEYWORD__THREAD_LOCAL:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
         break;
     case TK_KEYWORD_AUTO:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
         break;
     case TK_KEYWORD_REGISTER:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
         break;
     default:
         assert(false);
     }
+    
+    /*
+     TODO
+     thread_local may appear with static or extern,
+     auto may appear with all the others except typedef138), and
+     constexpr may appear with auto, register, or static.
+    */
 
     parser_match(ctx);
-    //'typedef'
-    //'extern'
-    //'static'
-    //'_Thread_local'
-    //'auto'
-    //'register'
-    return p_storage_class_specifier;
+    return new_storage_class_specifier;
 }
 
 struct typeof_specifier_argument* typeof_specifier_argument(struct parser_ctx* ctx, struct error* error)
 {
-    struct typeof_specifier_argument* p_typeof_specifier_argument = calloc(1, sizeof(struct typeof_specifier_argument));
+    struct typeof_specifier_argument* new_typeof_specifier_argument = calloc(1, sizeof(struct typeof_specifier_argument));
+    if (new_typeof_specifier_argument)
+        return NULL;
+
     if (first_of_type_name(ctx))
     {
-
-        p_typeof_specifier_argument->type_name = type_name(ctx, error);
+        new_typeof_specifier_argument->type_name = type_name(ctx, error);
     }
     else
     {
         struct expression_ctx ectx = { 0 };
-        p_typeof_specifier_argument->expression = expression(ctx, error, &ectx);
+        new_typeof_specifier_argument->expression = expression(ctx, error, &ectx);
     }
 
-    return p_typeof_specifier_argument;
+    return new_typeof_specifier_argument;
 }
 
 bool first_of_typeof_specifier(struct parser_ctx* ctx)

@@ -8313,10 +8313,16 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
 
 struct static_assert_declaration
 {
-    struct token* first;
-    struct token* last;
-    struct expression* p_conditional_expression;
-    struct token* text_opt;
+    /*
+     static_assert-declaration:
+       "static_assert" ( constant-expression , string-literal ) ;
+       "static_assert" ( constant-expression ) ;
+    */
+
+    struct token* first_token;
+    struct token* last_token;
+    struct expression* constant_expression;
+    struct token* string_literal_opt;
 };
 struct static_assert_declaration* static_assert_declaration(struct parser_ctx* ctx, struct error* error);
 
@@ -8340,10 +8346,21 @@ struct attribute* attribute(struct parser_ctx* ctx, struct error* error);
 
 struct storage_class_specifier
 {
+    /*
+     storage-class-specifier:
+      "auto"
+      "constexpr"
+      "extern"
+      "register"
+      "static"
+      "thread_local"
+      "typedef"
+    */
     enum storage_class_specifier_flags flags;
+
     struct token* token;
 };
-struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx, struct error* error);
+struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx);
 
 struct function_specifier
 {
@@ -15634,7 +15651,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
     struct declaration_specifier* pDeclaration_specifier = calloc(1, sizeof * pDeclaration_specifier);
     if (first_of_storage_class_specifier(ctx))
     {
-        pDeclaration_specifier->storage_class_specifier = storage_class_specifier(ctx, error);
+        pDeclaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
     }
     else if (first_of_type_specifier_qualifier(ctx))
     {
@@ -15729,68 +15746,71 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     return init_declarator_list;
 }
 
-struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx, struct error* error)
+struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
 {
-    if (error->code)
-        return NULL;
     if (ctx->current == NULL)
         return NULL;
 
-    struct storage_class_specifier* p_storage_class_specifier = calloc(1, sizeof(struct storage_class_specifier));
+    struct storage_class_specifier* new_storage_class_specifier = calloc(1, sizeof(struct storage_class_specifier));
+    if (new_storage_class_specifier == NULL)
+        return NULL;
 
-    p_storage_class_specifier->token = ctx->current;
+    new_storage_class_specifier->token = ctx->current;
     switch (ctx->current->type)
     {
     case TK_KEYWORD_TYPEDEF:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
         break;
     case TK_KEYWORD_EXTERN:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
         break;
     case TK_KEYWORD_CONSTEXPR:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
         break;
     case TK_KEYWORD_STATIC:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
         break;
     case TK_KEYWORD__THREAD_LOCAL:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
         break;
     case TK_KEYWORD_AUTO:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
         break;
     case TK_KEYWORD_REGISTER:
-        p_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
         break;
     default:
         assert(false);
     }
+    
+    /*
+     TODO
+     thread_local may appear with static or extern,
+     auto may appear with all the others except typedef138), and
+     constexpr may appear with auto, register, or static.
+    */
 
     parser_match(ctx);
-    //'typedef'
-    //'extern'
-    //'static'
-    //'_Thread_local'
-    //'auto'
-    //'register'
-    return p_storage_class_specifier;
+    return new_storage_class_specifier;
 }
 
 struct typeof_specifier_argument* typeof_specifier_argument(struct parser_ctx* ctx, struct error* error)
 {
-    struct typeof_specifier_argument* p_typeof_specifier_argument = calloc(1, sizeof(struct typeof_specifier_argument));
+    struct typeof_specifier_argument* new_typeof_specifier_argument = calloc(1, sizeof(struct typeof_specifier_argument));
+    if (new_typeof_specifier_argument)
+        return NULL;
+
     if (first_of_type_name(ctx))
     {
-
-        p_typeof_specifier_argument->type_name = type_name(ctx, error);
+        new_typeof_specifier_argument->type_name = type_name(ctx, error);
     }
     else
     {
         struct expression_ctx ectx = { 0 };
-        p_typeof_specifier_argument->expression = expression(ctx, error, &ectx);
+        new_typeof_specifier_argument->expression = expression(ctx, error, &ectx);
     }
 
-    return p_typeof_specifier_argument;
+    return new_typeof_specifier_argument;
 }
 
 bool first_of_typeof_specifier(struct parser_ctx* ctx)
@@ -17461,12 +17481,12 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
     struct static_assert_declaration* p_static_assert_declaration = calloc(1, sizeof(struct static_assert_declaration));
     try
     {
-        p_static_assert_declaration->first = ctx->current;
+        p_static_assert_declaration->first_token = ctx->current;
         struct token* position = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT, error);
         parser_match_tk(ctx, '(', error);
         struct expression_ctx ectx = { .bConstantExpressionRequired = true };
-        p_static_assert_declaration->p_conditional_expression = constant_expression(ctx, error, &ectx);
+        p_static_assert_declaration->constant_expression = constant_expression(ctx, error, &ectx);
 
         if (error->code != 0)
             throw;
@@ -17474,20 +17494,20 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         if (ctx->current->type == ',')
         {
             parser_match(ctx);
-            p_static_assert_declaration->text_opt = ctx->current;
+            p_static_assert_declaration->string_literal_opt = ctx->current;
             parser_match_tk(ctx, TK_STRING_LITERAL, error);
         }
 
         parser_match_tk(ctx, ')', error);
-        p_static_assert_declaration->last = ctx->current;
+        p_static_assert_declaration->last_token = ctx->current;
         parser_match_tk(ctx, ';', error);
 
-        if (p_static_assert_declaration->p_conditional_expression->constant_value == 0)
+        if (p_static_assert_declaration->constant_expression->constant_value == 0)
         {
-            if (p_static_assert_declaration->text_opt)
+            if (p_static_assert_declaration->string_literal_opt)
             {
                 parser_seterror_with_token(ctx, position, "_Static_assert failed %s\n",
-                    p_static_assert_declaration->text_opt->lexeme);
+                    p_static_assert_declaration->string_literal_opt->lexeme);
             }
             else
             {
@@ -20225,7 +20245,7 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
 
 static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration, struct error* error)
 {
-    visit_expression(ctx, p_static_assert_declaration->p_conditional_expression, error);
+    visit_expression(ctx, p_static_assert_declaration->constant_expression, error);
 
     if (ctx->target < LANGUAGE_C11)
     {
@@ -20233,8 +20253,8 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
         * Vamos apagar a parte do static assert. Não adianta so commentar
         * pq poderia ter um comentario dentro. (so se verificar que nao tem)
         */
-        for (struct token* p = p_static_assert_declaration->first;
-            p != p_static_assert_declaration->last->next;
+        for (struct token* p = p_static_assert_declaration->first_token;
+            p != p_static_assert_declaration->last_token->next;
             p = p->next)
         {
             /*
@@ -20245,19 +20265,19 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
     }
     else if (ctx->target == LANGUAGE_C11)
     {
-        if (p_static_assert_declaration->text_opt == NULL)
+        if (p_static_assert_declaration->string_literal_opt == NULL)
         {
-            struct token* rp = previous_parser_token(p_static_assert_declaration->last);
+            struct token* rp = previous_parser_token(p_static_assert_declaration->last_token);
             rp = previous_parser_token(rp);
 
             struct token_list list1 = tokenizer(", \"error\"", "", 0, TK_FLAG_NONE, error);
             token_list_insert_after(&ctx->ast.token_list, rp, &list1);
         }
-        if (strcmp(p_static_assert_declaration->first->lexeme, "static_assert") == 0)
+        if (strcmp(p_static_assert_declaration->first_token->lexeme, "static_assert") == 0)
         {
             /*C23 has static_assert but C11 _Static_assert*/
-            free(p_static_assert_declaration->first->lexeme);
-            p_static_assert_declaration->first->lexeme = strdup("_Static_assert");
+            free(p_static_assert_declaration->first_token->lexeme);
+            p_static_assert_declaration->first_token->lexeme = strdup("_Static_assert");
         }
     }
 }
