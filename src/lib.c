@@ -731,31 +731,31 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
     return ss.c_str;
 }
 
-void token_list_insert_after(struct token_list* list, struct token* pAfter, struct token_list* append)
+void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
 {
-    if (append->head == NULL)
+    if (append_list->head == NULL)
         return;
 
-    if (pAfter == NULL)
+    if (after == NULL)
     {
-        append->tail->next = list->head;
-        list->head->prev = append->tail;
+        append_list->tail->next = token_list->head;
+        token_list->head->prev = append_list->tail;
 
-        list->head = append->head;
-        append->head->prev = NULL;
+        token_list->head = append_list->head;
+        append_list->head->prev = NULL;
     }
     else
     {
-        struct token* pFollow = pAfter->next;
-        if (list->tail == pAfter)
+        struct token* pFollow = after->next;
+        if (token_list->tail == after)
         {
-            list->tail = append->tail;
+            token_list->tail = append_list->tail;
         }
-        else if (list->head == pAfter)
+        else if (token_list->head == after)
         {
         }
-        append->tail->next = pFollow;
-        pAfter->next = append->head;
+        append_list->tail->next = pFollow;
+        after->next = append_list->head;
     }
 }
 
@@ -13952,6 +13952,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token);
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type);
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type);
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type);
+void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -17941,6 +17942,15 @@ assembly-instruction-list:
         first_of_static_assert_declaration(ctx))
     {
         p_block_item->declaration = declaration(ctx, error);
+        struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
+        while (p)
+        {
+            if (p->declarator && p->declarator->name)
+            {
+                naming_convention_local_var(ctx, p->declarator->name, &p->declarator->type);
+            }
+            p = p->next;
+        }
     }
     else if (first_of_label(ctx))
     {
@@ -18995,7 +19005,20 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
     if (!type_is_function_or_function_pointer(type))
     {
         if (!is_snake_case(token->lexeme)) {
-            parser_set_info_with_token(ctx, token, "use snake_case for functions");
+            parser_set_info_with_token(ctx, token, "use snake_case global variables");
+        }
+    }
+}
+
+void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
+{
+    if (!ctx->bCheckNamingConventions || token->level != 0)
+        return;
+
+    if (!type_is_function_or_function_pointer(type))
+    {
+        if (!is_snake_case(token->lexeme)) {
+            parser_set_info_with_token(ctx, token, "use snake_case for local variables");
         }
     }
 }

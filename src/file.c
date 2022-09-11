@@ -14,9 +14,9 @@ struct X* F() { return 0; }
 
 int main()
 {
-    enum E { B } e2; 
-    static_assert(typeid(e2) == typeid(enum E));
-    static_assert(typeid(e2) != typeid(e1));
+    enum E { B } E2; 
+    //static_assert(typeid(e2) == typeid(enum E));
+    //static_assert(typeid(e2) != typeid(e1));
 
     struct X x;
     struct Y y;

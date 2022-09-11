@@ -173,31 +173,31 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
     return ss.c_str;
 }
 
-void token_list_insert_after(struct token_list* list, struct token* pAfter, struct token_list* append)
+void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
 {
-    if (append->head == NULL)
+    if (append_list->head == NULL)
         return;
 
-    if (pAfter == NULL)
+    if (after == NULL)
     {
-        append->tail->next = list->head;
-        list->head->prev = append->tail;
+        append_list->tail->next = token_list->head;
+        token_list->head->prev = append_list->tail;
 
-        list->head = append->head;
-        append->head->prev = NULL;
+        token_list->head = append_list->head;
+        append_list->head->prev = NULL;
     }
     else
     {
-        struct token* pFollow = pAfter->next;
-        if (list->tail == pAfter)
+        struct token* pFollow = after->next;
+        if (token_list->tail == after)
         {
-            list->tail = append->tail;
+            token_list->tail = append_list->tail;
         }
-        else if (list->head == pAfter)
+        else if (token_list->head == after)
         {
         }
-        append->tail->next = pFollow;
-        pAfter->next = append->head;
+        append_list->tail->next = pFollow;
+        after->next = append_list->head;
     }
 }
 
