@@ -3624,11 +3624,11 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
             else
             {
                 bool blanks = token_is_blank(input_list->head) || input_list->head->type == TK_NEWLINE;
-                bool bFinal = is_active && !is_never_final(input_list->head->type);
+                bool is_final = is_active && !is_never_final(input_list->head->type);
 
                 if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
-                    if (bFinal)
+                    if (is_final)
                     {
                         prematch(&r, input_list);
                         r.tail->flags |= TK_FLAG_FINAL;
@@ -3655,7 +3655,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                         if (level == 0 || INCLUDE_ALL)
                         {
                             prematch(&r, input_list);
-                            if (bFinal)
+                            if (is_final)
                             {
                                 // if (strcmp(r.tail->lexeme, "_CRT_STDIO_INLINE") == 0)
                                  //{
@@ -3669,7 +3669,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                         }
                         else
                         {
-                            if (bFinal)
+                            if (is_final)
                             {
                                 //if (strcmp(r.tail->lexeme, "_CRT_STDIO_INLINE") == 0)
                                 //{
@@ -4296,7 +4296,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 void print_asserts(struct token* p_token)
 {
     struct token* current = p_token;
-    printf("struct { const char* lexeme; enum token_type token; int is_active; int bFinal; } result[] = { \n");
+    printf("struct { const char* lexeme; enum token_type token; int is_active; int is_final; } result[] = { \n");
     while (current)
     {
         printf("{ %-20s, %d, ", get_token_name(current->type), (current->flags & TK_FLAG_FINAL));

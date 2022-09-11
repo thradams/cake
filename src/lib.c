@@ -2834,8 +2834,8 @@ bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
 
 
 bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme);
-struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, struct error* error);
-struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, struct error* error)
+struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct error* error);
+struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct error* error)
 {
     /*
       group:
@@ -2865,7 +2865,7 @@ struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* inp
             }
             else
             {
-                struct token_list r2 = group_part(ctx, input_list, bActive, level, error);
+                struct token_list r2 = group_part(ctx, input_list, is_active, level, error);
                 token_list_append_list(&r, &r2);
                 if (error->code) throw;
             }
@@ -3326,7 +3326,7 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
 }
 
 
-struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, bool* pbIfResult, struct error* error)
+struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* pbIfResult, struct error* error)
 {
     *pbIfResult = 0; //out
 
@@ -3346,7 +3346,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error); //ifdef
             skip_blanks_level(&r, input_list, level);
-            if (bActive)
+            if (is_active)
             {
                 struct macro* macro = find_macro(ctx, input_list->head->lexeme);
                 *pbIfResult = (macro != NULL) ? 1 : 0;
@@ -3360,7 +3360,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error); //ifndef
             skip_blanks_level(&r, input_list, level);
-            if (bActive)
+            if (is_active)
             {
                 struct macro* macro = find_macro(ctx, input_list->head->lexeme);
                 *pbIfResult = (macro == NULL) ? 1 : 0;
@@ -3373,7 +3373,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error); //if
             skip_blanks_level(&r, input_list, level);
-            if (bActive)
+            if (is_active)
             {
                 struct token_list r0 = { 0 };
                 *pbIfResult = preprocessor_constant_expression(ctx, &r0, input_list, level, error);
@@ -3392,7 +3392,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             pre_seterror_with_token(ctx, input_list->head, "unexpected");
             throw;
         }
-        struct token_list r2 = group_opt(ctx, input_list, bActive && *pbIfResult, level, error);
+        struct token_list r2 = group_opt(ctx, input_list, is_active && *pbIfResult, level, error);
         token_list_append_list(&r, &r2);
     }
     catch
@@ -3402,7 +3402,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
     return r;
 }
 
-struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, bool* pElifResult, struct error* error)
+struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* pElifResult, struct error* error)
 {
     *pElifResult = 0; //out
 
@@ -3423,7 +3423,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);
         skip_blanks(&r, input_list);
 
-        if (bActive)
+        if (is_active)
         {
             struct token_list r0 = { 0 };
             result = preprocessor_constant_expression(ctx, &r0, input_list, level, error);
@@ -3442,7 +3442,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);
         skip_blanks(&r, input_list);
 
-        if (bActive)
+        if (is_active)
         {
             result = (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL) ? 1 : 0;
         }
@@ -3453,7 +3453,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);
         skip_blanks(&r, input_list);
 
-        if (bActive)
+        if (is_active)
         {
             result = (hashmap_find(&ctx->macros, input_list->head->lexeme) == NULL) ? 1 : 0;
         }
@@ -3462,12 +3462,12 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
     *pElifResult = (result != 0);
     skip_blanks(&r, input_list);
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx, error);
-    struct token_list r2 = group_opt(ctx, input_list, bActive && *pElifResult, level, error);
+    struct token_list r2 = group_opt(ctx, input_list, is_active && *pElifResult, level, error);
     token_list_append_list(&r, &r2);
     return r;
 }
 
-struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, bool* pbelifResult, struct error* error)
+struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* pbelifResult, struct error* error)
 {
     struct token_list r = { 0 };
     /*
@@ -3477,7 +3477,7 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
     */
     bool bAlreadyFoundElifTrue = false;
     bool bElifResult = false;
-    struct token_list r2 = elif_group(ctx, input_list, bActive, level, &bElifResult, error);
+    struct token_list r2 = elif_group(ctx, input_list, is_active, level, &bElifResult, error);
     token_list_append_list(&r, &r2);
     if (bElifResult)
         bAlreadyFoundElifTrue = true;
@@ -3489,7 +3489,7 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
         /*
           Depois que acha 1 true bAlreadyFoundElifTrue os outros sao false.
         */
-        struct token_list r3 = elif_groups(ctx, input_list, bActive && !bAlreadyFoundElifTrue, level, &bElifResult, error);
+        struct token_list r3 = elif_groups(ctx, input_list, is_active && !bAlreadyFoundElifTrue, level, &bElifResult, error);
         token_list_append_list(&r, &r3);
         if (bElifResult)
             bAlreadyFoundElifTrue = true;
@@ -3501,7 +3501,7 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
     return r;
 }
 
-struct token_list else_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, struct error* error)
+struct token_list else_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct error* error)
 {
     /*
       else-group:
@@ -3516,7 +3516,7 @@ struct token_list else_group(struct preprocessor_ctx* ctx, struct token_list* in
     skip_blanks_level(&r, input_list, level);
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx, error);
 
-    struct token_list r2 = group_opt(ctx, input_list, bActive, level, error);
+    struct token_list r2 = group_opt(ctx, input_list, is_active, level, error);
     token_list_append_list(&r, &r2);
 
     return r;
@@ -3540,7 +3540,7 @@ struct token_list endif_line(struct preprocessor_ctx* ctx, struct token_list* in
     return r;
 }
 
-struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, struct error* error)
+struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct error* error)
 {
     /*
      if-section:
@@ -3552,7 +3552,7 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
     try
     {
         bool bIfResult = false;
-        struct token_list r2 = if_group(ctx, input_list, bActive, level, &bIfResult, error);
+        struct token_list r2 = if_group(ctx, input_list, is_active, level, &bIfResult, error);
         if (error->code) throw;
 
         token_list_append_list(&r, &r2);
@@ -3562,13 +3562,13 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
             preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "elifndef"))
         {
-            struct token_list r3 = elif_groups(ctx, input_list, bActive && !bIfResult, level, &bElifResult, error);
+            struct token_list r3 = elif_groups(ctx, input_list, is_active && !bIfResult, level, &bElifResult, error);
             token_list_append_list(&r, &r3);
         }
         if (input_list->head->type == TK_PREPROCESSOR_LINE &&
             preprocessor_token_ahead_is_identifier(input_list->head, "else"))
         {
-            struct token_list r4 = else_group(ctx, input_list, bActive && !bIfResult && !bElifResult, level, error);
+            struct token_list r4 = else_group(ctx, input_list, is_active && !bIfResult && !bElifResult, level, error);
             token_list_append_list(&r, &r4);
         }
 
@@ -3643,7 +3643,7 @@ struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list*
     return r;
 }
 
-struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, struct error* error)
+struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct error* error)
 {
     /*
         control-line:
@@ -3664,7 +3664,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
     try
     {
 
-        if (!bActive)
+        if (!is_active)
         {
             //se nao esta ativo eh ingorado
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
@@ -3848,7 +3848,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 # define identifier ( ... )                   replacement-list new-line
                 # define identifier ( identifier-list , ... ) replacement-list new-line
             */
-            //p = preprocessor_match_identifier(p, bActive, level, false, "define");
+            //p = preprocessor_match_identifier(p, is_active, level, false, "define");
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error); //define
             skip_blanks_level(&r, input_list, level);
@@ -3873,7 +3873,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error); //nome da macro
             /*sem skip*/
-            //p = preprocessor_match_token(p, bActive, level, false, IDENTIFIER); /*name*/
+            //p = preprocessor_match_token(p, is_active, level, false, IDENTIFIER); /*name*/
             if (input_list->head->type == '(')
             {
 
@@ -4795,7 +4795,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
 }
 void print_token(struct token* p_token);
 
-struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, struct error* error)
+struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct error* error)
 {
     /*
           text-line:
@@ -4811,7 +4811,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
             struct token* start_token = input_list->head;
             //assert(start_token->pFile != NULL);
 
-            if (bActive && input_list->head->type == TK_IDENTIFIER)
+            if (is_active && input_list->head->type == TK_IDENTIFIER)
             {
 
 
@@ -4965,7 +4965,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
             else
             {
                 bool blanks = token_is_blank(input_list->head) || input_list->head->type == TK_NEWLINE;
-                bool bFinal = bActive && !is_never_final(input_list->head->type);
+                bool bFinal = is_active && !is_never_final(input_list->head->type);
 
                 if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
@@ -5040,7 +5040,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
     return r;
 }
 
-struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bActive, int level, struct error* error)
+struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, struct error* error)
 {
     /*
     group-part:
@@ -5056,7 +5056,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
             preprocessor_token_ahead_is_identifier(input_list->head, "ifdef") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "ifndef"))
         {
-            return if_section(ctx, input_list, bActive, level, error);
+            return if_section(ctx, input_list, is_active, level, error);
         }
         else if (preprocessor_token_ahead_is_identifier(input_list->head, "include") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "embed") ||
@@ -5067,7 +5067,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
             preprocessor_token_ahead_is_identifier(input_list->head, "error") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "pragma"))
         {
-            return control_line(ctx, input_list, bActive, level, error);
+            return control_line(ctx, input_list, is_active, level, error);
         }
         else
         {
@@ -5075,7 +5075,7 @@ struct token_list group_part(struct preprocessor_ctx* ctx, struct token_list* in
             return non_directive(ctx, input_list, level, error);
         }
     }
-    return text_line(ctx, input_list, bActive, level, error);
+    return text_line(ctx, input_list, is_active, level, error);
 }
 
 
@@ -5654,7 +5654,7 @@ static void assert_func(bool condition, const char* func, const char* file, int 
             pos++;
 
         g_unit_test_error_count++;
-        printf("\x1b[97m" "%s:%d:0:" "\x1b[91m" " test failed:" "\x1b[0m" " function ‘%s’\n", pos, line, func);
+        printf("\x1b[97m" "%s:%d:0:" "\x1b[91m" " test failed:" "\x1b[0m" " function â€˜%sâ€™\n", pos, line, func);
         
         char buffer[20] = { 0 };
         int n = snprintf(buffer, sizeof buffer, "%d", line);        
@@ -5678,7 +5678,7 @@ static void assert_func(bool condition, const char* func, const char* file, int 
 void print_asserts(struct token* p_token)
 {
     struct token* current = p_token;
-    printf("struct { const char* lexeme; enum token_type token; int bActive; int bFinal; } result[] = { \n");
+    printf("struct { const char* lexeme; enum token_type token; int is_active; int bFinal; } result[] = { \n");
     while (current)
     {
         printf("{ %-20s, %d, ", get_token_name(current->type), (current->flags & TK_FLAG_FINAL));
