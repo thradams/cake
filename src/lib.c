@@ -3215,7 +3215,7 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
 
 //todo passar lista para reotnro
 long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
-    struct token_list* outputList,
+    struct token_list* output_list,
     struct token_list* input_list,
     int level,
     struct error* error)
@@ -3226,7 +3226,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     {
         token_list_add(&r, token_list_pop_front(input_list));
     }
-    *outputList = r;
+    *output_list = r;
 
 
     struct token_list list1 = copy_replacement_list(&r);
