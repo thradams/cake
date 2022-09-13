@@ -7,7 +7,7 @@ to C99.
 
 It also can be used to try out new features for the C language. 
 
-Extensions like lambdas,  defer and more where implemented.
+Extensions like lambdas, defer and more were implemented.
 
 # Web Playground
 
