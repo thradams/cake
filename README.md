@@ -1,6 +1,6 @@
 # Description
 
-Cake is a C23 compiler frond end written from scratch in C.
+Cake is a C23 compiler front end written from scratch in C.
 
 The compiler can be used to translate new versions of C (like C23)
 to C99.
@@ -27,7 +27,7 @@ http://thradams.com/web3/playground.html
 # Build
 
 ## Windows
-Open the Developer Command Prompt of visual studio. Go to the src directoy and type
+Open the Developer Command Prompt of visual studio. Go to the `src` directoy and type
 
 ```
 cl build.c && build
@@ -63,7 +63,7 @@ Then at `./src` dir type:
 call emcc -DMOCKFILES "lib.c" -o "Web\cake.js" -s WASM=0 -s EXPORTED_FUNCTIONS="['_CompileText']" -s EXTRA_EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap']"
 ```
 
-This will generate the cake.js
+This will generate the `cake.js`
 
 
 
