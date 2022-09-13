@@ -51,7 +51,7 @@ gcc -DTEST build.c -o build && ./build
 ```
 
 ## Build web
-emscriptem https://emscripten.org/  is required. 
+Emscripten https://emscripten.org/  is required. 
 
 First do the normal build. 
 
