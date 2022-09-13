@@ -21621,7 +21621,6 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
 {
     if (p_selection_statement->secondary_block)
     {
-
         ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
 
         if (p_selection_statement->secondary_block &&
@@ -21640,8 +21639,29 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
             format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);
             ctx->identation--;
         }
+        //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
+    }
 
+    if (p_selection_statement->else_secondary_block)
+    {
+        ajust_line_and_identation(p_selection_statement->else_secondary_block->first, ctx);
 
+        if (p_selection_statement->else_secondary_block &&
+            p_selection_statement->else_secondary_block->statement &&
+            p_selection_statement->else_secondary_block->statement->unlabeled_statement &&
+            p_selection_statement->else_secondary_block->statement->unlabeled_statement->primary_block &&
+            p_selection_statement->else_secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
+        {
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block->statement, error);
+        }
+        else
+        {
+            ctx->identation++;
+            //ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
+
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block->statement, error);
+            ctx->identation--;
+        }
         //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
     }
 
