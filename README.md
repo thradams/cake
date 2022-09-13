@@ -19,9 +19,9 @@ http://thradams.com/web3/playground.html
 # Features
 
 * C23 preprocessor
-* syntax analisys
-* semantic analisys
-* c backend
+* Syntax analysis
+* Semantic analysis
+* C backend
 * Builds AST 
 
 # Build
