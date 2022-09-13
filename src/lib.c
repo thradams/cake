@@ -474,7 +474,9 @@ struct options
     bool bRemoveComments;
     bool bPreprocessOnly;
     bool bRemoveMacros;
-    
+    bool format_input;
+    bool format_ouput;
+
     /*
     * true - to info about name convensions violations
     */
@@ -755,7 +757,10 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         {
         }
         append_list->tail->next = follow;
+        follow->prev = append_list->tail;
         after->next = append_list->head;
+        append_list->head->prev = after;
+
     }
 }
 
@@ -5637,7 +5642,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 
 extern int g_unit_test_error_count;
 extern int g_unit_test_success_count;
-static void assert_func(bool condition, const char* func, const char* file, int line, const char* message)
+static void assert_func(int condition, const char* func, const char* file, int line, const char* message)
 {
     if (!condition)
     {
@@ -5654,7 +5659,7 @@ static void assert_func(bool condition, const char* func, const char* file, int 
             pos++;
 
         g_unit_test_error_count++;
-        printf("\x1b[97m" "%s:%d:0:" "\x1b[91m" " test failed:" "\x1b[0m" " function ‘%s’\n", pos, line, func);
+        printf("\x1b[97m" "%s:%d:0:" "\x1b[91m" " test failed:" "\x1b[0m" " function '%s'\n", pos, line, func);
         
         char buffer[20] = { 0 };
         int n = snprintf(buffer, sizeof buffer, "%d", line);        
@@ -8393,6 +8398,29 @@ struct typeof_specifier
 
 struct type_specifier
 {
+    /*
+     type-specifier:
+        "void"
+        "char"
+        "short"
+        "int"
+        "long"
+        "float"
+        "double"
+        "signed"
+        "unsigned"
+        "_BitInt" ( constant-expression )
+        "bool"
+        "_Complex"
+        "_Decimal32"
+        "_Decimal64"
+        "_Decimal128"
+        atomic-type-specifier
+        struct-or-union-specifier
+        enum-specifier
+        typedef-name
+        typeof-specifier
+ */
     enum type_specifier_flags flags;
     struct token* token;
     struct struct_or_union_specifier* struct_or_union_specifier;
@@ -8836,6 +8864,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
 
 struct expression_statement
 {
+    struct token* first_token;
     struct expression* expression;
 };
 struct expression_statement* expression_statement(struct parser_ctx* ctx, struct error* error);
@@ -13884,6 +13913,17 @@ bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers)
 
 
 
+
+//#pragma once
+
+struct format_visit_ctx
+{
+    struct ast ast;
+    int identation;
+};
+
+void format_visit(struct format_visit_ctx* ctx, struct error* error);
+
 #ifdef _WIN32
 
 #undef assert
@@ -14234,7 +14274,7 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
         {
             ctx->printf("%s", next->lexeme);
         }
-        
+
         next = next->next;
     }
     ctx->printf("\n");
@@ -15593,11 +15633,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         {
             if (parameter->declarator->nUses == 0)
             {
-                if (parameter->name && 
+                if (parameter->name &&
                     parameter->name->level == 0 /*direct source*/
                     )
                 {
-                    
+
                     ctx->printf(WHITE "%s:%d:%d: ",
                         parameter->name->pFile->lexeme,
                         parameter->name->line,
@@ -15782,7 +15822,7 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
     default:
         assert(false);
     }
-    
+
     /*
      TODO
      thread_local may appear with static or extern,
@@ -17027,7 +17067,7 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
     //direct_declarator '(' parameter_type_list_opt ')'
 
 
-    
+
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
 
     scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
@@ -18259,6 +18299,7 @@ struct expression_statement* expression_statement(struct parser_ctx* ctx, struct
     */
     if (ctx->current->type != ';')
     {
+        p_expression_statement->first_token = ctx->current;
         struct expression_ctx ectx = { 0 };
         p_expression_statement->expression = expression(ctx, error, &ectx);
     }
@@ -18451,6 +18492,16 @@ int fill_options(struct options* options, int argc, char** argv, struct preproce
             options->check_naming_conventions = true;
             continue;
         }
+        if (strcmp(argv[i], "-fi") == 0)
+        {
+            options->format_input= true;
+            continue;
+        }
+        if (strcmp(argv[i], "-fo") == 0)
+        {
+            options->format_ouput= true;
+            continue;
+        }
         //
         if (strcmp(argv[i], "-target=c99") == 0)
         {
@@ -18577,6 +18628,66 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #endif
 }
 
+const char* format_code(struct options* options,
+    const char* content,
+    struct error* error)
+{
+    struct ast ast = { 0 };
+    char* s = NULL;
+
+
+    struct preprocessor_ctx prectx = { 0 };
+
+#ifdef TEST
+    prectx.printf = printf_nothing;
+#else
+    prectx.printf = printf;
+#endif
+
+
+    prectx.macros.capacity = 5000;
+    add_standard_macros(&prectx, error);
+
+
+    try
+    {
+        prectx.options = *options;
+        append_msvc_include_dir(&prectx);
+
+
+        struct token_list tokens = tokenizer(content, "", 0, TK_FLAG_NONE, error);
+        if (error->code != 0)
+            throw;
+
+        ast.token_list = preprocessor(&prectx, &tokens, 0, error);
+        if (error->code != 0)
+            throw;
+
+        ast.declaration_list = parse(&options, &ast.token_list, error);
+        if (error->code != 0)
+        {
+            throw;
+        }
+        struct format_visit_ctx visit_ctx = { 0 };
+        visit_ctx.ast = ast;
+        format_visit(&visit_ctx, error);
+
+        if (options->bRemoveMacros)
+            s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
+        else
+            s = get_code_as_we_see(&visit_ctx.ast.token_list, options->bRemoveComments);
+
+    }
+    catch
+    {
+
+    }
+
+
+    ast_destroy(&ast);
+    preprocessor_ctx_destroy(&prectx);
+    return s;
+}
 
 int compile_one_file(const char* file_name,
     int argc,
@@ -18639,7 +18750,7 @@ int compile_one_file(const char* file_name,
 
         mkdir("./out", 0777);
 
-        //printf(".");//3
+
         if (options.bPreprocessOnly)
         {
             const char* s = print_preprocessed_to_string2(ast.token_list.head);
@@ -18648,13 +18759,21 @@ int compile_one_file(const char* file_name,
         }
         else
         {
-            //printf(".");//4
+
             ast.declaration_list = parse(&options, &ast.token_list, error);
             if (error->code != 0)
             {
                 throw;
             }
-            //printf(".");//5
+
+            if (options.format_input)
+            {
+                /*format input source before transformation*/
+                struct format_visit_ctx visit_ctx = { 0 };
+                visit_ctx.ast = ast;
+                format_visit(&visit_ctx, error);
+            }
+
             struct visit_ctx visit_ctx = { 0 };
             visit_ctx.target = options.target;
             visit_ctx.ast = ast;
@@ -18665,8 +18784,13 @@ int compile_one_file(const char* file_name,
             else
                 s = get_code_as_we_see(&visit_ctx.ast.token_list, options.bRemoveComments);
 
-            //printf(".");//6
-
+            if (options.format_ouput)
+            {
+                /*re-parser ouput and format*/
+                const char* s2 = format_code(&options, s, error);
+                free(s);
+                s = s2;
+            }
 
             FILE* out = fopen(path, "w");
             if (out)
@@ -18846,6 +18970,15 @@ char* compile_source(const char* pszoptions, const char* content)
             {
                 s = get_code_as_we_see(&visit_ctx.ast.token_list, options.bRemoveComments);
             }
+            if (options.format_ouput)
+            {
+                struct error error = { 0 };
+                
+                /*re-parser ouput and format*/
+                const char* s2 = format_code(&options, s, &error);
+                free(s);
+                s = s2;
+            }
         }
 
         if (error.code)
@@ -18892,7 +19025,7 @@ static bool is_snake_case(const char* text)
 {
     if (text == NULL)
         return true;
-    
+
     if (!(*text >= 'a' && *text <= 'z'))
     {
         return false;
@@ -18900,14 +19033,14 @@ static bool is_snake_case(const char* text)
 
     while (*text)
     {
-        if ((*text >= 'a' && *text <= 'z') || 
+        if ((*text >= 'a' && *text <= 'z') ||
             *text == '_' ||
             (*text >= '0' && *text <= '9'))
-            
+
         {
             //ok
         }
-        else 
+        else
             return false;
         text++;
     }
@@ -18938,7 +19071,7 @@ static bool is_camel_case(const char* text)
         text++;
     }
 
-    return true;    
+    return true;
 }
 
 static bool is_pascal_case(const char* text)
@@ -19197,7 +19330,7 @@ void expand_test()
 
 
     //https://godbolt.org/z/WbK9zP7zM
-}
+    }
 
 
 
@@ -21413,4 +21546,281 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 }
 */
 
+
+
+
+void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx)
+{
+    /*
+    * Before this token we must have a identation and before identation a new line.
+    * If we don't have it we need to insert.
+    */
+
+    if (token && token->level == 0)
+    {
+        struct token* previous_token = token->prev;
+        if (previous_token)
+        {
+            if (previous_token->type == TK_BLANKS)
+            {
+                char blanks[50] = {0};
+                if (ctx->identation > 0)
+                  snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
+                
+                /*only adjust the number of spaces*/
+                free(previous_token->lexeme);
+                previous_token->lexeme = strdup(blanks);
+
+                struct token* previous_previous_token =
+                    previous_token->prev;
+
+                if (previous_previous_token->type != TK_NEWLINE)
+                {
+                    struct error error = { 0 };
+                    struct token_list list = tokenizer("\n", NULL, 0, TK_FLAG_NONE, &error);
+                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);                    
+                }                
+            }
+            else if (previous_token->type != TK_NEWLINE)
+            {
+                char blanks[50];
+                if (ctx->identation > 0)
+                {
+                    snprintf(blanks, sizeof blanks, "\n%*c", (ctx->identation * 4), ' ');
+                }
+                else
+                {
+                    snprintf(blanks, sizeof blanks, "\n");
+                }
+
+                struct error error = { 0 };
+                struct token_list list = tokenizer(blanks, NULL, 0, TK_FLAG_NONE, &error);
+                token_list_insert_after(&ctx->ast.token_list, previous_token, &list);
+            }
+        }
+    }
+}
+
+static void format_visit_unlabeled_statement(struct format_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, struct error* error);
+
+static void format_visit_statement(struct format_visit_ctx* ctx, struct statement* p_statement, struct error* error)
+{
+    if (p_statement->labeled_statement)
+    {
+        //format_visit_labeled_statement(ctx, p_statement->labeled_statement, error);
+    }
+    else if (p_statement->unlabeled_statement)
+    {
+        format_visit_unlabeled_statement(ctx, p_statement->unlabeled_statement, error);
+    }
+}
+
+
+
+static void format_visit_selection_statement(struct format_visit_ctx* ctx, struct selection_statement* p_selection_statement, struct error* error)
+{
+    if (p_selection_statement->secondary_block)
+    {
+
+        ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
+
+        if (p_selection_statement->secondary_block &&
+            p_selection_statement->secondary_block->statement &&
+            p_selection_statement->secondary_block->statement->unlabeled_statement &&
+            p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
+            p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
+        {
+            format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);
+        }
+        else
+        {
+            ctx->identation++;
+            //ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
+
+            format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);
+            ctx->identation--;
+        }
+
+
+        //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
+    }
+
+}
+
+static void format_visit_jump_statement(struct format_visit_ctx* ctx, struct jump_statement* p_jump_statement, struct error* error)
+{
+
+
+
+    if (p_jump_statement->token->type == TK_KEYWORD_THROW ||
+        p_jump_statement->token->type == TK_KEYWORD_RETURN ||
+        p_jump_statement->token->type == TK_KEYWORD_BREAK ||
+        p_jump_statement->token->type == TK_KEYWORD_CONTINUE ||
+        p_jump_statement->token->type == TK_KEYWORD_GOTO)
+    {
+        ajust_line_and_identation(p_jump_statement->token, ctx);
+    }
+    else
+    {
+        assert(false);
+    }
+}
+
+static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error);
+
+
+static void format_visit_secondary_block(struct format_visit_ctx* ctx, struct secondary_block* p_secondary_block, struct error* error)
+{
+    format_visit_statement(ctx, p_secondary_block->statement, error);
+}
+
+static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struct iteration_statement* p_iteration_statement, struct error* error)
+{
+
+    if (p_iteration_statement->expression1)
+    {
+        //format_visit_expression(ctx, p_iteration_statement->expression1, error);
+    }
+
+    if (p_iteration_statement->expression2)
+    {
+        //format_visit_expression(ctx, p_iteration_statement->expression2, error);
+    }
+
+    
+
+    if (p_iteration_statement->secondary_block)
+    {
+        format_visit_secondary_block(ctx, p_iteration_statement->secondary_block, error);
+    }
+}
+
+
+
+static void format_visit_primary_block(struct format_visit_ctx* ctx, struct primary_block* p_primary_block, struct error* error)
+{
+    if (p_primary_block->defer_statement)
+    {
+        //visit_defer_statement(ctx, p_primary_block->defer_statement, error);
+    }
+    else
+    {
+        if (p_primary_block->compound_statement)
+        {
+            format_visit_compound_statement(ctx, p_primary_block->compound_statement, error);
+        }
+        else if (p_primary_block->iteration_statement)
+        {
+            format_visit_iteration_statement(ctx, p_primary_block->iteration_statement, error);
+        }
+        else if (p_primary_block->selection_statement)
+        {
+            format_visit_selection_statement(ctx, p_primary_block->selection_statement, error);
+        }
+    }
+
+}
+
+
+static void format_visit_expression_statement(struct format_visit_ctx* ctx, struct expression_statement* p_expression_statement, struct error* error)
+{
+    if (p_expression_statement->expression)
+    {
+        //ajust_line_and_identation(p_expression_statement->first_token, ctx);
+    }
+}
+
+static void format_visit_unlabeled_statement(struct format_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, struct error* error)
+{
+    if (p_unlabeled_statement->primary_block)
+    {
+        format_visit_primary_block(ctx, p_unlabeled_statement->primary_block, error);
+    }
+    else if (p_unlabeled_statement->expression_statement)
+    {
+        format_visit_expression_statement(ctx, p_unlabeled_statement->expression_statement, error);
+    }
+    else if (p_unlabeled_statement->jump_statement)
+    {
+        format_visit_jump_statement(ctx, p_unlabeled_statement->jump_statement, error);
+    }
+    else
+    {
+        assert(false);
+    }
+}
+
+static void format_visit_block_item(struct format_visit_ctx* ctx, struct block_item* p_block_item, struct error* error)
+{
+    ajust_line_and_identation(p_block_item->first_token, ctx);
+
+    if (p_block_item->declaration)
+    {
+        //visit_declaration(ctx, p_block_item->declaration, error);
+    }
+    else if (p_block_item->unlabeled_statement)
+    {
+        format_visit_unlabeled_statement(ctx, p_block_item->unlabeled_statement, error);
+    }
+    else if (p_block_item->labeled_statement)
+    {
+        //visit_labeled_statement(ctx, p_block_item->labeled_statement, error);
+    }
+}
+
+static void format_visit_block_item_list(struct format_visit_ctx* ctx, struct block_item_list* p_block_item_list, struct error* error)
+{
+    struct block_item* p_block_item = p_block_item_list->head;
+    while (error->code == 0 && p_block_item)
+    {
+        format_visit_block_item(ctx, p_block_item, error);
+        p_block_item = p_block_item->next;
+    }
+}
+
+static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
+{
+    ajust_line_and_identation(p_compound_statement->first, ctx);
+
+    ctx->identation++;
+    format_visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
+
+    ctx->identation--;
+    
+    ajust_line_and_identation(p_compound_statement->last, ctx);
+}
+
+static void format_visit_declaration(struct format_visit_ctx* ctx, struct declaration* p_declaration, struct error* error)
+{
+    if (p_declaration->static_assert_declaration)
+    {
+        //format_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration, error);
+    }
+
+    if (p_declaration->declaration_specifiers)
+    {
+        //format_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, error);
+
+    }
+
+    if (p_declaration->init_declarator_list.head)
+    {
+        //format_visit_init_declarator_list(ctx, &p_declaration->init_declarator_list, error);
+    }
+
+    if (p_declaration->function_body)
+    {
+        format_visit_compound_statement(ctx, p_declaration->function_body, error);
+    }
+}
+
+void format_visit(struct format_visit_ctx* ctx, struct error* error)
+{
+    struct declaration* p_declaration = ctx->ast.declaration_list.head;
+    while (error->code == 0 && p_declaration)
+    {
+        format_visit_declaration(ctx, p_declaration, error);
+        p_declaration = p_declaration->next;
+    }
+}
 

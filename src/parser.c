@@ -10,7 +10,7 @@
 #include "console.h"
 #include "fs.h"
 #include <ctype.h>
-
+#include "formatvisit.h"
 #ifdef _WIN32
 #include <crtdbg.h>
 
@@ -314,7 +314,7 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
         {
             ctx->printf("%s", next->lexeme);
         }
-        
+
         next = next->next;
     }
     ctx->printf("\n");
@@ -1673,11 +1673,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         {
             if (parameter->declarator->nUses == 0)
             {
-                if (parameter->name && 
+                if (parameter->name &&
                     parameter->name->level == 0 /*direct source*/
                     )
                 {
-                    
+
                     ctx->printf(WHITE "%s:%d:%d: ",
                         parameter->name->pFile->lexeme,
                         parameter->name->line,
@@ -1862,7 +1862,7 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
     default:
         assert(false);
     }
-    
+
     /*
      TODO
      thread_local may appear with static or extern,
@@ -3107,7 +3107,7 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
     //direct_declarator '(' parameter_type_list_opt ')'
 
 
-    
+
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
 
     scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
@@ -4339,6 +4339,7 @@ struct expression_statement* expression_statement(struct parser_ctx* ctx, struct
     */
     if (ctx->current->type != ';')
     {
+        p_expression_statement->first_token = ctx->current;
         struct expression_ctx ectx = { 0 };
         p_expression_statement->expression = expression(ctx, error, &ectx);
     }
@@ -4531,6 +4532,16 @@ int fill_options(struct options* options, int argc, char** argv, struct preproce
             options->check_naming_conventions = true;
             continue;
         }
+        if (strcmp(argv[i], "-fi") == 0)
+        {
+            options->format_input= true;
+            continue;
+        }
+        if (strcmp(argv[i], "-fo") == 0)
+        {
+            options->format_ouput= true;
+            continue;
+        }
         //
         if (strcmp(argv[i], "-target=c99") == 0)
         {
@@ -4657,6 +4668,66 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #endif
 }
 
+const char* format_code(struct options* options,
+    const char* content,
+    struct error* error)
+{
+    struct ast ast = { 0 };
+    char* s = NULL;
+
+
+    struct preprocessor_ctx prectx = { 0 };
+
+#ifdef TEST
+    prectx.printf = printf_nothing;
+#else
+    prectx.printf = printf;
+#endif
+
+
+    prectx.macros.capacity = 5000;
+    add_standard_macros(&prectx, error);
+
+
+    try
+    {
+        prectx.options = *options;
+        append_msvc_include_dir(&prectx);
+
+
+        struct token_list tokens = tokenizer(content, "", 0, TK_FLAG_NONE, error);
+        if (error->code != 0)
+            throw;
+
+        ast.token_list = preprocessor(&prectx, &tokens, 0, error);
+        if (error->code != 0)
+            throw;
+
+        ast.declaration_list = parse(&options, &ast.token_list, error);
+        if (error->code != 0)
+        {
+            throw;
+        }
+        struct format_visit_ctx visit_ctx = { 0 };
+        visit_ctx.ast = ast;
+        format_visit(&visit_ctx, error);
+
+        if (options->bRemoveMacros)
+            s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
+        else
+            s = get_code_as_we_see(&visit_ctx.ast.token_list, options->bRemoveComments);
+
+    }
+    catch
+    {
+
+    }
+
+
+    ast_destroy(&ast);
+    preprocessor_ctx_destroy(&prectx);
+    return s;
+}
 
 int compile_one_file(const char* file_name,
     int argc,
@@ -4719,7 +4790,7 @@ int compile_one_file(const char* file_name,
 
         mkdir("./out", 0777);
 
-        //printf(".");//3
+
         if (options.bPreprocessOnly)
         {
             const char* s = print_preprocessed_to_string2(ast.token_list.head);
@@ -4728,13 +4799,21 @@ int compile_one_file(const char* file_name,
         }
         else
         {
-            //printf(".");//4
+
             ast.declaration_list = parse(&options, &ast.token_list, error);
             if (error->code != 0)
             {
                 throw;
             }
-            //printf(".");//5
+
+            if (options.format_input)
+            {
+                /*format input source before transformation*/
+                struct format_visit_ctx visit_ctx = { 0 };
+                visit_ctx.ast = ast;
+                format_visit(&visit_ctx, error);
+            }
+
             struct visit_ctx visit_ctx = { 0 };
             visit_ctx.target = options.target;
             visit_ctx.ast = ast;
@@ -4745,8 +4824,13 @@ int compile_one_file(const char* file_name,
             else
                 s = get_code_as_we_see(&visit_ctx.ast.token_list, options.bRemoveComments);
 
-            //printf(".");//6
-
+            if (options.format_ouput)
+            {
+                /*re-parser ouput and format*/
+                const char* s2 = format_code(&options, s, error);
+                free(s);
+                s = s2;
+            }
 
             FILE* out = fopen(path, "w");
             if (out)
@@ -4926,6 +5010,15 @@ char* compile_source(const char* pszoptions, const char* content)
             {
                 s = get_code_as_we_see(&visit_ctx.ast.token_list, options.bRemoveComments);
             }
+            if (options.format_ouput)
+            {
+                struct error error = { 0 };
+                
+                /*re-parser ouput and format*/
+                const char* s2 = format_code(&options, s, &error);
+                free(s);
+                s = s2;
+            }
         }
 
         if (error.code)
@@ -4972,7 +5065,7 @@ static bool is_snake_case(const char* text)
 {
     if (text == NULL)
         return true;
-    
+
     if (!(*text >= 'a' && *text <= 'z'))
     {
         return false;
@@ -4980,14 +5073,14 @@ static bool is_snake_case(const char* text)
 
     while (*text)
     {
-        if ((*text >= 'a' && *text <= 'z') || 
+        if ((*text >= 'a' && *text <= 'z') ||
             *text == '_' ||
             (*text >= '0' && *text <= '9'))
-            
+
         {
             //ok
         }
-        else 
+        else
             return false;
         text++;
     }
@@ -5018,7 +5111,7 @@ static bool is_camel_case(const char* text)
         text++;
     }
 
-    return true;    
+    return true;
 }
 
 static bool is_pascal_case(const char* text)
@@ -5278,7 +5371,7 @@ void expand_test()
 
 
     //https://godbolt.org/z/WbK9zP7zM
-}
+    }
 
 
 

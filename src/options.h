@@ -20,7 +20,9 @@ struct options
     bool bRemoveComments;
     bool bPreprocessOnly;
     bool bRemoveMacros;
-    
+    bool format_input;
+    bool format_ouput;
+
     /*
     * true - to info about name convensions violations
     */

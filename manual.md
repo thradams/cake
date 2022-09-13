@@ -14,6 +14,8 @@ Options
   -target=standard Output target C standard (c99, c11, c2x, cxx).
   -std=standard    Assume that the input sources are for standard (c99, c11, c2x, cxx).
   -n               Check naming conventions (it is hardcoded for it own naming convention)
+  -fi              Format input (format before language convertion)
+  -fo              Format output (format after language convertion, result parsed again)
 ```
 The ouput dir is `./out`
 

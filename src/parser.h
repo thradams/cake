@@ -232,6 +232,29 @@ struct typeof_specifier
 
 struct type_specifier
 {
+    /*
+     type-specifier:
+        "void"
+        "char"
+        "short"
+        "int"
+        "long"
+        "float"
+        "double"
+        "signed"
+        "unsigned"
+        "_BitInt" ( constant-expression )
+        "bool"
+        "_Complex"
+        "_Decimal32"
+        "_Decimal64"
+        "_Decimal128"
+        atomic-type-specifier
+        struct-or-union-specifier
+        enum-specifier
+        typedef-name
+        typeof-specifier
+ */
     enum type_specifier_flags flags;
     struct token* token;
     struct struct_or_union_specifier* struct_or_union_specifier;
@@ -675,6 +698,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
 
 struct expression_statement
 {
+    struct token* first_token;
     struct expression* expression;
 };
 struct expression_statement* expression_statement(struct parser_ctx* ctx, struct error* error);

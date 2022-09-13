@@ -197,7 +197,10 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         {
         }
         append_list->tail->next = follow;
+        follow->prev = append_list->tail;
         after->next = append_list->head;
+        append_list->head->prev = after;
+
     }
 }
 
