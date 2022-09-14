@@ -18,10 +18,10 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
         {
             if (previous_token->type == TK_BLANKS)
             {
-                char blanks[50] = {0};
+                char blanks[50] = { 0 };
                 if (ctx->identation > 0)
-                  snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
-                
+                    snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
+
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
                 previous_token->lexeme = strdup(blanks);
@@ -33,8 +33,8 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
                 {
                     struct error error = { 0 };
                     struct token_list list = tokenizer("\n", NULL, 0, TK_FLAG_NONE, &error);
-                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);                    
-                }                
+                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);
+                }
             }
             else if (previous_token->type != TK_NEWLINE)
             {
@@ -89,7 +89,7 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
         else
         {
             ctx->identation++;
-            //ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
+            ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
 
             format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);
             ctx->identation--;
@@ -97,27 +97,25 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
         //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
     }
 
-    if (p_selection_statement->else_secondary_block)
+    if (p_selection_statement->else_secondary_block_opt)
     {
-        ajust_line_and_identation(p_selection_statement->else_secondary_block->first, ctx);
+        ajust_line_and_identation(p_selection_statement->else_token_opt, ctx);
+        ajust_line_and_identation(p_selection_statement->else_secondary_block_opt->first, ctx);
 
-        if (p_selection_statement->else_secondary_block &&
-            p_selection_statement->else_secondary_block->statement &&
-            p_selection_statement->else_secondary_block->statement->unlabeled_statement &&
-            p_selection_statement->else_secondary_block->statement->unlabeled_statement->primary_block &&
-            p_selection_statement->else_secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
+        if (p_selection_statement->else_secondary_block_opt->statement &&
+            p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement &&
+            p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement->primary_block &&
+            p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement->primary_block->compound_statement)
         {
-            format_visit_statement(ctx, p_selection_statement->else_secondary_block->statement, error);
+            /*compound statement*/
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement, error);
         }
         else
         {
             ctx->identation++;
-            //ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
-
-            format_visit_statement(ctx, p_selection_statement->else_secondary_block->statement, error);
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement, error);
             ctx->identation--;
         }
-        //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
     }
 
 }
@@ -162,7 +160,7 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
         //format_visit_expression(ctx, p_iteration_statement->expression2, error);
     }
 
-    
+
 
     if (p_iteration_statement->secondary_block)
     {
@@ -170,16 +168,21 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
     }
 }
 
+static void format_visit_try_statement(struct format_visit_ctx* ctx, struct try_statement* p_try_statement, struct error* error)
+{
+    if (p_try_statement->secondary_block)
+        format_visit_secondary_block(ctx, p_try_statement->secondary_block, error);
+
+    if (p_try_statement->catch_secondary_block_opt)
+    {
+        format_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt, error);
+    }
+}
 
 
 static void format_visit_primary_block(struct format_visit_ctx* ctx, struct primary_block* p_primary_block, struct error* error)
 {
-    if (p_primary_block->defer_statement)
-    {
-        //visit_defer_statement(ctx, p_primary_block->defer_statement, error);
-    }
-    else
-    {
+
         if (p_primary_block->compound_statement)
         {
             format_visit_compound_statement(ctx, p_primary_block->compound_statement, error);
@@ -192,8 +195,18 @@ static void format_visit_primary_block(struct format_visit_ctx* ctx, struct prim
         {
             format_visit_selection_statement(ctx, p_primary_block->selection_statement, error);
         }
-    }
-
+        else if (p_primary_block->defer_statement)
+        {
+            //visit_defer_statement(ctx, p_primary_block->defer_statement, error);
+        }
+        else if (p_primary_block->try_statement)
+        {
+            format_visit_try_statement(ctx, p_primary_block->try_statement, error);
+        }
+        else
+        {
+            assert(false);
+        }
 }
 
 
@@ -261,7 +274,7 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
     format_visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
 
     ctx->identation--;
-    
+
     ajust_line_and_identation(p_compound_statement->last_token, ctx);
 }
 

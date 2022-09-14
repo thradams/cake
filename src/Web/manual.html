@@ -325,7 +325,16 @@ was transpiled but not where generated code will be compiled.</p>
 
 <h2 id="toc_27">try catch throw</h2>
 
-<p>try cath is a external block that we can jump off. (local jump only)</p>
+<p>try catch is a external block that we can jump off.</p>
+
+<p>try catcn is a LOCAL jump only and this is on purpose not a limitation.</p>
+
+<pre><code>   try-statement:
+      try secondary-block
+      try secondary-block catch secondary-block   
+</code></pre>
+
+<p>catch block is optional.</p>
 
 <pre><code class="language-c">try
 {
@@ -344,7 +353,11 @@ catch
 
 <h2 id="toc_28">defer</h2>
 
-<p><code>defer</code> will call the defer statement before the block exit at inverse orden of declaration.</p>
+<p><em>defer</em> will call the defer statement before the block exit at inverse orden of declaration.</p>
+
+<pre><code>     defer-statement:
+        defer secondary-block
+</code></pre>
 
 <p>For instance:</p>
 

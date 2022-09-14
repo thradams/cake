@@ -46,9 +46,14 @@ struct parser_ctx
     struct scope_list scopes;
     
     /*
-    * Points the the function we are inside or null
+    * Points to the function we're in. Or null in file scope.
     */
     struct declaration* p_current_function_opt;
+
+    /*
+    * Points to the try-block we're in. Or null.
+    */
+    struct try_statement* p_current_try_statement_opt;
 
     struct token_list input_list;
     struct token* current;
@@ -637,37 +642,58 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
 struct defer_statement
 {
+    /*
+     defer-statement: (extension)
+       "defer" secondary-block     
+    */
     struct token* firsttoken;
     struct token* lasttoken;
     struct secondary_block* secondary_block;
 };
 
+struct try_statement
+{
+   
+   /*
+     try-statement: (extension)
+      "try" secondary-block
+      "try" secondary-block "catch" secondary-block
+   */
+    struct secondary_block* secondary_block;
+    struct secondary_block* catch_secondary_block_opt;
+    struct token* first_token;
+    struct token* last_token;
+    struct token* catch_token_opt;
+    /*Used to generate label names*/
+    int try_catch_block_index;
+};
+
+struct try_statement* try_statement(struct parser_ctx* ctx, struct error* error);
+
 struct selection_statement
 {
     /*
     selection-statement:
-     if ( expression ) secondary-block
-     if ( expression ) secondary-block else secondary-block
-     switch ( expression ) secondary-block
+     "if" ( expression ) secondary-block
+     "if" ( expression ) secondary-block "else" secondary-block
+     "switch" ( expression ) secondary-block
     */
 
-    /*
-     try secondary-block
-     try secondary-block catch secondary-block
-    */
+  
 
     struct init_declarator* init_declarator;
     struct expression* expression;
 
     struct secondary_block* secondary_block;
-    struct secondary_block* else_secondary_block;
+    struct secondary_block* else_secondary_block_opt;
 
     struct token* first_token;
     struct token* last_token;
-    struct token* else_catch_token;
+    struct token* else_token_opt;
 
-    int try_catch_block_index;
+    
 };
+
 struct selection_statement* selection_statement(struct parser_ctx* ctx, struct error* error);
 
 struct iteration_statement
@@ -739,12 +765,14 @@ struct primary_block
        selection-statement
        iteration-statement
        defer-statement (extension)
+       try-statement (extension)
     */
     struct token* last;
     struct compound_statement* compound_statement;
     struct selection_statement* selection_statement;
     struct iteration_statement* iteration_statement;
     struct defer_statement* defer_statement;
+    struct try_statement* try_statement;
 };
 
 struct secondary_block

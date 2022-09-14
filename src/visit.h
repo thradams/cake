@@ -5,7 +5,8 @@
 struct defer_scope
 {
     struct defer_statement* defer_statement; // defer 
-    struct selection_statement* p_selection_statement2; //if swith try
+    struct try_statement* p_try_statement; //try
+    struct selection_statement* p_selection_statement2; //if swith
     struct iteration_statement* p_iteration_statement; //for do while
     struct statement* p_statement; //
     struct compound_statement* p_function_body;

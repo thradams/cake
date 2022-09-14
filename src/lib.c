@@ -7131,13 +7131,149 @@ char* readfile(const char* path)
     static const unsigned char file_stdio_h[] = {
 
 
-#include ".\web_include\stdio.h.include"
+
+35,112,114,97,103,109,97,32,111,110,99,101,13,10,116,121,112,101,100,101,102,32,108,111,110
+,103,32,108,111,110,103,32,102,112,111,115,95,116,59,13,10,116,121,112,101,100,101,102,32,105
+,110,116,32,70,73,76,69,59,13,10,116,121,112,101,100,101,102,32,105,110,116,32,115,105,122
+,101,95,116,59,13,10,116,121,112,101,100,101,102,32,118,111,105,100,42,32,118,97,95,108,105
+,115,116,59,13,10,105,110,116,32,114,101,109,111,118,101,40,99,111,110,115,116,32,99,104,97
+,114,42,32,102,105,108,101,110,97,109,101,41,59,13,10,105,110,116,32,114,101,110,97,109,101
+,40,99,111,110,115,116,32,99,104,97,114,42,32,111,108,100,44,32,99,111,110,115,116,32,99
+,104,97,114,42,32,110,101,119,115,41,59,13,10,70,73,76,69,42,32,116,109,112,102,105,108
+,101,40,118,111,105,100,41,59,13,10,99,104,97,114,42,32,116,109,112,110,97,109,40,99,104
+,97,114,42,32,115,41,59,13,10,105,110,116,32,102,99,108,111,115,101,40,70,73,76,69,42
+,32,115,116,114,101,97,109,41,59,13,10,105,110,116,32,102,102,108,117,115,104,40,70,73,76
+,69,42,32,115,116,114,101,97,109,41,59,13,10,70,73,76,69,42,32,102,111,112,101,110,40
+,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108,101
+,110,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,109,111,100,101,41,59,13,10,70,73,76,69,42,32,102,114,101,111,112,101,110,40,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,105,108,101,110
+,97,109,101,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,109,111,100,101,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114
+,101,97,109,41,59,13,10,118,111,105,100,32,115,101,116,98,117,102,40,70,73,76,69,42,32
+,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99,104,97,114,42,32,114,101
+,115,116,114,105,99,116,32,98,117,102,41,59,13,10,105,110,116,32,115,101,116,118,98,117,102
+,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99
+,104,97,114,42,32,114,101,115,116,114,105,99,116,32,98,117,102,44,32,105,110,116,32,109,111
+,100,101,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,105,110,116,32,102,112
+,114,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101
+,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,102,111,114,109,97,116,44,32,46,46,46,41,59,13,10,105,110,116,32,102,115,99,97,110,102
+,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97
+,116,44,32,46,46,46,41,59,13,10,105,110,116,32,112,114,105,110,116,102,40,99,111,110,115
+,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32
+,46,46,46,41,59,13,10,105,110,116,32,115,99,97,110,102,40,99,111,110,115,116,32,99,104
+,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41
+,59,13,10,105,110,116,32,115,110,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,115,44,32,115,105,122,101,95,116,32,110,44,32,99,111,110,115,116,32
+,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46
+,46,41,59,13,10,105,110,116,32,115,112,114,105,110,116,102,40,99,104,97,114,42,32,114,101
+,115,116,114,105,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,13,10,105,110,116,32
+,115,115,99,97,110,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105
+,99,116,32,115,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,102,111,114,109,97,116,44,32,46,46,46,41,59,13,10,105,110,116,32,118,102,112,114
+,105,110,116,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97
+,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102
+,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,13,10,105,110,116
+,32,118,102,115,99,97,110,102,40,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115
+,116,114,101,97,109,44,32,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105
+,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32,97,114,103,41,59,13
+,10,105,110,116,32,118,112,114,105,110,116,102,40,99,111,110,115,116,32,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95,108,105,115,116,32
+,97,114,103,41,59,13,10,105,110,116,32,118,115,99,97,110,102,40,99,111,110,115,116,32,99
+,104,97,114,42,32,114,101,115,116,114,105,99,116,32,102,111,114,109,97,116,44,32,118,97,95
+,108,105,115,116,32,97,114,103,41,59,13,10,105,110,116,32,112,117,116,115,40,99,111,110,115
+,116,32,99,104,97,114,42,32,115,116,114,41,59,13,10,105,110,116,32,102,112,117,116,115,40
+,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,115,44,32,70
+,73,76,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59,13,10,105
+,110,116,32,103,101,116,99,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59,13,10,105
+,110,116,32,103,101,116,99,104,97,114,40,118,111,105,100,41,59,13,10,105,110,116,32,112,117
+,116,99,40,105,110,116,32,99,44,32,70,73,76,69,42,32,115,116,114,101,97,109,41,59,13
+,10,105,110,116,32,112,117,116,99,104,97,114,40,105,110,116,32,99,41,59,13,10,105,110,116
+,32,112,117,116,115,40,99,111,110,115,116,32,99,104,97,114,42,32,115,41,59,13,10,105,110
+,116,32,117,110,103,101,116,99,40,105,110,116,32,99,44,32,70,73,76,69,42,32,115,116,114
+,101,97,109,41,59,13,10,105,110,116,32,102,103,101,116,99,40,70,73,76,69,42,32,115,116
+,114,101,97,109,41,59,13,10,115,105,122,101,95,116,32,102,114,101,97,100,40,118,111,105,100
+,42,32,114,101,115,116,114,105,99,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105
+,122,101,44,32,115,105,122,101,95,116,32,110,109,101,109,98,44,32,70,73,76,69,42,32,114
+,101,115,116,114,105,99,116,32,115,116,114,101,97,109,41,59,13,10,115,105,122,101,95,116,32
+,102,119,114,105,116,101,40,99,111,110,115,116,32,118,111,105,100,42,32,114,101,115,116,114,105
+,99,116,32,112,116,114,44,32,115,105,122,101,95,116,32,115,105,122,101,44,32,115,105,122,101
+,95,116,32,110,109,101,109,98,44,32,70,73,76,69,42,32,114,101,115,116,114,105,99,116,32
+,115,116,114,101,97,109,41,59,13,10,105,110,116,32,102,103,101,116,112,111,115,40,70,73,76
+,69,42,32,114,101,115,116,114,105,99,116,32,115,116,114,101,97,109,44,32,102,112,111,115,95
+,116,42,32,114,101,115,116,114,105,99,116,32,112,111,115,41,59,13,10,105,110,116,32,102,115
+,101,101,107,40,70,73,76,69,42,32,115,116,114,101,97,109,44,32,108,111,110,103,32,105,110
+,116,32,111,102,102,115,101,116,44,32,105,110,116,32,119,104,101,110,99,101,41,59,13,10,105
+,110,116,32,102,115,101,116,112,111,115,40,70,73,76,69,42,32,115,116,114,101,97,109,44,32
+,99,111,110,115,116,32,102,112,111,115,95,116,42,32,112,111,115,41,59,13,10,108,111,110,103
+,32,105,110,116,32,102,116,101,108,108,40,70,73,76,69,42,32,115,116,114,101,97,109,41,59
+,13,10,118,111,105,100,32,114,101,119,105,110,100,40,70,73,76,69,42,32,115,116,114,101,97
+,109,41,59,13,10,118,111,105,100,32,99,108,101,97,114,101,114,114,40,70,73,76,69,42,32
+,115,116,114,101,97,109,41,59,13,10,105,110,116,32,102,101,111,102,40,70,73,76,69,42,32
+,115,116,114,101,97,109,41,59,13,10,105,110,116,32,102,101,114,114,111,114,40,70,73,76,69
+,42,32,115,116,114,101,97,109,41,59,13,10,118,111,105,100,32,112,101,114,114,111,114,40,99
+,111,110,115,116,32,99,104,97,114,42,32,115,41,59,13,10,13,10,13,10,13,10
     ,0 };
 
     static const unsigned char file_stdlib_h[] = {
 
 
-#include ".\web_include\stdlib.h.include"
+
+13,10,35,112,114,97,103,109,97,32,111,110,99,101,13,10,116,121,112,101,100,101,102,32,108
+,111,110,103,32,108,111,110,103,32,102,112,111,115,95,116,59,13,10,116,121,112,101,100,101,102
+,32,105,110,116,32,115,105,122,101,95,116,59,13,10,116,121,112,101,100,101,102,32,105,110,116
+,32,119,99,104,97,114,95,116,59,13,10,100,111,117,98,108,101,32,97,116,111,102,40,99,111
+,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,13,10,105,110,116,32,97,116,111
+,105,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,13,10,108,111,110
+,103,32,105,110,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112
+,116,114,41,59,13,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97,116,111,108,108
+,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,13,10,100,111,117,98
+,108,101,32,115,116,114,116,111,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
+,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105
+,99,116,32,101,110,100,112,116,114,41,59,13,10,102,108,111,97,116,32,115,116,114,116,111,102
+,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116
+,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114
+,41,59,13,10,108,111,110,103,32,100,111,117,98,108,101,32,115,116,114,116,111,108,100,40,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44
+,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59
+,13,10,108,111,110,103,32,105,110,116,32,115,116,114,116,111,108,40,99,111,110,115,116,32,99
+,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42
+,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97
+,115,101,41,59,13,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111
+,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110
+,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112
+,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,117,110,115,105,103,110,101,100,32
+,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,40,99,111,110,115,116,32,99,104
+,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42
+,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115
+,101,41,59,13,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105
+,110,116,32,115,116,114,116,111,117,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114
+,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116
+,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10
+,105,110,116,32,114,97,110,100,40,118,111,105,100,41,59,13,10,118,111,105,100,32,115,114,97
+,110,100,40,117,110,115,105,103,110,101,100,32,105,110,116,32,115,101,101,100,41,59,13,10,118
+,111,105,100,42,32,97,108,105,103,110,101,100,95,97,108,108,111,99,40,115,105,122,101,95,116
+,32,97,108,105,103,110,109,101,110,116,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59
+,13,10,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101
+,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100,32,102
+,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,13,10,118,111,105,100,42,32,109,97
+,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100,42
+,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115,105,122,101,95
+,116,32,115,105,122,101,41,59,13,10,95,78,111,114,101,116,117,114,110,32,118,111,105,100,32
+,97,98,111,114,116,40,118,111,105,100,41,59,13,10,105,110,116,32,97,116,101,120,105,116,40
+,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,13,10,105,110,116
+,32,97,116,95,113,117,105,99,107,95,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110
+,99,41,40,118,111,105,100,41,41,59,13,10,95,78,111,114,101,116,117,114,110,32,118,111,105
+,100,32,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10,95,78,111,114
+,101,116,117,114,110,32,118,111,105,100,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116
+,117,115,41,59,13,10,99,104,97,114,42,32,103,101,116,101,110,118,40,99,111,110,115,116,32
+,99,104,97,114,42,32,110,97,109,101,41,59,13,10,95,78,111,114,101,116,117,114,110,32,118
+,111,105,100,32,113,117,105,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115
+,41,59,13,10,105,110,116,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114
+,42,32,115,116,114,105,110,103,41,59,13,10
     ,0 };
 
     static const unsigned char file_math_h[] = {
@@ -8123,9 +8259,14 @@ struct parser_ctx
     struct scope_list scopes;
     
     /*
-    * Points the the function we are inside or null
+    * Points to the function we're in. Or null in file scope.
     */
     struct declaration* p_current_function_opt;
+
+    /*
+    * Points to the try-block we're in. Or null.
+    */
+    struct try_statement* p_current_try_statement_opt;
 
     struct token_list input_list;
     struct token* current;
@@ -8714,37 +8855,58 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
 struct defer_statement
 {
+    /*
+     defer-statement: (extension)
+       "defer" secondary-block     
+    */
     struct token* firsttoken;
     struct token* lasttoken;
     struct secondary_block* secondary_block;
 };
 
+struct try_statement
+{
+   
+   /*
+     try-statement: (extension)
+      "try" secondary-block
+      "try" secondary-block "catch" secondary-block
+   */
+    struct secondary_block* secondary_block;
+    struct secondary_block* catch_secondary_block_opt;
+    struct token* first_token;
+    struct token* last_token;
+    struct token* catch_token_opt;
+    /*Used to generate label names*/
+    int try_catch_block_index;
+};
+
+struct try_statement* try_statement(struct parser_ctx* ctx, struct error* error);
+
 struct selection_statement
 {
     /*
     selection-statement:
-     if ( expression ) secondary-block
-     if ( expression ) secondary-block else secondary-block
-     switch ( expression ) secondary-block
+     "if" ( expression ) secondary-block
+     "if" ( expression ) secondary-block "else" secondary-block
+     "switch" ( expression ) secondary-block
     */
 
-    /*
-     try secondary-block
-     try secondary-block catch secondary-block
-    */
+  
 
     struct init_declarator* init_declarator;
     struct expression* expression;
 
     struct secondary_block* secondary_block;
-    struct secondary_block* else_secondary_block;
+    struct secondary_block* else_secondary_block_opt;
 
     struct token* first_token;
     struct token* last_token;
-    struct token* else_catch_token;
+    struct token* else_token_opt;
 
-    int try_catch_block_index;
+    
 };
+
 struct selection_statement* selection_statement(struct parser_ctx* ctx, struct error* error);
 
 struct iteration_statement
@@ -8816,12 +8978,14 @@ struct primary_block
        selection-statement
        iteration-statement
        defer-statement (extension)
+       try-statement (extension)
     */
     struct token* last;
     struct compound_statement* compound_statement;
     struct selection_statement* selection_statement;
     struct iteration_statement* iteration_statement;
     struct defer_statement* defer_statement;
+    struct try_statement* try_statement;
 };
 
 struct secondary_block
@@ -13791,7 +13955,8 @@ void format_visit(struct format_visit_ctx* ctx, struct error* error);
 struct defer_scope
 {
     struct defer_statement* defer_statement; // defer 
-    struct selection_statement* p_selection_statement2; //if swith try
+    struct try_statement* p_try_statement; //try
+    struct selection_statement* p_selection_statement2; //if swith
     struct iteration_statement* p_iteration_statement; //for do while
     struct statement* p_statement; //
     struct compound_statement* p_function_body;
@@ -13845,7 +14010,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token);
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token);
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type);
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type);
-void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type);
+void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage );
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -14531,8 +14696,7 @@ bool first_of_selection_statement(struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_KEYWORD_IF ||
-        ctx->current->type == TK_KEYWORD_SWITCH ||
-        ctx->current->type == TK_KEYWORD_TRY;
+        ctx->current->type == TK_KEYWORD_SWITCH;
 }
 
 bool first_of_iteration_statement(struct parser_ctx* ctx)
@@ -14621,6 +14785,10 @@ bool first_of_designator(struct parser_ctx* ctx)
 
 struct token* previous_parser_token(struct token* token)
 {
+    if (token == NULL)
+    {
+        return NULL;
+    }
     struct token* r = token->prev;
     while (!(r->flags & TK_FLAG_FINAL))
     {
@@ -15514,7 +15682,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         {
             if (p->declarator && p->declarator->name)
             {
-                naming_convention_global_var(ctx, p->declarator->name, &p->declarator->type);
+                
+                naming_convention_global_var(ctx,
+                    p->declarator->name,
+                    &p->declarator->type,
+                    p_declaration->declaration_specifiers->storage_class_specifier_flags);
             }
             p = p->next;
         }
@@ -15690,7 +15862,7 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
 struct typeof_specifier_argument* typeof_specifier_argument(struct parser_ctx* ctx, struct error* error)
 {
     struct typeof_specifier_argument* new_typeof_specifier_argument = calloc(1, sizeof(struct typeof_specifier_argument));
-    if (new_typeof_specifier_argument)
+    if (new_typeof_specifier_argument == NULL)
         return NULL;
 
     if (first_of_type_name(ctx))
@@ -17605,6 +17777,7 @@ struct statement* statement(struct parser_ctx* ctx, struct error* error)
 
 struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
 {
+    assert(ctx->current != NULL);
     struct primary_block* p_primary_block = calloc(1, sizeof(struct primary_block));
     if (first_of_compound_statement(ctx))
     {
@@ -17622,6 +17795,10 @@ struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
     {
         p_primary_block->defer_statement = defer_statement(ctx, error);
     }
+    else if (ctx->current->type == TK_KEYWORD_TRY)
+    {
+        p_primary_block->try_statement = try_statement(ctx, error);
+    }    
     else
     {
         seterror(error, "unexpected");
@@ -17648,7 +17825,8 @@ bool first_of_primary_block(struct parser_ctx* ctx)
     if (first_of_compound_statement(ctx) ||
         first_of_selection_statement(ctx) ||
         first_of_iteration_statement(ctx) ||
-        ctx->current->type == TK_KEYWORD_DEFER /*extension*/
+        ctx->current->type == TK_KEYWORD_DEFER /*extension*/ ||
+        ctx->current->type == TK_KEYWORD_TRY/*extension*/
         )
     {
         return true;
@@ -17880,6 +18058,37 @@ assembly-instruction-list:
 }
 
 
+struct try_statement* try_statement(struct parser_ctx* ctx, struct error* error)
+{
+    struct try_statement* p_try_statement = calloc(1, sizeof(struct try_statement));
+
+    p_try_statement->first_token = ctx->current;
+
+    assert(ctx->current->type == TK_KEYWORD_TRY);
+    const struct try_statement* try_statement_copy_opt = ctx->p_current_try_statement_opt;
+    ctx->p_current_try_statement_opt = p_try_statement;
+    ctx->try_catch_block_index++;
+    p_try_statement->try_catch_block_index = ctx->try_catch_block_index;
+    parser_match_tk(ctx, TK_KEYWORD_TRY, error);
+
+    p_try_statement->secondary_block = secondary_block(ctx, error);
+    /*retores the previous one*/
+    ctx->p_current_try_statement_opt = try_statement_copy_opt;
+    
+
+    if (ctx->current->type == TK_KEYWORD_CATCH)
+    {
+        p_try_statement->catch_token_opt = ctx->current;
+        parser_match(ctx);
+
+        p_try_statement->catch_secondary_block_opt = secondary_block(ctx, error);
+    }
+    p_try_statement->last_token = previous_parser_token(ctx->current);
+
+    
+
+    return p_try_statement;
+}
 
 struct selection_statement* selection_statement(struct parser_ctx* ctx, struct error* error)
 {
@@ -17920,21 +18129,21 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         struct expression_ctx ectx = { 0 };
         p_selection_statement->expression = expression(ctx, error, &ectx);
 
-        //if (ctx->current->type == ';')
-        //{
-          //  p_selection_statement->expression = expression(ctx, error, &ectx);
-        //}
         parser_match_tk(ctx, ')', error);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
-        if (ctx->current->type == TK_KEYWORD_ELSE)
+        
+        if (ctx->current)
         {
-            p_selection_statement->else_catch_token = ctx->current;
-            parser_match(ctx);
-            p_selection_statement->else_secondary_block = secondary_block(ctx, error);
+            if (ctx->current->type == TK_KEYWORD_ELSE)
+            {
+                p_selection_statement->else_token_opt = ctx->current;
+                parser_match(ctx);
+                p_selection_statement->else_secondary_block_opt = secondary_block(ctx, error);
+            }
         }
         else
         {
-            p_selection_statement->else_catch_token = previous_parser_token(ctx->current);
+            parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file");
         }
     }
     else if (ctx->current->type == TK_KEYWORD_SWITCH)
@@ -17945,33 +18154,15 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         p_selection_statement->expression = expression(ctx, error, &ectx);
         parser_match_tk(ctx, ')', error);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
+        
     }
-    else if (ctx->current->type == TK_KEYWORD_TRY)
+    else
     {
-        ctx->try_catch_block_index++;
-
-        /*facilita geração de código*/
-        p_selection_statement->try_catch_block_index = ctx->try_catch_block_index;
-
-        parser_match(ctx);
-        p_selection_statement->secondary_block = secondary_block(ctx, error);
-        ctx->try_catch_block_index--;
-
-        if (ctx->current->type == TK_KEYWORD_CATCH)
-        {
-            p_selection_statement->else_catch_token = ctx->current;
-            parser_match(ctx);
-
-            p_selection_statement->else_secondary_block = secondary_block(ctx, error);
-        }
-        else
-        {
-            p_selection_statement->else_catch_token = previous_parser_token(ctx->current);
-        }
-
+        assert(false);
+        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected token");
     }
 
-    p_selection_statement->last_token = ctx->current->prev;
+    p_selection_statement->last_token = previous_parser_token(ctx->current);
 
     scope_list_pop(&ctx->scopes);
 
@@ -18103,16 +18294,16 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
     }
     else if (ctx->current->type == TK_KEYWORD_THROW)
     {
-        if (ctx->try_catch_block_index == 0)
+        if (ctx->p_current_try_statement_opt == NULL)
         {
             error->code = 1;
-            parser_seterror_with_token(ctx, ctx->current, "throw must be inside try blocks");
+            parser_seterror_with_token(ctx, ctx->current, "throw statement not within try block");
+        }
+        else
+        {
+            p_jump_statement->try_catch_block_index = ctx->p_current_try_statement_opt->try_catch_block_index;
         }
 
-        /*helps code generation*/
-        p_jump_statement->try_catch_block_index = ctx->try_catch_block_index;
-
-        /*é preciso estar dentro de um block try catch*/
         parser_match(ctx);
     }
     else if (ctx->current->type == TK_KEYWORD_RETURN)
@@ -18193,6 +18384,12 @@ struct declaration* external_declaration(struct parser_ctx* ctx, struct error* e
 
 struct compound_statement* function_body(struct parser_ctx* ctx, struct error* error)
 {
+    /*
+    * Used to give an unique index (inside the function)
+    * for try-catch blocks
+    */
+    ctx->try_catch_block_index = 0;
+    ctx->p_current_try_statement_opt = NULL;
     return compound_statement(ctx, error);
 }
 
@@ -18347,12 +18544,12 @@ int fill_options(struct options* options, int argc, char** argv, struct preproce
         }
         if (strcmp(argv[i], "-fi") == 0)
         {
-            options->format_input= true;
+            options->format_input = true;
             continue;
         }
         if (strcmp(argv[i], "-fo") == 0)
         {
-            options->format_ouput= true;
+            options->format_ouput = true;
             continue;
         }
         //
@@ -18826,7 +19023,7 @@ char* compile_source(const char* pszoptions, const char* content)
             if (options.format_ouput)
             {
                 struct error error = { 0 };
-                
+
                 /*re-parser ouput and format*/
                 const char* s2 = format_code(&options, s, &error);
                 free(s);
@@ -18987,13 +19184,20 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
         parser_set_info_with_token(ctx, token, "use snake_case for functions");
     }
 }
-void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type)
+void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
 {
     if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!type_is_function_or_function_pointer(type))
     {
+        if (storage & STORAGE_SPECIFIER_STATIC)
+        {
+            if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
+            {
+                parser_set_info_with_token(ctx, token, "use prefix s_ for static global variables");
+            }
+        }
         if (!is_snake_case(token->lexeme)) {
             parser_set_info_with_token(ctx, token, "use snake_case global variables");
         }
@@ -19183,7 +19387,7 @@ void expand_test()
 
 
     //https://godbolt.org/z/WbK9zP7zM
-    }
+}
 
 
 
@@ -19325,8 +19529,8 @@ void hide_block_defer(struct defer_scope* deferblock)
     {
         struct token_list l = { 0 };
         l.head = deferchild->defer_statement->firsttoken;
-        l.tail = deferchild->defer_statement->lasttoken;          
-        token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);    
+        l.tail = deferchild->defer_statement->lasttoken;
+        token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
         deferchild = deferchild->previous;
     }
 }
@@ -19353,7 +19557,7 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
     if (p_unlabeled_statement->primary_block)
     {
         if (p_unlabeled_statement->primary_block->compound_statement)
-        {            
+        {
             struct block_item* block_item =
                 p_unlabeled_statement->primary_block->compound_statement->block_item_list.head;
             while (block_item)
@@ -19383,14 +19587,28 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
             }
         }
         else if (p_unlabeled_statement->primary_block->selection_statement)
-        {            
+        {
             if (find_label_statement(p_unlabeled_statement->primary_block->selection_statement->secondary_block->statement, label))
             {
                 return true;
             }
-            if (p_unlabeled_statement->primary_block->selection_statement->else_secondary_block)
+            if (p_unlabeled_statement->primary_block->selection_statement->else_secondary_block_opt)
             {
-                if (find_label_statement(p_unlabeled_statement->primary_block->selection_statement->else_secondary_block->statement, label))
+                if (find_label_statement(p_unlabeled_statement->primary_block->selection_statement->else_secondary_block_opt->statement, label))
+                {
+                    return true;
+                }
+            }
+        }
+        else if (p_unlabeled_statement->primary_block->try_statement)
+        {
+            if (find_label_statement(p_unlabeled_statement->primary_block->try_statement->secondary_block->statement, label))
+            {
+                return true;
+            }
+            if (p_unlabeled_statement->primary_block->try_statement->catch_secondary_block_opt)
+            {
+                if (find_label_statement(p_unlabeled_statement->primary_block->try_statement->catch_secondary_block_opt->statement, label))
                 {
                     return true;
                 }
@@ -19401,7 +19619,7 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
             if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
             {
                 return true;
-            }            
+            }
         }
     }
     return false;
@@ -19444,10 +19662,24 @@ static bool find_label_scope(struct defer_scope* deferblock, const char* label)
             if (find_label_statement(deferblock->p_selection_statement2->secondary_block->statement, label))
                 return true;
         }
-        
-        if (deferblock->p_selection_statement2->else_secondary_block)
+
+        if (deferblock->p_selection_statement2->else_secondary_block_opt)
         {
-            if (find_label_statement(deferblock->p_selection_statement2->else_secondary_block->statement, label))
+            if (find_label_statement(deferblock->p_selection_statement2->else_secondary_block_opt->statement, label))
+                return true;
+        }
+    }
+    else if (deferblock->p_try_statement)
+    {
+        if (deferblock->p_try_statement->secondary_block)
+        {
+            if (find_label_statement(deferblock->p_try_statement->secondary_block->statement, label))
+                return true;
+        }
+
+        if (deferblock->p_try_statement->catch_secondary_block_opt)
+        {
+            if (find_label_statement(deferblock->p_try_statement->catch_secondary_block_opt->statement, label))
                 return true;
         }
     }
@@ -19474,7 +19706,7 @@ void print_all_defer_until_label(struct defer_scope* deferblock, const char* lab
     {
         if (!find_label_scope(p_defer, label))
         {
-            print_block_defer(p_defer, ss, false);            
+            print_block_defer(p_defer, ss, false);
         }
         else
         {
@@ -19482,7 +19714,7 @@ void print_all_defer_until_label(struct defer_scope* deferblock, const char* lab
         }
         p_defer = p_defer->previous;
     }
-    
+
 }
 
 void print_all_defer_until_iter(struct defer_scope* deferblock, struct osstream* ss)
@@ -19544,29 +19776,24 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
     }
 }
 
-static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement, struct error* error)
+static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_try_statement, struct error* error)
 {
-    convert_if_statement(ctx, p_selection_statement, error);
-
-    if (p_selection_statement->first_token->type == TK_KEYWORD_TRY &&
-        ctx->lambda_step == 1)
+    if (ctx->lambda_step == 1)
     {
-
-
         struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
         ctx->tail_block = p_defer;
-        p_defer->p_selection_statement2 = p_selection_statement;
+        p_defer->p_try_statement = p_try_statement;
 
-        if (p_selection_statement->secondary_block)
-            visit_secondary_block(ctx, p_selection_statement->secondary_block, error);
+        if (p_try_statement->secondary_block)
+            visit_secondary_block(ctx, p_try_statement->secondary_block, error);
 
 
         struct osstream ss = { 0 };
-        //defer_print(defer, &ss, ctx->bHasThrowWithVariable, ctx->bHasBreakWithVariable, ctx->bHasReturnWithVariable);
+
         print_block_defer(p_defer, &ss, true);
         struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last->prev, &l);
+        token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last->prev, &l);
 
 
         if (ctx->tail_block)
@@ -19575,71 +19802,57 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
             ctx->tail_block = ctx->tail_block->previous;
         }
 
-        free(p_selection_statement->first_token->lexeme);
-
-        p_selection_statement->first_token->lexeme = strdup("if (1) /*try*/");
+        free(p_try_statement->first_token->lexeme);
+        p_try_statement->first_token->lexeme = strdup("if (1) /*try*/");
 
 
         char buffer[50] = { 0 };
-        if (p_selection_statement->else_secondary_block)
+        if (p_try_statement->catch_secondary_block_opt)
         {
 
-            snprintf(buffer, sizeof buffer, "else _catch_label_%d:", p_selection_statement->try_catch_block_index);
+            snprintf(buffer, sizeof buffer, "else _catch_label_%d:", p_try_statement->try_catch_block_index);
 
-            free(p_selection_statement->else_catch_token->lexeme);
-            p_selection_statement->else_catch_token->lexeme = strdup(buffer);
+            free(p_try_statement->catch_token_opt->lexeme);
+            p_try_statement->catch_token_opt->lexeme = strdup(buffer);
 
-            visit_secondary_block(ctx, p_selection_statement->else_secondary_block, error);
+            visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt, error);
         }
         else
         {
-
-
-            snprintf(buffer, sizeof buffer, "%s _catch_label_%d:",
-                p_selection_statement->else_catch_token->lexeme,
-                p_selection_statement->try_catch_block_index
-            );
-
-            free(p_selection_statement->else_catch_token->lexeme);
-            p_selection_statement->else_catch_token->lexeme = strdup(buffer);
+            snprintf(buffer, sizeof buffer, "} else {_catch_label_%d:;}", p_try_statement->try_catch_block_index);
+            free(p_try_statement->last_token->lexeme);
+            p_try_statement->last_token->lexeme = strdup(buffer);
         }
     }
-    else
+}
+
+static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement, struct error* error)
+{
+    convert_if_statement(ctx, p_selection_statement, error);
+
+    //PUSH
+    struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
+    p_defer->previous = ctx->tail_block;
+    ctx->tail_block = p_defer;
+    p_defer->p_selection_statement2 = p_selection_statement;
+
+    if (p_selection_statement->secondary_block)
+        visit_secondary_block(ctx, p_selection_statement->secondary_block, error);
+
+    struct osstream ss = { 0 };
+    print_block_defer(p_defer, &ss, true);
+
+    if (ss.size > 0)
     {
-        //PUSH
-        struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
-        p_defer->p_selection_statement2 = p_selection_statement;
-
-        if (p_selection_statement->secondary_block)
-            visit_secondary_block(ctx, p_selection_statement->secondary_block, error);
-
-        struct osstream ss = { 0 };
-        //defer_print(defer, &ss, ctx->bHasThrowWithVariable, ctx->bHasBreakWithVariable, ctx->bHasReturnWithVariable);
-        print_block_defer(p_defer, &ss, true);
-
-        //if (ctx->bHasThrowWithVariable)
-        //{
-            //se chegou no fim do scopo do try devido a um jump do throw
-            //entao pulamos para o catch
-            //if (defer->lastchild)
-            //{
-              //  ss_fprintf(&ss, "\n/*if block exit*/ if (_up) goto _catch_label_%d;\n", p_selection_statement->try_catch_block_index);
-            //}
-        //}
-        if (ss.size > 0)
-        {
-            struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-            token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last->prev, &l);
-        }
-        //POP
-        ctx->tail_block = ctx->tail_block->previous;
-
-
-        if (p_selection_statement->else_secondary_block)
-            visit_secondary_block(ctx, p_selection_statement->else_secondary_block, error);
+        struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last->prev, &l);
     }
+    //POP
+    ctx->tail_block = ctx->tail_block->previous;
+
+    if (p_selection_statement->else_secondary_block_opt)
+        visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt, error);
+
 }
 
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error);
@@ -19988,9 +20201,9 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
     ctx->bInsideCompoundStatement = true;
-    
+
     visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
-    
+
     ctx->bInsideCompoundStatement = false;
 }
 
@@ -20085,7 +20298,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
         }
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
-             p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
+        p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
     {
         struct osstream ss0 = { 0 };
 
@@ -20156,6 +20369,10 @@ static void visit_primary_block(struct visit_ctx* ctx, struct primary_block* p_p
         else if (p_primary_block->selection_statement)
         {
             visit_selection_statement(ctx, p_primary_block->selection_statement, error);
+        }
+        else if (p_primary_block->try_statement)
+        {
+            visit_try_statement(ctx, p_primary_block->try_statement, error);
         }
     }
 
@@ -20425,9 +20642,9 @@ static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list*
 
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error)
 {
-    
+
     visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list, error);
-    
+
 }
 
 
@@ -20461,13 +20678,13 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
                 if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
                 {
-                    
+
                     if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type)
                     {
                         bHasPointers =
                             p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type->pointers.head != NULL;
                     }
-                    
+
 
                     if (bHasPointers)
                         ss_fprintf(&ss, "typedef ");
@@ -20617,7 +20834,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
 */
 static bool is_last_item_return(struct compound_statement* p_compound_statement)
 {
-    if (p_compound_statement &&        
+    if (p_compound_statement &&
         p_compound_statement->block_item_list.tail &&
         p_compound_statement->block_item_list.tail->unlabeled_statement &&
         p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement &&
@@ -20728,7 +20945,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             hide_block_defer(p_defer);
         }
 
-        
+
         ctx->tail_block = NULL;
 
 
@@ -21416,10 +21633,10 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
         {
             if (previous_token->type == TK_BLANKS)
             {
-                char blanks[50] = {0};
+                char blanks[50] = { 0 };
                 if (ctx->identation > 0)
-                  snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
-                
+                    snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
+
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
                 previous_token->lexeme = strdup(blanks);
@@ -21431,8 +21648,8 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
                 {
                     struct error error = { 0 };
                     struct token_list list = tokenizer("\n", NULL, 0, TK_FLAG_NONE, &error);
-                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);                    
-                }                
+                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);
+                }
             }
             else if (previous_token->type != TK_NEWLINE)
             {
@@ -21487,7 +21704,7 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
         else
         {
             ctx->identation++;
-            //ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
+            ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
 
             format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);
             ctx->identation--;
@@ -21495,27 +21712,25 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
         //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
     }
 
-    if (p_selection_statement->else_secondary_block)
+    if (p_selection_statement->else_secondary_block_opt)
     {
-        ajust_line_and_identation(p_selection_statement->else_secondary_block->first, ctx);
+        ajust_line_and_identation(p_selection_statement->else_token_opt, ctx);
+        ajust_line_and_identation(p_selection_statement->else_secondary_block_opt->first, ctx);
 
-        if (p_selection_statement->else_secondary_block &&
-            p_selection_statement->else_secondary_block->statement &&
-            p_selection_statement->else_secondary_block->statement->unlabeled_statement &&
-            p_selection_statement->else_secondary_block->statement->unlabeled_statement->primary_block &&
-            p_selection_statement->else_secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
+        if (p_selection_statement->else_secondary_block_opt->statement &&
+            p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement &&
+            p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement->primary_block &&
+            p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement->primary_block->compound_statement)
         {
-            format_visit_statement(ctx, p_selection_statement->else_secondary_block->statement, error);
+            /*compound statement*/
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement, error);
         }
         else
         {
             ctx->identation++;
-            //ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
-
-            format_visit_statement(ctx, p_selection_statement->else_secondary_block->statement, error);
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement, error);
             ctx->identation--;
         }
-        //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
     }
 
 }
@@ -21560,7 +21775,7 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
         //format_visit_expression(ctx, p_iteration_statement->expression2, error);
     }
 
-    
+
 
     if (p_iteration_statement->secondary_block)
     {
@@ -21568,16 +21783,21 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
     }
 }
 
+static void format_visit_try_statement(struct format_visit_ctx* ctx, struct try_statement* p_try_statement, struct error* error)
+{
+    if (p_try_statement->secondary_block)
+        format_visit_secondary_block(ctx, p_try_statement->secondary_block, error);
+
+    if (p_try_statement->catch_secondary_block_opt)
+    {
+        format_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt, error);
+    }
+}
 
 
 static void format_visit_primary_block(struct format_visit_ctx* ctx, struct primary_block* p_primary_block, struct error* error)
 {
-    if (p_primary_block->defer_statement)
-    {
-        //visit_defer_statement(ctx, p_primary_block->defer_statement, error);
-    }
-    else
-    {
+
         if (p_primary_block->compound_statement)
         {
             format_visit_compound_statement(ctx, p_primary_block->compound_statement, error);
@@ -21590,8 +21810,18 @@ static void format_visit_primary_block(struct format_visit_ctx* ctx, struct prim
         {
             format_visit_selection_statement(ctx, p_primary_block->selection_statement, error);
         }
-    }
-
+        else if (p_primary_block->defer_statement)
+        {
+            //visit_defer_statement(ctx, p_primary_block->defer_statement, error);
+        }
+        else if (p_primary_block->try_statement)
+        {
+            format_visit_try_statement(ctx, p_primary_block->try_statement, error);
+        }
+        else
+        {
+            assert(false);
+        }
 }
 
 
@@ -21659,7 +21889,7 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
     format_visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
 
     ctx->identation--;
-    
+
     ajust_line_and_identation(p_compound_statement->last_token, ctx);
 }
 

@@ -32,7 +32,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token);
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token);
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type);
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type);
-void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type);
+void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage );
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -718,8 +718,7 @@ bool first_of_selection_statement(struct parser_ctx* ctx)
         return false;
 
     return ctx->current->type == TK_KEYWORD_IF ||
-        ctx->current->type == TK_KEYWORD_SWITCH ||
-        ctx->current->type == TK_KEYWORD_TRY;
+        ctx->current->type == TK_KEYWORD_SWITCH;
 }
 
 bool first_of_iteration_statement(struct parser_ctx* ctx)
@@ -808,6 +807,10 @@ bool first_of_designator(struct parser_ctx* ctx)
 
 struct token* previous_parser_token(struct token* token)
 {
+    if (token == NULL)
+    {
+        return NULL;
+    }
     struct token* r = token->prev;
     while (!(r->flags & TK_FLAG_FINAL))
     {
@@ -1701,7 +1704,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         {
             if (p->declarator && p->declarator->name)
             {
-                naming_convention_global_var(ctx, p->declarator->name, &p->declarator->type);
+                
+                naming_convention_global_var(ctx,
+                    p->declarator->name,
+                    &p->declarator->type,
+                    p_declaration->declaration_specifiers->storage_class_specifier_flags);
             }
             p = p->next;
         }
@@ -1877,7 +1884,7 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
 struct typeof_specifier_argument* typeof_specifier_argument(struct parser_ctx* ctx, struct error* error)
 {
     struct typeof_specifier_argument* new_typeof_specifier_argument = calloc(1, sizeof(struct typeof_specifier_argument));
-    if (new_typeof_specifier_argument)
+    if (new_typeof_specifier_argument == NULL)
         return NULL;
 
     if (first_of_type_name(ctx))
@@ -3792,6 +3799,7 @@ struct statement* statement(struct parser_ctx* ctx, struct error* error)
 
 struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
 {
+    assert(ctx->current != NULL);
     struct primary_block* p_primary_block = calloc(1, sizeof(struct primary_block));
     if (first_of_compound_statement(ctx))
     {
@@ -3809,6 +3817,10 @@ struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
     {
         p_primary_block->defer_statement = defer_statement(ctx, error);
     }
+    else if (ctx->current->type == TK_KEYWORD_TRY)
+    {
+        p_primary_block->try_statement = try_statement(ctx, error);
+    }    
     else
     {
         seterror(error, "unexpected");
@@ -3835,7 +3847,8 @@ bool first_of_primary_block(struct parser_ctx* ctx)
     if (first_of_compound_statement(ctx) ||
         first_of_selection_statement(ctx) ||
         first_of_iteration_statement(ctx) ||
-        ctx->current->type == TK_KEYWORD_DEFER /*extension*/
+        ctx->current->type == TK_KEYWORD_DEFER /*extension*/ ||
+        ctx->current->type == TK_KEYWORD_TRY/*extension*/
         )
     {
         return true;
@@ -4067,6 +4080,37 @@ assembly-instruction-list:
 }
 
 
+struct try_statement* try_statement(struct parser_ctx* ctx, struct error* error)
+{
+    struct try_statement* p_try_statement = calloc(1, sizeof(struct try_statement));
+
+    p_try_statement->first_token = ctx->current;
+
+    assert(ctx->current->type == TK_KEYWORD_TRY);
+    const struct try_statement* try_statement_copy_opt = ctx->p_current_try_statement_opt;
+    ctx->p_current_try_statement_opt = p_try_statement;
+    ctx->try_catch_block_index++;
+    p_try_statement->try_catch_block_index = ctx->try_catch_block_index;
+    parser_match_tk(ctx, TK_KEYWORD_TRY, error);
+
+    p_try_statement->secondary_block = secondary_block(ctx, error);
+    /*retores the previous one*/
+    ctx->p_current_try_statement_opt = try_statement_copy_opt;
+    
+
+    if (ctx->current->type == TK_KEYWORD_CATCH)
+    {
+        p_try_statement->catch_token_opt = ctx->current;
+        parser_match(ctx);
+
+        p_try_statement->catch_secondary_block_opt = secondary_block(ctx, error);
+    }
+    p_try_statement->last_token = previous_parser_token(ctx->current);
+
+    
+
+    return p_try_statement;
+}
 
 struct selection_statement* selection_statement(struct parser_ctx* ctx, struct error* error)
 {
@@ -4107,21 +4151,21 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         struct expression_ctx ectx = { 0 };
         p_selection_statement->expression = expression(ctx, error, &ectx);
 
-        //if (ctx->current->type == ';')
-        //{
-          //  p_selection_statement->expression = expression(ctx, error, &ectx);
-        //}
         parser_match_tk(ctx, ')', error);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
-        if (ctx->current->type == TK_KEYWORD_ELSE)
+        
+        if (ctx->current)
         {
-            p_selection_statement->else_catch_token = ctx->current;
-            parser_match(ctx);
-            p_selection_statement->else_secondary_block = secondary_block(ctx, error);
+            if (ctx->current->type == TK_KEYWORD_ELSE)
+            {
+                p_selection_statement->else_token_opt = ctx->current;
+                parser_match(ctx);
+                p_selection_statement->else_secondary_block_opt = secondary_block(ctx, error);
+            }
         }
         else
         {
-            p_selection_statement->else_catch_token = previous_parser_token(ctx->current);
+            parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file");
         }
     }
     else if (ctx->current->type == TK_KEYWORD_SWITCH)
@@ -4132,33 +4176,15 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         p_selection_statement->expression = expression(ctx, error, &ectx);
         parser_match_tk(ctx, ')', error);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
+        
     }
-    else if (ctx->current->type == TK_KEYWORD_TRY)
+    else
     {
-        ctx->try_catch_block_index++;
-
-        /*facilita geração de código*/
-        p_selection_statement->try_catch_block_index = ctx->try_catch_block_index;
-
-        parser_match(ctx);
-        p_selection_statement->secondary_block = secondary_block(ctx, error);
-        ctx->try_catch_block_index--;
-
-        if (ctx->current->type == TK_KEYWORD_CATCH)
-        {
-            p_selection_statement->else_catch_token = ctx->current;
-            parser_match(ctx);
-
-            p_selection_statement->else_secondary_block = secondary_block(ctx, error);
-        }
-        else
-        {
-            p_selection_statement->else_catch_token = previous_parser_token(ctx->current);
-        }
-
+        assert(false);
+        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected token");
     }
 
-    p_selection_statement->last_token = ctx->current->prev;
+    p_selection_statement->last_token = previous_parser_token(ctx->current);
 
     scope_list_pop(&ctx->scopes);
 
@@ -4290,16 +4316,16 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
     }
     else if (ctx->current->type == TK_KEYWORD_THROW)
     {
-        if (ctx->try_catch_block_index == 0)
+        if (ctx->p_current_try_statement_opt == NULL)
         {
             error->code = 1;
-            parser_seterror_with_token(ctx, ctx->current, "throw must be inside try blocks");
+            parser_seterror_with_token(ctx, ctx->current, "throw statement not within try block");
+        }
+        else
+        {
+            p_jump_statement->try_catch_block_index = ctx->p_current_try_statement_opt->try_catch_block_index;
         }
 
-        /*helps code generation*/
-        p_jump_statement->try_catch_block_index = ctx->try_catch_block_index;
-
-        /*é preciso estar dentro de um block try catch*/
         parser_match(ctx);
     }
     else if (ctx->current->type == TK_KEYWORD_RETURN)
@@ -4380,6 +4406,12 @@ struct declaration* external_declaration(struct parser_ctx* ctx, struct error* e
 
 struct compound_statement* function_body(struct parser_ctx* ctx, struct error* error)
 {
+    /*
+    * Used to give an unique index (inside the function)
+    * for try-catch blocks
+    */
+    ctx->try_catch_block_index = 0;
+    ctx->p_current_try_statement_opt = NULL;
     return compound_statement(ctx, error);
 }
 
@@ -4534,12 +4566,12 @@ int fill_options(struct options* options, int argc, char** argv, struct preproce
         }
         if (strcmp(argv[i], "-fi") == 0)
         {
-            options->format_input= true;
+            options->format_input = true;
             continue;
         }
         if (strcmp(argv[i], "-fo") == 0)
         {
-            options->format_ouput= true;
+            options->format_ouput = true;
             continue;
         }
         //
@@ -5013,7 +5045,7 @@ char* compile_source(const char* pszoptions, const char* content)
             if (options.format_ouput)
             {
                 struct error error = { 0 };
-                
+
                 /*re-parser ouput and format*/
                 const char* s2 = format_code(&options, s, &error);
                 free(s);
@@ -5174,13 +5206,20 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
         parser_set_info_with_token(ctx, token, "use snake_case for functions");
     }
 }
-void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type)
+void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
 {
     if (!ctx->check_naming_conventions || token->level != 0)
         return;
 
     if (!type_is_function_or_function_pointer(type))
     {
+        if (storage & STORAGE_SPECIFIER_STATIC)
+        {
+            if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
+            {
+                parser_set_info_with_token(ctx, token, "use prefix s_ for static global variables");
+            }
+        }
         if (!is_snake_case(token->lexeme)) {
             parser_set_info_with_token(ctx, token, "use snake_case global variables");
         }
@@ -5371,7 +5410,7 @@ void expand_test()
 
 
     //https://godbolt.org/z/WbK9zP7zM
-    }
+}
 
 
 

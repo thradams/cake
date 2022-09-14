@@ -83,7 +83,7 @@ int main(void)
 ```
 
 ##  C11 u8"literals"
-u8 literals are converted to escape sequecences. (I don't recoment u8"")
+u8 literals are converted to escape sequecences. (I don't recomend u8"")
 
 ## C11 Static_assert
 When compiling to versions < C11 static_assert is removed
@@ -184,7 +184,20 @@ Are implemented
 # Extensions (Not in C23)
 
 ## try catch throw
-try cath is a external block that we can jump off. (local jump only)
+
+try catch is a external block that we can jump off.
+
+try catcn is a LOCAL jump only and this is on purpose not a limitation.
+
+
+
+```
+   try-statement:
+      try secondary-block
+      try secondary-block catch secondary-block   
+```
+
+catch block is optional.
 
 ```c
 try
@@ -203,8 +216,12 @@ catch
 ```
 ## defer
 
-`defer` will call the defer statement before the block exit at inverse orden of declaration.
+*defer* will call the defer statement before the block exit at inverse orden of declaration.
 
+```
+     defer-statement:
+        defer secondary-block
+```
 For instance:
 
 ```c

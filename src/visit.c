@@ -136,8 +136,8 @@ void hide_block_defer(struct defer_scope* deferblock)
     {
         struct token_list l = { 0 };
         l.head = deferchild->defer_statement->firsttoken;
-        l.tail = deferchild->defer_statement->lasttoken;          
-        token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);    
+        l.tail = deferchild->defer_statement->lasttoken;
+        token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
         deferchild = deferchild->previous;
     }
 }
@@ -164,7 +164,7 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
     if (p_unlabeled_statement->primary_block)
     {
         if (p_unlabeled_statement->primary_block->compound_statement)
-        {            
+        {
             struct block_item* block_item =
                 p_unlabeled_statement->primary_block->compound_statement->block_item_list.head;
             while (block_item)
@@ -194,14 +194,28 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
             }
         }
         else if (p_unlabeled_statement->primary_block->selection_statement)
-        {            
+        {
             if (find_label_statement(p_unlabeled_statement->primary_block->selection_statement->secondary_block->statement, label))
             {
                 return true;
             }
-            if (p_unlabeled_statement->primary_block->selection_statement->else_secondary_block)
+            if (p_unlabeled_statement->primary_block->selection_statement->else_secondary_block_opt)
             {
-                if (find_label_statement(p_unlabeled_statement->primary_block->selection_statement->else_secondary_block->statement, label))
+                if (find_label_statement(p_unlabeled_statement->primary_block->selection_statement->else_secondary_block_opt->statement, label))
+                {
+                    return true;
+                }
+            }
+        }
+        else if (p_unlabeled_statement->primary_block->try_statement)
+        {
+            if (find_label_statement(p_unlabeled_statement->primary_block->try_statement->secondary_block->statement, label))
+            {
+                return true;
+            }
+            if (p_unlabeled_statement->primary_block->try_statement->catch_secondary_block_opt)
+            {
+                if (find_label_statement(p_unlabeled_statement->primary_block->try_statement->catch_secondary_block_opt->statement, label))
                 {
                     return true;
                 }
@@ -212,7 +226,7 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
             if (find_label_statement(p_unlabeled_statement->primary_block->iteration_statement->secondary_block->statement, label))
             {
                 return true;
-            }            
+            }
         }
     }
     return false;
@@ -255,10 +269,24 @@ static bool find_label_scope(struct defer_scope* deferblock, const char* label)
             if (find_label_statement(deferblock->p_selection_statement2->secondary_block->statement, label))
                 return true;
         }
-        
-        if (deferblock->p_selection_statement2->else_secondary_block)
+
+        if (deferblock->p_selection_statement2->else_secondary_block_opt)
         {
-            if (find_label_statement(deferblock->p_selection_statement2->else_secondary_block->statement, label))
+            if (find_label_statement(deferblock->p_selection_statement2->else_secondary_block_opt->statement, label))
+                return true;
+        }
+    }
+    else if (deferblock->p_try_statement)
+    {
+        if (deferblock->p_try_statement->secondary_block)
+        {
+            if (find_label_statement(deferblock->p_try_statement->secondary_block->statement, label))
+                return true;
+        }
+
+        if (deferblock->p_try_statement->catch_secondary_block_opt)
+        {
+            if (find_label_statement(deferblock->p_try_statement->catch_secondary_block_opt->statement, label))
                 return true;
         }
     }
@@ -285,7 +313,7 @@ void print_all_defer_until_label(struct defer_scope* deferblock, const char* lab
     {
         if (!find_label_scope(p_defer, label))
         {
-            print_block_defer(p_defer, ss, false);            
+            print_block_defer(p_defer, ss, false);
         }
         else
         {
@@ -293,7 +321,7 @@ void print_all_defer_until_label(struct defer_scope* deferblock, const char* lab
         }
         p_defer = p_defer->previous;
     }
-    
+
 }
 
 void print_all_defer_until_iter(struct defer_scope* deferblock, struct osstream* ss)
@@ -355,29 +383,24 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
     }
 }
 
-static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement, struct error* error)
+static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_try_statement, struct error* error)
 {
-    convert_if_statement(ctx, p_selection_statement, error);
-
-    if (p_selection_statement->first_token->type == TK_KEYWORD_TRY &&
-        ctx->lambda_step == 1)
+    if (ctx->lambda_step == 1)
     {
-
-
         struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
         ctx->tail_block = p_defer;
-        p_defer->p_selection_statement2 = p_selection_statement;
+        p_defer->p_try_statement = p_try_statement;
 
-        if (p_selection_statement->secondary_block)
-            visit_secondary_block(ctx, p_selection_statement->secondary_block, error);
+        if (p_try_statement->secondary_block)
+            visit_secondary_block(ctx, p_try_statement->secondary_block, error);
 
 
         struct osstream ss = { 0 };
-        //defer_print(defer, &ss, ctx->bHasThrowWithVariable, ctx->bHasBreakWithVariable, ctx->bHasReturnWithVariable);
+
         print_block_defer(p_defer, &ss, true);
         struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last->prev, &l);
+        token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last->prev, &l);
 
 
         if (ctx->tail_block)
@@ -386,71 +409,57 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
             ctx->tail_block = ctx->tail_block->previous;
         }
 
-        free(p_selection_statement->first_token->lexeme);
-
-        p_selection_statement->first_token->lexeme = strdup("if (1) /*try*/");
+        free(p_try_statement->first_token->lexeme);
+        p_try_statement->first_token->lexeme = strdup("if (1) /*try*/");
 
 
         char buffer[50] = { 0 };
-        if (p_selection_statement->else_secondary_block)
+        if (p_try_statement->catch_secondary_block_opt)
         {
 
-            snprintf(buffer, sizeof buffer, "else _catch_label_%d:", p_selection_statement->try_catch_block_index);
+            snprintf(buffer, sizeof buffer, "else _catch_label_%d:", p_try_statement->try_catch_block_index);
 
-            free(p_selection_statement->else_catch_token->lexeme);
-            p_selection_statement->else_catch_token->lexeme = strdup(buffer);
+            free(p_try_statement->catch_token_opt->lexeme);
+            p_try_statement->catch_token_opt->lexeme = strdup(buffer);
 
-            visit_secondary_block(ctx, p_selection_statement->else_secondary_block, error);
+            visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt, error);
         }
         else
         {
-
-
-            snprintf(buffer, sizeof buffer, "%s _catch_label_%d:",
-                p_selection_statement->else_catch_token->lexeme,
-                p_selection_statement->try_catch_block_index
-            );
-
-            free(p_selection_statement->else_catch_token->lexeme);
-            p_selection_statement->else_catch_token->lexeme = strdup(buffer);
+            snprintf(buffer, sizeof buffer, "} else {_catch_label_%d:;}", p_try_statement->try_catch_block_index);
+            free(p_try_statement->last_token->lexeme);
+            p_try_statement->last_token->lexeme = strdup(buffer);
         }
     }
-    else
+}
+
+static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement, struct error* error)
+{
+    convert_if_statement(ctx, p_selection_statement, error);
+
+    //PUSH
+    struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
+    p_defer->previous = ctx->tail_block;
+    ctx->tail_block = p_defer;
+    p_defer->p_selection_statement2 = p_selection_statement;
+
+    if (p_selection_statement->secondary_block)
+        visit_secondary_block(ctx, p_selection_statement->secondary_block, error);
+
+    struct osstream ss = { 0 };
+    print_block_defer(p_defer, &ss, true);
+
+    if (ss.size > 0)
     {
-        //PUSH
-        struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
-        p_defer->p_selection_statement2 = p_selection_statement;
-
-        if (p_selection_statement->secondary_block)
-            visit_secondary_block(ctx, p_selection_statement->secondary_block, error);
-
-        struct osstream ss = { 0 };
-        //defer_print(defer, &ss, ctx->bHasThrowWithVariable, ctx->bHasBreakWithVariable, ctx->bHasReturnWithVariable);
-        print_block_defer(p_defer, &ss, true);
-
-        //if (ctx->bHasThrowWithVariable)
-        //{
-            //se chegou no fim do scopo do try devido a um jump do throw
-            //entao pulamos para o catch
-            //if (defer->lastchild)
-            //{
-              //  ss_fprintf(&ss, "\n/*if block exit*/ if (_up) goto _catch_label_%d;\n", p_selection_statement->try_catch_block_index);
-            //}
-        //}
-        if (ss.size > 0)
-        {
-            struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-            token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last->prev, &l);
-        }
-        //POP
-        ctx->tail_block = ctx->tail_block->previous;
-
-
-        if (p_selection_statement->else_secondary_block)
-            visit_secondary_block(ctx, p_selection_statement->else_secondary_block, error);
+        struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last->prev, &l);
     }
+    //POP
+    ctx->tail_block = ctx->tail_block->previous;
+
+    if (p_selection_statement->else_secondary_block_opt)
+        visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt, error);
+
 }
 
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error);
@@ -799,9 +808,9 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
     ctx->bInsideCompoundStatement = true;
-    
+
     visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
-    
+
     ctx->bInsideCompoundStatement = false;
 }
 
@@ -896,7 +905,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
         }
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
-             p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
+        p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
     {
         struct osstream ss0 = { 0 };
 
@@ -967,6 +976,10 @@ static void visit_primary_block(struct visit_ctx* ctx, struct primary_block* p_p
         else if (p_primary_block->selection_statement)
         {
             visit_selection_statement(ctx, p_primary_block->selection_statement, error);
+        }
+        else if (p_primary_block->try_statement)
+        {
+            visit_try_statement(ctx, p_primary_block->try_statement, error);
         }
     }
 
@@ -1236,9 +1249,9 @@ static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list*
 
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error)
 {
-    
+
     visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list, error);
-    
+
 }
 
 
@@ -1272,13 +1285,13 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
                 if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
                 {
-                    
+
                     if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type)
                     {
                         bHasPointers =
                             p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type->pointers.head != NULL;
                     }
-                    
+
 
                     if (bHasPointers)
                         ss_fprintf(&ss, "typedef ");
@@ -1428,7 +1441,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
 */
 static bool is_last_item_return(struct compound_statement* p_compound_statement)
 {
-    if (p_compound_statement &&        
+    if (p_compound_statement &&
         p_compound_statement->block_item_list.tail &&
         p_compound_statement->block_item_list.tail->unlabeled_statement &&
         p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement &&
@@ -1539,7 +1552,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             hide_block_defer(p_defer);
         }
 
-        
+
         ctx->tail_block = NULL;
 
 
