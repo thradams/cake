@@ -103,15 +103,7 @@ int main()
 
     int r = build_main();
 
-#ifdef TEST
-    int test_result = system(RUN OUTPUT);
-    if (test_result)
-    {
-        printf("\n");
-        printf(RED "TESTS FAILED " OUTPUT " exit code %d\n", test_result);
-        printf(RESET);
-    }
-#endif
+
 
     
     return r;

@@ -6,9 +6,14 @@
  gcc  build.c -o build && ./build
  */
 
-#define OUTPUT "cake"
-
 #include "build.h"
+
+#ifdef BUILD_WINDOWS
+#define OUTPUT "cake.exe"
+#else
+#define OUTPUT "cake"
+#endif
+
 
 #define HEADER_FILES \
  " console.h "\
@@ -87,7 +92,7 @@ void compile_cake()
         " ucrt.lib vcruntime.lib msvcrt.lib "
         " Kernel32.lib User32.lib Advapi32.lib"
         " uuid.lib Ws2_32.lib Rpcrt4.lib Bcrypt.lib "
-        " /out:" OUTPUT ".exe") != 0) exit(1);
+        " /out:" OUTPUT ) != 0) exit(1);
 
 
 
@@ -115,7 +120,7 @@ void compile_cake()
            " -lucrt.lib -lvcruntime.lib -lmsvcrt.lib "
            " -lKernel32.lib -lUser32.lib -lAdvapi32.lib"
            " -luuid.lib -lWs2_32.lib -lRpcrt4.lib -lBcrypt.lib "
-           " -o " OUTPUT ".exe");
+           " -o " OUTPUT );
 #endif
 
 #ifdef BUILD_LINUX_CLANG
@@ -236,9 +241,23 @@ int build_main()
 
 
     compile_cake();
+
 #ifndef TEST
+#ifdef BUILD_WINDOWS
     /*compila usando ele mesmo*/
-    if (system(RUN OUTPUT ".exe -n " HEADER_FILES SOURCE_FILES) != 0) exit(1);
+    if (system(RUN OUTPUT  " -n " HEADER_FILES SOURCE_FILES) != 0) exit(1);
 #endif
+#endif
+
+#ifdef TEST
+    int test_result = system(RUN OUTPUT);
+    if (test_result)
+    {
+        printf("\n");
+        printf(RED "TESTS FAILED "  OUTPUT " exit code %d\n", test_result);
+        printf(RESET);
+    }
+#endif
+
 
 }
