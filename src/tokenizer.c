@@ -3816,14 +3816,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
     time_t now = time(NULL);
     struct tm* tm = localtime(&now);
 
-    char dataStr[100] = { 0 };
-    snprintf(dataStr, sizeof dataStr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
-    struct token_list l1 = tokenizer(dataStr, "__DATE__ macro inclusion", 0, TK_FLAG_NONE, error);
+    char datastr[100] = { 0 };
+    snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
+    struct token_list l1 = tokenizer(datastr, "__DATE__ macro inclusion", 0, TK_FLAG_NONE, error);
     preprocessor(ctx, &l1, 0, error);
 
-    char timeStr[100] = { 0 };
-    snprintf(timeStr, sizeof timeStr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-    struct token_list l2 = tokenizer(timeStr, "__TIME__ macro inclusion", 0, TK_FLAG_NONE, error);
+    char timestr[100] = { 0 };
+    snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
+    struct token_list l2 = tokenizer(timestr, "__TIME__ macro inclusion", 0, TK_FLAG_NONE, error);
     preprocessor(ctx, &l2, 0, error);
 
     //token_list_destroy(&l2);
@@ -4047,7 +4047,7 @@ const char* get_code_as_we_see_plusmacros(struct token_list* list)
     return ss.c_str;
 }
 
-const char* get_code_as_we_see(struct token_list* list, bool removeComments)
+const char* get_code_as_we_see(struct token_list* list, bool remove_comments)
 {
     struct osstream ss = { 0 };
     struct token* current = list->head;
@@ -4065,7 +4065,7 @@ const char* get_code_as_we_see(struct token_list* list, bool removeComments)
                 ss_fprintf(&ss, " ");
             }
 
-            if (removeComments)
+            if (remove_comments)
             {
                 if (current->type == TK_LINE_COMMENT)
                     ss_fprintf(&ss, "\n");
