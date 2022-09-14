@@ -7900,9 +7900,9 @@ struct parser_ctx;
 enum type_category
 {
     TYPE_CATEGORY_ITSELF,
-    TYPE_CATEGORY_FUNCTION,
-    TYPE_CATEGORY_ARRAY,
-    TYPE_CATEGORY_POINTER,
+    TYPE_CATEGORY_FUNCTION, /*derived declarator types*/
+    TYPE_CATEGORY_ARRAY,    /*derived declarator types*/
+    TYPE_CATEGORY_POINTER,  /*derived declarator types*/
 };
 
 
@@ -12366,9 +12366,6 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, struct error* error, l
     *pvalue = ectx.value;
     return error->code;
 }
-
-
-
 
 
 

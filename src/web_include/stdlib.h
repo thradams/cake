@@ -1,6 +1,6 @@
 
 #pragma once
-
+typedef long long fpos_t;
 typedef int size_t;
 typedef int wchar_t;
 double atof(const char* nptr);
