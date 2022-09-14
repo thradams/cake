@@ -337,9 +337,9 @@ struct macro_argument
 };
 
 
-struct token_list  copy_replacement_list(struct token_list* list);
+struct token_list copy_replacement_list(struct token_list* list);
 
-struct token_list  copy_argument_list_tokens(struct token_list* list)
+struct token_list copy_argument_list_tokens(struct token_list* list)
 {
     //Faz uma copia dos tokens fazendo um trim no iniico e fim
     //qualquer espaco coments etcc vira um unico  espaco
@@ -353,8 +353,8 @@ struct token_list  copy_argument_list_tokens(struct token_list* list)
         current = current->next;
     }
     //remover flag de espaco antes se tiver
-    bool bIsFirst = true;
-    bool previousIsBlank = false;
+    bool is_first = true;
+    bool previous_is_blank = false;
     for (; current;)
     {
         if (current && (token_is_blank(current) ||
@@ -366,26 +366,26 @@ struct token_list  copy_argument_list_tokens(struct token_list* list)
             current = current->next;
             continue;
         }
-        struct token* pAdded = token_list_clone_and_add(&r, current);
-        if (pAdded->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+        struct token* token = token_list_clone_and_add(&r, current);
+        if (token->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
-            pAdded->flags |= TK_FLAG_HAS_SPACE_BEFORE;
+            token->flags = token->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
+            token->flags |= TK_FLAG_HAS_SPACE_BEFORE;
         }
-        if (bIsFirst)
+        if (is_first)
         {
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
-            bIsFirst = false;
+            token->flags = token->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
+            token->flags = token->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
+            is_first = false;
         }
-        remove_line_continuation(pAdded->lexeme);
-        previousIsBlank = false;
+        remove_line_continuation(token->lexeme);
+        previous_is_blank = false;
 
         if (current == list->tail)
             break;
         current = current->next;
-
     }
+
     return r;
 }
 
