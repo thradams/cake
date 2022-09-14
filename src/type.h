@@ -6,6 +6,20 @@
 
 struct parser_ctx;
 
+/*
+* A type is characterized by its type category, which is either the outermost derivation
+* of a derived type (as noted above in the construction of derived types), or the type
+* itself if the type consists of no derived types.
+*/
+
+enum type_category
+{
+    TYPE_CATEGORY_ITSELF,
+    TYPE_CATEGORY_FUNCTION, /*derived declarator types*/
+    TYPE_CATEGORY_ARRAY,    /*derived declarator types*/
+    TYPE_CATEGORY_POINTER,  /*derived declarator types*/
+};
+
 
 enum type_specifier_flags
 {

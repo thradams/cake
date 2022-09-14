@@ -112,28 +112,28 @@ struct declarator_type* declarator_type_copy(struct declarator_type* p_declarato
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
 
 
-void visit_declarator_get(int* type, struct declarator_type* declarator);
-void visit_direct_declarator_get(int* type, struct direct_declarator_type* p_direct_declarator_type)
+void visit_declarator_get(enum type_category* type_category, struct declarator_type* declarator);
+void visit_direct_declarator_get(enum type_category* type_category, struct direct_declarator_type* p_direct_declarator_type)
 {
     if (p_direct_declarator_type->declarator_opt)
-        visit_declarator_get(type, p_direct_declarator_type->declarator_opt);
+        visit_declarator_get(type_category, p_direct_declarator_type->declarator_opt);
 
     struct array_function_type* p = p_direct_declarator_type->array_function_type_list.head;
     while (p)
     {
         if (p->bIsFunction)
         {
-            if (*type == 0)
+            if (*type_category == TYPE_CATEGORY_ITSELF)
             {
-                *type = 1; /*function*/
+                *type_category = TYPE_CATEGORY_FUNCTION;
                 break;
             }
         }
         else if (p->bIsArray)
         {
-            if (*type == 0)
+            if (*type_category == TYPE_CATEGORY_ITSELF)
             {
-                *type = 2; /*array*/
+                *type_category = TYPE_CATEGORY_ARRAY; /*array*/
                 break;
             }
         }
@@ -141,29 +141,33 @@ void visit_direct_declarator_get(int* type, struct direct_declarator_type* p_dir
     }
 }
 
-void visit_declarator_get(int* type, struct declarator_type* declarator)
+void visit_declarator_get(enum type_category* type_category, struct declarator_type* declarator)
 {
     if (declarator == NULL)
         return;
 
     if (declarator->direct_declarator_type)
-        visit_direct_declarator_get(type, declarator->direct_declarator_type);
+        visit_direct_declarator_get(type_category, declarator->direct_declarator_type);
 
-    if (*type == 0)
+    if (*type_category == TYPE_CATEGORY_ITSELF)
     {
         if (declarator->pointers.head)
         {
-            *type = 3; /*pointer*/
+            *type_category = TYPE_CATEGORY_POINTER;
         }
     }
 }
 
+enum type_category find_type_category(const struct type* p_type)
+{
+    enum type_category type_category = TYPE_CATEGORY_ITSELF;
+    visit_declarator_get(&type_category, p_type->declarator_type);
+    return type_category;
+}
 
 bool type_is_array(struct type* p_type)
 {
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    return type == 2;
+    return find_type_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
 
@@ -171,44 +175,20 @@ bool type_is_array(struct type* p_type)
 
 bool type_is_pointer(struct type* p_type)
 {
-    if (p_type->declarator_type == NULL)
-        return false;
-
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    return type == 3;
+    return find_type_category(p_type) == TYPE_CATEGORY_POINTER;
 }
 
 
 bool type_is_enum(struct type* p_type)
 {
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    if (type != 0)
-        return false;
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
-    {
-        return true;
-    }
-
-    return false;
+    return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
+           p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM;
 }
 
 bool type_is_struct_or_union(struct type* p_type)
 {
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    if (type != 0)
-        return false;
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
-    {
-        return true;
-    }
-
-    return false;
-
+    return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION;
 }
 
 /*
@@ -219,34 +199,14 @@ signed char or unsigned char.50)
 
 bool type_is_character(struct type* p_type)
 {
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    if (type != 0)
-        return false;
-
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
-    {
-        return true;
-    }
-
-    return false;
+    return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR;
 }
 
 bool type_is_bool(struct type* p_type)
 {
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    if (type != 0)
-        return false;
-
-
-    if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
-    {
-        return true;
-    }
-
-    return false;
+    return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL;
 }
 
 /*
@@ -255,16 +215,8 @@ bool type_is_bool(struct type* p_type)
 */
 bool type_is_integer(struct type* p_type)
 {
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    if (type != 0)
+    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
-
-    //TODO long double
-    if (p_type->type_specifier_flags & (TYPE_SPECIFIER_FLOAT | TYPE_SPECIFIER_DOUBLE))
-    {
-        return false;
-    }
 
     return p_type->type_specifier_flags &
         (TYPE_SPECIFIER_CHAR |
@@ -284,9 +236,7 @@ bool type_is_integer(struct type* p_type)
 */
 bool type_is_arithmetic(struct type* p_type)
 {
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    if (type == 3 || type == 2)
+    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
 
@@ -325,11 +275,8 @@ bool type_is_scalar(struct type* p_type)
     if (type_is_pointer_or_array(p_type))
         return true;
 
-    int type = 0;
-    visit_declarator_get(&type, p_type->declarator_type);
-    if (type == 3 || type == 2)
+    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
-
 
     return p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR;
 }
