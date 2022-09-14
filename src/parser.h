@@ -601,7 +601,7 @@ struct member_declaration
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct member_declarator_list* member_declarator_list_opt;
 
-    struct static_assert_declaration* p_static_assert_declaration;
+    struct static_assert_declaration* static_assert_declaration;
 
     struct member_declaration* next;
 };

@@ -8798,7 +8798,7 @@ struct member_declaration
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct member_declarator_list* member_declarator_list_opt;
 
-    struct static_assert_declaration* p_static_assert_declaration;
+    struct static_assert_declaration* static_assert_declaration;
 
     struct member_declaration* next;
 };
@@ -16292,7 +16292,7 @@ struct member_declaration* member_declaration(struct parser_ctx* ctx, struct err
     //static_assert_declaration
     if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
     {
-        p_member_declaration->p_static_assert_declaration = static_assert_declaration(ctx, error);
+        p_member_declaration->static_assert_declaration = static_assert_declaration(ctx, error);
     }
     else
     {

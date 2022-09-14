@@ -2298,7 +2298,7 @@ struct member_declaration* member_declaration(struct parser_ctx* ctx, struct err
     //static_assert_declaration
     if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
     {
-        p_member_declaration->p_static_assert_declaration = static_assert_declaration(ctx, error);
+        p_member_declaration->static_assert_declaration = static_assert_declaration(ctx, error);
     }
     else
     {
