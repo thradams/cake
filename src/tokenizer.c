@@ -3004,7 +3004,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 {
     struct token_list r = { 0 };
     bool bVarArgsWasEmpty = false;
-    bool bVarArgs = false;
+    bool is_var_args = false;
     try
     {
         while (input_list->head)
@@ -3048,7 +3048,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     struct token_list argumentlist = copy_argument_list(pArgument);
                     if (check)
                     {
-                        bVarArgs = true;
+                        is_var_args = true;
                         bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
 
@@ -3072,7 +3072,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     struct token_list argumentlist = copy_argument_list(pArgument);
                     if (check)
                     {
-                        bVarArgs = true;
+                        is_var_args = true;
                         bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
                     token_list_append_list(&r, &argumentlist);
@@ -3091,7 +3091,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     }
                     if (check)
                     {
-                        bVarArgs = true;
+                        is_var_args = true;
                         bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
 
@@ -3118,7 +3118,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 
                     if (check)
                     {
-                        bVarArgs = true;
+                        is_var_args = true;
                         bVarArgsWasEmpty = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
                     }
                     token_list_append_list(&r, &r4);
@@ -3134,7 +3134,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
     {
     }
 
-    if (bVarArgs)
+    if (is_var_args)
     {
         struct token_list r2 = replace_vaopt(ctx, &r, bVarArgsWasEmpty);
         return r2;

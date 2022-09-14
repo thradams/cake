@@ -4350,7 +4350,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 {
     struct token_list r = { 0 };
     bool bVarArgsWasEmpty = false;
-    bool bVarArgs = false;
+    bool is_var_args = false;
     try
     {
         while (input_list->head)
@@ -4394,7 +4394,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     struct token_list argumentlist = copy_argument_list(pArgument);
                     if (check)
                     {
-                        bVarArgs = true;
+                        is_var_args = true;
                         bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
 
@@ -4418,7 +4418,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     struct token_list argumentlist = copy_argument_list(pArgument);
                     if (check)
                     {
-                        bVarArgs = true;
+                        is_var_args = true;
                         bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
                     token_list_append_list(&r, &argumentlist);
@@ -4437,7 +4437,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     }
                     if (check)
                     {
-                        bVarArgs = true;
+                        is_var_args = true;
                         bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
 
@@ -4464,7 +4464,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 
                     if (check)
                     {
-                        bVarArgs = true;
+                        is_var_args = true;
                         bVarArgsWasEmpty = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
                     }
                     token_list_append_list(&r, &r4);
@@ -4480,7 +4480,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
     {
     }
 
-    if (bVarArgs)
+    if (is_var_args)
     {
         struct token_list r2 = replace_vaopt(ctx, &r, bVarArgsWasEmpty);
         return r2;
@@ -8396,6 +8396,7 @@ struct storage_class_specifier
 
     struct token* token;
 };
+
 struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx);
 
 struct function_specifier
@@ -8420,7 +8421,7 @@ struct typeof_specifier
 {
     /*
      typeof-specifier:
-       typeof ( typeof-specifier-argument )
+       "typeof" ( typeof-specifier-argument )
     */
     struct token* token;
     struct token* endtoken;
@@ -8451,7 +8452,7 @@ struct type_specifier
         enum-specifier
         typedef-name
         typeof-specifier
- */
+    */
     enum type_specifier_flags flags;
     struct token* token;
     struct struct_or_union_specifier* struct_or_union_specifier;
@@ -8460,6 +8461,7 @@ struct type_specifier
     struct declarator* typedef_declarator;
     struct atomic_type_specifier* atomic_type_specifier;
 };
+
 struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* error);
 
 struct init_declarator_list
@@ -8498,6 +8500,7 @@ struct atomic_type_specifier
 {
     struct token* token;
 };
+
 struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx, struct error* error);
 
 struct enumerator_list
@@ -8505,6 +8508,7 @@ struct enumerator_list
     struct enumerator* head;
     struct enumerator* tail;
 };
+
 struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* error);
 
 
@@ -8553,9 +8557,9 @@ struct struct_or_union_specifier
     */
     struct token* tagtoken;
 
-    char tagName[200];
+    char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
-    bool bAnonymousTag;
+    bool has_anonymous_tag;
 
     int scope_level; /*nivel escopo 0 global*/
     int visit_moved; /*nivel escopo 0 global*/
@@ -8608,7 +8612,7 @@ struct declarator
 
     struct compound_statement* function_body;
 
-    int nUses; /*used to show not used warnings*/
+    int num_uses; /*used to show not used warnings*/
 
     /*Já mastiga o tipo dele*/
     struct type type;
@@ -8627,7 +8631,6 @@ struct declarator* declarator(struct parser_ctx* ctx,
 
 struct array_function
 {
-
     struct array_declarator* array_declarator;
     struct function_declarator* function_declarator;
     struct array_function* next;
@@ -8673,8 +8676,8 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
 
 struct parameter_type_list
 {
-    bool bVarArgs; /*(...)*/
-    bool bVoid;/*(void)*/
+    bool is_var_args; /*(...)*/
+    bool is_void;/*(void)*/
     struct parameter_list* parameter_list;
 };
 struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx, struct error* error);
@@ -8759,9 +8762,9 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
 
 struct type_specifier_qualifier
 {
-    struct type_specifier* pType_specifier;
-    struct type_qualifier* pType_qualifier;
-    struct alignment_specifier* pAlignment_specifier;
+    struct type_specifier* type_specifier;
+    struct type_qualifier* type_qualifier;
+    struct alignment_specifier* alignment_specifier;
 
     struct type_specifier_qualifier* next;
 };
@@ -9622,7 +9625,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
                 }
                 else
                 {
-                    p_declarator->nUses++;
+                    p_declarator->num_uses++;
                     p_expression_node->declarator = p_declarator;
                     p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
@@ -9928,7 +9931,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 {
                     struct struct_or_union_specifier* p =
                         find_struct_or_union_specifier(ctx,
-                            p_expression_node->type.struct_or_union_specifier->tagName);
+                            p_expression_node->type.struct_or_union_specifier->tag_name);
                     if (p)
                     {
                         struct member_declarator* p_member_declarator =
@@ -9942,7 +9945,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
 
                             parser_seterror_with_token(ctx, ctx->current, "struct member '%s' not found in '%s'",
                                 ctx->current->lexeme,
-                                p_expression_node->type.struct_or_union_specifier->tagName);
+                                p_expression_node->type.struct_or_union_specifier->tag_name);
                         }
                     }
                     else
@@ -9968,7 +9971,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p = find_struct_or_union_specifier(ctx,
-                        p_expression_node->type.struct_or_union_specifier->tagName);
+                        p_expression_node->type.struct_or_union_specifier->tag_name);
 
                     if (p)
                     {
@@ -9983,7 +9986,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                             parser_seterror_with_token(ctx,
                                 ctx->current,
                                 "struct member '%s' not found in '%s'",
-                                ctx->current->lexeme, p_expression_node->type.struct_or_union_specifier->tagName);
+                                ctx->current->lexeme, p_expression_node->type.struct_or_union_specifier->tag_name);
                         }
                     }
                     else
@@ -13407,7 +13410,7 @@ struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type
             if (p_array_function->function_declarator->parameter_type_list_opt != NULL)
             {
                 p_array_function_type->bVarArg =
-                    p_array_function->function_declarator->parameter_type_list_opt->bVarArgs;
+                    p_array_function->function_declarator->parameter_type_list_opt->is_var_args;
 
                 p_parameter_declaration =
                     p_array_function->function_declarator->parameter_type_list_opt->parameter_list->head;
@@ -15364,8 +15367,8 @@ void print_declaration_specifiers(struct osstream* ss, struct declaration_specif
     else if (p_declaration_specifiers->struct_or_union_specifier)
     {
         //
-        if (p_declaration_specifiers->struct_or_union_specifier->tagName)
-            ss_fprintf(ss, "struct %s", p_declaration_specifiers->struct_or_union_specifier->tagName);
+        if (p_declaration_specifiers->struct_or_union_specifier->tag_name)
+            ss_fprintf(ss, "struct %s", p_declaration_specifiers->struct_or_union_specifier->tag_name);
         else
             assert(false);
     }
@@ -15490,44 +15493,44 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
             {
                 if (p_declaration_specifier->type_specifier_qualifier)
                 {
-                    if (p_declaration_specifier->type_specifier_qualifier->pType_specifier)
+                    if (p_declaration_specifier->type_specifier_qualifier->type_specifier)
                     {
 
                         if (add_specifier(ctx,
                             &p_declaration_specifiers->type_specifier_flags,
-                            p_declaration_specifier->type_specifier_qualifier->pType_specifier->flags,
+                            p_declaration_specifier->type_specifier_qualifier->type_specifier->flags,
                             error) != 0)
                         {
                             throw;
                         }
 
 
-                        if (p_declaration_specifier->type_specifier_qualifier->pType_specifier->struct_or_union_specifier)
+                        if (p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier)
                         {
-                            p_declaration_specifiers->struct_or_union_specifier = p_declaration_specifier->type_specifier_qualifier->pType_specifier->struct_or_union_specifier;
+                            p_declaration_specifiers->struct_or_union_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier;
                         }
-                        else if (p_declaration_specifier->type_specifier_qualifier->pType_specifier->enum_specifier)
+                        else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->enum_specifier)
                         {
-                            p_declaration_specifiers->enum_specifier = p_declaration_specifier->type_specifier_qualifier->pType_specifier->enum_specifier;
+                            p_declaration_specifiers->enum_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->enum_specifier;
                         }
-                        else if (p_declaration_specifier->type_specifier_qualifier->pType_specifier->typeof_specifier)
+                        else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier)
                         {
-                            p_declaration_specifiers->typeof_specifier = p_declaration_specifier->type_specifier_qualifier->pType_specifier->typeof_specifier;
+                            p_declaration_specifiers->typeof_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier;
                         }
-                        else if (p_declaration_specifier->type_specifier_qualifier->pType_specifier->token &&
-                            p_declaration_specifier->type_specifier_qualifier->pType_specifier->token->type == TK_IDENTIFIER)
+                        else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->token &&
+                            p_declaration_specifier->type_specifier_qualifier->type_specifier->token->type == TK_IDENTIFIER)
                         {
                             p_declaration_specifiers->typedef_declarator =
                                 find_declarator(ctx,
-                                    p_declaration_specifier->type_specifier_qualifier->pType_specifier->token->lexeme,
+                                    p_declaration_specifier->type_specifier_qualifier->type_specifier->token->lexeme,
                                     NULL);
 
                             //p_declaration_specifiers->typedef_declarator = p_declaration_specifier->type_specifier_qualifier->pType_specifier->token->lexeme;
                         }
                     }
-                    else if (p_declaration_specifier->type_specifier_qualifier->pType_qualifier)
+                    else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
                     {
-                        p_declaration_specifiers->type_qualifier_flags |= p_declaration_specifier->type_specifier_qualifier->pType_qualifier->flags;
+                        p_declaration_specifiers->type_qualifier_flags |= p_declaration_specifier->type_specifier_qualifier->type_qualifier->flags;
 
                     }
                 }
@@ -15662,7 +15665,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         /*parametros nao usados*/
         while (parameter)
         {
-            if (parameter->declarator->nUses == 0)
+            if (parameter->declarator->num_uses == 0)
             {
                 if (parameter->name &&
                     parameter->name->level == 0 /*direct source*/
@@ -15936,7 +15939,7 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
        typeof-specifier                      C23
     */
 
-    struct type_specifier* pType_specifier = calloc(1, sizeof * pType_specifier);
+    struct type_specifier* p_type_specifier = calloc(1, sizeof * p_type_specifier);
 
 
 
@@ -15945,169 +15948,169 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
     switch (ctx->current->type)
     {
     case TK_KEYWORD_VOID:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_VOID;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_VOID;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD_CHAR:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_CHAR;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD_SHORT:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_SHORT;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD_INT:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_INT;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
         //microsoft
     case TK_KEYWORD__INT8:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_INT8;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD__INT16:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_INT16;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
     case TK_KEYWORD__INT32:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_INT32;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
     case TK_KEYWORD__INT64:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_INT64;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
         //end microsoft
 
     case TK_KEYWORD_LONG:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_LONG;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_LONG;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD_FLOAT:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_FLOAT;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD_DOUBLE:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD_SIGNED:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_SIGNED;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD_UNSIGNED:
 
-        pType_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD__BOOL:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_BOOL;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD__COMPLEX:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD__DECIMAL32:
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD__DECIMAL64:
 
-        pType_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
     case TK_KEYWORD__DECIMAL128:
-        pType_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
-        pType_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
+        p_type_specifier->token = ctx->current;
         parser_match(ctx);
-        return pType_specifier;
+        return p_type_specifier;
 
 
     }
 
     if (first_of_typeof_specifier(ctx))
     {
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_TYPEOF;
-        pType_specifier->typeof_specifier = typeof_specifier(ctx, error);
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_TYPEOF;
+        p_type_specifier->typeof_specifier = typeof_specifier(ctx, error);
     }
     else if (first_of_atomic_type_specifier(ctx))
     {
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_ATOMIC;
-        pType_specifier->atomic_type_specifier = atomic_type_specifier(ctx, error);
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_ATOMIC;
+        p_type_specifier->atomic_type_specifier = atomic_type_specifier(ctx, error);
     }
     else if (first_of_struct_or_union(ctx))
     {
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-        pType_specifier->struct_or_union_specifier = struct_or_union_specifier(ctx, error);
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+        p_type_specifier->struct_or_union_specifier = struct_or_union_specifier(ctx, error);
     }
     else if (first_of_enum_specifier(ctx))
     {
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_ENUM;
-        pType_specifier->enum_specifier = enum_specifier(ctx, error);
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_ENUM;
+        p_type_specifier->enum_specifier = enum_specifier(ctx, error);
     }
     else if (ctx->current->type == TK_IDENTIFIER)
     {
-        pType_specifier->token = ctx->current;
-        pType_specifier->flags = TYPE_SPECIFIER_TYPEDEF;
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_TYPEDEF;
 
-        pType_specifier->typedef_declarator =
+        p_type_specifier->typedef_declarator =
             find_declarator(ctx, ctx->current->lexeme, NULL);
 
         //Ser chegou aqui já tem que exitir (reaprovecitar?)
-        assert(pType_specifier->typedef_declarator != NULL);
+        assert(p_type_specifier->typedef_declarator != NULL);
 
         parser_match(ctx);
     }
-    return pType_specifier;
+    return p_type_specifier;
 }
 
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error)
@@ -16139,7 +16142,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
          appearance of the tag in a type specifier that declares the tag.
         */
 
-        snprintf(pStruct_or_union_specifier->tagName, sizeof pStruct_or_union_specifier->tagName, "%s", ctx->current->lexeme);
+        snprintf(pStruct_or_union_specifier->tag_name, sizeof pStruct_or_union_specifier->tag_name, "%s", ctx->current->lexeme);
 
         struct type_tag_id* tag_type_id = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
         if (tag_type_id)
@@ -16177,11 +16180,11 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     else
     {
         /*struct sem tag, neste caso vou inventar um tag "oculto" e adicionar no escopo atual*/
-        snprintf(pStruct_or_union_specifier->tagName, sizeof pStruct_or_union_specifier->tagName, "_anonymous_struct_%d", anonymous_struct_count);
+        snprintf(pStruct_or_union_specifier->tag_name, sizeof pStruct_or_union_specifier->tag_name, "_anonymous_struct_%d", anonymous_struct_count);
         anonymous_struct_count++;
-        pStruct_or_union_specifier->bAnonymousTag = true;
+        pStruct_or_union_specifier->has_anonymous_tag = true;
         pStruct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-        hashmap_set(&ctx->scopes.tail->tags, pStruct_or_union_specifier->tagName, &pStruct_or_union_specifier->type_id);
+        hashmap_set(&ctx->scopes.tail->tags, pStruct_or_union_specifier->tag_name, &pStruct_or_union_specifier->type_id);
     }
 
 
@@ -16213,7 +16216,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             /*
               Temos uma versao mais completa deste tag neste escopo. Vamos ficar com ela.
             */
-            hashmap_set(&ctx->scopes.tail->tags, pStruct_or_union_specifier->tagName, &pStruct_or_union_specifier->type_id);
+            hashmap_set(&ctx->scopes.tail->tags, pStruct_or_union_specifier->tag_name, &pStruct_or_union_specifier->type_id);
         }
     }
 
@@ -16450,8 +16453,8 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
     }
     else if (p_specifier_qualifier_list->struct_or_union_specifier)
     {
-        if (p_specifier_qualifier_list->struct_or_union_specifier->tagName)
-            ss_fprintf(ss, "struct %s", p_specifier_qualifier_list->struct_or_union_specifier->tagName);
+        if (p_specifier_qualifier_list->struct_or_union_specifier->tag_name)
+            ss_fprintf(ss, "struct %s", p_specifier_qualifier_list->struct_or_union_specifier->tag_name);
         else
         {
             assert(false);
@@ -16497,40 +16500,40 @@ struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx
 
             struct type_specifier_qualifier* p_type_specifier_qualifier = type_specifier_qualifier(ctx, error);
 
-            if (p_type_specifier_qualifier->pType_specifier)
+            if (p_type_specifier_qualifier->type_specifier)
             {
                 if (add_specifier(ctx,
                     &p_specifier_qualifier_list->type_specifier_flags,
-                    p_type_specifier_qualifier->pType_specifier->flags,
+                    p_type_specifier_qualifier->type_specifier->flags,
                     error) != 0)
                 {
                     throw;
                 }
 
-                if (p_type_specifier_qualifier->pType_specifier->struct_or_union_specifier)
+                if (p_type_specifier_qualifier->type_specifier->struct_or_union_specifier)
                 {
-                    p_specifier_qualifier_list->struct_or_union_specifier = p_type_specifier_qualifier->pType_specifier->struct_or_union_specifier;
+                    p_specifier_qualifier_list->struct_or_union_specifier = p_type_specifier_qualifier->type_specifier->struct_or_union_specifier;
                 }
-                else if (p_type_specifier_qualifier->pType_specifier->enum_specifier)
+                else if (p_type_specifier_qualifier->type_specifier->enum_specifier)
                 {
-                    p_specifier_qualifier_list->enum_specifier = p_type_specifier_qualifier->pType_specifier->enum_specifier;
+                    p_specifier_qualifier_list->enum_specifier = p_type_specifier_qualifier->type_specifier->enum_specifier;
                 }
-                else if (p_type_specifier_qualifier->pType_specifier->typeof_specifier)
+                else if (p_type_specifier_qualifier->type_specifier->typeof_specifier)
                 {
-                    p_specifier_qualifier_list->typeof_specifier = p_type_specifier_qualifier->pType_specifier->typeof_specifier;
+                    p_specifier_qualifier_list->typeof_specifier = p_type_specifier_qualifier->type_specifier->typeof_specifier;
                 }
-                else if (p_type_specifier_qualifier->pType_specifier->token->type == TK_IDENTIFIER)
+                else if (p_type_specifier_qualifier->type_specifier->token->type == TK_IDENTIFIER)
                 {
                     p_specifier_qualifier_list->typedef_declarator =
                         find_declarator(ctx,
-                            p_type_specifier_qualifier->pType_specifier->token->lexeme,
+                            p_type_specifier_qualifier->type_specifier->token->lexeme,
                             NULL);
                 }
 
             }
-            else if (p_type_specifier_qualifier->pType_qualifier)
+            else if (p_type_specifier_qualifier->type_qualifier)
             {
-                p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->pType_qualifier->flags;
+                p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->type_qualifier->flags;
             }
 
             list_add(p_specifier_qualifier_list, p_type_specifier_qualifier);
@@ -16553,15 +16556,15 @@ struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx
     //alignment_specifier
     if (first_of_type_specifier(ctx))
     {
-        type_specifier_qualifier->pType_specifier = type_specifier(ctx, error);
+        type_specifier_qualifier->type_specifier = type_specifier(ctx, error);
     }
     else if (first_of_type_qualifier(ctx))
     {
-        type_specifier_qualifier->pType_qualifier = type_qualifier(ctx, error);
+        type_specifier_qualifier->type_qualifier = type_qualifier(ctx, error);
     }
     else if (first_of_alignment_specifier(ctx))
     {
-        type_specifier_qualifier->pAlignment_specifier = alignment_specifier(ctx, error);
+        type_specifier_qualifier->alignment_specifier = alignment_specifier(ctx, error);
     }
     else
     {
@@ -16745,8 +16748,8 @@ struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
 
 struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx, struct error* error)
 {
-    struct alignment_specifier* pAlignment_specifier = calloc(1, sizeof * pAlignment_specifier);
-    pAlignment_specifier->token = ctx->current;
+    struct alignment_specifier* alignment_specifier = calloc(1, sizeof * alignment_specifier);
+    alignment_specifier->token = ctx->current;
     parser_match_tk(ctx, TK_KEYWORD__ALIGNAS, error);
     parser_match_tk(ctx, '(', error);
     if (first_of_type_name(ctx))
@@ -16761,7 +16764,7 @@ struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx, struct e
         constant_expression(ctx, error, &ectx);
     }
     parser_match_tk(ctx, ')', error);
-    return pAlignment_specifier;
+    return alignment_specifier;
 }
 
 
@@ -16782,20 +16785,20 @@ struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx, stru
 struct type_qualifier* type_qualifier(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code) return NULL;
-    struct type_qualifier* pType_qualifier = calloc(1, sizeof * pType_qualifier);
+    struct type_qualifier* p_type_qualifier = calloc(1, sizeof * p_type_qualifier);
     switch (ctx->current->type)
     {
     case TK_KEYWORD_CONST:
-        pType_qualifier->flags = TYPE_QUALIFIER_CONST;
+        p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
         break;
     case TK_KEYWORD_RESTRICT:
-        pType_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
+        p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
         break;
     case TK_KEYWORD_VOLATILE:
-        pType_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
+        p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
         break;
     case TK_KEYWORD__ATOMIC:
-        pType_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
+        p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
         break;
     }
     //'const'
@@ -16803,7 +16806,7 @@ struct type_qualifier* type_qualifier(struct parser_ctx* ctx, struct error* erro
     //'volatile'
     //'_Atomic'
     parser_match(ctx);
-    return pType_qualifier;
+    return p_type_qualifier;
 }
 //
 
@@ -17182,7 +17185,7 @@ struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx, struct e
     {
         parser_match(ctx);
         //parser_match_tk(ctx, '...', error);
-        p_parameter_type_list->bVarArgs = true;
+        p_parameter_type_list->is_var_args = true;
     }
     return p_parameter_type_list;
 }
@@ -17271,26 +17274,26 @@ struct specifier_qualifier_list* copy(struct declaration_specifiers* p_declarati
         {
             struct specifier_qualifier* p_specifier_qualifier = calloc(1, sizeof(struct specifier_qualifier));
 
-            if (p_declaration_specifier->type_specifier_qualifier->pType_qualifier)
+            if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
             {
                 struct type_qualifier* p_type_qualifier = calloc(1, sizeof(struct type_qualifier));
 
-                p_type_qualifier->flags = p_declaration_specifier->type_specifier_qualifier->pType_qualifier->flags;
+                p_type_qualifier->flags = p_declaration_specifier->type_specifier_qualifier->type_qualifier->flags;
 
 
-                p_type_qualifier->token = p_declaration_specifier->type_specifier_qualifier->pType_qualifier->token;
+                p_type_qualifier->token = p_declaration_specifier->type_specifier_qualifier->type_qualifier->token;
                 p_specifier_qualifier->type_qualifier = p_type_qualifier;
             }
-            else if (p_declaration_specifier->type_specifier_qualifier->pType_specifier)
+            else if (p_declaration_specifier->type_specifier_qualifier->type_specifier)
             {
                 struct type_specifier* p_type_specifier = calloc(1, sizeof(struct type_specifier));
 
-                p_type_specifier->flags = p_declaration_specifier->type_specifier_qualifier->pType_specifier->flags;
+                p_type_specifier->flags = p_declaration_specifier->type_specifier_qualifier->type_specifier->flags;
 
                 //todo
-                assert(p_declaration_specifier->type_specifier_qualifier->pType_specifier->struct_or_union_specifier == NULL);
+                assert(p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier == NULL);
 
-                p_type_specifier->token = p_declaration_specifier->type_specifier_qualifier->pType_specifier->token;
+                p_type_specifier->token = p_declaration_specifier->type_specifier_qualifier->type_specifier->token;
                 p_specifier_qualifier->type_specifier = p_type_specifier;
             }
 
@@ -17926,7 +17929,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
             if (p_declarator)
             {
-                if (p_declarator->nUses == 0)
+                if (p_declarator->num_uses == 0)
                 {
                     //setwarning_with_token(ctx, p_declarator->name, )
                     ctx->n_warnings++;
@@ -18474,7 +18477,7 @@ void print_type(struct osstream* ss, struct type* type)
     if (type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
     {
         print_item(ss, &first, "struct ");
-        ss_fprintf(ss, "%s", type->struct_or_union_specifier->tagName);
+        ss_fprintf(ss, "%s", type->struct_or_union_specifier->tag_name);
     }
     else if (type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
@@ -20553,7 +20556,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved == 0)
             {
                 char newtag[200];
-                snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tagName, ctx->captureindex);
+                snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tag_name, ctx->captureindex);
                 ctx->captureindex++;
 
                 free(p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme);
@@ -20654,7 +20657,7 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
                     //anominous struct
                     if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier &&
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->bAnonymousTag)
+                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag)
                     {
                         /*
                           por se tratar de uma struct anomina vou ligar o tag gerado que estava escondido
@@ -20663,11 +20666,11 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
                         */
 
                         /*para nao fazer 2 vezes*/
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->bAnonymousTag = false;
+                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
 
                         struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first;
 
-                        const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tagName;
+                        const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
                         char buffer[200] = { 0 };
                         snprintf(buffer, sizeof buffer, " %s", tag);
                         struct token_list l2 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
@@ -20729,14 +20732,14 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
 static void visit_type_specifier_qualifier(struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier, struct error* error)
 {
-    if (p_type_specifier_qualifier->pType_qualifier)
+    if (p_type_specifier_qualifier->type_qualifier)
     {
     }
-    else if (p_type_specifier_qualifier->pType_specifier)
+    else if (p_type_specifier_qualifier->type_specifier)
     {
-        visit_type_specifier(ctx, p_type_specifier_qualifier->pType_specifier, error);
+        visit_type_specifier(ctx, p_type_specifier_qualifier->type_specifier, error);
     }
-    else if (p_type_specifier_qualifier->pAlignment_specifier)
+    else if (p_type_specifier_qualifier->alignment_specifier)
     {
     }
 }

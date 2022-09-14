@@ -1054,7 +1054,7 @@ struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type
             if (p_array_function->function_declarator->parameter_type_list_opt != NULL)
             {
                 p_array_function_type->bVarArg =
-                    p_array_function->function_declarator->parameter_type_list_opt->bVarArgs;
+                    p_array_function->function_declarator->parameter_type_list_opt->is_var_args;
 
                 p_parameter_declaration =
                     p_array_function->function_declarator->parameter_type_list_opt->parameter_list->head;

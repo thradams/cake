@@ -1186,7 +1186,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved == 0)
             {
                 char newtag[200];
-                snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tagName, ctx->captureindex);
+                snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tag_name, ctx->captureindex);
                 ctx->captureindex++;
 
                 free(p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme);
@@ -1287,7 +1287,7 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
                     //anominous struct
                     if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier &&
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->bAnonymousTag)
+                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag)
                     {
                         /*
                           por se tratar de uma struct anomina vou ligar o tag gerado que estava escondido
@@ -1296,11 +1296,11 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
                         */
 
                         /*para nao fazer 2 vezes*/
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->bAnonymousTag = false;
+                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
 
                         struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first;
 
-                        const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tagName;
+                        const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
                         char buffer[200] = { 0 };
                         snprintf(buffer, sizeof buffer, " %s", tag);
                         struct token_list l2 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
@@ -1362,14 +1362,14 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
 static void visit_type_specifier_qualifier(struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier, struct error* error)
 {
-    if (p_type_specifier_qualifier->pType_qualifier)
+    if (p_type_specifier_qualifier->type_qualifier)
     {
     }
-    else if (p_type_specifier_qualifier->pType_specifier)
+    else if (p_type_specifier_qualifier->type_specifier)
     {
-        visit_type_specifier(ctx, p_type_specifier_qualifier->pType_specifier, error);
+        visit_type_specifier(ctx, p_type_specifier_qualifier->type_specifier, error);
     }
-    else if (p_type_specifier_qualifier->pAlignment_specifier)
+    else if (p_type_specifier_qualifier->alignment_specifier)
     {
     }
 }

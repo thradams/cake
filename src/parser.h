@@ -199,6 +199,7 @@ struct storage_class_specifier
 
     struct token* token;
 };
+
 struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx);
 
 struct function_specifier
@@ -223,7 +224,7 @@ struct typeof_specifier
 {
     /*
      typeof-specifier:
-       typeof ( typeof-specifier-argument )
+       "typeof" ( typeof-specifier-argument )
     */
     struct token* token;
     struct token* endtoken;
@@ -254,7 +255,7 @@ struct type_specifier
         enum-specifier
         typedef-name
         typeof-specifier
- */
+    */
     enum type_specifier_flags flags;
     struct token* token;
     struct struct_or_union_specifier* struct_or_union_specifier;
@@ -263,6 +264,7 @@ struct type_specifier
     struct declarator* typedef_declarator;
     struct atomic_type_specifier* atomic_type_specifier;
 };
+
 struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* error);
 
 struct init_declarator_list
@@ -301,6 +303,7 @@ struct atomic_type_specifier
 {
     struct token* token;
 };
+
 struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx, struct error* error);
 
 struct enumerator_list
@@ -308,6 +311,7 @@ struct enumerator_list
     struct enumerator* head;
     struct enumerator* tail;
 };
+
 struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* error);
 
 
@@ -356,9 +360,9 @@ struct struct_or_union_specifier
     */
     struct token* tagtoken;
 
-    char tagName[200];
+    char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
-    bool bAnonymousTag;
+    bool has_anonymous_tag;
 
     int scope_level; /*nivel escopo 0 global*/
     int visit_moved; /*nivel escopo 0 global*/
@@ -411,7 +415,7 @@ struct declarator
 
     struct compound_statement* function_body;
 
-    int nUses; /*used to show not used warnings*/
+    int num_uses; /*used to show not used warnings*/
 
     /*Já mastiga o tipo dele*/
     struct type type;
@@ -430,7 +434,6 @@ struct declarator* declarator(struct parser_ctx* ctx,
 
 struct array_function
 {
-
     struct array_declarator* array_declarator;
     struct function_declarator* function_declarator;
     struct array_function* next;
@@ -476,8 +479,8 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
 
 struct parameter_type_list
 {
-    bool bVarArgs; /*(...)*/
-    bool bVoid;/*(void)*/
+    bool is_var_args; /*(...)*/
+    bool is_void;/*(void)*/
     struct parameter_list* parameter_list;
 };
 struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx, struct error* error);
@@ -562,9 +565,9 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
 
 struct type_specifier_qualifier
 {
-    struct type_specifier* pType_specifier;
-    struct type_qualifier* pType_qualifier;
-    struct alignment_specifier* pAlignment_specifier;
+    struct type_specifier* type_specifier;
+    struct type_qualifier* type_qualifier;
+    struct alignment_specifier* alignment_specifier;
 
     struct type_specifier_qualifier* next;
 };

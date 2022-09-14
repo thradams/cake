@@ -525,7 +525,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
                 }
                 else
                 {
-                    p_declarator->nUses++;
+                    p_declarator->num_uses++;
                     p_expression_node->declarator = p_declarator;
                     p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
@@ -831,7 +831,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 {
                     struct struct_or_union_specifier* p =
                         find_struct_or_union_specifier(ctx,
-                            p_expression_node->type.struct_or_union_specifier->tagName);
+                            p_expression_node->type.struct_or_union_specifier->tag_name);
                     if (p)
                     {
                         struct member_declarator* p_member_declarator =
@@ -845,7 +845,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
 
                             parser_seterror_with_token(ctx, ctx->current, "struct member '%s' not found in '%s'",
                                 ctx->current->lexeme,
-                                p_expression_node->type.struct_or_union_specifier->tagName);
+                                p_expression_node->type.struct_or_union_specifier->tag_name);
                         }
                     }
                     else
@@ -871,7 +871,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p = find_struct_or_union_specifier(ctx,
-                        p_expression_node->type.struct_or_union_specifier->tagName);
+                        p_expression_node->type.struct_or_union_specifier->tag_name);
 
                     if (p)
                     {
@@ -886,7 +886,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                             parser_seterror_with_token(ctx,
                                 ctx->current,
                                 "struct member '%s' not found in '%s'",
-                                ctx->current->lexeme, p_expression_node->type.struct_or_union_specifier->tagName);
+                                ctx->current->lexeme, p_expression_node->type.struct_or_union_specifier->tag_name);
                         }
                     }
                     else
