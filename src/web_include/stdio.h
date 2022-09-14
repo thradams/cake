@@ -24,3 +24,26 @@ int vfprintf(FILE* restrict stream, const char* restrict format, va_list arg);
 int vfscanf(FILE* restrict stream, const char* restrict format, va_list arg);
 int vprintf(const char* restrict format, va_list arg);
 int vscanf(const char* restrict format, va_list arg);
+int puts(const char* str);
+int fputs(const char* restrict s, FILE* restrict stream);
+int getc(FILE* stream);
+int getchar(void);
+int putc(int c, FILE* stream);
+int putchar(int c);
+int puts(const char* s);
+int ungetc(int c, FILE* stream);
+int fgetc(FILE* stream);
+size_t fread(void* restrict ptr, size_t size, size_t nmemb, FILE* restrict stream);
+size_t fwrite(const void* restrict ptr, size_t size, size_t nmemb, FILE* restrict stream);
+int fgetpos(FILE* restrict stream, fpos_t* restrict pos);
+int fseek(FILE* stream, long int offset, int whence);
+int fsetpos(FILE* stream, const fpos_t* pos);
+long int ftell(FILE* stream);
+void rewind(FILE* stream);
+void clearerr(FILE* stream);
+int feof(FILE* stream);
+int ferror(FILE* stream);
+void perror(const char* s);
+
+
+
