@@ -252,7 +252,7 @@ void x_destroy(struct X* p)
 sample["Extension typeid"] =
 `
 int a[10];
-static_assert(typeid(a) == typeid(double [10]), "types are diferent");
+static_assert(typeid(a) == typeid(double [10]), "types are different");
 
 `;
 
