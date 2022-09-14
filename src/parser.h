@@ -111,11 +111,6 @@ enum storage_class_specifier_flags
 
 struct expression_ctx;
 
-//////////
-//
-//PARA representar tipos fora da AST
-//funciona clonando e nao depende da AST
-
 struct declaration_specifier
 {
     struct storage_class_specifier* storage_class_specifier;
@@ -196,7 +191,6 @@ struct storage_class_specifier
       "typedef"
     */
     enum storage_class_specifier_flags flags;
-
     struct token* token;
 };
 
@@ -849,9 +843,9 @@ struct enumerator
     struct expression* constant_expression_opt;
 
     struct enumerator* next;
-    long long value;
-    //unsigned long long value; tb?
+    long long value;    
 };
+
 struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error);
 
 struct attribute_argument_clause
@@ -868,13 +862,11 @@ struct balanced_token_sequence
     struct balanced_token* tail;
 };
 struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* ctx, struct error* error);
-//struct attribute* attribute(struct parser_ctx* ctx, struct error* error);
 
 
 struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
 
 bool is_first_of_conditional_expression(struct parser_ctx* ctx);
-//void assignment_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
 bool first_of_type_name(struct parser_ctx* ctx);
 bool first_of_type_name_ahead(struct parser_ctx* ctx);
 
