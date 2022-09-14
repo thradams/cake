@@ -973,7 +973,7 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
         p_expression_node->compound_statement = function_body(ctx, error);
         scope_list_pop(&ctx->scopes);
 
-        p_expression_node->last = p_expression_node->compound_statement->last;
+        p_expression_node->last = p_expression_node->compound_statement->last_token;
     }
     else
     {
@@ -1041,7 +1041,7 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
                 p_expression_node->compound_statement = compound_statement(ctx, error);
                 if (error->code != 0) throw;
-                p_expression_node->last = p_expression_node->compound_statement->last;
+                p_expression_node->last = p_expression_node->compound_statement->last_token;
             }
             else
             {

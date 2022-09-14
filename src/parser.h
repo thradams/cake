@@ -634,8 +634,8 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, struct error* err
 
 struct compound_statement
 {
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
 
     struct block_item_list block_item_list;
 };

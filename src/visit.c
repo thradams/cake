@@ -693,8 +693,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             token_list_append_list(&ctx->insert_before_declaration, &l1);
             ss_close(&ss);
 
-            for (struct token* current = p_expression->compound_statement->first;
-                current != p_expression->compound_statement->last->next;
+            for (struct token* current = p_expression->compound_statement->first_token;
+                current != p_expression->compound_statement->last_token->next;
                 current = current->next)
             {
                 token_list_clone_and_add(&ctx->insert_before_declaration, current);
@@ -1529,7 +1529,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             if (ss.size > 0)
             {
                 struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-                token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last->prev, &l);
+                token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, &l);
             }
 
         }

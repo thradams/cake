@@ -255,14 +255,14 @@ static void format_visit_block_item_list(struct format_visit_ctx* ctx, struct bl
 
 static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
-    ajust_line_and_identation(p_compound_statement->first, ctx);
+    ajust_line_and_identation(p_compound_statement->first_token, ctx);
 
     ctx->identation++;
     format_visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
 
     ctx->identation--;
     
-    ajust_line_and_identation(p_compound_statement->last, ctx);
+    ajust_line_and_identation(p_compound_statement->last_token, ctx);
 }
 
 static void format_visit_declaration(struct format_visit_ctx* ctx, struct declaration* p_declaration, struct error* error)

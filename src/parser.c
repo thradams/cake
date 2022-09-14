@@ -3909,7 +3909,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
     struct scope block_scope = { .variables.capacity = 10 };
     scope_list_push(&ctx->scopes, &block_scope);
 
-    p_compound_statement->first = ctx->current;
+    p_compound_statement->first_token = ctx->current;
     parser_match_tk(ctx, '{', error);
 
     if (ctx->current->type != '}')
@@ -3917,7 +3917,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
         p_compound_statement->block_item_list = block_item_list(ctx, error);
     }
 
-    p_compound_statement->last = ctx->current;
+    p_compound_statement->last_token = ctx->current;
     parser_match_tk(ctx, '}', error);
 
     //TODO ver quem nao foi usado.

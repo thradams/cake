@@ -8831,8 +8831,8 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, struct error* err
 
 struct compound_statement
 {
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
 
     struct block_item_list block_item_list;
 };
@@ -10073,7 +10073,7 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
         p_expression_node->compound_statement = function_body(ctx, error);
         scope_list_pop(&ctx->scopes);
 
-        p_expression_node->last = p_expression_node->compound_statement->last;
+        p_expression_node->last = p_expression_node->compound_statement->last_token;
     }
     else
     {
@@ -10141,7 +10141,7 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
                 p_expression_node->compound_statement = compound_statement(ctx, error);
                 if (error->code != 0) throw;
-                p_expression_node->last = p_expression_node->compound_statement->last;
+                p_expression_node->last = p_expression_node->compound_statement->last_token;
             }
             else
             {
@@ -17903,7 +17903,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
     struct scope block_scope = { .variables.capacity = 10 };
     scope_list_push(&ctx->scopes, &block_scope);
 
-    p_compound_statement->first = ctx->current;
+    p_compound_statement->first_token = ctx->current;
     parser_match_tk(ctx, '{', error);
 
     if (ctx->current->type != '}')
@@ -17911,7 +17911,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
         p_compound_statement->block_item_list = block_item_list(ctx, error);
     }
 
-    p_compound_statement->last = ctx->current;
+    p_compound_statement->last_token = ctx->current;
     parser_match_tk(ctx, '}', error);
 
     //TODO ver quem nao foi usado.
@@ -20063,8 +20063,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             token_list_append_list(&ctx->insert_before_declaration, &l1);
             ss_close(&ss);
 
-            for (struct token* current = p_expression->compound_statement->first;
-                current != p_expression->compound_statement->last->next;
+            for (struct token* current = p_expression->compound_statement->first_token;
+                current != p_expression->compound_statement->last_token->next;
                 current = current->next)
             {
                 token_list_clone_and_add(&ctx->insert_before_declaration, current);
@@ -20899,7 +20899,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             if (ss.size > 0)
             {
                 struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-                token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last->prev, &l);
+                token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, &l);
             }
 
         }
@@ -21834,14 +21834,14 @@ static void format_visit_block_item_list(struct format_visit_ctx* ctx, struct bl
 
 static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
-    ajust_line_and_identation(p_compound_statement->first, ctx);
+    ajust_line_and_identation(p_compound_statement->first_token, ctx);
 
     ctx->identation++;
     format_visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
 
     ctx->identation--;
     
-    ajust_line_and_identation(p_compound_statement->last, ctx);
+    ajust_line_and_identation(p_compound_statement->last_token, ctx);
 }
 
 static void format_visit_declaration(struct format_visit_ctx* ctx, struct declaration* p_declaration, struct error* error)
