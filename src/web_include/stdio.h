@@ -1,5 +1,5 @@
 #pragma once
-
+typedef long long fpos_t;
 typedef int FILE;
 typedef int size_t;
 typedef void* va_list;
