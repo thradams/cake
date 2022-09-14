@@ -55,14 +55,14 @@
 </ul>
 <h1 id="toc_0">Description</h1>
 
-<p>Cake is a C23 compiler frond end written from scratch in C.</p>
+<p>Cake is a C23 compiler front end written from scratch in C.</p>
 
 <p>The compiler can be used to translate new versions of C (like C23)
 to C99.</p>
 
 <p>It also can be used to try out new features for the C language. </p>
 
-<p>Extensions like lambdas,  defer and more where implemented.</p>
+<p>Extensions like lambdas, defer and more were implemented.</p>
 
 <h1 id="toc_1">Web Playground</h1>
 
@@ -74,9 +74,9 @@ to C99.</p>
 
 <ul>
 <li>C23 preprocessor</li>
-<li>syntax analisys</li>
-<li>semantic analisys</li>
-<li>c backend</li>
+<li>Syntax analysis</li>
+<li>Semantic analysis</li>
+<li>C backend</li>
 <li>Builds AST </li>
 </ul>
 
@@ -84,39 +84,39 @@ to C99.</p>
 
 <h2 id="toc_4">Windows</h2>
 
-<p>Open the Developer Command Prompt of visual studio. Go to the src directoy and type</p>
+<p>Open the Developer Command Prompt of visual studio. Go to the <em>src</em> directory and type</p>
 
 <pre><code>cl build.c &amp;&amp; build
 </code></pre>
 
-<p>This will build <code>cake.exe</code>.</p>
+<p>This will build <em>cake.exe</em>.</p>
 
 <h2 id="toc_5">Linux</h2>
 
-<p>Got to the <code>src</code> directory and type:</p>
+<p>Got to the <em>src</em> directory and type:</p>
 
 <pre><code>gcc build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<p>To run unit tests windows/linux add <code>-DTEST</code> for instance:</p>
+<p>To run unit tests windows/linux add <em>-DTEST</em> for instance:</p>
 
 <pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
 </code></pre>
 
 <h2 id="toc_6">Build web</h2>
 
-<p>emscriptem <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
+<p>Emscripten <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
 
 <p>First do the normal build. </p>
 
-<p>The normal build also generates a file <code>lib.c</code> that is the amalgameted  version of the &quot;core lib&quot;.</p>
+<p>The normal build also generates a file <em>lib.c</em> that is the amalgameted  version of the &quot;core lib&quot;.</p>
 
-<p>Then at <code>./src</code> dir type:</p>
+<p>Then at <em>./src</em> dir type:</p>
 
 <pre><code>call emcc -DMOCKFILES &quot;lib.c&quot; -o &quot;Web\cake.js&quot; -s WASM=0 -s EXPORTED_FUNCTIONS=&quot;[&#39;_CompileText&#39;]&quot; -s EXTRA_EXPORTED_RUNTIME_METHODS=&quot;[&#39;ccall&#39;, &#39;cwrap&#39;]&quot;
 </code></pre>
 
-<p>This will generate the cake.js</p>
+<p>This will generate the <em>\src\Web\cake.js</em></p>
 
 <h1 id="toc_7">Command line</h1>
 
@@ -127,7 +127,7 @@ to C99.</p>
 <pre><code>cake source.c
 </code></pre>
 
-<p>this will ouput <code>./out/source.c</code></p>
+<p>this will ouput <em>./out/source.c</em></p>
 
 <p>See <a href="manual.html">Manual</a></p>
 
@@ -141,7 +141,7 @@ to C99.</p>
 
 <h1 id="toc_9">References</h1>
 
-<p>A copy of each C standard draft in included in <code>docs</code> folder. The parser is based on C23.</p>
+<p>A copy of each C standard draft in included in <em>docs</em> folder. The parser is based on C23.</p>
 
 <h1 id="toc_10">Influenced by</h1>
 
@@ -162,7 +162,7 @@ calling a function void F(int i) with F(1.2);</p>
 <h1 id="toc_12">How cake is tested?</h1>
 
 <p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
-the includes of MSVC and it generates the <code>out</code> dir after build.</p>
+the includes of MSVC and it generates the <em>out</em> dir after build.</p>
 
 <p>Cake source code is not using any extension so the output is the same of input. 
 This compilation is usefull for tracking errors.</p>

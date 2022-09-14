@@ -17,15 +17,15 @@ Options
   -fi              Format input (format before language convertion)
   -fo              Format output (format after language convertion, result parsed again)
 ```
-The ouput dir is `./out`
+The ouput dir is **./out**
 
 On windows, if you run cake at the visual studio command prompt cake 
 uses the same include files used by msvc. (No need for -I)
 
-# Transformations
 
-## C99
 C99 is the minimum target. Do you need C89?
+
+# C11 Transformations
 
 ## C11 Thread_local/Atomic
 Parsed but not transformed.
@@ -33,21 +33,73 @@ Parsed but not transformed.
 ## C11 Generics
 When compiling to versions < C11 we keep the expression that matches the type.
 
-## C11 u8"literals"
+For instance:
+
+The expression that matches the argument 1.0 is **cbrtl**.
+
+The result of _Generic in C99 will be cbrtl. Because this is inside
+a macro we need to tell the transpiler to expand that macro using 
+pragma expand.
+
+```c
+#include <math.h>
+
+#define cbrt(X) _Generic((X), \
+                  double: cbrtl, \
+                  float: cbrtf ,\
+                  default: cbrtl  \
+              )(X)
+
+#pragma expand cbrt
+
+
+int main(void)
+{
+    cbrt(1.0);
+}
+
+```
+
+Then the resulting C99 code is:
+
+```c
+
+#include <math.h>
+
+#define cbrt(X) _Generic((X), \
+                  double: cbrtl, \
+                  float: cbrtf ,\
+                  default: cbrtl  \
+              )(X)
+
+#pragma expand cbrt
+
+
+int main(void)
+{
+     cbrtl(1.0);
+}
+
+```
+
+##  C11 u8"literals"
 u8 literals are converted to escape sequecences. (I don't recoment u8"")
 
 ## C11 Static_assert
 When compiling to versions < C11 static_assert is removed
 
+## C11 Noreturn
+Parsed. Todo needs to be replaced by **[[_Noreturn]]** in C23
+
+
+# C23 Transformations
+
 ## C23 Decimal32, Decimal64, and Decimal128
 Not implemented (maybe parsed?)
 
-## C11 Noreturn
-Parsed. Todo needs to be replaced by `[[_Noreturn]]` in C23
-
-## C23 static_assert / Single-argument Static_assert
-In C23 `static_assert` can be used as keyword and the message is optional.
-Compiling to C11 we add some dumy message is necessary and we use the previous keyword `_Static_assert`
+## static_assert / single-argument Static_assert
+In C23 **static_assert** can be used as keyword and the message is optional.
+Compiling to C11 we add some dumy message is necessary and we use the previous keyword **_Static_assert**
 
 
 
@@ -61,11 +113,14 @@ When compiling to versions < 23 the compiler removes the ' delimiter from tokens
 When compiling to versions < 23 the compiler translater the binary literal to a hexadecimal constant.
 
 ### C23 nullptr
-When compiling to version < 23 nullptr is replaced with `((void*)0)`
+
+When compiling to version < 23 nullptr is replaced with **((void*)0)**
+Semantics of nullptr is not implemented yet.
+
 
 ### C23 bool true false
-When compiling to version < 23 bool is replaced with `_Bool`, true is replaced with `((_Bool)1)` and false
-with `(_Bool)0)`
+When compiling to version < 23 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)` and false
+with **(_Bool)0)**
 
 ## C23 {} empty initializer
 
@@ -82,7 +137,17 @@ This can be a little complex in some cases.
 Not implemented yet (maybe parsed?)
 
 ## C23 enuns with type
-Not implemented yet (not parsed yet)
+Parsed. Translation to C99 not implemented.
+
+```c
+enum X : short {
+  A
+};
+
+int main() {
+   enum X x = A;   
+}
+```
 
 ## C23 Attributes
 Attributes are being parsed and removed in some places. More work is necessary.
@@ -107,13 +172,18 @@ Yes but need work.
 ## C23 BitInt(N))
 Not implemented
 
+## C23 constexpr
+Parsed but not implemented
 
-## elifdef elifndef
+## C23 auto
+Parsed but not implemented
+
+## C23 elifdef elifndef
 Are implemented
 
-## Extensions
+# Extensions (Not in C23)
 
-### try catch throw
+## try catch throw
 try cath is a external block that we can jump off. (local jump only)
 
 ```c
@@ -131,7 +201,7 @@ catch
 {
 }
 ```
-### defer
+## defer
 
 `defer` will call the defer statement before the block exit at inverse orden of declaration.
 
@@ -172,9 +242,9 @@ int main() {
   while(0);
 }
 ```
-I guess everthing is working including `goto`s.
+I guess everthing is working including **goto** jumps.
 
-### if with initializer
+## if with initializer
 
 No idea why C++ 17 if with initializer was not proposed for C23!
 But in cake it is implemented.
@@ -208,7 +278,7 @@ int main()
 ```
 An extension if + initializer + defer expression was considered but not implemented yet.
 
-### lambdas
+## lambdas
 
 Lambdas without capture where implemented using a syntax similar of 
 compound literal for function pointer.
@@ -233,7 +303,7 @@ void create_app(const char* appname)
 }
 ```
 Because struct capture was in function scope and the lambda function will be created
-at file scope the type `struct capture` had to be moved from function scope to file scope.
+at file scope the type **struct capture** had to be moved from function scope to file scope.
 
 ```c
 extern char* strdup(const char* s);
@@ -252,7 +322,7 @@ void create_app(const char* appname)
   _lit_func_0(&capture);  
 }
 ```
-### typeid
+## typeid
 
 syntax:
 
@@ -261,17 +331,18 @@ syntax:
   typeid (type-name)
 ```
 
-typeid returns a `type object` that can be used with `==` and `!=`.
-If any left or right side of the `==`/`!=` contains a `type object` then
+typeid returns a **type object** that can be used with == and !=.
+If any left or right side of the ==/!= contains a **type object** then
 the evaluation is based on type comparison not value.
 
 Sample:
+
 ```c
 static_assert(1 == typeid(int));
 static_assert(typeid(1) == typeid(int));
 ```
 
-### Repeat
+## Repeat
 
 ```c
   repeat {
@@ -280,10 +351,10 @@ static_assert(typeid(1) == typeid(int));
   }
 ```
 
-Repeat is equivalent of `for(;;)`
+Repeat is equivalent of for(;;) 
 
 
-### pragma expand
+## pragma expand
 
 pragma expand tells the back end to not hide macro expansions.
 
@@ -328,7 +399,7 @@ int main()
 
 ```
 
-### _Hashof
+## _Hashof
 
 _Hashof is a compile time function that returns a hash of the parsing tokens
 of some struct enum etc.
@@ -358,3 +429,4 @@ void x_destroy(struct X* p)
 }
 
 ```
+
