@@ -1718,8 +1718,8 @@ void visit(struct visit_ctx* ctx, struct error* error)
 
         p_declaration = p_declaration->next;
     }
-    if (ctx->instanciations.head != NULL)
-    {
-        token_list_append_list(&ctx->ast.token_list, &ctx->instanciations);
-    }
+    //if (ctx->instanciations.head != NULL)
+    //{
+    //    token_list_append_list(&ctx->ast.token_list, &ctx->instanciations);
+    //}
 }

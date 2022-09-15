@@ -13978,15 +13978,13 @@ struct visit_ctx
 
     bool is_inside_lambda;
 
-    int captureindex;
-    int typeofindex;
-    int lambdasindex;
+    /*these indexes are used to generate unique names at file scope*/
+    int capture_index;
+    int typeof_index;
+    int lambdas_index;
     
-
-    struct hash_map   instanciations_map;
     struct token_list insert_before_declaration;
     struct token_list insert_before_block_item;
-    struct token_list instanciations;
     struct ast ast;
     enum language_version target;
     struct defer_scope* tail_block;
@@ -20070,8 +20068,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             /*no segundo passo nós copiamos a funcao*/
             char name[100] = { 0 };
-            snprintf(name, sizeof name, " _lit_func_%d", ctx->lambdasindex);
-            ctx->lambdasindex++;
+            snprintf(name, sizeof name, " _lit_func_%d", ctx->lambdas_index);
+            ctx->lambdas_index++;
 
             struct osstream ss = { 0 };
 
@@ -20578,8 +20576,8 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved == 0)
             {
                 char newtag[200];
-                snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tag_name, ctx->captureindex);
-                ctx->captureindex++;
+                snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tag_name, ctx->capture_index);
+                ctx->capture_index++;
 
                 free(p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme);
                 p_struct_or_union_specifier->complete_struct_or_union_specifier->tagtoken->lexeme =
@@ -20721,13 +20719,13 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
                 //typeof(int*) p1, p2;
                 if (bHasPointers)
                 {
-                    ss_fprintf(&ss, " _typeof_type_%d;\n", ctx->typeofindex);
+                    ss_fprintf(&ss, " _typeof_type_%d;\n", ctx->typeof_index);
                     struct token_list list0 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
                     token_list_append_list(&ctx->insert_before_block_item, &list0);
                     ss_clear(&ss);
                     //este cara tem que ser em cima do statement 
-                    ss_fprintf(&ss, "_typeof_type_%d ", ctx->typeofindex);
-                    ctx->typeofindex++;
+                    ss_fprintf(&ss, "_typeof_type_%d ", ctx->typeof_index);
+                    ctx->typeof_index++;
                 }
                 else
                 {
@@ -21074,9 +21072,9 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
 
 void visit(struct visit_ctx* ctx, struct error* error)
 {
-    ctx->captureindex = 0;
-    ctx->lambdasindex = 0;
-    ctx->typeofindex = 0;
+    ctx->capture_index = 0;
+    ctx->lambdas_index = 0;
+    ctx->typeof_index = 0;
 
     if (visit_tokens(ctx, error) != 0)
         return;
@@ -21107,10 +21105,10 @@ void visit(struct visit_ctx* ctx, struct error* error)
 
         p_declaration = p_declaration->next;
     }
-    if (ctx->instanciations.head != NULL)
-    {
-        token_list_append_list(&ctx->ast.token_list, &ctx->instanciations);
-    }
+    //if (ctx->instanciations.head != NULL)
+    //{
+    //    token_list_append_list(&ctx->ast.token_list, &ctx->instanciations);
+    //}
 }
 
 

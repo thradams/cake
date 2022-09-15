@@ -33,11 +33,8 @@ struct visit_ctx
     int typeof_index;
     int lambdas_index;
     
-
-    struct hash_map   instanciations_map;
     struct token_list insert_before_declaration;
     struct token_list insert_before_block_item;
-    struct token_list instanciations;
     struct ast ast;
     enum language_version target;
     struct defer_scope* tail_block;
