@@ -13968,17 +13968,15 @@ struct defer_scope
 struct visit_ctx
 {
     /*
-    * Funcoes que tem lambdas dentro precisam de 2 passadas
-    * uma para descobrir se tem alguem que precisa ser globalizado
-    * e depois para renomar as referencias para o globalizado
+    * It is necessary two passes to generate lambdas expressions
+    * because some types maybe needs to be "globalized"
+    * is_second_pass is true if the compiler is at second pass
     */
-    int lambda_step;
-    
-    /*
-    * true se precisa executar segundo passo
-    */
-    bool bHasLambda;
-    bool bInsideLambda;
+    bool is_second_pass;
+   
+    bool has_lambda;
+
+    bool is_inside_lambda;
     bool bInsideDefer;
     bool bInsideCompoundStatement;
 
@@ -19750,7 +19748,7 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
 {
 
 
-    if (ctx->lambda_step == 1)
+    if (!ctx->is_second_pass)
     {
 
         //adiciona como filho do ultimo bloco
@@ -19769,7 +19767,7 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
             ctx->bInsideDefer = false;
         }
     }
-    else if (ctx->lambda_step == 2)
+    else //if (ctx->is_second_pass)
     {
         if (p_defer_statement->secondary_block)
             visit_secondary_block(ctx, p_defer_statement->secondary_block, error);
@@ -19778,7 +19776,7 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
 
 static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_try_statement, struct error* error)
 {
-    if (ctx->lambda_step == 1)
+    if (!ctx->is_second_pass)
     {
         struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
@@ -20067,16 +20065,12 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
     {
-        /*
-          Indica que foi encontrado expressões lambda/function literal
-          no corpo da funcao.
-        */
-        ctx->bHasLambda = true;
-        ctx->bInsideLambda = true;
+        ctx->has_lambda = true;
+        ctx->is_inside_lambda = true;
         visit_compound_statement(ctx, p_expression->compound_statement, error);
-        ctx->bInsideLambda = false;
+        ctx->is_inside_lambda = false;
 
-        if (ctx->lambda_step == 2)
+        if (ctx->is_second_pass)
         {
             /*no segundo passo nós copiamos a funcao*/
             char name[100] = { 0 };
@@ -20582,7 +20576,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 
     if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
     {
-        if (ctx->bInsideLambda && ctx->lambda_step == 1)
+        if (ctx->is_inside_lambda && !ctx->is_second_pass)
         {
             /*
               Na primeira passada marcamos os tipos que são renomeados
@@ -20602,7 +20596,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 p_struct_or_union_specifier->complete_struct_or_union_specifier->visit_moved = 1;
             }
         }
-        else if (ctx->lambda_step == 2)
+        else if (ctx->is_second_pass)
         {
             /*
              Na segunda passada vou renomear quem usa este tag exporado
@@ -20859,7 +20853,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
     }
 
-    if (ctx->lambda_step == 2)
+    if (ctx->is_second_pass)
     {
 
         if (p_declaration->declaration_specifiers &&
@@ -20918,8 +20912,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     if (p_declaration->function_body)
     {
 
-        ctx->bHasLambda = false;
-        ctx->lambda_step = 1;
+        ctx->has_lambda = false;
+        ctx->is_second_pass = false;
 
 
         struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
@@ -20949,9 +20943,10 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         ctx->tail_block = NULL;
 
 
-        if (ctx->bHasLambda)
+        if (ctx->has_lambda)
         {
-            ctx->lambda_step = 2;
+            /*functions with lambdas requires two phases*/
+            ctx->is_second_pass = true;
             visit_compound_statement(ctx, p_declaration->function_body, error);
         }
     }

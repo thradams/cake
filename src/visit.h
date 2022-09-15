@@ -18,17 +18,15 @@ struct defer_scope
 struct visit_ctx
 {
     /*
-    * Funcoes que tem lambdas dentro precisam de 2 passadas
-    * uma para descobrir se tem alguem que precisa ser globalizado
-    * e depois para renomar as referencias para o globalizado
+    * It is necessary two passes to generate lambdas expressions
+    * because some types maybe needs to be "globalized"
+    * is_second_pass is true if the compiler is at second pass
     */
-    int lambda_step;
-    
-    /*
-    * true se precisa executar segundo passo
-    */
-    bool bHasLambda;
-    bool bInsideLambda;
+    bool is_second_pass;
+   
+    bool has_lambda;
+
+    bool is_inside_lambda;
     bool bInsideDefer;
     bool bInsideCompoundStatement;
 
