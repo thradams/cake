@@ -11690,11 +11690,11 @@ void pre_additive_expression(struct preprocessor_ctx* ctx, struct error* error, 
 void pre_shift_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
 void pre_relational_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
 void pre_equality_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
-void pre_AND_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
-void pre_exclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
-void pre_inclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
-void pre_logical_AND_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
-void pre_logical_OR_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
+void pre_and_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
+void pre_exclusive_or_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
+void pre_inclusive_or_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
+void pre_logical_and_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
+void pre_logical_or_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
 void pre_conditional_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
 void pre_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
 void pre_conditional_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx);
@@ -12151,7 +12151,7 @@ void pre_equality_expression(struct preprocessor_ctx* ctx, struct error* error, 
     }
 }
 
-void pre_AND_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
+void pre_and_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
 {
     /*
      AND-expression:
@@ -12177,7 +12177,7 @@ void pre_AND_expression(struct preprocessor_ctx* ctx, struct error* error, struc
     }
 }
 
-void pre_exclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
+void pre_exclusive_or_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
 {
     /*
      exclusive-OR-expression:
@@ -12186,14 +12186,14 @@ void pre_exclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* err
     */
     try
     {
-        pre_AND_expression(ctx, error, ectx);
+        pre_and_expression(ctx, error, ectx);
         if (error->code != 0) throw;
         while (ctx->current != NULL &&
             (ctx->current->type == '^'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_AND_expression(ctx, error, ectx);
+            pre_and_expression(ctx, error, ectx);
             if (error->code != 0) throw;
             ectx->value = left_value ^ ectx->value;
         }
@@ -12203,7 +12203,7 @@ void pre_exclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* err
     }
 }
 
-void pre_inclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
+void pre_inclusive_or_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
 {
     /*
     inclusive-OR-expression:
@@ -12212,7 +12212,7 @@ void pre_inclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* err
     */
     try
     {
-        pre_exclusive_OR_expression(ctx, error, ectx);
+        pre_exclusive_or_expression(ctx, error, ectx);
         if (error->code != 0) throw;
 
         while (ctx->current != NULL &&
@@ -12220,7 +12220,7 @@ void pre_inclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* err
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_exclusive_OR_expression(ctx, error, ectx);
+            pre_exclusive_or_expression(ctx, error, ectx);
             if (error->code != 0) throw;
             ectx->value = left_value | ectx->value;
         }
@@ -12230,7 +12230,7 @@ void pre_inclusive_OR_expression(struct preprocessor_ctx* ctx, struct error* err
     }
 }
 
-void pre_logical_AND_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
+void pre_logical_and_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
 {
     /*
     logical-AND-expression:
@@ -12239,14 +12239,14 @@ void pre_logical_AND_expression(struct preprocessor_ctx* ctx, struct error* erro
     */
     try
     {
-        pre_inclusive_OR_expression(ctx, error, ectx);
+        pre_inclusive_or_expression(ctx, error, ectx);
         if (error->code != 0) throw;
         while (ctx->current != NULL &&
             (ctx->current->type == '&&'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_inclusive_OR_expression(ctx, error, ectx);
+            pre_inclusive_or_expression(ctx, error, ectx);
             if (error->code != 0) throw;
             ectx->value = left_value && ectx->value;
         }
@@ -12256,7 +12256,7 @@ void pre_logical_AND_expression(struct preprocessor_ctx* ctx, struct error* erro
     }
 }
 
-void pre_logical_OR_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
+void pre_logical_or_expression(struct preprocessor_ctx* ctx, struct error* error, struct pre_expression_ctx* ectx)
 {
     /*
       logical-OR-expression:
@@ -12265,14 +12265,14 @@ void pre_logical_OR_expression(struct preprocessor_ctx* ctx, struct error* error
     */
     try
     {
-        pre_logical_AND_expression(ctx, error, ectx);
+        pre_logical_and_expression(ctx, error, ectx);
         if (error->code != 0) throw;
         while (ctx->current != NULL &&
             (ctx->current->type == '||'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_logical_AND_expression(ctx, error, ectx);
+            pre_logical_and_expression(ctx, error, ectx);
             if (error->code != 0) throw;
             ectx->value = left_value || ectx->value;
 
@@ -12358,7 +12358,7 @@ void pre_conditional_expression(struct preprocessor_ctx* ctx, struct error* erro
     */
     try
     {
-        pre_logical_OR_expression(ctx, error, ectx);
+        pre_logical_or_expression(ctx, error, ectx);
         if (error->code != 0) throw;
 
         if (ctx->current && ctx->current->type == '?')
