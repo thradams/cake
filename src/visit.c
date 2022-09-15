@@ -371,9 +371,7 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
 
         if (p_defer_statement->secondary_block)
         {
-            ctx->bInsideDefer = true;
             visit_secondary_block(ctx, p_defer_statement->secondary_block, error);
-            ctx->bInsideDefer = false;
         }
     }
     else //if (ctx->is_second_pass)

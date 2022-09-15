@@ -27,7 +27,6 @@ struct visit_ctx
     bool has_lambda;
 
     bool is_inside_lambda;
-    bool bInsideDefer;
     bool bInsideCompoundStatement;
 
     int captureindex;

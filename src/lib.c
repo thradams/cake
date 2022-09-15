@@ -13977,7 +13977,6 @@ struct visit_ctx
     bool has_lambda;
 
     bool is_inside_lambda;
-    bool bInsideDefer;
     bool bInsideCompoundStatement;
 
     int captureindex;
@@ -19762,9 +19761,7 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
 
         if (p_defer_statement->secondary_block)
         {
-            ctx->bInsideDefer = true;
             visit_secondary_block(ctx, p_defer_statement->secondary_block, error);
-            ctx->bInsideDefer = false;
         }
     }
     else //if (ctx->is_second_pass)
@@ -20911,7 +20908,6 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
     if (p_declaration->function_body)
     {
-
         ctx->has_lambda = false;
         ctx->is_second_pass = false;
 
