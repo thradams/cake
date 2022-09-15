@@ -13977,7 +13977,6 @@ struct visit_ctx
     bool has_lambda;
 
     bool is_inside_lambda;
-    bool bInsideCompoundStatement;
 
     int captureindex;
     int typeofindex;
@@ -20191,11 +20190,7 @@ static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list*
 
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
-    ctx->bInsideCompoundStatement = true;
-
     visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
-
-    ctx->bInsideCompoundStatement = false;
 }
 
 //
