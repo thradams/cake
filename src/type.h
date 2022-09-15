@@ -167,3 +167,4 @@ struct declarator_type* find_inner_declarator(struct declarator_type* p_declarat
 struct type get_address_of_type(struct type* p_type);
 void type_print(struct type* a);
 bool type_is_scalar(struct type* p_type);
+enum type_category find_type_category(const struct type* p_type);

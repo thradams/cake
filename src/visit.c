@@ -1270,7 +1270,8 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
                     TK_FLAG_HIDE);
 
 
-                bool bHasPointers = false;
+                bool is_type_itself = true;
+
                 struct osstream ss = { 0 };
 
                 if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
@@ -1278,12 +1279,12 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
                     if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type)
                     {
-                        bHasPointers =
-                            p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type->pointers.head != NULL;
+                        is_type_itself =
+                            (find_type_category(&p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type) == TYPE_CATEGORY_ITSELF);
                     }
 
 
-                    if (bHasPointers)
+                    if (!is_type_itself)
                         ss_fprintf(&ss, "typedef ");
                     print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
 
@@ -1314,10 +1315,12 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
                 }
                 else if (p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name)
                 {
-                    bHasPointers =
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->pointer != NULL;
+                    is_type_itself =
+                        (find_type_category(&p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type) == TYPE_CATEGORY_ITSELF);
 
-                    if (bHasPointers)
+
+
+                    if (!is_type_itself)
                         ss_fprintf(&ss, "typedef ");
 
                     print_type_name(&ss, p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name);
@@ -1330,7 +1333,7 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
                 //TODO se nao tem ponteiro poderia ser adicionado direto ali
                 //typeof(int*) p1, p2;
-                if (bHasPointers)
+                if (!is_type_itself)
                 {
                     ss_fprintf(&ss, " _typeof_type_%d;\n", ctx->typeof_index);
                     struct token_list list0 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
