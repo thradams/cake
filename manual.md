@@ -164,7 +164,48 @@ was transpiled but not where generated code will be compiled.
 When compiling to versions < 23 it is commented
 
 ## C23 embed
-When compiling to versions < 23 the line is replaces by the numbers
+When compiling to versions < 23 the line is replaces by the numbers.
+
+One alternative for C99 is to generate an auxiliary file then
+use normal ``#include`` instead of ``#embed``.
+
+This cannot be showed at web playground becase we dont have an option to 
+create files there.
+
+```c
+#include <stdio.h>
+
+int main()
+{
+  static const char file_txt[] = {
+   #embed "stdio.h"
+   ,0
+  };
+
+  printf("%s\n", file_txt);
+
+}
+
+```
+
+becomes in C99
+
+```c
+#include <stdio.h>
+
+int main()
+{
+  static const char file_txt[] = {
+   #include "embed_stdio.h"
+   ,0
+  };
+
+  printf("%s\n", file_txt);
+
+}
+
+```
+
 
 ## C23 VAOPT
 Yes but need work.
@@ -175,8 +216,23 @@ Not implemented
 ## C23 constexpr
 Parsed but not implemented
 
+```c
+constexpr int K = 47;
+enum {
+ A = K, // valid, constant initialization
+};
+constexpr int L = K; // valid, constexpr initialization
+static int b = K + 1; // valid, static initialization
+int array[K]; // not a VL
+```
+
 ## C23 auto
 Parsed but not implemented
+
+```c
+static auto a = 3.5;
+auto p = &a;
+```
 
 ## C23 elifdef elifndef
 Are implemented

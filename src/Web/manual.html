@@ -299,7 +299,45 @@ was transpiled but not where generated code will be compiled.</p>
 
 <h2 id="toc_20">C23 embed</h2>
 
-<p>When compiling to versions &lt; 23 the line is replaces by the numbers</p>
+<p>When compiling to versions &lt; 23 the line is replaces by the numbers.</p>
+
+<p>One alternative for C99 is to generate an auxiliary file then
+use normal <code>#include</code> instead of <code>#embed</code>.</p>
+
+<p>This cannot be showed at web playground becase we dont have an option to 
+create files there.</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int main()
+{
+  static const char file_txt[] = {
+   #embed &quot;stdio.h&quot;
+   ,0
+  };
+
+  printf(&quot;%s\n&quot;, file_txt);
+
+}
+
+</code></pre>
+
+<p>becomes in C99</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int main()
+{
+  static const char file_txt[] = {
+   #include &quot;embed_stdio.h&quot;
+   ,0
+  };
+
+  printf(&quot;%s\n&quot;, file_txt);
+
+}
+
+</code></pre>
 
 <h2 id="toc_21">C23 VAOPT</h2>
 
@@ -313,9 +351,22 @@ was transpiled but not where generated code will be compiled.</p>
 
 <p>Parsed but not implemented</p>
 
+<pre><code class="language-c">constexpr int K = 47;
+enum {
+ A = K, // valid, constant initialization
+};
+constexpr int L = K; // valid, constexpr initialization
+static int b = K + 1; // valid, static initialization
+int array[K]; // not a VL
+</code></pre>
+
 <h2 id="toc_24">C23 auto</h2>
 
 <p>Parsed but not implemented</p>
+
+<pre><code class="language-c">static auto a = 3.5;
+auto p = &amp;a;
+</code></pre>
 
 <h2 id="toc_25">C23 elifdef elifndef</h2>
 
