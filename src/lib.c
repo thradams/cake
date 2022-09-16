@@ -968,6 +968,10 @@ void print_token(struct token* p_token)
     {
         strcat(buffer, "final ");
     }
+    if (p_token->flags & TK_FLAG_HIDE)
+    {
+        strcat(buffer, "hide ");
+    }
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
         strcat(buffer, "expanded ");
@@ -8022,11 +8026,12 @@ struct type
     struct type* next; //se quiser usar lista  ligada
 };
 void print_type(struct osstream* ss, struct type* type);
-
+void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_copy(struct type* p_type);
 
 struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type);
 
+void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type, const char* name);
 
 struct type get_function_return_type(struct type* p_type);
 struct type type_common(struct type* p_type1, struct type* p_type2, struct error* error);
@@ -8056,6 +8061,7 @@ struct type get_address_of_type(struct type* p_type);
 void type_print(struct type* a);
 bool type_is_scalar(struct type* p_type);
 enum type_category find_type_category(const struct type* p_type);
+void print_type_qualifier_specifiers(struct osstream* ss, struct type* type);
 
 
 struct parser_ctx;
@@ -12485,9 +12491,9 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
 
 
-void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* type);
+void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* type, const char* name);
 
-void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type)
+void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type, const char* name)
 {
     if (p_declarator_type == NULL)
     {
@@ -12506,21 +12512,24 @@ void print_declarator_type(struct osstream* ss, struct declarator_type* p_declar
 
     if (p_declarator_type->direct_declarator_type)
     {
-        print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type);
+        print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type, name);
     }
 
 
 }
 
-void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type)
+void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type, const char* name)
 {
 
     if (p_direct_declarator_type->declarator_opt)
     {
         ss_fprintf(ss, "(");
-        print_declarator_type(ss, p_direct_declarator_type->declarator_opt);
+        print_declarator_type(ss, p_direct_declarator_type->declarator_opt, name);
         ss_fprintf(ss, ")");
     }
+
+    if (name)
+      ss_fprintf(ss, "%s", name);
 
     struct array_function_type* p_array_function_type =
         p_direct_declarator_type->array_function_type_list.head;
@@ -12595,7 +12604,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
 void print_type(struct osstream* ss, struct type* type)
 {
     print_type_qualifier_specifiers(ss, type);
-    print_declarator_type(ss, type->declarator_type);
+    print_declarator_type(ss, type->declarator_type, /*name*/NULL);
 }
 
 void type_print(struct type* a) {
@@ -13751,7 +13760,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     {
         if (pdeclarator->specifier_qualifier_list->typeof_specifier)
         {
-            assert(false);//TESTE
+         
             if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression)
             {
                 t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression->type);
@@ -17504,6 +17513,8 @@ struct type_name* type_name(struct parser_ctx* ctx, struct error* error)
     p_type_name->last = ctx->current->prev;
 
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
+
+    p_type_name->declarator->type = make_type_using_declarator(ctx, p_type_name->declarator);
     return p_type_name;
 }
 
@@ -19486,7 +19497,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 static void visit_expression(struct visit_ctx* ctx, struct expression* p_expression, struct error* error);
 static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement, struct error* error);
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error);
-static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error);
+static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error);
 
 void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement, struct error* error)
 {
@@ -19964,16 +19975,16 @@ static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p
     //p_type_qualifier->
 }
 
-static void visit_specifier_qualifier(struct visit_ctx* ctx, struct specifier_qualifier* p_specifier_qualifier, struct error* error)
+static void visit_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct specifier_qualifier* p_specifier_qualifier, struct error* error)
 {
     if (p_specifier_qualifier->type_specifier)
-        visit_type_specifier(ctx, p_specifier_qualifier->type_specifier, error);
+        visit_type_specifier(is_declaration, ctx, p_specifier_qualifier->type_specifier, error);
 
     if (p_specifier_qualifier->type_qualifier)
         visit_type_qualifier(ctx, p_specifier_qualifier->type_qualifier, error);
 }
 
-static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt, struct error* error)
+static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt, struct error* error)
 {
     if (p_specifier_qualifier_list_opt == NULL)
         return;
@@ -19999,7 +20010,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
         struct specifier_qualifier* p_specifier_qualifier = p_specifier_qualifier_list_opt->head;
         while (p_specifier_qualifier)
         {
-            visit_specifier_qualifier(ctx, p_specifier_qualifier, error);
+            visit_specifier_qualifier(is_declaration, ctx, p_specifier_qualifier, error);
             p_specifier_qualifier = p_specifier_qualifier->next;
         }
     }
@@ -20007,7 +20018,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
 
 static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name, struct error* error)
 {
-    visit_specifier_qualifier_list(ctx, p_type_name->specifier_qualifier_list, error);
+    visit_specifier_qualifier_list(false, ctx, p_type_name->specifier_qualifier_list, error);
     //visit_declarator
 }
 
@@ -20054,7 +20065,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
         //p_expression->declarator->name    
-    break;
+        break;
     case PRIMARY_EXPRESSION_STRING_LITERAL:
         break;
     case PRIMARY_EXPRESSION_CHAR_LITERAL:
@@ -20130,12 +20141,12 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     break;
 
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-        
+
         if (p_expression->type_name)
         {
             visit_type_name(ctx, p_expression->type_name, error);
         }
-        
+
         //struct token_list list0 = tokenizer("int teste = 0;", NULL, 0, TK_FLAG_NONE, error);
         //token_list_append_list(&ctx->insert_before_block_item, &list0);
 
@@ -20143,7 +20154,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         assert(p_expression->left == NULL);
         assert(p_expression->right == NULL);
-        
+
         break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
@@ -20161,6 +20172,13 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             visit_expression(ctx, p_expression->right, error);
         }
+
+        if (p_expression->type_name)
+        {
+            /*sizeof*/
+            visit_type_name(ctx, p_expression->type_name, error);
+        }
+
         break;
 
     case UNARY_EXPRESSION_HASHOF_TYPE:
@@ -20509,13 +20527,29 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
 }
 
 
-static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list, struct error* error)
+static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list, struct declarator_type* p_declarator_type, struct error* error)
 {
     struct init_declarator* p_init_declarator = p_init_declarator_list->head;
 
 
     while (p_init_declarator)
     {
+        
+        if (p_declarator_type)
+        {
+            
+            struct osstream ss = { 0 };
+            print_declarator_type(&ss, p_declarator_type, p_init_declarator->declarator->name->lexeme);
+            
+            struct token_list l2 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
+            
+            l2.head->flags = p_init_declarator->declarator->name->flags;
+            token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->name, &l2);
+
+            p_init_declarator->declarator->name->flags |= TK_FLAG_HIDE;
+        }
+        
+
         if (p_init_declarator->initializer)
         {
             if (p_init_declarator->initializer->assignment_expression)
@@ -20558,7 +20592,7 @@ static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_de
 }
 static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration, struct error* error)
 {
-    visit_specifier_qualifier_list(ctx, p_member_declaration->specifier_qualifier_list, error);
+    visit_specifier_qualifier_list(true, ctx, p_member_declaration->specifier_qualifier_list, error);
 
     if (p_member_declaration->member_declarator_list_opt)
     {
@@ -20668,142 +20702,118 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 
 }
 
-
-static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error)
+static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error)
 {
-    if (p_type_specifier->flags & TYPE_SPECIFIER_TYPEOF)
+  
+
+    if (ctx->target < LANGUAGE_C2X)
     {
-        if (ctx->target < LANGUAGE_C2X)
+        if (p_type_specifier->typeof_specifier)
         {
-            if (p_type_specifier->typeof_specifier)
+            /*
+            * let's hide the typeof(..) tokens
+            */
+            token_range_add_flag(p_type_specifier->typeof_specifier->token,
+                p_type_specifier->typeof_specifier->endtoken,
+                TK_FLAG_HIDE);
+
+
+            struct osstream ss = { 0 };
+
+            if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
             {
-                /*
-                * TODO é muito mais completo que isto..
-                * anonomous struct etc...
-                */
-                /*
-                * Na transformacao de codigo vou evitar remover toksn
-                * ao inves disso vamos deixar eles inviisveis
-                * assim nao quebramos as declaracoes que apontam para estes tokens
-                * e somente inserimos tokens novos
-                */
-
-
-                token_range_add_flag(p_type_specifier->typeof_specifier->token,
-                    p_type_specifier->typeof_specifier->endtoken,
-                    TK_FLAG_HIDE);
-
-
-                bool is_type_itself = true;
-
-                struct osstream ss = { 0 };
-
-                if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
+                if (!is_declaration)
                 {
-
-                    if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type)
-                    {
-                        is_type_itself =
-                            (find_type_category(&p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type) == TYPE_CATEGORY_ITSELF);
-                    }
-
-
-                    if (!is_type_itself)
-                        ss_fprintf(&ss, "typedef ");
+                    /*
+                    * typeof used like type-name
+                    * for instance sizeof(typeof(a)) -> sizeof(int [2])
+                    */
                     print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
-
-
-                    //anominous struct
-                    if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier &&
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag)
-                    {
-                        /*
-                          por se tratar de uma struct anomina vou ligar o tag gerado que estava escondido
-                          adiconando ele depois da struct e um espaco antes.
-                          so que tenho que fazerisso uma vez so.
-                        */
-
-                        /*para nao fazer 2 vezes*/
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
-
-                        struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first;
-
-                        const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
-                        char buffer[200] = { 0 };
-                        snprintf(buffer, sizeof buffer, " %s", tag);
-                        struct token_list l2 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
-                        token_list_insert_after(&ctx->ast.token_list, first, &l2);
-
-                    }
-
-                }
-                else if (p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name)
-                {
-                    is_type_itself =
-                        (find_type_category(&p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type) == TYPE_CATEGORY_ITSELF);
-
-
-
-                    if (!is_type_itself)
-                        ss_fprintf(&ss, "typedef ");
-
-                    print_type_name(&ss, p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name);
                 }
                 else
                 {
-                    assert(false);
+                    /*
+                    * typeof used in declarations
+                    * We need to split specifiers and later add declarator part.
+                    */
+                    print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
                 }
 
-
-                //TODO se nao tem ponteiro poderia ser adicionado direto ali
-                //typeof(int*) p1, p2;
-                if (!is_type_itself)
+                /*
+                * typeof of anonymous struct?
+                */
+                if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier &&
+                    p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag)
                 {
-                    ss_fprintf(&ss, " _typeof_type_%d;\n", ctx->typeof_index);
-                    struct token_list list0 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
-                    token_list_append_list(&ctx->insert_before_block_item, &list0);
-                    ss_clear(&ss);
-                    //este cara tem que ser em cima do statement 
-                    ss_fprintf(&ss, "_typeof_type_%d ", ctx->typeof_index);
-                    ctx->typeof_index++;
+                    
+                    p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
+
+                    struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first;
+
+                    const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
+                    char buffer[200] = { 0 };
+                    snprintf(buffer, sizeof buffer, " %s", tag);
+                    struct token_list l2 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+                    token_list_insert_after(&ctx->ast.token_list, first, &l2);
+
                 }
-                else
-                {
-                }
 
-
-
-                struct token_list list = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
-                for (struct token* current = list.head;
-                    current &&
-                    current != list.tail->next;
-                    current = current->next)
-                {
-                    current->flags |= TK_FLAG_FINAL;
-                }
-                ss_close(&ss);
-                token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->endtoken, &list);
-
-                //vou trocar tods os token por estes
             }
+            else if (p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name)
+            {                
+                if (!is_declaration)
+                {
+                    /*
+                    * typeof used like type-name
+                    * for instance sizeof(typeof(a)) -> sizeof(int [2])
+                    */
+                    print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+                }
+                else
+                {
+                    /*
+                    * typeof used in declarations
+                    * We need to split specifiers and later add declarator part.
+                    */
+                    print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+                }
+            }
+            else
+            {
+                assert(false);
+            }
+
+            
+       
+            struct token_list list = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);            
+            ss_close(&ss);
+            token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->endtoken, &list);            
         }
     }
 }
 
-static void visit_type_specifier_qualifier(struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier, struct error* error)
+static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error)
+{
+    if (p_type_specifier->flags & TYPE_SPECIFIER_TYPEOF)
+    {
+        visit_typeof_specifier(is_declaration, ctx, p_type_specifier, error);
+    }
+}
+
+static void visit_type_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier, struct error* error)
 {
     if (p_type_specifier_qualifier->type_qualifier)
     {
     }
     else if (p_type_specifier_qualifier->type_specifier)
     {
-        visit_type_specifier(ctx, p_type_specifier_qualifier->type_specifier, error);
+        visit_type_specifier(is_declaration, ctx, p_type_specifier_qualifier->type_specifier, error);
     }
     else if (p_type_specifier_qualifier->alignment_specifier)
     {
     }
 }
-static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier, struct error* error)
+static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier, struct error* error)
 {
 
     if (p_declaration_specifier->function_specifier)
@@ -20816,7 +20826,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
 
     if (p_declaration_specifier->type_specifier_qualifier)
     {
-        visit_type_specifier_qualifier(ctx, p_declaration_specifier->type_specifier_qualifier, error);
+        visit_type_specifier_qualifier(is_declaration, ctx, p_declaration_specifier->type_specifier_qualifier, error);
 
     }
 
@@ -20847,7 +20857,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
         struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
         while (p_declaration_specifier)
         {
-            visit_declaration_specifier(ctx, p_declaration_specifier, error);
+            visit_declaration_specifier(true, ctx, p_declaration_specifier, error);
             p_declaration_specifier = p_declaration_specifier->next;
         }
     }
@@ -20935,7 +20945,21 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
     if (p_declaration->init_declarator_list.head)
     {
-        visit_init_declarator_list(ctx, &p_declaration->init_declarator_list, error);
+        struct declarator_type* p_declarator_type = NULL;
+        if (p_declaration->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
+        {
+            /*we need to use transmit the declarator part of the type*/
+            if (p_declaration->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression)
+            {
+                p_declarator_type = p_declaration->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type;
+            }
+            else if (p_declaration->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name)
+            {
+                p_declarator_type = p_declaration->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator->type.declarator_type;
+            }
+
+        }
+        visit_init_declarator_list(ctx, &p_declaration->init_declarator_list, p_declarator_type ,error);
     }
 
     if (p_declaration->function_body)

@@ -72,9 +72,9 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
 
 
-void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* type);
+void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* type, const char* name);
 
-void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type)
+void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type, const char* name)
 {
     if (p_declarator_type == NULL)
     {
@@ -93,21 +93,24 @@ void print_declarator_type(struct osstream* ss, struct declarator_type* p_declar
 
     if (p_declarator_type->direct_declarator_type)
     {
-        print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type);
+        print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type, name);
     }
 
 
 }
 
-void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type)
+void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type, const char* name)
 {
 
     if (p_direct_declarator_type->declarator_opt)
     {
         ss_fprintf(ss, "(");
-        print_declarator_type(ss, p_direct_declarator_type->declarator_opt);
+        print_declarator_type(ss, p_direct_declarator_type->declarator_opt, name);
         ss_fprintf(ss, ")");
     }
+
+    if (name)
+      ss_fprintf(ss, "%s", name);
 
     struct array_function_type* p_array_function_type =
         p_direct_declarator_type->array_function_type_list.head;
@@ -182,7 +185,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
 void print_type(struct osstream* ss, struct type* type)
 {
     print_type_qualifier_specifiers(ss, type);
-    print_declarator_type(ss, type->declarator_type);
+    print_declarator_type(ss, type->declarator_type, /*name*/NULL);
 }
 
 void type_print(struct type* a) {
@@ -1335,7 +1338,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     {
         if (pdeclarator->specifier_qualifier_list->typeof_specifier)
         {
-            assert(false);//TESTE
+         
             if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression)
             {
                 t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression->type);

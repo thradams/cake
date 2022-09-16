@@ -190,6 +190,10 @@ int main()
     struct { int i; } x;
     typeof(x) x2;
     typeof(x) x3;
+
+   int *array[2];
+   typeof(array) a1, a2;
+   int k = sizeof(typeof(array));
 }
 
 `;

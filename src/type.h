@@ -134,11 +134,12 @@ struct type
     struct type* next; //se quiser usar lista  ligada
 };
 void print_type(struct osstream* ss, struct type* type);
-
+void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_copy(struct type* p_type);
 
 struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type);
 
+void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type, const char* name);
 
 struct type get_function_return_type(struct type* p_type);
 struct type type_common(struct type* p_type1, struct type* p_type2, struct error* error);
@@ -168,3 +169,4 @@ struct type get_address_of_type(struct type* p_type);
 void type_print(struct type* a);
 bool type_is_scalar(struct type* p_type);
 enum type_category find_type_category(const struct type* p_type);
+void print_type_qualifier_specifiers(struct osstream* ss, struct type* type);

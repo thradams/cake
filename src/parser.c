@@ -3335,6 +3335,8 @@ struct type_name* type_name(struct parser_ctx* ctx, struct error* error)
     p_type_name->last = ctx->current->prev;
 
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
+
+    p_type_name->declarator->type = make_type_using_declarator(ctx, p_type_name->declarator);
     return p_type_name;
 }
 

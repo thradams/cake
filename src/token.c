@@ -407,6 +407,10 @@ void print_token(struct token* p_token)
     {
         strcat(buffer, "final ");
     }
+    if (p_token->flags & TK_FLAG_HIDE)
+    {
+        strcat(buffer, "hide ");
+    }
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
         strcat(buffer, "expanded ");
