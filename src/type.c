@@ -9,6 +9,182 @@
 #include <stdio.h>
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
+
+
+void print_item(struct osstream* ss, bool* first, const char* item)
+{
+    if (!(*first))
+        ss_fprintf(ss, " ");
+    ss_fprintf(ss, "%s", item);
+    *first = false;
+
+}
+
+bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags)
+{
+    if (e_type_specifier_flags & TYPE_SPECIFIER_VOID)
+        print_item(ss, first, "void");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_SIGNED)
+        print_item(ss, first, "signed");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
+        print_item(ss, first, "unsigned");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT)
+        print_item(ss, first, "int");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_SHORT)
+        print_item(ss, first, "short");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG)
+        print_item(ss, first, "long");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+        print_item(ss, first, "long long");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        print_item(ss, first, "char");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+        print_item(ss, first, "double");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+        print_item(ss, first, "float");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        print_item(ss, first, "_Bool");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_COMPLEX)
+        print_item(ss, first, "_Complex");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL32)
+        print_item(ss, first, "_Decimal32");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL64)
+        print_item(ss, first, "_Decimal64");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
+        print_item(ss, first, "_Decimal128");
+
+    return first;
+}
+
+
+
+void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* type);
+
+void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type)
+{
+    if (p_declarator_type == NULL)
+    {
+        return;
+    }
+
+    bool first = false;
+    struct pointer_type* pointer = p_declarator_type->pointers.head;
+    while (pointer)
+    {
+        ss_fprintf(ss, "*");
+        print_type_qualifier_flags(ss, &first, pointer->type_qualifier_flags);
+
+        pointer = pointer->next;
+    }
+
+    if (p_declarator_type->direct_declarator_type)
+    {
+        print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type);
+    }
+
+
+}
+
+void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type)
+{
+
+    if (p_direct_declarator_type->declarator_opt)
+    {
+        ss_fprintf(ss, "(");
+        print_declarator_type(ss, p_direct_declarator_type->declarator_opt);
+        ss_fprintf(ss, ")");
+    }
+
+    struct array_function_type* p_array_function_type =
+        p_direct_declarator_type->array_function_type_list.head;
+    for (; p_array_function_type; p_array_function_type = p_array_function_type->next)
+    {
+        if (p_array_function_type->bIsArray)
+        {
+            ss_fprintf(ss, "[%d]", p_array_function_type->array_size);
+        }
+        else if (p_array_function_type->bIsFunction)
+        {
+            ss_fprintf(ss, "(");
+            struct type* param = p_array_function_type->params.head;
+            while (param)
+            {
+                if (param != p_array_function_type->params.head)
+                    ss_fprintf(ss, ",");
+                print_type(ss, param);
+                param = param->next;
+            }
+            if (p_array_function_type->bVarArg)
+                ss_fprintf(ss, ",...");
+
+            ss_fprintf(ss, ")");
+        }
+    }
+
+}
+
+
+void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags)
+{
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CONST)
+        print_item(ss, first, "const");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_RESTRICT)
+        print_item(ss, first, "restrict");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+        print_item(ss, first, "volatile");
+
+}
+
+void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
+{
+    bool first = true;
+    print_type_qualifier_flags(ss, &first, type->type_qualifier_flags);
+
+    if (type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+    {
+        print_item(ss, &first, "struct ");
+        ss_fprintf(ss, "%s", type->struct_or_union_specifier->tag_name);
+    }
+    else if (type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+    {
+        print_item(ss, &first, "enum ");
+        if (type->enum_specifier->tag_token)
+            ss_fprintf(ss, "%s", type->enum_specifier->tag_token->lexeme);
+
+    }
+    else if (type->type_specifier_flags & TYPE_SPECIFIER_TYPEDEF)
+    {
+        assert(false);
+    }
+    else
+    {
+        print_type_specifier_flags(ss, &first, type->type_specifier_flags);
+    }
+}
+
+void print_type(struct osstream* ss, struct type* type)
+{
+    print_type_qualifier_specifiers(ss, type);
+    print_declarator_type(ss, type->declarator_type);
+}
+
 void type_print(struct type* a) {
     struct osstream ss = { 0 };
     print_type(&ss, a);

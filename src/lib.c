@@ -461,10 +461,11 @@ int windows_error_to_posix(int i);
 
 enum language_version
 {
+    LANGUAGE_C89 = -1,
     LANGUAGE_C99 = 0, /*default*/
-    LANGUAGE_C11,
-    LANGUAGE_C2X, //C23
-    LANGUAGE_CXX, //experimental
+    LANGUAGE_C11 = 1,
+    LANGUAGE_C2X = 2, //C23
+    LANGUAGE_CXX = 3, //experimental
 };
 
 struct options
@@ -8069,7 +8070,7 @@ enum expression_type
     PRIMARY_EXPRESSION_STRING_LITERAL,
     PRIMARY_EXPRESSION_CHAR_LITERAL,
     PRIMARY_EXPRESSION_PREDEFINED_CONSTANT, /*true false*/
-    PRIMARY_EXPRESSION_GENERIC,    
+    PRIMARY_EXPRESSION_GENERIC,
     PRIMARY_EXPRESSION_NUMBER,
 
     POSTFIX_EXPRESSION_FUNCTION_LITERAL,
@@ -8090,6 +8091,14 @@ enum expression_type
 
     UNARY_EXPRESSION_INCREMENT,
     UNARY_EXPRESSION_DECREMENT,
+
+    UNARY_EXPRESSION_NOT,
+    UNARY_EXPRESSION_BITNOT,
+    UNARY_EXPRESSION_NEG,
+    UNARY_EXPRESSION_PLUS,
+    UNARY_EXPRESSION_CONTENT,
+    UNARY_EXPRESSION_ADDRESSOF,
+
     CAST_EXPRESSION,
 
     MULTIPLICATIVE_EXPRESSION_MULT,
@@ -8144,7 +8153,7 @@ struct generic_association
     struct type type;
     struct type_name* p_type_name;
     struct expression* expression;
-    
+
     struct token* first_token;
     struct token* last_token;
 
@@ -8160,13 +8169,13 @@ struct generic_assoc_list
 struct generic_selection
 {
     /*
-      generic-selection: 
+      generic-selection:
       "_Generic" ( assignment-expression , generic-assoc-list )
     */
 
-    
+
     struct expression* expression;
-    
+
     /*
     * Points to the matching expression
     */
@@ -8190,7 +8199,7 @@ struct expression
     struct type_name* type_name; //cast or compound literal    
     struct braced_initializer* braced_initializer;
     struct compound_statement* compound_statement; //function literal (lambda)
-    struct generic_selection * generic_selection; //_Generic
+    struct generic_selection* generic_selection; //_Generic
 
     struct token* first;
     struct token* last;
@@ -10272,6 +10281,11 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
         {
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->first = ctx->current;
+
+          
+
+            
+
             struct token* op_position = ctx->current; //marcar posicao
             enum token_type op = ctx->current->type;
             parser_match(ctx);
@@ -10280,26 +10294,31 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             new_expression->last = new_expression->right->last;
             if (op == '!')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_NOT;
                 new_expression->constant_value = !new_expression->right->constant_value;
                 new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '~')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_BITNOT;
                 new_expression->constant_value = ~new_expression->right->constant_value;
                 new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '-')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_NEG;
                 new_expression->constant_value = -new_expression->right->constant_value;
                 new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '+')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_PLUS;
                 new_expression->constant_value = +new_expression->right->constant_value;
                 new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '*')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_CONTENT;
                 if (!type_is_pointer(&new_expression->right->type))
                 {
                     parser_seterror_with_token(ctx, op_position, "indirection requires pointer operand");
@@ -10308,6 +10327,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             }
             else if (op == '&')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
                 //TODO nao tem como tirar endereco de uma constante
                 new_expression->type = get_address_of_type(&new_expression->right->type);
             }
@@ -12402,6 +12422,182 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, struct error* error, l
 
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
+
+
+void print_item(struct osstream* ss, bool* first, const char* item)
+{
+    if (!(*first))
+        ss_fprintf(ss, " ");
+    ss_fprintf(ss, "%s", item);
+    *first = false;
+
+}
+
+bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags)
+{
+    if (e_type_specifier_flags & TYPE_SPECIFIER_VOID)
+        print_item(ss, first, "void");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_SIGNED)
+        print_item(ss, first, "signed");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
+        print_item(ss, first, "unsigned");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT)
+        print_item(ss, first, "int");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_SHORT)
+        print_item(ss, first, "short");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG)
+        print_item(ss, first, "long");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+        print_item(ss, first, "long long");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        print_item(ss, first, "char");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+        print_item(ss, first, "double");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+        print_item(ss, first, "float");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        print_item(ss, first, "_Bool");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_COMPLEX)
+        print_item(ss, first, "_Complex");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL32)
+        print_item(ss, first, "_Decimal32");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL64)
+        print_item(ss, first, "_Decimal64");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
+        print_item(ss, first, "_Decimal128");
+
+    return first;
+}
+
+
+
+void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* type);
+
+void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type)
+{
+    if (p_declarator_type == NULL)
+    {
+        return;
+    }
+
+    bool first = false;
+    struct pointer_type* pointer = p_declarator_type->pointers.head;
+    while (pointer)
+    {
+        ss_fprintf(ss, "*");
+        print_type_qualifier_flags(ss, &first, pointer->type_qualifier_flags);
+
+        pointer = pointer->next;
+    }
+
+    if (p_declarator_type->direct_declarator_type)
+    {
+        print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type);
+    }
+
+
+}
+
+void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type)
+{
+
+    if (p_direct_declarator_type->declarator_opt)
+    {
+        ss_fprintf(ss, "(");
+        print_declarator_type(ss, p_direct_declarator_type->declarator_opt);
+        ss_fprintf(ss, ")");
+    }
+
+    struct array_function_type* p_array_function_type =
+        p_direct_declarator_type->array_function_type_list.head;
+    for (; p_array_function_type; p_array_function_type = p_array_function_type->next)
+    {
+        if (p_array_function_type->bIsArray)
+        {
+            ss_fprintf(ss, "[%d]", p_array_function_type->array_size);
+        }
+        else if (p_array_function_type->bIsFunction)
+        {
+            ss_fprintf(ss, "(");
+            struct type* param = p_array_function_type->params.head;
+            while (param)
+            {
+                if (param != p_array_function_type->params.head)
+                    ss_fprintf(ss, ",");
+                print_type(ss, param);
+                param = param->next;
+            }
+            if (p_array_function_type->bVarArg)
+                ss_fprintf(ss, ",...");
+
+            ss_fprintf(ss, ")");
+        }
+    }
+
+}
+
+
+void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags)
+{
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_CONST)
+        print_item(ss, first, "const");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_RESTRICT)
+        print_item(ss, first, "restrict");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+        print_item(ss, first, "volatile");
+
+}
+
+void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
+{
+    bool first = true;
+    print_type_qualifier_flags(ss, &first, type->type_qualifier_flags);
+
+    if (type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+    {
+        print_item(ss, &first, "struct ");
+        ss_fprintf(ss, "%s", type->struct_or_union_specifier->tag_name);
+    }
+    else if (type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+    {
+        print_item(ss, &first, "enum ");
+        if (type->enum_specifier->tag_token)
+            ss_fprintf(ss, "%s", type->enum_specifier->tag_token->lexeme);
+
+    }
+    else if (type->type_specifier_flags & TYPE_SPECIFIER_TYPEDEF)
+    {
+        assert(false);
+    }
+    else
+    {
+        print_type_specifier_flags(ss, &first, type->type_specifier_flags);
+    }
+}
+
+void print_type(struct osstream* ss, struct type* type)
+{
+    print_type_qualifier_specifiers(ss, type);
+    print_declarator_type(ss, type->declarator_type);
+}
+
 void type_print(struct type* a) {
     struct osstream ss = { 0 };
     print_type(&ss, a);
@@ -14075,9 +14271,6 @@ void scope_list_pop(struct scope_list* list)
     return;
 
 }
-
-
-void print_item(struct osstream* ss, bool* first, const char* item);
 
 
 
@@ -16344,86 +16537,6 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
     return NULL;
 }
 
-void print_item(struct osstream* ss, bool* first, const char* item)
-{
-    if (!(*first))
-        ss_fprintf(ss, " ");
-    ss_fprintf(ss, "%s", item);
-    *first = false;
-
-}
-
-//todo trocar tudo p escrever em strings
-bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags)
-{
-
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_VOID)
-        print_item(ss, first, "void");
-
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
-        print_item(ss, first, "unsigned");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_INT)
-        print_item(ss, first, "int");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_SHORT)
-        print_item(ss, first, "short");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG)
-        print_item(ss, first, "long");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-        print_item(ss, first, "long long");
-
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
-        print_item(ss, first, "char");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
-        print_item(ss, first, "double");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_FLOAT)
-        print_item(ss, first, "float");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_SIGNED)
-        print_item(ss, first, "signed");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
-        print_item(ss, first, "_Bool");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_COMPLEX)
-        print_item(ss, first, "_Complex");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL32)
-        print_item(ss, first, "_Decimal32");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL64)
-        print_item(ss, first, "_Decimal64");
-
-    if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
-        print_item(ss, first, "_Decimal128");
-    //if (e_type_specifier_flags & type_specifier_Actomi)
-      //  print_item(&first, "_Decimal128");
-//        TYPE_SPECIFIER_ATOMIC = 1 << 14,
-
-    return first;
-}
-
-void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags)
-{
-
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_CONST)
-        print_item(ss, first, "const");
-
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_RESTRICT)
-        print_item(ss, first, "restrict");
-
-    if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
-        print_item(ss, first, "volatile");
-
-}
 
 void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
@@ -18415,99 +18528,7 @@ struct declaration_list parse(struct options* options, struct token_list* list, 
     return l;
 }
 
-void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* type);
 
-void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type)
-{
-    if (p_declarator_type == NULL)
-    {
-        return;
-    }
-
-    bool first = false;
-    struct pointer_type* pointer = p_declarator_type->pointers.head;
-    while (pointer)
-    {
-        ss_fprintf(ss, "*");
-        print_type_qualifier_flags(ss, &first, pointer->type_qualifier_flags);
-
-        pointer = pointer->next;
-    }
-
-    if (p_declarator_type->direct_declarator_type)
-    {
-        print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type);
-    }
-
-
-}
-
-void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type)
-{
-
-    if (p_direct_declarator_type->declarator_opt)
-    {
-        ss_fprintf(ss, "(");
-        print_declarator_type(ss, p_direct_declarator_type->declarator_opt);
-        ss_fprintf(ss, ")");
-    }
-
-    struct array_function_type* p_array_function_type =
-        p_direct_declarator_type->array_function_type_list.head;
-    for (; p_array_function_type; p_array_function_type = p_array_function_type->next)
-    {
-        if (p_array_function_type->bIsArray)
-        {
-            ss_fprintf(ss, "[%d]", p_array_function_type->array_size);
-        }
-        else if (p_array_function_type->bIsFunction)
-        {
-            ss_fprintf(ss, "(");
-            struct type* param = p_array_function_type->params.head;
-            while (param)
-            {
-                if (param != p_array_function_type->params.head)
-                    ss_fprintf(ss, ",");
-                print_type(ss, param);
-                param = param->next;
-            }
-            if (p_array_function_type->bVarArg)
-                ss_fprintf(ss, ",...");
-
-            ss_fprintf(ss, ")");
-        }
-    }
-
-}
-
-void print_type(struct osstream* ss, struct type* type)
-{
-    bool first = true;
-    print_type_qualifier_flags(ss, &first, type->type_qualifier_flags);
-
-    if (type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
-    {
-        print_item(ss, &first, "struct ");
-        ss_fprintf(ss, "%s", type->struct_or_union_specifier->tag_name);
-    }
-    else if (type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
-    {
-        print_item(ss, &first, "enum ");
-        if (type->enum_specifier->tag_token)
-            ss_fprintf(ss, "%s", type->enum_specifier->tag_token->lexeme);
-
-    }
-    else if (type->type_specifier_flags & TYPE_SPECIFIER_TYPEDEF)
-    {
-        assert(false);
-    }
-    else
-    {
-        print_type_specifier_flags(ss, &first, type->type_specifier_flags);
-    }
-    print_declarator_type(ss, type->declarator_type);
-
-}
 
 int fill_options(struct options* options, int argc, char** argv, struct preprocessor_ctx* prectx, struct error* error)
 {
@@ -18547,7 +18568,14 @@ int fill_options(struct options* options, int argc, char** argv, struct preproce
             options->format_ouput = true;
             continue;
         }
+
         //
+        if (strcmp(argv[i], "-target=c89") == 0)
+        {
+            options->target = LANGUAGE_C89;
+            continue;
+        }
+
         if (strcmp(argv[i], "-target=c99") == 0)
         {
             options->target = LANGUAGE_C99;
@@ -20025,9 +20053,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case PRIMARY_EXPRESSION_ENUMERATOR:
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
-        //p_expression->declarator->name
-    {
-    }
+        //p_expression->declarator->name    
     break;
     case PRIMARY_EXPRESSION_STRING_LITERAL:
         break;
@@ -20104,39 +20130,51 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     break;
 
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-        visit_bracket_initializer_list(ctx, p_expression->braced_initializer, error);
-
-
-        if (p_expression->left)
-        {
-            visit_expression(ctx, p_expression->left, error);
-        }
-        if (p_expression->right)
-        {
-            visit_expression(ctx, p_expression->right, error);
-        }
+        
         if (p_expression->type_name)
         {
             visit_type_name(ctx, p_expression->type_name, error);
         }
+        
+        //struct token_list list0 = tokenizer("int teste = 0;", NULL, 0, TK_FLAG_NONE, error);
+        //token_list_append_list(&ctx->insert_before_block_item, &list0);
+
+        visit_bracket_initializer_list(ctx, p_expression->braced_initializer, error);
+
+        assert(p_expression->left == NULL);
+        assert(p_expression->right == NULL);
+        
         break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
+
+    case UNARY_EXPRESSION_NOT:
+    case UNARY_EXPRESSION_BITNOT:
+    case UNARY_EXPRESSION_NEG:
+    case UNARY_EXPRESSION_PLUS:
+    case UNARY_EXPRESSION_CONTENT:
+    case UNARY_EXPRESSION_ADDRESSOF:
+        if (p_expression->right)
+        {
+            visit_expression(ctx, p_expression->right, error);
+        }
         break;
 
     case UNARY_EXPRESSION_HASHOF_TYPE:
 
-        token_range_add_flag(p_expression->first, p_expression->last, TK_FLAG_HIDE);
+        if (!ctx->is_second_pass)
+        {
+            token_range_add_flag(p_expression->first, p_expression->last, TK_FLAG_HIDE);
 
-        char buffer[30] = { 0 };
-        snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
+            char buffer[30] = { 0 };
+            snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
 
-        struct token_list l3 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
-        token_list_insert_after(&ctx->ast.token_list, p_expression->last, &l3);
-
+            struct token_list l3 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+            token_list_insert_after(&ctx->ast.token_list, p_expression->last, &l3);
+        }
         break;
 
     case UNARY_EXPRESSION_ALIGNOF:
@@ -20520,8 +20558,6 @@ static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_de
 }
 static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration, struct error* error)
 {
-    //p_member_declaration->specifier_qualifier_list        
-
     visit_specifier_qualifier_list(ctx, p_member_declaration->specifier_qualifier_list, error);
 
     if (p_member_declaration->member_declarator_list_opt)
@@ -20844,7 +20880,6 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     if (p_declaration->declaration_specifiers)
     {
         visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, error);
-
     }
 
     if (ctx->is_second_pass)
@@ -20993,12 +21028,19 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
             if (current->type == TK_KEYWORD_TRUE)
             {
                 free(current->lexeme);
-                current->lexeme = strdup("((_Bool)1)");
+                if (ctx->target < LANGUAGE_C99)
+                    current->lexeme = strdup("1");
+                else
+                    current->lexeme = strdup("((_Bool)1)");
             }
             else if (current->type == TK_KEYWORD_FALSE)
             {
                 free(current->lexeme);
-                current->lexeme = strdup("((_Bool)0)");
+                if (ctx->target < LANGUAGE_C99)
+                    current->lexeme = strdup("0");
+                else
+                    current->lexeme = strdup("((_Bool)0)");
+
             }
             else if (current->type == TK_KEYWORD_NULLPTR)
             {
@@ -21007,12 +21049,42 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
             }
             else if (current->type == TK_KEYWORD__BOOL)
             {
-                if (strcmp(current->lexeme, "bool") == 0)
+
+                if (ctx->target < LANGUAGE_C99)
                 {
                     free(current->lexeme);
-                    current->lexeme = strdup("_Bool");
+                    current->lexeme = strdup("int");
                 }
-
+                else
+                {
+                    if (ctx->target < LANGUAGE_C2X)
+                    {
+                        if (strcmp(current->lexeme, "bool") == 0)
+                        {
+                            free(current->lexeme);
+                            current->lexeme = strdup("_Bool");
+                        }
+                    }
+                }
+            }
+            else if (current->type == TK_KEYWORD_RESTRICT)
+            {
+                if (ctx->target < LANGUAGE_C99)
+                {
+                    free(current->lexeme);
+                    current->lexeme = strdup("/*restrict*/");
+                }
+            }
+            else if (current->type == TK_LINE_COMMENT)
+            {
+                if (ctx->target < LANGUAGE_C99)
+                {
+                    struct osstream ss = { 0 };
+                    //TODO  check /* inside
+                    ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
+                    free(current->lexeme);
+                    current->lexeme = ss.c_str;/*MOVED*/
+                }
             }
             else if (current->type == TK_PREPROCESSOR_LINE)
             {

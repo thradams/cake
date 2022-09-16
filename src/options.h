@@ -7,10 +7,11 @@
 
 enum language_version
 {
+    LANGUAGE_C89 = -1,
     LANGUAGE_C99 = 0, /*default*/
-    LANGUAGE_C11,
-    LANGUAGE_C2X, //C23
-    LANGUAGE_CXX, //experimental
+    LANGUAGE_C11 = 1,
+    LANGUAGE_C2X = 2, //C23
+    LANGUAGE_CXX = 3, //experimental
 };
 
 struct options

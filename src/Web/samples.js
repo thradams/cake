@@ -1,5 +1,15 @@
 ﻿var sample = {};
 
+sample["C99 _Bool"] =
+`
+//line comments
+int main(void)
+{
+    _Bool b = 1;
+    return 0;
+}
+`;
+
 sample["C11 _Generic"] =
     `
 #include <math.h>

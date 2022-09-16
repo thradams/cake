@@ -1135,6 +1135,11 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
         {
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->first = ctx->current;
+
+          
+
+            
+
             struct token* op_position = ctx->current; //marcar posicao
             enum token_type op = ctx->current->type;
             parser_match(ctx);
@@ -1143,26 +1148,31 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             new_expression->last = new_expression->right->last;
             if (op == '!')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_NOT;
                 new_expression->constant_value = !new_expression->right->constant_value;
                 new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '~')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_BITNOT;
                 new_expression->constant_value = ~new_expression->right->constant_value;
                 new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '-')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_NEG;
                 new_expression->constant_value = -new_expression->right->constant_value;
                 new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '+')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_PLUS;
                 new_expression->constant_value = +new_expression->right->constant_value;
                 new_expression->type = type_copy(&new_expression->right->type);
             }
             else if (op == '*')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_CONTENT;
                 if (!type_is_pointer(&new_expression->right->type))
                 {
                     parser_seterror_with_token(ctx, op_position, "indirection requires pointer operand");
@@ -1171,6 +1181,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             }
             else if (op == '&')
             {
+                new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
                 //TODO nao tem como tirar endereco de uma constante
                 new_expression->type = get_address_of_type(&new_expression->right->type);
             }

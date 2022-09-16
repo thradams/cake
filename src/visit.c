@@ -637,9 +637,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case PRIMARY_EXPRESSION_ENUMERATOR:
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
-        //p_expression->declarator->name
-    {
-    }
+        //p_expression->declarator->name    
     break;
     case PRIMARY_EXPRESSION_STRING_LITERAL:
         break;
@@ -716,39 +714,51 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     break;
 
     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-        visit_bracket_initializer_list(ctx, p_expression->braced_initializer, error);
-
-
-        if (p_expression->left)
-        {
-            visit_expression(ctx, p_expression->left, error);
-        }
-        if (p_expression->right)
-        {
-            visit_expression(ctx, p_expression->right, error);
-        }
+        
         if (p_expression->type_name)
         {
             visit_type_name(ctx, p_expression->type_name, error);
         }
+        
+        //struct token_list list0 = tokenizer("int teste = 0;", NULL, 0, TK_FLAG_NONE, error);
+        //token_list_append_list(&ctx->insert_before_block_item, &list0);
+
+        visit_bracket_initializer_list(ctx, p_expression->braced_initializer, error);
+
+        assert(p_expression->left == NULL);
+        assert(p_expression->right == NULL);
+        
         break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
+
+    case UNARY_EXPRESSION_NOT:
+    case UNARY_EXPRESSION_BITNOT:
+    case UNARY_EXPRESSION_NEG:
+    case UNARY_EXPRESSION_PLUS:
+    case UNARY_EXPRESSION_CONTENT:
+    case UNARY_EXPRESSION_ADDRESSOF:
+        if (p_expression->right)
+        {
+            visit_expression(ctx, p_expression->right, error);
+        }
         break;
 
     case UNARY_EXPRESSION_HASHOF_TYPE:
 
-        token_range_add_flag(p_expression->first, p_expression->last, TK_FLAG_HIDE);
+        if (!ctx->is_second_pass)
+        {
+            token_range_add_flag(p_expression->first, p_expression->last, TK_FLAG_HIDE);
 
-        char buffer[30] = { 0 };
-        snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
+            char buffer[30] = { 0 };
+            snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
 
-        struct token_list l3 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
-        token_list_insert_after(&ctx->ast.token_list, p_expression->last, &l3);
-
+            struct token_list l3 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+            token_list_insert_after(&ctx->ast.token_list, p_expression->last, &l3);
+        }
         break;
 
     case UNARY_EXPRESSION_ALIGNOF:
@@ -1132,8 +1142,6 @@ static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_de
 }
 static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration, struct error* error)
 {
-    //p_member_declaration->specifier_qualifier_list        
-
     visit_specifier_qualifier_list(ctx, p_member_declaration->specifier_qualifier_list, error);
 
     if (p_member_declaration->member_declarator_list_opt)
@@ -1456,7 +1464,6 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     if (p_declaration->declaration_specifiers)
     {
         visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, error);
-
     }
 
     if (ctx->is_second_pass)
@@ -1605,12 +1612,19 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
             if (current->type == TK_KEYWORD_TRUE)
             {
                 free(current->lexeme);
-                current->lexeme = strdup("((_Bool)1)");
+                if (ctx->target < LANGUAGE_C99)
+                    current->lexeme = strdup("1");
+                else
+                    current->lexeme = strdup("((_Bool)1)");
             }
             else if (current->type == TK_KEYWORD_FALSE)
             {
                 free(current->lexeme);
-                current->lexeme = strdup("((_Bool)0)");
+                if (ctx->target < LANGUAGE_C99)
+                    current->lexeme = strdup("0");
+                else
+                    current->lexeme = strdup("((_Bool)0)");
+
             }
             else if (current->type == TK_KEYWORD_NULLPTR)
             {
@@ -1619,12 +1633,42 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
             }
             else if (current->type == TK_KEYWORD__BOOL)
             {
-                if (strcmp(current->lexeme, "bool") == 0)
+
+                if (ctx->target < LANGUAGE_C99)
                 {
                     free(current->lexeme);
-                    current->lexeme = strdup("_Bool");
+                    current->lexeme = strdup("int");
                 }
-
+                else
+                {
+                    if (ctx->target < LANGUAGE_C2X)
+                    {
+                        if (strcmp(current->lexeme, "bool") == 0)
+                        {
+                            free(current->lexeme);
+                            current->lexeme = strdup("_Bool");
+                        }
+                    }
+                }
+            }
+            else if (current->type == TK_KEYWORD_RESTRICT)
+            {
+                if (ctx->target < LANGUAGE_C99)
+                {
+                    free(current->lexeme);
+                    current->lexeme = strdup("/*restrict*/");
+                }
+            }
+            else if (current->type == TK_LINE_COMMENT)
+            {
+                if (ctx->target < LANGUAGE_C99)
+                {
+                    struct osstream ss = { 0 };
+                    //TODO  check /* inside
+                    ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
+                    free(current->lexeme);
+                    current->lexeme = ss.c_str;/*MOVED*/
+                }
             }
             else if (current->type == TK_PREPROCESSOR_LINE)
             {

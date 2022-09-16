@@ -1,36 +1,164 @@
 
-# Command line
+## Command line
 
 
 ```
 cake [options] source1.c source2.c ...
 
 Options
-  -I               Adds a directory to the list of directories searched for include files.
-  -D               Defines a preprocessing symbol for a source file.
-  -E               Copies preprocessor output to standard output.
-  -r               Remove all comments from the ouput file.
-  -rm              Outputs preprocessed code after compilation.
-  -target=standard Output target C standard (c99, c11, c2x, cxx).
-  -std=standard    Assume that the input sources are for standard (c99, c11, c2x, cxx).
-  -n               Check naming conventions (it is hardcoded for it own naming convention)
-  -fi              Format input (format before language convertion)
-  -fo              Format output (format after language convertion, result parsed again)
+  -I                Adds a directory to the list of directories searched for include files.
+                    (On windows, if you run cake at the visual studio command prompt cake 
+                     uses the same include files used by msvc.)
+
+  -D                Defines a preprocessing symbol for a source file.
+
+  -E                Copies preprocessor output to standard output.
+
+  -r                Remove all comments from the ouput file.
+
+  -rm               Outputs preprocessed code after compilation.
+
+  -target=standard  Output target C standard (c89, c99, c11, c2x, cxx).
+                    C99 is the default and C89 (ANSI C) is the minimum target.
+
+  -std=standard     Assume that the input sources are for standard (c89, c99, c11, c2x, cxx).
+                    (not implented yet, input is considered C23)                    
+
+  -n                Check naming conventions (it is hardcoded for its own naming convention)
+
+  -fi               Format input (format before language convertion)
+
+  -fo               Format output (format after language convertion, result parsed again)
 ```
+
 The ouput dir is **./out**
 
-On windows, if you run cake at the visual studio command prompt cake 
-uses the same include files used by msvc. (No need for -I)
+## C99 Transformations
+
+###  restrict pointers
+Yes. restrict is commented.
+
+###  Variable-length array (VLA) 
+TODO
+
+### Flexible array members
+TODO
+
+### static and type qualifiers in parameter array declarators
+TODO
+
+### The long long int type and library functions
+TODO ?
+
+### Universal character names (\u and \U)
+TODO
+
+###  Hexadecimal floating constants
+TODO
+
+### Compound literals
+TODO
+
+```c
+//EXAMPLE 8 Each compound literal creates only a single object in a given scope:
+struct s {
+  int i;
+};
+int f(void) {
+  struct s * p = 0, * q;
+  int j = 0;
+  again:
+    q = p, p = & ((struct s) { j++ });
+  if (j < 2) goto again;
+  return p == q && q -> i == 1;
+}
+```
+Becomes
+
+```c
+//EXAMPLE 8 Each compound literal creates only a single object in a given scope:
+struct s {
+  int i;
+};
+int f(void) {
+  struct s * p = 0, * q;
+  int j = 0;
+  again:
+    struct s compound_literal_1 = { j++ };
+    q = p, p = & compound_literal_1;
+  if (j < 2) goto again;
+  return p == q && q -> i == 1;
+}
+```
+
+### designated initializers
+TODO
+
+### //Comments
+Yes. Converted to ``/*comments*/``
+
+### mixed declarations and code
+TODO
+
+### inline functions
+
+### _Pragma preprocessing operator
+TODO 
+
+### ``__func__`` predefined identifier
+TODO
+
+###  init-statement in for loops 
+TODO
+
+```c
+int main()
+{
+    for (int i = 0; i < 10; i++)
+    {
+    }
+}
+```
+
+becomes
+
+```c
+int main()
+{
+    {
+       int i = 0;
+       for (;i < 10; i++)
+       {
+       }
+    }
+}
+```
+
+###  Variadic macros
+TODO
+
+###  Trailing comma in enumerator-list
 
 
-C99 is the minimum target. Do you need C89?
+###  _Bool
+Yes, convert to int.
 
-# C11 Transformations
 
-## C11 Thread_local/Atomic
+## C11 Transformations
+
+###  C11 static assertions
+When compiling to versions < C11 static_assert is removed
+
+### C11 Anonymous structures and unions
+TODO
+
+### no-return functions
+Parsed just need to comment. TODO
+
+###  C11 Thread_local/Atomic
 Parsed but not transformed.
 
-## C11 Generics
+###  C11 type-generic expressions
 When compiling to versions < C11 we keep the expression that matches the type.
 
 For instance:
@@ -82,28 +210,26 @@ int main(void)
 
 ```
 
-##  C11 u8"literals"
+###   C11 u8"literals"
 u8 literals are converted to escape sequecences. (I don't recomend u8"")
 
-## C11 Static_assert
-When compiling to versions < C11 static_assert is removed
 
-## C11 Noreturn
+###  C11 Noreturn
 Parsed. Todo needs to be replaced by **[[_Noreturn]]** in C23
 
 
-# C23 Transformations
+## C23 Transformations
 
-## C23 Decimal32, Decimal64, and Decimal128
+###  C23 Decimal32, Decimal64, and Decimal128
 Not implemented (maybe parsed?)
 
-## static_assert / single-argument Static_assert
+###  static_assert / single-argument Static_assert
 In C23 **static_assert** can be used as keyword and the message is optional.
 Compiling to C11 we add some dumy message is necessary and we use the previous keyword **_Static_assert**
 
 
 
-## C23 u8 char literal
+###  C23 u8 char literal
 not implemented yet.
 
 ### C23 Digit separators
@@ -122,21 +248,21 @@ Semantics of nullptr is not implemented yet.
 When compiling to version < 23 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)` and false
 with **(_Bool)0)**
 
-## C23 {} empty initializer
+###  C23 {} empty initializer
 
 Cake transform {} into {0}. 
 
-## C23 auto
+###  C23 auto
 not implemented yet
 
-## C23 typeof / typeof_unqual
+###  C23 typeof / typeof_unqual
 When compiling to versions < 23 we replace typeof by the equivalent type. 
 This can be a little complex in some cases.
 
-## C23 constexpr
+###  C23 constexpr
 Not implemented yet (maybe parsed?)
 
-## C23 enuns with type
+###  C23 enuns with type
 Parsed. Translation to C99 not implemented.
 
 ```c
@@ -149,21 +275,21 @@ int main() {
 }
 ```
 
-## C23 Attributes
+###  C23 Attributes
 Attributes are being parsed and removed in some places. More work is necessary.
 
-## C23 has_attribute
+###  C23 has_attribute
 Yes but need work/review.
 
-## C23 has_include
+###  C23 has_include
 Yes. But this does not make sense unless for direct compilation -mr.
 Transpiling to 1 or 0 would represent the machine where the code
 was transpiled but not where generated code will be compiled.
 
-## C23 warning
+###  C23 warning
 When compiling to versions < 23 it is commented
 
-## C23 embed
+###  C23 embed
 When compiling to versions < 23 the line is replaces by the numbers.
 
 One alternative for C99 is to generate an auxiliary file then
@@ -207,13 +333,13 @@ int main()
 ```
 
 
-## C23 VAOPT
+###  C23 VAOPT
 Yes but need work.
 
-## C23 BitInt(N))
+###  C23 BitInt(N))
 Not implemented
 
-## C23 constexpr
+###  C23 constexpr
 Parsed but not implemented
 
 ```c
@@ -226,7 +352,7 @@ static int b = K + 1; // valid, static initialization
 int array[K]; // not a VL
 ```
 
-## C23 auto
+###  C23 auto
 Parsed but not implemented
 
 ```c
@@ -234,12 +360,12 @@ static auto a = 3.5;
 auto p = &a;
 ```
 
-## C23 elifdef elifndef
+###  C23 elifdef elifndef
 Are implemented
 
-# Extensions (Not in C23)
+## Extensions (Not in C23)
 
-## try catch throw
+###  try catch throw
 
 try catch is a external block that we can jump off.
 
@@ -270,7 +396,7 @@ catch
 {
 }
 ```
-## defer
+###  defer
 
 *defer* will call the defer statement before the block exit at inverse orden of declaration.
 
@@ -317,7 +443,7 @@ int main() {
 ```
 I guess everthing is working including **goto** jumps.
 
-## if with initializer
+###  if with initializer
 
 No idea why C++ 17 if with initializer was not proposed for C23!
 But in cake it is implemented.
@@ -351,7 +477,7 @@ int main()
 ```
 An extension if + initializer + defer expression was considered but not implemented yet.
 
-## lambdas
+###  lambdas
 
 Lambdas without capture where implemented using a syntax similar of 
 compound literal for function pointer.
@@ -395,7 +521,7 @@ void create_app(const char* appname)
   _lit_func_0(&capture);  
 }
 ```
-## typeid
+###  typeid
 
 syntax:
 
@@ -415,7 +541,7 @@ static_assert(1 == typeid(int));
 static_assert(typeid(1) == typeid(int));
 ```
 
-## Repeat
+###  Repeat
 
 ```c
   repeat {
@@ -427,7 +553,7 @@ static_assert(typeid(1) == typeid(int));
 Repeat is equivalent of for(;;) 
 
 
-## pragma expand
+###  pragma expand
 
 pragma expand tells the back end to not hide macro expansions.
 
@@ -472,7 +598,7 @@ int main()
 
 ```
 
-## _Hashof
+###  _Hashof
 
 _Hashof is a compile time function that returns a hash of the parsing tokens
 of some struct enum etc.

@@ -91,7 +91,10 @@ See [Manual](manual.html)
 # References
 
  A copy of each C standard draft in included in *docs* folder. The parser is based on C23.
- 
+
+ * https://en.wikipedia.org/wiki/ANSI_C#C89
+ * https://en.cppreference.com/w/c
+
 # Influenced by
 
 * Typescript

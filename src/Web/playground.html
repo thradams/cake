@@ -35,6 +35,7 @@
 
 
     <select id="outtype" style="margin-left:auto;margin-right: 10px">
+        <option value="-1">C89 (ANSI C)</option>
         <option value="1">C99</option>
         <option value="2">C11</option>
         <option value="3">C23</option>
@@ -205,6 +206,8 @@
 
             if (outputLanguage == 0)
                 options += " -E ";
+            else if (outputLanguage == -1)
+                options += " -target=c89 ";
             else if (outputLanguage == 1)
                 options += " -target=c99 ";
             else if (outputLanguage == 2)
