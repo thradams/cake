@@ -404,6 +404,9 @@ struct initializer* initializer(struct parser_ctx* ctx, struct error* error);
 
 struct declarator
 {
+    struct token* first_token;
+    struct token* last_token;
+
     struct type_tag_id type_id;
     struct pointer* pointer;
     struct direct_declarator* direct_declarator;

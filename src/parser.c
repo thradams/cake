@@ -2774,10 +2774,12 @@ struct declarator* declarator(struct parser_ctx* ctx,
       pointer_opt direct-declarator
     */
     struct declarator* p_declarator = calloc(1, sizeof(struct declarator));
+    p_declarator->first_token = ctx->current;
     p_declarator->type_id.type = TAG_TYPE_DECLARATOR;
     p_declarator->pointer = pointer_opt(ctx, error);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pptokenName, error);
-
+    
+    p_declarator->last_token = previous_parser_token(ctx->current);
 
     return p_declarator;
 }
