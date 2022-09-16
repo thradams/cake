@@ -14185,8 +14185,7 @@ struct visit_ctx
     bool is_inside_lambda;
 
     /*these indexes are used to generate unique names at file scope*/
-    int capture_index;
-    int typeof_index;
+    int capture_index;    
     int lambdas_index;
     
     struct token_list insert_before_declaration;
@@ -20527,6 +20526,22 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
 }
 
 
+static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declarator* p_direct_declarator, struct error* error)
+{
+    //struct array_function* current =
+      //  p_direct_declarator->array_function_list.head;
+
+    /*TODO...*/
+}
+
+static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error)
+{
+    if (p_declarator->direct_declarator)
+    {
+        visit_direct_declarator(ctx, p_declarator->direct_declarator, error);
+    }
+}
+
 static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list, struct declarator_type* p_declarator_type, struct error* error)
 {
     struct init_declarator* p_init_declarator = p_init_declarator_list->head;
@@ -20549,6 +20564,10 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             p_init_declarator->declarator->name->flags |= TK_FLAG_HIDE;
         }
         
+        if (p_init_declarator->declarator)
+        {
+            visit_declarator(ctx, p_init_declarator->declarator, error);
+        }
 
         if (p_init_declarator->initializer)
         {
@@ -21173,8 +21192,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
 void visit(struct visit_ctx* ctx, struct error* error)
 {
     ctx->capture_index = 0;
-    ctx->lambdas_index = 0;
-    ctx->typeof_index = 0;
+    ctx->lambdas_index = 0;    
 
     if (visit_tokens(ctx, error) != 0)
         return;
