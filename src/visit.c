@@ -1766,8 +1766,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
 void visit(struct visit_ctx* ctx, struct error* error)
 {
     ctx->capture_index = 0;
-    ctx->lambdas_index = 0;
-    ctx->typeof_index = 0;
+    ctx->lambdas_index = 0;    
 
     if (visit_tokens(ctx, error) != 0)
         return;

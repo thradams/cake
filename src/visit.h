@@ -29,8 +29,7 @@ struct visit_ctx
     bool is_inside_lambda;
 
     /*these indexes are used to generate unique names at file scope*/
-    int capture_index;
-    int typeof_index;
+    int capture_index;    
     int lambdas_index;
     
     struct token_list insert_before_declaration;
