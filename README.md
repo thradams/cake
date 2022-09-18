@@ -100,19 +100,22 @@ See [Manual](manual.html)
 * Typescript
 * Small C compilers
 
+# Participating
+
+You can contribute by trying out cake, reporting bugs, and giving feedback.
+
+
 # Status?
 Even if not necessary for most features, I want Cake to make a full semantic analysis.
 
 It is necessary more work it is not complete yet.
 
-One thing that is missing is check for type compatibility  for instance when
-calling a function void F(int i) with F(1.2);
-
 
 # How cake is tested?
 
 I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
-the includes of MSVC and it generates the *out* dir after build.
+the includes of MSVC and it generates the *out* dir after build. I use WSL for testing
+and compiling the code for linux.
 
 Cake source code is not using any extension so the output is the same of input. 
 This compilation is usefull for tracking errors.

@@ -10,4 +10,4 @@ Then at the root dir execute
 call emcc -DMOCKFILES "lib.c" -o "Web\cake.js" -s WASM=0 -s EXPORTED_FUNCTIONS="['_CompileText']" -s EXTRA_EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap']"
 
 
-This will generate Web\cprime.js
+This will generate Web\cake.js

@@ -47,10 +47,13 @@
 <a href="#toc_10">Influenced by</a>
 </li>
 <li>
-<a href="#toc_11">Status?</a>
+<a href="#toc_11">Participating</a>
 </li>
 <li>
-<a href="#toc_12">How cake is tested?</a>
+<a href="#toc_12">Status?</a>
+</li>
+<li>
+<a href="#toc_13">How cake is tested?</a>
 </li>
 </ul>
 <h1 id="toc_0">Description</h1>
@@ -155,19 +158,21 @@ to C99.</p>
 <li>Small C compilers</li>
 </ul>
 
-<h1 id="toc_11">Status?</h1>
+<h1 id="toc_11">Participating</h1>
+
+<p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
+
+<h1 id="toc_12">Status?</h1>
 
 <p>Even if not necessary for most features, I want Cake to make a full semantic analysis.</p>
 
 <p>It is necessary more work it is not complete yet.</p>
 
-<p>One thing that is missing is check for type compatibility  for instance when
-calling a function void F(int i) with F(1.2);</p>
-
-<h1 id="toc_12">How cake is tested?</h1>
+<h1 id="toc_13">How cake is tested?</h1>
 
 <p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
-the includes of MSVC and it generates the <em>out</em> dir after build.</p>
+the includes of MSVC and it generates the <em>out</em> dir after build. I use WSL for testing
+and compiling the code for linux.</p>
 
 <p>Cake source code is not using any extension so the output is the same of input. 
 This compilation is usefull for tracking errors.</p>

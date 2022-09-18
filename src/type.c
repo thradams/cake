@@ -99,19 +99,30 @@ void print_declarator_type(struct osstream* ss, struct declarator_type* p_declar
 
 }
 
-void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type, const char* name)
+/*in case we need to print in console to debug*/
+void debug_print_declarator_type(struct declarator_type* p_declarator_type, const char* name)
 {
+    struct osstream ss = { 0 };
+    print_declarator_type(&ss, p_declarator_type, name);
+    printf("%s\n", ss.c_str);
+    ss_close(&ss);
+}
 
+void print_direct_declarator_type(struct osstream* ss,
+    struct direct_declarator_type* p_direct_declarator_type, 
+    const char* name_opt)
+{
     if (p_direct_declarator_type->declarator_opt)
     {
         ss_fprintf(ss, "(");
-        print_declarator_type(ss, p_direct_declarator_type->declarator_opt, name);
+        print_declarator_type(ss, p_direct_declarator_type->declarator_opt, name_opt);
         ss_fprintf(ss, ")");
     }
-
-    if (name)
-      ss_fprintf(ss, "%s", name);
-
+    else
+    {
+        if (name_opt)
+            ss_fprintf(ss, "%s", name_opt);
+    }
     struct array_function_type* p_array_function_type =
         p_direct_declarator_type->array_function_type_list.head;
     for (; p_array_function_type; p_array_function_type = p_array_function_type->next)
@@ -1231,37 +1242,11 @@ bool is_empty_declarator_type(struct declarator_type* p_declarator_type)
         p_declarator_type->direct_declarator_type->array_function_type_list.head == NULL;
 }
 
-void type_merge(struct type* t1, struct type* typedef_type_copy)
+void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl0)
 {
-#if 0    
-#include <stdio.h>
-#include <typeinfo>
-#include <cxxabi.h>
-
-    int status;
-#define TYPE(EXPR) \
- printf("%s=", #EXPR); \
- printf("%s\n", abi::__cxa_demangle(typeid(typeof(EXPR)).name(),0,0,&status))
-
-
-    typedef char* T1;
-    typedef const T1 CONST_T1;
-    typedef CONST_T1 T2[5];
-    typedef T2 T3[2];
-
-    int main()
-    {
-        TYPE(T1);
-        TYPE(CONST_T1);
-        TYPE(T2);
-        TYPE(T3);
-    }
-#endif
-
-
     //struct type typedef_type_copy = type_copy(typedef_type);
-    /*acho o nucleo do typedef*/
-    struct declarator_type* p_typedef_decl = typedef_type_copy->declarator_type;
+   /*acho o nucleo do typedef*/
+    struct declarator_type* p_typedef_decl = p_typedef_decl0;
     while (p_typedef_decl)
     {
         if (p_typedef_decl->direct_declarator_type->declarator_opt)
@@ -1293,17 +1278,17 @@ void type_merge(struct type* t1, struct type* typedef_type_copy)
         =>int* [1]
 
         */
+        
         if (p_typedef_decl->direct_declarator_type &&
             p_typedef_decl->direct_declarator_type->array_function_type_list.head)
-        {
+        {            
             p_typedef_decl->direct_declarator_type->declarator_opt =
-                declarator_type_copy(t1->declarator_type);
+                declarator_type_copy(p_declarator_typet1);
         }
         else
         {
-            struct declarator_type* copy = declarator_type_copy(t1->declarator_type);
-            //copy->direct_declarator_type->array_function_type_list
-
+            struct declarator_type* copy = declarator_type_copy(p_declarator_typet1);
+            
             struct pointer_type* p = copy->pointers.head;
             while (p)
             {
@@ -1311,14 +1296,17 @@ void type_merge(struct type* t1, struct type* typedef_type_copy)
                 list_add(&p_typedef_decl->pointers, p);
                 p = next;
             }
+
             struct array_function_type* p_array_function_type =
                 copy->direct_declarator_type->array_function_type_list.head;
+
             while (p_array_function_type)
             {
                 struct array_function_type* next = p_array_function_type->next;
                 list_add(&p_typedef_decl->direct_declarator_type->array_function_type_list, p_array_function_type);
                 p_array_function_type = next;
             }
+
             p_typedef_decl->direct_declarator_type->declarator_opt = copy->direct_declarator_type->declarator_opt;
         }
 
@@ -1328,7 +1316,56 @@ void type_merge(struct type* t1, struct type* typedef_type_copy)
     }
 }
 
-struct type type_expand(struct parser_ctx* ctx, struct type* p_type);
+#if 0    
+/*this sample is useful to try in compiler explorer*/
+#include <stdio.h>
+#include <typeinfo>
+#include <cxxabi.h>
+
+int status;
+#define TYPE(EXPR) \
+ printf("%s=", #EXPR); \
+ printf("%s\n", abi::__cxa_demangle(typeid(typeof(EXPR)).name(),0,0,&status))
+
+
+typedef char* T1;
+typedef const T1 CONST_T1;
+typedef CONST_T1 T2[5];
+typedef T2 T3[2];
+
+int main()
+{
+    TYPE(T1);    
+}
+#endif
+/*
+
+typedef char *T;
+T a[2]; //char * [2]
+
+typedef char *T[1];
+T a[2]; // char* [2][1]
+
+typedef char (*PF)(void);
+PF a[2]; //char (* [2])()
+
+typedef char *T;
+T (*a)(void); //char* (*)()
+
+typedef char const *T;
+T (*a)(void); //char const* (*)()
+
+typedef char (*PF)(void);
+    PF (*a)(void); //char (*(*)())()
+
+typedef char (*PF)(double);
+    PF (*a)(int); //char (*(*)(int))(double)
+
+ typedef char (*PF)(double);
+ const PF (*a)(int); //char (* const (*)(int))(double)
+
+*/
+
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator)
 {
     struct type t = { 0 };
@@ -1342,26 +1379,25 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression)
             {
                 t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression->type);
+                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+                declarator_type_merge(dectype, t.declarator_type);
+                
             }
             else if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name)
             {
-                type_set_qualifiers_using_declarator(&t, pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name->declarator);
-                type_set_specifiers_using_declarator(ctx, &t, pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name->declarator);
-                t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name->declarator);
+                t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+                declarator_type_merge(dectype, t.declarator_type);
+
+                
             }
         }
-        else    if (pdeclarator->specifier_qualifier_list->typedef_declarator)
+        else  if (pdeclarator->specifier_qualifier_list->typedef_declarator)
         {
-            struct type t0 = { 0 };
-            type_set_qualifiers_using_declarator(&t0, pdeclarator);
-            //type_set_specifiers_using_declarator(ctx, &t0, pdeclarator);
-            t0.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
-            struct type typedef_type = type_copy(&pdeclarator->specifier_qualifier_list->typedef_declarator->type);
-            type_merge(&t0, &typedef_type);
-            t = typedef_type; /*MOVED*/
-            //struct osstream ss = { 0 };
-            //print_type(&ss, &t);
-            //ss_close(&ss);
+            t = type_copy(&pdeclarator->specifier_qualifier_list->typedef_declarator->type);
+            struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+            declarator_type_merge(dectype, t.declarator_type);
+
         }
         else
         {
@@ -1376,27 +1412,35 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         {
             if (pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression)
             {
-                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression->type);
+                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression->type);                
+                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+                declarator_type_merge(dectype, t.declarator_type);
             }
             else if (pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name)
             {
-                type_set_qualifiers_using_declarator(&t, pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator);
-                type_set_specifiers_using_declarator(ctx, &t, pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator);
-                t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator);
+                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+                
+                struct declarator_type *dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+                declarator_type_merge(dectype, t.declarator_type);
+                //declarator_type_delete(dectype);
             }
         }
         else if (pdeclarator->declaration_specifiers->typedef_declarator)
         {
-            struct type t0 = { 0 };
-            type_set_qualifiers_using_declarator(&t0, pdeclarator);
-            //type_set_specifiers_using_declarator(ctx, &t0, pdeclarator);
-            t0.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
-            struct type typedef_type = type_copy(&pdeclarator->declaration_specifiers->typedef_declarator->type);
-            type_merge(&t0, &typedef_type);
-            t = typedef_type; /*MOVED*/
-            struct osstream ss = { 0 };
-            print_type(&ss, &t);
-            ss_close(&ss);
+            t = type_copy(&pdeclarator->declaration_specifiers->typedef_declarator->type);
+
+            //t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator);
+            struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+            declarator_type_merge(dectype, t.declarator_type);
+
+            //type_set_qualifiers_using_declarator(&t, pdeclarator->declaration_specifiers->typedef_declarator);
+            //type_set_specifiers_using_declarator(ctx, &t, pdeclarator->declaration_specifiers->typedef_declarator);
+
+            //t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator->declaration_specifiers->typedef_declarator);
+            //struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+            //declarator_type_merge(dectype, t.declarator_type);
+            //declarator_type_delete(dectype);
+            //debug_print_declarator_type(t.declarator_type, 0);
         }
         else
         {

@@ -138,7 +138,7 @@ void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_copy(struct type* p_type);
 
 struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type);
-
+void debug_print_declarator_type(struct declarator_type* p_declarator_type, const char* name);
 void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type, const char* name);
 
 struct type get_function_return_type(struct type* p_type);
@@ -170,3 +170,4 @@ void type_print(struct type* a);
 bool type_is_scalar(struct type* p_type);
 enum type_category find_type_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, struct type* type);
+void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);

@@ -1116,7 +1116,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
     }
 }
 
-static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list, struct declarator_type* p_declarator_type, struct error* error)
+static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list, struct error* error)
 {
     struct init_declarator* p_init_declarator = p_init_declarator_list->head;
 
@@ -1124,18 +1124,22 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
     while (p_init_declarator)
     {
         
-        if (p_declarator_type)
+        if (p_init_declarator->declarator->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
         {
-            
+            /*
+            * This declarator is using typeof, so we need to print its real type
+            */
+
             struct osstream ss = { 0 };
-            print_declarator_type(&ss, p_declarator_type, p_init_declarator->declarator->name->lexeme);
-            
+            print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type, p_init_declarator->declarator->name->lexeme);            
             struct token_list l2 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
             
-            l2.head->flags = p_init_declarator->declarator->name->flags;
-            token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->name, &l2);
-
-            p_init_declarator->declarator->name->flags |= TK_FLAG_HIDE;
+            l2.head->flags = p_init_declarator->declarator->first_token->flags;
+            token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->last_token, &l2);
+            
+            /*let's hide the old declarator*/
+            token_range_add_flag(p_init_declarator->declarator->first_token,
+                p_init_declarator->declarator->last_token, TK_FLAG_HIDE);
         }
         
         if (p_init_declarator->declarator)
@@ -1538,21 +1542,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
     if (p_declaration->init_declarator_list.head)
     {
-        struct declarator_type* p_declarator_type = NULL;
-        if (p_declaration->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
-        {
-            /*we need to use transmit the declarator part of the type*/
-            if (p_declaration->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression)
-            {
-                p_declarator_type = p_declaration->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression->type.declarator_type;
-            }
-            else if (p_declaration->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name)
-            {
-                p_declarator_type = p_declaration->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator->type.declarator_type;
-            }
-
-        }
-        visit_init_declarator_list(ctx, &p_declaration->init_declarator_list, p_declarator_type ,error);
+        
+        visit_init_declarator_list(ctx, &p_declaration->init_declarator_list, error);
     }
 
     if (p_declaration->function_body)
