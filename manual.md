@@ -35,28 +35,38 @@ The ouput dir is **./out**
 
 ## C99 Transformations
 
-###  restrict pointers
+###  C99 restrict pointers
 Yes. restrict is commented.
 
-###  Variable-length array (VLA) 
+```c
+void f(const char* restrict s);
+```
+
+Becomes in C89
+
+```c
+void f(const char* /*restrict*/ s);
+```
+
+###  C99 Variable-length array (VLA) 
 TODO
 
-### Flexible array members
+### C99 Flexible array members
 TODO
 
-### static and type qualifiers in parameter array declarators
+### C99 static and type qualifiers in parameter array declarators
 TODO
 
-### The long long int type and library functions
+### C99 The long long int type and library functions
 TODO ?
 
-### Universal character names (\u and \U)
+### C99 Universal character names (\u and \U)
 TODO
 
-###  Hexadecimal floating constants
+###  C99 Hexadecimal floating constants
 TODO
 
-### Compound literals
+### C99 Compound literals
 TODO
 
 ```c
@@ -73,7 +83,7 @@ int f(void) {
   return p == q && q -> i == 1;
 }
 ```
-Becomes
+Becomes in C89
 
 ```c
 //EXAMPLE 8 Each compound literal creates only a single object in a given scope:
@@ -91,25 +101,76 @@ int f(void) {
 }
 ```
 
-### designated initializers
+### C99 designated initializers
 TODO
 
-### //Comments
-Yes. Converted to ``/*comments*/``
+### C99 line comments
 
-### mixed declarations and code
+When compiling to C89 line comments are converted to comments.
+
+```c
+//line comments
+int main(void)
+{
+    _Bool b = 1;
+    return 0;
+}
+```
+
+Becomes in C89
+
+```c
+/*line comments*/
+int main(void)
+{
+    int b = 1;
+    return 0;
+}
+```
+
+
+### C99 mixed declarations and code
 TODO
 
-### inline functions
+```c
+
+//-std=c90 -pedantic
+
+int main()
+{
+    int i;
+    /* ... */
+    i++;
+    int j = i + 2; //warning: ISO C90 forbids mixed declarations and code
+}
+```
+
+Expected in C89 (not implemented yet)
+
+```c
+int main()
+{
+    int i;
+    int j;
+    /* ... */
+    i++;
+    j = i + 2;
+}
+
+```
+
+
+### C99 inline functions
+
+TODO
 
 ### _Pragma preprocessing operator
 TODO 
 
-### ``__func__`` predefined identifier
+### \__func__ predefined identifier
 TODO
 
 ###  init-statement in for loops 
-TODO
 
 ```c
 int main()
@@ -120,7 +181,7 @@ int main()
 }
 ```
 
-becomes
+Becomes in C89 (not implemented yet)
 
 ```c
 int main()
@@ -134,40 +195,120 @@ int main()
 }
 ```
 
-###  Variadic macros
-TODO
+###  C99 Variadic macros
+
+Yes. We need to expand the macro when comping to C89.
+
+This is covered by # macro expand.
+
+Sample:
+
+```c
+#include <stdio.h>
+
+#define debug(...) fprintf(stderr, __VA_ARGS__)
+#pragma expand debug
+
+int main()
+{
+  int x = 1;
+  debug("X = %d\n", 1);
+}
+```
+Becomes
+
+```c
+#include <stdio.h>
+
+#define debug(...) fprintf(stderr, __VA_ARGS__)
+#pragma expand debug
+
+int main()
+{
+  int x = 1;
+  fprintf(stderr, "X = %d\n", 1);
+}
+
+```
+
+>I am considering to mark the debug macro to be expanded automatically
+>if \_\_VA\_ARGS\_\_ is used. Then pragma expand will not be necessary.
 
 ###  Trailing comma in enumerator-list
 
+TODO. We could remove this extra comma. (low prioriry)
 
-###  _Bool
-Yes, convert to int.
+###  C99 \_Bool
+When compiling to C89 _Bool is replaced by int.
+
+```c
+//line comments
+int main(void)
+{
+    _Bool b = 1;
+    return 0;
+}
+```
+
+Becomes in C89
+
+```c
+/*line comments*/
+int main(void)
+{
+    int b = 1;
+    return 0;
+}
+```
 
 
 ## C11 Transformations
 
-###  C11 static assertions
-When compiling to versions < C11 static_assert is removed
+###  C11 \_Static\_assert
+
+When compiling to versions C89, C99 ``_Static_Assert`` is removed
 
 ### C11 Anonymous structures and unions
 TODO
 
-### no-return functions
-Parsed just need to comment. TODO
+### C11 \_Noreturn
+
+
+```c
+_Noreturn void f () {
+  abort(); // ok
+}
+```
+
+Expected in C99, C89 (not implemented yet)
+
+```c
+/*[[noreturn]]*/ void f () {
+  abort(); // ok
+}
+```
+
+>Note: 
+>C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is 
+> an obsolescent feature
+
+
 
 ###  C11 Thread_local/Atomic
 Parsed but not transformed.
 
-###  C11 type-generic expressions
-When compiling to versions < C11 we keep the expression that matches the type.
+###  C11 type-generic expressions (\_Generic)
+
+When compiling to C99, C89 we keep the expression that matches the type.
 
 For instance:
 
 The expression that matches the argument 1.0 is **cbrtl**.
 
-The result of _Generic in C99 will be cbrtl. Because this is inside
+The result of \_Generic in C99 will be cbrtl. Because this is inside
 a macro we need to tell the transpiler to expand that macro using 
 pragma expand.
+
 
 ```c
 #include <math.h>
@@ -188,7 +329,7 @@ int main(void)
 
 ```
 
-Then the resulting C99 code is:
+Becomes in C99, C89
 
 ```c
 
@@ -211,59 +352,302 @@ int main(void)
 ```
 
 ###   C11 u8"literals"
-u8 literals are converted to escape sequecences. (I don't recomend u8"")
 
+u8 literals are converted to escape sequecences.
 
-###  C11 Noreturn
-Parsed. Todo needs to be replaced by **[[_Noreturn]]** in C23
+```c
+char * s1 = u8"maçã";
+char * s2 = u8"maca";
+
+```
+
+Becomes in C99, C89
+
+```c
+char * s1 = "ma\xc3\xa7\xc3\xa3";
+char * s2 = "maca";
+```
 
 
 ## C23 Transformations
 
-###  C23 Decimal32, Decimal64, and Decimal128
+###  C23 \_Decimal32, \_Decimal64, and \_Decimal128
 Not implemented (maybe parsed?)
 
-###  static_assert / single-argument Static_assert
-In C23 **static_assert** can be used as keyword and the message is optional.
-Compiling to C11 we add some dumy message is necessary and we use the previous keyword **_Static_assert**
+###  static\_assert / single-argument static_assert
+In C23 static\_assert is a keyword and the text message is optional.
+
+Whe comping to C11, static\_assert is replaced by \_Static\_assert
+If the static\_assert has only one argument the text becomes "error".
 
 
+```c
+int main()
+{    
+    static_assert(1 == 1, "error");
+    static_assert(1 == 1);
+}
+
+```
+Becomes in C11
+
+```c
+int main()
+{    
+    _Static_assert(1 == 1, "error");
+    _Static_assert(1 == 1, "error");
+}
+```
+In C99, C89 it is replaced by one space;
 
 ###  C23 u8 char literal
 not implemented yet.
 
 ### C23 Digit separators
-When compiling to versions < 23 the compiler removes the ' delimiter from tokens. 
+
+```c
+int main()
+{
+    int a = 1000'00;
+}
+```
+Becomes in C11, C99, C89
+
+```c
+int main()
+{
+    int a = 100000;
+}
+```
+
+>This transformation uses only tokens. So even preprocessor and inactive
+>code is transformed.
 
 ### C23 Binary literals 
-When compiling to versions < 23 the compiler translater the binary literal to a hexadecimal constant.
+
+```c
+#define X  0b1010
+
+int main()
+{
+    int a = X;
+    int b = 0B1010;
+}
+
+```
+Becomes in C11, C99, C89
+
+```c
+#define X  0xa
+
+int main()
+{
+    int a = X;
+    int b = 0xa;
+}
+
+```
+
+>This transformation uses only tokens. So even preprocessor and inactive
+>code is transformed.
+
 
 ### C23 nullptr
 
-When compiling to version < 23 nullptr is replaced with **((void*)0)**
-Semantics of nullptr is not implemented yet.
+```c
 
+#if NULL == 0
+int main()
+{
+  void * p = nullptr;
+}
+#endif
+
+```
+
+Becomes in C11, C99 C89
+
+```
+int main()
+{
+  void * p = ((void*)0);
+}
+```
+
+Note:
+Cake has a non standard extension that makes NULL an alias for nullptr.
 
 ### C23 bool true false
-When compiling to version < 23 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)` and false
-with **(_Bool)0)**
+
+When compiling to C89 bool is replaced by int true by 1 and false 0. 
+(I am considering adding an extra header file in C89 with bool definition.)
+
+When compiling to C99 and C11 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)` 
+and false with **(_Bool)0)**
+
 
 ###  C23 {} empty initializer
 
-Cake transform {} into {0}. 
+```c
+
+int main()
+{
+    struct X {
+        int i;
+    } x = {};
+
+    x = (struct X) {};
+
+    struct Y
+    {
+        struct X x;
+    } y = { {} };
+}
+
+```
+
+Becomes in C11, C99, C89
+
+```c
+
+int main()
+{
+    struct X {
+        int i;
+    } x = {0};
+
+    x = (struct X) {0};
+
+    struct Y
+    {
+        struct X x;
+    } y = { {0} };
+}
+
+```
+
+> Note: Cake code is 100% equivalent because it does not make padding bit zero.
 
 ###  C23 auto
-not implemented yet
+
+
+```c
+static auto a = 3.5;
+auto p = &a;
+
+double A[3] = { 0 };
+auto pA = A;
+auto qA = &A;
+
+```
+Expected result (not implemented yet)
+
+```c
+static double a = 3.5;
+double * p = &a;
+
+double A[3] = { 0 };
+double* pA = A; //TODO
+auto qA = &A; //TODO?
+```
 
 ###  C23 typeof / typeof_unqual
-When compiling to versions < 23 we replace typeof by the equivalent type. 
-This can be a little complex in some cases.
+
+
+```c
+
+#define SWAP(a, b) \
+  do {\
+    typeof(a) temp = a; a = b; b = temp; \
+  } while (0)
+
+#pragma expand SWAP
+
+int main()
+{
+    /*simple case*/
+    int a = 1;
+    typeof(a) b = 1;
+
+    /*pay attention to the pointer*/
+    typeof(int*) p1, p2;
+
+    /*let's expand this macro and see inside*/
+    SWAP(a, b);
+
+    /*for anonymous structs we insert a tag*/
+    struct { int i; } x;
+    typeof(x) x2;
+    typeof(x) x3;
+
+   /*Things get a little more complicated*/
+   int *array[2];
+   typeof(array) a1, a2;
+   
+   typeof(array) a3[3];
+   typeof(array) *a4[4];
+
+   /*abstract declarator*/
+   int k = sizeof(typeof(array));
+
+
+   /*new way to declare pointer to functions?*/
+   typeof(void (int)) * pf = NULL;
+}
+
+```
+Becomes in C11, C99, C89
+
+```c
+
+
+#define SWAP(a, b) \
+  do {\
+    typeof(a) temp = a; a = b; b = temp; \
+  } while (0)
+
+#pragma expand SWAP
+
+int main()
+{
+    /*simple case*/
+    int a = 1;
+    int  b = 1;
+
+    /*pay attention to the pointer*/
+    int  *p1,  *p2;
+
+    /*let's expand this macro and see inside*/
+     do {int temp = a; a = b; b = temp; } while (0);
+
+    /*for anonymous structs we insert a tag*/
+    struct _anonymous_struct_0 { int i; } x;
+    struct _anonymous_struct_0  x2;
+    struct _anonymous_struct_0  x3;
+
+   /*Things get a little more complicated*/
+   int *array[2];
+   int  *a1[2],  *a2[2];
+   
+   int  *(a3[3])[2];
+   int  *(*a4[4])[2];
+
+   /*abstract declarator*/
+   int k = sizeof(int*[2]);
+
+
+   /*new way to declare pointer to functions?*/
+   void  (*pf)(int) = ((void*)0);
+}
+
+
+```
 
 ###  C23 constexpr
 Not implemented yet (maybe parsed?)
 
+
 ###  C23 enuns with type
-Parsed. Translation to C99 not implemented.
 
 ```c
 enum X : short {
@@ -275,28 +659,79 @@ int main() {
 }
 ```
 
+Becomes? in C11, C99, C89 (not implemented yet)
+
+```c
+enum X {
+  A
+};
+
+int main() {
+   short x = ((short)A);   
+}
+```
+
+
 ###  C23 Attributes
-Attributes are being parsed and removed in some places. More work is necessary.
+
+Attributes are being parsed and removed in some places. 
+More work is necessary to implement the checks in C23.
+
+Convertion to C11, C99, C89 will just remove the attributes.
+
 
 ###  C23 has_attribute
-Yes but need work/review.
+
+It is implemented in C23.
+
+Convertion to C11, C99 C89 not defined yet.
+
 
 ###  C23 has_include
-Yes. But this does not make sense unless for direct compilation -mr.
-Transpiling to 1 or 0 would represent the machine where the code
-was transpiled but not where generated code will be compiled.
+
+```c
+
+#if __has_include(<stdio.h>)
+#warning  YES
+#endif
+
+#if __has_include(<any.h>)
+#warning  YES
+#else
+#warning  NO
+#endif
+
+```
+
+Becomes in C11, C99, C89.
+
+```c
+Not defined yet
+```
+
 
 ###  C23 warning
-When compiling to versions < 23 it is commented
+When compiling to versions < 23 it is commented out.
 
-###  C23 embed
-When compiling to versions < 23 the line is replaces by the numbers.
+The compiler also ouputs the message on stderr.
 
-One alternative for C99 is to generate an auxiliary file then
-use normal ``#include`` instead of ``#embed``.
+```c
+int main()
+{
+  #warning my warning message  
+}
+```
+Becomes
 
-This cannot be showed at web playground becase we dont have an option to 
-create files there.
+```c
+int main()
+{
+  //#warning my warning message  
+}
+```
+
+
+###  C23 #embed
 
 ```c
 #include <stdio.h>
@@ -311,10 +746,31 @@ int main()
   printf("%s\n", file_txt);
 
 }
+```
+Becomes in C11, C99, C89
+
+```c
+
+
+#include <stdio.h>
+
+int main()
+{
+  static const char file_txt[] = {
+    35,112,114,/*lot more here ...*/ 13,10
+   ,0
+  };
+
+  printf("%s\n", file_txt);
+
+}
 
 ```
 
-becomes in C99
+I am considering add an option to generate a file with a suffix
+like "embed_stdio.h" then the equivalent code will be:
+
+Becomes in C11, C99, C89
 
 ```c
 #include <stdio.h>
@@ -333,14 +789,85 @@ int main()
 ```
 
 
-###  C23 VAOPT
-Yes but need work.
+
+
+###  C23 \_\_VA_OPT__
+
+Requires #pragma expand. (TODO make the expansion automatic)
+
+```c
+
+#define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
+#define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
+#define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
+#define EMP
+
+/*maybe this could be automatic if <C23*/
+#pragma expand F
+#pragma expand G
+#pragma expand SDEF
+#pragma expand EMP
+
+void f(int i, ...) {}
+
+
+int main()
+{
+  int a = 1;
+  int b = 2;
+  int c = 3;
+  
+  F(a, b, c);
+  F();
+  F(EMP);
+  G(a, b, c);
+  G(a, );
+  G(a);
+
+}
+```
+
+Becomes in C11, C99, C89
+
+```c
+
+#define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
+#define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
+#define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
+#define EMP
+
+/*maybe this could be automatic if <C23*/
+#pragma expand F
+#pragma expand G
+#pragma expand SDEF
+#pragma expand EMP
+
+void f(int i, ...) {}
+
+
+int main()
+{
+  int a = 1;
+  int b = 2;
+  int c = 3;
+  
+   f(0, a, b, c);
+   f(0 );
+   f(0);
+   f(0, a, b, c);
+   f(0, a );
+   f(0, a );
+
+}
+```
+
 
 ###  C23 BitInt(N))
 Not implemented
 
 ###  C23 constexpr
-Parsed but not implemented
+
+Parsed but not implemented.
 
 ```c
 constexpr int K = 47;

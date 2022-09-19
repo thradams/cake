@@ -61,35 +61,43 @@ Options
 
 <h2 id="toc_1">C99 Transformations</h2>
 
-<h3>restrict pointers</h3>
+<h3>C99 restrict pointers</h3>
 
 <p>Yes. restrict is commented.</p>
 
-<h3>Variable-length array (VLA)</h3>
+<pre><code class="language-c">void f(const char* restrict s);
+</code></pre>
+
+<p>Becomes in C89</p>
+
+<pre><code class="language-c">void f(const char* /*restrict*/ s);
+</code></pre>
+
+<h3>C99 Variable-length array (VLA)</h3>
 
 <p>TODO</p>
 
-<h3>Flexible array members</h3>
+<h3>C99 Flexible array members</h3>
 
 <p>TODO</p>
 
-<h3>static and type qualifiers in parameter array declarators</h3>
+<h3>C99 static and type qualifiers in parameter array declarators</h3>
 
 <p>TODO</p>
 
-<h3>The long long int type and library functions</h3>
+<h3>C99 The long long int type and library functions</h3>
 
 <p>TODO ?</p>
 
-<h3>Universal character names (\u and \U)</h3>
+<h3>C99 Universal character names (\u and \U)</h3>
 
 <p>TODO</p>
 
-<h3>Hexadecimal floating constants</h3>
+<h3>C99 Hexadecimal floating constants</h3>
 
 <p>TODO</p>
 
-<h3>Compound literals</h3>
+<h3>C99 Compound literals</h3>
 
 <p>TODO</p>
 
@@ -107,7 +115,7 @@ int f(void) {
 }
 </code></pre>
 
-<p>Becomes</p>
+<p>Becomes in C89</p>
 
 <pre><code class="language-c">//EXAMPLE 8 Each compound literal creates only a single object in a given scope:
 struct s {
@@ -124,31 +132,74 @@ int f(void) {
 }
 </code></pre>
 
-<h3>designated initializers</h3>
+<h3>C99 designated initializers</h3>
 
 <p>TODO</p>
 
-<h3>//Comments</h3>
+<h3>C99 line comments</h3>
 
-<p>Yes. Converted to <code>/*comments*/</code></p>
+<p>When compiling to C89 line comments are converted to comments.</p>
 
-<h3>mixed declarations and code</h3>
+<pre><code class="language-c">//line comments
+int main(void)
+{
+    _Bool b = 1;
+    return 0;
+}
+</code></pre>
+
+<p>Becomes in C89</p>
+
+<pre><code class="language-c">/*line comments*/
+int main(void)
+{
+    int b = 1;
+    return 0;
+}
+</code></pre>
+
+<h3>C99 mixed declarations and code</h3>
 
 <p>TODO</p>
 
-<h3>inline functions</h3>
+<pre><code class="language-c">
+//-std=c90 -pedantic
+
+int main()
+{
+    int i;
+    /* ... */
+    i++;
+    int j = i + 2; //warning: ISO C90 forbids mixed declarations and code
+}
+</code></pre>
+
+<p>Expected in C89 (not implemented yet)</p>
+
+<pre><code class="language-c">int main()
+{
+    int i;
+    int j;
+    /* ... */
+    i++;
+    j = i + 2;
+}
+
+</code></pre>
+
+<h3>C99 inline functions</h3>
+
+<p>TODO</p>
 
 <h3>_Pragma preprocessing operator</h3>
 
 <p>TODO </p>
 
-<h3><code>__func__</code> predefined identifier</h3>
+<h3>_<em>func</em>_ predefined identifier</h3>
 
 <p>TODO</p>
 
 <h3>init-statement in for loops</h3>
-
-<p>TODO</p>
 
 <pre><code class="language-c">int main()
 {
@@ -158,7 +209,7 @@ int f(void) {
 }
 </code></pre>
 
-<p>becomes</p>
+<p>Becomes in C89 (not implemented yet)</p>
 
 <pre><code class="language-c">int main()
 {
@@ -171,37 +222,109 @@ int f(void) {
 }
 </code></pre>
 
-<h3>Variadic macros</h3>
+<h3>C99 Variadic macros</h3>
 
-<p>TODO</p>
+<p>Yes. We need to expand the macro when comping to C89.</p>
+
+<p>This is covered by # macro expand.</p>
+
+<p>Sample:</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+#define debug(...) fprintf(stderr, __VA_ARGS__)
+#pragma expand debug
+
+int main()
+{
+  int x = 1;
+  debug(&quot;X = %d\n&quot;, 1);
+}
+</code></pre>
+
+<p>Becomes</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+#define debug(...) fprintf(stderr, __VA_ARGS__)
+#pragma expand debug
+
+int main()
+{
+  int x = 1;
+  fprintf(stderr, &quot;X = %d\n&quot;, 1);
+}
+
+</code></pre>
+
+<blockquote>
+<p>I am considering to mark the debug macro to be expanded automatically
+if __VA_ARGS__ is used. Then pragma expand will not be necessary.</p>
+</blockquote>
 
 <h3>Trailing comma in enumerator-list</h3>
 
-<h3>_Bool</h3>
+<p>TODO. We could remove this extra comma. (low prioriry)</p>
 
-<p>Yes, convert to int.</p>
+<h3>C99 _Bool</h3>
+
+<p>When compiling to C89 _Bool is replaced by int.</p>
+
+<pre><code class="language-c">//line comments
+int main(void)
+{
+    _Bool b = 1;
+    return 0;
+}
+</code></pre>
+
+<p>Becomes in C89</p>
+
+<pre><code class="language-c">/*line comments*/
+int main(void)
+{
+    int b = 1;
+    return 0;
+}
+</code></pre>
 
 <h2 id="toc_2">C11 Transformations</h2>
 
-<h3>C11 static assertions</h3>
+<h3>C11 _Static_assert</h3>
 
-<p>When compiling to versions &lt; C11 static_assert is removed</p>
+<p>When compiling to versions C89, C99 <code>_Static_Assert</code> is removed</p>
 
 <h3>C11 Anonymous structures and unions</h3>
 
 <p>TODO</p>
 
-<h3>no-return functions</h3>
+<h3>C11 _Noreturn</h3>
 
-<p>Parsed just need to comment. TODO</p>
+<pre><code class="language-c">_Noreturn void f () {
+  abort(); // ok
+}
+</code></pre>
+
+<p>Expected in C99, C89 (not implemented yet)</p>
+
+<pre><code class="language-c">/*[[noreturn]]*/ void f () {
+  abort(); // ok
+}
+</code></pre>
+
+<blockquote>
+<p>Note: 
+C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is 
+an obsolescent feature</p>
+</blockquote>
 
 <h3>C11 Thread_local/Atomic</h3>
 
 <p>Parsed but not transformed.</p>
 
-<h3>C11 type-generic expressions</h3>
+<h3>C11 type-generic expressions (_Generic)</h3>
 
-<p>When compiling to versions &lt; C11 we keep the expression that matches the type.</p>
+<p>When compiling to C99, C89 we keep the expression that matches the type.</p>
 
 <p>For instance:</p>
 
@@ -229,7 +352,7 @@ int main(void)
 
 </code></pre>
 
-<p>Then the resulting C99 code is:</p>
+<p>Becomes in C99, C89</p>
 
 <pre><code class="language-c">
 #include &lt;math.h&gt;
@@ -252,22 +375,50 @@ int main(void)
 
 <h3>C11 u8&quot;literals&quot;</h3>
 
-<p>u8 literals are converted to escape sequecences. (I don&#39;t recomend u8&quot;&quot;)</p>
+<p>u8 literals are converted to escape sequecences.</p>
 
-<h3>C11 Noreturn</h3>
+<pre><code class="language-c">char * s1 = u8&quot;maçã&quot;;
+char * s2 = u8&quot;maca&quot;;
 
-<p>Parsed. Todo needs to be replaced by <strong>[[_Noreturn]]</strong> in C23</p>
+</code></pre>
+
+<p>Becomes in C99, C89</p>
+
+<pre><code class="language-c">char * s1 = &quot;ma\xc3\xa7\xc3\xa3&quot;;
+char * s2 = &quot;maca&quot;;
+</code></pre>
 
 <h2 id="toc_3">C23 Transformations</h2>
 
-<h3>C23 Decimal32, Decimal64, and Decimal128</h3>
+<h3>C23 _Decimal32, _Decimal64, and _Decimal128</h3>
 
 <p>Not implemented (maybe parsed?)</p>
 
-<h3>static<em>assert / single-argument Static</em>assert</h3>
+<h3>static_assert / single-argument static_assert</h3>
 
-<p>In C23 <strong>static_assert</strong> can be used as keyword and the message is optional.
-Compiling to C11 we add some dumy message is necessary and we use the previous keyword <strong><em>Static</em>assert</strong></p>
+<p>In C23 static_assert is a keyword and the text message is optional.</p>
+
+<p>Whe comping to C11, static_assert is replaced by _Static_assert
+If the static_assert has only one argument the text becomes &quot;error&quot;.</p>
+
+<pre><code class="language-c">int main()
+{    
+    static_assert(1 == 1, &quot;error&quot;);
+    static_assert(1 == 1);
+}
+
+</code></pre>
+
+<p>Becomes in C11</p>
+
+<pre><code class="language-c">int main()
+{    
+    _Static_assert(1 == 1, &quot;error&quot;);
+    _Static_assert(1 == 1, &quot;error&quot;);
+}
+</code></pre>
+
+<p>In C99, C89 it is replaced by one space;</p>
 
 <h3>C23 u8 char literal</h3>
 
@@ -275,42 +426,243 @@ Compiling to C11 we add some dumy message is necessary and we use the previous k
 
 <h3>C23 Digit separators</h3>
 
-<p>When compiling to versions &lt; 23 the compiler removes the &#39; delimiter from tokens. </p>
+<pre><code class="language-c">int main()
+{
+    int a = 1000&#39;00;
+}
+</code></pre>
+
+<p>Becomes in C11, C99, C89</p>
+
+<pre><code class="language-c">int main()
+{
+    int a = 100000;
+}
+</code></pre>
+
+<blockquote>
+<p>This transformation uses only tokens. So even preprocessor and inactive
+code is transformed.</p>
+</blockquote>
 
 <h3>C23 Binary literals</h3>
 
-<p>When compiling to versions &lt; 23 the compiler translater the binary literal to a hexadecimal constant.</p>
+<pre><code class="language-c">#define X  0b1010
+
+int main()
+{
+    int a = X;
+    int b = 0B1010;
+}
+
+</code></pre>
+
+<p>Becomes in C11, C99, C89</p>
+
+<pre><code class="language-c">#define X  0xa
+
+int main()
+{
+    int a = X;
+    int b = 0xa;
+}
+
+</code></pre>
+
+<blockquote>
+<p>This transformation uses only tokens. So even preprocessor and inactive
+code is transformed.</p>
+</blockquote>
 
 <h3>C23 nullptr</h3>
 
-<p>When compiling to version &lt; 23 nullptr is replaced with <strong>((void*)0)</strong>
-Semantics of nullptr is not implemented yet.</p>
+<pre><code class="language-c">
+#if NULL == 0
+int main()
+{
+  void * p = nullptr;
+}
+#endif
+
+</code></pre>
+
+<p>Becomes in C11, C99 C89</p>
+
+<pre><code>int main()
+{
+  void * p = ((void*)0);
+}
+</code></pre>
+
+<p>Note:
+Cake has a non standard extension that makes NULL an alias for nullptr.</p>
 
 <h3>C23 bool true false</h3>
 
-<p>When compiling to version &lt; 23 bool is replaced with <strong>_Bool</strong>, true is replaced with <code>((_Bool)1)</code> and false
-with <strong>(_Bool)0)</strong></p>
+<p>When compiling to C89 bool is replaced by int true by 1 and false 0. 
+(I am considering adding an extra header file in C89 with bool definition.)</p>
+
+<p>When compiling to C99 and C11 bool is replaced with <strong>_Bool</strong>, true is replaced with <code>((_Bool)1)</code> 
+and false with <strong>(_Bool)0)</strong></p>
 
 <h3>C23 {} empty initializer</h3>
 
-<p>Cake transform {} into {0}. </p>
+<pre><code class="language-c">
+int main()
+{
+    struct X {
+        int i;
+    } x = {};
+
+    x = (struct X) {};
+
+    struct Y
+    {
+        struct X x;
+    } y = { {} };
+}
+
+</code></pre>
+
+<p>Becomes in C11, C99, C89</p>
+
+<pre><code class="language-c">
+int main()
+{
+    struct X {
+        int i;
+    } x = {0};
+
+    x = (struct X) {0};
+
+    struct Y
+    {
+        struct X x;
+    } y = { {0} };
+}
+
+</code></pre>
+
+<blockquote>
+<p>Note: Cake code is 100% equivalent because it does not make padding bit zero.</p>
+</blockquote>
 
 <h3>C23 auto</h3>
 
-<p>not implemented yet</p>
+<pre><code class="language-c">static auto a = 3.5;
+auto p = &amp;a;
+
+double A[3] = { 0 };
+auto pA = A;
+auto qA = &amp;A;
+
+</code></pre>
+
+<p>Expected result (not implemented yet)</p>
+
+<pre><code class="language-c">static double a = 3.5;
+double * p = &amp;a;
+
+double A[3] = { 0 };
+double* pA = A; //TODO
+auto qA = &amp;A; //TODO?
+</code></pre>
 
 <h3>C23 typeof / typeof_unqual</h3>
 
-<p>When compiling to versions &lt; 23 we replace typeof by the equivalent type. 
-This can be a little complex in some cases.</p>
+<pre><code class="language-c">
+#define SWAP(a, b) \
+  do {\
+    typeof(a) temp = a; a = b; b = temp; \
+  } while (0)
+
+#pragma expand SWAP
+
+int main()
+{
+    /*simple case*/
+    int a = 1;
+    typeof(a) b = 1;
+
+    /*pay attention to the pointer*/
+    typeof(int*) p1, p2;
+
+    /*let&#39;s expand this macro and see inside*/
+    SWAP(a, b);
+
+    /*for anonymous structs we insert a tag*/
+    struct { int i; } x;
+    typeof(x) x2;
+    typeof(x) x3;
+
+   /*Things get a little more complicated*/
+   int *array[2];
+   typeof(array) a1, a2;
+   
+   typeof(array) a3[3];
+   typeof(array) *a4[4];
+
+   /*abstract declarator*/
+   int k = sizeof(typeof(array));
+
+
+   /*new way to declare pointer to functions?*/
+   typeof(void (int)) * pf = NULL;
+}
+
+</code></pre>
+
+<p>Becomes in C11, C99, C89</p>
+
+<pre><code class="language-c">
+
+#define SWAP(a, b) \
+  do {\
+    typeof(a) temp = a; a = b; b = temp; \
+  } while (0)
+
+#pragma expand SWAP
+
+int main()
+{
+    /*simple case*/
+    int a = 1;
+    int  b = 1;
+
+    /*pay attention to the pointer*/
+    int  *p1,  *p2;
+
+    /*let&#39;s expand this macro and see inside*/
+     do {int temp = a; a = b; b = temp; } while (0);
+
+    /*for anonymous structs we insert a tag*/
+    struct _anonymous_struct_0 { int i; } x;
+    struct _anonymous_struct_0  x2;
+    struct _anonymous_struct_0  x3;
+
+   /*Things get a little more complicated*/
+   int *array[2];
+   int  *a1[2],  *a2[2];
+   
+   int  *(a3[3])[2];
+   int  *(*a4[4])[2];
+
+   /*abstract declarator*/
+   int k = sizeof(int*[2]);
+
+
+   /*new way to declare pointer to functions?*/
+   void  (*pf)(int) = ((void*)0);
+}
+
+
+</code></pre>
 
 <h3>C23 constexpr</h3>
 
 <p>Not implemented yet (maybe parsed?)</p>
 
 <h3>C23 enuns with type</h3>
-
-<p>Parsed. Translation to C99 not implemented.</p>
 
 <pre><code class="language-c">enum X : short {
   A
@@ -321,33 +673,71 @@ int main() {
 }
 </code></pre>
 
+<p>Becomes? in C11, C99, C89 (not implemented yet)</p>
+
+<pre><code class="language-c">enum X {
+  A
+};
+
+int main() {
+   short x = ((short)A);   
+}
+</code></pre>
+
 <h3>C23 Attributes</h3>
 
-<p>Attributes are being parsed and removed in some places. More work is necessary.</p>
+<p>Attributes are being parsed and removed in some places. 
+More work is necessary to implement the checks in C23.</p>
+
+<p>Convertion to C11, C99, C89 will just remove the attributes.</p>
 
 <h3>C23 has_attribute</h3>
 
-<p>Yes but need work/review.</p>
+<p>It is implemented in C23.</p>
+
+<p>Convertion to C11, C99 C89 not defined yet.</p>
 
 <h3>C23 has_include</h3>
 
-<p>Yes. But this does not make sense unless for direct compilation -mr.
-Transpiling to 1 or 0 would represent the machine where the code
-was transpiled but not where generated code will be compiled.</p>
+<pre><code class="language-c">
+#if __has_include(&lt;stdio.h&gt;)
+#warning  YES
+#endif
+
+#if __has_include(&lt;any.h&gt;)
+#warning  YES
+#else
+#warning  NO
+#endif
+
+</code></pre>
+
+<p>Becomes in C11, C99, C89.</p>
+
+<pre><code class="language-c">Not defined yet
+</code></pre>
 
 <h3>C23 warning</h3>
 
-<p>When compiling to versions &lt; 23 it is commented</p>
+<p>When compiling to versions &lt; 23 it is commented out.</p>
 
-<h3>C23 embed</h3>
+<p>The compiler also ouputs the message on stderr.</p>
 
-<p>When compiling to versions &lt; 23 the line is replaces by the numbers.</p>
+<pre><code class="language-c">int main()
+{
+  #warning my warning message  
+}
+</code></pre>
 
-<p>One alternative for C99 is to generate an auxiliary file then
-use normal <code>#include</code> instead of <code>#embed</code>.</p>
+<p>Becomes</p>
 
-<p>This cannot be showed at web playground becase we dont have an option to 
-create files there.</p>
+<pre><code class="language-c">int main()
+{
+  //#warning my warning message  
+}
+</code></pre>
+
+<h3>C23 #embed</h3>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
@@ -361,10 +751,31 @@ int main()
   printf(&quot;%s\n&quot;, file_txt);
 
 }
+</code></pre>
+
+<p>Becomes in C11, C99, C89</p>
+
+<pre><code class="language-c">
+
+#include &lt;stdio.h&gt;
+
+int main()
+{
+  static const char file_txt[] = {
+    35,112,114,/*lot more here ...*/ 13,10
+   ,0
+  };
+
+  printf(&quot;%s\n&quot;, file_txt);
+
+}
 
 </code></pre>
 
-<p>becomes in C99</p>
+<p>I am considering add an option to generate a file with a suffix
+like &quot;embed_stdio.h&quot; then the equivalent code will be:</p>
+
+<p>Becomes in C11, C99, C89</p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
@@ -381,9 +792,73 @@ int main()
 
 </code></pre>
 
-<h3>C23 VAOPT</h3>
+<h3>C23 __VA<em>OPT</em>_</h3>
 
-<p>Yes but need work.</p>
+<p>Requires #pragma expand. (TODO make the expansion automatic)</p>
+
+<pre><code class="language-c">
+#define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
+#define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
+#define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
+#define EMP
+
+/*maybe this could be automatic if &lt;C23*/
+#pragma expand F
+#pragma expand G
+#pragma expand SDEF
+#pragma expand EMP
+
+void f(int i, ...) {}
+
+
+int main()
+{
+  int a = 1;
+  int b = 2;
+  int c = 3;
+  
+  F(a, b, c);
+  F();
+  F(EMP);
+  G(a, b, c);
+  G(a, );
+  G(a);
+
+}
+</code></pre>
+
+<p>Becomes in C11, C99, C89</p>
+
+<pre><code class="language-c">
+#define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
+#define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
+#define SDEF(sname, ...) S sname __VA_OPT__(= { __VA_ARGS__ })
+#define EMP
+
+/*maybe this could be automatic if &lt;C23*/
+#pragma expand F
+#pragma expand G
+#pragma expand SDEF
+#pragma expand EMP
+
+void f(int i, ...) {}
+
+
+int main()
+{
+  int a = 1;
+  int b = 2;
+  int c = 3;
+  
+   f(0, a, b, c);
+   f(0 );
+   f(0);
+   f(0, a, b, c);
+   f(0, a );
+   f(0, a );
+
+}
+</code></pre>
 
 <h3>C23 BitInt(N))</h3>
 
@@ -391,7 +866,7 @@ int main()
 
 <h3>C23 constexpr</h3>
 
-<p>Parsed but not implemented</p>
+<p>Parsed but not implemented.</p>
 
 <pre><code class="language-c">constexpr int K = 47;
 enum {

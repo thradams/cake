@@ -1,6 +1,11 @@
 #pragma once
 typedef long long fpos_t;
 typedef int FILE;
+
+extern FILE* stdin;
+extern FILE* stdout;
+extern FILE* stderr;
+
 typedef int size_t;
 typedef void* va_list;
 int remove(const char* filename);
