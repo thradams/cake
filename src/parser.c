@@ -813,6 +813,8 @@ struct token* previous_parser_token(struct token* token)
     {
         r = r->prev;
     }
+
+    
     return r;
 }
 
@@ -1340,6 +1342,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
 {
     if (error->code != 0)
         return;
+
     if (ctx->current == NULL)
     {
         parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");
@@ -1352,6 +1355,8 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
         parser_seterror_with_token(ctx, ctx->current, "expected %s", get_token_name(type));
         return;
     }
+
+    ctx->previous = ctx->current;
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx);
     return;

@@ -8289,7 +8289,7 @@ struct parser_ctx
 
     struct token_list input_list;
     struct token* current;
-    struct token* previous;
+    struct token* previous2;
     int try_catch_block_index;
     int n_warnings;
     int n_errors;
@@ -15040,6 +15040,8 @@ struct token* previous_parser_token(struct token* token)
     {
         r = r->prev;
     }
+
+    
     return r;
 }
 
@@ -15554,7 +15556,7 @@ struct token* parser_skip_blanks(struct parser_ctx* ctx)
 
 struct token* parser_match(struct parser_ctx* ctx)
 {
-    ctx->previous = ctx->current;
+    ctx->previous2 = ctx->current;
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx);
 
@@ -15567,6 +15569,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
 {
     if (error->code != 0)
         return;
+
     if (ctx->current == NULL)
     {
         parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");
@@ -15579,6 +15582,8 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
         parser_seterror_with_token(ctx, ctx->current, "expected %s", get_token_name(type));
         return;
     }
+
+    ctx->previous2 = ctx->current;
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx);
     return;
@@ -17007,7 +17012,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pptokenName, error);
     
     p_declarator->last_token = previous_parser_token(ctx->current);
-
+    assert(previous_parser_token(ctx->current) == ctx->previous2);
     return p_declarator;
 }
 
