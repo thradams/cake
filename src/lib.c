@@ -8570,8 +8570,8 @@ struct enum_specifier* enum_specifier(struct parser_ctx*, struct error* error);
 
 struct member_declaration_list
 {
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
     struct member_declaration* head;
     struct member_declaration* tail;
 };
@@ -8881,8 +8881,8 @@ struct defer_statement
      defer-statement: (extension)
        "defer" secondary-block     
     */
-    struct token* firsttoken;
-    struct token* lasttoken;
+    struct token* first_token;
+    struct token* last_token;
     struct secondary_block* secondary_block;
 };
 
@@ -8947,7 +8947,7 @@ struct jump_statement
     */
     struct token* token;
     struct token* label;
-    struct token* lasttoken;
+    struct token* last_token;
     struct expression* expression;
     
     int try_catch_block_index;
@@ -16439,9 +16439,9 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         struct token* first = ctx->current;
         parser_match(ctx);
         pStruct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, error);
-        pStruct_or_union_specifier->member_declaration_list.first = first;
+        pStruct_or_union_specifier->member_declaration_list.first_token = first;
         pStruct_or_union_specifier->last = ctx->current;
-        pStruct_or_union_specifier->member_declaration_list.last = ctx->current;
+        pStruct_or_union_specifier->member_declaration_list.last_token = ctx->current;
         parser_match_tk(ctx, '}', error);
 
     }
@@ -18349,10 +18349,10 @@ struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* er
     struct defer_statement* p_defer_statement = calloc(1, sizeof(struct defer_statement));
     if (ctx->current->type == TK_KEYWORD_DEFER)
     {
-        p_defer_statement->firsttoken = ctx->current;
+        p_defer_statement->first_token = ctx->current;
         parser_match(ctx);
         p_defer_statement->secondary_block = secondary_block(ctx, error);
-        p_defer_statement->lasttoken = ctx->previous;
+        p_defer_statement->last_token = ctx->previous;
     }
     return p_defer_statement;
 }
@@ -18503,7 +18503,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
     {
         assert(false);
     }
-    p_jump_statement->lasttoken = ctx->current;
+    p_jump_statement->last_token = ctx->current;
     parser_match_tk(ctx, ';', error);
     return p_jump_statement;
 }
@@ -19596,8 +19596,8 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
     while (deferchild != NULL)
     {
         struct token_list l = { 0 };
-        l.head = deferchild->defer_statement->firsttoken;
-        l.tail = deferchild->defer_statement->lasttoken;
+        l.head = deferchild->defer_statement->first_token;
+        l.tail = deferchild->defer_statement->last_token;
 
         l.head->flags |= TK_FLAG_HIDE;
         const char* s = get_code_as_compiler_see(&l);
@@ -19618,8 +19618,8 @@ void hide_block_defer(struct defer_scope* deferblock)
     while (deferchild != NULL)
     {
         struct token_list l = { 0 };
-        l.head = deferchild->defer_statement->firsttoken;
-        l.tail = deferchild->defer_statement->lasttoken;
+        l.head = deferchild->defer_statement->first_token;
+        l.tail = deferchild->defer_statement->last_token;
         token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
         deferchild = deferchild->previous;
     }
@@ -20368,7 +20368,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;
-            p_jump_statement->lasttoken->flags |= TK_FLAG_HIDE;
+            p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
         }
         else
         {
@@ -20390,8 +20390,8 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "return");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;
-            free(p_jump_statement->lasttoken->lexeme);
-            p_jump_statement->lasttoken->lexeme = strdup(";}");
+            free(p_jump_statement->last_token->lexeme);
+            p_jump_statement->last_token->lexeme = strdup(";}");
         }
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
@@ -20408,7 +20408,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;  /*MOVED*/
-            p_jump_statement->lasttoken->flags |= TK_FLAG_HIDE;
+            p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
         }
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_GOTO)
@@ -20423,8 +20423,8 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "goto");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;
-            free(p_jump_statement->lasttoken->lexeme);
-            p_jump_statement->lasttoken->lexeme = strdup(";}");
+            free(p_jump_statement->last_token->lexeme);
+            p_jump_statement->last_token->lexeme = strdup(";}");
         }
     }
     else
@@ -20992,8 +20992,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
 
 
-                struct token* first = p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first;
-                struct token* last = p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last;
+                struct token* first = p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first_token;
+                struct token* last = p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last_token;
                 for (struct token* current = first;
                     current != last->next;
                     current = current->next)
@@ -21014,8 +21014,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 }
                 else
                 {
-                    token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first,
-                        p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last,
+                    token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first_token,
+                        p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last_token,
                         TK_FLAG_HIDE);
                 }
             }

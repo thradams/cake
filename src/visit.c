@@ -113,8 +113,8 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
     while (deferchild != NULL)
     {
         struct token_list l = { 0 };
-        l.head = deferchild->defer_statement->firsttoken;
-        l.tail = deferchild->defer_statement->lasttoken;
+        l.head = deferchild->defer_statement->first_token;
+        l.tail = deferchild->defer_statement->last_token;
 
         l.head->flags |= TK_FLAG_HIDE;
         const char* s = get_code_as_compiler_see(&l);
@@ -135,8 +135,8 @@ void hide_block_defer(struct defer_scope* deferblock)
     while (deferchild != NULL)
     {
         struct token_list l = { 0 };
-        l.head = deferchild->defer_statement->firsttoken;
-        l.tail = deferchild->defer_statement->lasttoken;
+        l.head = deferchild->defer_statement->first_token;
+        l.tail = deferchild->defer_statement->last_token;
         token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
         deferchild = deferchild->previous;
     }
@@ -885,7 +885,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;
-            p_jump_statement->lasttoken->flags |= TK_FLAG_HIDE;
+            p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
         }
         else
         {
@@ -907,8 +907,8 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "return");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;
-            free(p_jump_statement->lasttoken->lexeme);
-            p_jump_statement->lasttoken->lexeme = strdup(";}");
+            free(p_jump_statement->last_token->lexeme);
+            p_jump_statement->last_token->lexeme = strdup(";}");
         }
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
@@ -925,7 +925,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;  /*MOVED*/
-            p_jump_statement->lasttoken->flags |= TK_FLAG_HIDE;
+            p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
         }
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_GOTO)
@@ -940,8 +940,8 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "goto");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;
-            free(p_jump_statement->lasttoken->lexeme);
-            p_jump_statement->lasttoken->lexeme = strdup(";}");
+            free(p_jump_statement->last_token->lexeme);
+            p_jump_statement->last_token->lexeme = strdup(";}");
         }
     }
     else

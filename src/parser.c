@@ -4122,10 +4122,10 @@ struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* er
     struct defer_statement* p_defer_statement = calloc(1, sizeof(struct defer_statement));
     if (ctx->current->type == TK_KEYWORD_DEFER)
     {
-        p_defer_statement->firsttoken = ctx->current;
+        p_defer_statement->first_token = ctx->current;
         parser_match(ctx);
         p_defer_statement->secondary_block = secondary_block(ctx, error);
-        p_defer_statement->lasttoken = ctx->previous;
+        p_defer_statement->last_token = ctx->previous;
     }
     return p_defer_statement;
 }
@@ -4276,7 +4276,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
     {
         assert(false);
     }
-    p_jump_statement->lasttoken = ctx->current;
+    p_jump_statement->last_token = ctx->current;
     parser_match_tk(ctx, ';', error);
     return p_jump_statement;
 }

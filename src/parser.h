@@ -649,8 +649,8 @@ struct defer_statement
      defer-statement: (extension)
        "defer" secondary-block     
     */
-    struct token* firsttoken;
-    struct token* lasttoken;
+    struct token* first_token;
+    struct token* last_token;
     struct secondary_block* secondary_block;
 };
 
@@ -715,7 +715,7 @@ struct jump_statement
     */
     struct token* token;
     struct token* label;
-    struct token* lasttoken;
+    struct token* last_token;
     struct expression* expression;
     
     int try_catch_block_index;
