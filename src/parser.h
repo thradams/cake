@@ -724,7 +724,6 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
 
 struct expression_statement
 {
-    struct token* first_token;
     struct expression* expression;
 };
 struct expression_statement* expression_statement(struct parser_ctx* ctx, struct error* error);

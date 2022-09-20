@@ -4291,7 +4291,6 @@ struct expression_statement* expression_statement(struct parser_ctx* ctx, struct
     */
     if (ctx->current->type != ';')
     {
-        p_expression_statement->first_token = ctx->current;
         struct expression_ctx ectx = { 0 };
         p_expression_statement->expression = expression(ctx, error, &ectx);
     }
