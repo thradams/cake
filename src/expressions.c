@@ -1252,7 +1252,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
 
                 new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->right->type, error);
-                new_expression->last = previous_parser_token(ctx->current);
+                new_expression->last = ctx->previous;
             }
 
             type_set_int(&new_expression->type); //resultado sizeof
@@ -1359,7 +1359,7 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
     {
     }
     if (p_expression_node && ctx->current)
-      p_expression_node->last = previous_parser_token(ctx->current);
+      p_expression_node->last = ctx->previous;
     return p_expression_node;
 }
 

@@ -8289,7 +8289,7 @@ struct parser_ctx
 
     struct token_list input_list;
     struct token* current;
-    struct token* previous2;
+    struct token* previous;
     int try_catch_block_index;
     int n_warnings;
     int n_errors;
@@ -10410,7 +10410,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
 
                 new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->right->type, error);
-                new_expression->last = previous_parser_token(ctx->current);
+                new_expression->last = ctx->previous;
             }
 
             type_set_int(&new_expression->type); //resultado sizeof
@@ -10517,7 +10517,7 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
     {
     }
     if (p_expression_node && ctx->current)
-      p_expression_node->last = previous_parser_token(ctx->current);
+      p_expression_node->last = ctx->previous;
     return p_expression_node;
 }
 
@@ -15556,7 +15556,7 @@ struct token* parser_skip_blanks(struct parser_ctx* ctx)
 
 struct token* parser_match(struct parser_ctx* ctx)
 {
-    ctx->previous2 = ctx->current;
+    ctx->previous = ctx->current;
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx);
 
@@ -15583,7 +15583,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
         return;
     }
 
-    ctx->previous2 = ctx->current;
+    ctx->previous = ctx->current;
     ctx->current = ctx->current->next;
     parser_skip_blanks(ctx);
     return;
@@ -17011,8 +17011,8 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx, error);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pptokenName, error);
     
-    p_declarator->last_token = previous_parser_token(ctx->current);
-    assert(previous_parser_token(ctx->current) == ctx->previous2);
+    p_declarator->last_token = ctx->previous;
+
     return p_declarator;
 }
 
@@ -17978,7 +17978,7 @@ struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
     {
         seterror(error, "unexpected");
     }
-    p_primary_block->last = previous_parser_token(ctx->current);
+    p_primary_block->last = ctx->previous;
     return p_primary_block;
 }
 
@@ -17990,7 +17990,7 @@ struct secondary_block* secondary_block(struct parser_ctx* ctx, struct error* er
 
     p_secondary_block->statement = statement(ctx, error);
 
-    p_secondary_block->last = previous_parser_token(ctx->current);
+    p_secondary_block->last = ctx->previous;
 
     return p_secondary_block;
 }
@@ -18258,7 +18258,7 @@ struct try_statement* try_statement(struct parser_ctx* ctx, struct error* error)
 
         p_try_statement->catch_secondary_block_opt = secondary_block(ctx, error);
     }
-    p_try_statement->last_token = previous_parser_token(ctx->current);
+    p_try_statement->last_token = ctx->previous;
 
     
 
@@ -18337,7 +18337,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected token");
     }
 
-    p_selection_statement->last_token = previous_parser_token(ctx->current);
+    p_selection_statement->last_token = ctx->previous;
 
     scope_list_pop(&ctx->scopes);
 
@@ -18352,7 +18352,7 @@ struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* er
         p_defer_statement->firsttoken = ctx->current;
         parser_match(ctx);
         p_defer_statement->secondary_block = secondary_block(ctx, error);
-        p_defer_statement->lasttoken = previous_parser_token(ctx->current);
+        p_defer_statement->lasttoken = ctx->previous;
     }
     return p_defer_statement;
 }

@@ -2784,7 +2784,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx, error);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pptokenName, error);
     
-    p_declarator->last_token = previous_parser_token(ctx->current);
+    p_declarator->last_token = ctx->previous;
 
     return p_declarator;
 }
@@ -3751,7 +3751,7 @@ struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
     {
         seterror(error, "unexpected");
     }
-    p_primary_block->last = previous_parser_token(ctx->current);
+    p_primary_block->last = ctx->previous;
     return p_primary_block;
 }
 
@@ -3763,7 +3763,7 @@ struct secondary_block* secondary_block(struct parser_ctx* ctx, struct error* er
 
     p_secondary_block->statement = statement(ctx, error);
 
-    p_secondary_block->last = previous_parser_token(ctx->current);
+    p_secondary_block->last = ctx->previous;
 
     return p_secondary_block;
 }
@@ -4031,7 +4031,7 @@ struct try_statement* try_statement(struct parser_ctx* ctx, struct error* error)
 
         p_try_statement->catch_secondary_block_opt = secondary_block(ctx, error);
     }
-    p_try_statement->last_token = previous_parser_token(ctx->current);
+    p_try_statement->last_token = ctx->previous;
 
     
 
@@ -4110,7 +4110,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected token");
     }
 
-    p_selection_statement->last_token = previous_parser_token(ctx->current);
+    p_selection_statement->last_token = ctx->previous;
 
     scope_list_pop(&ctx->scopes);
 
@@ -4125,7 +4125,7 @@ struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* er
         p_defer_statement->firsttoken = ctx->current;
         parser_match(ctx);
         p_defer_statement->secondary_block = secondary_block(ctx, error);
-        p_defer_statement->lasttoken = previous_parser_token(ctx->current);
+        p_defer_statement->lasttoken = ctx->previous;
     }
     return p_defer_statement;
 }
