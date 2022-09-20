@@ -75,15 +75,75 @@ Options
 
 <h3>C99 Variable-length array (VLA)</h3>
 
-<p>TODO</p>
+<p>Not implemented.</p>
+
+<p>The idea is not implement variable length arrays with automatic 
+storage duration. (__STDC_NO_VLA__ 1). </p>
+
+<p>But there are other uses of VLA.</p>
+
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+#include &lt;stdio.h&gt;
+
+int main() {
+    int n = 2;
+    int m = 3;
+    int (*p)[n][m] = malloc(sizeof * p);
+
+    printf(&quot;%zu\n&quot;, sizeof(*p));
+
+    free(p);
+}
+
+</code></pre>
+
+<p>Becomes C89 (not implemented)</p>
+
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+#include &lt;stdio.h&gt;
+
+int main() {
+    int n = 2;
+    int m = 3;
+    
+    /*these variables are created to store the dynamic size*/
+    const int vla_1_n = n;
+    const int vla_1_m = m;
+    
+    int (*p)[n][m] = malloc((vla_1_n*vla_1_m)*sizeof(int));
+
+    printf(&quot;%zu\n&quot;, (vla_1_n*vla_1_m)*sizeof(int));
+
+    free(p);
+}
+
+</code></pre>
 
 <h3>C99 Flexible array members</h3>
 
-<p>TODO</p>
+<pre><code class="language-c">struct s {
+    int n;
+    double d[]; 
+};
+</code></pre>
+
+<p>Becomes (not implemented)</p>
+
+<pre><code class="language-c">struct s {
+    int n;
+    double d[]; //?
+};
+</code></pre>
 
 <h3>C99 static and type qualifiers in parameter array declarators</h3>
 
-<p>TODO</p>
+<pre><code class="language-c">void F1(int a[static 5]){}
+</code></pre>
+
+<p>Becomes in C89 (not implemented yet)</p>
+
+<pre><code class="language-c">void F1(int a[/*static*/ 5]){}
+</code></pre>
 
 <h3>C99 The long long int type and library functions</h3>
 
@@ -99,12 +159,11 @@ Options
 
 <h3>C99 Compound literals</h3>
 
-<p>TODO</p>
-
-<pre><code class="language-c">//EXAMPLE 8 Each compound literal creates only a single object in a given scope:
+<pre><code class="language-c">
 struct s {
   int i;
 };
+
 int f(void) {
   struct s * p = 0, * q;
   int j = 0;
@@ -115,10 +174,9 @@ int f(void) {
 }
 </code></pre>
 
-<p>Becomes in C89</p>
+<p>Becomes in C89 (not implemented yet)</p>
 
-<pre><code class="language-c">//EXAMPLE 8 Each compound literal creates only a single object in a given scope:
-struct s {
+<pre><code class="language-c">struct s {
   int i;
 };
 int f(void) {
@@ -134,28 +192,40 @@ int f(void) {
 
 <h3>C99 designated initializers</h3>
 
-<p>TODO</p>
+<pre><code class="language-c"> int main()
+ {
+  int a[6] = {[4] = 29, [2] = 15 };
+
+  struct point { int x, y; };
+
+  struct point p = { .y = 2, .x = 3 }
+ }
+
+</code></pre>
+
+<p>Becomes C89 (not implemented yet)</p>
+
+<pre><code class="language-c">int main()
+{
+  int a[6] = { 0, 0, 15, 0, 29, 0 };
+  struct point { int x, y; };
+
+  struct point p = { 3, 2 }
+
+}
+
+</code></pre>
 
 <h3>C99 line comments</h3>
 
 <p>When compiling to C89 line comments are converted to comments.</p>
 
 <pre><code class="language-c">//line comments
-int main(void)
-{
-    _Bool b = 1;
-    return 0;
-}
 </code></pre>
 
 <p>Becomes in C89</p>
 
 <pre><code class="language-c">/*line comments*/
-int main(void)
-{
-    int b = 1;
-    return 0;
-}
 </code></pre>
 
 <h3>C99 mixed declarations and code</h3>
@@ -195,7 +265,7 @@ int main()
 
 <p>TODO </p>
 
-<h3>_<em>func</em>_ predefined identifier</h3>
+<h3>__func__ predefined identifier</h3>
 
 <p>TODO</p>
 
@@ -230,7 +300,8 @@ int main()
 
 <p>Sample:</p>
 
-<pre><code class="language-c">#include &lt;stdio.h&gt;
+<pre><code class="language-c">
+#include &lt;stdio.h&gt;
 
 #define debug(...) fprintf(stderr, __VA_ARGS__)
 #pragma expand debug
@@ -240,6 +311,7 @@ int main()
   int x = 1;
   debug(&quot;X = %d\n&quot;, 1);
 }
+
 </code></pre>
 
 <p>Becomes</p>
@@ -292,7 +364,7 @@ int main(void)
 
 <h3>C11 _Static_assert</h3>
 
-<p>When compiling to versions C89, C99 <code>_Static_Assert</code> is removed</p>
+<p>When compiling to versions C89, C99 _Static_Assert is removed</p>
 
 <h3>C11 Anonymous structures and unions</h3>
 
@@ -377,7 +449,7 @@ int main(void)
 
 <p>u8 literals are converted to escape sequecences.</p>
 
-<pre><code class="language-c">char * s1 = u8&quot;maçã&quot;;
+<pre><code class="language-c">char * s1 = u8&quot;maÃ§Ã£&quot;;
 char * s2 = u8&quot;maca&quot;;
 
 </code></pre>
@@ -394,7 +466,7 @@ char * s2 = &quot;maca&quot;;
 
 <p>Not implemented (maybe parsed?)</p>
 
-<h3>static_assert / single-argument static_assert</h3>
+<h3>C23 static_assert / single-argument static_assert</h3>
 
 <p>In C23 static_assert is a keyword and the text message is optional.</p>
 
@@ -403,7 +475,7 @@ If the static_assert has only one argument the text becomes &quot;error&quot;.</
 
 <pre><code class="language-c">int main()
 {    
-    static_assert(1 == 1, &quot;error&quot;);
+    static_assert(1 == 1, &quot;error message&quot;);
     static_assert(1 == 1);
 }
 
@@ -413,7 +485,7 @@ If the static_assert has only one argument the text becomes &quot;error&quot;.</
 
 <pre><code class="language-c">int main()
 {    
-    _Static_assert(1 == 1, &quot;error&quot;);
+    _Static_assert(1 == 1, &quot;error message&quot;);
     _Static_assert(1 == 1, &quot;error&quot;);
 }
 </code></pre>
@@ -437,7 +509,7 @@ If the static_assert has only one argument the text becomes &quot;error&quot;.</
 <pre><code class="language-c">int main()
 {
     int a = 100000;
-}
+}x  
 </code></pre>
 
 <blockquote>
@@ -520,7 +592,7 @@ int main()
     {
         struct X x;
     } y = { {} };
-}
+}  
 
 </code></pre>
 
@@ -691,13 +763,13 @@ More work is necessary to implement the checks in C23.</p>
 
 <p>Convertion to C11, C99, C89 will just remove the attributes.</p>
 
-<h3>C23 has_attribute</h3>
+<h3>C23 __has_attribute</h3>
 
 <p>It is implemented in C23.</p>
 
 <p>Convertion to C11, C99 C89 not defined yet.</p>
 
-<h3>C23 has_include</h3>
+<h3>C23 __has_include</h3>
 
 <pre><code class="language-c">
 #if __has_include(&lt;stdio.h&gt;)
@@ -717,7 +789,7 @@ More work is necessary to implement the checks in C23.</p>
 <pre><code class="language-c">Not defined yet
 </code></pre>
 
-<h3>C23 warning</h3>
+<h3>C23 #warning</h3>
 
 <p>When compiling to versions &lt; 23 it is commented out.</p>
 
@@ -792,7 +864,7 @@ int main()
 
 </code></pre>
 
-<h3>C23 __VA<em>OPT</em>_</h3>
+<h3>C23 __VA_OPT__</h3>
 
 <p>Requires #pragma expand. (TODO make the expansion automatic)</p>
 
@@ -825,6 +897,7 @@ int main()
   G(a);
 
 }
+
 </code></pre>
 
 <p>Becomes in C11, C99, C89</p>
@@ -868,39 +941,81 @@ int main()
 
 <p>Parsed but not implemented.</p>
 
-<pre><code class="language-c">constexpr int K = 47;
-enum {
- A = K, // valid, constant initialization
-};
-constexpr int L = K; // valid, constexpr initialization
-static int b = K + 1; // valid, static initialization
-int array[K]; // not a VL
+<pre><code class="language-c">
+ constexpr int K = 47;
+ enum {
+  A = K, // valid, constant initialization
+ };
+ constexpr int L = K; // valid, constexpr initialization
+ static int b = K + 1; // valid, static initialization
+ int array[K]; // not a VL
+
 </code></pre>
 
-<h3>C23 auto</h3>
+<h3>Compound Literals with storage specifier</h3>
 
-<p>Parsed but not implemented</p>
+<pre><code class="language-c">void F(int *p){}
 
-<pre><code class="language-c">static auto a = 3.5;
-auto p = &amp;a;
+int main()
+{
+   F((static int []){1, 2, 3, 0})
+}
 </code></pre>
 
-<h3>C23 elifdef elifndef</h3>
+<p>becomes (not implemented yet)</p>
 
-<p>Are implemented</p>
+<pre><code class="language-c">void F(int *p){}
+
+int main()
+{
+    static int _compound_1[] = {1, 2, 3, 0};
+    F(_compound_1);
+x   }
+</code></pre>
+
+<h3>C23 #elifdef #elifndef</h3>
+
+<pre><code class="language-c">#define Y
+
+#ifdef X
+#define VERSION 1
+#elifdef  Y
+#define VERSION 2
+#else
+#define VERSION 3
+#endif
+</code></pre>
+
+<p>Becomes C11, C99, C89</p>
+
+<pre><code class="language-c">#define Y
+
+#ifdef X
+#define VERSION 1
+#elif defined   Y
+#define VERSION 2
+#else
+#define VERSION 3
+#endif
+
+</code></pre>
 
 <h2 id="toc_4">Extensions (Not in C23)</h2>
 
-<h3>try catch throw</h3>
-
-<p>try catch is a external block that we can jump off.</p>
-
-<p>try catcn is a LOCAL jump only and this is on purpose not a limitation.</p>
+<h3>Extension - try catch throw</h3>
 
 <pre><code>   try-statement:
       try secondary-block
       try secondary-block catch secondary-block   
 </code></pre>
+
+<pre><code>jump-statement:
+  throw;
+</code></pre>
+
+<p>try catch is a external block that we can jump off.</p>
+
+<p>try catch is a LOCAL jump only and this is on purpose not a limitation.</p>
 
 <p>catch block is optional.</p>
 
@@ -919,7 +1034,7 @@ catch
 }
 </code></pre>
 
-<h3>defer</h3>
+<h3>Extension - defer</h3>
 
 <p><em>defer</em> will call the defer statement before the block exit at inverse orden of declaration.</p>
 
@@ -946,7 +1061,7 @@ int main() {
 }
 </code></pre>
 
-<p>Becomes:</p>
+<p>Becomes in C23, C11, C99, C89</p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
@@ -966,7 +1081,7 @@ int main() {
 
 <p>I guess everthing is working including <strong>goto</strong> jumps.</p>
 
-<h3>if with initializer</h3>
+<h3>Extension - if with initializer</h3>
 
 <p>No idea why C++ 17 if with initializer was not proposed for C23!
 But in cake it is implemented.</p>
@@ -1000,7 +1115,7 @@ int main()
 
 <p>An extension if + initializer + defer expression was considered but not implemented yet.</p>
 
-<h3>lambdas</h3>
+<h3>Extension Literal function - lambdas</h3>
 
 <p>Lambdas without capture where implemented using a syntax similar of 
 compound literal for function pointer.</p>
@@ -1044,7 +1159,7 @@ void create_app(const char* appname)
 }
 </code></pre>
 
-<h3>typeid</h3>
+<h3>Extension typeid</h3>
 
 <p>syntax:</p>
 
@@ -1062,7 +1177,7 @@ the evaluation is based on type comparison not value.</p>
 static_assert(typeid(1) == typeid(int));
 </code></pre>
 
-<h3>Repeat</h3>
+<h3>Extension Repeat</h3>
 
 <pre><code class="language-c">  repeat {
        if (condition) 
@@ -1072,7 +1187,7 @@ static_assert(typeid(1) == typeid(int));
 
 <p>Repeat is equivalent of for(;;) </p>
 
-<h3>pragma expand</h3>
+<h3>Extension #pragma expand</h3>
 
 <p>pragma expand tells the back end to not hide macro expansions.</p>
 
@@ -1114,7 +1229,7 @@ int main()
 
 </code></pre>
 
-<h3>_Hashof</h3>
+<h3>Extension _Hashof</h3>
 
 <p>_Hashof is a compile time function that returns a hash of the parsing tokens
 of some struct enum etc.</p>

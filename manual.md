@@ -49,13 +49,87 @@ void f(const char* /*restrict*/ s);
 ```
 
 ###  C99 Variable-length array (VLA) 
-TODO
+
+Not implemented.
+
+The idea is not implement variable length arrays with automatic 
+storage duration. (\_\_STDC\_NO\_VLA\_\_ 1). 
+
+But there are other uses of VLA.
+
+
+```c
+#include <stdlib.h>
+#include <stdio.h>
+
+int main() {
+	int n = 2;
+	int m = 3;
+	int (*p)[n][m] = malloc(sizeof * p);
+
+	printf("%zu\n", sizeof(*p));
+
+	free(p);
+}
+
+```
+
+Becomes C89 (not implemented)
+
+```c
+#include <stdlib.h>
+#include <stdio.h>
+
+int main() {
+	int n = 2;
+	int m = 3;
+    
+    /*these variables are created to store the dynamic size*/
+    const int vla_1_n = n;
+	const int vla_1_m = m;
+    
+	int (*p)[n][m] = malloc((vla_1_n*vla_1_m)*sizeof(int));
+
+	printf("%zu\n", (vla_1_n*vla_1_m)*sizeof(int));
+
+	free(p);
+}
+
+```
+
 
 ### C99 Flexible array members
-TODO
+
+```c
+struct s {
+    int n;
+    double d[]; 
+};
+```
+
+Becomes (not implemented)
+
+```c
+struct s {
+    int n;
+    double d[]; //?
+};
+```
+
+
 
 ### C99 static and type qualifiers in parameter array declarators
-TODO
+
+```c
+void F1(int a[static 5]){}
+```
+
+Becomes in C89 (not implemented yet)
+
+```c
+void F1(int a[/*static*/ 5]){}
+```
+
 
 ### C99 The long long int type and library functions
 TODO ?
@@ -67,13 +141,14 @@ TODO
 TODO
 
 ### C99 Compound literals
-TODO
+
 
 ```c
-//EXAMPLE 8 Each compound literal creates only a single object in a given scope:
+
 struct s {
   int i;
 };
+
 int f(void) {
   struct s * p = 0, * q;
   int j = 0;
@@ -83,10 +158,9 @@ int f(void) {
   return p == q && q -> i == 1;
 }
 ```
-Becomes in C89
+Becomes in C89 (not implemented yet)
 
 ```c
-//EXAMPLE 8 Each compound literal creates only a single object in a given scope:
 struct s {
   int i;
 };
@@ -102,7 +176,33 @@ int f(void) {
 ```
 
 ### C99 designated initializers
-TODO
+
+```c
+ int main()
+ {
+  int a[6] = {[4] = 29, [2] = 15 };
+
+  struct point { int x, y; };
+
+  struct point p = { .y = 2, .x = 3 }
+ }
+
+```
+
+Becomes C89 (not implemented yet)
+
+```c
+int main()
+{
+  int a[6] = { 0, 0, 15, 0, 29, 0 };
+  struct point { int x, y; };
+
+  struct point p = { 3, 2 }
+
+}
+
+```
+
 
 ### C99 line comments
 
@@ -110,22 +210,12 @@ When compiling to C89 line comments are converted to comments.
 
 ```c
 //line comments
-int main(void)
-{
-    _Bool b = 1;
-    return 0;
-}
 ```
 
 Becomes in C89
 
 ```c
 /*line comments*/
-int main(void)
-{
-    int b = 1;
-    return 0;
-}
 ```
 
 
@@ -167,7 +257,7 @@ TODO
 ### _Pragma preprocessing operator
 TODO 
 
-### \__func__ predefined identifier
+### \_\_func\_\_ predefined identifier
 TODO
 
 ###  init-statement in for loops 
@@ -204,6 +294,7 @@ This is covered by # macro expand.
 Sample:
 
 ```c
+
 #include <stdio.h>
 
 #define debug(...) fprintf(stderr, __VA_ARGS__)
@@ -214,6 +305,7 @@ int main()
   int x = 1;
   debug("X = %d\n", 1);
 }
+
 ```
 Becomes
 
@@ -266,7 +358,7 @@ int main(void)
 
 ###  C11 \_Static\_assert
 
-When compiling to versions C89, C99 ``_Static_Assert`` is removed
+When compiling to versions C89, C99 \_Static\_Assert is removed
 
 ### C11 Anonymous structures and unions
 TODO
@@ -351,12 +443,12 @@ int main(void)
 
 ```
 
-###   C11 u8"literals"
+###  C11 u8"literals"
 
 u8 literals are converted to escape sequecences.
 
 ```c
-char * s1 = u8"maçã";
+char * s1 = u8"maÃ§Ã£";
 char * s2 = u8"maca";
 
 ```
@@ -374,7 +466,7 @@ char * s2 = "maca";
 ###  C23 \_Decimal32, \_Decimal64, and \_Decimal128
 Not implemented (maybe parsed?)
 
-###  static\_assert / single-argument static_assert
+### C23 static\_assert / single-argument static_assert
 In C23 static\_assert is a keyword and the text message is optional.
 
 Whe comping to C11, static\_assert is replaced by \_Static\_assert
@@ -384,7 +476,7 @@ If the static\_assert has only one argument the text becomes "error".
 ```c
 int main()
 {    
-    static_assert(1 == 1, "error");
+    static_assert(1 == 1, "error message");
     static_assert(1 == 1);
 }
 
@@ -394,7 +486,7 @@ Becomes in C11
 ```c
 int main()
 {    
-    _Static_assert(1 == 1, "error");
+    _Static_assert(1 == 1, "error message");
     _Static_assert(1 == 1, "error");
 }
 ```
@@ -417,7 +509,7 @@ Becomes in C11, C99, C89
 int main()
 {
     int a = 100000;
-}
+}x  
 ```
 
 >This transformation uses only tokens. So even preprocessor and inactive
@@ -502,7 +594,7 @@ int main()
     {
         struct X x;
     } y = { {} };
-}
+}  
 
 ```
 
@@ -680,14 +772,14 @@ More work is necessary to implement the checks in C23.
 Convertion to C11, C99, C89 will just remove the attributes.
 
 
-###  C23 has_attribute
+###  C23 \_\_has\_attribute
 
 It is implemented in C23.
 
 Convertion to C11, C99 C89 not defined yet.
 
 
-###  C23 has_include
+###  C23 \_\_has\_include
 
 ```c
 
@@ -710,7 +802,7 @@ Not defined yet
 ```
 
 
-###  C23 warning
+###  C23 #warning
 When compiling to versions < 23 it is commented out.
 
 The compiler also ouputs the message on stderr.
@@ -791,7 +883,7 @@ int main()
 
 
 
-###  C23 \_\_VA_OPT__
+###  C23 \_\_VA_OPT\_\_
 
 Requires #pragma expand. (TODO make the expansion automatic)
 
@@ -825,7 +917,9 @@ int main()
   G(a);
 
 }
+
 ```
+
 
 Becomes in C11, C99, C89
 
@@ -863,6 +957,7 @@ int main()
 
 
 ###  C23 BitInt(N))
+
 Not implemented
 
 ###  C23 constexpr
@@ -870,34 +965,73 @@ Not implemented
 Parsed but not implemented.
 
 ```c
-constexpr int K = 47;
-enum {
- A = K, // valid, constant initialization
-};
-constexpr int L = K; // valid, constexpr initialization
-static int b = K + 1; // valid, static initialization
-int array[K]; // not a VL
+
+ constexpr int K = 47;
+ enum {
+  A = K, // valid, constant initialization
+ };
+ constexpr int L = K; // valid, constexpr initialization
+ static int b = K + 1; // valid, static initialization
+ int array[K]; // not a VL
+
 ```
 
-###  C23 auto
-Parsed but not implemented
+
+### Compound Literals with storage specifier
 
 ```c
-static auto a = 3.5;
-auto p = &a;
+void F(int *p){}
+
+int main()
+{
+   F((static int []){1, 2, 3, 0})
+}
 ```
 
-###  C23 elifdef elifndef
-Are implemented
+becomes (not implemented yet)
+
+```c
+void F(int *p){}
+
+int main()
+{
+    static int _compound_1[] = {1, 2, 3, 0};
+    F(_compound_1);
+x   }
+```
+
+###  C23 #elifdef #elifndef
+
+```c
+#define Y
+
+#ifdef X
+#define VERSION 1
+#elifdef  Y
+#define VERSION 2
+#else
+#define VERSION 3
+#endif
+```
+
+Becomes C11, C99, C89
+
+```c
+#define Y
+
+#ifdef X
+#define VERSION 1
+#elif defined   Y
+#define VERSION 2
+#else
+#define VERSION 3
+#endif
+
+```
 
 ## Extensions (Not in C23)
 
-###  try catch throw
-
-try catch is a external block that we can jump off.
-
-try catcn is a LOCAL jump only and this is on purpose not a limitation.
-
+###  Extension - try catch throw
 
 
 ```
@@ -905,6 +1039,16 @@ try catcn is a LOCAL jump only and this is on purpose not a limitation.
       try secondary-block
       try secondary-block catch secondary-block   
 ```
+
+```
+jump-statement:
+  throw;
+```
+
+try catch is a external block that we can jump off.
+
+try catch is a LOCAL jump only and this is on purpose not a limitation.
+
 
 catch block is optional.
 
@@ -923,7 +1067,8 @@ catch
 {
 }
 ```
-###  defer
+
+###  Extension - defer
 
 *defer* will call the defer statement before the block exit at inverse orden of declaration.
 
@@ -931,6 +1076,7 @@ catch
      defer-statement:
         defer secondary-block
 ```
+
 For instance:
 
 ```c
@@ -950,7 +1096,8 @@ int main() {
   while(0);
 }
 ```
-Becomes:
+
+Becomes in C23, C11, C99, C89
 
 ```c
 #include <stdio.h>
@@ -970,7 +1117,7 @@ int main() {
 ```
 I guess everthing is working including **goto** jumps.
 
-###  if with initializer
+###  Extension - if with initializer
 
 No idea why C++ 17 if with initializer was not proposed for C23!
 But in cake it is implemented.
@@ -1004,7 +1151,7 @@ int main()
 ```
 An extension if + initializer + defer expression was considered but not implemented yet.
 
-###  lambdas
+###  Extension Literal function - lambdas
 
 Lambdas without capture where implemented using a syntax similar of 
 compound literal for function pointer.
@@ -1048,7 +1195,8 @@ void create_app(const char* appname)
   _lit_func_0(&capture);  
 }
 ```
-###  typeid
+
+###  Extension typeid
 
 syntax:
 
@@ -1068,7 +1216,7 @@ static_assert(1 == typeid(int));
 static_assert(typeid(1) == typeid(int));
 ```
 
-###  Repeat
+###  Extension Repeat
 
 ```c
   repeat {
@@ -1080,7 +1228,7 @@ static_assert(typeid(1) == typeid(int));
 Repeat is equivalent of for(;;) 
 
 
-###  pragma expand
+### Extension #pragma expand
 
 pragma expand tells the back end to not hide macro expansions.
 
@@ -1125,7 +1273,7 @@ int main()
 
 ```
 
-###  _Hashof
+###  Extension _Hashof
 
 _Hashof is a compile time function that returns a hash of the parsing tokens
 of some struct enum etc.
