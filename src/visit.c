@@ -1509,8 +1509,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
 
 
-                struct token* first = p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first;
-                struct token* last = p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last;
+                struct token* first = p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first_token;
+                struct token* last = p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last_token;
                 for (struct token* current = first;
                     current != last->next;
                     current = current->next)
@@ -1531,8 +1531,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 }
                 else
                 {
-                    token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first,
-                        p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last,
+                    token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first_token,
+                        p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last_token,
                         TK_FLAG_HIDE);
                 }
             }

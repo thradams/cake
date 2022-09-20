@@ -2212,9 +2212,9 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         struct token* first = ctx->current;
         parser_match(ctx);
         pStruct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, error);
-        pStruct_or_union_specifier->member_declaration_list.first = first;
+        pStruct_or_union_specifier->member_declaration_list.first_token = first;
         pStruct_or_union_specifier->last = ctx->current;
-        pStruct_or_union_specifier->member_declaration_list.last = ctx->current;
+        pStruct_or_union_specifier->member_declaration_list.last_token = ctx->current;
         parser_match_tk(ctx, '}', error);
 
     }

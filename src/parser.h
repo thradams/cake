@@ -338,8 +338,8 @@ struct enum_specifier* enum_specifier(struct parser_ctx*, struct error* error);
 
 struct member_declaration_list
 {
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
     struct member_declaration* head;
     struct member_declaration* tail;
 };
