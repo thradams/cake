@@ -1915,14 +1915,14 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx, struct error* 
 {
     struct typeof_specifier* p_typeof_specifier = calloc(1, sizeof(struct typeof_specifier));
 
-    p_typeof_specifier->token = ctx->current;
+    p_typeof_specifier->first_token= ctx->current;
     parser_match(ctx);
     parser_match_tk(ctx, '(', error);
 
     p_typeof_specifier->typeof_specifier_argument =
         typeof_specifier_argument(ctx, error);
 
-    p_typeof_specifier->endtoken = ctx->current;
+    p_typeof_specifier->last_token = ctx->current;
     parser_match_tk(ctx, ')', error);
 
     return p_typeof_specifier;

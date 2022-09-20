@@ -1310,8 +1310,8 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
             /*
             * let's hide the typeof(..) tokens
             */
-            token_range_add_flag(p_type_specifier->typeof_specifier->token,
-                p_type_specifier->typeof_specifier->endtoken,
+            token_range_add_flag(p_type_specifier->typeof_specifier->first_token,
+                p_type_specifier->typeof_specifier->last_token,
                 TK_FLAG_HIDE);
 
 
@@ -1384,7 +1384,7 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
        
             struct token_list list = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);            
             ss_close(&ss);
-            token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->endtoken, &list);            
+            token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->last_token, &list);            
         }
     }
 }

@@ -8457,8 +8457,8 @@ struct typeof_specifier
      typeof-specifier:
        "typeof" ( typeof-specifier-argument )
     */
-    struct token* token;
-    struct token* endtoken;
+    struct token* first_token;
+    struct token* last_token;
     struct typeof_specifier_argument* typeof_specifier_argument;
 };
 
@@ -8995,13 +8995,13 @@ struct primary_block
 {
     /*
        primary-block:
-       compound-statement
-       selection-statement
-       iteration-statement
-       defer-statement (extension)
-       try-statement (extension)
+           compound-statement
+           selection-statement
+           iteration-statement
+           defer-statement (extension)
+           try-statement (extension)
     */
-    struct token* last;
+    
     struct compound_statement* compound_statement;
     struct selection_statement* selection_statement;
     struct iteration_statement* iteration_statement;
@@ -16141,14 +16141,14 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx, struct error* 
 {
     struct typeof_specifier* p_typeof_specifier = calloc(1, sizeof(struct typeof_specifier));
 
-    p_typeof_specifier->token = ctx->current;
+    p_typeof_specifier->first_token= ctx->current;
     parser_match(ctx);
     parser_match_tk(ctx, '(', error);
 
     p_typeof_specifier->typeof_specifier_argument =
         typeof_specifier_argument(ctx, error);
 
-    p_typeof_specifier->endtoken = ctx->current;
+    p_typeof_specifier->last_token = ctx->current;
     parser_match_tk(ctx, ')', error);
 
     return p_typeof_specifier;
@@ -17977,7 +17977,6 @@ struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
     {
         seterror(error, "unexpected");
     }
-    p_primary_block->last = ctx->previous;
     return p_primary_block;
 }
 
@@ -20791,8 +20790,8 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
             /*
             * let's hide the typeof(..) tokens
             */
-            token_range_add_flag(p_type_specifier->typeof_specifier->token,
-                p_type_specifier->typeof_specifier->endtoken,
+            token_range_add_flag(p_type_specifier->typeof_specifier->first_token,
+                p_type_specifier->typeof_specifier->last_token,
                 TK_FLAG_HIDE);
 
 
@@ -20865,7 +20864,7 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
        
             struct token_list list = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);            
             ss_close(&ss);
-            token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->endtoken, &list);            
+            token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->last_token, &list);            
         }
     }
 }

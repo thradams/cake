@@ -225,8 +225,8 @@ struct typeof_specifier
      typeof-specifier:
        "typeof" ( typeof-specifier-argument )
     */
-    struct token* token;
-    struct token* endtoken;
+    struct token* first_token;
+    struct token* last_token;
     struct typeof_specifier_argument* typeof_specifier_argument;
 };
 
