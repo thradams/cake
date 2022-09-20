@@ -763,13 +763,13 @@ struct primary_block
 {
     /*
        primary-block:
-       compound-statement
-       selection-statement
-       iteration-statement
-       defer-statement (extension)
-       try-statement (extension)
+           compound-statement
+           selection-statement
+           iteration-statement
+           defer-statement (extension)
+           try-statement (extension)
     */
-    struct token* last;
+    
     struct compound_statement* compound_statement;
     struct selection_statement* selection_statement;
     struct iteration_statement* iteration_statement;

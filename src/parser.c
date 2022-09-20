@@ -3751,7 +3751,6 @@ struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
     {
         seterror(error, "unexpected");
     }
-    p_primary_block->last = ctx->previous;
     return p_primary_block;
 }
 
