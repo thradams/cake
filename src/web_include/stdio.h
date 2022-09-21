@@ -52,3 +52,6 @@ void perror(const char* s);
 
 
 
+#ifndef NULL
+#define NULL ((void*)0)
+#endif

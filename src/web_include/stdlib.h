@@ -29,3 +29,8 @@ _Noreturn void _Exit(int status);
 char* getenv(const char* name);
 _Noreturn void quick_exit(int status);
 int system(const char* string);
+
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
+
