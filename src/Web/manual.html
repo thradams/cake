@@ -18,13 +18,19 @@
 <a href="#toc_1">C99 Transformations</a>
 </li>
 <li>
-<a href="#toc_2">C11 Transformations</a>
+<a href="#toc_2">Complex and imaginary support</a>
 </li>
 <li>
-<a href="#toc_3">C23 Transformations</a>
+<a href="#toc_3">C99 Improvements of braced-init-list for array, struct and union types</a>
 </li>
 <li>
-<a href="#toc_4">Extensions (Not in C23)</a>
+<a href="#toc_4">C11 Transformations</a>
+</li>
+<li>
+<a href="#toc_5">C23 Transformations</a>
+</li>
+<li>
+<a href="#toc_6">Extensions (Not in C23)</a>
 </li>
 </ul>
 <h2 id="toc_0">Command line</h2>
@@ -63,8 +69,6 @@ Options
 
 <h3>C99 restrict pointers</h3>
 
-<p>Yes. restrict is commented.</p>
-
 <pre><code class="language-c">void f(const char* restrict s);
 </code></pre>
 
@@ -73,9 +77,13 @@ Options
 <pre><code class="language-c">void f(const char* /*restrict*/ s);
 </code></pre>
 
-<h3>C99 Variable-length array (VLA)</h3>
+<blockquote>
+<p>The intended use of the restrict qualifier 
+is to promote optimization, removing it will not 
+change the observable behavior.</p>
+</blockquote>
 
-<p>Not implemented.</p>
+<h3>C99 Variable-length array (VLA)</h3>
 
 <p>The idea is not implement variable length arrays with automatic 
 storage duration. (__STDC_NO_VLA__ 1). </p>
@@ -145,6 +153,10 @@ int main() {
 <pre><code class="language-c">void F1(int a[/*static*/ 5]){}
 </code></pre>
 
+<h2 id="toc_2">Complex and imaginary support</h2>
+
+<p>TODO</p>
+
 <h3>C99 The long long int type and library functions</h3>
 
 <p>TODO ?</p>
@@ -155,7 +167,19 @@ int main() {
 
 <h3>C99 Hexadecimal floating constants</h3>
 
-<p>TODO</p>
+<pre><code class="language-c">double d = 0x1p+1;
+</code></pre>
+
+<p>Becomes in C89</p>
+
+<pre><code class="language-c">double d = 2.000000;
+</code></pre>
+
+<blockquote>
+<p>Cake converts the hexadecimal floating to decimal
+floating point using strtod then snprintf.
+That means this convertion is not precise.</p>
+</blockquote>
 
 <h3>C99 Compound literals</h3>
 
@@ -360,7 +384,13 @@ int main(void)
 }
 </code></pre>
 
-<h2 id="toc_2">C11 Transformations</h2>
+<h2 id="toc_3">C99 Improvements of braced-init-list for array, struct and union types</h2>
+
+<pre><code class="language-c"></code></pre>
+
+<pre><code class="language-c"></code></pre>
+
+<h2 id="toc_4">C11 Transformations</h2>
 
 <h3>C11 _Static_assert</h3>
 
@@ -460,7 +490,7 @@ char * s2 = u8&quot;maca&quot;;
 char * s2 = &quot;maca&quot;;
 </code></pre>
 
-<h2 id="toc_3">C23 Transformations</h2>
+<h2 id="toc_5">C23 Transformations</h2>
 
 <h3>C23 _Decimal32, _Decimal64, and _Decimal128</h3>
 
@@ -548,13 +578,13 @@ code is transformed.</p>
 
 <h3>C23 nullptr</h3>
 
-<pre><code class="language-c">
-#if NULL == 0
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+
 int main()
 {
   void * p = nullptr;
+  void * p2 = NULL;
 }
-#endif
 
 </code></pre>
 
@@ -565,9 +595,6 @@ int main()
   void * p = ((void*)0);
 }
 </code></pre>
-
-<p>Note:
-Cake has a non standard extension that makes NULL an alias for nullptr.</p>
 
 <h3>C23 bool true false</h3>
 
@@ -1000,7 +1027,7 @@ x   }
 
 </code></pre>
 
-<h2 id="toc_4">Extensions (Not in C23)</h2>
+<h2 id="toc_6">Extensions (Not in C23)</h2>
 
 <h3>Extension - try catch throw</h3>
 

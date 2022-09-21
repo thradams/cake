@@ -10,6 +10,13 @@ int main(void)
 }
 `;
 
+sample["C99 Hexadecimal floating constants"] =
+`
+double d = 0x1p+1;
+`;
+
+
+
 sample["C11 _Generic"] =
     `
 #include <math.h>
@@ -38,6 +45,19 @@ int main()
 }
 `;
 
+
+sample["C11 _Noreturn"] =
+    `
+#include <stdio.h>
+#include <stdlib.h>
+
+_Noreturn void not_coming_back(void)
+{
+    puts("There's no coming back");
+    exit(1);
+    return;
+}
+`;
 
 sample["C11 u8 literals"] =
     `
@@ -173,6 +193,7 @@ int main()
 
 sample["C23 typeof"] =
 `
+#include <stdlib.h>
 
 #define SWAP(a, b) \\
   do {\\
@@ -232,15 +253,15 @@ int main()
 
 `;
 
-sample["C23 nullptr (NULL as extension)"] =
+sample["C23 nullptr"] =
 `
-#if NULL == 0
+#include <stdlib.h>
+
 int main()
 {
-  void * p = NULL;
-  static_assert(nullptr == 0);
+  void * p = nullptr;
+  void * p2 = NULL;
 }
-#endif
 `;
 
 

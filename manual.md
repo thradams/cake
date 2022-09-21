@@ -36,7 +36,6 @@ The ouput dir is **./out**
 ## C99 Transformations
 
 ###  C99 restrict pointers
-Yes. restrict is commented.
 
 ```c
 void f(const char* restrict s);
@@ -47,10 +46,12 @@ Becomes in C89
 ```c
 void f(const char* /*restrict*/ s);
 ```
+> The intended use of the restrict qualifier 
+> is to promote optimization, removing it will not 
+> change the observable behavior.
 
 ###  C99 Variable-length array (VLA) 
 
-Not implemented.
 
 The idea is not implement variable length arrays with automatic 
 storage duration. (\_\_STDC\_NO\_VLA\_\_ 1). 
@@ -130,6 +131,8 @@ Becomes in C89 (not implemented yet)
 void F1(int a[/*static*/ 5]){}
 ```
 
+## Complex and imaginary support
+TODO
 
 ### C99 The long long int type and library functions
 TODO ?
@@ -138,7 +141,21 @@ TODO ?
 TODO
 
 ###  C99 Hexadecimal floating constants
-TODO
+
+```c
+double d = 0x1p+1;
+```
+Becomes in C89
+
+```c
+double d = 2.000000;
+```
+
+>Cake converts the hexadecimal floating to decimal
+>floating point using strtod then snprintf.
+>That means this convertion is not precise.
+>
+
 
 ### C99 Compound literals
 
@@ -353,6 +370,13 @@ int main(void)
 }
 ```
 
+## C99 Improvements of braced-init-list for array, struct and union types 
+
+```c
+```
+
+```c
+```
 
 ## C11 Transformations
 
@@ -547,13 +571,13 @@ int main()
 ### C23 nullptr
 
 ```c
+#include <stdlib.h>
 
-#if NULL == 0
 int main()
 {
   void * p = nullptr;
+  void * p2 = NULL;
 }
-#endif
 
 ```
 
@@ -566,8 +590,6 @@ int main()
 }
 ```
 
-Note:
-Cake has a non standard extension that makes NULL an alias for nullptr.
 
 ### C23 bool true false
 
