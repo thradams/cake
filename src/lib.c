@@ -21321,6 +21321,9 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
 
                 if (ctx->target < LANGUAGE_C99)
                 {
+                   /*
+                    * C99 Hexadecimal floating constants to C89.
+                    */
                     double d = strtod(current->lexeme, 0);
                     char buffer[50] = { 0 };
                     snprintf(buffer, sizeof buffer, "%f", d);
