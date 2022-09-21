@@ -867,11 +867,7 @@ enum token_type is_keyword(const char* text)
         if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
         else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
         else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
-        break;
-    case 'N':
-        /*extension NULL alias for nullptr*/
-        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULLPTR;
-        break;
+        break;    
     case 'n':
         if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
         break;
@@ -1011,6 +1007,19 @@ void digit_sequence(struct stream* stream)
     {
         stream_match(stream);
     }
+}
+
+static void binary_exponent_part(struct stream* stream)
+{
+    //p signopt digit - sequence
+    //P   signopt digit - sequence
+
+    stream_match(stream); //p or P
+    if (stream->current[0] == '+' || stream->current[0] == '-')
+    {
+        stream_match(stream); //p or P
+    }
+    digit_sequence(stream);
 }
 
 void hexadecimal_digit_sequence(struct stream* stream)
@@ -1196,8 +1205,6 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
     enum token_type type = TK_NONE;
     if (stream->current[0] == '.')
     {
-
-
         type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
         stream_match(stream);
         digit_sequence(stream);
@@ -1218,12 +1225,24 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
         {
             stream_match(stream);
         }
+        
         integer_suffix_opt(stream, flags_opt);
 
         if (stream->current[0] == '.')
         {
+            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;                        
+            hexadecimal_digit_sequence(stream);                        
+        }
+        
+        if (stream->current[0] == 'p' ||
+            stream->current[0] == 'P')
+        {
             type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
-            hexadecimal_digit_sequence(stream);
+            binary_exponent_part(stream);         
+        }   
+
+        if (type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+        {
             enum type_specifier_flags f = floating_suffix_opt(stream);
             if (flags_opt)
             {
@@ -4846,6 +4865,7 @@ char* compile_source(const char* pszoptions, const char* content)
         }
 
         prectx.options = options;
+        add_standard_macros(&prectx, &error);
 
 
         if (options.bPreprocessOnly)

@@ -2352,11 +2352,7 @@ struct token* ppnumber(struct stream* stream)
         if (is_digit(stream))
         {
             stream_match(stream);//digit
-        }
-        else if (is_nondigit(stream))
-        {
-            stream_match(stream);//nondigit
-        }
+        }        
         else if (stream->current[0] == '\'')
         {
             //digit separators c23
@@ -2392,6 +2388,14 @@ struct token* ppnumber(struct stream* stream)
         else if (stream->current[0] == '.')
         {
             stream_match(stream);//.            
+        }
+        else if (is_nondigit(stream))
+        {
+            /*
+            * OBS test for is_nondigit must be AFTER
+            * test for e E p P
+            */
+            stream_match(stream);//nondigit
         }
         else
         {
@@ -5183,8 +5187,8 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
         "#define __FILE__\n"
         "#define __LINE__\n"
         "#define __COUNT__\n"
-        "#define _CONSOLE\n"
-        //"#define _MSC_VER 1200\n"        
+        "#define _CONSOLE\n"        
+        "#define __STDC_VERSION__ 202311L\n"
         "#define _WINDOWS\n"
         "#define _M_IX86\n"
         "#define _X86_\n"
@@ -7223,7 +7227,9 @@ char* readfile(const char* path)
 ,41,59,13,10,105,110,116,32,102,101,111,102,40,70,73,76,69,42,32,115,116,114,101,97,109
 ,41,59,13,10,105,110,116,32,102,101,114,114,111,114,40,70,73,76,69,42,32,115,116,114,101
 ,97,109,41,59,13,10,118,111,105,100,32,112,101,114,114,111,114,40,99,111,110,115,116,32,99
-,104,97,114,42,32,115,41,59,13,10,13,10,13,10,13,10
+,104,97,114,42,32,115,41,59,13,10,13,10,13,10,13,10,35,105,102,110,100,101,102,32,78
+,85,76,76,13,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42
+,41,48,41,13,10,35,101,110,100,105,102,13,10
     ,0 };
 
     static const unsigned char file_stdlib_h[] = {
@@ -7281,7 +7287,9 @@ char* readfile(const char* path)
 ,99,104,97,114,42,32,110,97,109,101,41,59,13,10,95,78,111,114,101,116,117,114,110,32,118
 ,111,105,100,32,113,117,105,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115
 ,41,59,13,10,105,110,116,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114
-,42,32,115,116,114,105,110,103,41,59,13,10
+,42,32,115,116,114,105,110,103,41,59,13,10,13,10,35,105,102,110,100,101,102,32,78,85,76
+,76,13,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48
+,41,13,10,35,101,110,100,105,102,13,10,13,10
     ,0 };
 
     static const unsigned char file_math_h[] = {
@@ -15093,11 +15101,7 @@ enum token_type is_keyword(const char* text)
         if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
         else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
         else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
-        break;
-    case 'N':
-        /*extension NULL alias for nullptr*/
-        if (strcmp("NULL", text) == 0) result = TK_KEYWORD_NULLPTR;
-        break;
+        break;    
     case 'n':
         if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
         break;
@@ -15237,6 +15241,19 @@ void digit_sequence(struct stream* stream)
     {
         stream_match(stream);
     }
+}
+
+static void binary_exponent_part(struct stream* stream)
+{
+    //p signopt digit - sequence
+    //P   signopt digit - sequence
+
+    stream_match(stream); //p or P
+    if (stream->current[0] == '+' || stream->current[0] == '-')
+    {
+        stream_match(stream); //p or P
+    }
+    digit_sequence(stream);
 }
 
 void hexadecimal_digit_sequence(struct stream* stream)
@@ -15422,8 +15439,6 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
     enum token_type type = TK_NONE;
     if (stream->current[0] == '.')
     {
-
-
         type = TK_COMPILER_DECIMAL_FLOATING_CONSTANT;
         stream_match(stream);
         digit_sequence(stream);
@@ -15444,12 +15459,24 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
         {
             stream_match(stream);
         }
+        
         integer_suffix_opt(stream, flags_opt);
 
         if (stream->current[0] == '.')
         {
+            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;                        
+            hexadecimal_digit_sequence(stream);                        
+        }
+        
+        if (stream->current[0] == 'p' ||
+            stream->current[0] == 'P')
+        {
             type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
-            hexadecimal_digit_sequence(stream);
+            binary_exponent_part(stream);         
+        }   
+
+        if (type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+        {
             enum type_specifier_flags f = floating_suffix_opt(stream);
             if (flags_opt)
             {
@@ -19072,6 +19099,7 @@ char* compile_source(const char* pszoptions, const char* content)
         }
 
         prectx.options = options;
+        add_standard_macros(&prectx, &error);
 
 
         if (options.bPreprocessOnly)
@@ -20025,7 +20053,15 @@ static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_lis
 
 static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p_type_qualifier, struct error* error)
 {
-    //p_type_qualifier->
+    if (p_type_qualifier->token &&
+        p_type_qualifier->token->type == TK_KEYWORD_RESTRICT)
+    {
+        if (ctx->target < LANGUAGE_C99)
+        {
+            free(p_type_qualifier->token);
+            p_type_qualifier->token->lexeme = strdup("/*restrict*/");
+        }
+    }
 }
 
 static void visit_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct specifier_qualifier* p_specifier_qualifier, struct error* error)
@@ -20127,6 +20163,43 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
     case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
+        if (p_expression->first &&
+            p_expression->first->type == TK_KEYWORD_NULLPTR)
+        {
+            if (ctx->target < LANGUAGE_C2X)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("((void*)0)");
+            }
+        }
+        else if (p_expression->first && 
+            p_expression->first->type == TK_KEYWORD_TRUE)
+        {
+            if (ctx->target < LANGUAGE_C99)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("1");
+            }
+            else if (ctx->target < LANGUAGE_C2X)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("((_Bool)1)");
+            }
+        }
+        else if (p_expression->first && 
+            p_expression->first->type == TK_KEYWORD_FALSE)
+        {
+            if (ctx->target < LANGUAGE_C99)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("0");
+            }
+            else if (ctx->target < LANGUAGE_C2X)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("((_Bool)0)");
+            }
+        }
         break;
 
     case PRIMARY_EXPRESSION_GENERIC:
@@ -20145,6 +20218,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         //visit_expression(ctx, p_expression->left, error);
         break;
     case POSTFIX_FUNCTION_CALL:
+        visit_expression(ctx, p_expression->left, error);
         visit_expression(ctx, p_expression->left, error);
         visit_argument_expression_list(ctx, &p_expression->argument_expression_list, error);
         break;
@@ -20577,11 +20651,44 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
             p_static_assert_declaration->first_token->lexeme = strdup("_Static_assert");
         }
     }
+    else
+    {
+        free(p_static_assert_declaration->first_token->lexeme);
+        p_static_assert_declaration->first_token->lexeme = strdup("static_assert");
+    }
 }
+static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers, struct error* error);
 
+static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error);
 
 static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declarator* p_direct_declarator, struct error* error)
 {
+    if (p_direct_declarator->array_function_list.head)
+    {
+        struct array_function* current = p_direct_declarator->array_function_list.head;
+        while (current)
+        {
+            if (current->function_declarator &&
+                current->function_declarator->parameter_type_list_opt &&
+                current->function_declarator->parameter_type_list_opt->parameter_list->head)
+            {
+                struct parameter_declaration* parameter =
+                    current->function_declarator->parameter_type_list_opt->parameter_list->head;
+                while (parameter)
+                {
+                    visit_declaration_specifiers(ctx, parameter->declaration_specifiers, error);
+                    visit_declarator(ctx, parameter->declarator, error);                                        
+                    parameter = parameter->next;
+                }
+            }
+            else if (current->array_declarator)
+            {
+            
+            }
+
+            current = current->next;
+        }
+    }
     //struct array_function* current =
       //  p_direct_declarator->array_function_list.head;
 
@@ -20875,6 +20982,30 @@ static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, str
     {
         visit_typeof_specifier(is_declaration, ctx, p_type_specifier, error);
     }
+    if (p_type_specifier->flags & TYPE_SPECIFIER_BOOL)
+    {
+        if (ctx->target < LANGUAGE_C99)
+        {
+            free(p_type_specifier->token->lexeme);
+            p_type_specifier->token->lexeme = strdup("int");
+        }
+        else
+        {
+            if (ctx->target < LANGUAGE_C2X)
+            {
+                if (strcmp(p_type_specifier->token->lexeme, "bool") == 0)
+                {
+                    free(p_type_specifier->token->lexeme);
+                    p_type_specifier->token->lexeme = strdup("_Bool");
+                }
+            }
+            else
+            {
+                free(p_type_specifier->token->lexeme);
+                p_type_specifier->token->lexeme = strdup("bool");
+            }
+        }
+    }
 }
 
 static void visit_type_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier, struct error* error)
@@ -20895,6 +21026,23 @@ static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* c
 
     if (p_declaration_specifier->function_specifier)
     {
+        if (p_declaration_specifier->function_specifier->token->type == TK_KEYWORD__NORETURN)
+        {
+            if (ctx->target < LANGUAGE_C11)
+            {
+                p_declaration_specifier->function_specifier->token->lexeme = strdup("/*[[noreturn]]*/");
+            }
+            else if (ctx->target == LANGUAGE_C11)
+            {
+                /*nothing*/
+            }
+            else if (ctx->target > LANGUAGE_C11)
+            {
+                /*use attributes*/
+                p_declaration_specifier->function_specifier->token->lexeme = strdup("[[noreturn]]");
+            }
+
+        }
     }
 
     if (p_declaration_specifier->storage_class_specifier)
@@ -21112,58 +21260,8 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
         }
 
         if (ctx->target < LANGUAGE_C2X)
-        {
-            if (current->type == TK_KEYWORD_TRUE)
-            {
-                free(current->lexeme);
-                if (ctx->target < LANGUAGE_C99)
-                    current->lexeme = strdup("1");
-                else
-                    current->lexeme = strdup("((_Bool)1)");
-            }
-            else if (current->type == TK_KEYWORD_FALSE)
-            {
-                free(current->lexeme);
-                if (ctx->target < LANGUAGE_C99)
-                    current->lexeme = strdup("0");
-                else
-                    current->lexeme = strdup("((_Bool)0)");
-
-            }
-            else if (current->type == TK_KEYWORD_NULLPTR)
-            {
-                free(current->lexeme);
-                current->lexeme = strdup("((void*)0)");
-            }
-            else if (current->type == TK_KEYWORD__BOOL)
-            {
-
-                if (ctx->target < LANGUAGE_C99)
-                {
-                    free(current->lexeme);
-                    current->lexeme = strdup("int");
-                }
-                else
-                {
-                    if (ctx->target < LANGUAGE_C2X)
-                    {
-                        if (strcmp(current->lexeme, "bool") == 0)
-                        {
-                            free(current->lexeme);
-                            current->lexeme = strdup("_Bool");
-                        }
-                    }
-                }
-            }
-            else if (current->type == TK_KEYWORD_RESTRICT)
-            {
-                if (ctx->target < LANGUAGE_C99)
-                {
-                    free(current->lexeme);
-                    current->lexeme = strdup("/*restrict*/");
-                }
-            }
-            else if (current->type == TK_LINE_COMMENT)
+        {                    
+            if (current->type == TK_LINE_COMMENT)
             {
                 if (ctx->target < LANGUAGE_C99)
                 {
@@ -21217,11 +21315,23 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                 free(current->lexeme);
                 current->lexeme = strdup(buffer);
             }
+            else if (current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+            {
+                remove_char(current->lexeme, '\'');
+
+                if (ctx->target < LANGUAGE_C99)
+                {
+                    double d = strtod(current->lexeme, 0);
+                    char buffer[50] = { 0 };
+                    snprintf(buffer, sizeof buffer, "%f", d);
+                    free(current->lexeme);
+                    current->lexeme = strdup(buffer);
+                }
+            }
             else if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
                 current->type == TK_COMPILER_OCTAL_CONSTANT ||
                 current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
-                current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
-                current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT ||
+                current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||                
                 current->type == TK_PPNUMBER)
             {
                 /*remove digit separators*/
@@ -21273,6 +21383,7 @@ void visit(struct visit_ctx* ctx, struct error* error)
     //    token_list_append_list(&ctx->ast.token_list, &ctx->instanciations);
     //}
 }
+
 
 
 

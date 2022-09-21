@@ -545,7 +545,15 @@ static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_lis
 
 static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p_type_qualifier, struct error* error)
 {
-    //p_type_qualifier->
+    if (p_type_qualifier->token &&
+        p_type_qualifier->token->type == TK_KEYWORD_RESTRICT)
+    {
+        if (ctx->target < LANGUAGE_C99)
+        {
+            free(p_type_qualifier->token);
+            p_type_qualifier->token->lexeme = strdup("/*restrict*/");
+        }
+    }
 }
 
 static void visit_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct specifier_qualifier* p_specifier_qualifier, struct error* error)
@@ -647,6 +655,43 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
     case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
+        if (p_expression->first &&
+            p_expression->first->type == TK_KEYWORD_NULLPTR)
+        {
+            if (ctx->target < LANGUAGE_C2X)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("((void*)0)");
+            }
+        }
+        else if (p_expression->first && 
+            p_expression->first->type == TK_KEYWORD_TRUE)
+        {
+            if (ctx->target < LANGUAGE_C99)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("1");
+            }
+            else if (ctx->target < LANGUAGE_C2X)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("((_Bool)1)");
+            }
+        }
+        else if (p_expression->first && 
+            p_expression->first->type == TK_KEYWORD_FALSE)
+        {
+            if (ctx->target < LANGUAGE_C99)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("0");
+            }
+            else if (ctx->target < LANGUAGE_C2X)
+            {
+                free(p_expression->first->lexeme);
+                p_expression->first->lexeme = strdup("((_Bool)0)");
+            }
+        }
         break;
 
     case PRIMARY_EXPRESSION_GENERIC:
@@ -665,6 +710,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         //visit_expression(ctx, p_expression->left, error);
         break;
     case POSTFIX_FUNCTION_CALL:
+        visit_expression(ctx, p_expression->left, error);
         visit_expression(ctx, p_expression->left, error);
         visit_argument_expression_list(ctx, &p_expression->argument_expression_list, error);
         break;
@@ -1097,11 +1143,44 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
             p_static_assert_declaration->first_token->lexeme = strdup("_Static_assert");
         }
     }
+    else
+    {
+        free(p_static_assert_declaration->first_token->lexeme);
+        p_static_assert_declaration->first_token->lexeme = strdup("static_assert");
+    }
 }
+static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers, struct error* error);
 
+static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error);
 
 static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declarator* p_direct_declarator, struct error* error)
 {
+    if (p_direct_declarator->array_function_list.head)
+    {
+        struct array_function* current = p_direct_declarator->array_function_list.head;
+        while (current)
+        {
+            if (current->function_declarator &&
+                current->function_declarator->parameter_type_list_opt &&
+                current->function_declarator->parameter_type_list_opt->parameter_list->head)
+            {
+                struct parameter_declaration* parameter =
+                    current->function_declarator->parameter_type_list_opt->parameter_list->head;
+                while (parameter)
+                {
+                    visit_declaration_specifiers(ctx, parameter->declaration_specifiers, error);
+                    visit_declarator(ctx, parameter->declarator, error);                                        
+                    parameter = parameter->next;
+                }
+            }
+            else if (current->array_declarator)
+            {
+            
+            }
+
+            current = current->next;
+        }
+    }
     //struct array_function* current =
       //  p_direct_declarator->array_function_list.head;
 
@@ -1395,6 +1474,30 @@ static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, str
     {
         visit_typeof_specifier(is_declaration, ctx, p_type_specifier, error);
     }
+    if (p_type_specifier->flags & TYPE_SPECIFIER_BOOL)
+    {
+        if (ctx->target < LANGUAGE_C99)
+        {
+            free(p_type_specifier->token->lexeme);
+            p_type_specifier->token->lexeme = strdup("int");
+        }
+        else
+        {
+            if (ctx->target < LANGUAGE_C2X)
+            {
+                if (strcmp(p_type_specifier->token->lexeme, "bool") == 0)
+                {
+                    free(p_type_specifier->token->lexeme);
+                    p_type_specifier->token->lexeme = strdup("_Bool");
+                }
+            }
+            else
+            {
+                free(p_type_specifier->token->lexeme);
+                p_type_specifier->token->lexeme = strdup("bool");
+            }
+        }
+    }
 }
 
 static void visit_type_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier, struct error* error)
@@ -1415,6 +1518,23 @@ static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* c
 
     if (p_declaration_specifier->function_specifier)
     {
+        if (p_declaration_specifier->function_specifier->token->type == TK_KEYWORD__NORETURN)
+        {
+            if (ctx->target < LANGUAGE_C11)
+            {
+                p_declaration_specifier->function_specifier->token->lexeme = strdup("/*[[noreturn]]*/");
+            }
+            else if (ctx->target == LANGUAGE_C11)
+            {
+                /*nothing*/
+            }
+            else if (ctx->target > LANGUAGE_C11)
+            {
+                /*use attributes*/
+                p_declaration_specifier->function_specifier->token->lexeme = strdup("[[noreturn]]");
+            }
+
+        }
     }
 
     if (p_declaration_specifier->storage_class_specifier)
@@ -1632,58 +1752,8 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
         }
 
         if (ctx->target < LANGUAGE_C2X)
-        {
-            if (current->type == TK_KEYWORD_TRUE)
-            {
-                free(current->lexeme);
-                if (ctx->target < LANGUAGE_C99)
-                    current->lexeme = strdup("1");
-                else
-                    current->lexeme = strdup("((_Bool)1)");
-            }
-            else if (current->type == TK_KEYWORD_FALSE)
-            {
-                free(current->lexeme);
-                if (ctx->target < LANGUAGE_C99)
-                    current->lexeme = strdup("0");
-                else
-                    current->lexeme = strdup("((_Bool)0)");
-
-            }
-            else if (current->type == TK_KEYWORD_NULLPTR)
-            {
-                free(current->lexeme);
-                current->lexeme = strdup("((void*)0)");
-            }
-            else if (current->type == TK_KEYWORD__BOOL)
-            {
-
-                if (ctx->target < LANGUAGE_C99)
-                {
-                    free(current->lexeme);
-                    current->lexeme = strdup("int");
-                }
-                else
-                {
-                    if (ctx->target < LANGUAGE_C2X)
-                    {
-                        if (strcmp(current->lexeme, "bool") == 0)
-                        {
-                            free(current->lexeme);
-                            current->lexeme = strdup("_Bool");
-                        }
-                    }
-                }
-            }
-            else if (current->type == TK_KEYWORD_RESTRICT)
-            {
-                if (ctx->target < LANGUAGE_C99)
-                {
-                    free(current->lexeme);
-                    current->lexeme = strdup("/*restrict*/");
-                }
-            }
-            else if (current->type == TK_LINE_COMMENT)
+        {                    
+            if (current->type == TK_LINE_COMMENT)
             {
                 if (ctx->target < LANGUAGE_C99)
                 {
@@ -1737,11 +1807,26 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                 free(current->lexeme);
                 current->lexeme = strdup(buffer);
             }
+            else if (current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
+            {
+                remove_char(current->lexeme, '\'');
+
+                if (ctx->target < LANGUAGE_C99)
+                {
+                   /*
+                    * C99 Hexadecimal floating constants to C89.
+                    */
+                    double d = strtod(current->lexeme, 0);
+                    char buffer[50] = { 0 };
+                    snprintf(buffer, sizeof buffer, "%f", d);
+                    free(current->lexeme);
+                    current->lexeme = strdup(buffer);
+                }
+            }
             else if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
                 current->type == TK_COMPILER_OCTAL_CONSTANT ||
                 current->type == TK_COMPILER_HEXADECIMAL_CONSTANT ||
-                current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||
-                current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT ||
+                current->type == TK_COMPILER_DECIMAL_FLOATING_CONSTANT ||                
                 current->type == TK_PPNUMBER)
             {
                 /*remove digit separators*/
@@ -1793,3 +1878,4 @@ void visit(struct visit_ctx* ctx, struct error* error)
     //    token_list_append_list(&ctx->ast.token_list, &ctx->instanciations);
     //}
 }
+
