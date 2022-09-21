@@ -1001,11 +1001,7 @@ struct token* ppnumber(struct stream* stream)
         if (is_digit(stream))
         {
             stream_match(stream);//digit
-        }
-        else if (is_nondigit(stream))
-        {
-            stream_match(stream);//nondigit
-        }
+        }        
         else if (stream->current[0] == '\'')
         {
             //digit separators c23
@@ -1041,6 +1037,14 @@ struct token* ppnumber(struct stream* stream)
         else if (stream->current[0] == '.')
         {
             stream_match(stream);//.            
+        }
+        else if (is_nondigit(stream))
+        {
+            /*
+            * OBS test for is_nondigit must be AFTER
+            * test for e E p P
+            */
+            stream_match(stream);//nondigit
         }
         else
         {
@@ -3832,8 +3836,8 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
         "#define __FILE__\n"
         "#define __LINE__\n"
         "#define __COUNT__\n"
-        "#define _CONSOLE\n"
-        //"#define _MSC_VER 1200\n"        
+        "#define _CONSOLE\n"        
+        "#define __STDC_VERSION__ 202311L\n"
         "#define _WINDOWS\n"
         "#define _M_IX86\n"
         "#define _X86_\n"
