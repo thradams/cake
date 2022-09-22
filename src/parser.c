@@ -4668,6 +4668,7 @@ int compile_one_file(const char* file_name,
         struct token_list tokens = tokenizer(content, file_name, 0, TK_FLAG_NONE, error);
         if (error->code != 0)
             throw;
+        //print_tokens(tokens.head);
         //printf(".");//2
         ast.token_list = preprocessor(&prectx, &tokens, 0, error);
         if (error->code != 0)

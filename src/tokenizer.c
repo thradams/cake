@@ -982,6 +982,14 @@ struct token* ppnumber(struct stream* stream)
       pp-number .
     */
 
+    /*
+     identifier-continue:
+       digit
+       nondigit
+       XID_Continue character
+       universal-character-name of class XID_Continue
+    */
+
     const char* start = stream->current;
     if (is_digit(stream))
     {
@@ -996,13 +1004,10 @@ struct token* ppnumber(struct stream* stream)
     {
         assert(false);
     }
+
     for (;;)
     {
-        if (is_digit(stream))
-        {
-            stream_match(stream);//digit
-        }        
-        else if (stream->current[0] == '\'')
+        if (stream->current[0] == '\'')
         {
             //digit separators c23
             stream_match(stream);
@@ -1020,26 +1025,22 @@ struct token* ppnumber(struct stream* stream)
                 break;
             }
         }
-        else if (stream->current[0] == 'e' ||
-            stream->current[0] == 'E' ||
-            stream->current[0] == 'p' ||
-            stream->current[0] == 'P')
+        else if ((stream->current[0] == 'e' ||
+                 stream->current[0] == 'E' ||
+                 stream->current[0] == 'p' ||
+                 stream->current[0] == 'P') && 
+                 (stream->current[1] == '+' || stream->current[1] == '-' ) )
         {
             stream_match(stream);//e E  p P
-            stream_match(stream);//sign
-        }
-        else if (stream->current[0] == '\'')
-        {
-            //digit separators dentro preprocessador
-            stream_match(stream);//'
-            stream_match(stream);//.
-        }
+            stream_match(stream);//sign            
+        }        
         else if (stream->current[0] == '.')
         {
             stream_match(stream);//.            
         }
-        else if (is_nondigit(stream))
+        else if (is_digit(stream) || is_nondigit(stream))
         {
+            ////identifier-continue
             /*
             * OBS test for is_nondigit must be AFTER
             * test for e E p P
@@ -3837,7 +3838,6 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
         "#define __LINE__\n"
         "#define __COUNT__\n"
         "#define _CONSOLE\n"        
-        "#define __STDC_VERSION__ 202311L\n"
         "#define _WINDOWS\n"
         "#define _M_IX86\n"
         "#define _X86_\n"
