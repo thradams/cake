@@ -444,3 +444,91 @@ void print_tokens(struct token* p_token)
     printf(RESET);
 }
 
+
+void print_token_html(struct token* p_token)
+{
+    printf("<span class=\"");
+
+
+    if (!(p_token->flags & TK_FLAG_FINAL))
+    {
+        printf("notfinal ");
+    }
+
+    if (p_token->flags & TK_FLAG_FINAL)
+    {
+        printf("final ");
+    }
+    if (p_token->flags & TK_FLAG_HIDE)
+    {
+        printf("hide ");
+    }
+    if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
+    {
+        printf("expanded ");
+    }
+    if (p_token->flags & TK_FLAG_HAS_SPACE_BEFORE)
+    {
+        printf("space ");
+    }
+    if (p_token->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+    {
+        printf("newline ");
+    }
+
+    printf("\">");
+
+    print_literal2(p_token->lexeme);
+
+    printf("</span>");
+
+    if (p_token->type == TK_NEWLINE || p_token->type == TK_BEGIN_OF_FILE)
+    {
+        printf("<br>\n");
+    }
+}
+
+/*
+ CSS for html ouput
+
+ <style>
+        .final {
+          color:blue;
+        }
+
+        .notfinal {
+          color:gray;
+        }
+        
+        .hide {
+          text-decoration: line-through;
+          color:red;
+        }
+
+        .expanded {
+           background-color:yellow;
+        }
+
+        span {
+            border-style: solid;
+            border-color: gray;
+            border-width: 1px 1px;
+            padding:1px;
+            margin:2px;
+        }
+
+</style>
+
+*/
+void print_tokens_html(struct token* p_token)
+{
+    printf("<pre>\n");
+    struct token* current = p_token;
+    while (current)
+    {
+        print_token_html(current);
+        current = current->next;
+    }    
+    printf("\n</pre>");    
+}
+
