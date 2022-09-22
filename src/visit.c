@@ -1816,9 +1816,9 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                    /*
                     * C99 Hexadecimal floating constants to C89.
                     */
-                    double d = strtod(current->lexeme, 0);
+                    long double d = strtold(current->lexeme, 0);
                     char buffer[50] = { 0 };
-                    snprintf(buffer, sizeof buffer, "%e", d);
+                    snprintf(buffer, sizeof buffer, "%lg", d);
                     free(current->lexeme);
                     current->lexeme = strdup(buffer);
                 }
