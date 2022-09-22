@@ -1325,4 +1325,3 @@ void x_destroy(struct X* p)
 }
 
 ```
-

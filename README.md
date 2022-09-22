@@ -13,7 +13,7 @@ Extensions like lambdas, defer and more were implemented.
 
 This is the best way to try.
 
-http://thradams.com/web3/playground.html
+http://thradams.com/cake/playground.html
 
 
 # Features
@@ -94,6 +94,7 @@ See [Manual](manual.html)
 
  * https://en.wikipedia.org/wiki/ANSI_C#C89
  * https://en.cppreference.com/w/c
+ * https://www.ibm.com/docs/en/xl-c-aix/13.1.0?topic=extensions-c99-features
 
 # Influenced by
 
@@ -121,6 +122,8 @@ Cake source code is not using any extension so the output is the same of input.
 This compilation is usefull for tracking errors.
 
 Cake uses unit tests that are called automatically.
+
+
 
 
 
