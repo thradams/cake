@@ -1,2 +1,6 @@
-0xFEA3413E, 0x7E05
-
+//TODO
+int a;
+int main()
+{
+    (void(typeof(a) arg1)) {}(1);
+}
