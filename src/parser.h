@@ -812,6 +812,10 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct e
 
 struct labeled_statement
 {
+    /*
+     label statement:
+       label statement
+    */
     struct label* label;
     struct statement* statement;
 };
@@ -921,6 +925,12 @@ void declaration_list_destroy(struct declaration_list* list);
 
 struct label
 {
+    /*
+     label:
+        attribute-specifier-sequence opt identifier :
+        attribute-specifier-sequence opt "case" constant-expression :
+        attribute-specifier-sequence opt "default" :
+    */
     struct token* name;
 };
 struct label* label(struct parser_ctx* ctx, struct error* error);

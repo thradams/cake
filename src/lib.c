@@ -9187,6 +9187,10 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct e
 
 struct labeled_statement
 {
+    /*
+     label statement:
+       label statement
+    */
     struct label* label;
     struct statement* statement;
 };
@@ -9296,6 +9300,12 @@ void declaration_list_destroy(struct declaration_list* list);
 
 struct label
 {
+    /*
+     label:
+        attribute-specifier-sequence opt identifier :
+        attribute-specifier-sequence opt "case" constant-expression :
+        attribute-specifier-sequence opt "default" :
+    */
     struct token* name;
 };
 struct label* label(struct parser_ctx* ctx, struct error* error);
@@ -22042,6 +22052,8 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 
 
 
+
+
 void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx)
 {
     /*
@@ -22094,13 +22106,43 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
     }
 }
 
+void ajust_if_begin(struct token* token, struct format_visit_ctx* ctx)
+{
+    /*
+    * if we have 
+      newline blancks
+      then we ident
+    */
+    if (token && token->level == 0)
+    {
+        struct token* previous_token = token->prev;
+        if (previous_token && previous_token->type == TK_BLANKS)
+        {
+            struct token* previous_previous_token =
+                previous_token->prev;
+            if (previous_previous_token &&
+                previous_previous_token->type == TK_NEWLINE)
+            {
+                char blanks[50] = { 0 };
+                if (ctx->identation > 0)
+                    snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
+
+                /*only adjust the number of spaces*/
+                free(previous_token->lexeme);
+                previous_token->lexeme = strdup(blanks);
+            }
+        }
+    }
+}
+
 static void format_visit_unlabeled_statement(struct format_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, struct error* error);
+static void format_visit_labeled_statement(struct format_visit_ctx* ctx, struct labeled_statement* p_labeled_statement, struct error* error);
 
 static void format_visit_statement(struct format_visit_ctx* ctx, struct statement* p_statement, struct error* error)
 {
     if (p_statement->labeled_statement)
     {
-        //format_visit_labeled_statement(ctx, p_statement->labeled_statement, error);
+        format_visit_labeled_statement(ctx, p_statement->labeled_statement, error);
     }
     else if (p_statement->unlabeled_statement)
     {
@@ -22126,11 +22168,11 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
         }
         else
         {
-            ctx->identation++;
+            //ctx->identation++;
             ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
 
             format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);
-            ctx->identation--;
+            //ctx->identation--;
         }
         //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
     }
@@ -22150,9 +22192,9 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
         }
         else
         {
-            ctx->identation++;
+            //            ctx->identation++;
             format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement, error);
-            ctx->identation--;
+            //          ctx->identation--;
         }
     }
 
@@ -22203,7 +22245,7 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
     {
         ajust_line_and_identation(p_iteration_statement->second_token, ctx);
     }
-    
+
     if (p_iteration_statement->secondary_block)
     {
         format_visit_secondary_block(ctx, p_iteration_statement->secondary_block, error);
@@ -22225,30 +22267,30 @@ static void format_visit_try_statement(struct format_visit_ctx* ctx, struct try_
 static void format_visit_primary_block(struct format_visit_ctx* ctx, struct primary_block* p_primary_block, struct error* error)
 {
 
-        if (p_primary_block->compound_statement)
-        {
-            format_visit_compound_statement(ctx, p_primary_block->compound_statement, error);
-        }
-        else if (p_primary_block->iteration_statement)
-        {
-            format_visit_iteration_statement(ctx, p_primary_block->iteration_statement, error);
-        }
-        else if (p_primary_block->selection_statement)
-        {
-            format_visit_selection_statement(ctx, p_primary_block->selection_statement, error);
-        }
-        else if (p_primary_block->defer_statement)
-        {
-            //visit_defer_statement(ctx, p_primary_block->defer_statement, error);
-        }
-        else if (p_primary_block->try_statement)
-        {
-            format_visit_try_statement(ctx, p_primary_block->try_statement, error);
-        }
-        else
-        {
-            assert(false);
-        }
+    if (p_primary_block->compound_statement)
+    {
+        format_visit_compound_statement(ctx, p_primary_block->compound_statement, error);
+    }
+    else if (p_primary_block->iteration_statement)
+    {
+        format_visit_iteration_statement(ctx, p_primary_block->iteration_statement, error);
+    }
+    else if (p_primary_block->selection_statement)
+    {
+        format_visit_selection_statement(ctx, p_primary_block->selection_statement, error);
+    }
+    else if (p_primary_block->defer_statement)
+    {
+        //visit_defer_statement(ctx, p_primary_block->defer_statement, error);
+    }
+    else if (p_primary_block->try_statement)
+    {
+        format_visit_try_statement(ctx, p_primary_block->try_statement, error);
+    }
+    else
+    {
+        assert(false);
+    }
 }
 
 
@@ -22258,6 +22300,14 @@ static void format_visit_expression_statement(struct format_visit_ctx* ctx, stru
     {
         //ajust_line_and_identation(p_expression_statement->first_token, ctx);
     }
+}
+
+static void format_visit_labeled_statement(struct format_visit_ctx* ctx, struct labeled_statement* p_labeled_statement, struct error* error)
+{
+    ajust_line_and_identation(p_labeled_statement->label->name, ctx);
+
+    if (p_labeled_statement->statement)
+        format_visit_statement(ctx, p_labeled_statement->statement, error);
 }
 
 static void format_visit_unlabeled_statement(struct format_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, struct error* error)
@@ -22310,10 +22360,26 @@ static void format_visit_block_item_list(struct format_visit_ctx* ctx, struct bl
 
 static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
+    
+
     ajust_line_and_identation(p_compound_statement->first_token, ctx);
 
     ctx->identation++;
     format_visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
+
+    ctx->identation++;
+    /*fix comments anything that is not part of AST*/
+    struct token* tk = p_compound_statement->first_token;
+    while (tk)
+    {
+        if (tk->type == TK_LINE_COMMENT ||
+            tk->type == TK_COMENT)
+        {
+            ajust_if_begin(tk, ctx);
+        }
+        tk = tk->next;
+    }
+    ctx->identation--;
 
     ctx->identation--;
 
