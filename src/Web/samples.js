@@ -392,32 +392,7 @@ int main()
 
 `;
 
-sample["Extension defer I"] =
-    `
-#include <stdio.h>
-
-int main()
-{
-
-  try
-  {
-     FILE* f = fopen("file.txt", "r");
-     if (f == NULL) throw;
-     defer fclose(f);
-
-    /*success here*/
-  }
-  catch
-  {
-     /*some error*/
-  }
-
-
-}
-
-`;
-
-sample["Extension defer II"] =
+sample["Extension defer inside try blocks"] =
     `
 #include <stdio.h>
 
