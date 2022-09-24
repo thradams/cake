@@ -107,7 +107,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         &list2);
 }
 
-void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool bHide)
+void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool hide_tokens)
 {
     struct defer_scope* deferchild = deferblock->lastchild;
     while (deferchild != NULL)
@@ -119,7 +119,7 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
         l.head->flags |= TK_FLAG_HIDE;
         const char* s = get_code_as_compiler_see(&l);
         assert(s != NULL);
-        if (bHide)
+        if (hide_tokens)
             token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
         ss_fprintf(ss, "%s", s);
@@ -469,7 +469,7 @@ char* remove_char(char* input, char ch)
 {
     if (input == NULL)
         return NULL;
-    char* pWrite = input;
+    char* p_write = input;
     const char* p = input;
     while (*p)
     {
@@ -479,12 +479,12 @@ char* remove_char(char* input, char ch)
         }
         else
         {
-            *pWrite = *p;
+            *p_write = *p;
             p++;
-            pWrite++;
+            p_write++;
         }
     }
-    *pWrite = 0;
+    *p_write = 0;
     return input;
 }
 
