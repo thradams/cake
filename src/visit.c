@@ -733,9 +733,9 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             
             ss_fprintf(&ss, "static ");
 
-            bool bFirst = true;
-            print_type_qualifier_flags(&ss, &bFirst, p_expression->type_name->declarator->type.type_qualifier_flags);
-            print_type_specifier_flags(&ss, &bFirst, p_expression->type_name->declarator->type.type_specifier_flags);
+            bool is_first = true;
+            print_type_qualifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_qualifier_flags);
+            print_type_specifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_specifier_flags);
             
             
             print_declarator_type(&ss, p_expression->type_name->declarator->type.declarator_type, name);
@@ -1723,10 +1723,10 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
 int visit_literal_string(struct visit_ctx* ctx, struct token* current, struct error* error)
 {
-    bool bUtf8Prefix =
+    bool has_u8_prefix =
         current->lexeme[0] == 'u' && current->lexeme[1] == '8';
 
-    if (bUtf8Prefix && ctx->target < LANGUAGE_C11)
+    if (has_u8_prefix && ctx->target < LANGUAGE_C11)
     {
         struct osstream ss = { 0 };
         unsigned char* psz = current->lexeme + 2;

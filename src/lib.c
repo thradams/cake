@@ -20400,9 +20400,9 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             
             ss_fprintf(&ss, "static ");
 
-            bool bFirst = true;
-            print_type_qualifier_flags(&ss, &bFirst, p_expression->type_name->declarator->type.type_qualifier_flags);
-            print_type_specifier_flags(&ss, &bFirst, p_expression->type_name->declarator->type.type_specifier_flags);
+            bool is_first = true;
+            print_type_qualifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_qualifier_flags);
+            print_type_specifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_specifier_flags);
             
             
             print_declarator_type(&ss, p_expression->type_name->declarator->type.declarator_type, name);
@@ -21390,10 +21390,10 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
 int visit_literal_string(struct visit_ctx* ctx, struct token* current, struct error* error)
 {
-    bool bUtf8Prefix =
+    bool has_u8_prefix =
         current->lexeme[0] == 'u' && current->lexeme[1] == '8';
 
-    if (bUtf8Prefix && ctx->target < LANGUAGE_C11)
+    if (has_u8_prefix && ctx->target < LANGUAGE_C11)
     {
         struct osstream ss = { 0 };
         unsigned char* psz = current->lexeme + 2;
@@ -22168,13 +22168,10 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
         }
         else
         {
-            //ctx->identation++;
             ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
 
-            format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);
-            //ctx->identation--;
-        }
-        //ajust_line_and_identation(p_selection_statement->secondary_block->last, ctx);
+            format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);            
+        }        
     }
 
     if (p_selection_statement->else_secondary_block_opt)
@@ -22191,10 +22188,8 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
             format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement, error);
         }
         else
-        {
-            //            ctx->identation++;
-            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement, error);
-            //          ctx->identation--;
+        {            
+            format_visit_statement(ctx, p_selection_statement->else_secondary_block_opt->statement, error);         
         }
     }
 
@@ -22360,8 +22355,6 @@ static void format_visit_block_item_list(struct format_visit_ctx* ctx, struct bl
 
 static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
 {
-    
-
     ajust_line_and_identation(p_compound_statement->first_token, ctx);
 
     ctx->identation++;
