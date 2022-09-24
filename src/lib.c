@@ -2318,6 +2318,15 @@ struct token* character_constant(struct stream* stream)
         }
         else
             stream_match(stream);
+
+        if (stream->current[0] == '\0')
+        {
+            // ' not found..error or not char constant            
+            //TODO 
+            //#warning don't
+            // here ' is not character_constant 
+            break;
+        }
     }
     stream_match(stream);
 
@@ -2693,6 +2702,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
 
             if (first_of_character_constant(&stream))
             {
+                //TODO if we have ' in the middle then it is not character constant
                 struct token* pNew = character_constant(&stream);
                 pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
@@ -3156,7 +3166,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
-                strcmp(input_list->head->lexeme, "__has_include") == 0)
+                     (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
+                     strcmp(input_list->head->lexeme, "__has_embed") == 0)
+                     )                
             {
                 token_list_pop_front(input_list); //pop __has_include
                 skip_blanks(&r, input_list);
@@ -3221,13 +3233,37 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 }
                 token_list_pop_front(input_list); //pop >					
 
+                /*nodiscard
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall 
+                * return the value 202003L
+                * when given nodiscard as the pp-tokens operand.
+                */
+                
+                /*maybe_unused
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return 
+                * the value 202106L when given maybe_unused as the pp-tokens operand.
+                */
 
-                //TODO ver se existe criar unit test
-                assert(false);
-                //bool bAlreadyIncluded = false;
-                //char* content = find_and_read_file(ctx, path + 1, path, &bAlreadyIncluded);
+                /*deprecated
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 201904L
+                * when given deprecated as the pp-tokens operand
+                */
+
+                /*noreturn
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202202L
+                * when given noreturn as the pp-tokens operand.
+                */
+
+                /*reproducible
+                 * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
+                 * when given reproducible as the pp-tokens operand.
+                */
+
+                /*
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
+                * when given unsequenced as the pp-tokens operand.
+                */
                 bool bHas_C_Attribute = false;
-                //free(content);
 
                 struct token* pNew = calloc(1, sizeof * pNew);
                 pNew->type = TK_PPNUMBER;
@@ -8046,6 +8082,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
     
     TYPE_SPECIFIER_TYPEOF = 1 << 23, //?
+
     TYPE_SPECIFIER_NULLPTR = 1 << 24,
 };
 
@@ -8125,7 +8162,9 @@ struct type
     struct declarator_type* declarator_type;
 
     /*
-    * Sometimes we need to print the type together with the original declarator name.
+    * Sometimes we need to print the type together with the original 
+    * declarator name. For instance a function type can preserve the name of each
+    * argument.
     */
     char* declarator_name_opt;
 
@@ -10207,7 +10246,10 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
     struct expression* p_expression_node = calloc(1, sizeof * p_expression_node);
 
     assert(p_expression_node->type_name == NULL);
-    p_expression_node->first = previous_parser_token(p_type_name->first); //must find '('
+
+    p_expression_node->first = previous_parser_token(p_type_name->first);
+    assert(p_expression_node->first->type == '(');
+    
     p_expression_node->type_name = p_type_name;
     p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
     bool is_function_type = false;
@@ -10222,15 +10264,15 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
         scope_list_push(&ctx->scopes, parameters_scope);
         p_expression_node->compound_statement = function_body(ctx, error);
         scope_list_pop(&ctx->scopes);
-
-        p_expression_node->last = ctx->previous;
+        
     }
     else
     {
         p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
-        p_expression_node->braced_initializer = braced_initializer(ctx, error);
-        p_expression_node->last = ctx->previous;
+        p_expression_node->braced_initializer = braced_initializer(ctx, error);    
     }
+
+    p_expression_node->last = ctx->previous;
 
     p_expression_node = postfix_expression_tail(ctx,
         error,
@@ -10579,8 +10621,6 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
                 // porque apareceu o { então é compound literal que eh postfix.
                 struct expression* new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, error, ectx);
 
-                //new_expression->first = p_expression_node->first;
-                //new_expression->last= ctx->previous;
 
                 free(p_expression_node);
                 p_expression_node = new_expression;
@@ -13726,11 +13766,11 @@ struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type
                 struct type* p_type = calloc(1, sizeof(struct type));
                 *p_type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
                 
+                /*name of the argument*/
                 free(p_type->declarator_name_opt);
                 if (p_parameter_declaration->name)
                   p_type->declarator_name_opt = strdup(p_parameter_declaration->name->lexeme);
-
-                //print_type(p_type);
+                
                 list_add(&p_array_function_type->params, p_type);
                 p_parameter_declaration = p_parameter_declaration->next;
             }
@@ -13907,8 +13947,6 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     {
         t.declarator_name_opt = strdup(pdeclarator->name->lexeme);
     }
-
-    
 
     if (pdeclarator->specifier_qualifier_list)
     {
@@ -21438,7 +21476,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                     */
                     long double d = strtold(current->lexeme, 0);
                     char buffer[50] = { 0 };
-                    snprintf(buffer, sizeof buffer, "%lg", d);
+                    snprintf(buffer, sizeof buffer, "%Lg", d);
                     free(current->lexeme);
                     current->lexeme = strdup(buffer);
                 }

@@ -877,6 +877,15 @@ struct token* character_constant(struct stream* stream)
         }
         else
             stream_match(stream);
+
+        if (stream->current[0] == '\0')
+        {
+            // ' not found..error or not char constant            
+            //TODO 
+            //#warning don't
+            // here ' is not character_constant 
+            break;
+        }
     }
     stream_match(stream);
 
@@ -1252,6 +1261,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
 
             if (first_of_character_constant(&stream))
             {
+                //TODO if we have ' in the middle then it is not character constant
                 struct token* pNew = character_constant(&stream);
                 pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
@@ -1715,7 +1725,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
-                strcmp(input_list->head->lexeme, "__has_include") == 0)
+                     (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
+                     strcmp(input_list->head->lexeme, "__has_embed") == 0)
+                     )                
             {
                 token_list_pop_front(input_list); //pop __has_include
                 skip_blanks(&r, input_list);
@@ -1780,13 +1792,37 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 }
                 token_list_pop_front(input_list); //pop >					
 
+                /*nodiscard
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall 
+                * return the value 202003L
+                * when given nodiscard as the pp-tokens operand.
+                */
+                
+                /*maybe_unused
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return 
+                * the value 202106L when given maybe_unused as the pp-tokens operand.
+                */
 
-                //TODO ver se existe criar unit test
-                assert(false);
-                //bool bAlreadyIncluded = false;
-                //char* content = find_and_read_file(ctx, path + 1, path, &bAlreadyIncluded);
+                /*deprecated
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 201904L
+                * when given deprecated as the pp-tokens operand
+                */
+
+                /*noreturn
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202202L
+                * when given noreturn as the pp-tokens operand.
+                */
+
+                /*reproducible
+                 * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
+                 * when given reproducible as the pp-tokens operand.
+                */
+
+                /*
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return the value 202207L
+                * when given unsequenced as the pp-tokens operand.
+                */
                 bool bHas_C_Attribute = false;
-                //free(content);
 
                 struct token* pNew = calloc(1, sizeof * pNew);
                 pNew->type = TK_PPNUMBER;

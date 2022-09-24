@@ -1825,7 +1825,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                     */
                     long double d = strtold(current->lexeme, 0);
                     char buffer[50] = { 0 };
-                    snprintf(buffer, sizeof buffer, "%lg", d);
+                    snprintf(buffer, sizeof buffer, "%Lg", d);
                     free(current->lexeme);
                     current->lexeme = strdup(buffer);
                 }
