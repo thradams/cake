@@ -149,11 +149,12 @@ void print_all_defer_until_try(struct defer_scope* deferblock, struct osstream* 
     while (p_defer != NULL)
     {
         print_block_defer(p_defer, ss, false);
-        if (p_defer->p_selection_statement2 &&
-            p_defer->p_selection_statement2->first_token->type == TK_KEYWORD_TRY)
+
+        if (p_defer->p_try_statement)
         {
             break;
         }
+        
         p_defer = p_defer->previous;
     }
 }
