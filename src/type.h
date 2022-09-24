@@ -21,6 +21,18 @@ enum type_category
 };
 
 
+enum attributes
+{
+    STD_ATTRIBUTE_NONE = 0,
+    STD_ATTRIBUTE_DEPRECATED = 1 << 0,
+    STD_ATTRIBUTE_FALLTHROUGH = 2 << 0,
+    STD_ATTRIBUTE_MAYBE_UNUSED = 3 << 0,
+    STD_ATTRIBUTE_NODISCARD = 4 << 0,
+    STD_ATTRIBUTE_NORETURN = 5 << 0,
+    STD_ATTRIBUTE_UNSEQUENCED = 6 << 0,
+    STD_ATTRIBUTE_REPRODUCIBLE = 7 << 0
+};
+
 enum type_specifier_flags
 {
     TYPE_SPECIFIER_NONE = 0,
@@ -124,6 +136,7 @@ struct declarator_type
 
 struct type
 {    
+    enum attributes  attributes;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
    

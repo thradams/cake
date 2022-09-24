@@ -203,6 +203,11 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx);
 
 struct function_specifier
 {
+    /*
+     function-specifier:
+       inline
+       _Noreturn
+    */
     struct token* token;
 };
 struct function_specifier* function_specifier(struct parser_ctx* ctx, struct error* error);
@@ -282,6 +287,8 @@ struct declaration
      static_assert-declaration
      attribute-declaration
     */
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
+
     struct static_assert_declaration* static_assert_declaration;
 
     struct declaration_specifiers* declaration_specifiers;

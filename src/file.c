@@ -1,15 +1,6 @@
 
-int main()
+void f(int j)
 {
-    if (1)
-    {
-     /*teste*/
-        //asdas
-    }
-    else
-        A:
-    {
-        [[meu::teste]] int i = 1;
-    }
+    [[maybe_unused]] int i;
 }
 

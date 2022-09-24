@@ -366,8 +366,9 @@ bool first_of_function_specifier_token(struct token* token)
 {
     if (token == NULL)
         return false;
-
-    return token->type == TK_KEYWORD_INLINE || token->type == TK_KEYWORD__NORETURN;
+    
+    return token->type == TK_KEYWORD_INLINE ||
+           token->type == TK_KEYWORD__NORETURN;
 }
 
 bool first_is(struct parser_ctx* ctx, enum token_type type)
@@ -1605,6 +1606,13 @@ struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionD
      attribute-declaration
  */
 
+    /*
+    *  Note:
+    *  attribute-specifier-sequence (parsed before)
+    */
+    
+    
+
     struct declaration* p_declaration = calloc(1, sizeof(struct declaration));
 
     p_declaration->first_token = ctx->current;
@@ -1627,8 +1635,11 @@ struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionD
         {
 
             p_declaration->declaration_specifiers = declaration_specifiers(ctx, error);
+            
             if (ctx->current->type != ';')
+            {
                 p_declaration->init_declarator_list = init_declarator_list(ctx, p_declaration->declaration_specifiers, error);
+            }
 
 
             p_declaration->last_token = ctx->current;
@@ -2776,12 +2787,16 @@ struct type_qualifier* type_qualifier_opt(struct parser_ctx* ctx, struct error* 
 
 struct function_specifier* function_specifier(struct parser_ctx* ctx, struct error* error)
 {
+    if (ctx->current == TK_KEYWORD__NORETURN)
+    {
+        parser_set_info_with_token(ctx, ctx->current, "_Noreturn is deprecated use attributes");
+    }
+
     if (error->code) return NULL;
     struct function_specifier* p = calloc(1, sizeof * p);
     p->token = ctx->current;
     parser_match(ctx);
-    //'inline'
-    //'_Noreturn'
+    
     return p;
 }
 
@@ -3556,16 +3571,20 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
 
 struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct parser_ctx* ctx, struct error* error)
 {
-    //attribute_specifier_sequence_opt attribute_specifier
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence =
-        calloc(1, sizeof(struct attribute_specifier_sequence));
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence = NULL;
 
-    while (error->code == 0 &&
-        ctx->current != NULL &&
-        first_of_attribute_specifier(ctx))
-    {
-        list_add(p_attribute_specifier_sequence, attribute_specifier(ctx, error));
+    if (first_of_attribute_specifier(ctx))
+    {    
+        p_attribute_specifier_sequence =  calloc(1, sizeof(struct attribute_specifier_sequence));
+
+        while (error->code == 0 &&
+            ctx->current != NULL &&
+            first_of_attribute_specifier(ctx))
+        {
+            list_add(p_attribute_specifier_sequence, attribute_specifier(ctx, error));
+        }
     }
+
     return p_attribute_specifier_sequence;
 }
 
@@ -3904,11 +3923,14 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
             if (p_declarator)
             {
-                if (p_declarator->num_uses == 0)
+                if (
+                    !(p_declarator->type.attributes & STD_ATTRIBUTE_MAYBE_UNUSED) &&
+                      p_declarator->num_uses == 0)
                 {
                     //setwarning_with_token(ctx, p_declarator->name, )
                     ctx->n_warnings++;
-                    if (p_declarator->name && p_declarator->name->pFile)
+                    if (p_declarator->name && 
+                        p_declarator->name->pFile)
                     {
                         ctx->printf(WHITE "%s:%d:%d: ",
                             p_declarator->name->pFile->lexeme,
@@ -3953,7 +3975,14 @@ struct block_item* block_item(struct parser_ctx* ctx, struct error* error)
     //     unlabeled_statement
     //   label
     struct block_item* p_block_item = calloc(1, sizeof(struct block_item));
-    attribute_specifier_sequence_opt(ctx, error);
+
+
+    /*
+    * Attributes can be first of declaration, labels etc..
+    * so it is better to parse it in advance.
+    */
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
+        attribute_specifier_sequence_opt(ctx, error);
 
     p_block_item->first_token = ctx->current;
 
@@ -3995,6 +4024,9 @@ assembly-instruction-list:
         first_of_static_assert_declaration(ctx))
     {
         p_block_item->declaration = declaration(ctx, error);
+        p_block_item->declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
+        p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
+
         struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
         while (p)
         {
