@@ -627,9 +627,9 @@ bool first_of_type_name_ahead(struct parser_ctx* ctx)
 
     if (ctx->current->type != '(')
         return false;
-    struct token* pAhead = parser_look_ahead(ctx);
-    return first_of_type_specifier_token(ctx, pAhead) ||
-        first_of_type_qualifier_token(pAhead);
+    struct token* token_ahead = parser_look_ahead(ctx);
+    return first_of_type_specifier_token(ctx, token_ahead) ||
+        first_of_type_qualifier_token(token_ahead);
 }
 
 bool first_of_type_name(struct parser_ctx* ctx)
@@ -1756,24 +1756,24 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
     //    storage-class-specifier
     //    type-specifier-qualifier
     //    function-specifier
-    struct declaration_specifier* pDeclaration_specifier = calloc(1, sizeof * pDeclaration_specifier);
+    struct declaration_specifier* p_declaration_specifier = calloc(1, sizeof * p_declaration_specifier);
     if (first_of_storage_class_specifier(ctx))
     {
-        pDeclaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
+        p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
     }
     else if (first_of_type_specifier_qualifier(ctx))
     {
-        pDeclaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx, error);
+        p_declaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx, error);
     }
     else if (first_of_function_specifier(ctx))
     {
-        pDeclaration_specifier->function_specifier = function_specifier(ctx, error);
+        p_declaration_specifier->function_specifier = function_specifier(ctx, error);
     }
     else
     {
         parser_seterror_with_token(ctx, ctx->current, "unexpected");
     }
-    return pDeclaration_specifier;
+    return p_declaration_specifier;
 }
 
 
@@ -3646,13 +3646,20 @@ struct attribute* attribute(struct parser_ctx* ctx, struct error* error)
 struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* error)
 {
     struct attribute_token* p_attribute_token = calloc(1, sizeof(struct attribute_token));
-    //standard_attribute
-    //attribute_prefixed_token
-    bool bStandardAtt = strcmp(ctx->current->lexeme, "deprecated") == 0 ||
-        strcmp(ctx->current->lexeme, "fallthrough") == 0 ||
-        strcmp(ctx->current->lexeme, "maybe_unused") == 0 ||
-        strcmp(ctx->current->lexeme, "nodiscard") == 0;
+    
+    struct token* attr_token = ctx->current;
+
+    bool is_standard_attribute = 
+        strcmp(attr_token->lexeme, "deprecated") == 0 ||
+        strcmp(attr_token->lexeme, "fallthrough") == 0 ||
+        strcmp(attr_token->lexeme, "maybe_unused") == 0 ||
+        strcmp(attr_token->lexeme, "noreturn") == 0 ||
+        strcmp(attr_token->lexeme, "reproducible") == 0 ||
+        strcmp(attr_token->lexeme, "unsequenced") == 0 ||
+        strcmp(attr_token->lexeme, "nodiscard") == 0;
+
     parser_match_tk(ctx, TK_IDENTIFIER, error);
+
     if (ctx->current->type == '::')
     {
         parser_match(ctx);
@@ -3660,9 +3667,14 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* er
     }
     else
     {
-        if (!bStandardAtt)
+        /*
+        * Each implementation should choose a distinctive name for the attribute prefix in an attribute
+        * prefixed token. Implementations should not define attributes without an attribute prefix unless it is
+        * a standard attribute as specified in this document.
+        */
+        if (!is_standard_attribute)
         {
-            printf("warning not std att\n");
+            parser_setwarning_with_token(ctx, attr_token, "warning '%s' is not an standard attribute\n", attr_token->lexeme);
         }
     }
     return p_attribute_token;
@@ -4785,11 +4797,11 @@ int compile(int argc, char** argv, struct error* error)
 }
 
 
-struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error)
+struct ast get_ast(struct options* options, const char* filename, const char* source, struct error* error)
 {
     struct ast ast = { 0 };
 
-    struct token_list list = tokenizer(source, fileName, 0, TK_FLAG_NONE, error);
+    struct token_list list = tokenizer(source, filename, 0, TK_FLAG_NONE, error);
     if (error->code != 0)
         return ast;
 

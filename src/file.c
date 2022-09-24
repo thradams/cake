@@ -9,7 +9,7 @@ int main()
     else
         A:
     {
-        int i = 1;
+        [[meu::teste]] int i = 1;
     }
 }
 
