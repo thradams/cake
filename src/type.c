@@ -92,7 +92,7 @@ void print_declarator_type(struct osstream* ss, struct declarator_type* p_declar
     }
 
     if (p_declarator_type->direct_declarator_type)
-    {
+    {        
         print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type, name);
     }
 
@@ -121,7 +121,7 @@ void print_direct_declarator_type(struct osstream* ss,
     else
     {
         if (name_opt)
-            ss_fprintf(ss, "%s", name_opt);
+            ss_fprintf(ss, " %s", name_opt);
     }
     struct array_function_type* p_array_function_type =
         p_direct_declarator_type->array_function_type_list.head;
@@ -196,7 +196,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
 void print_type(struct osstream* ss, struct type* type)
 {
     print_type_qualifier_specifiers(ss, type);
-    print_declarator_type(ss, type->declarator_type, /*name*/NULL);
+    print_declarator_type(ss, type->declarator_type, type->declarator_name_opt);
 }
 
 void type_print(struct type* a) {
@@ -296,6 +296,7 @@ struct declarator_type* declarator_type_copy(struct declarator_type* p_declarato
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
     p_declarator_type->pointers = pointer_type_list_copy(&p_declarator_type_opt->pointers);
     p_declarator_type->direct_declarator_type = direct_declarator_type_copy(p_declarator_type_opt->direct_declarator_type);
+    
     return p_declarator_type;
 }
 
@@ -552,6 +553,11 @@ bool type_is_compatible_type_function_call(struct type* argument_type, struct ty
     //disabled for now util it works correctly
     //return false;
     return true;
+}
+
+bool type_is_function(struct type* p_type)
+{
+    return find_type_category(p_type) == TYPE_CATEGORY_FUNCTION;        
 }
 
 bool type_is_function_or_function_pointer(struct type* p_type)
@@ -828,7 +834,8 @@ struct type type_copy(struct type* p_type)
     r.type_specifier_flags = p_type->type_specifier_flags;
     r.struct_or_union_specifier = p_type->struct_or_union_specifier;
     r.enum_specifier = p_type->enum_specifier;
-
+    if (p_type->declarator_name_opt)
+      r.declarator_name_opt = strdup(p_type->declarator_name_opt);
 
     if (p_type->declarator_type)
     {
@@ -1201,7 +1208,12 @@ struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type
             {
                 struct type* p_type = calloc(1, sizeof(struct type));
                 *p_type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
-                //print_type(p_type);
+                
+                /*name of the argument*/
+                free(p_type->declarator_name_opt);
+                if (p_parameter_declaration->name)
+                  p_type->declarator_name_opt = strdup(p_parameter_declaration->name->lexeme);
+                
                 list_add(&p_array_function_type->params, p_type);
                 p_parameter_declaration = p_parameter_declaration->next;
             }
@@ -1230,6 +1242,7 @@ struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* c
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
     //type_set_qualifiers_using_declarator(p_declarator_type, pdeclarator);
     //type_set_specifiers_using_declarator(declarator_type, pdeclarator);
+    
     p_declarator_type->direct_declarator_type = clone_direct_declarator_to_direct_declarator_type(ctx, p_declarator->direct_declarator);
     p_declarator_type->pointers = clone_pointer_to_pointer_type_list(p_declarator->pointer);
     return p_declarator_type;
@@ -1369,7 +1382,11 @@ typedef char (*PF)(double);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator)
 {
     struct type t = { 0 };
-    memset(&t, 0, sizeof t);
+
+    if (pdeclarator->name)
+    {
+        t.declarator_name_opt = strdup(pdeclarator->name->lexeme);
+    }
 
     if (pdeclarator->specifier_qualifier_list)
     {

@@ -946,23 +946,15 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
     struct expression* p_expression_node = calloc(1, sizeof * p_expression_node);
 
     assert(p_expression_node->type_name == NULL);
-    p_expression_node->first = ctx->current;
+
+    p_expression_node->first = previous_parser_token(p_type_name->first);
+    assert(p_expression_node->first->type == '(');
+    
     p_expression_node->type_name = p_type_name;
     p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
     bool is_function_type = false;
-    if (p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head &&
-        p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head->bIsFunction)
-    {
-        if (p_expression_node->type.declarator_type->direct_declarator_type->declarator_opt == NULL)
-        {
-            is_function_type = true;
-        }
-        else
-        {
-            /*funtion pointer*/
-        }
-    }
-    if (is_function_type)
+
+    if (type_is_function(&p_type_name->declarator->type))
     {
         p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
@@ -972,14 +964,15 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
         scope_list_push(&ctx->scopes, parameters_scope);
         p_expression_node->compound_statement = function_body(ctx, error);
         scope_list_pop(&ctx->scopes);
-
-        p_expression_node->last = p_expression_node->compound_statement->last_token;
+        
     }
     else
     {
         p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
-        p_expression_node->braced_initializer = braced_initializer(ctx, error);
+        p_expression_node->braced_initializer = braced_initializer(ctx, error);    
     }
+
+    p_expression_node->last = ctx->previous;
 
     p_expression_node = postfix_expression_tail(ctx,
         error,
@@ -1306,10 +1299,8 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
         if (error->code != 0)
             throw;
 
-
         if (first_of_type_name_ahead(ctx))
         {
-
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->first = ctx->current;
             p_expression_node->expression_type = CAST_EXPRESSION;
@@ -1330,7 +1321,6 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
                 // porque apareceu o { então é compound literal que eh postfix.
                 struct expression* new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, error, ectx);
 
-                new_expression->first = p_expression_node->first;
 
                 free(p_expression_node);
                 p_expression_node = new_expression;

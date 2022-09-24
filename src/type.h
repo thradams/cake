@@ -53,6 +53,7 @@ enum type_specifier_flags
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
     
     TYPE_SPECIFIER_TYPEOF = 1 << 23, //?
+
     TYPE_SPECIFIER_NULLPTR = 1 << 24,
 };
 
@@ -131,6 +132,13 @@ struct type
     
     struct declarator_type* declarator_type;
 
+    /*
+    * Sometimes we need to print the type together with the original 
+    * declarator name. For instance a function type can preserve the name of each
+    * argument.
+    */
+    char* declarator_name_opt;
+
     struct type* next; //se quiser usar lista  ligada
 };
 void print_type(struct osstream* ss, struct type* type);
@@ -152,6 +160,7 @@ bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
 bool type_is_compatible_type_function_call(struct type* a, struct type* b);
 bool type_is_function_or_function_pointer(struct type* p_type);
+bool type_is_function(struct type* p_type);
 struct type get_pointer_content_type(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 

@@ -8124,6 +8124,11 @@ struct type
     
     struct declarator_type* declarator_type;
 
+    /*
+    * Sometimes we need to print the type together with the original declarator name.
+    */
+    char* declarator_name_opt;
+
     struct type* next; //se quiser usar lista  ligada
 };
 void print_type(struct osstream* ss, struct type* type);
@@ -8145,6 +8150,7 @@ bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
 bool type_is_compatible_type_function_call(struct type* a, struct type* b);
 bool type_is_function_or_function_pointer(struct type* p_type);
+bool type_is_function(struct type* p_type);
 struct type get_pointer_content_type(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
@@ -10201,23 +10207,12 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
     struct expression* p_expression_node = calloc(1, sizeof * p_expression_node);
 
     assert(p_expression_node->type_name == NULL);
-    p_expression_node->first = ctx->current;
+    p_expression_node->first = previous_parser_token(p_type_name->first); //must find '('
     p_expression_node->type_name = p_type_name;
     p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
     bool is_function_type = false;
-    if (p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head &&
-        p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head->bIsFunction)
-    {
-        if (p_expression_node->type.declarator_type->direct_declarator_type->declarator_opt == NULL)
-        {
-            is_function_type = true;
-        }
-        else
-        {
-            /*funtion pointer*/
-        }
-    }
-    if (is_function_type)
+
+    if (type_is_function(&p_type_name->declarator->type))
     {
         p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
@@ -10228,12 +10223,13 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
         p_expression_node->compound_statement = function_body(ctx, error);
         scope_list_pop(&ctx->scopes);
 
-        p_expression_node->last = p_expression_node->compound_statement->last_token;
+        p_expression_node->last = ctx->previous;
     }
     else
     {
         p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
         p_expression_node->braced_initializer = braced_initializer(ctx, error);
+        p_expression_node->last = ctx->previous;
     }
 
     p_expression_node = postfix_expression_tail(ctx,
@@ -10561,10 +10557,8 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
         if (error->code != 0)
             throw;
 
-
         if (first_of_type_name_ahead(ctx))
         {
-
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->first = ctx->current;
             p_expression_node->expression_type = CAST_EXPRESSION;
@@ -10585,7 +10579,8 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
                 // porque apareceu o { então é compound literal que eh postfix.
                 struct expression* new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, error, ectx);
 
-                new_expression->first = p_expression_node->first;
+                //new_expression->first = p_expression_node->first;
+                //new_expression->last= ctx->previous;
 
                 free(p_expression_node);
                 p_expression_node = new_expression;
@@ -12614,7 +12609,7 @@ void print_declarator_type(struct osstream* ss, struct declarator_type* p_declar
     }
 
     if (p_declarator_type->direct_declarator_type)
-    {
+    {        
         print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type, name);
     }
 
@@ -12643,7 +12638,7 @@ void print_direct_declarator_type(struct osstream* ss,
     else
     {
         if (name_opt)
-            ss_fprintf(ss, "%s", name_opt);
+            ss_fprintf(ss, " %s", name_opt);
     }
     struct array_function_type* p_array_function_type =
         p_direct_declarator_type->array_function_type_list.head;
@@ -12718,7 +12713,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
 void print_type(struct osstream* ss, struct type* type)
 {
     print_type_qualifier_specifiers(ss, type);
-    print_declarator_type(ss, type->declarator_type, /*name*/NULL);
+    print_declarator_type(ss, type->declarator_type, type->declarator_name_opt);
 }
 
 void type_print(struct type* a) {
@@ -12818,6 +12813,7 @@ struct declarator_type* declarator_type_copy(struct declarator_type* p_declarato
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
     p_declarator_type->pointers = pointer_type_list_copy(&p_declarator_type_opt->pointers);
     p_declarator_type->direct_declarator_type = direct_declarator_type_copy(p_declarator_type_opt->direct_declarator_type);
+    
     return p_declarator_type;
 }
 
@@ -13074,6 +13070,11 @@ bool type_is_compatible_type_function_call(struct type* argument_type, struct ty
     //disabled for now util it works correctly
     //return false;
     return true;
+}
+
+bool type_is_function(struct type* p_type)
+{
+    return find_type_category(p_type) == TYPE_CATEGORY_FUNCTION;        
 }
 
 bool type_is_function_or_function_pointer(struct type* p_type)
@@ -13350,7 +13351,8 @@ struct type type_copy(struct type* p_type)
     r.type_specifier_flags = p_type->type_specifier_flags;
     r.struct_or_union_specifier = p_type->struct_or_union_specifier;
     r.enum_specifier = p_type->enum_specifier;
-
+    if (p_type->declarator_name_opt)
+      r.declarator_name_opt = strdup(p_type->declarator_name_opt);
 
     if (p_type->declarator_type)
     {
@@ -13723,6 +13725,11 @@ struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type
             {
                 struct type* p_type = calloc(1, sizeof(struct type));
                 *p_type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+                
+                free(p_type->declarator_name_opt);
+                if (p_parameter_declaration->name)
+                  p_type->declarator_name_opt = strdup(p_parameter_declaration->name->lexeme);
+
                 //print_type(p_type);
                 list_add(&p_array_function_type->params, p_type);
                 p_parameter_declaration = p_parameter_declaration->next;
@@ -13752,6 +13759,7 @@ struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* c
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
     //type_set_qualifiers_using_declarator(p_declarator_type, pdeclarator);
     //type_set_specifiers_using_declarator(declarator_type, pdeclarator);
+    
     p_declarator_type->direct_declarator_type = clone_direct_declarator_to_direct_declarator_type(ctx, p_declarator->direct_declarator);
     p_declarator_type->pointers = clone_pointer_to_pointer_type_list(p_declarator->pointer);
     return p_declarator_type;
@@ -13894,7 +13902,13 @@ typedef char (*PF)(double);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator)
 {
     struct type t = { 0 };
-    memset(&t, 0, sizeof t);
+
+    if (pdeclarator->name)
+    {
+        t.declarator_name_opt = strdup(pdeclarator->name->lexeme);
+    }
+
+    
 
     if (pdeclarator->specifier_qualifier_list)
     {
@@ -20195,11 +20209,11 @@ static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx
         }
     }
 }
-
+static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error);
 static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name, struct error* error)
 {
     visit_specifier_qualifier_list(false, ctx, p_type_name->specifier_qualifier_list, error);
-    //visit_declarator
+    visit_declarator(ctx, p_type_name->declarator, error);
 }
 
 #pragma warning(default : 4061)
@@ -20308,15 +20322,15 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case POSTFIX_ARRAY:
         //visit_expression(ctx, p_expression->left, error);
         break;
-    case POSTFIX_FUNCTION_CALL:
-        visit_expression(ctx, p_expression->left, error);
-        visit_expression(ctx, p_expression->left, error);
+    case POSTFIX_FUNCTION_CALL:        
+        visit_expression(ctx, p_expression->left, error);        
         visit_argument_expression_list(ctx, &p_expression->argument_expression_list, error);
         break;
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
     {
         ctx->has_lambda = true;
         ctx->is_inside_lambda = true;
+        visit_type_name(ctx, p_expression->type_name, error);
         visit_compound_statement(ctx, p_expression->compound_statement, error);
         ctx->is_inside_lambda = false;
 
@@ -20328,11 +20342,16 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             ctx->lambdas_index++;
 
             struct osstream ss = { 0 };
+            
+            ss_fprintf(&ss, "static ");
 
             bool bFirst = true;
-            print_specifier_qualifier_list(&ss, &bFirst, p_expression->type_name->specifier_qualifier_list);
-            ss_fprintf(&ss, "%s", name);
-            print_declarator(&ss, p_expression->type_name->declarator, false);
+            print_type_qualifier_flags(&ss, &bFirst, p_expression->type_name->declarator->type.type_qualifier_flags);
+            print_type_specifier_flags(&ss, &bFirst, p_expression->type_name->declarator->type.type_specifier_flags);
+            
+            
+            print_declarator_type(&ss, p_expression->type_name->declarator->type.declarator_type, name);
+            
 
             struct token_list l1 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
 
@@ -20750,7 +20769,6 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
 }
 static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers, struct error* error);
 
-static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error);
 
 static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declarator* p_direct_declarator, struct error* error)
 {
@@ -20802,7 +20820,8 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
     while (p_init_declarator)
     {
         
-        if (p_init_declarator->declarator->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
+        if (!ctx->is_second_pass && 
+            p_init_declarator->declarator->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
         {
             /*
             * This declarator is using typeof, so we need to print its real type
@@ -20980,89 +20999,91 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error)
 {
   
-
-    if (ctx->target < LANGUAGE_C2X)
+    if (!ctx->is_second_pass)
     {
-        if (p_type_specifier->typeof_specifier)
+        if (ctx->target < LANGUAGE_C2X)
         {
-            /*
-            * let's hide the typeof(..) tokens
-            */
-            token_range_add_flag(p_type_specifier->typeof_specifier->first_token,
-                p_type_specifier->typeof_specifier->last_token,
-                TK_FLAG_HIDE);
-
-
-            struct osstream ss = { 0 };
-
-            if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
+            if (p_type_specifier->typeof_specifier)
             {
-                if (!is_declaration)
-                {
-                    /*
-                    * typeof used like type-name
-                    * for instance sizeof(typeof(a)) -> sizeof(int [2])
-                    */
-                    print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
-                }
-                else
-                {
-                    /*
-                    * typeof used in declarations
-                    * We need to split specifiers and later add declarator part.
-                    */
-                    print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
-                }
-
                 /*
-                * typeof of anonymous struct?
+                * let's hide the typeof(..) tokens
                 */
-                if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier &&
-                    p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag)
+                token_range_add_flag(p_type_specifier->typeof_specifier->first_token,
+                    p_type_specifier->typeof_specifier->last_token,
+                    TK_FLAG_HIDE);
+
+
+                struct osstream ss = { 0 };
+
+                if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
                 {
-                    
-                    p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
+                    if (!is_declaration)
+                    {
+                        /*
+                        * typeof used like type-name
+                        * for instance sizeof(typeof(a)) -> sizeof(int [2])
+                        */
+                        print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
+                    }
+                    else
+                    {
+                        /*
+                        * typeof used in declarations
+                        * We need to split specifiers and later add declarator part.
+                        */
+                        print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
+                    }
 
-                    struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first;
+                    /*
+                    * typeof of anonymous struct?
+                    */
+                    if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier &&
+                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag)
+                    {
 
-                    const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
-                    char buffer[200] = { 0 };
-                    snprintf(buffer, sizeof buffer, " %s", tag);
-                    struct token_list l2 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
-                    token_list_insert_after(&ctx->ast.token_list, first, &l2);
+                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
+
+                        struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first;
+
+                        const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
+                        char buffer[200] = { 0 };
+                        snprintf(buffer, sizeof buffer, " %s", tag);
+                        struct token_list l2 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+                        token_list_insert_after(&ctx->ast.token_list, first, &l2);
+
+                    }
 
                 }
-
-            }
-            else if (p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name)
-            {                
-                if (!is_declaration)
+                else if (p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name)
                 {
-                    /*
-                    * typeof used like type-name
-                    * for instance sizeof(typeof(a)) -> sizeof(int [2])
-                    */
-                    print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+                    if (!is_declaration)
+                    {
+                        /*
+                        * typeof used like type-name
+                        * for instance sizeof(typeof(a)) -> sizeof(int [2])
+                        */
+                        print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+                    }
+                    else
+                    {
+                        /*
+                        * typeof used in declarations
+                        * We need to split specifiers and later add declarator part.
+                        */
+                        print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+                    }
                 }
                 else
                 {
-                    /*
-                    * typeof used in declarations
-                    * We need to split specifiers and later add declarator part.
-                    */
-                    print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+                    assert(false);
                 }
-            }
-            else
-            {
-                assert(false);
-            }
 
-            
-       
-            struct token_list list = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);            
-            ss_close(&ss);
-            token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->last_token, &list);            
+
+
+                struct token_list list = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+                ss_close(&ss);
+                token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->last_token, &list);
+            }
         }
     }
 }
