@@ -887,10 +887,10 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
         visit_expression(ctx, p_iteration_statement->expression2, error);
     }
 
-    if (p_iteration_statement->token->type == TK_KEYWORD_REPEAT)
+    if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
     {
-        free(p_iteration_statement->token->lexeme);
-        p_iteration_statement->token->lexeme = strdup("for(;;)/*repeat*/");
+        free(p_iteration_statement->first_token->lexeme);
+        p_iteration_statement->first_token->lexeme = strdup("for(;;)/*repeat*/");
     }
 
     if (p_iteration_statement->secondary_block)
@@ -1411,6 +1411,11 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
                         * typeof used like type-name
                         * for instance sizeof(typeof(a)) -> sizeof(int [2])
                         */
+                        
+                        /*we don't print declarator name here  - better way/place to do it?*/
+                        free(p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt);
+                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt = NULL;
+
                         print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
                     }
                     else

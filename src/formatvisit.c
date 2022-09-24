@@ -149,6 +149,7 @@ static void format_visit_secondary_block(struct format_visit_ctx* ctx, struct se
 
 static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struct iteration_statement* p_iteration_statement, struct error* error)
 {
+    ajust_line_and_identation(p_iteration_statement->first_token, ctx);
 
     if (p_iteration_statement->expression1)
     {
@@ -160,8 +161,11 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
         //format_visit_expression(ctx, p_iteration_statement->expression2, error);
     }
 
-
-
+    if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
+    {
+        ajust_line_and_identation(p_iteration_statement->second_token, ctx);
+    }
+    
     if (p_iteration_statement->secondary_block)
     {
         format_visit_secondary_block(ctx, p_iteration_statement->secondary_block, error);

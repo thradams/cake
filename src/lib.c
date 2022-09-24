@@ -9076,7 +9076,12 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
 
 struct iteration_statement
 {
-    struct token* token;
+    /*token do, for, repeat */
+    struct token* first_token;
+    
+    /*token while in do {} while ();*/
+    struct token* second_token;
+
     struct secondary_block* secondary_block;
     struct expression* expression1;
     struct expression* expression2;
@@ -18534,11 +18539,12 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
       for ( declaration expressionopt ; expressionopt ) statement
     */
     struct iteration_statement* p_iteration_statement = calloc(1, sizeof(struct iteration_statement));
-    p_iteration_statement->token = ctx->current;
+    p_iteration_statement->first_token = ctx->current;
     if (ctx->current->type == TK_KEYWORD_DO)
     {
         parser_match(ctx);
         p_iteration_statement->secondary_block = secondary_block(ctx, error);
+        p_iteration_statement->second_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_WHILE, error);
         parser_match_tk(ctx, '(', error);
         struct expression_ctx ectx = { 0 };
@@ -20538,10 +20544,10 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
         visit_expression(ctx, p_iteration_statement->expression2, error);
     }
 
-    if (p_iteration_statement->token->type == TK_KEYWORD_REPEAT)
+    if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
     {
-        free(p_iteration_statement->token->lexeme);
-        p_iteration_statement->token->lexeme = strdup("for(;;)/*repeat*/");
+        free(p_iteration_statement->first_token->lexeme);
+        p_iteration_statement->first_token->lexeme = strdup("for(;;)/*repeat*/");
     }
 
     if (p_iteration_statement->secondary_block)
@@ -21062,6 +21068,11 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
                         * typeof used like type-name
                         * for instance sizeof(typeof(a)) -> sizeof(int [2])
                         */
+                        
+                        /*we don't print declarator name here  - better way/place to do it?*/
+                        free(p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt);
+                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt = NULL;
+
                         print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
                     }
                     else
@@ -22176,6 +22187,7 @@ static void format_visit_secondary_block(struct format_visit_ctx* ctx, struct se
 
 static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struct iteration_statement* p_iteration_statement, struct error* error)
 {
+    ajust_line_and_identation(p_iteration_statement->first_token, ctx);
 
     if (p_iteration_statement->expression1)
     {
@@ -22187,8 +22199,11 @@ static void format_visit_iteration_statement(struct format_visit_ctx* ctx, struc
         //format_visit_expression(ctx, p_iteration_statement->expression2, error);
     }
 
-
-
+    if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
+    {
+        ajust_line_and_identation(p_iteration_statement->second_token, ctx);
+    }
+    
     if (p_iteration_statement->secondary_block)
     {
         format_visit_secondary_block(ctx, p_iteration_statement->secondary_block, error);

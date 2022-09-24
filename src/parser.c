@@ -4158,11 +4158,12 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
       for ( declaration expressionopt ; expressionopt ) statement
     */
     struct iteration_statement* p_iteration_statement = calloc(1, sizeof(struct iteration_statement));
-    p_iteration_statement->token = ctx->current;
+    p_iteration_statement->first_token = ctx->current;
     if (ctx->current->type == TK_KEYWORD_DO)
     {
         parser_match(ctx);
         p_iteration_statement->secondary_block = secondary_block(ctx, error);
+        p_iteration_statement->second_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_WHILE, error);
         parser_match_tk(ctx, '(', error);
         struct expression_ctx ectx = { 0 };

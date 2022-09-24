@@ -701,7 +701,12 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
 
 struct iteration_statement
 {
-    struct token* token;
+    /*token do, for, repeat */
+    struct token* first_token;
+    
+    /*token while in do {} while ();*/
+    struct token* second_token;
+
     struct secondary_block* secondary_block;
     struct expression* expression1;
     struct expression* expression2;
