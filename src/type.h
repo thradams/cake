@@ -21,7 +21,7 @@ enum type_category
 };
 
 
-enum attributes
+enum attribute_flags
 {
     STD_ATTRIBUTE_NONE = 0,
     STD_ATTRIBUTE_DEPRECATED = 1 << 0,
@@ -136,7 +136,7 @@ struct declarator_type
 
 struct type
 {    
-    enum attributes  attributes;
+    enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
    

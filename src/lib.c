@@ -8050,7 +8050,7 @@ enum type_category
 };
 
 
-enum attributes
+enum attribute_flags
 {
     STD_ATTRIBUTE_NONE = 0,
     STD_ATTRIBUTE_DEPRECATED = 1 << 0,
@@ -8165,7 +8165,7 @@ struct declarator_type
 
 struct type
 {    
-    enum attributes  attributes;
+    enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
    
@@ -8518,7 +8518,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
 
 struct declaration_specifiers
 {
-    enum attributes attributes;
+    enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
@@ -8556,6 +8556,9 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
 
 struct attribute_specifier_sequence
 {
+    struct token* first_token;
+    struct token* last_token;
+    enum attribute_flags  attributes_flags;
     struct attribute_specifier* head;
     struct attribute_specifier* tail;
 };
@@ -9249,12 +9252,14 @@ struct type_qualifier_list* type_qualifier_list(struct parser_ctx* ctx, struct e
 
 struct attribute_token
 {
+    enum attribute_flags  attributes_flags;
     struct token* token;
 };
 struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* error);
 
 struct attribute
 {
+    enum attribute_flags  attributes_flags;
     struct attribute_token* attribute_token;
     struct attribute_argument_clause* attribute_argument_clause;
     struct attribute_specifier* next;
@@ -9262,6 +9267,7 @@ struct attribute
 
 struct attribute_list
 {
+    enum attribute_flags  attributes_flags;
     struct attribute* head;
     struct attribute* tail;
 };
@@ -13705,6 +13711,21 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
 }
 
 
+void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
+{
+    if (pdeclarator->declaration_specifiers)
+    {
+        p_type->attributes_flags =
+            pdeclarator->declaration_specifiers->attributes_flags;
+    }
+    else if (pdeclarator->specifier_qualifier_list)
+    {
+        //p_type->type_qualifier_flags =
+          //  pdeclarator->specifier_qualifier_list->ATR;
+    }
+}
+
+
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
@@ -14014,6 +14035,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else
         {
+            type_set_attributes(&t, pdeclarator);
             type_set_qualifiers_using_declarator(&t, pdeclarator);
             type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
             t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
@@ -14057,6 +14079,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else
         {
+            type_set_attributes(&t, pdeclarator);
             type_set_qualifiers_using_declarator(&t, pdeclarator);
             type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
             t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
@@ -14074,6 +14097,7 @@ struct type make_type_using_declarator_do_not_expand(struct parser_ctx* ctx, str
     memset(&t, 0, sizeof t);
     type_set_qualifiers_using_declarator(&t, pdeclarator);
     type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
+    type_set_attributes(&t, pdeclarator);
     t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
     return t;
 }
@@ -14444,7 +14468,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token);
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token);
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type);
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type);
-void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage );
+void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage);
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -14778,9 +14802,9 @@ bool first_of_function_specifier_token(struct token* token)
 {
     if (token == NULL)
         return false;
-    
+
     return token->type == TK_KEYWORD_INLINE ||
-           token->type == TK_KEYWORD__NORETURN;
+        token->type == TK_KEYWORD__NORETURN;
 }
 
 bool first_is(struct parser_ctx* ctx, enum token_type type)
@@ -15227,7 +15251,7 @@ struct token* previous_parser_token(struct token* token)
         r = r->prev;
     }
 
-    
+
     return r;
 }
 
@@ -15280,7 +15304,7 @@ enum token_type is_keyword(const char* text)
         if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
         else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
         else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
-        break;    
+        break;
     case 'n':
         if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
         break;
@@ -15638,21 +15662,21 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
         {
             stream_match(stream);
         }
-        
+
         integer_suffix_opt(stream, flags_opt);
 
         if (stream->current[0] == '.')
         {
-            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;                        
-            hexadecimal_digit_sequence(stream);                        
+            type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
+            hexadecimal_digit_sequence(stream);
         }
-        
+
         if (stream->current[0] == 'p' ||
             stream->current[0] == 'P')
         {
             type = TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
-            binary_exponent_part(stream);         
-        }   
+            binary_exponent_part(stream);
+        }
 
         if (type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
         {
@@ -16010,9 +16034,9 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
 }
 
 struct declaration* declaration_core(struct parser_ctx* ctx,
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
-    bool canBeFunctionDefinition, 
-    bool* is_function_definition, 
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt /*SINK*/,
+    bool canBeFunctionDefinition,
+    bool* is_function_definition,
     struct error* error)
 {
     /*
@@ -16022,8 +16046,10 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
      attribute-declaration
  */
 
-    
+
     struct declaration* p_declaration = calloc(1, sizeof(struct declaration));
+
+    p_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
 
     p_declaration->first_token = ctx->current;
 
@@ -16045,11 +16071,17 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
     }
     else
     {
-        
+
         if (first_of_declaration_specifier(ctx))
         {
             p_declaration->declaration_specifiers = declaration_specifiers(ctx, error);
-            
+
+            if (p_declaration->p_attribute_specifier_sequence_opt)
+            {
+                p_declaration->declaration_specifiers->attributes_flags =
+                    p_declaration->p_attribute_specifier_sequence_opt->attributes_flags;
+            }
+
             if (ctx->current->type != ';')
             {
                 p_declaration->init_declarator_list = init_declarator_list(ctx, p_declaration->declaration_specifiers, error);
@@ -16166,7 +16198,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         {
             if (p->declarator && p->declarator->name)
             {
-                
+
                 naming_convention_global_var(ctx,
                     p->declarator->name,
                     &p->declarator->type,
@@ -16179,8 +16211,8 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     return p_declaration;
 }
 
-struct declaration* declaration(struct parser_ctx* ctx, 
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt, 
+struct declaration* declaration(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
     struct error* error)
 {
     bool is_function_definition;
@@ -16377,7 +16409,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx, struct error* 
 {
     struct typeof_specifier* p_typeof_specifier = calloc(1, sizeof(struct typeof_specifier));
 
-    p_typeof_specifier->first_token= ctx->current;
+    p_typeof_specifier->first_token = ctx->current;
     parser_match(ctx);
     parser_match_tk(ctx, '(', error);
 
@@ -17228,7 +17260,7 @@ struct function_specifier* function_specifier(struct parser_ctx* ctx, struct err
     struct function_specifier* p = calloc(1, sizeof * p);
     p->token = ctx->current;
     parser_match(ctx);
-    
+
     return p;
 }
 
@@ -17249,7 +17281,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->type_id.type = TAG_TYPE_DECLARATOR;
     p_declarator->pointer = pointer_opt(ctx, error);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pptokenName, error);
-    
+
     p_declarator->last_token = ctx->previous;
 
     return p_declarator;
@@ -18004,18 +18036,29 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
 struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct parser_ctx* ctx, struct error* error)
 {
     struct attribute_specifier_sequence* p_attribute_specifier_sequence = NULL;
-
+    
     if (first_of_attribute_specifier(ctx))
-    {    
-        p_attribute_specifier_sequence =  calloc(1, sizeof(struct attribute_specifier_sequence));
+    {
+        p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
+
+        p_attribute_specifier_sequence->first_token = ctx->current;
 
         while (error->code == 0 &&
             ctx->current != NULL &&
             first_of_attribute_specifier(ctx))
         {
-            list_add(p_attribute_specifier_sequence, attribute_specifier(ctx, error));
+            struct attribute_specifier* p_attribute_specifier =
+                attribute_specifier(ctx, error);
+
+            p_attribute_specifier_sequence->attributes_flags |=
+                p_attribute_specifier->attribute_list->attributes_flags;
+
+            list_add(p_attribute_specifier_sequence, p_attribute_specifier);
         }
+        p_attribute_specifier_sequence->last_token = ctx->previous;
     }
+
+    
 
     return p_attribute_specifier_sequence;
 }
@@ -18039,8 +18082,6 @@ struct attribute_specifier* attribute_specifier(struct parser_ctx* ctx, struct e
 
     p_attribute_specifier->first = ctx->current;
 
-
-
     //'[' '[' attribute_list ']' ']'
     parser_match_tk(ctx, '[', error);
     parser_match_tk(ctx, '[', error);
@@ -18056,7 +18097,7 @@ struct attribute_specifier* attribute_specifier(struct parser_ctx* ctx, struct e
 struct attribute_list* attribute_list(struct parser_ctx* ctx, struct error* error)
 {
     struct attribute_list* p_attribute_list = calloc(1, sizeof(struct attribute_list));
-    //attribute_opt
+    //
     //attribute_list ',' attribute_opt
     while (error->code == 0 && ctx->current != NULL && (
         first_of_attribute(ctx) ||
@@ -18064,7 +18105,9 @@ struct attribute_list* attribute_list(struct parser_ctx* ctx, struct error* erro
     {
         if (first_of_attribute(ctx))
         {
-            list_add(p_attribute_list, attribute(ctx, error));
+            struct attribute* p_attribute = attribute(ctx, error);
+            p_attribute_list->attributes_flags |= p_attribute->attributes_flags;
+            list_add(p_attribute_list, p_attribute);
         }
         if (ctx->current->type == ',')
         {
@@ -18086,6 +18129,7 @@ struct attribute* attribute(struct parser_ctx* ctx, struct error* error)
     struct attribute* p_attribute = calloc(1, sizeof(struct attribute));
     //attribute_token attribute_argument_clause_opt
     p_attribute->attribute_token = attribute_token(ctx, error);
+    p_attribute->attributes_flags = p_attribute->attribute_token->attributes_flags;
     if (ctx->current->type == '(') //first
     {
         p_attribute->attribute_argument_clause = attribute_argument_clause(ctx, error);
@@ -18097,17 +18141,33 @@ struct attribute* attribute(struct parser_ctx* ctx, struct error* error)
 struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* error)
 {
     struct attribute_token* p_attribute_token = calloc(1, sizeof(struct attribute_token));
-    
+
     struct token* attr_token = ctx->current;
 
-    bool is_standard_attribute = 
-        strcmp(attr_token->lexeme, "deprecated") == 0 ||
-        strcmp(attr_token->lexeme, "fallthrough") == 0 ||
-        strcmp(attr_token->lexeme, "maybe_unused") == 0 ||
-        strcmp(attr_token->lexeme, "noreturn") == 0 ||
-        strcmp(attr_token->lexeme, "reproducible") == 0 ||
-        strcmp(attr_token->lexeme, "unsequenced") == 0 ||
-        strcmp(attr_token->lexeme, "nodiscard") == 0;
+    bool is_standard_attribute = false;
+    if (strcmp(attr_token->lexeme, "deprecated") == 0) {
+        is_standard_attribute = true;
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_DEPRECATED;
+    }
+    else if (strcmp(attr_token->lexeme, "fallthrough") == 0) {
+        is_standard_attribute = true;
+    }
+    else if (strcmp(attr_token->lexeme, "maybe_unused") == 0) {
+        is_standard_attribute = true;
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_MAYBE_UNUSED;
+    }
+    else if (strcmp(attr_token->lexeme, "noreturn") == 0) {
+        is_standard_attribute = true;
+    }
+    else if (strcmp(attr_token->lexeme, "reproducible") == 0) {
+        is_standard_attribute = true;
+    }
+    else if (strcmp(attr_token->lexeme, "unsequenced") == 0) {
+        is_standard_attribute = true;
+    }
+    else if (strcmp(attr_token->lexeme, "nodiscard") == 0) {
+        is_standard_attribute = true;
+    }
 
     parser_match_tk(ctx, TK_IDENTIFIER, error);
 
@@ -18228,7 +18288,7 @@ struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
     else if (ctx->current->type == TK_KEYWORD_TRY)
     {
         p_primary_block->try_statement = try_statement(ctx, error);
-    }    
+    }
     else
     {
         seterror(error, "unexpected");
@@ -18356,12 +18416,12 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
             if (p_declarator)
             {
                 if (
-                    !(p_declarator->type.attributes & STD_ATTRIBUTE_MAYBE_UNUSED) &&
-                      p_declarator->num_uses == 0)
+                    !(p_declarator->type.attributes_flags & STD_ATTRIBUTE_MAYBE_UNUSED) &&
+                    p_declarator->num_uses == 0)
                 {
                     //setwarning_with_token(ctx, p_declarator->name, )
                     ctx->n_warnings++;
-                    if (p_declarator->name && 
+                    if (p_declarator->name &&
                         p_declarator->name->token_origin)
                     {
                         ctx->printf(WHITE "%s:%d:%d: ",
@@ -18456,7 +18516,7 @@ assembly-instruction-list:
         first_of_static_assert_declaration(ctx))
     {
         p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, error);
-        
+
         p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
 
         struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
@@ -18516,7 +18576,7 @@ struct try_statement* try_statement(struct parser_ctx* ctx, struct error* error)
     p_try_statement->secondary_block = secondary_block(ctx, error);
     /*retores the previous one*/
     ctx->p_current_try_statement_opt = try_statement_copy_opt;
-    
+
 
     if (ctx->current->type == TK_KEYWORD_CATCH)
     {
@@ -18527,7 +18587,7 @@ struct try_statement* try_statement(struct parser_ctx* ctx, struct error* error)
     }
     p_try_statement->last_token = ctx->previous;
 
-    
+
 
     return p_try_statement;
 }
@@ -18573,7 +18633,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
 
         parser_match_tk(ctx, ')', error);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
-        
+
         if (ctx->current)
         {
             if (ctx->current->type == TK_KEYWORD_ELSE)
@@ -18596,7 +18656,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         p_selection_statement->expression = expression(ctx, error, &ectx);
         parser_match_tk(ctx, ')', error);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
-        
+
     }
     else
     {
@@ -21375,6 +21435,16 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, error);
     }
 
+    if (p_declaration->p_attribute_specifier_sequence_opt)
+    {
+        if (!ctx->is_second_pass)
+        {
+            token_range_add_flag(p_declaration->p_attribute_specifier_sequence_opt->first_token,
+                p_declaration->p_attribute_specifier_sequence_opt->last_token,
+                TK_FLAG_HIDE);
+
+        }
+    }
     if (ctx->is_second_pass)
     {
 

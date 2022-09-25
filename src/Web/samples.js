@@ -292,6 +292,17 @@ int main()
 `;
 
 
+sample["C23 maybe_unused attribute"] =
+`
+void f(int i)
+{
+    [[maybe_unused]] int j;
+    int k;
+}
+`;
+
+
+
 sample["Extension _Hashof"] =
 `
 struct X {

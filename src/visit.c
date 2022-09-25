@@ -1622,6 +1622,16 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, error);
     }
 
+    if (p_declaration->p_attribute_specifier_sequence_opt)
+    {
+        if (!ctx->is_second_pass)
+        {
+            token_range_add_flag(p_declaration->p_attribute_specifier_sequence_opt->first_token,
+                p_declaration->p_attribute_specifier_sequence_opt->last_token,
+                TK_FLAG_HIDE);
+
+        }
+    }
     if (ctx->is_second_pass)
     {
 

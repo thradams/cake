@@ -130,7 +130,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
 
 struct declaration_specifiers
 {
-    enum attributes attributes;
+    enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
@@ -168,6 +168,9 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
 
 struct attribute_specifier_sequence
 {
+    struct token* first_token;
+    struct token* last_token;
+    enum attribute_flags  attributes_flags;
     struct attribute_specifier* head;
     struct attribute_specifier* tail;
 };
@@ -861,12 +864,14 @@ struct type_qualifier_list* type_qualifier_list(struct parser_ctx* ctx, struct e
 
 struct attribute_token
 {
+    enum attribute_flags  attributes_flags;
     struct token* token;
 };
 struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* error);
 
 struct attribute
 {
+    enum attribute_flags  attributes_flags;
     struct attribute_token* attribute_token;
     struct attribute_argument_clause* attribute_argument_clause;
     struct attribute_specifier* next;
@@ -874,6 +879,7 @@ struct attribute
 
 struct attribute_list
 {
+    enum attribute_flags  attributes_flags;
     struct attribute* head;
     struct attribute* tail;
 };

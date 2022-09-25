@@ -1112,6 +1112,21 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
 }
 
 
+void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
+{
+    if (pdeclarator->declaration_specifiers)
+    {
+        p_type->attributes_flags =
+            pdeclarator->declaration_specifiers->attributes_flags;
+    }
+    else if (pdeclarator->specifier_qualifier_list)
+    {
+        //p_type->type_qualifier_flags =
+          //  pdeclarator->specifier_qualifier_list->ATR;
+    }
+}
+
+
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
@@ -1418,6 +1433,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else
         {
+            type_set_attributes(&t, pdeclarator);
             type_set_qualifiers_using_declarator(&t, pdeclarator);
             type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
             t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
@@ -1461,6 +1477,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else
         {
+            type_set_attributes(&t, pdeclarator);
             type_set_qualifiers_using_declarator(&t, pdeclarator);
             type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
             t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
@@ -1478,6 +1495,7 @@ struct type make_type_using_declarator_do_not_expand(struct parser_ctx* ctx, str
     memset(&t, 0, sizeof t);
     type_set_qualifiers_using_declarator(&t, pdeclarator);
     type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
+    type_set_attributes(&t, pdeclarator);
     t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
     return t;
 }
