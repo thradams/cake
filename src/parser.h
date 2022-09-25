@@ -130,6 +130,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
 
 struct declaration_specifiers
 {
+    enum attributes attributes;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;

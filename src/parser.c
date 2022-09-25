@@ -1597,7 +1597,11 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
     return p_declaration_specifiers;
 }
 
-struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionDefinition, bool* is_function_definition, struct error* error)
+struct declaration* declaration_core(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
+    bool canBeFunctionDefinition, 
+    bool* is_function_definition, 
+    struct error* error)
 {
     /*
                                   declaration-specifiers init-declarator-list_opt ;
@@ -1606,13 +1610,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionD
      attribute-declaration
  */
 
-    /*
-    *  Note:
-    *  attribute-specifier-sequence (parsed before)
-    */
     
-    
-
     struct declaration* p_declaration = calloc(1, sizeof(struct declaration));
 
     p_declaration->first_token = ctx->current;
@@ -1626,14 +1624,18 @@ struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionD
 
     if (first_of_static_assert_declaration(ctx))
     {
+        if (p_attribute_specifier_sequence_opt)
+        {
+            parser_seterror_with_token(ctx, ctx->current, "");
+        }
+
         p_declaration->static_assert_declaration = static_assert_declaration(ctx, error);
     }
     else
     {
-        attribute_specifier_sequence_opt(ctx, error); //se tem aqui initi nao eh opcional!TODO
+        
         if (first_of_declaration_specifier(ctx))
         {
-
             p_declaration->declaration_specifiers = declaration_specifiers(ctx, error);
             
             if (ctx->current->type != ';')
@@ -1670,9 +1672,25 @@ struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionD
 
 struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, struct error* error)
 {
+    /*
+     function-definition:
+        attribute-specifier-sequence opt declaration-specifiers declarator function-body
+    */
+
+    /*
+      declaration:
+        declaration-specifiers                              init-declarator-list opt ;
+        attribute-specifier-sequence declaration-specifiers init-declarator-list ;
+        static_assert-declaration
+        attribute-declaration
+    */
+
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
+        attribute_specifier_sequence_opt(ctx, error);
+
 
     bool is_function_definition = false;
-    struct declaration* p_declaration = declaration_core(ctx, true, &is_function_definition, error);
+    struct declaration* p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, error);
     if (is_function_definition)
     {
         naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name);
@@ -1749,10 +1767,12 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     return p_declaration;
 }
 
-struct declaration* declaration(struct parser_ctx* ctx, struct error* error)
+struct declaration* declaration(struct parser_ctx* ctx, 
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt, 
+    struct error* error)
 {
     bool is_function_definition;
-    return declaration_core(ctx, false, &is_function_definition, error);
+    return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, error);
 }
 
 
@@ -4023,8 +4043,8 @@ assembly-instruction-list:
     else if (first_of_declaration_specifier(ctx) ||
         first_of_static_assert_declaration(ctx))
     {
-        p_block_item->declaration = declaration(ctx, error);
-        p_block_item->declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
+        p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, error);
+        
         p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
 
         struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
@@ -4239,7 +4259,10 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
             struct scope for_scope = { 0 };
             scope_list_push(&ctx->scopes, &for_scope);
 
-            declaration(ctx, error);
+            struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
+                attribute_specifier_sequence_opt(ctx, error);
+
+            declaration(ctx, p_attribute_specifier_sequence_opt, error);
             if (ctx->current->type != ';')
             {
                 p_iteration_statement->expression1 = expression(ctx, error, &ectx);
