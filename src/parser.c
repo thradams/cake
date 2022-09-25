@@ -1451,14 +1451,14 @@ int final_specifier(struct parser_ctx* ctx,
 
 int add_specifier(struct parser_ctx* ctx,
     enum type_specifier_flags* flags,
-    enum type_specifier_flags newFlag,
+    enum type_specifier_flags new_flag,
     struct error* error)
 {
     /*
     * Verifica as combinaçòes possíveis
     */
 
-    if (newFlag & TYPE_SPECIFIER_LONG) //adicionando um long
+    if (new_flag & TYPE_SPECIFIER_LONG) //adicionando um long
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
@@ -1480,7 +1480,7 @@ int add_specifier(struct parser_ctx* ctx,
     }
     else
     {
-        (*flags) |= newFlag;
+        (*flags) |= new_flag;
     }
     return error->code;
 }
@@ -4826,7 +4826,7 @@ int compile_one_file(const char* file_name,
 
 int compile(int argc, char** argv, struct error* error)
 {
-    int hasErrors = 0;
+    int has_errors = 0;
     clock_t begin_clock = clock();
     int no_files = 0;
 
@@ -4839,14 +4839,14 @@ int compile(int argc, char** argv, struct error* error)
         clearerror(error);
         compile_one_file(argv[i], argc, argv, error);
         if (error->code != 0)
-            hasErrors = true;
+            has_errors = true;
     }
 
     /*tempo total da compilacao*/
     clock_t end_clock = clock();
     double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
-    return hasErrors;
+    return has_errors;
 }
 
 
