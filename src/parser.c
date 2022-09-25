@@ -3627,8 +3627,6 @@ struct attribute_specifier* attribute_specifier(struct parser_ctx* ctx, struct e
 
     p_attribute_specifier->first = ctx->current;
 
-
-
     //'[' '[' attribute_list ']' ']'
     parser_match_tk(ctx, '[', error);
     parser_match_tk(ctx, '[', error);
