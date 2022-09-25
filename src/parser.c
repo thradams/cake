@@ -3297,20 +3297,20 @@ struct specifier_qualifier_list* copy(struct declaration_specifiers* p_declarati
 }
 
 
-void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool bAbstract);
+void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool is_abstract);
 
-void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_direct_declarator, bool bAbstract)
+void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_direct_declarator, bool is_abstract)
 {
     if (p_direct_declarator->declarator)
     {
         ss_fprintf(ss, "(");
-        print_declarator(ss, p_direct_declarator->declarator, bAbstract);
+        print_declarator(ss, p_direct_declarator->declarator, is_abstract);
         ss_fprintf(ss, ")");
     }
 
-    if (p_direct_declarator->name && !bAbstract)
+    if (p_direct_declarator->name && !is_abstract)
     {
-        //Se bAbstract for true é pedido para nao imprimir o nome do indentificador
+        //Se is_abstract for true é pedido para nao imprimir o nome do indentificador
         ss_fprintf(ss, "%s", p_direct_declarator->name->lexeme);
     }
 
@@ -3333,7 +3333,7 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
                 print_declaration_specifiers(ss, p_parameter_declaration->declaration_specifiers);
                 ss_fprintf(ss, " ");
-                print_declarator(ss, p_parameter_declaration->declarator, bAbstract);
+                print_declarator(ss, p_parameter_declaration->declarator, is_abstract);
 
                 p_parameter_declaration = p_parameter_declaration->next;
             }
@@ -3351,7 +3351,7 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
 
 
-void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool bAbstract)
+void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool is_abstract)
 {
     bool first = true;
     if (p_declarator->pointer)
@@ -3367,7 +3367,7 @@ void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool
             p = p->pointer;
         }
     }
-    print_direct_declarator(ss, p_declarator->direct_declarator, bAbstract);
+    print_direct_declarator(ss, p_declarator->direct_declarator, is_abstract);
 
 }
 
@@ -4600,21 +4600,19 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             {
                 break;
             }
-            char fileNameLocal[500] = { 0 };
+            char filename_local[500] = { 0 };
             int count = 0;
             while (*p != '\0' && *p != ';')
             {
-                fileNameLocal[count] = *p;
+                filename_local[count] = *p;
                 p++;
                 count++;
             }
-            fileNameLocal[count] = 0;
+            filename_local[count] = 0;
             if (count > 0)
             {
-                //printf("%s\n", fileNameLocal);
-                strcat(fileNameLocal, "/");
-
-                include_dir_add(&prectx->include_dir, fileNameLocal);
+                strcat(filename_local, "/");
+                include_dir_add(&prectx->include_dir, filename_local);
             }
             if (*p == '\0')
             {
