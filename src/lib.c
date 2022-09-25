@@ -356,8 +356,8 @@ struct token
 
     enum token_flags flags;
 
-    //apontar para token q tem file, include, se for o primeiro colocamos
-    struct token* pFile;
+    /*points to the token with file name or macro*/
+    struct token* token_origin;
 
     struct token* next;
     struct token* prev;
@@ -676,7 +676,7 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     struct token* p = list->head;
     while (p)
     {     
-        p->pFile = filetoken;
+        p->token_origin = filetoken;
         p->line = line;
         p->col = col;
         p = p->next;
@@ -1533,7 +1533,7 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
     if (p_token)
     {
         ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->pFile->lexeme,
+            p_token->token_origin->lexeme,
             p_token->line,
             p_token->col);
     }
@@ -1591,7 +1591,7 @@ void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token,
     if (p_token)
     {
         ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->pFile->lexeme,
+            p_token->token_origin->lexeme,
             p_token->line,
             p_token->col);
     }
@@ -1649,7 +1649,7 @@ void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_
     if (p_token)
     {
         ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->pFile->lexeme,
+            p_token->token_origin->lexeme,
             p_token->line,
             p_token->col);
     }
@@ -1987,7 +1987,7 @@ void stream_match(struct stream* stream)
 
 void print_line(struct token* p)
 {
-    printf("%s\n", p->pFile->lexeme);
+    printf("%s\n", p->token_origin->lexeme);
     struct token* prev = p;
     while (prev->prev && prev->prev->type != TK_NEWLINE)
     {
@@ -2557,7 +2557,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
                 struct token* pNew = new_token(b, &b[1], TK_COMMA);
                 pNew->flags |= addflags;
                 pNew->level = level;
-                pNew->pFile = NULL;
+                pNew->token_origin = NULL;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2568,7 +2568,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
                     char newline[] = "\n";
                     struct token* pNew3 = new_token(newline, &newline[1], TK_NEWLINE);
                     pNew3->level = level;
-                    pNew3->pFile = NULL;
+                    pNew3->token_origin = NULL;
                     pNew3->line = line;
                     pNew3->col = col;
                     token_list_add(&list, pNew3);
@@ -2581,7 +2581,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
             struct token* pNew = new_token(buffer, &buffer[c], TK_PPNUMBER);
             pNew->flags |= addflags;
             pNew->level = level;
-            pNew->pFile = NULL;
+            pNew->token_origin = NULL;
             pNew->line = line;
             pNew->col = col;
             token_list_add(&list, pNew);
@@ -2601,7 +2601,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
     char newline[] = "\n";
     struct token* pNew = new_token(newline, &newline[1], TK_NEWLINE);
     pNew->level = level;
-    pNew->pFile = NULL;
+    pNew->token_origin = NULL;
     pNew->line = line;
     pNew->col = col;
     token_list_add(&list, pNew);
@@ -2667,7 +2667,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2691,7 +2691,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);;
@@ -2709,7 +2709,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2726,7 +2726,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2748,7 +2748,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2773,7 +2773,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2812,7 +2812,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2830,7 +2830,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 pNew->type = TK_PREPROCESSOR_LINE;
@@ -2859,7 +2859,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2878,7 +2878,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2895,7 +2895,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -3816,7 +3816,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
 #ifdef _WIN32
         //char line[1000] = { 0 };
-        //snprintf(line, sizeof line, "%s(%d,%d):\n", input_list->head->pFile->lexeme, input_list->head->line, input_list->head->col);
+        //snprintf(line, sizeof line, "%s(%d,%d):\n", input_list->head->token_origin->lexeme, input_list->head->line, input_list->head->col);
         //OutputDebugStringA(line);
 #endif
         struct token* const ptoken = input_list->head;
@@ -3994,7 +3994,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error); //define
             skip_blanks_level(&r, input_list, level);
 
-            // printf("define %s\n%s : %d\n", input_list->head->lexeme, input_list->head->pFile->lexeme, input_list->head->line);
+            // printf("define %s\n%s : %d\n", input_list->head->lexeme, input_list->head->token_origin->lexeme, input_list->head->line);
 
             struct token* macro_name_token = input_list->head;
             
@@ -4003,7 +4003,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 //printf("warning: '%s' macro redefined at %s %d\n",
                   //     input_list->head->lexeme,
-                    ///   input_list->head->pFile->lexeme,
+                    ///   input_list->head->token_origin->lexeme,
                       // input_list->head->line);
             }
 
@@ -4152,7 +4152,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    hashmap_set(&ctx->pragmaOnce, input_list->head->pFile->lexeme, (void*)1);
+                    hashmap_set(&ctx->pragmaOnce, input_list->head->token_origin->lexeme, (void*)1);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);//pragma
                 }
                 else if (strcmp(input_list->head->lexeme, "expand") == 0)
@@ -4950,7 +4950,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
         {
             struct macro* macro = NULL;
             struct token* start_token = input_list->head;
-            //assert(start_token->pFile != NULL);
+            //assert(start_token->token_origin != NULL);
 
             if (is_active && input_list->head->type == TK_IDENTIFIER)
             {
@@ -4993,10 +4993,10 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
             if (macro)
             {
 #ifdef _WIN32
-                if (input_list->head->pFile)
+                if (input_list->head->token_origin)
                 {
                     //char line[1000] = { 0 };
-                    //snprintf(line, sizeof line, "%s(%d,%d):\n", input_list->head->pFile->lexeme, input_list->head->line, input_list->head->col);
+                    //snprintf(line, sizeof line, "%s(%d,%d):\n", input_list->head->token_origin->lexeme, input_list->head->line, input_list->head->col);
                     //OutputDebugStringA(line);
                 }
 #endif
@@ -5041,7 +5041,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 }
 
                 //seta nos tokens expandidos da onde eles vieram
-                token_list_set_file(&startMacro, start_token->pFile, start_token->line, start_token->col);
+                token_list_set_file(&startMacro, start_token->token_origin, start_token->line, start_token->col);
 
                 token_list_append_list_at_beginning(input_list, &startMacro);
 
@@ -5089,7 +5089,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                             if (error->code) throw;
 
                             //seta nos tokens expandidos da onde eles vieram
-                            token_list_set_file(&r3, start_token->pFile, start_token->line, start_token->col);
+                            token_list_set_file(&r3, start_token->token_origin, start_token->line, start_token->col);
 
                             if (r3.head)
                             {
@@ -5700,7 +5700,7 @@ const char* print_preprocessed_to_string(struct token* p_token)
     bool first = true;
     while (current)
     {
-        assert(current->pFile != NULL);
+        assert(current->token_origin != NULL);
         if (current->flags & TK_FLAG_FINAL)
         {
             if (!first && current->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
@@ -8050,6 +8050,18 @@ enum type_category
 };
 
 
+enum attributes
+{
+    STD_ATTRIBUTE_NONE = 0,
+    STD_ATTRIBUTE_DEPRECATED = 1 << 0,
+    STD_ATTRIBUTE_FALLTHROUGH = 2 << 0,
+    STD_ATTRIBUTE_MAYBE_UNUSED = 3 << 0,
+    STD_ATTRIBUTE_NODISCARD = 4 << 0,
+    STD_ATTRIBUTE_NORETURN = 5 << 0,
+    STD_ATTRIBUTE_UNSEQUENCED = 6 << 0,
+    STD_ATTRIBUTE_REPRODUCIBLE = 7 << 0
+};
+
 enum type_specifier_flags
 {
     TYPE_SPECIFIER_NONE = 0,
@@ -8153,6 +8165,7 @@ struct declarator_type
 
 struct type
 {    
+    enum attributes  attributes;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
    
@@ -8505,6 +8518,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
 
 struct declaration_specifiers
 {
+    enum attributes attributes;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
@@ -8578,6 +8592,11 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx);
 
 struct function_specifier
 {
+    /*
+     function-specifier:
+       inline
+       _Noreturn
+    */
     struct token* token;
 };
 struct function_specifier* function_specifier(struct parser_ctx* ctx, struct error* error);
@@ -8657,6 +8676,8 @@ struct declaration
      static_assert-declaration
      attribute-declaration
     */
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
+
     struct static_assert_declaration* static_assert_declaration;
 
     struct declaration_specifiers* declaration_specifiers;
@@ -14502,11 +14523,11 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
     int line = 0;
     if (p_token)
     {
-        if (p_token->pFile)
+        if (p_token->token_origin)
         {
             line = p_token->line;
             ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->pFile->lexeme,
+                p_token->token_origin->lexeme,
                 p_token->line,
                 p_token->col);
         }
@@ -14575,11 +14596,11 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
     int line = 0;
     if (p_token)
     {
-        if (p_token->pFile)
+        if (p_token->token_origin)
         {
             line = p_token->line;
             ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->pFile->lexeme,
+                p_token->token_origin->lexeme,
                 p_token->line,
                 p_token->col);
         }
@@ -14648,11 +14669,11 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
     int line = 0;
     if (p_token)
     {
-        if (p_token->pFile)
+        if (p_token->token_origin)
         {
             line = p_token->line;
             ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->pFile->lexeme,
+                p_token->token_origin->lexeme,
                 p_token->line,
                 p_token->col);
         }
@@ -14757,8 +14778,9 @@ bool first_of_function_specifier_token(struct token* token)
 {
     if (token == NULL)
         return false;
-
-    return token->type == TK_KEYWORD_INLINE || token->type == TK_KEYWORD__NORETURN;
+    
+    return token->type == TK_KEYWORD_INLINE ||
+           token->type == TK_KEYWORD__NORETURN;
 }
 
 bool first_is(struct parser_ctx* ctx, enum token_type type)
@@ -15018,9 +15040,9 @@ bool first_of_type_name_ahead(struct parser_ctx* ctx)
 
     if (ctx->current->type != '(')
         return false;
-    struct token* pAhead = parser_look_ahead(ctx);
-    return first_of_type_specifier_token(ctx, pAhead) ||
-        first_of_type_qualifier_token(pAhead);
+    struct token* token_ahead = parser_look_ahead(ctx);
+    return first_of_type_specifier_token(ctx, token_ahead) ||
+        first_of_type_qualifier_token(token_ahead);
 }
 
 bool first_of_type_name(struct parser_ctx* ctx)
@@ -15841,14 +15863,14 @@ int final_specifier(struct parser_ctx* ctx,
 
 int add_specifier(struct parser_ctx* ctx,
     enum type_specifier_flags* flags,
-    enum type_specifier_flags newFlag,
+    enum type_specifier_flags new_flag,
     struct error* error)
 {
     /*
     * Verifica as combinaçòes possíveis
     */
 
-    if (newFlag & TYPE_SPECIFIER_LONG) //adicionando um long
+    if (new_flag & TYPE_SPECIFIER_LONG) //adicionando um long
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
@@ -15870,7 +15892,7 @@ int add_specifier(struct parser_ctx* ctx,
     }
     else
     {
-        (*flags) |= newFlag;
+        (*flags) |= new_flag;
     }
     return error->code;
 }
@@ -15987,7 +16009,11 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
     return p_declaration_specifiers;
 }
 
-struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionDefinition, bool* is_function_definition, struct error* error)
+struct declaration* declaration_core(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
+    bool canBeFunctionDefinition, 
+    bool* is_function_definition, 
+    struct error* error)
 {
     /*
                                   declaration-specifiers init-declarator-list_opt ;
@@ -15996,6 +16022,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionD
      attribute-declaration
  */
 
+    
     struct declaration* p_declaration = calloc(1, sizeof(struct declaration));
 
     p_declaration->first_token = ctx->current;
@@ -16009,17 +16036,24 @@ struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionD
 
     if (first_of_static_assert_declaration(ctx))
     {
+        if (p_attribute_specifier_sequence_opt)
+        {
+            parser_seterror_with_token(ctx, ctx->current, "");
+        }
+
         p_declaration->static_assert_declaration = static_assert_declaration(ctx, error);
     }
     else
     {
-        attribute_specifier_sequence_opt(ctx, error); //se tem aqui initi nao eh opcional!TODO
+        
         if (first_of_declaration_specifier(ctx))
         {
-
             p_declaration->declaration_specifiers = declaration_specifiers(ctx, error);
+            
             if (ctx->current->type != ';')
+            {
                 p_declaration->init_declarator_list = init_declarator_list(ctx, p_declaration->declaration_specifiers, error);
+            }
 
 
             p_declaration->last_token = ctx->current;
@@ -16050,9 +16084,25 @@ struct declaration* declaration_core(struct parser_ctx* ctx, bool canBeFunctionD
 
 struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, struct error* error)
 {
+    /*
+     function-definition:
+        attribute-specifier-sequence opt declaration-specifiers declarator function-body
+    */
+
+    /*
+      declaration:
+        declaration-specifiers                              init-declarator-list opt ;
+        attribute-specifier-sequence declaration-specifiers init-declarator-list ;
+        static_assert-declaration
+        attribute-declaration
+    */
+
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
+        attribute_specifier_sequence_opt(ctx, error);
+
 
     bool is_function_definition = false;
-    struct declaration* p_declaration = declaration_core(ctx, true, &is_function_definition, error);
+    struct declaration* p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, error);
     if (is_function_definition)
     {
         naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name);
@@ -16094,7 +16144,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
                 {
 
                     ctx->printf(WHITE "%s:%d:%d: ",
-                        parameter->name->pFile->lexeme,
+                        parameter->name->token_origin->lexeme,
                         parameter->name->line,
                         parameter->name->col);
 
@@ -16129,10 +16179,12 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     return p_declaration;
 }
 
-struct declaration* declaration(struct parser_ctx* ctx, struct error* error)
+struct declaration* declaration(struct parser_ctx* ctx, 
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt, 
+    struct error* error)
 {
     bool is_function_definition;
-    return declaration_core(ctx, false, &is_function_definition, error);
+    return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, error);
 }
 
 
@@ -16147,24 +16199,24 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
     //    storage-class-specifier
     //    type-specifier-qualifier
     //    function-specifier
-    struct declaration_specifier* pDeclaration_specifier = calloc(1, sizeof * pDeclaration_specifier);
+    struct declaration_specifier* p_declaration_specifier = calloc(1, sizeof * p_declaration_specifier);
     if (first_of_storage_class_specifier(ctx))
     {
-        pDeclaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
+        p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
     }
     else if (first_of_type_specifier_qualifier(ctx))
     {
-        pDeclaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx, error);
+        p_declaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx, error);
     }
     else if (first_of_function_specifier(ctx))
     {
-        pDeclaration_specifier->function_specifier = function_specifier(ctx, error);
+        p_declaration_specifier->function_specifier = function_specifier(ctx, error);
     }
     else
     {
         parser_seterror_with_token(ctx, ctx->current, "unexpected");
     }
-    return pDeclaration_specifier;
+    return p_declaration_specifier;
 }
 
 
@@ -17167,12 +17219,16 @@ struct type_qualifier* type_qualifier_opt(struct parser_ctx* ctx, struct error* 
 
 struct function_specifier* function_specifier(struct parser_ctx* ctx, struct error* error)
 {
+    if (ctx->current == TK_KEYWORD__NORETURN)
+    {
+        parser_set_info_with_token(ctx, ctx->current, "_Noreturn is deprecated use attributes");
+    }
+
     if (error->code) return NULL;
     struct function_specifier* p = calloc(1, sizeof * p);
     p->token = ctx->current;
     parser_match(ctx);
-    //'inline'
-    //'_Noreturn'
+    
     return p;
 }
 
@@ -17275,7 +17331,7 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
                     {
                         if (pdeclarator->direct_declarator &&
                             pdeclarator->direct_declarator->name &&
-                            pdeclarator->direct_declarator->name->pFile)
+                            pdeclarator->direct_declarator->name->token_origin)
                         {
                             //TODO ver se esta dentro de struct
                             //printf("warning '%s' at line %d hides previous definition %d\n",
@@ -17653,20 +17709,20 @@ struct specifier_qualifier_list* copy(struct declaration_specifiers* p_declarati
 }
 
 
-void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool bAbstract);
+void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool is_abstract);
 
-void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_direct_declarator, bool bAbstract)
+void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_direct_declarator, bool is_abstract)
 {
     if (p_direct_declarator->declarator)
     {
         ss_fprintf(ss, "(");
-        print_declarator(ss, p_direct_declarator->declarator, bAbstract);
+        print_declarator(ss, p_direct_declarator->declarator, is_abstract);
         ss_fprintf(ss, ")");
     }
 
-    if (p_direct_declarator->name && !bAbstract)
+    if (p_direct_declarator->name && !is_abstract)
     {
-        //Se bAbstract for true é pedido para nao imprimir o nome do indentificador
+        //Se is_abstract for true é pedido para nao imprimir o nome do indentificador
         ss_fprintf(ss, "%s", p_direct_declarator->name->lexeme);
     }
 
@@ -17689,7 +17745,7 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
                 print_declaration_specifiers(ss, p_parameter_declaration->declaration_specifiers);
                 ss_fprintf(ss, " ");
-                print_declarator(ss, p_parameter_declaration->declarator, bAbstract);
+                print_declarator(ss, p_parameter_declaration->declarator, is_abstract);
 
                 p_parameter_declaration = p_parameter_declaration->next;
             }
@@ -17707,7 +17763,7 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 
 
 
-void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool bAbstract)
+void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool is_abstract)
 {
     bool first = true;
     if (p_declarator->pointer)
@@ -17723,7 +17779,7 @@ void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool
             p = p->pointer;
         }
     }
-    print_direct_declarator(ss, p_declarator->direct_declarator, bAbstract);
+    print_direct_declarator(ss, p_declarator->direct_declarator, is_abstract);
 
 }
 
@@ -17947,16 +18003,20 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
 
 struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct parser_ctx* ctx, struct error* error)
 {
-    //attribute_specifier_sequence_opt attribute_specifier
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence =
-        calloc(1, sizeof(struct attribute_specifier_sequence));
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence = NULL;
 
-    while (error->code == 0 &&
-        ctx->current != NULL &&
-        first_of_attribute_specifier(ctx))
-    {
-        list_add(p_attribute_specifier_sequence, attribute_specifier(ctx, error));
+    if (first_of_attribute_specifier(ctx))
+    {    
+        p_attribute_specifier_sequence =  calloc(1, sizeof(struct attribute_specifier_sequence));
+
+        while (error->code == 0 &&
+            ctx->current != NULL &&
+            first_of_attribute_specifier(ctx))
+        {
+            list_add(p_attribute_specifier_sequence, attribute_specifier(ctx, error));
+        }
     }
+
     return p_attribute_specifier_sequence;
 }
 
@@ -18037,13 +18097,20 @@ struct attribute* attribute(struct parser_ctx* ctx, struct error* error)
 struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* error)
 {
     struct attribute_token* p_attribute_token = calloc(1, sizeof(struct attribute_token));
-    //standard_attribute
-    //attribute_prefixed_token
-    bool bStandardAtt = strcmp(ctx->current->lexeme, "deprecated") == 0 ||
-        strcmp(ctx->current->lexeme, "fallthrough") == 0 ||
-        strcmp(ctx->current->lexeme, "maybe_unused") == 0 ||
-        strcmp(ctx->current->lexeme, "nodiscard") == 0;
+    
+    struct token* attr_token = ctx->current;
+
+    bool is_standard_attribute = 
+        strcmp(attr_token->lexeme, "deprecated") == 0 ||
+        strcmp(attr_token->lexeme, "fallthrough") == 0 ||
+        strcmp(attr_token->lexeme, "maybe_unused") == 0 ||
+        strcmp(attr_token->lexeme, "noreturn") == 0 ||
+        strcmp(attr_token->lexeme, "reproducible") == 0 ||
+        strcmp(attr_token->lexeme, "unsequenced") == 0 ||
+        strcmp(attr_token->lexeme, "nodiscard") == 0;
+
     parser_match_tk(ctx, TK_IDENTIFIER, error);
+
     if (ctx->current->type == '::')
     {
         parser_match(ctx);
@@ -18051,9 +18118,14 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* er
     }
     else
     {
-        if (!bStandardAtt)
+        /*
+        * Each implementation should choose a distinctive name for the attribute prefix in an attribute
+        * prefixed token. Implementations should not define attributes without an attribute prefix unless it is
+        * a standard attribute as specified in this document.
+        */
+        if (!is_standard_attribute)
         {
-            printf("warning not std att\n");
+            parser_setwarning_with_token(ctx, attr_token, "warning '%s' is not an standard attribute\n", attr_token->lexeme);
         }
     }
     return p_attribute_token;
@@ -18283,14 +18355,17 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
             if (p_declarator)
             {
-                if (p_declarator->num_uses == 0)
+                if (
+                    !(p_declarator->type.attributes & STD_ATTRIBUTE_MAYBE_UNUSED) &&
+                      p_declarator->num_uses == 0)
                 {
                     //setwarning_with_token(ctx, p_declarator->name, )
                     ctx->n_warnings++;
-                    if (p_declarator->name && p_declarator->name->pFile)
+                    if (p_declarator->name && 
+                        p_declarator->name->token_origin)
                     {
                         ctx->printf(WHITE "%s:%d:%d: ",
-                            p_declarator->name->pFile->lexeme,
+                            p_declarator->name->token_origin->lexeme,
                             p_declarator->name->line,
                             p_declarator->name->col);
 
@@ -18332,7 +18407,14 @@ struct block_item* block_item(struct parser_ctx* ctx, struct error* error)
     //     unlabeled_statement
     //   label
     struct block_item* p_block_item = calloc(1, sizeof(struct block_item));
-    attribute_specifier_sequence_opt(ctx, error);
+
+
+    /*
+    * Attributes can be first of declaration, labels etc..
+    * so it is better to parse it in advance.
+    */
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
+        attribute_specifier_sequence_opt(ctx, error);
 
     p_block_item->first_token = ctx->current;
 
@@ -18373,7 +18455,10 @@ assembly-instruction-list:
     else if (first_of_declaration_specifier(ctx) ||
         first_of_static_assert_declaration(ctx))
     {
-        p_block_item->declaration = declaration(ctx, error);
+        p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, error);
+        
+        p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
+
         struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
         while (p)
         {
@@ -18586,7 +18671,10 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
             struct scope for_scope = { 0 };
             scope_list_push(&ctx->scopes, &for_scope);
 
-            declaration(ctx, error);
+            struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
+                attribute_specifier_sequence_opt(ctx, error);
+
+            declaration(ctx, p_attribute_specifier_sequence_opt, error);
             if (ctx->current->type != ';')
             {
                 p_iteration_statement->expression1 = expression(ctx, error, &ectx);
@@ -18924,21 +19012,19 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             {
                 break;
             }
-            char fileNameLocal[500] = { 0 };
+            char filename_local[500] = { 0 };
             int count = 0;
             while (*p != '\0' && *p != ';')
             {
-                fileNameLocal[count] = *p;
+                filename_local[count] = *p;
                 p++;
                 count++;
             }
-            fileNameLocal[count] = 0;
+            filename_local[count] = 0;
             if (count > 0)
             {
-                //printf("%s\n", fileNameLocal);
-                strcat(fileNameLocal, "/");
-
-                include_dir_add(&prectx->include_dir, fileNameLocal);
+                strcat(filename_local, "/");
+                include_dir_add(&prectx->include_dir, filename_local);
             }
             if (*p == '\0')
             {
@@ -19152,7 +19238,7 @@ int compile_one_file(const char* file_name,
 
 int compile(int argc, char** argv, struct error* error)
 {
-    int hasErrors = 0;
+    int has_errors = 0;
     clock_t begin_clock = clock();
     int no_files = 0;
 
@@ -19165,22 +19251,22 @@ int compile(int argc, char** argv, struct error* error)
         clearerror(error);
         compile_one_file(argv[i], argc, argv, error);
         if (error->code != 0)
-            hasErrors = true;
+            has_errors = true;
     }
 
     /*tempo total da compilacao*/
     clock_t end_clock = clock();
     double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
-    return hasErrors;
+    return has_errors;
 }
 
 
-struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error)
+struct ast get_ast(struct options* options, const char* filename, const char* source, struct error* error)
 {
     struct ast ast = { 0 };
 
-    struct token_list list = tokenizer(source, fileName, 0, TK_FLAG_NONE, error);
+    struct token_list list = tokenizer(source, filename, 0, TK_FLAG_NONE, error);
     if (error->code != 0)
         return ast;
 
@@ -19774,7 +19860,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         &list2);
 }
 
-void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool bHide)
+void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool hide_tokens)
 {
     struct defer_scope* deferchild = deferblock->lastchild;
     while (deferchild != NULL)
@@ -19786,7 +19872,7 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
         l.head->flags |= TK_FLAG_HIDE;
         const char* s = get_code_as_compiler_see(&l);
         assert(s != NULL);
-        if (bHide)
+        if (hide_tokens)
             token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
         ss_fprintf(ss, "%s", s);
@@ -20136,7 +20222,7 @@ char* remove_char(char* input, char ch)
 {
     if (input == NULL)
         return NULL;
-    char* pWrite = input;
+    char* p_write = input;
     const char* p = input;
     while (*p)
     {
@@ -20146,12 +20232,12 @@ char* remove_char(char* input, char ch)
         }
         else
         {
-            *pWrite = *p;
+            *p_write = *p;
             p++;
-            pWrite++;
+            p_write++;
         }
     }
-    *pWrite = 0;
+    *p_write = 0;
     return input;
 }
 

@@ -92,7 +92,7 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
     if (p_token)
     {
         ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->pFile->lexeme,
+            p_token->token_origin->lexeme,
             p_token->line,
             p_token->col);
     }
@@ -150,7 +150,7 @@ void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token,
     if (p_token)
     {
         ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->pFile->lexeme,
+            p_token->token_origin->lexeme,
             p_token->line,
             p_token->col);
     }
@@ -208,7 +208,7 @@ void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_
     if (p_token)
     {
         ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->pFile->lexeme,
+            p_token->token_origin->lexeme,
             p_token->line,
             p_token->col);
     }
@@ -546,7 +546,7 @@ void stream_match(struct stream* stream)
 
 void print_line(struct token* p)
 {
-    printf("%s\n", p->pFile->lexeme);
+    printf("%s\n", p->token_origin->lexeme);
     struct token* prev = p;
     while (prev->prev && prev->prev->type != TK_NEWLINE)
     {
@@ -1116,7 +1116,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
                 struct token* pNew = new_token(b, &b[1], TK_COMMA);
                 pNew->flags |= addflags;
                 pNew->level = level;
-                pNew->pFile = NULL;
+                pNew->token_origin = NULL;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1127,7 +1127,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
                     char newline[] = "\n";
                     struct token* pNew3 = new_token(newline, &newline[1], TK_NEWLINE);
                     pNew3->level = level;
-                    pNew3->pFile = NULL;
+                    pNew3->token_origin = NULL;
                     pNew3->line = line;
                     pNew3->col = col;
                     token_list_add(&list, pNew3);
@@ -1140,7 +1140,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
             struct token* pNew = new_token(buffer, &buffer[c], TK_PPNUMBER);
             pNew->flags |= addflags;
             pNew->level = level;
-            pNew->pFile = NULL;
+            pNew->token_origin = NULL;
             pNew->line = line;
             pNew->col = col;
             token_list_add(&list, pNew);
@@ -1160,7 +1160,7 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
     char newline[] = "\n";
     struct token* pNew = new_token(newline, &newline[1], TK_NEWLINE);
     pNew->level = level;
-    pNew->pFile = NULL;
+    pNew->token_origin = NULL;
     pNew->line = line;
     pNew->col = col;
     token_list_add(&list, pNew);
@@ -1226,7 +1226,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1250,7 +1250,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);;
@@ -1268,7 +1268,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1285,7 +1285,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1307,7 +1307,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1332,7 +1332,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1371,7 +1371,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1389,7 +1389,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 pNew->type = TK_PREPROCESSOR_LINE;
@@ -1418,7 +1418,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1437,7 +1437,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -1454,7 +1454,7 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 pNew->flags |= addflags;
 
                 pNew->level = level;
-                pNew->pFile = pFirst;
+                pNew->token_origin = pFirst;
                 pNew->line = line;
                 pNew->col = col;
                 token_list_add(&list, pNew);
@@ -2375,7 +2375,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
 #ifdef _WIN32
         //char line[1000] = { 0 };
-        //snprintf(line, sizeof line, "%s(%d,%d):\n", input_list->head->pFile->lexeme, input_list->head->line, input_list->head->col);
+        //snprintf(line, sizeof line, "%s(%d,%d):\n", input_list->head->token_origin->lexeme, input_list->head->line, input_list->head->col);
         //OutputDebugStringA(line);
 #endif
         struct token* const ptoken = input_list->head;
@@ -2553,7 +2553,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error); //define
             skip_blanks_level(&r, input_list, level);
 
-            // printf("define %s\n%s : %d\n", input_list->head->lexeme, input_list->head->pFile->lexeme, input_list->head->line);
+            // printf("define %s\n%s : %d\n", input_list->head->lexeme, input_list->head->token_origin->lexeme, input_list->head->line);
 
             struct token* macro_name_token = input_list->head;
             
@@ -2562,7 +2562,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 //printf("warning: '%s' macro redefined at %s %d\n",
                   //     input_list->head->lexeme,
-                    ///   input_list->head->pFile->lexeme,
+                    ///   input_list->head->token_origin->lexeme,
                       // input_list->head->line);
             }
 
@@ -2711,7 +2711,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    hashmap_set(&ctx->pragmaOnce, input_list->head->pFile->lexeme, (void*)1);
+                    hashmap_set(&ctx->pragmaOnce, input_list->head->token_origin->lexeme, (void*)1);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);//pragma
                 }
                 else if (strcmp(input_list->head->lexeme, "expand") == 0)
@@ -3509,7 +3509,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
         {
             struct macro* macro = NULL;
             struct token* start_token = input_list->head;
-            //assert(start_token->pFile != NULL);
+            //assert(start_token->token_origin != NULL);
 
             if (is_active && input_list->head->type == TK_IDENTIFIER)
             {
@@ -3552,10 +3552,10 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
             if (macro)
             {
 #ifdef _WIN32
-                if (input_list->head->pFile)
+                if (input_list->head->token_origin)
                 {
                     //char line[1000] = { 0 };
-                    //snprintf(line, sizeof line, "%s(%d,%d):\n", input_list->head->pFile->lexeme, input_list->head->line, input_list->head->col);
+                    //snprintf(line, sizeof line, "%s(%d,%d):\n", input_list->head->token_origin->lexeme, input_list->head->line, input_list->head->col);
                     //OutputDebugStringA(line);
                 }
 #endif
@@ -3600,7 +3600,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 }
 
                 //seta nos tokens expandidos da onde eles vieram
-                token_list_set_file(&startMacro, start_token->pFile, start_token->line, start_token->col);
+                token_list_set_file(&startMacro, start_token->token_origin, start_token->line, start_token->col);
 
                 token_list_append_list_at_beginning(input_list, &startMacro);
 
@@ -3648,7 +3648,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                             if (error->code) throw;
 
                             //seta nos tokens expandidos da onde eles vieram
-                            token_list_set_file(&r3, start_token->pFile, start_token->line, start_token->col);
+                            token_list_set_file(&r3, start_token->token_origin, start_token->line, start_token->col);
 
                             if (r3.head)
                             {
@@ -4259,7 +4259,7 @@ const char* print_preprocessed_to_string(struct token* p_token)
     bool first = true;
     while (current)
     {
-        assert(current->pFile != NULL);
+        assert(current->token_origin != NULL);
         if (current->flags & TK_FLAG_FINAL)
         {
             if (!first && current->flags & TK_FLAG_HAS_NEWLINE_BEFORE)

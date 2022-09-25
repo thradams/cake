@@ -113,7 +113,7 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     struct token* p = list->head;
     while (p)
     {     
-        p->pFile = filetoken;
+        p->token_origin = filetoken;
         p->line = line;
         p->col = col;
         p = p->next;

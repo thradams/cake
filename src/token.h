@@ -178,8 +178,8 @@ struct token
 
     enum token_flags flags;
 
-    //apontar para token q tem file, include, se for o primeiro colocamos
-    struct token* pFile;
+    /*points to the token with file name or macro*/
+    struct token* token_origin;
 
     struct token* next;
     struct token* prev;

@@ -111,11 +111,11 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
     int line = 0;
     if (p_token)
     {
-        if (p_token->pFile)
+        if (p_token->token_origin)
         {
             line = p_token->line;
             ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->pFile->lexeme,
+                p_token->token_origin->lexeme,
                 p_token->line,
                 p_token->col);
         }
@@ -184,11 +184,11 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
     int line = 0;
     if (p_token)
     {
-        if (p_token->pFile)
+        if (p_token->token_origin)
         {
             line = p_token->line;
             ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->pFile->lexeme,
+                p_token->token_origin->lexeme,
                 p_token->line,
                 p_token->col);
         }
@@ -257,11 +257,11 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
     int line = 0;
     if (p_token)
     {
-        if (p_token->pFile)
+        if (p_token->token_origin)
         {
             line = p_token->line;
             ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->pFile->lexeme,
+                p_token->token_origin->lexeme,
                 p_token->line,
                 p_token->col);
         }
@@ -1732,7 +1732,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
                 {
 
                     ctx->printf(WHITE "%s:%d:%d: ",
-                        parameter->name->pFile->lexeme,
+                        parameter->name->token_origin->lexeme,
                         parameter->name->line,
                         parameter->name->col);
 
@@ -2919,7 +2919,7 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
                     {
                         if (pdeclarator->direct_declarator &&
                             pdeclarator->direct_declarator->name &&
-                            pdeclarator->direct_declarator->name->pFile)
+                            pdeclarator->direct_declarator->name->token_origin)
                         {
                             //TODO ver se esta dentro de struct
                             //printf("warning '%s' at line %d hides previous definition %d\n",
@@ -3950,10 +3950,10 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                     //setwarning_with_token(ctx, p_declarator->name, )
                     ctx->n_warnings++;
                     if (p_declarator->name && 
-                        p_declarator->name->pFile)
+                        p_declarator->name->token_origin)
                     {
                         ctx->printf(WHITE "%s:%d:%d: ",
-                            p_declarator->name->pFile->lexeme,
+                            p_declarator->name->token_origin->lexeme,
                             p_declarator->name->line,
                             p_declarator->name->col);
 
