@@ -7365,57 +7365,61 @@ char* readfile(const char* path)
 13,10,35,112,114,97,103,109,97,32,111,110,99,101,13,10,116,121,112,101,100,101,102,32,108
 ,111,110,103,32,108,111,110,103,32,102,112,111,115,95,116,59,13,10,116,121,112,101,100,101,102
 ,32,105,110,116,32,115,105,122,101,95,116,59,13,10,116,121,112,101,100,101,102,32,105,110,116
-,32,119,99,104,97,114,95,116,59,13,10,100,111,117,98,108,101,32,97,116,111,102,40,99,111
-,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,13,10,105,110,116,32,97,116,111
-,105,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,13,10,108,111,110
-,103,32,105,110,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112
-,116,114,41,59,13,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,97,116,111,108,108
-,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,13,10,100,111,117,98
-,108,101,32,115,116,114,116,111,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115
-,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105
-,99,116,32,101,110,100,112,116,114,41,59,13,10,102,108,111,97,116,32,115,116,114,116,111,102
-,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116
-,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114
-,41,59,13,10,108,111,110,103,32,100,111,117,98,108,101,32,115,116,114,116,111,108,100,40,99
-,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44
-,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59
-,13,10,108,111,110,103,32,105,110,116,32,115,116,114,116,111,108,40,99,111,110,115,116,32,99
-,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42
-,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97
-,115,101,41,59,13,10,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111
-,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110
+,32,119,99,104,97,114,95,116,59,13,10,13,10,91,91,110,111,100,105,115,99,97,114,100,93
+,93,32,100,111,117,98,108,101,32,97,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42
+,32,110,112,116,114,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,105,110
+,116,32,97,116,111,105,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59
+,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,105,110,116,32
+,97,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,13,10
+,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,108,111,110,103,32,105
+,110,116,32,97,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114
+,41,59,13,10,13,10,100,111,117,98,108,101,32,115,116,114,116,111,100,40,99,111,110,115,116
+,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97
+,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,13,10,102,108
+,111,97,116,32,115,116,114,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101
+,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114
+,105,99,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,100,111,117,98,108,101
+,32,115,116,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
+,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99
+,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,105,110,116,32,115,116,114,116
+,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110
 ,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112
-,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,117,110,115,105,103,110,101,100,32
-,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,40,99,111,110,115,116,32,99,104
-,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42
-,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115
-,101,41,59,13,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,108,111,110,103,32,105
-,110,116,32,115,116,114,116,111,117,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116
-,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10
-,105,110,116,32,114,97,110,100,40,118,111,105,100,41,59,13,10,118,111,105,100,32,115,114,97
-,110,100,40,117,110,115,105,103,110,101,100,32,105,110,116,32,115,101,101,100,41,59,13,10,118
-,111,105,100,42,32,97,108,105,103,110,101,100,95,97,108,108,111,99,40,115,105,122,101,95,116
-,32,97,108,105,103,110,109,101,110,116,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59
-,13,10,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101
-,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100,32,102
-,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,13,10,118,111,105,100,42,32,109,97
-,108,108,111,99,40,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100,42
-,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115,105,122,101,95
-,116,32,115,105,122,101,41,59,13,10,95,78,111,114,101,116,117,114,110,32,118,111,105,100,32
-,97,98,111,114,116,40,118,111,105,100,41,59,13,10,105,110,116,32,97,116,101,120,105,116,40
-,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,13,10,105,110,116
-,32,97,116,95,113,117,105,99,107,95,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110
-,99,41,40,118,111,105,100,41,41,59,13,10,95,78,111,114,101,116,117,114,110,32,118,111,105
-,100,32,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10,95,78,111,114
-,101,116,117,114,110,32,118,111,105,100,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116
-,117,115,41,59,13,10,99,104,97,114,42,32,103,101,116,101,110,118,40,99,111,110,115,116,32
-,99,104,97,114,42,32,110,97,109,101,41,59,13,10,95,78,111,114,101,116,117,114,110,32,118
-,111,105,100,32,113,117,105,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115
-,41,59,13,10,105,110,116,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114
-,42,32,115,116,114,105,110,103,41,59,13,10,13,10,35,105,102,110,100,101,102,32,78,85,76
-,76,13,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48
-,41,13,10,35,101,110,100,105,102,13,10,13,10
+,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,108,111,110,103,32,108,111,110,103
+,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115
+,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13
+,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117
+,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112
+,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116
+,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,117,110,115,105,103,110,101,100,32,108
+,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,108,40,99,111,110
+,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99
+,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110
+,116,32,98,97,115,101,41,59,13,10,105,110,116,32,114,97,110,100,40,118,111,105,100,41,59
+,13,10,118,111,105,100,32,115,114,97,110,100,40,117,110,115,105,103,110,101,100,32,105,110,116
+,32,115,101,101,100,41,59,13,10,118,111,105,100,42,32,97,108,105,103,110,101,100,95,97,108
+,108,111,99,40,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,44,32,115,105,122
+,101,95,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93
+,32,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109
+,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100,32,102,114
+,101,101,40,118,111,105,100,42,32,112,116,114,41,59,13,10,13,10,91,91,110,111,100,105,115
+,99,97,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108,111,99,40,115,105,122,101,95
+,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118
+,111,105,100,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115
+,105,122,101,95,116,32,115,105,122,101,41,59,13,10,13,10,95,78,111,114,101,116,117,114,110
+,32,118,111,105,100,32,97,98,111,114,116,40,118,111,105,100,41,59,13,10,105,110,116,32,97
+,116,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41
+,59,13,10,105,110,116,32,97,116,95,113,117,105,99,107,95,101,120,105,116,40,118,111,105,100
+,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,13,10,95,78,111,114,101,116,117
+,114,110,32,118,111,105,100,32,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59
+,13,10,95,78,111,114,101,116,117,114,110,32,118,111,105,100,32,95,69,120,105,116,40,105,110
+,116,32,115,116,97,116,117,115,41,59,13,10,99,104,97,114,42,32,103,101,116,101,110,118,40
+,99,111,110,115,116,32,99,104,97,114,42,32,110,97,109,101,41,59,13,10,95,78,111,114,101
+,116,117,114,110,32,118,111,105,100,32,113,117,105,99,107,95,101,120,105,116,40,105,110,116,32
+,115,116,97,116,117,115,41,59,13,10,105,110,116,32,115,121,115,116,101,109,40,99,111,110,115
+,116,32,99,104,97,114,42,32,115,116,114,105,110,103,41,59,13,10,13,10,35,105,102,110,100
+,101,102,32,78,85,76,76,13,10,35,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118
+,111,105,100,42,41,48,41,13,10,35,101,110,100,105,102,13,10,13,10
     ,0 };
 
     static const unsigned char file_math_h[] = {
@@ -8004,6 +8008,15 @@ char* readfile(const char* path)
 ,13,10,13,10
     ,0 };
 
+    static const unsigned char file_assert_h[] = {
+
+
+
+13,10,35,105,102,100,101,102,32,68,69,66,85,71,13,10,35,100,101,102,105,110,101,32,97
+,115,115,101,114,116,40,99,41,32,100,111,32,123,32,105,102,32,40,33,40,99,41,41,123,125
+,32,125,32,119,104,105,108,101,40,48,41,13,10,35,101,108,115,101,13,10,35,100,101,102,105
+,110,101,32,97,115,115,101,114,116,40,99,41,32,13,10,35,101,110,100,105,102,13,10,13,10
+    ,0 };
 
     if (strcmp(path, "stdio.h") == 0)
         return strdup(file_stdio_h);
@@ -8015,6 +8028,8 @@ char* readfile(const char* path)
         return strdup(file_errno_h);
     else if (strcmp(path, "string.h") == 0)
         return strdup(file_string_h);
+    else if (strcmp(path, "assert.h") == 0)
+        return strdup(file_assert_h);
 #endif
 
     return readfile_core(path);
@@ -8054,12 +8069,12 @@ enum attribute_flags
 {
     STD_ATTRIBUTE_NONE = 0,
     STD_ATTRIBUTE_DEPRECATED = 1 << 0,
-    STD_ATTRIBUTE_FALLTHROUGH = 2 << 0,
-    STD_ATTRIBUTE_MAYBE_UNUSED = 3 << 0,
-    STD_ATTRIBUTE_NODISCARD = 4 << 0,
-    STD_ATTRIBUTE_NORETURN = 5 << 0,
-    STD_ATTRIBUTE_UNSEQUENCED = 6 << 0,
-    STD_ATTRIBUTE_REPRODUCIBLE = 7 << 0
+    STD_ATTRIBUTE_FALLTHROUGH = 1 << 1,
+    STD_ATTRIBUTE_MAYBE_UNUSED = 1 << 2,
+    STD_ATTRIBUTE_NODISCARD = 1 << 3,
+    STD_ATTRIBUTE_NORETURN = 1 << 4,
+    STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
+    STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6
 };
 
 enum type_specifier_flags
@@ -8198,11 +8213,16 @@ struct type get_pointer_content_type(struct type* p_type);
 bool type_is_array(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
 bool type_is_integer(struct type* p_type);
+bool type_is_void(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
 bool type_is_compatible_type_function_call(struct type* a, struct type* b);
 bool type_is_function_or_function_pointer(struct type* p_type);
 bool type_is_function(struct type* p_type);
+bool type_is_nodiscard(struct type* p_type);
+bool type_is_deprecated(struct type* p_type);
+bool type_is_maybe_unused(struct type* p_type);
+
 struct type get_pointer_content_type(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
@@ -8301,6 +8321,11 @@ enum expression_flags
 
 struct argument_expression_list
 {
+    /*
+     argument-expression-list:
+        assignment-expression
+        argument-expression-list , assignment-expression
+    */
     struct argument_expression* head;
     struct argument_expression* tail;
 };
@@ -8397,7 +8422,6 @@ struct expression* constant_expression(struct parser_ctx* ctx, struct error* err
 
 
 
-
 struct scope
 {
     int scope_level;
@@ -8406,6 +8430,9 @@ struct scope
 
     struct scope* next;
     struct scope* previous;
+    
+    /*true for function parameters scope*/
+    bool is_parameters_scope;
 };
 
 
@@ -8506,8 +8533,16 @@ struct expression_ctx;
 
 struct declaration_specifier
 {
+    /*
+       declaration-specifier:
+         storage-class-specifier
+         type-specifier-qualifier
+         function-specifier
+    */
     struct storage_class_specifier* storage_class_specifier;
+
     struct type_specifier_qualifier* type_specifier_qualifier;
+    
     struct function_specifier* function_specifier;
 
     struct declaration_specifier* next;
@@ -8518,6 +8553,12 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
 
 struct declaration_specifiers
 {
+    /*
+     declaration-specifiers:
+       declaration-specifier attribute-specifier-sequence opt
+       declaration-specifier declaration-specifiers
+    */
+
     enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
@@ -8556,6 +8597,11 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
 
 struct attribute_specifier_sequence
 {
+    /*
+     attribute-specifier-sequence:
+       attribute-specifier-sequence opt attribute-specifier
+    */
+
     struct token* first_token;
     struct token* last_token;
     enum attribute_flags  attributes_flags;
@@ -8566,6 +8612,10 @@ struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct par
 
 struct attribute_specifier
 {
+    /*
+     attribute-specifier:
+        [ [ attribute-list ] ]
+    */
     struct token* first;
     struct token* last;
     struct attribute_list* attribute_list;
@@ -8665,6 +8715,11 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
 
 struct init_declarator_list
 {
+    /*
+     init-declarator-list:
+       init-declarator
+       init-declarator-list , init-declarator
+    */
     struct init_declarator* head;
     struct init_declarator* tail;
 };
@@ -8674,10 +8729,11 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx, struct 
 struct declaration
 {
     /*
-                                  declaration-specifiers init-declarator-list_opt ;
-     attribute-specifier-sequence declaration-specifiers init-declarator-list ;
-     static_assert-declaration
-     attribute-declaration
+      declaration:
+         declaration-specifiers init-declarator-list opt ;
+         attribute-specifier-sequence declaration-specifiers init-declarator-list ;
+         static_assert-declaration
+         attribute-declaration
     */
     struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
 
@@ -8699,13 +8755,23 @@ struct declaration* external_declaration(struct parser_ctx* ctx, struct error* e
 
 struct atomic_type_specifier
 {
+    /*
+      atomic-type-specifier:
+        "_Atomic" ( type-name )
+    */
     struct token* token;
+    struct type_name* type_name;
 };
 
 struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx, struct error* error);
 
 struct enumerator_list
 {
+    /*
+     enumerator-list:
+       enumerator
+       enumerator-list , enumerator
+    */
     struct enumerator* head;
     struct enumerator* tail;
 };
@@ -8716,14 +8782,17 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* err
 struct enum_specifier
 {
     /*
-     "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt
-      { enumerator-list }
-
-     "enum" attribute-specifier-sequenceopt identifieropt enum-type-specifier opt
-          { enumerator-list , }
-     
-     "enum" identifier enum-type-specifier opt
+     enum-type-specifier:
+       : specifier-qualifier-lis
     */
+
+    /*
+     enum-specifier:
+        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list }
+        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list , }
+        "enum" identifier enum-type-specifier opt
+    */
+    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct type_specifier_qualifier* type_specifier_qualifier;
     struct enumerator_list enumerator_list;
     struct type_tag_id type_id;
@@ -8737,17 +8806,29 @@ struct enum_specifier* enum_specifier(struct parser_ctx*, struct error* error);
 
 struct member_declaration_list
 {
-    struct token* first_token;
+    /*
+     member-declaration-list:
+        member-declaration
+        member-declaration-list member-declaration
+    */
+
+    struct token* first_token; /*TODO ? necessary*/
     struct token* last_token;
     struct member_declaration* head;
     struct member_declaration* tail;
 };
+
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct error* error);
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name);
 
 struct struct_or_union_specifier
 {
-    struct attribute_specifier_sequence* attribute_specifier_sequence;
+    /*
+     struct-or-union-specifier:
+        struct-or-union attribute-specifier-sequence opt identifier opt { member-declaration-list }
+        struct-or-union attribute-specifier-sequence opt identifier
+    */
+    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct member_declaration_list member_declaration_list;
     struct type_tag_id type_id;
     struct token* first;
@@ -8776,9 +8857,14 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
 
 struct init_declarator
 {
+    /*
+     init-declarator:
+        declarator
+        declarator = initializer
+    */
+
     struct declarator* declarator;
     struct initializer* initializer;
-
     struct init_declarator* next;
 };
 struct init_declarator* init_declarator(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
@@ -8803,13 +8889,20 @@ struct initializer* initializer(struct parser_ctx* ctx, struct error* error);
 
 struct declarator
 {
+    /*
+        declarator:
+          pointer opt direct-declarator
+    */
+
     struct token* first_token;
     struct token* last_token;
 
     struct type_tag_id type_id;
+
     struct pointer* pointer;
     struct direct_declarator* direct_declarator;
 
+    
     struct declaration_specifiers* declaration_specifiers; //aponta para este cara
     struct specifier_qualifier_list* specifier_qualifier_list; //aponta
     struct token* name; //shortcut
@@ -8835,6 +8928,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
 
 struct array_function
 {
+    //TODO separate?
     struct array_declarator* array_declarator;
     struct function_declarator* function_declarator;
     struct array_function* next;
@@ -8848,6 +8942,13 @@ struct array_function_list
 
 struct direct_declarator
 {
+    /*
+     direct-declarator:
+        identifier attribute-specifier-sequence opt
+        ( declarator )
+        array-declarator attribute-specifier-sequence opt
+        function-declarator attribute-specifier-sequence opt
+    */
     struct token* name;
     struct declarator* declarator;
     struct array_function_list array_function_list;
@@ -8862,16 +8963,28 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
 
 struct array_declarator
 {
+    /*
+     array-declarator:
+        direct-declarator [ type-qualifier-list opt assignment-expression opt ]
+        direct-declarator [ "static" type-qualifier-list opt assignment-expression ]
+        direct-declarator [ type-qualifier-list "static" assignment-expression ]
+        direct-declarator [ type-qualifier-listopt * ]
+    */
     struct expression* assignment_expression;
     struct expression* expression;
     struct type_qualifier_list* type_qualifier_list_opt;
     unsigned long long constant_size;
     struct token* token;
 };
+
 struct array_declarator* array_declarator(struct parser_ctx* ctx, struct error* error);
 
 struct function_declarator
 {
+    /*
+     function-declarator:
+       direct-declarator ( parameter-type-list opt )
+    */
     struct scope parameters_scope; //usado para escopo parametros
     struct parameter_type_list* parameter_type_list_opt;
 };
@@ -8880,6 +8993,12 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
 
 struct parameter_type_list
 {
+    /*
+    parameter-type-list:
+        parameter-list
+        parameter-list , ...
+        ...
+    */
     bool is_var_args; /*(...)*/
     bool is_void;/*(void)*/
     struct parameter_list* parameter_list;
@@ -8888,6 +9007,12 @@ struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx, struct e
 
 struct pointer
 {
+    /*
+     pointer:
+        * attribute-specifier-sequence opt type-qualifier-list opt
+        * attribute-specifier-sequence opt type-qualifier-list opt pointer
+    */
+    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct type_qualifier_list* type_qualifier_list_opt;
     struct pointer* pointer;
 };
@@ -8896,6 +9021,11 @@ struct pointer* pointer_opt(struct parser_ctx* ctx, struct error* error);
 
 struct parameter_list
 {
+    /*
+     parameter-list:
+        parameter-declaration
+        parameter-list , parameter-declaration
+    */
     struct parameter_declaration* head;
     struct parameter_declaration* tail;
 };
@@ -8903,6 +9033,12 @@ struct parameter_list* parameter_list(struct parser_ctx* ctx, struct error* erro
 
 struct parameter_declaration
 {
+    /*
+     parameter-declaration:
+      attribute-specifier-sequence opt declaration-specifiers declarator
+      attribute-specifier-sequence opt declaration-specifiers abstract-declarator opt
+    */
+    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct token* name;
     struct declaration_specifiers* declaration_specifiers;
     struct declarator* declarator;
@@ -8913,6 +9049,11 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx, stru
 
 struct type_name
 {
+    /*
+     type-name:
+       specifier-qualifier-list abstract-declarator opt
+    */
+
     struct token* first;
     struct token* last;
     struct specifier_qualifier_list* specifier_qualifier_list;
@@ -8966,6 +9107,13 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
 
 struct type_specifier_qualifier
 {
+    /*
+     type-specifier-qualifier:
+        type-specifier
+        type-qualifier
+        alignment-specifier
+    */
+
     struct type_specifier* type_specifier;
     struct type_qualifier* type_qualifier;
     struct alignment_specifier* alignment_specifier;
@@ -8977,6 +9125,11 @@ struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx
 
 struct alignment_specifier
 {
+    /*
+     alignment-specifier:
+       "alignas" ( type-name )
+       "alignas" ( constant-expression )
+    */
     struct token* token;
 };
 struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx, struct error* error);
@@ -8984,6 +9137,13 @@ struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx, struct e
 
 struct type_qualifier
 {
+    /*
+     type-qualifier:
+        "const"
+        "restrict"
+        "volatile"
+        "_Atomic"
+    */
     enum type_qualifier_flags flags;
     struct token* token;
     struct type_qualifier* next;
@@ -8996,8 +9156,10 @@ struct member_declaration
 {
     /*
      member-declaration:
+
        attribute-specifier-sequence opt specifier-qualifier-list member-declarator-list opt ;
        static_assert-declaration
+
     */
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct member_declarator_list* member_declarator_list_opt;
@@ -9011,13 +9173,30 @@ struct member_declaration* member_declaration(struct parser_ctx* ctx, struct err
 
 struct member_declarator
 {
+    /*
+    
+     member-declarator:
+
+        declarator
+        declarator opt : constant-expression
+
+    */
     struct token* name;
     struct declarator* declarator;
     struct expression* constant_expression;
     struct member_declarator* next;
 };
+
 struct member_declarator_list
 {
+    /*
+     member-declarator-list:
+
+        member-declarator
+        member-declarator-list , member-declarator
+
+    */
+
     struct member_declarator* head;
     struct member_declarator* tail;
 };
@@ -9027,6 +9206,11 @@ struct member_declarator_list* member_declarator_list(struct parser_ctx* ctx,
 
 struct block_item_list
 {
+    /*
+     block-item-list:
+       block-item
+       block-item-list block-item
+    */
     struct block_item* head;
     struct block_item* tail;
 };
@@ -9035,8 +9219,12 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, struct error* err
 
 struct compound_statement
 {
-    struct token* first_token;
-    struct token* last_token;
+    /*
+     compound-statement:
+       { block-item-list opt }
+    */
+    struct token* first_token; /*{*/
+    struct token* last_token; /*}*/
 
     struct block_item_list block_item_list;
 };
@@ -9048,24 +9236,25 @@ struct defer_statement
      defer-statement: (extension)
        "defer" secondary-block     
     */
-    struct token* first_token;
+    struct token* first_token; /*defer*/
     struct token* last_token;
     struct secondary_block* secondary_block;
 };
 
 struct try_statement
-{
-   
+{   
    /*
      try-statement: (extension)
+
       "try" secondary-block
       "try" secondary-block "catch" secondary-block
+
    */
     struct secondary_block* secondary_block;
     struct secondary_block* catch_secondary_block_opt;
-    struct token* first_token;
+    struct token* first_token; /*try*/
     struct token* last_token;
-    struct token* catch_token_opt;
+    struct token* catch_token_opt; /*catch*/
     /*Used to generate label names*/
     int try_catch_block_index;
 };
@@ -9076,12 +9265,13 @@ struct selection_statement
 {
     /*
     selection-statement:
-     "if" ( expression ) secondary-block
-     "if" ( expression ) secondary-block "else" secondary-block
-     "switch" ( expression ) secondary-block
+
+      "if" ( expression ) secondary-block
+      "if" ( expression ) secondary-block "else" secondary-block
+      "switch" ( expression ) secondary-block
+
     */
 
-  
 
     struct init_declarator* init_declarator;
     struct expression* expression;
@@ -9089,9 +9279,9 @@ struct selection_statement
     struct secondary_block* secondary_block;
     struct secondary_block* else_secondary_block_opt;
 
-    struct token* first_token;
+    struct token* first_token; /*if, switch*/
     struct token* last_token;
-    struct token* else_token_opt;
+    struct token* else_token_opt; /*else*/
 
     
 };
@@ -9100,11 +9290,19 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
 
 struct iteration_statement
 {
-    /*token do, for, repeat */
-    struct token* first_token;
+    /*
+      iteration-statement:
+
+        "while" ( expression ) secondary-block
+        "do" secondary-block "while" ( expression ) ;
+        "for" ( expression opt ; expression opt ; expression opt ) secondary-block
+        "for" ( declaration expression opt ; expression opt ) secondary-block
+
+        "repeat" secondary-block  (extension)
+    */
     
-    /*token while in do {} while ();*/
-    struct token* second_token;
+    struct token* first_token; /*while, do, for*/        
+    struct token* second_token; /*while*/
 
     struct secondary_block* secondary_block;
     struct expression* expression1;
@@ -9116,11 +9314,17 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
 struct jump_statement
 {
     /*
+     jump-statement:
+       "goto" identifier ;
+       "continue" ;
+       "break" ;
+       "return" expression opt ;
     */
+
     struct token* token;
     struct token* label;
     struct token* last_token;
-    struct expression* expression;
+    struct expression* expression_opt;
     
     int try_catch_block_index;
 };
@@ -9128,18 +9332,31 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
 
 struct expression_statement
 {
-    struct expression* expression;
+    /*
+     expression-statement:
+       expression opt;
+       attribute-specifier-sequence expression ;
+    */
+    
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
+    struct expression* expression_opt;
 };
+
 struct expression_statement* expression_statement(struct parser_ctx* ctx, struct error* error);
 
 
 struct block_item
 {
-    struct token* first_token;
-    struct declaration* declaration;
-    struct labeled_statement* labeled_statement;
-    struct label* label;
+    /*
+     block-item:
+      declaration
+      unlabeled-statement
+      label
+    */
+    struct token* first_token; //?necessary
+    struct declaration* declaration;    
     struct unlabeled_statement* unlabeled_statement;
+    struct label* label;
 
     struct block_item* next;
 };
@@ -9150,6 +9367,12 @@ struct compound_statement* function_body(struct parser_ctx* ctx, struct error* e
 
 struct designator
 {
+    /*
+     designator:
+        [ constant-expression ]
+        . identifier
+    */
+    struct expression* constant_expression_opt;
     struct token* token;
     struct designator* next;
 };
@@ -9157,6 +9380,11 @@ struct designator* designator(struct parser_ctx* ctx, struct error* error);
 
 struct initializer_list
 {
+    /*
+      initializer-list:
+        designation opt initializer
+        initializer-list , designation opt initializer
+    */
     struct token* first_token;
     struct initializer* head;
     struct initializer* tail;
@@ -9194,12 +9422,11 @@ struct secondary_block
 
 struct unlabeled_statement
 {
-
     /*
       unlabeled-statement:
-      expression-statement
-      attribute-specifier-sequenceopt primary-block
-      attribute-specifier-sequenceopt jump-statement
+          expression-statement
+          attribute-specifier-sequence opt primary-block
+          attribute-specifier-sequence opt jump-statement
      */
 
     struct expression_statement* expression_statement;
@@ -9222,6 +9449,11 @@ struct labeled_statement* labeled_statement(struct parser_ctx* ctx, struct error
 
 struct statement
 {    
+    /*
+     statement:
+       labeled-statement
+       unlabeled-statemen
+    */
     struct labeled_statement* labeled_statement;
     struct unlabeled_statement* unlabeled_statement;
 };
@@ -9229,6 +9461,11 @@ struct statement* statement(struct parser_ctx* ctx, struct error* error);
 
 struct designator_list
 {
+    /*
+     designator-list:
+       designator
+       designator-list designator
+    */
     struct designator* head;
     struct designator* tail;
 };
@@ -9236,6 +9473,10 @@ struct designator_list* designator_list(struct parser_ctx* ctx, struct error* er
 
 struct designation
 {
+    /*
+     designation:
+       designator-list =
+    */
     struct token* token;
 };
 struct designation* designation(struct parser_ctx* ctx, struct error* error);
@@ -9243,6 +9484,11 @@ struct designation* designation(struct parser_ctx* ctx, struct error* error);
 
 struct type_qualifier_list
 {
+    /*
+     type-qualifier-list:
+        type-qualifier
+        type-qualifier-list type-qualifier
+    */
     enum type_qualifier_flags flags;
     struct type_qualifier* head;
     struct type_qualifier* tail;
@@ -9278,8 +9524,17 @@ struct attribute_list* attribute_list(struct parser_ctx* ctx, struct error* erro
 
 struct enumerator
 {
+    /*
+      enumeration-constant:
+       identifier
+   
+      enumerator:
+        enumeration-constant attribute-specifier-sequence opt
+        enumeration-constant attribute-specifier-sequence opt = constant-expression
+    */
     struct type_tag_id type_id;
     struct token* token;
+    struct attribute_specifier_sequence_opt* attribute_specifier_sequence_opt;
 
     struct expression* constant_expression_opt;
 
@@ -9291,6 +9546,10 @@ struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error);
 
 struct attribute_argument_clause
 {
+    /*
+     attribute-argument-clause:
+       ( balanced-token-sequence opt )
+    */
     struct token* token;
 };
 struct attribute_argument_clause* attribute_argument_clause(struct parser_ctx* ctx, struct error* error);
@@ -9333,6 +9592,7 @@ struct label
         attribute-specifier-sequence opt "case" constant-expression :
         attribute-specifier-sequence opt "default" :
     */
+    struct expression* constant_expression;
     struct token* name;
 };
 struct label* label(struct parser_ctx* ctx, struct error* error);
@@ -9867,6 +10127,12 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
                 }
                 else
                 {
+                    
+                    if (type_is_deprecated(&p_declarator->type))
+                    {
+                        parser_setwarning_with_token(ctx, ctx->current, "'%s' is deprecated\n", ctx->current->lexeme);                                                
+                    }
+
                     p_declarator->num_uses++;
                     p_expression_node->declarator = p_declarator;
                     p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
@@ -10129,6 +10395,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
             else if (ctx->current->type == '(')
             {
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                p_expression_node_new->first = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
                 p_expression_node_new->left = p_expression_node;
 
@@ -10159,7 +10426,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
 
                     throw;
                 }
-
+                p_expression_node_new->last = ctx->previous;
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '.')
@@ -12955,6 +13222,66 @@ enum type_category find_type_category(const struct type* p_type)
     return type_category;
 }
 
+bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
+{
+    if (p_type->attributes_flags & attributes)
+    {
+        /*like 
+          [[maybe_unused]] int i;
+        */
+        return true;
+    }
+
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt = NULL;
+
+
+    if (p_type->struct_or_union_specifier)
+    {
+        /*like
+          struct [[maybe_unused]] X { }
+          struct X x;
+        */
+        p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
+        if (p_attribute_specifier_sequence_opt == NULL &&
+            p_type->struct_or_union_specifier->complete_struct_or_union_specifier)
+        {
+            p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt;
+        }
+    }
+    else if (p_type->enum_specifier)
+    {
+        p_attribute_specifier_sequence_opt = p_type->enum_specifier->attribute_specifier_sequence_opt;
+        if (p_attribute_specifier_sequence_opt == NULL &&
+            p_type->enum_specifier->complete_enum_specifier)
+        {
+            p_attribute_specifier_sequence_opt = p_type->enum_specifier->complete_enum_specifier->attribute_specifier_sequence_opt;
+        }
+    }
+
+    if (p_attribute_specifier_sequence_opt &&
+        p_attribute_specifier_sequence_opt->attributes_flags & attributes)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool type_is_maybe_unused(struct type* p_type)
+{
+    return type_has_attribute(p_type, STD_ATTRIBUTE_MAYBE_UNUSED);
+}
+
+bool type_is_deprecated(struct type* p_type)
+{
+    return type_has_attribute(p_type, STD_ATTRIBUTE_DEPRECATED);
+}
+
+bool type_is_nodiscard(struct type* p_type)
+{
+    return type_has_attribute(p_type, STD_ATTRIBUTE_NODISCARD);    
+}
+
 bool type_is_array(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_ARRAY;
@@ -12997,6 +13324,14 @@ bool type_is_bool(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL;
+}
+
+bool type_is_void(struct type* p_type)
+{
+    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return false;
+
+    return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
 }
 
 /*
@@ -13429,6 +13764,7 @@ struct type type_common(struct type* p_type1, struct type* p_type2, struct error
 struct type type_copy(struct type* p_type)
 {
     struct type r = { 0 };
+    r.attributes_flags = p_type->attributes_flags;
     r.type_qualifier_flags = p_type->type_qualifier_flags;
     r.type_specifier_flags = p_type->type_specifier_flags;
     r.struct_or_union_specifier = p_type->struct_or_union_specifier;
@@ -14458,6 +14794,7 @@ void visit(struct visit_ctx* ctx, struct error* error);
 
 
 struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* error);
+
 
 static int anonymous_struct_count = 0;
 
@@ -16168,7 +16505,8 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         /*parametros nao usados*/
         while (parameter)
         {
-            if (parameter->declarator->num_uses == 0)
+            if (!type_is_maybe_unused(&parameter->declarator->type) &&
+                parameter->declarator->num_uses == 0)
             {
                 if (parameter->name &&
                     parameter->name->level == 0 /*direct source*/
@@ -16289,6 +16627,34 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         const char* name = p_init_declarator->declarator->name->lexeme;
         if (name)
         {
+            if (!type_is_function(&p_init_declarator->declarator->type))
+            {
+                if (!(p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
+                {
+                    struct scope* out = NULL;
+                    struct declarator* previous = find_declarator(ctx, name, &out);
+                    if (previous != NULL)
+                    {
+                        if (!type_is_function(&previous->type))
+                        {                            
+                            if (out->scope_level == ctx->scopes.tail->scope_level ||
+                                out->is_parameters_scope)
+                            {
+                                //mesmo nivel
+                                parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
+                                parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                            }
+                            else
+                            {
+                                //nivel diferente eh warning hides
+                                parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
+                                parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                            }
+                        }
+                      
+                    }
+                }
+            }
             //TODO se ja existe?
             hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
         }
@@ -16638,7 +17004,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         assert(false);
     }
 
-    pStruct_or_union_specifier->attribute_specifier_sequence =
+    pStruct_or_union_specifier->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx, error);
 
     struct struct_or_union_specifier* pPreviousTagInThisScope = NULL;
@@ -16726,6 +17092,25 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
               Temos uma versao mais completa deste tag neste escopo. Vamos ficar com ela.
             */
             hashmap_set(&ctx->scopes.tail->tags, pStruct_or_union_specifier->tag_name, &pStruct_or_union_specifier->type_id);
+        }
+    }
+
+
+    /*check if complete struct is deprecated*/
+    if (pStruct_or_union_specifier->complete_struct_or_union_specifier)
+    {        
+        if (pStruct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt &&
+            pStruct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags && STD_ATTRIBUTE_DEPRECATED)
+        {
+            if (pStruct_or_union_specifier->tagtoken)
+            {
+                //TODO add deprecated message
+                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first, "'%s' is deprecated", pStruct_or_union_specifier->tagtoken->lexeme);
+            }
+            else
+            {
+                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first, "deprecated");                
+            }
         }
     }
 
@@ -17006,14 +17391,19 @@ struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx
 struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* error)
 {
     /*
+     enum-type-specifier:
+     : specifier-qualifier-list
+    */
+
+    /*
         enum-specifier:
 
-        enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt
         { enumerator-list }
 
-        enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt
         { enumerator-list , }
-        enum identifier enum-type-specifiero
+        enum identifier enum-type-specifier opt
     */
     struct enum_specifier* p_enum_specifier = NULL;
     try
@@ -17021,9 +17411,13 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
         p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
         p_enum_specifier->type_id.type = TAG_TYPE_ENUN_SPECIFIER;
 
+
         parser_match_tk(ctx, TK_KEYWORD_ENUM, error);
 
-        attribute_specifier_sequence_opt(ctx, error);
+        p_enum_specifier->attribute_specifier_sequence_opt = 
+            attribute_specifier_sequence_opt(ctx, error);
+
+     
         struct enum_specifier* pPreviousTagInThisScope = NULL;
         bool bHasIdentifier = false;
         if (ctx->current->type == TK_IDENTIFIER)
@@ -17147,16 +17541,14 @@ struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
     struct enumerator* p_enumerator = calloc(1, sizeof(struct enumerator));
     p_enumerator->type_id.type = TAG_TYPE_ENUMERATOR;
 
-    //enumeration_constant attribute_specifier_sequence_opt
-    //enumeration_constant attribute_specifier_sequence_opt '=' constant_expression
     struct token* name = ctx->current;
 
     naming_convention_enumerator(ctx, name);
 
-
     parser_match_tk(ctx, TK_IDENTIFIER, error);
-    attribute_specifier_sequence_opt(ctx, error);
-
+    
+    p_enumerator->attribute_specifier_sequence_opt = 
+        attribute_specifier_sequence_opt(ctx, error);
 
     p_enumerator->token = name;
     hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, &p_enumerator->type_id);
@@ -17205,7 +17597,7 @@ struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx, stru
     p->token = ctx->current;
     parser_match_tk(ctx, TK_KEYWORD__ATOMIC, error);
     parser_match_tk(ctx, '(', error);
-    type_name(ctx, error);
+    p->type_name = type_name(ctx, error);
     parser_match_tk(ctx, ')', error);
     return p;
 }
@@ -17538,6 +17930,7 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
 
 
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
+    p_function_declarator->parameters_scope.is_parameters_scope = true;
 
     scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
 
@@ -17571,7 +17964,10 @@ struct pointer* pointer_opt(struct parser_ctx* ctx, struct error* error)
         struct pointer* p_pointer = calloc(1, sizeof(struct pointer));
         p = p_pointer;
         parser_match(ctx);
-        attribute_specifier_sequence_opt(ctx, error);
+        
+        p_pointer->attribute_specifier_sequence_opt = 
+            attribute_specifier_sequence_opt(ctx, error);
+
         if (first_of_type_qualifier(ctx))
             p_pointer->type_qualifier_list_opt = type_qualifier_list(ctx, error);
         while (error->code == 0 && ctx->current != NULL &&
@@ -17654,10 +18050,17 @@ struct parameter_list* parameter_list(struct parser_ctx* ctx, struct error* erro
 struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx, struct error* error)
 {
     struct parameter_declaration* p_parameter_declaration = calloc(1, sizeof(struct parameter_declaration));
-    //attribute_specifier_sequence_opt declaration_specifiers declarator
-    //attribute_specifier_sequence_opt declaration_specifiers abstract_declarator_opt
-    attribute_specifier_sequence_opt(ctx, error);
+        
+    p_parameter_declaration->attribute_specifier_sequence_opt =
+        attribute_specifier_sequence_opt(ctx, error);
+
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx, error);
+
+    if (p_parameter_declaration->attribute_specifier_sequence_opt)
+    {
+        p_parameter_declaration->declaration_specifiers->attributes_flags =
+            p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags;
+    }
 
     //talvez no ctx colocar um flag que esta em argumentos
     //TODO se tiver uma struct tag novo...
@@ -17965,7 +18368,7 @@ struct designator* designator(struct parser_ctx* ctx, struct error* error)
     {
         parser_match_tk(ctx, '[', error);
         struct expression_ctx ectx = { 0 };
-        constant_expression(ctx, error, &ectx);
+        p_designator->constant_expression_opt = constant_expression(ctx, error, &ectx);
         parser_match_tk(ctx, ']', error);
     }
     else if (ctx->current->type == '.')
@@ -18157,16 +18560,20 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* er
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_MAYBE_UNUSED;
     }
     else if (strcmp(attr_token->lexeme, "noreturn") == 0) {
-        is_standard_attribute = true;
+        is_standard_attribute = true;        
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_NORETURN;
     }
     else if (strcmp(attr_token->lexeme, "reproducible") == 0) {
         is_standard_attribute = true;
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_REPRODUCIBLE;
     }
     else if (strcmp(attr_token->lexeme, "unsequenced") == 0) {
         is_standard_attribute = true;
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_UNSEQUENCED;
     }
     else if (strcmp(attr_token->lexeme, "nodiscard") == 0) {
         is_standard_attribute = true;
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
     }
 
     parser_match_tk(ctx, TK_IDENTIFIER, error);
@@ -18325,6 +18732,12 @@ bool first_of_primary_block(struct parser_ctx* ctx)
 
 struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct error* error)
 {
+    /*
+     unlabeled-statement:
+       expression-statement
+       attribute-specifier-sequence opt primary-block
+       attribute-specifier-sequence opt jump-statement
+    */
     struct unlabeled_statement* p_unlabeled_statement = calloc(1, sizeof(struct unlabeled_statement));
 
     if (first_of_primary_block(ctx))
@@ -18338,12 +18751,25 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct e
     else
     {
         p_unlabeled_statement->expression_statement = expression_statement(ctx, error);
+        if (p_unlabeled_statement->expression_statement)
+        {            
+            if (p_unlabeled_statement->expression_statement->expression_opt && 
+                p_unlabeled_statement->expression_statement->expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
+            {
+
+                if (!type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type))
+                {
+                    if (type_is_nodiscard(&p_unlabeled_statement->expression_statement->expression_opt->type))
+                    {
+                        parser_setwarning_with_token(ctx,
+                            p_unlabeled_statement->expression_statement->expression_opt->first,
+                            "ignoring return value of function declared with 'nodiscard' attribute");
+                    }
+                }
+            }
+        }
     }
-    //expression_statement
-    //attribute_specifier_sequence_opt compound_statement
-    //attribute_specifier_sequence_opt selection_statement
-    //attribute_specifier_sequence_opt iteration_statement
-    //attribute_specifier_sequence_opt jump_statement
+    
     return p_unlabeled_statement;
 }
 struct label* label(struct parser_ctx* ctx, struct error* error)
@@ -18359,7 +18785,7 @@ struct label* label(struct parser_ctx* ctx, struct error* error)
     {
         parser_match(ctx);
         struct expression_ctx ectx = { .bConstantExpressionRequired = true };
-        constant_expression(ctx, error, &ectx);
+        p_label->constant_expression = constant_expression(ctx, error, &ectx);
         parser_match_tk(ctx, ':', error);
     }
     else if (ctx->current->type == TK_KEYWORD_DEFAULT)
@@ -18415,8 +18841,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
             if (p_declarator)
             {
-                if (
-                    !(p_declarator->type.attributes_flags & STD_ATTRIBUTE_MAYBE_UNUSED) &&
+                if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
                     //setwarning_with_token(ctx, p_declarator->name, )
@@ -18818,15 +19243,18 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
         if (ctx->current->type != ';')
         {
             struct expression_ctx ectx = { 0 };
-            p_jump_statement->expression = expression(ctx, error, &ectx);
+            p_jump_statement->expression_opt = expression(ctx, error, &ectx);
 
-            /*
-            * Check is return type is compatible with function return
-            */
-            if (!type_is_compatible(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
-                &p_jump_statement->expression->type))
+            if (p_jump_statement->expression_opt)
             {
-                parser_seterror_with_token(ctx, p_jump_statement->expression->first, "return type is incompatible");
+                /*
+                * Check is return type is compatible with function return
+                */
+                if (!type_is_compatible(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
+                    &p_jump_statement->expression_opt->type))
+                {
+                    parser_seterror_with_token(ctx, p_jump_statement->expression_opt->first, "return type is incompatible");
+                }
             }
         }
     }
@@ -18844,15 +19272,21 @@ struct expression_statement* expression_statement(struct parser_ctx* ctx, struct
     struct expression_statement* p_expression_statement = calloc(1, sizeof(struct expression_statement));
     /*
      expression-statement:
-       expression_opt ;
+       expression opt ;
        attribute-specifier-sequence expression ;
     */
+
+    p_expression_statement->p_attribute_specifier_sequence_opt = 
+        attribute_specifier_sequence_opt(ctx, error);
+
     if (ctx->current->type != ';')
     {
         struct expression_ctx ectx = { 0 };
-        p_expression_statement->expression = expression(ctx, error, &ectx);
+        p_expression_statement->expression_opt = expression(ctx, error, &ectx);
     }
+
     parser_match_tk(ctx, ';', error);
+
     return p_expression_statement;
 }
 
@@ -19819,6 +20253,7 @@ void expand_test()
 
 
 
+static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence, struct error* error);
 
 struct token* next_parser_token(struct token* token)
 {
@@ -19916,7 +20351,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         &list1);
     struct token_list list2 = tokenizer("}", "", 0, TK_FLAG_NONE, error);
     token_list_insert_after(&ctx->ast.token_list,
-        previous_parser_token(p_selection_statement->last_token),
+        p_selection_statement->last_token,
         &list2);
 }
 
@@ -19996,14 +20431,7 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
                         return true;
                     }
                 }
-                else if (block_item->labeled_statement)
-                {
-                    if (find_label_statement(block_item->labeled_statement->statement, label))
-                    {
-                        return true;
-                    }
-
-                }
+                
                 block_item = block_item->next;
             }
         }
@@ -20425,7 +20853,7 @@ static void visit_argument_expression_list(struct visit_ctx* ctx, struct argumen
     struct argument_expression* p_argument_expression =
         p_argument_expression_list->head;
     while (p_argument_expression)
-    {
+    {        
         visit_expression(ctx, p_argument_expression->expression, error);
         p_argument_expression = p_argument_expression->next;
     }
@@ -20675,8 +21103,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
 static void visit_expression_statement(struct visit_ctx* ctx, struct expression_statement* p_expression_statement, struct error* error)
 {
-    if (p_expression_statement->expression)
-        visit_expression(ctx, p_expression_statement->expression, error);
+    if (p_expression_statement->expression_opt)
+        visit_expression(ctx, p_expression_statement->expression_opt, error);
 }
 
 static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list* p_block_item_list, struct error* error);
@@ -20891,7 +21319,10 @@ static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement
     }
 }
 
-
+static void visit_label(struct visit_ctx* ctx, struct label* p_label, struct error* error)
+{
+    //p_label->name
+}
 static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_item, struct error* error)
 {
     if (p_block_item->declaration)
@@ -20902,9 +21333,9 @@ static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_i
     {
         visit_unlabeled_statement(ctx, p_block_item->unlabeled_statement, error);
     }
-    else if (p_block_item->labeled_statement)
+    else if (p_block_item->label)
     {
-        visit_labeled_statement(ctx, p_block_item->labeled_statement, error);
+        visit_label(ctx, p_block_item->label, error);
     }
     if (ctx->insert_before_block_item.head != NULL)
     {
@@ -20986,6 +21417,11 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
                     current->function_declarator->parameter_type_list_opt->parameter_list->head;
                 while (parameter)
                 {
+                    if (parameter->attribute_specifier_sequence_opt)
+                    {
+                        visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt, error);
+                    }
+
                     visit_declaration_specifiers(ctx, parameter->declaration_specifiers, error);
                     visit_declarator(ctx, parameter->declarator, error);                                        
                     parameter = parameter->next;
@@ -21109,7 +21545,7 @@ static void visit_member_declaration_list(struct visit_ctx* ctx, struct member_d
 static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_specifier* p_attribute_specifier, struct error* error)
 {
     if (ctx->target < LANGUAGE_C2X)
-    {
+    {        
         token_range_add_flag(p_attribute_specifier->first, p_attribute_specifier->last, TK_FLAG_HIDE);
     }
 }
@@ -21127,8 +21563,8 @@ static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct att
 static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier, struct error* error)
 {
 
-    if (p_struct_or_union_specifier->attribute_specifier_sequence)
-        visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence, error);
+    if (p_struct_or_union_specifier->attribute_specifier_sequence_opt)
+        visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence_opt, error);
 
     if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
     {
@@ -21192,7 +21628,10 @@ static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list*
 
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error)
 {
-
+    if (p_enum_specifier->attribute_specifier_sequence_opt)
+    {
+        visit_attribute_specifier_sequence(ctx, p_enum_specifier->attribute_specifier_sequence_opt, error);
+    }
     visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list, error);
 
 }
@@ -21363,6 +21802,7 @@ static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* c
         }
     }
 
+    
     if (p_declaration_specifier->storage_class_specifier)
     {
     }
@@ -21379,6 +21819,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
 {
     //p_declaration_specifiers->head->type_specifier_qualifier->pType_specifier->p_typeof_expression_opt
 
+    
     if (p_declaration_specifiers->struct_or_union_specifier)
     {
         visit_struct_or_union_specifier(ctx, p_declaration_specifiers->struct_or_union_specifier, error);
@@ -21428,6 +21869,11 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     if (p_declaration->static_assert_declaration)
     {
         visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration, error);
+    }
+
+    if (p_declaration->p_attribute_specifier_sequence_opt)
+    {
+        visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt, error);
     }
 
     if (p_declaration->declaration_specifiers)
@@ -22447,7 +22893,7 @@ static void format_visit_primary_block(struct format_visit_ctx* ctx, struct prim
 
 static void format_visit_expression_statement(struct format_visit_ctx* ctx, struct expression_statement* p_expression_statement, struct error* error)
 {
-    if (p_expression_statement->expression)
+    if (p_expression_statement->expression_opt)
     {
         //ajust_line_and_identation(p_expression_statement->first_token, ctx);
     }
@@ -22493,7 +22939,7 @@ static void format_visit_block_item(struct format_visit_ctx* ctx, struct block_i
     {
         format_visit_unlabeled_statement(ctx, p_block_item->unlabeled_statement, error);
     }
-    else if (p_block_item->labeled_statement)
+    else if (p_block_item->label)
     {
         //visit_labeled_statement(ctx, p_block_item->labeled_statement, error);
     }

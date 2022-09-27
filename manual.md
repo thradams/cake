@@ -1240,6 +1240,17 @@ static_assert(typeid(1) == typeid(int));
 
 ###  Extension Repeat
 
+
+```
+iteration-statement:
+        ...
+        "repeat" secondary-block  (extension)
+```
+  repeat statement
+```
+
+Repeat merely executes the given statement forever unless a break statement is encountered, or a goto passes control to a statement outside the loop.
+
 ```c
   repeat {
        if (condition) 

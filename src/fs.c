@@ -401,6 +401,9 @@ char* readfile(const char* path)
 #include ".\web_include\string.h.include"
     ,0 };
 
+    static const unsigned char file_assert_h[] = {
+#include ".\web_include\assert.h.include"
+    ,0 };
 
     if (strcmp(path, "stdio.h") == 0)
         return strdup(file_stdio_h);
@@ -412,6 +415,8 @@ char* readfile(const char* path)
         return strdup(file_errno_h);
     else if (strcmp(path, "string.h") == 0)
         return strdup(file_string_h);
+    else if (strcmp(path, "assert.h") == 0)
+        return strdup(file_assert_h);
 #endif
 
     return readfile_core(path);

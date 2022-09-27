@@ -356,6 +356,66 @@ enum type_category find_type_category(const struct type* p_type)
     return type_category;
 }
 
+bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
+{
+    if (p_type->attributes_flags & attributes)
+    {
+        /*like 
+          [[maybe_unused]] int i;
+        */
+        return true;
+    }
+
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt = NULL;
+
+
+    if (p_type->struct_or_union_specifier)
+    {
+        /*like
+          struct [[maybe_unused]] X { }
+          struct X x;
+        */
+        p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
+        if (p_attribute_specifier_sequence_opt == NULL &&
+            p_type->struct_or_union_specifier->complete_struct_or_union_specifier)
+        {
+            p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt;
+        }
+    }
+    else if (p_type->enum_specifier)
+    {
+        p_attribute_specifier_sequence_opt = p_type->enum_specifier->attribute_specifier_sequence_opt;
+        if (p_attribute_specifier_sequence_opt == NULL &&
+            p_type->enum_specifier->complete_enum_specifier)
+        {
+            p_attribute_specifier_sequence_opt = p_type->enum_specifier->complete_enum_specifier->attribute_specifier_sequence_opt;
+        }
+    }
+
+    if (p_attribute_specifier_sequence_opt &&
+        p_attribute_specifier_sequence_opt->attributes_flags & attributes)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool type_is_maybe_unused(struct type* p_type)
+{
+    return type_has_attribute(p_type, STD_ATTRIBUTE_MAYBE_UNUSED);
+}
+
+bool type_is_deprecated(struct type* p_type)
+{
+    return type_has_attribute(p_type, STD_ATTRIBUTE_DEPRECATED);
+}
+
+bool type_is_nodiscard(struct type* p_type)
+{
+    return type_has_attribute(p_type, STD_ATTRIBUTE_NODISCARD);    
+}
+
 bool type_is_array(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_ARRAY;
@@ -398,6 +458,14 @@ bool type_is_bool(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL;
+}
+
+bool type_is_void(struct type* p_type)
+{
+    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return false;
+
+    return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
 }
 
 /*
@@ -830,6 +898,7 @@ struct type type_common(struct type* p_type1, struct type* p_type2, struct error
 struct type type_copy(struct type* p_type)
 {
     struct type r = { 0 };
+    r.attributes_flags = p_type->attributes_flags;
     r.type_qualifier_flags = p_type->type_qualifier_flags;
     r.type_specifier_flags = p_type->type_specifier_flags;
     r.struct_or_union_specifier = p_type->struct_or_union_specifier;

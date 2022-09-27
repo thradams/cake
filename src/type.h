@@ -25,12 +25,12 @@ enum attribute_flags
 {
     STD_ATTRIBUTE_NONE = 0,
     STD_ATTRIBUTE_DEPRECATED = 1 << 0,
-    STD_ATTRIBUTE_FALLTHROUGH = 2 << 0,
-    STD_ATTRIBUTE_MAYBE_UNUSED = 3 << 0,
-    STD_ATTRIBUTE_NODISCARD = 4 << 0,
-    STD_ATTRIBUTE_NORETURN = 5 << 0,
-    STD_ATTRIBUTE_UNSEQUENCED = 6 << 0,
-    STD_ATTRIBUTE_REPRODUCIBLE = 7 << 0
+    STD_ATTRIBUTE_FALLTHROUGH = 1 << 1,
+    STD_ATTRIBUTE_MAYBE_UNUSED = 1 << 2,
+    STD_ATTRIBUTE_NODISCARD = 1 << 3,
+    STD_ATTRIBUTE_NORETURN = 1 << 4,
+    STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
+    STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6
 };
 
 enum type_specifier_flags
@@ -169,11 +169,16 @@ struct type get_pointer_content_type(struct type* p_type);
 bool type_is_array(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
 bool type_is_integer(struct type* p_type);
+bool type_is_void(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
 bool type_is_compatible_type_function_call(struct type* a, struct type* b);
 bool type_is_function_or_function_pointer(struct type* p_type);
 bool type_is_function(struct type* p_type);
+bool type_is_nodiscard(struct type* p_type);
+bool type_is_deprecated(struct type* p_type);
+bool type_is_maybe_unused(struct type* p_type);
+
 struct type get_pointer_content_type(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 

@@ -3,10 +3,12 @@
 typedef long long fpos_t;
 typedef int size_t;
 typedef int wchar_t;
-double atof(const char* nptr);
-int atoi(const char* nptr);
-long int atol(const char* nptr);
-long long int atoll(const char* nptr);
+
+[[nodiscard]] double atof(const char* nptr);
+[[nodiscard]] int atoi(const char* nptr);
+[[nodiscard]] long int atol(const char* nptr);
+[[nodiscard]] long long int atoll(const char* nptr);
+
 double strtod(const char* restrict nptr, char** restrict endptr);
 float strtof(const char* restrict nptr, char** restrict endptr);
 long double strtold(const char* restrict nptr, char** restrict endptr);
@@ -17,10 +19,12 @@ unsigned long long int strtoull(const char* restrict nptr, char** restrict endpt
 int rand(void);
 void srand(unsigned int seed);
 void* aligned_alloc(size_t alignment, size_t size);
-void* calloc(size_t nmemb, size_t size);
+[[nodiscard]] void* calloc(size_t nmemb, size_t size);
 void free(void* ptr);
-void* malloc(size_t size);
-void* realloc(void* ptr, size_t size);
+
+[[nodiscard]] void* malloc(size_t size);
+[[nodiscard]] void* realloc(void* ptr, size_t size);
+
 _Noreturn void abort(void);
 int atexit(void (*func)(void));
 int at_quick_exit(void (*func)(void));

@@ -80,6 +80,11 @@ enum expression_flags
 
 struct argument_expression_list
 {
+    /*
+     argument-expression-list:
+        assignment-expression
+        argument-expression-list , assignment-expression
+    */
     struct argument_expression* head;
     struct argument_expression* tail;
 };

@@ -292,16 +292,70 @@ int main()
 `;
 
 
-sample["C23 maybe_unused attribute"] =
+sample["C23 [[maybe_unused]] "] =
 `
-void f(int i)
+
+void f( [[maybe_unused]] int arg1, int arg2)
 {
-    [[maybe_unused]] int j;
-    int k;
+    [[maybe_unused]] int local1;
+    int local2;
+    /*warning not used for local2*/
+    /*warning not used for arg2*/
 }
+
 `;
 
 
+sample["C23 [[deprecated]] "] =
+`
+[[deprecated]] void f2() {
+}
+
+
+struct [[deprecated]] S {
+  int a;
+};
+
+enum [[deprecated]] E1 {
+ one
+};
+
+int main(void) {
+    struct S s;
+    enum E1 e;
+    f2();
+}
+`;
+
+sample["C23 [[nodiscard]] "] =
+`
+
+#include <stdlib.h>
+
+struct [[nodiscard]] error_info { int error; };
+
+struct error_info enable_missile_safety_mode(void);
+
+void launch_missiles(void);
+
+void test_missiles(void) {
+    enable_missile_safety_mode();
+    launch_missiles();
+}
+
+[[nodiscard("must check armed state")]]
+bool arm_detonator(int within);
+
+void detonate();
+
+void call(void) {
+  arm_detonator(3);
+  detonate();
+}
+
+
+
+`;
 
 sample["Extension _Hashof"] =
 `
@@ -530,7 +584,7 @@ int main()
 
 `;
 
-sample["Extension Like C++17 if with initialization"] =
+sample["Extension if with initialization (Like C++17)"] =
     `
 #include <stdio.h>
 
@@ -629,7 +683,7 @@ int main()
 `;
 
 sample["little of semantics analysis"] =
-    `
+`
 int main()
 {
     int a = 1;
@@ -640,5 +694,18 @@ int main()
    
 }
 
+`;
+
+
+sample["little of static analysis"] =
+    `
+int main()
+{
+    int a = 1;
+    if (a)
+    {
+       int a = 2;
+    }   
+}
 `;
 

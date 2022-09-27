@@ -1,6 +1,6 @@
-
-void f(int j)
+//#include <windows.h>
+void f(int i)
 {
-    [[maybe_unused]] int i;
+    int i;
+  
 }
-

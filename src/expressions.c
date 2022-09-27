@@ -525,6 +525,12 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
                 }
                 else
                 {
+                    
+                    if (type_is_deprecated(&p_declarator->type))
+                    {
+                        parser_setwarning_with_token(ctx, ctx->current, "'%s' is deprecated\n", ctx->current->lexeme);                                                
+                    }
+
                     p_declarator->num_uses++;
                     p_expression_node->declarator = p_declarator;
                     p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
@@ -787,6 +793,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
             else if (ctx->current->type == '(')
             {
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                p_expression_node_new->first = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
                 p_expression_node_new->left = p_expression_node;
 
@@ -817,7 +824,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
 
                     throw;
                 }
-
+                p_expression_node_new->last = ctx->previous;
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '.')

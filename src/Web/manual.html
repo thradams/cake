@@ -1206,6 +1206,16 @@ static_assert(typeid(1) == typeid(int));
 
 <h3>Extension Repeat</h3>
 
+<pre><code>iteration-statement:
+        ...
+        &quot;repeat&quot; secondary-block  (extension)
+</code></pre>
+
+<p>repeat statement
+```</p>
+
+<p>Repeat merely executes the given statement forever unless a break statement is encountered, or a goto passes control to a statement outside the loop.</p>
+
 <pre><code class="language-c">  repeat {
        if (condition) 
          break;

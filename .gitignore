@@ -60,3 +60,4 @@ dkms.conf
 /src/out
 /src/build
 /vc/DebugTest
+/vc/x64/Debug

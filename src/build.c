@@ -234,9 +234,10 @@ int build_main()
     " ./web_include/stdlib.h " \
     " ./web_include/math.h " \
     " ./web_include/errno.h " \
-    " ./web_include/string.h " 
+    " ./web_include/string.h " \
+    " ./web_include/assert.h "
     
-        if (system(RUN "embed.exe " EMBED_SRC) != 0) exit(1);
+    if (system(RUN "embed.exe " EMBED_SRC) != 0) exit(1);
     remove("embed.exe");
 
 

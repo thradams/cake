@@ -6,6 +6,7 @@
 #include "expressions.h"
 
 
+static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence, struct error* error);
 
 struct token* next_parser_token(struct token* token)
 {
@@ -103,7 +104,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         &list1);
     struct token_list list2 = tokenizer("}", "", 0, TK_FLAG_NONE, error);
     token_list_insert_after(&ctx->ast.token_list,
-        previous_parser_token(p_selection_statement->last_token),
+        p_selection_statement->last_token,
         &list2);
 }
 
@@ -183,14 +184,7 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
                         return true;
                     }
                 }
-                else if (block_item->labeled_statement)
-                {
-                    if (find_label_statement(block_item->labeled_statement->statement, label))
-                    {
-                        return true;
-                    }
-
-                }
+                
                 block_item = block_item->next;
             }
         }
@@ -612,7 +606,7 @@ static void visit_argument_expression_list(struct visit_ctx* ctx, struct argumen
     struct argument_expression* p_argument_expression =
         p_argument_expression_list->head;
     while (p_argument_expression)
-    {
+    {        
         visit_expression(ctx, p_argument_expression->expression, error);
         p_argument_expression = p_argument_expression->next;
     }
@@ -862,8 +856,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
 static void visit_expression_statement(struct visit_ctx* ctx, struct expression_statement* p_expression_statement, struct error* error)
 {
-    if (p_expression_statement->expression)
-        visit_expression(ctx, p_expression_statement->expression, error);
+    if (p_expression_statement->expression_opt)
+        visit_expression(ctx, p_expression_statement->expression_opt, error);
 }
 
 static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list* p_block_item_list, struct error* error);
@@ -1078,7 +1072,10 @@ static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement
     }
 }
 
-
+static void visit_label(struct visit_ctx* ctx, struct label* p_label, struct error* error)
+{
+    //p_label->name
+}
 static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_item, struct error* error)
 {
     if (p_block_item->declaration)
@@ -1089,9 +1086,9 @@ static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_i
     {
         visit_unlabeled_statement(ctx, p_block_item->unlabeled_statement, error);
     }
-    else if (p_block_item->labeled_statement)
+    else if (p_block_item->label)
     {
-        visit_labeled_statement(ctx, p_block_item->labeled_statement, error);
+        visit_label(ctx, p_block_item->label, error);
     }
     if (ctx->insert_before_block_item.head != NULL)
     {
@@ -1173,6 +1170,11 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
                     current->function_declarator->parameter_type_list_opt->parameter_list->head;
                 while (parameter)
                 {
+                    if (parameter->attribute_specifier_sequence_opt)
+                    {
+                        visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt, error);
+                    }
+
                     visit_declaration_specifiers(ctx, parameter->declaration_specifiers, error);
                     visit_declarator(ctx, parameter->declarator, error);                                        
                     parameter = parameter->next;
@@ -1296,7 +1298,7 @@ static void visit_member_declaration_list(struct visit_ctx* ctx, struct member_d
 static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_specifier* p_attribute_specifier, struct error* error)
 {
     if (ctx->target < LANGUAGE_C2X)
-    {
+    {        
         token_range_add_flag(p_attribute_specifier->first, p_attribute_specifier->last, TK_FLAG_HIDE);
     }
 }
@@ -1314,8 +1316,8 @@ static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct att
 static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier, struct error* error)
 {
 
-    if (p_struct_or_union_specifier->attribute_specifier_sequence)
-        visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence, error);
+    if (p_struct_or_union_specifier->attribute_specifier_sequence_opt)
+        visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence_opt, error);
 
     if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
     {
@@ -1379,7 +1381,10 @@ static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list*
 
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error)
 {
-
+    if (p_enum_specifier->attribute_specifier_sequence_opt)
+    {
+        visit_attribute_specifier_sequence(ctx, p_enum_specifier->attribute_specifier_sequence_opt, error);
+    }
     visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list, error);
 
 }
@@ -1550,6 +1555,7 @@ static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* c
         }
     }
 
+    
     if (p_declaration_specifier->storage_class_specifier)
     {
     }
@@ -1566,6 +1572,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
 {
     //p_declaration_specifiers->head->type_specifier_qualifier->pType_specifier->p_typeof_expression_opt
 
+    
     if (p_declaration_specifiers->struct_or_union_specifier)
     {
         visit_struct_or_union_specifier(ctx, p_declaration_specifiers->struct_or_union_specifier, error);
@@ -1615,6 +1622,11 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     if (p_declaration->static_assert_declaration)
     {
         visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration, error);
+    }
+
+    if (p_declaration->p_attribute_specifier_sequence_opt)
+    {
+        visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt, error);
     }
 
     if (p_declaration->declaration_specifiers)

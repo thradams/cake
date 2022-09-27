@@ -243,7 +243,7 @@ static void format_visit_primary_block(struct format_visit_ctx* ctx, struct prim
 
 static void format_visit_expression_statement(struct format_visit_ctx* ctx, struct expression_statement* p_expression_statement, struct error* error)
 {
-    if (p_expression_statement->expression)
+    if (p_expression_statement->expression_opt)
     {
         //ajust_line_and_identation(p_expression_statement->first_token, ctx);
     }
@@ -289,7 +289,7 @@ static void format_visit_block_item(struct format_visit_ctx* ctx, struct block_i
     {
         format_visit_unlabeled_statement(ctx, p_block_item->unlabeled_statement, error);
     }
-    else if (p_block_item->labeled_statement)
+    else if (p_block_item->label)
     {
         //visit_labeled_statement(ctx, p_block_item->labeled_statement, error);
     }

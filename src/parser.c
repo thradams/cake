@@ -23,6 +23,7 @@
 
 struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* error);
 
+
 static int anonymous_struct_count = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1732,7 +1733,8 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         /*parametros nao usados*/
         while (parameter)
         {
-            if (parameter->declarator->num_uses == 0)
+            if (!type_is_maybe_unused(&parameter->declarator->type) &&
+                parameter->declarator->num_uses == 0)
             {
                 if (parameter->name &&
                     parameter->name->level == 0 /*direct source*/
@@ -1853,6 +1855,34 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         const char* name = p_init_declarator->declarator->name->lexeme;
         if (name)
         {
+            if (!type_is_function(&p_init_declarator->declarator->type))
+            {
+                if (!(p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
+                {
+                    struct scope* out = NULL;
+                    struct declarator* previous = find_declarator(ctx, name, &out);
+                    if (previous != NULL)
+                    {
+                        if (!type_is_function(&previous->type))
+                        {                            
+                            if (out->scope_level == ctx->scopes.tail->scope_level ||
+                                out->is_parameters_scope)
+                            {
+                                //mesmo nivel
+                                parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
+                                parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                            }
+                            else
+                            {
+                                //nivel diferente eh warning hides
+                                parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
+                                parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                            }
+                        }
+                      
+                    }
+                }
+            }
             //TODO se ja existe?
             hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
         }
@@ -2202,7 +2232,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         assert(false);
     }
 
-    pStruct_or_union_specifier->attribute_specifier_sequence =
+    pStruct_or_union_specifier->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx, error);
 
     struct struct_or_union_specifier* pPreviousTagInThisScope = NULL;
@@ -2290,6 +2320,25 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
               Temos uma versao mais completa deste tag neste escopo. Vamos ficar com ela.
             */
             hashmap_set(&ctx->scopes.tail->tags, pStruct_or_union_specifier->tag_name, &pStruct_or_union_specifier->type_id);
+        }
+    }
+
+
+    /*check if complete struct is deprecated*/
+    if (pStruct_or_union_specifier->complete_struct_or_union_specifier)
+    {        
+        if (pStruct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt &&
+            pStruct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags && STD_ATTRIBUTE_DEPRECATED)
+        {
+            if (pStruct_or_union_specifier->tagtoken)
+            {
+                //TODO add deprecated message
+                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first, "'%s' is deprecated", pStruct_or_union_specifier->tagtoken->lexeme);
+            }
+            else
+            {
+                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first, "deprecated");                
+            }
         }
     }
 
@@ -2570,14 +2619,19 @@ struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx
 struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* error)
 {
     /*
+     enum-type-specifier:
+     : specifier-qualifier-list
+    */
+
+    /*
         enum-specifier:
 
-        enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt
         { enumerator-list }
 
-        enum attribute-specifier-sequenceopt identifieropt enum-type-specifieropt
+        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt
         { enumerator-list , }
-        enum identifier enum-type-specifiero
+        enum identifier enum-type-specifier opt
     */
     struct enum_specifier* p_enum_specifier = NULL;
     try
@@ -2585,9 +2639,13 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
         p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
         p_enum_specifier->type_id.type = TAG_TYPE_ENUN_SPECIFIER;
 
+
         parser_match_tk(ctx, TK_KEYWORD_ENUM, error);
 
-        attribute_specifier_sequence_opt(ctx, error);
+        p_enum_specifier->attribute_specifier_sequence_opt = 
+            attribute_specifier_sequence_opt(ctx, error);
+
+     
         struct enum_specifier* pPreviousTagInThisScope = NULL;
         bool bHasIdentifier = false;
         if (ctx->current->type == TK_IDENTIFIER)
@@ -2711,16 +2769,14 @@ struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
     struct enumerator* p_enumerator = calloc(1, sizeof(struct enumerator));
     p_enumerator->type_id.type = TAG_TYPE_ENUMERATOR;
 
-    //enumeration_constant attribute_specifier_sequence_opt
-    //enumeration_constant attribute_specifier_sequence_opt '=' constant_expression
     struct token* name = ctx->current;
 
     naming_convention_enumerator(ctx, name);
 
-
     parser_match_tk(ctx, TK_IDENTIFIER, error);
-    attribute_specifier_sequence_opt(ctx, error);
-
+    
+    p_enumerator->attribute_specifier_sequence_opt = 
+        attribute_specifier_sequence_opt(ctx, error);
 
     p_enumerator->token = name;
     hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, &p_enumerator->type_id);
@@ -2769,7 +2825,7 @@ struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx, stru
     p->token = ctx->current;
     parser_match_tk(ctx, TK_KEYWORD__ATOMIC, error);
     parser_match_tk(ctx, '(', error);
-    type_name(ctx, error);
+    p->type_name = type_name(ctx, error);
     parser_match_tk(ctx, ')', error);
     return p;
 }
@@ -3102,6 +3158,7 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
 
 
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
+    p_function_declarator->parameters_scope.is_parameters_scope = true;
 
     scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
 
@@ -3135,7 +3192,10 @@ struct pointer* pointer_opt(struct parser_ctx* ctx, struct error* error)
         struct pointer* p_pointer = calloc(1, sizeof(struct pointer));
         p = p_pointer;
         parser_match(ctx);
-        attribute_specifier_sequence_opt(ctx, error);
+        
+        p_pointer->attribute_specifier_sequence_opt = 
+            attribute_specifier_sequence_opt(ctx, error);
+
         if (first_of_type_qualifier(ctx))
             p_pointer->type_qualifier_list_opt = type_qualifier_list(ctx, error);
         while (error->code == 0 && ctx->current != NULL &&
@@ -3218,10 +3278,17 @@ struct parameter_list* parameter_list(struct parser_ctx* ctx, struct error* erro
 struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx, struct error* error)
 {
     struct parameter_declaration* p_parameter_declaration = calloc(1, sizeof(struct parameter_declaration));
-    //attribute_specifier_sequence_opt declaration_specifiers declarator
-    //attribute_specifier_sequence_opt declaration_specifiers abstract_declarator_opt
-    attribute_specifier_sequence_opt(ctx, error);
+        
+    p_parameter_declaration->attribute_specifier_sequence_opt =
+        attribute_specifier_sequence_opt(ctx, error);
+
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx, error);
+
+    if (p_parameter_declaration->attribute_specifier_sequence_opt)
+    {
+        p_parameter_declaration->declaration_specifiers->attributes_flags =
+            p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags;
+    }
 
     //talvez no ctx colocar um flag que esta em argumentos
     //TODO se tiver uma struct tag novo...
@@ -3529,7 +3596,7 @@ struct designator* designator(struct parser_ctx* ctx, struct error* error)
     {
         parser_match_tk(ctx, '[', error);
         struct expression_ctx ectx = { 0 };
-        constant_expression(ctx, error, &ectx);
+        p_designator->constant_expression_opt = constant_expression(ctx, error, &ectx);
         parser_match_tk(ctx, ']', error);
     }
     else if (ctx->current->type == '.')
@@ -3721,16 +3788,20 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* er
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_MAYBE_UNUSED;
     }
     else if (strcmp(attr_token->lexeme, "noreturn") == 0) {
-        is_standard_attribute = true;
+        is_standard_attribute = true;        
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_NORETURN;
     }
     else if (strcmp(attr_token->lexeme, "reproducible") == 0) {
         is_standard_attribute = true;
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_REPRODUCIBLE;
     }
     else if (strcmp(attr_token->lexeme, "unsequenced") == 0) {
         is_standard_attribute = true;
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_UNSEQUENCED;
     }
     else if (strcmp(attr_token->lexeme, "nodiscard") == 0) {
         is_standard_attribute = true;
+        p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
     }
 
     parser_match_tk(ctx, TK_IDENTIFIER, error);
@@ -3889,6 +3960,12 @@ bool first_of_primary_block(struct parser_ctx* ctx)
 
 struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct error* error)
 {
+    /*
+     unlabeled-statement:
+       expression-statement
+       attribute-specifier-sequence opt primary-block
+       attribute-specifier-sequence opt jump-statement
+    */
     struct unlabeled_statement* p_unlabeled_statement = calloc(1, sizeof(struct unlabeled_statement));
 
     if (first_of_primary_block(ctx))
@@ -3902,12 +3979,25 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct e
     else
     {
         p_unlabeled_statement->expression_statement = expression_statement(ctx, error);
+        if (p_unlabeled_statement->expression_statement)
+        {            
+            if (p_unlabeled_statement->expression_statement->expression_opt && 
+                p_unlabeled_statement->expression_statement->expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
+            {
+
+                if (!type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type))
+                {
+                    if (type_is_nodiscard(&p_unlabeled_statement->expression_statement->expression_opt->type))
+                    {
+                        parser_setwarning_with_token(ctx,
+                            p_unlabeled_statement->expression_statement->expression_opt->first,
+                            "ignoring return value of function declared with 'nodiscard' attribute");
+                    }
+                }
+            }
+        }
     }
-    //expression_statement
-    //attribute_specifier_sequence_opt compound_statement
-    //attribute_specifier_sequence_opt selection_statement
-    //attribute_specifier_sequence_opt iteration_statement
-    //attribute_specifier_sequence_opt jump_statement
+    
     return p_unlabeled_statement;
 }
 struct label* label(struct parser_ctx* ctx, struct error* error)
@@ -3923,7 +4013,7 @@ struct label* label(struct parser_ctx* ctx, struct error* error)
     {
         parser_match(ctx);
         struct expression_ctx ectx = { .bConstantExpressionRequired = true };
-        constant_expression(ctx, error, &ectx);
+        p_label->constant_expression = constant_expression(ctx, error, &ectx);
         parser_match_tk(ctx, ':', error);
     }
     else if (ctx->current->type == TK_KEYWORD_DEFAULT)
@@ -3979,8 +4069,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
             if (p_declarator)
             {
-                if (
-                    !(p_declarator->type.attributes_flags & STD_ATTRIBUTE_MAYBE_UNUSED) &&
+                if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
                     //setwarning_with_token(ctx, p_declarator->name, )
@@ -4382,15 +4471,18 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
         if (ctx->current->type != ';')
         {
             struct expression_ctx ectx = { 0 };
-            p_jump_statement->expression = expression(ctx, error, &ectx);
+            p_jump_statement->expression_opt = expression(ctx, error, &ectx);
 
-            /*
-            * Check is return type is compatible with function return
-            */
-            if (!type_is_compatible(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
-                &p_jump_statement->expression->type))
+            if (p_jump_statement->expression_opt)
             {
-                parser_seterror_with_token(ctx, p_jump_statement->expression->first, "return type is incompatible");
+                /*
+                * Check is return type is compatible with function return
+                */
+                if (!type_is_compatible(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
+                    &p_jump_statement->expression_opt->type))
+                {
+                    parser_seterror_with_token(ctx, p_jump_statement->expression_opt->first, "return type is incompatible");
+                }
             }
         }
     }
@@ -4408,15 +4500,21 @@ struct expression_statement* expression_statement(struct parser_ctx* ctx, struct
     struct expression_statement* p_expression_statement = calloc(1, sizeof(struct expression_statement));
     /*
      expression-statement:
-       expression_opt ;
+       expression opt ;
        attribute-specifier-sequence expression ;
     */
+
+    p_expression_statement->p_attribute_specifier_sequence_opt = 
+        attribute_specifier_sequence_opt(ctx, error);
+
     if (ctx->current->type != ';')
     {
         struct expression_ctx ectx = { 0 };
-        p_expression_statement->expression = expression(ctx, error, &ectx);
+        p_expression_statement->expression_opt = expression(ctx, error, &ectx);
     }
+
     parser_match_tk(ctx, ';', error);
+
     return p_expression_statement;
 }
 
