@@ -3486,7 +3486,7 @@ struct braced_initializer* braced_initializer(struct parser_ctx* ctx, struct err
     */
 
     struct braced_initializer* p_bracket_initializer_list = calloc(1, sizeof(struct braced_initializer));
-    p_bracket_initializer_list->first = ctx->current;
+    p_bracket_initializer_list->first_token = ctx->current;
     parser_match_tk(ctx, '{', error);
     if (ctx->current->type != '}')
     {

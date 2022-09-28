@@ -490,13 +490,13 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
     {
         if (ctx->target < LANGUAGE_C2X)
         {
-            assert(p_bracket_initializer_list->first->type == '{');
+            assert(p_bracket_initializer_list->first_token->type == '{');
 
             //Criar token 0
             struct token_list list2 = tokenizer("0", NULL, 0, TK_FLAG_NONE, error);
 
             //inserir na frente
-            token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first, &list2);
+            token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first_token, &list2);
         }
     }
     else

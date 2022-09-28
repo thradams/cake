@@ -8616,11 +8616,12 @@ struct attribute_specifier
      attribute-specifier:
         [ [ attribute-list ] ]
     */
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
     struct attribute_list* attribute_list;
     struct attribute_specifier* next;
 };
+
 struct attribute_specifier* attribute_specifier(struct parser_ctx* ctx, struct error* error);
 struct attribute* attribute(struct parser_ctx* ctx, struct error* error);
 
@@ -8831,8 +8832,8 @@ struct struct_or_union_specifier
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct member_declaration_list member_declaration_list;
     struct type_tag_id type_id;
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
 
     /*
     * Token que possui tag da struct
@@ -9054,8 +9055,8 @@ struct type_name
        specifier-qualifier-list abstract-declarator opt
     */
 
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct declarator* declarator;
 };
@@ -9070,7 +9071,7 @@ struct argument_expression
 
 struct braced_initializer
 {
-    struct token* first;
+    struct token* first_token;
     /*
      { }
      { initializer-list }
@@ -10556,12 +10557,12 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
 
     assert(p_expression_node->type_name == NULL);
 
-    p_expression_node->first = previous_parser_token(p_type_name->first);
+    p_expression_node->first = previous_parser_token(p_type_name->first_token);
     assert(p_expression_node->first->type == '(');
     
     p_expression_node->type_name = p_type_name;
     p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
-    bool is_function_type = false;
+    
 
     if (type_is_function(&p_type_name->declarator->type))
     {
@@ -13976,9 +13977,9 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
                     p_type->struct_or_union_specifier->complete_struct_or_union_specifier;
             }
 
-            struct token* current = p_struct_or_union_specifier->first;
+            struct token* current = p_struct_or_union_specifier->first_token;
             for (;
-                current != p_struct_or_union_specifier->last->next;
+                current != p_struct_or_union_specifier->last_token->next;
                 current = current->next)
             {
                 if (current->flags & TK_FLAG_FINAL)
@@ -16996,7 +16997,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     if (ctx->current->type == TK_KEYWORD_STRUCT ||
         ctx->current->type == TK_KEYWORD_UNION)
     {
-        pStruct_or_union_specifier->first = ctx->current;
+        pStruct_or_union_specifier->first_token = ctx->current;
         parser_match(ctx);
     }
     else
@@ -17073,14 +17074,14 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         parser_match(ctx);
         pStruct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, error);
         pStruct_or_union_specifier->member_declaration_list.first_token = first;
-        pStruct_or_union_specifier->last = ctx->current;
+        pStruct_or_union_specifier->last_token = ctx->current;
         pStruct_or_union_specifier->member_declaration_list.last_token = ctx->current;
         parser_match_tk(ctx, '}', error);
 
     }
     else
     {
-        pStruct_or_union_specifier->last = ctx->current;
+        pStruct_or_union_specifier->last_token = ctx->current;
     }
 
     if (pPreviousTagInThisScope)
@@ -17105,11 +17106,11 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             if (pStruct_or_union_specifier->tagtoken)
             {
                 //TODO add deprecated message
-                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first, "'%s' is deprecated", pStruct_or_union_specifier->tagtoken->lexeme);
+                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first_token, "'%s' is deprecated", pStruct_or_union_specifier->tagtoken->lexeme);
             }
             else
             {
-                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first, "deprecated");                
+                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first_token, "deprecated");
             }
         }
     }
@@ -17237,9 +17238,10 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
 
             if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
             {
-                struct member_declaration_list* list =
+                struct member_declaration_list* p_member_declaration_list =
                     &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
-                struct member_declarator* p = find_member_declarator(list, name);
+
+                struct member_declarator* p = find_member_declarator(p_member_declaration_list, name);
                 if (p)
                 {
                     return p;
@@ -18229,7 +18231,7 @@ struct type_name* type_name(struct parser_ctx* ctx, struct error* error)
 {
     struct type_name* p_type_name = calloc(1, sizeof(struct type_name));
 
-    p_type_name->first = ctx->current;
+    p_type_name->first_token = ctx->current;
 
 
     p_type_name->specifier_qualifier_list = specifier_qualifier_list(ctx, error);
@@ -18240,7 +18242,7 @@ struct type_name* type_name(struct parser_ctx* ctx, struct error* error)
         NULL,
         error);
 
-    p_type_name->last = ctx->current->prev;
+    p_type_name->last_token = ctx->current->prev;
 
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
 
@@ -18257,7 +18259,7 @@ struct braced_initializer* braced_initializer(struct parser_ctx* ctx, struct err
     */
 
     struct braced_initializer* p_bracket_initializer_list = calloc(1, sizeof(struct braced_initializer));
-    p_bracket_initializer_list->first = ctx->current;
+    p_bracket_initializer_list->first_token = ctx->current;
     parser_match_tk(ctx, '{', error);
     if (ctx->current->type != '}')
     {
@@ -18483,14 +18485,14 @@ struct attribute_specifier* attribute_specifier(struct parser_ctx* ctx, struct e
 {
     struct attribute_specifier* p_attribute_specifier = calloc(1, sizeof(struct attribute_specifier));
 
-    p_attribute_specifier->first = ctx->current;
+    p_attribute_specifier->first_token = ctx->current;
 
     //'[' '[' attribute_list ']' ']'
     parser_match_tk(ctx, '[', error);
     parser_match_tk(ctx, '[', error);
     p_attribute_specifier->attribute_list = attribute_list(ctx, error);
     parser_match_tk(ctx, ']', error);
-    p_attribute_specifier->last = ctx->current;
+    p_attribute_specifier->last_token = ctx->current;
     parser_match_tk(ctx, ']', error);
     return p_attribute_specifier;
 }
@@ -19876,10 +19878,10 @@ char* compile_source(const char* pszoptions, const char* content)
             }
             if (options.format_ouput)
             {
-                struct error error = { 0 };
+                struct error error_local = { 0 };
 
                 /*re-parser ouput and format*/
-                const char* s2 = format_code(&options, s, &error);
+                const char* s2 = format_code(&options, s, &error_local);
                 free(s);
                 s = s2;
             }
@@ -20737,13 +20739,13 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
     {
         if (ctx->target < LANGUAGE_C2X)
         {
-            assert(p_bracket_initializer_list->first->type == '{');
+            assert(p_bracket_initializer_list->first_token->type == '{');
 
             //Criar token 0
             struct token_list list2 = tokenizer("0", NULL, 0, TK_FLAG_NONE, error);
 
             //inserir na frente
-            token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first, &list2);
+            token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first_token, &list2);
         }
     }
     else
@@ -21546,7 +21548,7 @@ static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_sp
 {
     if (ctx->target < LANGUAGE_C2X)
     {        
-        token_range_add_flag(p_attribute_specifier->first, p_attribute_specifier->last, TK_FLAG_HIDE);
+        token_range_add_flag(p_attribute_specifier->first_token, p_attribute_specifier->last_token, TK_FLAG_HIDE);
     }
 }
 
@@ -21688,7 +21690,7 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
 
                         p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
 
-                        struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first;
+                        struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first_token;
 
                         const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
                         char buffer[200] = { 0 };
@@ -21927,8 +21929,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
                 if (p_declaration->init_declarator_list.head == NULL)
                 {
-                    token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->first,
-                        p_declaration->declaration_specifiers->struct_or_union_specifier->last,
+                    token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->first_token,
+                        p_declaration->declaration_specifiers->struct_or_union_specifier->last_token,
                         TK_FLAG_HIDE);
                 }
                 else

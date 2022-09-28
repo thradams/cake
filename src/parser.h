@@ -658,7 +658,7 @@ struct argument_expression
 
 struct braced_initializer
 {
-    struct token* first;
+    struct token* first_token;
     /*
      { }
      { initializer-list }
