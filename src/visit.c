@@ -1299,7 +1299,7 @@ static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_sp
 {
     if (ctx->target < LANGUAGE_C2X)
     {        
-        token_range_add_flag(p_attribute_specifier->first, p_attribute_specifier->last, TK_FLAG_HIDE);
+        token_range_add_flag(p_attribute_specifier->first_token, p_attribute_specifier->last_token, TK_FLAG_HIDE);
     }
 }
 
@@ -1441,7 +1441,7 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
 
                         p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
 
-                        struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first;
+                        struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first_token;
 
                         const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
                         char buffer[200] = { 0 };
@@ -1680,8 +1680,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
                 if (p_declaration->init_declarator_list.head == NULL)
                 {
-                    token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->first,
-                        p_declaration->declaration_specifiers->struct_or_union_specifier->last,
+                    token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->first_token,
+                        p_declaration->declaration_specifiers->struct_or_union_specifier->last_token,
                         TK_FLAG_HIDE);
                 }
                 else

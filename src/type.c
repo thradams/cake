@@ -1110,9 +1110,9 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
                     p_type->struct_or_union_specifier->complete_struct_or_union_specifier;
             }
 
-            struct token* current = p_struct_or_union_specifier->first;
+            struct token* current = p_struct_or_union_specifier->first_token;
             for (;
-                current != p_struct_or_union_specifier->last->next;
+                current != p_struct_or_union_specifier->last_token->next;
                 current = current->next)
             {
                 if (current->flags & TK_FLAG_FINAL)

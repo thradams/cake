@@ -2224,7 +2224,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     if (ctx->current->type == TK_KEYWORD_STRUCT ||
         ctx->current->type == TK_KEYWORD_UNION)
     {
-        pStruct_or_union_specifier->first = ctx->current;
+        pStruct_or_union_specifier->first_token = ctx->current;
         parser_match(ctx);
     }
     else
@@ -2301,14 +2301,14 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         parser_match(ctx);
         pStruct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, error);
         pStruct_or_union_specifier->member_declaration_list.first_token = first;
-        pStruct_or_union_specifier->last = ctx->current;
+        pStruct_or_union_specifier->last_token = ctx->current;
         pStruct_or_union_specifier->member_declaration_list.last_token = ctx->current;
         parser_match_tk(ctx, '}', error);
 
     }
     else
     {
-        pStruct_or_union_specifier->last = ctx->current;
+        pStruct_or_union_specifier->last_token = ctx->current;
     }
 
     if (pPreviousTagInThisScope)
@@ -2333,11 +2333,11 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             if (pStruct_or_union_specifier->tagtoken)
             {
                 //TODO add deprecated message
-                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first, "'%s' is deprecated", pStruct_or_union_specifier->tagtoken->lexeme);
+                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first_token, "'%s' is deprecated", pStruct_or_union_specifier->tagtoken->lexeme);
             }
             else
             {
-                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first, "deprecated");                
+                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first_token, "deprecated");
             }
         }
     }
@@ -2465,9 +2465,10 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
 
             if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
             {
-                struct member_declaration_list* list =
+                struct member_declaration_list* p_member_declaration_list =
                     &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
-                struct member_declarator* p = find_member_declarator(list, name);
+
+                struct member_declarator* p = find_member_declarator(p_member_declaration_list, name);
                 if (p)
                 {
                     return p;
@@ -3457,7 +3458,7 @@ struct type_name* type_name(struct parser_ctx* ctx, struct error* error)
 {
     struct type_name* p_type_name = calloc(1, sizeof(struct type_name));
 
-    p_type_name->first = ctx->current;
+    p_type_name->first_token = ctx->current;
 
 
     p_type_name->specifier_qualifier_list = specifier_qualifier_list(ctx, error);
@@ -3468,7 +3469,7 @@ struct type_name* type_name(struct parser_ctx* ctx, struct error* error)
         NULL,
         error);
 
-    p_type_name->last = ctx->current->prev;
+    p_type_name->last_token = ctx->current->prev;
 
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
 
@@ -3711,14 +3712,14 @@ struct attribute_specifier* attribute_specifier(struct parser_ctx* ctx, struct e
 {
     struct attribute_specifier* p_attribute_specifier = calloc(1, sizeof(struct attribute_specifier));
 
-    p_attribute_specifier->first = ctx->current;
+    p_attribute_specifier->first_token = ctx->current;
 
     //'[' '[' attribute_list ']' ']'
     parser_match_tk(ctx, '[', error);
     parser_match_tk(ctx, '[', error);
     p_attribute_specifier->attribute_list = attribute_list(ctx, error);
     parser_match_tk(ctx, ']', error);
-    p_attribute_specifier->last = ctx->current;
+    p_attribute_specifier->last_token = ctx->current;
     parser_match_tk(ctx, ']', error);
     return p_attribute_specifier;
 }
@@ -5104,10 +5105,10 @@ char* compile_source(const char* pszoptions, const char* content)
             }
             if (options.format_ouput)
             {
-                struct error error = { 0 };
+                struct error error_local = { 0 };
 
                 /*re-parser ouput and format*/
-                const char* s2 = format_code(&options, s, &error);
+                const char* s2 = format_code(&options, s, &error_local);
                 free(s);
                 s = s2;
             }

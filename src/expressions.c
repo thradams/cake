@@ -954,12 +954,12 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
 
     assert(p_expression_node->type_name == NULL);
 
-    p_expression_node->first = previous_parser_token(p_type_name->first);
+    p_expression_node->first = previous_parser_token(p_type_name->first_token);
     assert(p_expression_node->first->type == '(');
     
     p_expression_node->type_name = p_type_name;
     p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
-    bool is_function_type = false;
+    
 
     if (type_is_function(&p_type_name->declarator->type))
     {

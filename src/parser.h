@@ -203,11 +203,12 @@ struct attribute_specifier
      attribute-specifier:
         [ [ attribute-list ] ]
     */
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
     struct attribute_list* attribute_list;
     struct attribute_specifier* next;
 };
+
 struct attribute_specifier* attribute_specifier(struct parser_ctx* ctx, struct error* error);
 struct attribute* attribute(struct parser_ctx* ctx, struct error* error);
 
@@ -418,8 +419,8 @@ struct struct_or_union_specifier
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct member_declaration_list member_declaration_list;
     struct type_tag_id type_id;
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
 
     /*
     * Token que possui tag da struct
@@ -641,8 +642,8 @@ struct type_name
        specifier-qualifier-list abstract-declarator opt
     */
 
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct declarator* declarator;
 };
