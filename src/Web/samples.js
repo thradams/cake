@@ -237,6 +237,9 @@ int main()
 
     /*pay attention to the pointer*/
     typeof(int*) p1, p2;
+    typeof(typeof(int*)) p3;
+    typeof(typeof(p1)) p4;
+    typeof_unqual(const int) p5;
 
     /*let's expand this macro and see inside*/
     SWAP(a, b);

@@ -16863,12 +16863,26 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx, struct error* 
     struct typeof_specifier* p_typeof_specifier = calloc(1, sizeof(struct typeof_specifier));
 
     p_typeof_specifier->first_token = ctx->current;
+    
+    const bool is_typeof_unqual = ctx->current->type == TK_KEYWORD_TYPEOF_UNQUAL;
     parser_match(ctx);
     parser_match_tk(ctx, '(', error);
 
     p_typeof_specifier->typeof_specifier_argument =
         typeof_specifier_argument(ctx, error);
 
+    if (is_typeof_unqual)
+    {
+        /*let's remove qualifiers*/
+        if (p_typeof_specifier->typeof_specifier_argument->expression)
+        {
+            p_typeof_specifier->typeof_specifier_argument->expression->declarator->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
+        }
+        else if (p_typeof_specifier->typeof_specifier_argument->type_name)
+        {
+            p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
+        }        
+    }
     p_typeof_specifier->last_token = ctx->current;
     parser_match_tk(ctx, ')', error);
 

@@ -1,7 +1,2 @@
-int main()
-{
-    (int(void)) {
-    return 1;
-}();
 
-}
+typeof_unqual(const int) a;
