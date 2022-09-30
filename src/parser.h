@@ -55,7 +55,7 @@ struct parser_ctx
     /*
     * Points to the try-block we're in. Or null.
     */
-    struct try_statement* p_current_try_statement_opt;
+    const struct try_statement* p_current_try_statement_opt;
 
     struct token_list input_list;
     struct token* current;
@@ -513,20 +513,38 @@ struct declarator* declarator(struct parser_ctx* ctx,
     struct token** pptokenName,
     struct error* error);
 
-
-struct array_function
+struct array_declarator
 {
-    //TODO separate?
-    struct array_declarator* array_declarator;
-    struct function_declarator* function_declarator;
-    struct array_function* next;
+    /*
+     array-declarator:
+        direct-declarator [ type-qualifier-list opt assignment-expression opt ]
+        direct-declarator [ "static" type-qualifier-list opt assignment-expression ]
+        direct-declarator [ type-qualifier-list "static" assignment-expression ]
+        direct-declarator [ type-qualifier-listopt * ]
+    */
+    struct direct_declarator* direct_declarator;
+    struct expression* assignment_expression;
+    struct expression* expression;
+    struct type_qualifier_list* type_qualifier_list_opt;
+    unsigned long long constant_size;
+    struct token* token;
 };
 
-struct array_function_list
+//struct array_declarator* array_declarator(struct direct_declarator* p_direct_declarator, struct parser_ctx* ctx, struct error* error);
+
+struct function_declarator
 {
-    struct array_function* head;
-    struct array_function* tail;
+    /*
+     function-declarator:
+       direct-declarator ( parameter-type-list opt )
+    */
+    struct direct_declarator* direct_declarator;
+    struct scope parameters_scope; //usado para escopo parametros
+    struct parameter_type_list* parameter_type_list_opt;
 };
+
+
+
 
 struct direct_declarator
 {
@@ -537,9 +555,10 @@ struct direct_declarator
         array-declarator attribute-specifier-sequence opt
         function-declarator attribute-specifier-sequence opt
     */
-    struct token* name;
+    struct token* name_opt;
     struct declarator* declarator;
-    struct array_function_list array_function_list;
+    struct array_declarator* array_declarator;
+    struct function_declarator* function_declarator;
 };
 
 struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
@@ -549,35 +568,6 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
     struct token** pptokenName,
     struct error* error);
 
-struct array_declarator
-{
-    /*
-     array-declarator:
-        direct-declarator [ type-qualifier-list opt assignment-expression opt ]
-        direct-declarator [ "static" type-qualifier-list opt assignment-expression ]
-        direct-declarator [ type-qualifier-list "static" assignment-expression ]
-        direct-declarator [ type-qualifier-listopt * ]
-    */
-    struct expression* assignment_expression;
-    struct expression* expression;
-    struct type_qualifier_list* type_qualifier_list_opt;
-    unsigned long long constant_size;
-    struct token* token;
-};
-
-struct array_declarator* array_declarator(struct parser_ctx* ctx, struct error* error);
-
-struct function_declarator
-{
-    /*
-     function-declarator:
-       direct-declarator ( parameter-type-list opt )
-    */
-    struct scope parameters_scope; //usado para escopo parametros
-    struct parameter_type_list* parameter_type_list_opt;
-};
-
-struct function_declarator* function_declarator(struct parser_ctx* ctx, struct error* error);
 
 struct parameter_type_list
 {
@@ -1003,8 +993,8 @@ struct secondary_block
      secondary-block:
        statement
     */
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
     struct statement* statement;
 };
 
@@ -1122,7 +1112,7 @@ struct enumerator
     */
     struct type_tag_id type_id;
     struct token* token;
-    struct attribute_specifier_sequence_opt* attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
 
     struct expression* constant_expression_opt;
 

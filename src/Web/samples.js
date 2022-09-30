@@ -609,6 +609,18 @@ int main()
 }
 `;
 
+sample["Extension Literal function (lambda) I"] =
+`
+/*simple lambda*/
+#include <stdio.h>
+int main()
+{
+  printf("%d", (int (void)){
+    return 1;
+  }());
+}
+`;
+
 sample["Extension Literal function (lambdas)"] =
     `
 #include <stdio.h>

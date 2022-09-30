@@ -43,7 +43,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 {
     try
     {
-        struct type_list parameter_type = { 0 };
+        struct params parameter_type = { 0 };
 
 
         bool is_var_args = false;
@@ -52,16 +52,16 @@ int  compare_function_arguments(struct parser_ctx* ctx,
         if (p_type &&
             p_type->declarator_type &&
             p_type->declarator_type->direct_declarator_type &&
-            p_type->declarator_type->direct_declarator_type->array_function_type_list.head)
+            p_type->declarator_type->direct_declarator_type->function_declarator_type)
         {
-            parameter_type = p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params;
-            is_var_args = p_type->declarator_type->direct_declarator_type->array_function_type_list.head->bVarArg;
+            parameter_type = p_type->declarator_type->direct_declarator_type->function_declarator_type->params;
+            is_var_args = p_type->declarator_type->direct_declarator_type->function_declarator_type->is_var_args;
 
             /*detectar que o parametro é (void)*/
             is_void =
-                p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head &&
-                p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
-                p_type->declarator_type->direct_declarator_type->array_function_type_list.head->params.head->declarator_type->pointers.head == NULL;
+                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head &&
+                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
+                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head->declarator_type->pointers.head == NULL;
         }
 
 
@@ -217,7 +217,8 @@ struct generic_association* generic_association(struct parser_ctx* ctx, struct e
     try
     {
         p_generic_association = calloc(1, sizeof * p_generic_association);
-        
+        if (p_generic_association == NULL)
+            throw;
 
         /*generic - association:
             type-name : assignment-expression
@@ -252,8 +253,10 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
     try
     {
         struct generic_association* p_generic_association = 
-          generic_association(ctx, error, ectx);
-        
+          generic_association(ctx, error, ectx);        
+        if (p_generic_association == NULL)
+            throw;
+
         list_add(&list, p_generic_association);
         
         while (error->code == 0 &&
@@ -300,7 +303,9 @@ struct generic_selection * generic_selection(struct parser_ctx* ctx, struct erro
     try
     {
         p_generic_selection = calloc(1, sizeof * p_generic_selection);
-        
+        if (p_generic_selection == NULL)
+            throw;
+
         p_generic_selection->first_token = ctx->current;
         
 
@@ -552,16 +557,14 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
             
             struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
-            struct array_function_type* p_array_function_type = calloc(1, sizeof * p_array_function_type);
+            struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
             struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
 
             p_declarator_type->direct_declarator_type = p_direct_declarator_type;
             
             //TODO decode before get size
-            p_array_function_type->array_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
-
-            p_array_function_type->bIsArray = true;
-            list_add(&p_declarator_type->direct_declarator_type->array_function_type_list, p_array_function_type);
+            array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
+            p_direct_declarator_type->array_declarator_type = array_declarator_type;
             
             p_expression_node->type.declarator_type = p_declarator_type;
             
@@ -966,7 +969,7 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
         p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
         struct scope* parameters_scope =
-            &p_expression_node->type_name->declarator->direct_declarator->array_function_list.head->function_declarator->parameters_scope;
+            &p_expression_node->type_name->declarator->direct_declarator->function_declarator->parameters_scope;
 
         scope_list_push(&ctx->scopes, parameters_scope);
         p_expression_node->compound_statement = function_body(ctx, error);
@@ -1024,8 +1027,7 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
             //printf("\n");
             //print_type(&p_expression_node->type);
             bool is_function_type = false;
-            if (p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head &&
-                p_expression_node->type.declarator_type->direct_declarator_type->array_function_type_list.head->bIsFunction)
+            if (p_expression_node->type.declarator_type->direct_declarator_type->function_declarator_type)
             {
                 if (p_expression_node->type.declarator_type->direct_declarator_type->declarator_opt == NULL)
                 {
@@ -1201,9 +1203,15 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_TYPE;
                 parser_match_tk(ctx, '(', error);
                 new_expression->type_name = type_name(ctx, error);
-                new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
+
+
+                new_expression->type.type_specifier_flags = TYPE_SPECIFIER_INT;
+                
+                /*no name in*/
+                //declarator_type_clear_name(new_expression->type.declarator_type);
+
                 parser_match_tk(ctx, ')', error);
-                new_expression->constant_value = type_get_sizeof(ctx, &new_expression->type, error);
+                new_expression->constant_value = type_get_sizeof(ctx, &new_expression->type_name->declarator->type, error);
             }
             else
             {
@@ -2326,10 +2334,10 @@ void test_expressions()
         "    static_assert(typeid(main) != typeid(int));\n"
         "\n"
         "\n"
-        "    struct X x;\n"
+        "    struct X x2;\n"
         "    enum E e;\n"
         "    static_assert(typeid(e) == typeid(enum E));\n"
-        "    static_assert(typeid(x) == typeid(struct X));\n"
+        "    static_assert(typeid(x2) == typeid(struct X));\n"
         "    static_assert(typeid(e) != typeid(struct X));\n"
         "\n"
         "    \n"

@@ -38,17 +38,6 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 ///////////////////////////////////////////////////////////////////////////////
 
-/*coisas que vao em hash map possuim um id
-assim é possivel usar o mesmo mapa para achar tipos diferentes
-*/
-enum
-{
-    TAG_TYPE_NONE,
-    TAG_TYPE_ENUN_SPECIFIER,
-    TAG_TYPE_STRUCT_OR_UNION_SPECIFIER,
-    TAG_TYPE_ENUMERATOR,
-    TAG_TYPE_DECLARATOR,
-};
 
 
 #ifdef TEST
@@ -1702,15 +1691,15 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     struct declaration* p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, error);
     if (is_function_definition)
     {
-        naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name);
+        naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name_opt);
 
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
-        assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator);
+        assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator);
 
         struct scope* parameters_scope =
-            &p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameters_scope;
+            &p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameters_scope;
 
 
         scope_list_push(&ctx->scopes, parameters_scope);
@@ -1723,11 +1712,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
         struct parameter_declaration* parameter = NULL;
 
-        if (p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator &&
-            p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt &&
-            p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list)
+        if (p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator &&
+            p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
+            p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
         {
-            parameter = p_declaration->init_declarator_list.head->declarator->direct_declarator->array_function_list.head->function_declarator->parameter_type_list_opt->parameter_list->head;
+            parameter = p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
 
         /*parametros nao usados*/
@@ -1985,6 +1974,7 @@ struct typeof_specifier_argument* typeof_specifier_argument(struct parser_ctx* c
     {
         struct expression_ctx ectx = { 0 };
         new_typeof_specifier_argument->expression = expression(ctx, error, &ectx);
+        declarator_type_clear_name(new_typeof_specifier_argument->expression->type.declarator_type);
     }
 
     return new_typeof_specifier_argument;
@@ -2872,7 +2862,7 @@ struct type_qualifier* type_qualifier_opt(struct parser_ctx* ctx, struct error* 
 
 struct function_specifier* function_specifier(struct parser_ctx* ctx, struct error* error)
 {
-    if (ctx->current == TK_KEYWORD__NORETURN)
+    if (ctx->current->type == TK_KEYWORD__NORETURN)
     {
         parser_set_info_with_token(ctx, ctx->current, "_Noreturn is deprecated use attributes");
     }
@@ -2911,18 +2901,24 @@ struct declarator* declarator(struct parser_ctx* ctx,
 const char* declarator_get_name(struct declarator* p_declarator)
 {
     if (p_declarator->direct_declarator)
-        return p_declarator->direct_declarator->name->lexeme;
-    assert(false);
+    {
+        if (p_declarator->direct_declarator->name_opt)
+          return p_declarator->direct_declarator->name_opt->lexeme;
+    }
+
+    
     return NULL;
 }
 
 bool declarator_is_function(struct declarator* p_declarator)
 {
-    return (p_declarator->direct_declarator &&
-        p_declarator->direct_declarator->array_function_list.head &&
-        p_declarator->direct_declarator->array_function_list.head->function_declarator != NULL);
+    return (p_declarator->direct_declarator &&        
+        p_declarator->direct_declarator->function_declarator != NULL);
 
 }
+
+struct array_declarator* array_declarator(struct direct_declarator* p_direct_declarator, struct parser_ctx* ctx, struct error* error);
+struct function_declarator* function_declarator(struct direct_declarator* p_direct_declarator, struct parser_ctx* ctx, struct error* error);
 
 struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* p_specifier_qualifier_list,
@@ -2955,9 +2951,6 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
                 find_declarator(ctx, ctx->current->lexeme, &pscope);
             if (pdeclarator)
             {
-
-
-
                 if (pscope == ctx->scopes.tail)
                 {
                     if (pscope->scope_level != 0)
@@ -2983,8 +2976,8 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
                     if (pscope->scope_level != 0)
                     {
                         if (pdeclarator->direct_declarator &&
-                            pdeclarator->direct_declarator->name &&
-                            pdeclarator->direct_declarator->name->token_origin)
+                            pdeclarator->direct_declarator->name_opt &&
+                            pdeclarator->direct_declarator->name_opt->token_origin)
                         {
                             //TODO ver se esta dentro de struct
                             //printf("warning '%s' at line %d hides previous definition %d\n",
@@ -2998,7 +2991,7 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
                 }
             }
 
-            p_direct_declarator->name = ctx->current;
+            p_direct_declarator->name_opt = ctx->current;
             if (pptokenName != NULL)
             {
                 *pptokenName = ctx->current;
@@ -3042,18 +3035,22 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
         while (error->code == 0 && ctx->current != NULL &&
             (ctx->current->type == '[' || ctx->current->type == '('))
         {
-            struct array_function* p_array_function = calloc(1, sizeof(struct array_function));
-            list_add(&p_direct_declarator->array_function_list, p_array_function);
+            struct direct_declarator* p_direct_declarator2 = calloc(1, sizeof(struct direct_declarator));
+
             if (ctx->current->type == '[')
             {
-                p_array_function->array_declarator = array_declarator(ctx, error);
+                p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx, error);
             }
-            else if (ctx->current->type == '(')
+            else
             {
-
-                p_array_function->function_declarator = function_declarator(ctx, error);
+                p_direct_declarator2->function_declarator = function_declarator(p_direct_declarator, ctx, error);
             }
+            p_direct_declarator = p_direct_declarator2;
         }
+
+      
+
+     
     }
     catch
     {
@@ -3063,7 +3060,7 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
 }
 
 
-struct array_declarator* array_declarator(struct parser_ctx* ctx, struct error* error)
+struct array_declarator* array_declarator(struct direct_declarator* p_direct_declarator, struct parser_ctx* ctx, struct error* error)
 {
     //direct_declarator '['          type_qualifier_list_opt           assignment_expression_opt ']'
     //direct_declarator '[' 'static' type_qualifier_list_opt           assignment_expression     ']'
@@ -3076,10 +3073,12 @@ struct array_declarator* array_declarator(struct parser_ctx* ctx, struct error* 
         if (error->code != 0)
             throw;
 
+
         p_array_declarator = calloc(1, sizeof * p_array_declarator);
         if (p_array_declarator == NULL)
             throw;
 
+        p_array_declarator->direct_declarator = p_direct_declarator;
         parser_match_tk(ctx, '[', error);
         if (error->code != 0) throw;
 
@@ -3147,7 +3146,7 @@ struct array_declarator* array_declarator(struct parser_ctx* ctx, struct error* 
 }
 
 
-struct function_declarator* function_declarator(struct parser_ctx* ctx, struct error* error)
+struct function_declarator* function_declarator(struct direct_declarator *p_direct_declarator,struct parser_ctx* ctx, struct error* error)
 {
     struct function_declarator* p_function_declarator = calloc(1, sizeof(struct function_declarator));
     //faz um push da funcion_scope_declarator_list que esta vivendo mais em cima
@@ -3157,7 +3156,7 @@ struct function_declarator* function_declarator(struct parser_ctx* ctx, struct e
     //direct_declarator '(' parameter_type_list_opt ')'
 
 
-
+    p_function_declarator->direct_declarator = p_direct_declarator;
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
     p_function_declarator->parameters_scope.is_parameters_scope = true;
 
@@ -3384,43 +3383,39 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
         ss_fprintf(ss, ")");
     }
 
-    if (p_direct_declarator->name && !is_abstract)
+    if (p_direct_declarator->name_opt && !is_abstract)
     {
         //Se is_abstract for true é pedido para nao imprimir o nome do indentificador
-        ss_fprintf(ss, "%s", p_direct_declarator->name->lexeme);
+        ss_fprintf(ss, "%s", p_direct_declarator->name_opt->lexeme);
     }
 
-    struct array_function* p_array_function =
-        p_direct_declarator->array_function_list.head;
-
-    while (p_array_function)
+    if (p_direct_declarator->function_declarator)
     {
-        if (p_array_function->function_declarator)
+        print_direct_declarator(ss, p_direct_declarator->function_declarator->direct_declarator, is_abstract);
+
+        ss_fprintf(ss, "(");
+        struct parameter_declaration* p_parameter_declaration =
+            p_direct_declarator->function_declarator->parameter_type_list_opt ?
+            p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head : NULL;
+
+        while (p_parameter_declaration)
         {
-            ss_fprintf(ss, "(");
-            struct parameter_declaration* p_parameter_declaration =
-                p_array_function->function_declarator->parameter_type_list_opt ?
-                p_array_function->function_declarator->parameter_type_list_opt->parameter_list->head : NULL;
+            if (p_parameter_declaration != p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head)
+                ss_fprintf(ss, ",");
 
-            while (p_parameter_declaration)
-            {
-                if (p_parameter_declaration != p_array_function->function_declarator->parameter_type_list_opt->parameter_list->head)
-                    ss_fprintf(ss, ",");
+            print_declaration_specifiers(ss, p_parameter_declaration->declaration_specifiers);
+            ss_fprintf(ss, " ");
+            print_declarator(ss, p_parameter_declaration->declarator, is_abstract);
 
-                print_declaration_specifiers(ss, p_parameter_declaration->declaration_specifiers);
-                ss_fprintf(ss, " ");
-                print_declarator(ss, p_parameter_declaration->declarator, is_abstract);
-
-                p_parameter_declaration = p_parameter_declaration->next;
-            }
-            //... TODO
-            ss_fprintf(ss, ")");
+            p_parameter_declaration = p_parameter_declaration->next;
         }
-        else if (p_array_function->array_declarator)
-        {
-            ss_fprintf(ss, "[]");
-        }
-        p_array_function = p_array_function->next;
+        //... TODO
+        ss_fprintf(ss, ")");
+    }
+    if (p_direct_declarator->array_declarator)
+    {
+        //TODO
+        ss_fprintf(ss, "[]");
     }
 
 }
@@ -3935,12 +3930,12 @@ struct primary_block* primary_block(struct parser_ctx* ctx, struct error* error)
 struct secondary_block* secondary_block(struct parser_ctx* ctx, struct error* error)
 {
     struct secondary_block* p_secondary_block = calloc(1, sizeof(struct secondary_block));
-    p_secondary_block->first = ctx->current;
+    p_secondary_block->first_token = ctx->current;
 
 
     p_secondary_block->statement = statement(ctx, error);
 
-    p_secondary_block->last = ctx->previous;
+    p_secondary_block->last_token = ctx->previous;
 
     return p_secondary_block;
 }
@@ -4065,6 +4060,12 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
         while (entry)
         {
 
+            if (entry->p->type != TAG_TYPE_DECLARATOR)
+            {
+                entry = entry->next;
+                continue;
+            }
+            
             struct declarator* p_declarator =
                 p_declarator = container_of(entry->p, struct declarator, type_id);
 
@@ -4590,7 +4591,7 @@ struct declaration_list parse(struct options* options, struct token_list* list, 
 
 
 
-int fill_options(struct options* options, int argc, char** argv, struct preprocessor_ctx* prectx, struct error* error)
+int fill_options(struct options* options, int argc, const char** argv, struct preprocessor_ctx* prectx, struct error* error)
 {
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
@@ -4764,7 +4765,7 @@ const char* format_code(struct options* options,
     struct error* error)
 {
     struct ast ast = { 0 };
-    char* s = NULL;
+    const char* s = NULL;
 
 
     struct preprocessor_ctx prectx = { 0 };
@@ -4794,7 +4795,7 @@ const char* format_code(struct options* options,
         if (error->code != 0)
             throw;
 
-        ast.declaration_list = parse(&options, &ast.token_list, error);
+        ast.declaration_list = parse(options, &ast.token_list, error);
         if (error->code != 0)
         {
             throw;
@@ -4825,8 +4826,7 @@ int compile_one_file(const char* file_name,
     char** argv,
     struct error* error)
 {
-    clock_t start_clock = clock();
-
+    
     struct preprocessor_ctx prectx = { 0 };
 
 #ifdef TEST
@@ -4845,7 +4845,7 @@ int compile_one_file(const char* file_name,
 
     struct options options = { .input = LANGUAGE_CXX };
 
-    char* s = NULL;
+    const char* s = NULL;
 
     try
     {
@@ -4885,9 +4885,9 @@ int compile_one_file(const char* file_name,
 
         if (options.bPreprocessOnly)
         {
-            const char* s = print_preprocessed_to_string2(ast.token_list.head);
-            printf("%s", s);
-            free(s);
+            const char* s2 = print_preprocessed_to_string2(ast.token_list.head);
+            printf("%s", s2);
+            free((void*)s2);
         }
         else
         {
@@ -4920,7 +4920,7 @@ int compile_one_file(const char* file_name,
             {
                 /*re-parser ouput and format*/
                 const char* s2 = format_code(&options, s, error);
-                free(s);
+                free((void*)s);
                 s = s2;
             }
 
@@ -4936,14 +4936,6 @@ int compile_one_file(const char* file_name,
                 seterror(error, "cannot open output file");
                 throw;
             }
-
-
-
-            clock_t end_clock_file = clock();
-            double cpu_time_used_file = ((double)(end_clock_file - start_clock)) / CLOCKS_PER_SEC;
-
-            //printf("OK %f sec\n", cpu_time_used_file);
-
         }
     }
     catch
@@ -4952,7 +4944,7 @@ int compile_one_file(const char* file_name,
     }
 
 
-    free(s);
+    free((void*)s);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
 
@@ -5008,7 +5000,7 @@ struct ast get_ast(struct options* options, const char* filename, const char* so
     if (error->code != 0)
         return ast;
 
-    ast.declaration_list = parse(&options, &ast.token_list, error);
+    ast.declaration_list = parse(options, &ast.token_list, error);
     return ast;
 }
 
@@ -5040,7 +5032,7 @@ int strtoargv(char* s, int n, const char* argv[/*n*/])
     return argvc;
 }
 
-char* compile_source(const char* pszoptions, const char* content)
+const char* compile_source(const char* pszoptions, const char* content)
 {
     const char* argv[100] = { 0 };
     char string[200] = { 0 };
@@ -5048,7 +5040,7 @@ char* compile_source(const char* pszoptions, const char* content)
 
     const int argc = strtoargv(string, 10, argv);
 
-    char* s = NULL;
+    const char* s = NULL;
     struct error error = { 0 };
     struct preprocessor_ctx prectx = { 0 };
 #ifdef TEST
@@ -5109,14 +5101,14 @@ char* compile_source(const char* pszoptions, const char* content)
 
                 /*re-parser ouput and format*/
                 const char* s2 = format_code(&options, s, &error_local);
-                free(s);
+                free((void*)s);
                 s = s2;
             }
         }
 
         if (error.code)
         {
-            free(s);
+            free((void*)s);
             s = strdup(error.message);
         }
     }
@@ -5131,7 +5123,7 @@ char* compile_source(const char* pszoptions, const char* content)
 /*Função exportada para web*/
 char* CompileText(const char* pszoptions, const char* content)
 {
-    return  compile_source(pszoptions, content);
+    return  (char*)compile_source(pszoptions, content);
 }
 
 void ast_destroy(struct ast* ast)
@@ -5259,7 +5251,8 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->check_naming_conventions || token->level != 0)
+
+    if (token == NULL || !ctx->check_naming_conventions || token->level != 0)
         return;
 
 
@@ -5401,11 +5394,16 @@ void test_lit()
 
 void type_test2()
 {
+    /*char* src =
+        "int a[10];\n"
+        "struct X* F() { return 0; }\n"
+        " static_assert(typeid(*F()) == typeid(struct X));\n"
+        " static_assert(typeid(&a) == typeid(int (*)[10]));\n"
+        ;
+        */
     char* src =
-        "int a[10]; "
-        "struct X* F() { return 0; }"
-        " static_assert(typeid(*F()) == typeid(struct X));"
-        " static_assert(typeid(&a) == typeid(int (*)[10]));"
+        "int a[10];\n"
+        " static_assert(typeid(&a) == typeid(int (*)[10]));\n"
         ;
 
     struct error error = { 0 };

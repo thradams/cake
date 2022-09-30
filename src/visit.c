@@ -393,7 +393,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
 
         print_block_defer(p_defer, &ss, true);
         struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-        token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last->prev, &l);
+        token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, &l);
 
 
         if (ctx->tail_block)
@@ -445,7 +445,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     if (ss.size > 0)
     {
         struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last->prev, &l);
+        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last_token->prev, &l);
     }
     //POP
     ctx->tail_block = ctx->tail_block->previous;
@@ -732,7 +732,15 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             print_type_specifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_specifier_flags);
             
             
-            print_declarator_type(&ss, p_expression->type_name->declarator->type.declarator_type, name);
+
+            if (p_expression->type_name->declarator->type.declarator_type->direct_declarator_type)
+            {
+                assert(p_expression->type_name->declarator->type.declarator_type->direct_declarator_type->name_opt == NULL);
+                p_expression->type_name->declarator->type.declarator_type->direct_declarator_type->name_opt =
+                    strdup(name);
+            }
+
+            print_declarator_type(&ss, p_expression->type_name->declarator->type.declarator_type);
             
 
             struct token_list l1 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
@@ -901,7 +909,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
         print_block_defer(p_defer, &ss, true);
 
         struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
-        token_list_insert_after(&ctx->ast.token_list, p_iteration_statement->secondary_block->last->prev, &l);
+        token_list_insert_after(&ctx->ast.token_list, p_iteration_statement->secondary_block->last_token->prev, &l);
 
 
         if (ctx->tail_block)
@@ -1157,41 +1165,29 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
 
 static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declarator* p_direct_declarator, struct error* error)
 {
-    if (p_direct_declarator->array_function_list.head)
+    if (p_direct_declarator->function_declarator)
     {
-        struct array_function* current = p_direct_declarator->array_function_list.head;
-        while (current)
+        struct parameter_declaration* parameter = NULL;
+        
+        if (p_direct_declarator->function_declarator->parameter_type_list_opt)
         {
-            if (current->function_declarator &&
-                current->function_declarator->parameter_type_list_opt &&
-                current->function_declarator->parameter_type_list_opt->parameter_list->head)
-            {
-                struct parameter_declaration* parameter =
-                    current->function_declarator->parameter_type_list_opt->parameter_list->head;
-                while (parameter)
-                {
-                    if (parameter->attribute_specifier_sequence_opt)
-                    {
-                        visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt, error);
-                    }
-
-                    visit_declaration_specifiers(ctx, parameter->declaration_specifiers, error);
-                    visit_declarator(ctx, parameter->declarator, error);                                        
-                    parameter = parameter->next;
-                }
-            }
-            else if (current->array_declarator)
-            {
-            
-            }
-
-            current = current->next;
+            p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
-    }
-    //struct array_function* current =
-      //  p_direct_declarator->array_function_list.head;
 
-    /*TODO...*/
+        while (parameter)
+        {
+            if (parameter->attribute_specifier_sequence_opt)
+            {
+                visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt, error);
+            }
+
+            visit_declaration_specifiers(ctx, parameter->declaration_specifiers, error);
+            visit_declarator(ctx, parameter->declarator, error);
+            parameter = parameter->next;
+        }
+        
+    }
+    //TODO
 }
 
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error)
@@ -1218,7 +1214,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             */
 
             struct osstream ss = { 0 };
-            print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type, p_init_declarator->declarator->name->lexeme);            
+            print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);            
             struct token_list l2 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
             
             l2.head->flags = p_init_declarator->declarator->first_token->flags;
@@ -1418,8 +1414,8 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
                         */
                         
                         /*we don't print declarator name here  - better way/place to do it?*/
-                        free(p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt);
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt = NULL;
+                        //free(p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt);
+                        //p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt = NULL;
 
                         print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
                     }

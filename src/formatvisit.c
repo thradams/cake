@@ -108,7 +108,7 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
 {
     if (p_selection_statement->secondary_block)
     {
-        ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
+        ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
 
         if (p_selection_statement->secondary_block &&
             p_selection_statement->secondary_block->statement &&
@@ -120,7 +120,7 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
         }
         else
         {
-            ajust_line_and_identation(p_selection_statement->secondary_block->first, ctx);
+            ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
 
             format_visit_statement(ctx, p_selection_statement->secondary_block->statement, error);            
         }        
@@ -129,7 +129,7 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
     if (p_selection_statement->else_secondary_block_opt)
     {
         ajust_line_and_identation(p_selection_statement->else_token_opt, ctx);
-        ajust_line_and_identation(p_selection_statement->else_secondary_block_opt->first, ctx);
+        ajust_line_and_identation(p_selection_statement->else_secondary_block_opt->first_token, ctx);
 
         if (p_selection_statement->else_secondary_block_opt->statement &&
             p_selection_statement->else_secondary_block_opt->statement->unlabeled_statement &&

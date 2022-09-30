@@ -1,8 +1,21 @@
 #pragma once
 
+/*coisas que vao em hash map possuim um id
+assim é possivel usar o mesmo mapa para achar tipos diferentes
+*/
+enum tag
+{
+    TAG_TYPE_NONE,
+    TAG_TYPE_ENUN_SPECIFIER,
+    TAG_TYPE_STRUCT_OR_UNION_SPECIFIER,
+    TAG_TYPE_ENUMERATOR,
+    TAG_TYPE_DECLARATOR,
+};
+
+
 struct type_tag_id
 {
-    int type;
+    enum tag type;
 };
 
 struct map_entry {

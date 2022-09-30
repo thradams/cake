@@ -79,37 +79,50 @@ enum type_qualifier_flags
 };
 
 
-struct type_list
+struct params
 {
     struct type* head;
     struct type* tail;
 };
 
-struct array_function_type
+
+
+//struct array_function_type* array_function_type_list_pop_back(struct array_function_type_list* list);
+
+struct function_declarator_type
 {
-    int constant_size;
-
-    struct type_list params; //se for funcao lista de tipos usado por cada parametro
-    bool bVarArg; //true se for funcao ....
-    bool bIsArray;
-    bool bIsFunction;
-    int array_size;
-
-    struct array_function_type* next;
+    /*
+     function-declarator:
+       direct-declarator ( parameter-type-list opt )
+    */
+    struct direct_declarator_type* direct_declarator_type;    
+    struct params params;
+    bool is_var_args;
 };
 
-struct array_function_type_list
+struct array_declarator_type
 {
-    struct array_function_type* head;
-    struct array_function_type* tail;
+    /*
+     array-declarator:
+        direct-declarator [ type-qualifier-list opt assignment-expression opt ]
+        direct-declarator [ "static" type-qualifier-list opt assignment-expression ]
+        direct-declarator [ type-qualifier-list "static" assignment-expression ]
+        direct-declarator [ type-qualifier-list opt * ]
+    */
+    struct direct_declarator_type* direct_declarator_type;
+    //struct expression* assignment_expression;
+    //struct expression* expression;
+    //struct type_qualifier_list* type_qualifier_list_opt;
+    unsigned long long constant_size;
+    //struct token* token;
 };
-
-struct array_function_type* array_function_type_list_pop_back(struct array_function_type_list* list);
 
 struct direct_declarator_type
 {
+    const char* name_opt;
     struct declarator_type* declarator_opt; //nao nulo se tiver (declarator )
-    struct array_function_type_list array_function_type_list;
+    struct array_declarator_type* array_declarator_type;
+    struct function_declarator_type* function_declarator_type;    
 };
 
 
@@ -150,7 +163,7 @@ struct type
     * declarator name. For instance a function type can preserve the name of each
     * argument.
     */
-    char* declarator_name_opt;
+    //char* declarator_name_opt;
 
     struct type* next; //se quiser usar lista  ligada
 };
@@ -159,8 +172,8 @@ void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_copy(struct type* p_type);
 
 struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type);
-void debug_print_declarator_type(struct declarator_type* p_declarator_type, const char* name);
-void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type, const char* name);
+void debug_print_declarator_type(struct declarator_type* p_declarator_type);
+void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type);
 
 struct type get_function_return_type(struct type* p_type);
 struct type type_common(struct type* p_type1, struct type* p_type2, struct error* error);
@@ -198,3 +211,4 @@ bool type_is_scalar(struct type* p_type);
 enum type_category find_type_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, struct type* type);
 void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);
+void declarator_type_clear_name(struct declarator_type* p_declarator_type);

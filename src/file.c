@@ -1,6 +1,7 @@
-//#include <windows.h>
-void f(int i)
+int main()
 {
-    int i;
-  
+    (int(void)) {
+    return 1;
+}();
+
 }
