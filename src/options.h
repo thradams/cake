@@ -23,6 +23,7 @@ struct options
     bool bRemoveMacros;
     bool format_input;
     bool format_ouput;
+    bool nodiscard_is_default;
 
     /*
     * true - to info about name convensions violations

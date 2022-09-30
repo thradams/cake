@@ -26,18 +26,17 @@ http://thradams.com/cake/playground.html
 
 # Build
 
-## Windows
+## MSVC build instructions
 Open the Developer Command Prompt of visual studio. Go to the *src* directory and type
 
 ```
 cl build.c && build
 ```
 
-This will build *cake.exe*.
+This will build *cake.exe*, then run cake on its own source code.
 
 
-
-## Linux
+## GCC (linux) build instructions
 Got to the *src* directory and type:
 
 ```
@@ -50,7 +49,7 @@ To run unit tests windows/linux add *-DTEST* for instance:
 gcc -DTEST build.c -o build && ./build
 ```
 
-## Build web
+## Emscripten build instructions (web)
 Emscripten https://emscripten.org/  is required. 
 
 First do the normal build. 
@@ -66,7 +65,7 @@ call emcc -DMOCKFILES "lib.c" -o "Web\cake.js" -s WASM=0 -s EXPORTED_FUNCTIONS="
 This will generate the *\src\Web\cake.js*
 
 
-# Command line
+# Running cake at command line
 
 Make sure cake is on your system path.
 
@@ -75,6 +74,7 @@ Samples
 ```
 cake source.c
 ```
+
 this will ouput *./out/source.c*
 
 See [Manual](manual.html)
@@ -105,6 +105,7 @@ See [Manual](manual.html)
 
 You can contribute by trying out cake, reporting bugs, and giving feedback.
 
+Have a sugestion for C?
 
 # Status?
 Even if not necessary for most features, I want Cake to make a full semantic analysis.

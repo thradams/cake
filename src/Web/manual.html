@@ -38,29 +38,31 @@
 <pre><code>cake [options] source1.c source2.c ...
 
 Options
-  -I                Adds a directory to the list of directories searched for include files.
-                    (On windows, if you run cake at the visual studio command prompt cake 
-                     uses the same include files used by msvc.)
+  -I                  Adds a directory to the list of directories searched for include files.
+                      (On windows, if you run cake at the visual studio command prompt cake 
+                      uses the same include files used by msvc.)
 
-  -D                Defines a preprocessing symbol for a source file.
+  -D                  Defines a preprocessing symbol for a source file.
 
-  -E                Copies preprocessor output to standard output.
+  -E                  Copies preprocessor output to standard output.
 
-  -r                Remove all comments from the ouput file.
+  -r                  Remove all comments from the ouput file.
 
-  -rm               Outputs preprocessed code after compilation.
+  -rm                 Outputs preprocessed code after compilation.
 
-  -target=standard  Output target C standard (c89, c99, c11, c2x, cxx).
-                    C99 is the default and C89 (ANSI C) is the minimum target.
+  -target=standard    Output target C standard (c89, c99, c11, c2x, cxx).
+                      C99 is the default and C89 (ANSI C) is the minimum target.
 
-  -std=standard     Assume that the input sources are for standard (c89, c99, c11, c2x, cxx).
-                    (not implented yet, input is considered C23)                    
+  -std=standard       Assume that the input sources are for standard (c89, c99, c11, c2x, cxx).
+                      (not implented yet, input is considered C23)                    
 
-  -n                Check naming conventions (it is hardcoded for its own naming convention)
+  -n                  Check naming conventions (it is hardcoded for its own naming convention)
 
-  -fi               Format input (format before language convertion)
+  -fi                 Format input (format before language convertion)
 
-  -fo               Format output (format after language convertion, result parsed again)
+  -fo                 Format output (format after language convertion, result parsed again)
+
+  -default_nodiscard  Makes [[nodiscard]] default implicity.
 </code></pre>
 
 <p>The ouput dir is <strong>./out</strong></p>

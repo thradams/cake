@@ -1,2 +1,1 @@
-
-typeof_unqual(const int) a;
+auto s = "test";

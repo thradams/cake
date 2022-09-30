@@ -16,19 +16,38 @@
 
 void help()
 {
-	printf("Cake " __DATE__ "\n"
-		"\n"
+	const char* options =
 		"cake [options] source1.c source2.c ...\n"
 		"\n"
 		"Options\n"
-		"  -I               Adds a directory to the list of directories searched for include files.\n"
-		"  -D               Defines a preprocessing symbol for a source file.\n"
-		"  -E               Copies preprocessor output to standard output.\n"
-		"  -r               Remove all comments from the ouput file.\n"
-		"  -rm              Outputs preprocessed code after compilation.\n"
-		"  -target=standard Output target C standard (c99, c11, c2x, cxx).\n"
-		"  -std=standard    Assume that the input sources are for standard (c99, c11, c2x, cxx).\n"
-	);
+		"  -I                  Adds a directory to the list of directories searched for include files.\n"
+		"                      (On windows, if you run cake at the visual studio command prompt cake \n"
+		"                      uses the same include files used by msvc.)\n"
+		"\n"
+		"  -D                  Defines a preprocessing symbol for a source file.\n"
+		"\n"
+		"  -E                  Copies preprocessor output to standard output.\n"
+		"\n"
+		"  -r                  Remove all comments from the ouput file.\n"
+		"\n"
+		"  -rm                 Outputs preprocessed code after compilation.\n"
+		"\n"
+		"  -target=standard    Output target C standard (c89, c99, c11, c2x, cxx).\n"
+		"                      C99 is the default and C89 (ANSI C) is the minimum target.\n"
+		"\n"
+		"  -std=standard       Assume that the input sources are for standard (c89, c99, c11, c2x, cxx).\n"
+		"                      (not implented yet, input is considered C23)                    \n"
+		"\n"
+		"  -n                  Check naming conventions (it is hardcoded for its own naming convention)\n"
+		"\n"
+		"  -fi                 Format input (format before language convertion)\n"
+		"\n"
+		"  -fo                 Format output (format after language convertion, result parsed again)\n"
+		"\n"
+		"  -default_nodiscard  Makes [[nodiscard]] default implicity.\n"
+		;
+
+	printf("Cake " __DATE__ "\n%s", options);
 }
 
 #ifndef TEST

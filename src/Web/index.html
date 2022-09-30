@@ -24,18 +24,18 @@
 <a href="#toc_3">Build</a>
 <ul>
 <li>
-<a href="#toc_4">Windows</a>
+<a href="#toc_4">MSVC build instructions</a>
 </li>
 <li>
-<a href="#toc_5">Linux</a>
+<a href="#toc_5">GCC (linux) build instructions</a>
 </li>
 <li>
-<a href="#toc_6">Build web</a>
+<a href="#toc_6">Emscripten build instructions (web)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_7">Command line</a>
+<a href="#toc_7">Running cake at command line</a>
 </li>
 <li>
 <a href="#toc_8">Road map</a>
@@ -85,16 +85,16 @@ to C99.</p>
 
 <h1 id="toc_3">Build</h1>
 
-<h2 id="toc_4">Windows</h2>
+<h2 id="toc_4">MSVC build instructions</h2>
 
 <p>Open the Developer Command Prompt of visual studio. Go to the <em>src</em> directory and type</p>
 
 <pre><code>cl build.c &amp;&amp; build
 </code></pre>
 
-<p>This will build <em>cake.exe</em>.</p>
+<p>This will build <em>cake.exe</em>, then run cake on its own source code.</p>
 
-<h2 id="toc_5">Linux</h2>
+<h2 id="toc_5">GCC (linux) build instructions</h2>
 
 <p>Got to the <em>src</em> directory and type:</p>
 
@@ -106,7 +106,7 @@ to C99.</p>
 <pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<h2 id="toc_6">Build web</h2>
+<h2 id="toc_6">Emscripten build instructions (web)</h2>
 
 <p>Emscripten <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
 
@@ -121,7 +121,7 @@ to C99.</p>
 
 <p>This will generate the <em>\src\Web\cake.js</em></p>
 
-<h1 id="toc_7">Command line</h1>
+<h1 id="toc_7">Running cake at command line</h1>
 
 <p>Make sure cake is on your system path.</p>
 
@@ -162,6 +162,8 @@ to C99.</p>
 <h1 id="toc_11">Participating</h1>
 
 <p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
+
+<p>Have a sugestion for C?</p>
 
 <h1 id="toc_12">Status?</h1>
 

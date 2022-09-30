@@ -6,18 +6,13 @@
 
 struct parser_ctx;
 
-/*
-* A type is characterized by its type category, which is either the outermost derivation
-* of a derived type (as noted above in the construction of derived types), or the type
-* itself if the type consists of no derived types.
-*/
 
 enum type_category
 {
     TYPE_CATEGORY_ITSELF,
-    TYPE_CATEGORY_FUNCTION, /*derived declarator types*/
-    TYPE_CATEGORY_ARRAY,    /*derived declarator types*/
-    TYPE_CATEGORY_POINTER,  /*derived declarator types*/
+    TYPE_CATEGORY_FUNCTION,
+    TYPE_CATEGORY_ARRAY,
+    TYPE_CATEGORY_POINTER,
 };
 
 
@@ -64,7 +59,7 @@ enum type_specifier_flags
 
     TYPE_SPECIFIER_LONG_LONG = 1 << 22,
     
-    TYPE_SPECIFIER_TYPEOF = 1 << 23, //?
+    TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
     TYPE_SPECIFIER_NULLPTR = 1 << 24,
 };
@@ -85,9 +80,6 @@ struct params
     struct type* tail;
 };
 
-
-
-//struct array_function_type* array_function_type_list_pop_back(struct array_function_type_list* list);
 
 struct function_declarator_type
 {
@@ -110,17 +102,13 @@ struct array_declarator_type
         direct-declarator [ type-qualifier-list opt * ]
     */
     struct direct_declarator_type* direct_declarator_type;
-    //struct expression* assignment_expression;
-    //struct expression* expression;
-    //struct type_qualifier_list* type_qualifier_list_opt;
     unsigned long long constant_size;
-    //struct token* token;
 };
 
 struct direct_declarator_type
 {
     const char* name_opt;
-    struct declarator_type* declarator_opt; //nao nulo se tiver (declarator )
+    struct declarator_type* declarator_opt;
     struct array_declarator_type* array_declarator_type;
     struct function_declarator_type* function_declarator_type;    
 };
@@ -158,15 +146,10 @@ struct type
     
     struct declarator_type* declarator_type;
 
-    /*
-    * Sometimes we need to print the type together with the original 
-    * declarator name. For instance a function type can preserve the name of each
-    * argument.
-    */
-    //char* declarator_name_opt;
-
-    struct type* next; //se quiser usar lista  ligada
+    /*for linked list*/
+    struct type* next;
 };
+
 void print_type(struct osstream* ss, struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_copy(struct type* p_type);

@@ -229,6 +229,25 @@ sample["C23 typeof"] =
 
 #pragma expand SWAP
 
+/*pointer to function returning int*/
+int (*g1)(int a);
+typeof(g1) g2;
+
+/*function returning int* */
+int * f1(int a);
+
+/*function returning int* */
+typeof(f1) f2;
+
+/*pointer to function returning int*/
+typeof(f1) *f3;
+
+
+typeof(1 + 1) f()
+{
+  return 1;
+}
+
 int main()
 {
     /*simple case*/
@@ -269,6 +288,20 @@ int main()
 `;
 
 
+sample["C23 auto"] =
+`
+/*in progress...*/
+
+struct X x;
+
+int main()
+{
+   auto * p = &x;
+   const auto d = 1.0;
+   static auto c = 2;
+}
+
+`;
 
 
 sample["C23 bool true false"] =

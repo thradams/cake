@@ -150,8 +150,8 @@ struct expression
     struct compound_statement* compound_statement; //function literal (lambda)
     struct generic_selection* generic_selection; //_Generic
 
-    struct token* first;
-    struct token* last;
+    struct token* first_token;
+    struct token* last_token;
 
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* declarator;

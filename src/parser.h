@@ -34,9 +34,8 @@ void scope_list_pop(struct scope_list* list);
 
 struct parser_ctx
 {
-    enum language_version input_language;
-    bool check_naming_conventions;
-
+    struct options options;
+    
     /*
     There are four kinds of scopes:
     function,
@@ -146,19 +145,18 @@ struct declaration_specifiers
        declaration-specifier declaration-specifiers
     */
 
+    /*cumulative flags*/
     enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
 
-    //shortcut
+    /*shortcuts*/
     struct struct_or_union_specifier* struct_or_union_specifier;
     struct enum_specifier* enum_specifier;
-
     struct declarator* typedef_declarator;
     struct typeof_specifier* typeof_specifier;
 
-    struct expression* p_typeof_expression_opt;
 
     struct declaration_specifier* head;
     struct declaration_specifier* tail;
@@ -530,8 +528,6 @@ struct array_declarator
     struct token* token;
 };
 
-//struct array_declarator* array_declarator(struct direct_declarator* p_direct_declarator, struct parser_ctx* ctx, struct error* error);
-
 struct function_declarator
 {
     /*
@@ -542,7 +538,6 @@ struct function_declarator
     struct scope parameters_scope; //usado para escopo parametros
     struct parameter_type_list* parameter_type_list_opt;
 };
-
 
 
 
@@ -658,31 +653,6 @@ struct braced_initializer
 };
 struct braced_initializer* braced_initializer(struct parser_ctx* ctx, struct error* error);
 
-
-struct specifier_qualifier
-{
-    struct type_specifier* type_specifier;
-    struct type_qualifier* type_qualifier;
-    struct specifier_qualifier* next;
-};
-
-struct specifier_qualifier_list
-{
-    enum type_specifier_flags type_specifier_flags;
-    enum type_qualifier_flags type_qualifier_flags;
-
-    //shortcut
-    struct struct_or_union_specifier* struct_or_union_specifier;
-    struct enum_specifier* enum_specifier;
-    struct typeof_specifier* typeof_specifier;
-    struct declarator* typedef_declarator;
-    
-    struct specifier_qualifier* head;
-    struct specifier_qualifier* tail;
-};
-struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx, struct error* error);
-void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list);
-
 struct type_specifier_qualifier
 {
     /*
@@ -699,6 +669,33 @@ struct type_specifier_qualifier
     struct type_specifier_qualifier* next;
 };
 struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx, struct error* error);
+
+
+struct specifier_qualifier_list
+{
+    /*
+      specifier-qualifier-list:
+        type-specifier-qualifier attribute-specifier-sequence opt
+        type-specifier-qualifier specifier-qualifier-list
+    */
+
+    /*cumulative flags*/
+    enum type_specifier_flags type_specifier_flags;
+    enum type_qualifier_flags type_qualifier_flags;
+
+    /*shortcuts*/
+    struct struct_or_union_specifier* struct_or_union_specifier;
+    struct enum_specifier* enum_specifier;
+    struct typeof_specifier* typeof_specifier;
+    struct declarator* typedef_declarator;
+    
+    struct type_specifier_qualifier* head;
+    struct type_specifier_qualifier* tail;
+};
+
+struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx, struct error* error);
+void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list);
+
 
 
 struct alignment_specifier
@@ -751,13 +748,11 @@ struct member_declaration* member_declaration(struct parser_ctx* ctx, struct err
 
 struct member_declarator
 {
-    /*
-    
+    /*    
      member-declarator:
 
         declarator
         declarator opt : constant-expression
-
     */
     struct token* name;
     struct declarator* declarator;
@@ -767,12 +762,11 @@ struct member_declarator
 
 struct member_declarator_list
 {
-    /*
+    /*    
      member-declarator-list:
 
         member-declarator
         member-declarator-list , member-declarator
-
     */
 
     struct member_declarator* head;
@@ -850,10 +844,10 @@ struct selection_statement
 
     */
 
-
+    /*C++ 17 if with initialization extension*/
     struct init_declarator* init_declarator;
-    struct expression* expression;
 
+    struct expression* expression;
     struct secondary_block* secondary_block;
     struct secondary_block* else_secondary_block_opt;
 
@@ -879,7 +873,7 @@ struct iteration_statement
         "repeat" secondary-block  (extension)
     */
     
-    struct token* first_token; /*while, do, for*/        
+    struct token* first_token; /*while, do, for, repeat*/        
     struct token* second_token; /*while*/
 
     struct secondary_block* secondary_block;

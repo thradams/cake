@@ -391,17 +391,26 @@ bool first_of_alignment_specifier(struct parser_ctx* ctx)
     return ctx->current->type == TK_KEYWORD__ALIGNAS;
 }
 
-bool first_of_atomic_type_specifier_token(struct token* token)
-{
-    if (token == NULL)
-        return false;
-
-    return token->type == TK_KEYWORD__ATOMIC;
-}
-
 bool first_of_atomic_type_specifier(struct parser_ctx* ctx)
 {
-    return first_of_atomic_type_specifier_token(ctx->current);
+    if (ctx->current == NULL)
+        return false;
+    
+    /*
+      If the _Atomic keyword is immediately followed by a left parenthesis, it is interpreted 
+      as a type specifier (with a type name), not as a type qualifier.
+    */
+
+    if (ctx->current->type == TK_KEYWORD__ATOMIC)
+    {
+        struct token* ahead = parser_look_ahead(ctx);
+        if (ahead != NULL)
+        {
+            return ahead->type == '(';
+
+        }
+    }
+    return false;
 }
 
 bool first_of_storage_class_specifier(struct parser_ctx* ctx)
@@ -665,7 +674,7 @@ bool first_of_type_specifier_token(struct parser_ctx* ctx, struct token* p_token
         p_token->type == TK_KEYWORD__DECIMAL128 ||
         p_token->type == TK_KEYWORD_TYPEOF || //C23
         p_token->type == TK_KEYWORD_TYPEOF_UNQUAL || //C23
-        first_of_atomic_type_specifier_token(p_token) ||
+        first_of_atomic_type_specifier(ctx) ||
         first_of_struct_or_union_token(p_token) ||
         first_of_enum_specifier_token(p_token) ||
         first_of_typedef_name(ctx, p_token);
@@ -1837,8 +1846,19 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         p_init_declarator->declarator->declaration_specifiers = p_declaration_specifiers;
         p_init_declarator->declarator->name = tkname;
 
-        p_init_declarator->declarator->type =
-            make_type_using_declarator(ctx, p_init_declarator->declarator);
+        if (p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+        {
+            /*
+              auto requires we find the type after initializer
+            */
+        }
+        else
+        {
+            p_init_declarator->declarator->type =
+                make_type_using_declarator(ctx, p_init_declarator->declarator);
+        }
+
+        
 
         if (error->code != 0) throw;
         const char* name = p_init_declarator->declarator->name->lexeme;
@@ -1883,6 +1903,24 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         {
             parser_match(ctx);
             p_init_declarator->initializer = initializer(ctx, error);
+
+            /*
+               auto requires we find the type after initializer
+            */
+            if (p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+            {
+                if (p_init_declarator->initializer &&
+                    p_init_declarator->initializer->assignment_expression)
+                {
+                    /*TODO 
+                      auto s = "test";
+                    */
+                    struct type t = type_copy(&p_init_declarator->initializer->assignment_expression->type);
+                    struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, p_init_declarator->declarator);
+                    declarator_type_merge(dectype, t.declarator_type);
+                    p_init_declarator->declarator->type = t; /*MOVED*/
+                }
+            }
         }
     }
     catch
@@ -2004,13 +2042,21 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx, struct error* 
 
     if (is_typeof_unqual)
     {
+        /*
+         TODO incomplete bug page 115 std
+        */
+        
+        
+
         /*let's remove qualifiers*/
         if (p_typeof_specifier->typeof_specifier_argument->expression)
         {
+            p_typeof_specifier->typeof_specifier_argument->expression->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
             p_typeof_specifier->typeof_specifier_argument->expression->declarator->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
         }
         else if (p_typeof_specifier->typeof_specifier_argument->type_name)
         {
+            p_typeof_specifier->typeof_specifier_argument->type_name->declarator->specifier_qualifier_list->type_qualifier_flags = TYPE_QUALIFIER_NONE;
             p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
         }        
     }
@@ -3352,7 +3398,7 @@ struct specifier_qualifier_list* copy(struct declaration_specifiers* p_declarati
     {
         if (p_declaration_specifier->type_specifier_qualifier)
         {
-            struct specifier_qualifier* p_specifier_qualifier = calloc(1, sizeof(struct specifier_qualifier));
+            struct type_specifier_qualifier* p_specifier_qualifier = calloc(1, sizeof(struct type_specifier_qualifier));
 
             if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
             {
@@ -3997,11 +4043,15 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct e
 
                 if (!type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type))
                 {
-                    if (type_is_nodiscard(&p_unlabeled_statement->expression_statement->expression_opt->type))
+                    if (ctx->options.nodiscard_is_default || 
+                        type_is_nodiscard(&p_unlabeled_statement->expression_statement->expression_opt->type))
                     {
-                        parser_setwarning_with_token(ctx,
-                            p_unlabeled_statement->expression_statement->expression_opt->first,
-                            "ignoring return value of function declared with 'nodiscard' attribute");
+                        if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
+                        {
+                            parser_setwarning_with_token(ctx,
+                                p_unlabeled_statement->expression_statement->expression_opt->first_token,
+                                "ignoring return value of function declared with 'nodiscard' attribute");
+                        }
                     }
                 }
             }
@@ -4497,7 +4547,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
                 if (!type_is_compatible(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
                     &p_jump_statement->expression_opt->type))
                 {
-                    parser_seterror_with_token(ctx, p_jump_statement->expression_opt->first, "return type is incompatible");
+                    parser_seterror_with_token(ctx, p_jump_statement->expression_opt->first_token, "return type is incompatible");
                 }
             }
         }
@@ -4583,7 +4633,7 @@ struct declaration_list parse(struct options* options, struct token_list* list, 
     anonymous_struct_count = 0;
 
     struct scope file_scope = { 0 };
-    struct parser_ctx ctx = { .input_language = options->input , .check_naming_conventions = options->check_naming_conventions };
+    struct parser_ctx ctx = { .options = *options };
 #ifdef TEST
     ctx.printf = printf_nothing;
 #else
@@ -4643,6 +4693,13 @@ int fill_options(struct options* options, int argc, const char** argv, struct pr
             options->format_ouput = true;
             continue;
         }
+
+        if (strcmp(argv[i], "-default_nodiscard") == 0)
+        {
+            options->nodiscard_is_default = true;
+            continue;
+        }
+
 
         //
         if (strcmp(argv[i], "-target=c89") == 0)
@@ -5245,7 +5302,7 @@ static bool is_pascal_case(const char* text)
  */
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->check_naming_conventions || token->level != 0)
+    if (!ctx->options.check_naming_conventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -5255,7 +5312,7 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->check_naming_conventions || token->level != 0)
+    if (!ctx->options.check_naming_conventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -5266,7 +5323,7 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 {
 
-    if (token == NULL || !ctx->check_naming_conventions || token->level != 0)
+    if (token == NULL || !ctx->options.check_naming_conventions || token->level != 0)
         return;
 
 
@@ -5276,7 +5333,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 }
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
 {
-    if (!ctx->check_naming_conventions || token->level != 0)
+    if (!ctx->options.check_naming_conventions || token->level != 0)
         return;
 
     if (!type_is_function_or_function_pointer(type))
@@ -5296,7 +5353,7 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
 
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->check_naming_conventions || token->level != 0)
+    if (!ctx->options.check_naming_conventions || token->level != 0)
         return;
 
     if (!type_is_function_or_function_pointer(type))
@@ -5309,7 +5366,7 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->check_naming_conventions || token->level != 0)
+    if (!ctx->options.check_naming_conventions || token->level != 0)
         return;
 
     if (!is_all_upper(token->lexeme)) {
@@ -5319,7 +5376,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->check_naming_conventions || token->level != 0)
+    if (!ctx->options.check_naming_conventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {
@@ -5329,7 +5386,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
 
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->check_naming_conventions || token->level != 0)
+    if (!ctx->options.check_naming_conventions || token->level != 0)
         return;
 
     if (!is_snake_case(token->lexeme)) {

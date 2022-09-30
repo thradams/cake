@@ -76,7 +76,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             if (!type_is_compatible_type_function_call(&current_argument->expression->type, current_parameter_type) != 0)
             {
                 parser_seterror_with_token(ctx,
-                    current_argument->expression->first,
+                    current_argument->expression->first_token,
                     " incompatible types at argument %d", param_num);
             }
             //compare
@@ -88,7 +88,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
         if (current_argument != NULL && !is_var_args)
         {
             parser_seterror_with_token(ctx,
-                p_argument_expression_list->tail->expression->first,
+                p_argument_expression_list->tail->expression->first_token,
                 "too many arguments");
             throw;
         }
@@ -96,7 +96,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
         if (current_parameter_type != NULL && !is_void)
         {
             parser_seterror_with_token(ctx,
-                p_argument_expression_list->tail->expression->first,
+                p_argument_expression_list->tail->expression->first_token,
                 "too few arguments");
 
             //seterror(error, "too few parameter_type");
@@ -356,7 +356,7 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
     {
         p_expression_node = calloc(1, sizeof * p_expression_node);
         p_expression_node->expression_type = TYPEID_EXPRESSION_TYPE;
-        p_expression_node->first = ctx->current;
+        p_expression_node->first_token = ctx->current;
 
         parser_match_tk(ctx, TK_KEYWORD_TYPEID, error);
         parser_match_tk(ctx, '(', error);
@@ -387,7 +387,7 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
             //printf("\n");
         }
 
-        p_expression_node->last = ctx->current;
+        p_expression_node->last_token = ctx->current;
         parser_match_tk(ctx, ')', error);
     }
     catch
@@ -503,8 +503,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
             if (p_expression_node == NULL) throw;
             
-            p_expression_node->first = ctx->current;
-            p_expression_node->last = ctx->current;
+            p_expression_node->first_token = ctx->current;
+            p_expression_node->last_token = ctx->current;
 
             struct enumerator* p_enumerator = find_enumerator(ctx, ctx->current->lexeme, NULL);
             if (p_enumerator)
@@ -550,8 +550,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
-            p_expression_node->first = ctx->current;
-            p_expression_node->last = ctx->current;
+            p_expression_node->first_token = ctx->current;
+            p_expression_node->last_token = ctx->current;
 
             p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
@@ -559,11 +559,13 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
             struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
             struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
+            struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
 
             p_declarator_type->direct_declarator_type = p_direct_declarator_type;
             
             //TODO decode before get size
             array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
+            array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
             p_direct_declarator_type->array_declarator_type = array_declarator_type;
             
             p_expression_node->type.declarator_type = p_declarator_type;
@@ -603,8 +605,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->constant_value = char_constant_to_int(ctx->current->lexeme);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_CHAR_LITERAL;
-            p_expression_node->first = ctx->current;
-            p_expression_node->last = ctx->current;
+            p_expression_node->first_token = ctx->current;
+            p_expression_node->last_token = ctx->current;
 
             type_set_int(&p_expression_node->type);
 
@@ -616,8 +618,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
-            p_expression_node->first = ctx->current;
-            p_expression_node->last = ctx->current;
+            p_expression_node->first_token = ctx->current;
+            p_expression_node->last_token = ctx->current;
 
             p_expression_node->constant_value =
                 ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0;
@@ -633,8 +635,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
-            p_expression_node->first = ctx->current;
-            p_expression_node->last = ctx->current;
+            p_expression_node->first_token = ctx->current;
+            p_expression_node->last_token = ctx->current;
 
             p_expression_node->constant_value = 0;
             
@@ -649,8 +651,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         else if (is_integer_or_floating_constant(ctx->current->type))
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
-            p_expression_node->first = ctx->current;
-            p_expression_node->last = ctx->current;
+            p_expression_node->first_token = ctx->current;
+            p_expression_node->last_token = ctx->current;
             p_expression_node->expression_type = PRIMARY_EXPRESSION_NUMBER;
             convert_to_number(ctx->current, p_expression_node, error);
             parser_match(ctx);
@@ -669,8 +671,8 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             {
                 
                 p_expression_node->generic_selection = generic_selection(ctx, error, ectx);
-                p_expression_node->first = p_expression_node->generic_selection->first_token;
-                p_expression_node->last = p_expression_node->generic_selection->last_token;
+                p_expression_node->first_token = p_expression_node->generic_selection->first_token;
+                p_expression_node->last_token = p_expression_node->generic_selection->last_token;
 
                 if (p_expression_node->generic_selection->p_view_selected_expression)
                 {
@@ -796,7 +798,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
             else if (ctx->current->type == '(')
             {
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
-                p_expression_node_new->first = ctx->current;
+                p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
                 p_expression_node_new->left = p_expression_node;
 
@@ -827,7 +829,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
 
                     throw;
                 }
-                p_expression_node_new->last = ctx->previous;
+                p_expression_node_new->last_token = ctx->previous;
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '.')
@@ -957,8 +959,8 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
 
     assert(p_expression_node->type_name == NULL);
 
-    p_expression_node->first = previous_parser_token(p_type_name->first_token);
-    assert(p_expression_node->first->type == '(');
+    p_expression_node->first_token = previous_parser_token(p_type_name->first_token);
+    assert(p_expression_node->first_token->type == '(');
     
     p_expression_node->type_name = p_type_name;
     p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
@@ -982,7 +984,7 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
         p_expression_node->braced_initializer = braced_initializer(ctx, error);    
     }
 
-    p_expression_node->last = ctx->previous;
+    p_expression_node->last_token = ctx->previous;
 
     p_expression_node = postfix_expression_tail(ctx,
         error,
@@ -1017,7 +1019,7 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
         {
             assert(false); //este caso esta pegando lá dentro deo cast expression.
             p_expression_node = calloc(1, sizeof * p_expression_node);
-            p_expression_node->first = ctx->current;
+            p_expression_node->first_token = ctx->current;
             parser_match_tk(ctx, '(', error);
             p_expression_node->type_name = type_name(ctx, error);
             if (error->code != 0) throw;
@@ -1043,13 +1045,13 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
                 p_expression_node->compound_statement = compound_statement(ctx, error);
                 if (error->code != 0) throw;
-                p_expression_node->last = p_expression_node->compound_statement->last_token;
+                p_expression_node->last_token = p_expression_node->compound_statement->last_token;
             }
             else
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
                 p_expression_node->braced_initializer = braced_initializer(ctx, error);
-                p_expression_node->last = ctx->current;
+                p_expression_node->last_token = ctx->current;
             }
         }
         else
@@ -1136,7 +1138,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 || ctx->current->type == '!'))
         {
             struct expression* new_expression = calloc(1, sizeof * new_expression);
-            new_expression->first = ctx->current;
+            new_expression->first_token = ctx->current;
 
           
 
@@ -1147,7 +1149,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             parser_match(ctx);
             new_expression->right = cast_expression(ctx, error, ectx);
             if (error->code != 0) throw;
-            new_expression->last = new_expression->right->last;
+            new_expression->last_token = new_expression->right->last_token;
             if (op == '!')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_NOT;
@@ -1232,7 +1234,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
         {
             struct expression* new_expression = calloc(1, sizeof * new_expression);
-            new_expression->first = ctx->current;
+            new_expression->first_token = ctx->current;
 
             parser_match(ctx);
 
@@ -1243,7 +1245,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 new_expression->type_name = type_name(ctx, error);
                 new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
 
-                new_expression->last = ctx->current;
+                new_expression->last_token = ctx->current;
 
                 parser_match_tk(ctx, ')', error);
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->type, error);
@@ -1260,7 +1262,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
 
                 new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->right->type, error);
-                new_expression->last = ctx->previous;
+                new_expression->last_token = ctx->previous;
             }
 
             type_set_int(&new_expression->type); //resultado sizeof
@@ -1317,7 +1319,7 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
         if (first_of_type_name_ahead(ctx))
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
-            p_expression_node->first = ctx->current;
+            p_expression_node->first_token = ctx->current;
             p_expression_node->expression_type = CAST_EXPRESSION;
             parser_match_tk(ctx, '(', error);
             p_expression_node->type_name = type_name(ctx, error);
@@ -1364,7 +1366,9 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
     {
     }
     if (p_expression_node && ctx->current)
-      p_expression_node->last = ctx->previous;
+    {
+        p_expression_node->last_token = ctx->previous;
+    }
     return p_expression_node;
 }
 
