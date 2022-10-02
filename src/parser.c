@@ -4474,7 +4474,7 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
             struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
                 attribute_specifier_sequence_opt(ctx, error);
 
-            declaration(ctx, p_attribute_specifier_sequence_opt, error);
+            p_iteration_statement->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, error);
             if (ctx->current->type != ';')
             {
                 p_iteration_statement->expression1 = expression(ctx, error, &ectx);

@@ -9305,6 +9305,7 @@ struct iteration_statement
     struct token* second_token; /*while*/
 
     struct secondary_block* secondary_block;
+    struct declaration* declaration;
     struct expression* expression1;
     struct expression* expression2;
 };
@@ -19367,7 +19368,7 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
             struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
                 attribute_specifier_sequence_opt(ctx, error);
 
-            declaration(ctx, p_attribute_specifier_sequence_opt, error);
+            p_iteration_statement->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, error);
             if (ctx->current->type != ';')
             {
                 p_iteration_statement->expression1 = expression(ctx, error, &ectx);
@@ -20466,6 +20467,7 @@ void expand_test()
 
 
 static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence, struct error* error);
+static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration, struct error* error);
 
 struct token* next_parser_token(struct token* token)
 {
@@ -21338,6 +21340,11 @@ static void visit_compound_statement(struct visit_ctx* ctx, struct compound_stat
 static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_statement* p_iteration_statement, struct error* error)
 {
 
+    if (p_iteration_statement->declaration)
+    {
+        /*for*/
+        visit_declaration(ctx, p_iteration_statement->declaration, error);
+    }
     if (p_iteration_statement->expression1)
     {
         visit_expression(ctx, p_iteration_statement->expression1, error);
@@ -21525,7 +21532,7 @@ static void visit_unlabeled_statement(struct visit_ctx* ctx, struct unlabeled_st
     }
 }
 
-static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration, struct error* error);
+
 
 static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement, struct error* error)
 {

@@ -7,6 +7,7 @@
 
 
 static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence, struct error* error);
+static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration, struct error* error);
 
 struct token* next_parser_token(struct token* token)
 {
@@ -879,6 +880,10 @@ static void visit_compound_statement(struct visit_ctx* ctx, struct compound_stat
 static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_statement* p_iteration_statement, struct error* error)
 {
 
+    if (p_iteration_statement->declaration)
+    {
+        visit_declaration(ctx, p_iteration_statement->declaration, error);
+    }
     if (p_iteration_statement->expression1)
     {
         visit_expression(ctx, p_iteration_statement->expression1, error);
@@ -1066,7 +1071,7 @@ static void visit_unlabeled_statement(struct visit_ctx* ctx, struct unlabeled_st
     }
 }
 
-static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration, struct error* error);
+
 
 static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement, struct error* error)
 {

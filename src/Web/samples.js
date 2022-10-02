@@ -290,7 +290,8 @@ int main()
 
 sample["C23 auto"] =
 `
-struct X x;
+
+struct X {int i;} x;
 
 #define SWAP(a, b) \
   do {\
@@ -302,7 +303,7 @@ struct X x;
 int main()
 {
    auto s = "hello auto";
-   auto * p = &x;
+   auto p = &x;
    const auto d = 1.0;
    static auto c = 2;
    int a = 1;
