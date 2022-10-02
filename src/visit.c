@@ -43,29 +43,7 @@ struct defer_scope* get_last_defer_before_try(struct defer_scope* block)
     return NULL;
 }
 
-struct defer_scope* get_last_defer_before_try_up(struct defer_scope* block)
-{
-    struct defer_scope* p_defer = block->previous;
-    while (p_defer)
-    {
-        if (p_defer->lastchild != NULL)
-        {
-            /*achou*/
-            return p_defer->lastchild;
-        }
 
-        if (p_defer->p_selection_statement2 &&
-            p_defer->p_selection_statement2->first_token->type == TK_KEYWORD_TRY)
-        {
-            /*chegamos no try sem achar nenhum defer*/
-            break;
-        }
-
-        p_defer = p_defer->previous;
-    }
-
-    return NULL;
-}
 
 
 static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier, struct error* error);
