@@ -335,6 +335,20 @@ int main()
   void * p = nullptr;
   void * p2 = NULL;
 }
+
+/*
+  in case you want to add a compatibility header with
+  nullptr defined as macro, then nullptr macro is preserved
+  like this. The same for other features like static_assert.
+*/
+
+#define nullptr ((void*)0)
+
+int F()
+{
+    void * p = nullptr;
+    void * p2 = NULL;
+}
 `;
 
 

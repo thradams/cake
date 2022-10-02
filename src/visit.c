@@ -79,7 +79,7 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
         ss_fprintf(ss, "%s", s);
         free(s);
         deferchild = deferchild->previous;
-    }
+    }    
 }
 
 
