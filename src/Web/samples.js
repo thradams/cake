@@ -290,15 +290,24 @@ int main()
 
 sample["C23 auto"] =
 `
-/*in progress...*/
-
 struct X x;
+
+#define SWAP(a, b) \
+  do {\
+    auto temp = a; a = b; b = temp; \
+  } while (0)
+
+#pragma expand SWAP
 
 int main()
 {
+   auto s = "hello auto";
    auto * p = &x;
    const auto d = 1.0;
    static auto c = 2;
+   int a = 1;
+   int b = 2;
+   SWAP(a, b);
 }
 
 `;

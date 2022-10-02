@@ -195,3 +195,6 @@ enum type_category find_type_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, struct type* type);
 void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);
 void declarator_type_clear_name(struct declarator_type* p_declarator_type);
+
+struct declarator;
+struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);

@@ -3091,6 +3091,27 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
             }
         }
 
+        if (error->code == 0 && ctx->current != NULL &&
+            (ctx->current->type == '[' || ctx->current->type == '('))
+        {
+            /*
+               p_direct_declarator data struct can have simultaneoult
+               (name_opt or declarator) and array_declarator or function_declarator
+            */
+            if (ctx->current->type == '[')
+            {
+                p_direct_declarator->array_declarator = array_declarator(NULL, ctx, error);
+            }
+            else
+            {
+                p_direct_declarator->function_declarator = function_declarator(NULL, ctx, error);
+            }
+        }
+
+        /*
+           now we may have more complex p_direct_declarator  then 
+           name_opt and declarator will be null and 
+        */
 
         while (error->code == 0 && ctx->current != NULL &&
             (ctx->current->type == '[' || ctx->current->type == '('))

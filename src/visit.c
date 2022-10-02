@@ -1265,7 +1265,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             /*let's fix the declarator that is using auto*/
             if (p_init_declarator->initializer->assignment_expression->type.declarator_type)
             {
-                print_declarator_type(&ss, p_init_declarator->initializer->assignment_expression->type.declarator_type);
+                print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
                 struct token_list l2 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
                 l2.head->flags = p_init_declarator->declarator->first_token->flags;
                 token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->last_token, &l2);

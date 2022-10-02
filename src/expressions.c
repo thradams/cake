@@ -556,28 +556,17 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
             
-            struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
-            struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
             struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
-            struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
+            struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
 
-            p_declarator_type->direct_declarator_type = p_direct_declarator_type;
-            
-            //TODO decode before get size
-            array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
-            array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
             p_direct_declarator_type->array_declarator_type = array_declarator_type;
+            array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
+
+            struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
+            p_declarator_type->direct_declarator_type = p_direct_declarator_type;
             
             p_expression_node->type.declarator_type = p_declarator_type;
             
-            //type_print(&p_expression_node->type);
-            //printf("TODO warning correct type for literals not implemented yet\n");
-            //DECLARE_AND_CREATE_STRUCT_POINTER(direct_declarator_type);
-            //p_expression_node->type.declarator_type->direct_declarator_type.array_function_type_list;// = direct_declarator_type;
-
-            //DECLARE_AND_CREATE_STRUCT_POINTER(direct_declarator_type);
-
-
             if (ectx->bConstantExpressionRequired)
             {
                 parser_seterror_with_token(ctx, ctx->current, "not constant");

@@ -8254,6 +8254,9 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type);
 void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);
 void declarator_type_clear_name(struct declarator_type* p_declarator_type);
 
+struct declarator;
+struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);
+
 
 struct parser_ctx;
 
@@ -10155,28 +10158,17 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
             
-            struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
-            struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
             struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
-            struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
+            struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
 
-            p_declarator_type->direct_declarator_type = p_direct_declarator_type;
-            
-            //TODO decode before get size
-            array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
-            array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
             p_direct_declarator_type->array_declarator_type = array_declarator_type;
+            array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
+
+            struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
+            p_declarator_type->direct_declarator_type = p_direct_declarator_type;
             
             p_expression_node->type.declarator_type = p_declarator_type;
             
-            //type_print(&p_expression_node->type);
-            //printf("TODO warning correct type for literals not implemented yet\n");
-            //DECLARE_AND_CREATE_STRUCT_POINTER(direct_declarator_type);
-            //p_expression_node->type.declarator_type->direct_declarator_type.array_function_type_list;// = direct_declarator_type;
-
-            //DECLARE_AND_CREATE_STRUCT_POINTER(direct_declarator_type);
-
-
             if (ectx->bConstantExpressionRequired)
             {
                 parser_seterror_with_token(ctx, ctx->current, "not constant");
@@ -17992,6 +17984,27 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
             }
         }
 
+        if (error->code == 0 && ctx->current != NULL &&
+            (ctx->current->type == '[' || ctx->current->type == '('))
+        {
+            /*
+               p_direct_declarator data struct can have simultaneoult
+               (name_opt or declarator) and array_declarator or function_declarator
+            */
+            if (ctx->current->type == '[')
+            {
+                p_direct_declarator->array_declarator = array_declarator(NULL, ctx, error);
+            }
+            else
+            {
+                p_direct_declarator->function_declarator = function_declarator(NULL, ctx, error);
+            }
+        }
+
+        /*
+           now we may have more complex p_direct_declarator  then 
+           name_opt and declarator will be null and 
+        */
 
         while (error->code == 0 && ctx->current != NULL &&
             (ctx->current->type == '[' || ctx->current->type == '('))
@@ -21711,7 +21724,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             /*let's fix the declarator that is using auto*/
             if (p_init_declarator->initializer->assignment_expression->type.declarator_type)
             {
-                print_declarator_type(&ss, p_init_declarator->initializer->assignment_expression->type.declarator_type);
+                print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
                 struct token_list l2 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
                 l2.head->flags = p_init_declarator->declarator->first_token->flags;
                 token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->last_token, &l2);
