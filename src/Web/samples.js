@@ -293,9 +293,9 @@ sample["C23 auto"] =
 
 struct X {int i;} x;
 
-#define SWAP(a, b) \
-  do {\
-    auto temp = a; a = b; b = temp; \
+#define SWAP(a, b) \\
+  do {\\
+    auto temp = a; a = b; b = temp; \\
   } while (0)
 
 #pragma expand SWAP

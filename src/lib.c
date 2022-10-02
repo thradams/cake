@@ -21342,7 +21342,6 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 
     if (p_iteration_statement->declaration)
     {
-        /*for*/
         visit_declaration(ctx, p_iteration_statement->declaration, error);
     }
     if (p_iteration_statement->expression1)
