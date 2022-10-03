@@ -877,7 +877,6 @@ struct iteration_statement
     struct token* second_token; /*while*/
 
     struct secondary_block* secondary_block;
-    struct declaration* declaration;
     struct expression* expression1;
     struct expression* expression2;
 };

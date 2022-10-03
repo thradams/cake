@@ -395,9 +395,9 @@ bool first_of_atomic_type_specifier(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
-    
+
     /*
-      If the _Atomic keyword is immediately followed by a left parenthesis, it is interpreted 
+      If the _Atomic keyword is immediately followed by a left parenthesis, it is interpreted
       as a type specifier (with a type name), not as a type qualifier.
     */
 
@@ -1858,7 +1858,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 make_type_using_declarator(ctx, p_init_declarator->declarator);
         }
 
-        
+
 
         if (error->code != 0) throw;
         const char* name = p_init_declarator->declarator->name->lexeme;
@@ -1873,7 +1873,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     if (previous != NULL)
                     {
                         if (!type_is_function(&previous->type))
-                        {                            
+                        {
                             if (out->scope_level == ctx->scopes.tail->scope_level ||
                                 out->is_parameters_scope)
                             {
@@ -1888,7 +1888,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                                 parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
                             }
                         }
-                      
+
                     }
                 }
             }
@@ -1912,13 +1912,36 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 if (p_init_declarator->initializer &&
                     p_init_declarator->initializer->assignment_expression)
                 {
-                    /*TODO 
-                      auto s = "test";
-                    */
                     struct type t = type_copy(&p_init_declarator->initializer->assignment_expression->type);
+
+                    if (p_init_declarator->declarator->pointer != NULL)
+                    {
+                        //declarator with pointer is UB
+                        //https://open-std.org/jtc1/sc22/wg14/www/docs/n3007.htm
+                        parser_setwarning_with_token(ctx,
+                            p_init_declarator->declarator->first_token,
+                            "auto with pointer is UB in C23");
+
+                        /*
+                           int x;
+                           auto* p[2] = &x;
+
+                           I will remove the pointer from &x. Then the result is
+
+                           int* p[2] = &x;
+
+                           instead of
+
+                           int** p[2] = &x;
+
+                        */
+                        pointer_type_list_pop_front(&t.declarator_type->pointers);
+                    }
+                    
                     struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, p_init_declarator->declarator);
                     declarator_type_merge(dectype, t.declarator_type);
                     p_init_declarator->declarator->type = t; /*MOVED*/
+
                 }
             }
         }
@@ -2032,7 +2055,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx, struct error* 
     struct typeof_specifier* p_typeof_specifier = calloc(1, sizeof(struct typeof_specifier));
 
     p_typeof_specifier->first_token = ctx->current;
-    
+
     const bool is_typeof_unqual = ctx->current->type == TK_KEYWORD_TYPEOF_UNQUAL;
     parser_match(ctx);
     parser_match_tk(ctx, '(', error);
@@ -2045,8 +2068,8 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx, struct error* 
         /*
          TODO incomplete bug page 115 std
         */
-        
-        
+
+
 
         /*let's remove qualifiers*/
         if (p_typeof_specifier->typeof_specifier_argument->expression)
@@ -2058,7 +2081,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx, struct error* 
         {
             p_typeof_specifier->typeof_specifier_argument->type_name->declarator->specifier_qualifier_list->type_qualifier_flags = TYPE_QUALIFIER_NONE;
             p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
-        }        
+        }
     }
     p_typeof_specifier->last_token = ctx->current;
     parser_match_tk(ctx, ')', error);
@@ -2376,7 +2399,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
 
     /*check if complete struct is deprecated*/
     if (pStruct_or_union_specifier->complete_struct_or_union_specifier)
-    {        
+    {
         if (pStruct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt &&
             pStruct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags && STD_ATTRIBUTE_DEPRECATED)
         {
@@ -2693,10 +2716,10 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
 
         parser_match_tk(ctx, TK_KEYWORD_ENUM, error);
 
-        p_enum_specifier->attribute_specifier_sequence_opt = 
+        p_enum_specifier->attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx, error);
 
-     
+
         struct enum_specifier* pPreviousTagInThisScope = NULL;
         bool bHasIdentifier = false;
         if (ctx->current->type == TK_IDENTIFIER)
@@ -2825,8 +2848,8 @@ struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
     naming_convention_enumerator(ctx, name);
 
     parser_match_tk(ctx, TK_IDENTIFIER, error);
-    
-    p_enumerator->attribute_specifier_sequence_opt = 
+
+    p_enumerator->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx, error);
 
     p_enumerator->token = name;
@@ -2963,16 +2986,16 @@ const char* declarator_get_name(struct declarator* p_declarator)
     if (p_declarator->direct_declarator)
     {
         if (p_declarator->direct_declarator->name_opt)
-          return p_declarator->direct_declarator->name_opt->lexeme;
+            return p_declarator->direct_declarator->name_opt->lexeme;
     }
 
-    
+
     return NULL;
 }
 
 bool declarator_is_function(struct declarator* p_declarator)
 {
-    return (p_declarator->direct_declarator &&        
+    return (p_declarator->direct_declarator &&
         p_declarator->direct_declarator->function_declarator != NULL);
 
 }
@@ -3091,27 +3114,6 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
             }
         }
 
-        if (error->code == 0 && ctx->current != NULL &&
-            (ctx->current->type == '[' || ctx->current->type == '('))
-        {
-            /*
-               p_direct_declarator data struct can have simultaneoult
-               (name_opt or declarator) and array_declarator or function_declarator
-            */
-            if (ctx->current->type == '[')
-            {
-                p_direct_declarator->array_declarator = array_declarator(NULL, ctx, error);
-            }
-            else
-            {
-                p_direct_declarator->function_declarator = function_declarator(NULL, ctx, error);
-            }
-        }
-
-        /*
-           now we may have more complex p_direct_declarator  then 
-           name_opt and declarator will be null and 
-        */
 
         while (error->code == 0 && ctx->current != NULL &&
             (ctx->current->type == '[' || ctx->current->type == '('))
@@ -3129,9 +3131,9 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
             p_direct_declarator = p_direct_declarator2;
         }
 
-      
 
-     
+
+
     }
     catch
     {
@@ -3227,7 +3229,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
 }
 
 
-struct function_declarator* function_declarator(struct direct_declarator *p_direct_declarator,struct parser_ctx* ctx, struct error* error)
+struct function_declarator* function_declarator(struct direct_declarator* p_direct_declarator, struct parser_ctx* ctx, struct error* error)
 {
     struct function_declarator* p_function_declarator = calloc(1, sizeof(struct function_declarator));
     //faz um push da funcion_scope_declarator_list que esta vivendo mais em cima
@@ -3273,8 +3275,8 @@ struct pointer* pointer_opt(struct parser_ctx* ctx, struct error* error)
         struct pointer* p_pointer = calloc(1, sizeof(struct pointer));
         p = p_pointer;
         parser_match(ctx);
-        
-        p_pointer->attribute_specifier_sequence_opt = 
+
+        p_pointer->attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx, error);
 
         if (first_of_type_qualifier(ctx))
@@ -3359,7 +3361,7 @@ struct parameter_list* parameter_list(struct parser_ctx* ctx, struct error* erro
 struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx, struct error* error)
 {
     struct parameter_declaration* p_parameter_declaration = calloc(1, sizeof(struct parameter_declaration));
-        
+
     p_parameter_declaration->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx, error);
 
@@ -3744,7 +3746,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
 struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct parser_ctx* ctx, struct error* error)
 {
     struct attribute_specifier_sequence* p_attribute_specifier_sequence = NULL;
-    
+
     if (first_of_attribute_specifier(ctx))
     {
         p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
@@ -3766,7 +3768,7 @@ struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct par
         p_attribute_specifier_sequence->last_token = ctx->previous;
     }
 
-    
+
 
     return p_attribute_specifier_sequence;
 }
@@ -3865,7 +3867,7 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* er
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_MAYBE_UNUSED;
     }
     else if (strcmp(attr_token->lexeme, "noreturn") == 0) {
-        is_standard_attribute = true;        
+        is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_NORETURN;
     }
     else if (strcmp(attr_token->lexeme, "reproducible") == 0) {
@@ -4057,14 +4059,14 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct e
     {
         p_unlabeled_statement->expression_statement = expression_statement(ctx, error);
         if (p_unlabeled_statement->expression_statement)
-        {            
-            if (p_unlabeled_statement->expression_statement->expression_opt && 
+        {
+            if (p_unlabeled_statement->expression_statement->expression_opt &&
                 p_unlabeled_statement->expression_statement->expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
             {
 
                 if (!type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type))
                 {
-                    if (ctx->options.nodiscard_is_default || 
+                    if (ctx->options.nodiscard_is_default ||
                         type_is_nodiscard(&p_unlabeled_statement->expression_statement->expression_opt->type))
                     {
                         if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
@@ -4078,7 +4080,7 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx, struct e
             }
         }
     }
-    
+
     return p_unlabeled_statement;
 }
 struct label* label(struct parser_ctx* ctx, struct error* error)
@@ -4150,7 +4152,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                 entry = entry->next;
                 continue;
             }
-            
+
             struct declarator* p_declarator =
                 p_declarator = container_of(entry->p, struct declarator, type_id);
 
@@ -4474,7 +4476,7 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
             struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
                 attribute_specifier_sequence_opt(ctx, error);
 
-            p_iteration_statement->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, error);
+            declaration(ctx, p_attribute_specifier_sequence_opt, error);
             if (ctx->current->type != ';')
             {
                 p_iteration_statement->expression1 = expression(ctx, error, &ectx);
@@ -4591,7 +4593,7 @@ struct expression_statement* expression_statement(struct parser_ctx* ctx, struct
        attribute-specifier-sequence expression ;
     */
 
-    p_expression_statement->p_attribute_specifier_sequence_opt = 
+    p_expression_statement->p_attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx, error);
 
     if (ctx->current->type != ';')
@@ -4918,7 +4920,7 @@ int compile_one_file(const char* file_name,
     char** argv,
     struct error* error)
 {
-    
+
     struct preprocessor_ctx prectx = { 0 };
 
 #ifdef TEST

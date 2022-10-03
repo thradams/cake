@@ -304,6 +304,7 @@ int main()
 {
    auto s = "hello auto";
    auto p = &x;
+   auto *p2 = &x;
    const auto d = 1.0;
    static auto c = 2;
    int a = 1;
