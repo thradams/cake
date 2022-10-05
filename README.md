@@ -1,4 +1,3 @@
-![](./docs/cover.png)
 
 # Description
 
