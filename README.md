@@ -1,4 +1,4 @@
-![](.\docs\cover.png)
+![](./docs/cover.png)
 
 # Description
 
