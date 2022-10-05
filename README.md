@@ -132,7 +132,7 @@ This compilation is usefull for tracking errors.
 
 Cake uses unit tests that are called automatically.
 
-# Diferences from CFront
+# Differences  from CFront
 
 Cfront was the original compiler for C++ which converted C++ to C. 
 CFront generated code was used only for direct compilation because it
