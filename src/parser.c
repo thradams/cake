@@ -4803,22 +4803,34 @@ unsigned long __stdcall GetEnvironmentVariableA(
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
 #ifdef _WIN32
+
     /*
-     Para ver as variaveis de ambiente pode-se digitar set no windows
+     * Let's get the msvc command prompt INCLUDE
     */
+    char env[2000];
+    int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
 
-    //char env[2000];
-    //int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
+    if (n == 0)
+    {
+        /*
+         * Used in debug inside VC IDE
+         * type on msvc command prompt:
+         * echo %INCLUDE%
+         * to generate this string
+        */
 
-    char env[] = "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
+        snprintf(env, sizeof env, "%s"
+        "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
         "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/include;"
         "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um;"
         "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
         "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
         "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
         "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
-        "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt";
-    int n = strlen(env);
+        "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt");
+
+        n = strlen(env);
+    }
 
     if (n > 0 && n < sizeof(env))
     {
