@@ -1264,7 +1264,7 @@ struct pointer_type_list clone_pointer_to_pointer_type_list(struct pointer* p_po
     return r;
 }
 
-struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);
+
 
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 

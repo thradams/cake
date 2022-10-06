@@ -18,42 +18,48 @@
 <a href="#toc_1">Web Playground</a>
 </li>
 <li>
-<a href="#toc_2">Features</a>
+<a href="#toc_2">Use cases</a>
 </li>
 <li>
-<a href="#toc_3">Build</a>
+<a href="#toc_3">Features</a>
+</li>
+<li>
+<a href="#toc_4">Build</a>
 <ul>
 <li>
-<a href="#toc_4">MSVC build instructions</a>
+<a href="#toc_5">MSVC build instructions</a>
 </li>
 <li>
-<a href="#toc_5">GCC (linux) build instructions</a>
+<a href="#toc_6">GCC (linux) build instructions</a>
 </li>
 <li>
-<a href="#toc_6">Emscripten build instructions (web)</a>
+<a href="#toc_7">Emscripten build instructions (web)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_7">Running cake at command line</a>
+<a href="#toc_8">Running cake at command line</a>
 </li>
 <li>
-<a href="#toc_8">Road map</a>
+<a href="#toc_9">Road map</a>
 </li>
 <li>
-<a href="#toc_9">References</a>
+<a href="#toc_10">References</a>
 </li>
 <li>
-<a href="#toc_10">Influenced by</a>
+<a href="#toc_11">Influenced by</a>
 </li>
 <li>
-<a href="#toc_11">Participating</a>
+<a href="#toc_12">Participating</a>
 </li>
 <li>
-<a href="#toc_12">Status?</a>
+<a href="#toc_13">Status?</a>
 </li>
 <li>
-<a href="#toc_13">How cake is tested?</a>
+<a href="#toc_14">How cake is tested?</a>
+</li>
+<li>
+<a href="#toc_15">Differences  from CFront</a>
 </li>
 </ul>
 <h1 id="toc_0">Description</h1>
@@ -73,7 +79,15 @@ to C99.</p>
 
 <p><a href="http://thradams.com/cake/playground.html">http://thradams.com/cake/playground.html</a></p>
 
-<h1 id="toc_2">Features</h1>
+<h1 id="toc_2">Use cases</h1>
+
+<p>If you have a project that is distributed with code, you don&#39;t need to limit 
+the project development at the lower supported language version.  For instance,
+you can use attributes like <em>nodiscard</em> during the development or <em>defer</em>, both features 
+improving the code security. Then adding a extra step in your build you can distribute
+a readable C99 source code that compiles everywhere.</p>
+
+<h1 id="toc_3">Features</h1>
 
 <ul>
 <li>C23 preprocessor</li>
@@ -83,9 +97,9 @@ to C99.</p>
 <li>Builds AST </li>
 </ul>
 
-<h1 id="toc_3">Build</h1>
+<h1 id="toc_4">Build</h1>
 
-<h2 id="toc_4">MSVC build instructions</h2>
+<h2 id="toc_5">MSVC build instructions</h2>
 
 <p>Open the Developer Command Prompt of visual studio. Go to the <em>src</em> directory and type</p>
 
@@ -94,7 +108,7 @@ to C99.</p>
 
 <p>This will build <em>cake.exe</em>, then run cake on its own source code.</p>
 
-<h2 id="toc_5">GCC (linux) build instructions</h2>
+<h2 id="toc_6">GCC (linux) build instructions</h2>
 
 <p>Got to the <em>src</em> directory and type:</p>
 
@@ -106,7 +120,7 @@ to C99.</p>
 <pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<h2 id="toc_6">Emscripten build instructions (web)</h2>
+<h2 id="toc_7">Emscripten build instructions (web)</h2>
 
 <p>Emscripten <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
 
@@ -121,7 +135,7 @@ to C99.</p>
 
 <p>This will generate the <em>\src\Web\cake.js</em></p>
 
-<h1 id="toc_7">Running cake at command line</h1>
+<h1 id="toc_8">Running cake at command line</h1>
 
 <p>Make sure cake is on your system path.</p>
 
@@ -134,7 +148,7 @@ to C99.</p>
 
 <p>See <a href="manual.html">Manual</a></p>
 
-<h1 id="toc_8">Road map</h1>
+<h1 id="toc_9">Road map</h1>
 
 <ul>
 <li>Complete semantic analisys</li>
@@ -142,7 +156,7 @@ to C99.</p>
 <li>Backend, maybe qbe <a href="https://c9x.me/compile/">QBE</a></li>
 </ul>
 
-<h1 id="toc_9">References</h1>
+<h1 id="toc_10">References</h1>
 
 <p>A copy of each C standard draft in included in <em>docs</em> folder. The parser is based on C23.</p>
 
@@ -152,26 +166,26 @@ to C99.</p>
 <li><a href="https://www.ibm.com/docs/en/xl-c-aix/13.1.0?topic=extensions-c99-features">https://www.ibm.com/docs/en/xl-c-aix/13.1.0?topic=extensions-c99-features</a></li>
 </ul>
 
-<h1 id="toc_10">Influenced by</h1>
+<h1 id="toc_11">Influenced by</h1>
 
 <ul>
 <li>Typescript</li>
 <li>Small C compilers</li>
 </ul>
 
-<h1 id="toc_11">Participating</h1>
+<h1 id="toc_12">Participating</h1>
 
 <p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
 
 <p>Have a sugestion for C?</p>
 
-<h1 id="toc_12">Status?</h1>
+<h1 id="toc_13">Status?</h1>
 
 <p>Even if not necessary for most features, I want Cake to make a full semantic analysis.</p>
 
 <p>It is necessary more work it is not complete yet.</p>
 
-<h1 id="toc_13">How cake is tested?</h1>
+<h1 id="toc_14">How cake is tested?</h1>
 
 <p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
 the includes of MSVC and it generates the <em>out</em> dir after build. I use WSL for testing
@@ -181,4 +195,22 @@ and compiling the code for linux.</p>
 This compilation is usefull for tracking errors.</p>
 
 <p>Cake uses unit tests that are called automatically.</p>
+
+<h1 id="toc_15">Differences  from CFront</h1>
+
+<p>Cfront was the original compiler for C++ which converted C++ to C. 
+CFront generated code was used only for direct compilation because it
+had all macros expanded making it useless in other plataforms.</p>
+
+<p>Cake have two modes. One is for direct compilation (like cfront) and the other
+preserves macros includes etc.. making it suitable for distribution.</p>
+
+<p>The other difference is that C++ is a second branch of evolution making C++ more
+compatible with C89 than C99.</p>
+
+<p>The idea of Cake is to keep the main line of evolution of C and be always 100% 
+compatible. </p>
+
+<p>The added extensions aims to keep the spirit of the language and implement proposed 
+features in a way they can be experimented even before standarization.</p>
 </body></html>
