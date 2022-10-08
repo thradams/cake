@@ -2435,6 +2435,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (!bAlreadyIncluded)
                 {
                     pre_seterror_with_token(ctx, r.tail, "file %s not found", path + 1);
+                    
+                    for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
+                    {
+                        /*let's print the include path*/
+                        ctx->printf("%s\n", p->path);
+                    }                    
                 }
                 else
                 {
