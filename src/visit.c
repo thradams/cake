@@ -122,7 +122,9 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
                 p_unlabeled_statement->primary_block->compound_statement->block_item_list.head;
             while (block_item)
             {
-                if (block_item->label &&
+                if (block_item &&
+                    block_item->label &&
+                    block_item->label->name &&
                     strcmp(block_item->label->name->lexeme, label) == 0)
                 {
                     /*achou*/
