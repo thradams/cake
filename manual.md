@@ -1354,8 +1354,10 @@ p[0] = 1;
 
 When we free(p) we know that p is invalid and should not be used anymore.
 
-How we could take notes that p is invalid? This is the motivation for
-declarator static analisys flags.
+#### How we could take notes that p is invalid?
+#### How compiler could check our notes?
+
+This is the motivation for *declarator static analisys* flags.
 
 ### Mechanics.
 
@@ -1389,9 +1391,9 @@ void my_free(void *arg1)
 }
 ```
 
-We cannot determine if arg1 has the flag MUST_FREE without
-looking at caller. So static_assert is just ignored at
-first stage.
+We cannot determine if arg1 has the flag MUST\_FREE without
+looking at caller. So static_assert is just ignored at first
+pass.
 
 But when we call my_free:
 
@@ -1405,6 +1407,7 @@ int main()
 
     static_assert(!__has_attr(MUST_FREE));
 }
+```
 
 Then the flags of p are plugged into arg1 by "reference" and the function
 my_free is analised again. set/remove and check are now using the flags of p.

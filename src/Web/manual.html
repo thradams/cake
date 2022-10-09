@@ -1311,8 +1311,11 @@ p[0] = 1;
 
 <p>When we free(p) we know that p is invalid and should not be used anymore.</p>
 
-<p>How we could take notes that p is invalid? This is the motivation for
-declarator static analisys flags.</p>
+<h4>How we could take notes that p is invalid?</h4>
+
+<h4>How compiler could check our notes?</h4>
+
+<p>This is the motivation for <em>declarator static analisys</em> flags.</p>
 
 <h3>Mechanics.</h3>
 
@@ -1344,9 +1347,9 @@ the operation is delayed until the function instantiation.</p>
 }
 </code></pre>
 
-<p>We cannot determine if arg1 has the flag MUST<em>FREE without
-looking at caller. So static</em>assert is just ignored at
-first stage.</p>
+<p>We cannot determine if arg1 has the flag MUST_FREE without
+looking at caller. So static_assert is just ignored at first
+pass.</p>
 
 <p>But when we call my_free:</p>
 
@@ -1359,14 +1362,14 @@ first stage.</p>
 
     static_assert(!__has_attr(MUST_FREE));
 }
+</code></pre>
 
-Then the flags of p are plugged into arg1 by &quot;reference&quot; and the function
-my_free is analised again. set/remove and check are now using the flags of p.
+<p>Then the flags of p are plugged into arg1 by &quot;reference&quot; and the function
+my_free is analised again. set/remove and check are now using the flags of p.</p>
 
-We can also add flags to the receiver declarator using &quot;return&quot;
+<p>We can also add flags to the receiver declarator using &quot;return&quot;</p>
 
-```c
-void* my_malloc(int size)
+<pre><code class="language-c">void* my_malloc(int size)
 {    
     _add_attr(return, MUST_FREE);
 }
