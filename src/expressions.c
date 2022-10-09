@@ -1,3 +1,4 @@
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -78,6 +79,15 @@ int  compare_function_arguments(struct parser_ctx* ctx,
                 parser_seterror_with_token(ctx,
                     current_argument->expression->first_token,
                     " incompatible types at argument %d", param_num);
+            }
+
+            if (current_parameter_type->declarator_type->direct_declarator_type->name_opt)
+            {
+                /*
+                * let's associate the name of the argument with the expression
+                */
+                //TODO better copy or reference??
+                current_argument->argname = strdup(current_parameter_type->declarator_type->direct_declarator_type->name_opt);
             }
             //compare
             current_argument = current_argument->next;
@@ -229,9 +239,9 @@ struct generic_association* generic_association(struct parser_ctx* ctx, struct e
             parser_match(ctx);
         }
         else if (first_of_type_name(ctx))
-        {            
+        {
             p_generic_association->p_type_name = type_name(ctx, error);
-            p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);            
+            p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);
         }
         else
         {
@@ -239,7 +249,7 @@ struct generic_association* generic_association(struct parser_ctx* ctx, struct e
             error->code = 1;
         }
         parser_match_tk(ctx, ':', error);
-        p_generic_association->expression =  assignment_expression(ctx, error, ectx);
+        p_generic_association->expression = assignment_expression(ctx, error, ectx);
     }
     catch{
     }
@@ -252,13 +262,13 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
     struct generic_assoc_list list = { 0 };
     try
     {
-        struct generic_association* p_generic_association = 
-          generic_association(ctx, error, ectx);        
+        struct generic_association* p_generic_association =
+            generic_association(ctx, error, ectx);
         if (p_generic_association == NULL)
             throw;
 
         list_add(&list, p_generic_association);
-        
+
         while (error->code == 0 &&
             ctx->current->type == ',')
         {
@@ -293,7 +303,7 @@ static void print_clean_list(struct token_list* list)
     }
 }
 
-struct generic_selection * generic_selection(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct generic_selection* generic_selection(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
 {
     /*
     generic-selection:
@@ -307,7 +317,7 @@ struct generic_selection * generic_selection(struct parser_ctx* ctx, struct erro
             throw;
 
         p_generic_selection->first_token = ctx->current;
-        
+
 
         parser_match_tk(ctx, TK_KEYWORD__GENERIC, error);
         parser_match_tk(ctx, '(', error);
@@ -315,11 +325,11 @@ struct generic_selection * generic_selection(struct parser_ctx* ctx, struct erro
         l.head = ctx->current;
         p_generic_selection->expression = assignment_expression(ctx, error, ectx);
         l.tail = ctx->current->prev;
-        
+
         parser_match_tk(ctx, ',', error);
 
         p_generic_selection->generic_assoc_list = generic_association_list(ctx, error, ectx);
-        
+
         struct generic_association* current = p_generic_selection->generic_assoc_list.head;
         while (current)
         {
@@ -327,7 +337,7 @@ struct generic_selection * generic_selection(struct parser_ctx* ctx, struct erro
             {
                 if (type_is_same(&p_generic_selection->expression->type, &current->type, true))
                 {
-                    p_generic_selection->p_view_selected_expression = current->expression;                    
+                    p_generic_selection->p_view_selected_expression = current->expression;
                     break;
                 }
             }
@@ -338,8 +348,8 @@ struct generic_selection * generic_selection(struct parser_ctx* ctx, struct erro
             }
             current = current->next;
         }
-        
-        p_generic_selection->last_token= ctx->current;
+
+        p_generic_selection->last_token = ctx->current;
         parser_match_tk(ctx, ')', error);
     }
     catch
@@ -362,7 +372,7 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
         parser_match_tk(ctx, '(', error);
         if (first_of_type_name(ctx))
         {
-            
+
             p_expression_node->type_name = type_name(ctx, error);
             p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
             //printf("typeid() = ");
@@ -371,7 +381,7 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
         }
         else
         {
-        
+
             bool constant_expr_required_old = ectx->bConstantExpressionRequired;
             ectx->bConstantExpressionRequired = false;
             p_expression_node->right = expression(ctx, error, ectx);
@@ -502,7 +512,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node = calloc(1, sizeof * p_expression_node);
 
             if (p_expression_node == NULL) throw;
-            
+
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
@@ -530,10 +540,10 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
                 }
                 else
                 {
-                    
+
                     if (type_is_deprecated(&p_declarator->type))
                     {
-                        parser_setwarning_with_token(ctx, ctx->current, "'%s' is deprecated\n", ctx->current->lexeme);                                                
+                        parser_setwarning_with_token(ctx, ctx->current, "'%s' is deprecated\n", ctx->current->lexeme);
                     }
 
                     p_declarator->num_uses++;
@@ -555,20 +565,20 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
             p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
-            
+
             struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
             struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
             struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
             struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
 
             p_declarator_type->direct_declarator_type = p_direct_declarator_type;
-                        
+
             array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
             array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
             p_direct_declarator_type->array_declarator_type = array_declarator_type;
-            
+
             p_expression_node->type.declarator_type = p_declarator_type;
-            
+
             if (ectx->bConstantExpressionRequired)
             {
                 parser_seterror_with_token(ctx, ctx->current, "not constant");
@@ -630,7 +640,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node->last_token = ctx->current;
 
             p_expression_node->constant_value = 0;
-            
+
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
             p_expression_node->type.type_qualifier_flags = 0;
@@ -660,7 +670,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             }
             else
             {
-                
+
                 p_expression_node->generic_selection = generic_selection(ctx, error, ectx);
                 p_expression_node->first_token = p_expression_node->generic_selection->first_token;
                 p_expression_node->last_token = p_expression_node->generic_selection->last_token;
@@ -703,7 +713,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
     */
     //assert(p_expression_node&& p_expression_node->first);
     //assert(p_expression_node&& p_expression_node->last);
-    
+
     return p_expression_node;
 }
 
@@ -737,6 +747,24 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
     return list;
 }
 
+/*
+* returns the expression used by argument named name
+*/
+static struct argument_expression* find_argument_expression(struct argument_expression_list* argument_expression_list, const char* name)
+{
+    struct argument_expression* p = argument_expression_list->head;
+    while (p)
+    {
+        if (strcmp(p->argname, name) == 0)
+        {
+            return p;
+        }
+        p = p->next;
+    }
+
+    return NULL;
+}
+
 bool first_of_postfix_expression(struct parser_ctx* ctx)
 {
     //( type-name )  postfix confunde com (expression) primary
@@ -745,6 +773,226 @@ bool first_of_postfix_expression(struct parser_ctx* ctx)
     return is_first_of_primary_expression(ctx);
 }
 
+
+/*
+* This function set's the declaration on the argument expression into parameter declarators
+*/
+void plug_declarators_into_params(
+    struct argument_expression_list * p_argument_expression_list,
+    struct parameter_list* p_parameter_list,
+    bool * is_parameter_declarator)
+{
+    struct argument_expression* argument = p_argument_expression_list->head;
+
+    struct parameter_declaration* par = p_parameter_list->head;
+
+    while (par && argument)
+    {
+        if (argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+        {
+            par->declarator->caller_declarator = argument->expression->declarator;
+            
+            if (par->declarator->is_parameter_declarator)
+              *is_parameter_declarator = true;
+        }
+        else if (argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+        {
+            struct expression* right = argument->expression->right;
+            if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            {
+                par->declarator->caller_declarator = right->declarator;
+                if (par->declarator->is_parameter_declarator)
+                    *is_parameter_declarator = true;
+            }
+        }
+
+        argument = argument->next;
+        par = par->next;
+    }
+}
+
+static void contract_visit_compound_statement(struct parser_ctx* ctx,
+    
+    struct compound_statement* function_body,
+    struct expression* call_expression, /*call expression*/
+    enum static_analisys_flags* to_add,
+    enum static_analisys_flags* to_remove);
+
+/*
+*   EXPERIMENTAL declarators compile time flags. This is the second pass
+*   where we evaluated _add_attr, _del_attr, _has_attr having the caller
+*   information (inside expr->argument_expression_list)
+*/
+
+static void contract_visit_expression(struct parser_ctx* ctx,    
+    struct expression* expression_opt,
+    enum static_analisys_flags* to_add,
+    enum static_analisys_flags* to_remove)
+{
+    if (expression_opt->expression_type == UNARY_DECLARATOR_ATTRIBUTE_EXPR)
+    {
+        enum static_analisys_flags flags = expression_opt->right->constant_value;
+        struct token* identifier = expression_opt->contract_arg_token;
+        if (identifier)
+        {
+            struct declarator* p_declarator = expression_opt->declarator;
+
+            while (p_declarator && p_declarator->caller_declarator != NULL)
+            {
+                p_declarator = p_declarator->caller_declarator;
+            }
+
+            if (p_declarator == NULL)
+            {
+                if (expression_opt->first_token->type == TK_KEYWORD_ATTR_ADD)
+                {
+                    *to_add |= flags;
+                }
+                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_REMOVE)
+                {
+                    *to_remove &= ~flags;
+                }
+            }
+            else
+            {
+                if (expression_opt->first_token->type == TK_KEYWORD_ATTR_ADD)
+                {
+                    p_declarator->static_analisys_flags |= flags;
+                }
+                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_REMOVE)
+                {
+                    p_declarator->static_analisys_flags &= ~flags;
+                }
+                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_HAS)
+                {
+                    expression_opt->constant_value =
+                        (p_declarator->static_analisys_flags & flags) != 0;
+                }
+            }
+        }
+    }
+    else if (expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
+    {
+        if (expression_opt->type.declarator_type &&
+            expression_opt->type.declarator_type->direct_declarator_type &&
+            expression_opt->type.declarator_type->direct_declarator_type->name_opt)
+        {
+            
+#if 0
+            /*
+             * I am disabling the visit of function inside function for two reasons
+             * 1 - we need to add a check for recursivity
+             * 2 - The inner function may have "ifs" that maybe are impossible to prove
+             *     the will always set some flags. So this flags need to me assured
+             *     by the programmer externally.
+            */
+            if (expression_opt->left->declarator &&
+                expression_opt->left->declarator->function_body)
+            {
+                struct declarator* function_declarator = expression_opt->left->declarator;
+
+                if (function_declarator->direct_declarator &&
+                    function_declarator->direct_declarator->function_declarator &&
+                    function_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
+                    function_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
+                {
+                    plug_declarators_into_params(
+                        &expression_opt->argument_expression_list,
+                        function_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
+                }
+              
+                enum static_analisys_flags to_add = 0;
+                enum static_analisys_flags to_remove = 0;
+                contract_visit_compound_statement(ctx,                    
+                    expression_opt->left->declarator->function_body,
+                    &expression_opt->flags_to_add,
+                    &expression_opt->flags_to_remove);
+            }
+#endif
+        }
+    }
+    else if (expression_opt->expression_type == UNARY_EXPRESSION_NOT)
+    {
+        contract_visit_expression(ctx, expression_opt->right, to_add, to_remove);
+        expression_opt->constant_value = !expression_opt->right->constant_value;
+    }
+}
+
+/*
+* second pass for declarator compile time flags
+*/
+static void contract_visit_compound_statement(struct parser_ctx* ctx,    
+    struct compound_statement* function_body,
+    struct expression* call_expression, /*call expression*/
+    enum static_analisys_flags* to_add,
+    enum static_analisys_flags* to_remove)
+{
+    /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
+
+    struct block_item* p_block_item = function_body->block_item_list.head;
+    while (p_block_item)
+    {
+        if (p_block_item->unlabeled_statement)
+        {
+            if (p_block_item->unlabeled_statement->expression_statement &&
+                p_block_item->unlabeled_statement->expression_statement->expression_opt)
+            {
+                contract_visit_expression(ctx,
+                    p_block_item->unlabeled_statement->expression_statement->expression_opt,
+                    to_add, to_remove);
+            }
+            else if (p_block_item->unlabeled_statement->primary_block)
+            {
+                if (p_block_item->unlabeled_statement->primary_block->selection_statement)
+                {
+                    if (p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block &&
+                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement &&
+                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement &&
+                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
+                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
+                    {
+                        contract_visit_compound_statement(ctx,
+                            p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement,
+                            call_expression,
+                            to_add,
+                            to_remove);
+                    }
+                }
+                
+            }
+        }
+        else if (p_block_item->declaration &&
+            p_block_item->declaration->static_assert_declaration &&
+            p_block_item->declaration->static_assert_declaration->evaluated_at_caller)
+        {
+            if (p_block_item->declaration->static_assert_declaration->constant_expression)
+                contract_visit_expression(ctx,                    
+                    p_block_item->declaration->static_assert_declaration->constant_expression, to_add, to_remove);
+
+            if (!p_block_item->declaration->static_assert_declaration->constant_expression->constant_value)
+            {
+                if (p_block_item->declaration->static_assert_declaration->string_literal_opt)
+                {
+                    parser_seterror_with_token(ctx, p_block_item->declaration->static_assert_declaration->first_token, "static_assert failed %s\n",
+                        p_block_item->declaration->static_assert_declaration->string_literal_opt->lexeme);
+                }
+                else
+                {
+                    parser_seterror_with_token(ctx,
+                        p_block_item->declaration->static_assert_declaration->first_token,
+                        "static_assert failed");
+                }
+
+                parser_set_info_with_token(ctx, call_expression->first_token, "call point");                
+            }
+        }
+        else
+        {
+           // assert(false);
+        }
+        p_block_item = p_block_item->next;
+    }
+}
 
 struct expression* postfix_expression_tail(struct parser_ctx* ctx,
     struct error* error,
@@ -816,10 +1064,52 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 struct error local = { 0 };
                 if (compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list, &local) != 0)
                 {
-
-
                     throw;
                 }
+
+           
+                if (p_expression_node_new->type.declarator_type &&
+                    p_expression_node_new->type.declarator_type->direct_declarator_type &&
+                    p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt)
+                {
+                    struct declarator* func = find_declarator(ctx,
+                        p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt, NULL);
+                    if (func->function_body)
+                    {
+
+                        bool has_parameters_declarators = false;
+
+                        if (func->direct_declarator->function_declarator->parameter_type_list_opt &&
+                            func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
+                        {
+                            
+                            plug_declarators_into_params(
+                                &p_expression_node_new->argument_expression_list,
+                                func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list,
+                                &has_parameters_declarators);                        }
+
+                        if (!has_parameters_declarators)
+                        {
+                            /*
+                              We cannot try to determine something without the concrete declarator
+                            */
+
+                           
+                            if (ctx->options.do_static_analisys)
+                            {
+                                enum static_analisys_flags to_add = 0;
+                                enum static_analisys_flags to_remove = 0;
+                                contract_visit_compound_statement(ctx,
+                                    func->function_body,
+                                    p_expression_node_new,
+                                    &p_expression_node_new->flags_to_add,
+                                    &p_expression_node_new->flags_to_remove);
+                            }
+                           
+                        }
+                    }
+                }
+
                 p_expression_node_new->last_token = ctx->previous;
                 p_expression_node = p_expression_node_new;
             }
@@ -952,10 +1242,10 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
 
     p_expression_node->first_token = previous_parser_token(p_type_name->first_token);
     assert(p_expression_node->first_token->type == '(');
-    
+
     p_expression_node->type_name = p_type_name;
     p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
-    
+
 
     if (type_is_function(&p_type_name->declarator->type))
     {
@@ -967,12 +1257,12 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
         scope_list_push(&ctx->scopes, parameters_scope);
         p_expression_node->compound_statement = function_body(ctx, error);
         scope_list_pop(&ctx->scopes);
-        
+
     }
     else
     {
         p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
-        p_expression_node->braced_initializer = braced_initializer(ctx, error);    
+        p_expression_node->braced_initializer = braced_initializer(ctx, error);
     }
 
     p_expression_node->last_token = ctx->previous;
@@ -1049,12 +1339,12 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
         {
             p_expression_node = primary_expression(ctx, error, ectx);
         }
-        
-            p_expression_node = postfix_expression_tail(ctx,
-                error,
-                p_expression_node,
-                ectx);
-        
+
+        p_expression_node = postfix_expression_tail(ctx,
+            error,
+            p_expression_node,
+            ectx);
+
     }
     catch
     {
@@ -1078,7 +1368,87 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == '!' ||
         ctx->current->type == TK_KEYWORD_SIZEOF ||
         ctx->current->type == TK_KEYWORD_HASHOF ||
+        ctx->current->type == TK_KEYWORD_ATTR_ADD ||
+        ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
+        ctx->current->type == TK_KEYWORD_ATTR_HAS ||
         ctx->current->type == TK_KEYWORD__ALIGNOF;
+}
+
+struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+{
+    struct expression* new_expression = calloc(1, sizeof * new_expression);
+    new_expression->expression_type = UNARY_DECLARATOR_ATTRIBUTE_EXPR;
+    new_expression->first_token = ctx->current;
+    struct token* func = ctx->current;
+    parser_match(ctx);
+
+    bool old = ectx->bConstantExpressionRequired;
+    ectx->bConstantExpressionRequired = true;
+    parser_match_tk(ctx, '(', error);
+
+
+    new_expression->contract_arg_token = ctx->current;
+
+
+    if (new_expression->contract_arg_token->type == TK_IDENTIFIER)
+    {
+        new_expression->declarator = find_declarator(ctx, 
+            new_expression->contract_arg_token->lexeme, 
+            NULL);
+
+        if (new_expression->declarator == NULL)
+        {
+            parser_seterror_with_token(ctx, 
+                new_expression->contract_arg_token,
+                "declarator not found");
+        }
+        parser_match(ctx);
+    }
+    else if (ctx->current->type == TK_KEYWORD_RETURN)
+    {
+        parser_match(ctx);
+    }
+    else
+    {
+        parser_seterror_with_token(ctx, new_expression->contract_arg_token, "expected declarator name or return");
+    }
+
+    parser_match_tk(ctx, ',', error);
+
+    new_expression->right = constant_expression(ctx, error, ectx);
+    parser_match_tk(ctx, ')', error);
+    ectx->bConstantExpressionRequired = old;
+
+    if (new_expression->declarator == NULL ||
+        new_expression->declarator->is_parameter_declarator)
+    {
+        /*we need second pass*/
+        ctx->evaluated_at_caller = true;
+    }
+    else
+    {
+        switch (func->type)
+        {
+        case TK_KEYWORD_ATTR_ADD:
+
+            new_expression->declarator->static_analisys_flags |=
+                (unsigned int)(new_expression->right->constant_value);
+            new_expression->constant_value = new_expression->declarator->static_analisys_flags;
+            break;
+        case TK_KEYWORD_ATTR_REMOVE:
+            new_expression->declarator->static_analisys_flags = new_expression->declarator->static_analisys_flags &= ~
+                (unsigned int)(new_expression->right->constant_value);
+            new_expression->constant_value = new_expression->declarator->static_analisys_flags;
+            break;
+
+        case TK_KEYWORD_ATTR_HAS:
+            new_expression->constant_value =
+                new_expression->declarator->static_analisys_flags & (unsigned int)(new_expression->right->constant_value);
+            break;
+        }
+    }
+
+    return new_expression;
 }
 
 struct expression* unary_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
@@ -1131,9 +1501,9 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->first_token = ctx->current;
 
-          
 
-            
+
+
 
             struct token* op_position = ctx->current; //marcar posicao
             enum token_type op = ctx->current->type;
@@ -1172,7 +1542,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 {
                     parser_seterror_with_token(ctx, op_position, "indirection requires pointer operand");
                 }
-                new_expression->type = get_pointer_content_type(&new_expression->right->type);                
+                new_expression->type = get_pointer_content_type(&new_expression->right->type);
             }
             else if (op == '&')
             {
@@ -1199,7 +1569,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
 
 
                 new_expression->type.type_specifier_flags = TYPE_SPECIFIER_INT;
-                
+
                 /*no name in*/
                 //declarator_type_clear_name(new_expression->type.declarator_type);
 
@@ -1221,6 +1591,12 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             }
             type_set_int(&new_expression->type); //resultado sizeof
             p_expression_node = new_expression;
+        }
+        else if (ctx->current->type == TK_KEYWORD_ATTR_ADD ||
+            ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
+            ctx->current->type == TK_KEYWORD_ATTR_HAS)
+        {
+            p_expression_node = declarator_attribute_expression(ctx, error, ectx);
         }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
         {
@@ -2054,6 +2430,18 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
             if (error->code != 0)
                 throw;
 
+            if (new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            {
+                new_expression->left->declarator->static_analisys_flags |=
+                    new_expression->right->flags_to_add;
+
+                new_expression->left->declarator->static_analisys_flags &=
+                    ~new_expression->right->flags_to_remove;
+
+                /*let's remove the UNINITIALIZED flag*/
+                new_expression->left->declarator->static_analisys_flags &=
+                    ~UNINITIALIZED;
+            }
 
             new_expression->type = type_copy(&new_expression->right->type);
 
@@ -2355,7 +2743,7 @@ void test_expressions()
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
     struct ast ast = get_ast(&options, "source", source, &error);
-    assert(error.code == 0);    
+    assert(error.code == 0);
 }
 
 void literal_string_type()
@@ -2406,7 +2794,7 @@ void type_suffix_test()
         "0b1ul == typeid(unsigned long)  &&"
         "0b1ull == typeid(unsigned long long) && "
         "1.0f == typeid(float) && "
-        "1.0 == typeid(double) "        
+        "1.0 == typeid(double) "
         ");"
         ;
 

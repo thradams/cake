@@ -14,7 +14,7 @@ struct scope
     int scope_level;
     struct hash_map tags;
     struct hash_map variables;
-
+    
     struct scope* next;
     struct scope* previous;
     
@@ -63,6 +63,12 @@ struct parser_ctx
     int n_warnings;
     int n_errors;
     int (*printf)(const char* fmt, ...);
+
+    /*
+      true if the evaluation was delayed, static_assert
+      result is ignored for instance
+    */
+    bool evaluated_at_caller;
 };
 
 ///////////////////////////////////////////////////////
@@ -86,6 +92,7 @@ char* CompileText(const char* options, const char* content);
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
+void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, char** argv, struct error* error);
 struct declaration_list parse(struct options* options, struct token_list* list, struct error* error);
@@ -172,6 +179,13 @@ struct static_assert_declaration
        "static_assert" ( constant-expression , string-literal ) ;
        "static_assert" ( constant-expression ) ;
     */
+    
+    /*
+    * suport for experimental declarator compile time flag
+    * true means this static_assert is evaluated at second 
+    * pass at the caller
+    */
+    bool evaluated_at_caller;
 
     struct token* first_token;
     struct token* last_token;
@@ -322,7 +336,7 @@ struct declaration
          attribute-declaration
     */
     struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
-
+    
     struct static_assert_declaration* static_assert_declaration;
 
     struct declaration_specifiers* declaration_specifiers;
@@ -472,7 +486,6 @@ struct initializer
 struct initializer* initializer(struct parser_ctx* ctx, struct error* error);
 
 
-
 struct declarator
 {
     /*
@@ -496,6 +509,18 @@ struct declarator
     struct compound_statement* function_body;
 
     int num_uses; /*used to show not used warnings*/
+
+    bool is_parameter_declarator;
+
+    /*
+    * 
+    */
+    struct declarator* caller_declarator;
+    /*
+    * EXPERIMENTAL
+    * compile time flags for declarators
+    */
+    enum static_analisys_flags static_analisys_flags;    
 
     /*Já mastiga o tipo dele*/
     struct type type;
@@ -637,6 +662,11 @@ void print_type_name(struct osstream* ss, struct type_name* p);
 
 struct argument_expression
 {
+    /*
+    * we associate the name of the argument with
+    * the expression
+    */
+    const char* argname; /*owner must free*/
     struct expression* expression;
     struct argument_expression* next;
 };

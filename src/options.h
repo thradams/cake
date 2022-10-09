@@ -24,7 +24,7 @@ struct options
     bool format_input;
     bool format_ouput;
     bool nodiscard_is_default;
-
+    bool do_static_analisys;
     /*
     * true - to info about name convensions violations
     */

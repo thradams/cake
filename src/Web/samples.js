@@ -782,3 +782,116 @@ int main()
 }
 `;
 
+/*
+ *  Removed because it is too experimental
+ * 
+sample["Extension - compile time declarator flag"] =
+    `
+#include <annotations.h>
+
+void* malloc(int i) {
+    _add_attr(return, MUST_FREE);
+    return 0;
+}
+
+void free(void* p) {
+    static_assert(_has_attr(p, MUST_FREE));
+    _del_attr(p, MUST_FREE);
+}
+
+int main()
+{
+    int * p = malloc(10);
+    //free(p);
+    //free(p);
+}
+`;
+*/
+
+/*
+
+sample["declarator annotations"] =
+`
+
+#include <annotations.h>
+
+void* malloc(int i) {
+    _add_attr(return, MUST_FREE);
+    return 0;
+}
+
+void free(void* p) {
+    _del_attr(p, MUST_FREE);
+}
+
+
+struct x {
+    char* name;
+};
+
+void x_destroy(struct x* p) {
+    static_assert(_has_attr(p, MUST_DESTROY));
+    _del_attr(p, MUST_DESTROY);
+    free(p->name);
+}
+
+void x_delete(struct x* p) {
+
+    if (p) {
+        x_destroy(p);
+        free(p);
+    }
+
+    _del_attr(p, MUST_DESTROY | MUST_FREE);
+}
+
+
+int main()
+{
+    struct x* px = malloc(sizeof(struct x));
+    _add_attr(px, MUST_DESTROY);
+    x_delete(px);
+}
+
+
+`;
+
+*/
+
+/*
+sample["declarator annotations II"] =
+`
+
+#include <annotations.h>
+
+void* malloc(int i) {
+    _add_attr(return, MUST_FREE);
+    return 0;
+}
+
+void free(void* p) {
+    static_assert(_has_attr(p, MUST_FREE));
+    _del_attr(p, MUST_FREE);
+}
+
+void* move(void *p)
+{
+  _del_attr(p, MUST_FREE);
+  _add_attr(return, MUST_FREE);
+  return p;
+}
+
+int main()
+{
+    int * p = malloc(10);
+
+    int * p2;
+
+    p2 = move(p);
+
+    free(p2);
+
+    //free(p2);
+}
+`;
+*/

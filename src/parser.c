@@ -925,6 +925,14 @@ enum token_type is_keyword(const char* text)
         //
         //end microsoft
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
+        
+        /*EXPERIMENTAL EXTENSION*/
+        else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;        
+        else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
+        else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
+        /*EXPERIMENTAL EXTENSION*/
+
+        else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
         else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
         else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
         else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
@@ -1364,8 +1372,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
 
     if (ctx->current == NULL)
     {
-        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");
-        error->code = 1;
+        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");        
         return;
     }
 
@@ -1461,9 +1468,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
-            parser_seterror_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
-            error->code = 1;
-
+            parser_seterror_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");            
             return 1;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) //ja tinha um long
@@ -1631,7 +1636,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
         }
 
         p_declaration->static_assert_declaration = static_assert_declaration(ctx, error);
-    }
+    }    
     else
     {
 
@@ -1669,7 +1674,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
         else
         {
             parser_seterror_with_token(ctx, ctx->current, "unknown type name '%s'", ctx->current->lexeme);
-            error->code = 1;
+            
         }
     }
 
@@ -1716,7 +1721,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
         //o function_prototype_scope era um block_scope
         p_declaration->function_body = function_body(ctx, error);
-
+        p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
 
 
         struct parameter_declaration* parameter = NULL;
@@ -1839,7 +1844,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         if (tkname == NULL)
         {
             parser_seterror_with_token(ctx, ctx->current, "empty declarator name?? unexpected");
-            error->code = 1;
+            
             return p_init_declarator;
         }
 
@@ -1904,6 +1909,15 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             parser_match(ctx);
             p_init_declarator->initializer = initializer(ctx, error);
 
+            if (p_init_declarator->initializer->assignment_expression)
+            {
+                /*let's apply the compile time flags*/
+                p_init_declarator->declarator->static_analisys_flags |=
+                    p_init_declarator->initializer->assignment_expression->flags_to_add;
+
+                p_init_declarator->declarator->static_analisys_flags &=
+                    ~p_init_declarator->initializer->assignment_expression->flags_to_remove;
+            }
             /*
                auto requires we find the type after initializer
             */
@@ -1944,6 +1958,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                 }
             }
+        }
+        else
+        {
+            p_init_declarator->declarator->static_analisys_flags |= UNINITIALIZED;
         }
     }
     catch
@@ -2764,7 +2782,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             if (!bHasIdentifier)
             {
                 parser_seterror_with_token(ctx, ctx->current, "missing enum tag name");
-                error->code = 1;
+                
                 throw;
             }
 
@@ -2978,6 +2996,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
 
     p_declarator->last_token = ctx->previous;
 
+    
     return p_declarator;
 }
 
@@ -3383,6 +3402,8 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx, stru
         true/*can be abstract*/,
         &p_parameter_declaration->name,
         error);
+
+    p_parameter_declaration->declarator->is_parameter_declarator = true;
     p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
     p_parameter_declaration->declarator->type =
@@ -3707,8 +3728,11 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT, error);
         parser_match_tk(ctx, '(', error);
         struct expression_ctx ectx = { .bConstantExpressionRequired = true };
-        p_static_assert_declaration->constant_expression = constant_expression(ctx, error, &ectx);
 
+        ctx->evaluated_at_caller = false;
+        p_static_assert_declaration->constant_expression = constant_expression(ctx, error, &ectx);
+        p_static_assert_declaration->evaluated_at_caller = ctx->evaluated_at_caller;
+        ctx->evaluated_at_caller = false;
         if (error->code != 0)
             throw;
 
@@ -3723,18 +3747,23 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         p_static_assert_declaration->last_token = ctx->current;
         parser_match_tk(ctx, ';', error);
 
-        if (p_static_assert_declaration->constant_expression->constant_value == 0)
+        /*
+          if evaluated_at_caller is true we cannot evaluate now
+        */
+        if (!p_static_assert_declaration->evaluated_at_caller)
         {
-            if (p_static_assert_declaration->string_literal_opt)
+            if (p_static_assert_declaration->constant_expression->constant_value == 0)
             {
-                parser_seterror_with_token(ctx, position, "_Static_assert failed %s\n",
-                    p_static_assert_declaration->string_literal_opt->lexeme);
+                if (p_static_assert_declaration->string_literal_opt)
+                {
+                    parser_seterror_with_token(ctx, position, "_Static_assert failed %s\n",
+                        p_static_assert_declaration->string_literal_opt->lexeme);
+                }
+                else
+                {
+                    parser_seterror_with_token(ctx, position, "_Static_assert failed");
+                }                
             }
-            else
-            {
-                parser_seterror_with_token(ctx, position, "_Static_assert failed");
-            }
-            error->code = 1;
         }
     }
     catch
@@ -3952,12 +3981,12 @@ struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* c
     if (count2 != 0)
     {
         parser_seterror_with_token(ctx, ctx->current, "expected ']' before ')'");
-        error->code = 1;
+        
     }
     if (count3 != 0)
     {
         parser_seterror_with_token(ctx, ctx->current, "expected '}' before ')'");
-        error->code = 1;
+        
     }
     return p_balanced_token_sequence;
 }
@@ -4158,6 +4187,34 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
             if (p_declarator)
             {
+                /*
+                  let's print the declarators that were not cleared for these
+                  flags
+                */
+                if (p_declarator->static_analisys_flags & MUST_DESTROY)
+                {
+                    ctx->printf(WHITE "%s:%d:%d: ",
+                        p_declarator->name->token_origin->lexeme,
+                        p_declarator->name->line,
+                        p_declarator->name->col);
+
+                    if (p_declarator->static_analisys_flags & MUST_DESTROY)
+                      ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
+                        p_declarator->name->lexeme);                                        
+                }
+
+                if (p_declarator->static_analisys_flags & MUST_FREE)
+                {
+                    ctx->printf(WHITE "%s:%d:%d: ",
+                        p_declarator->name->token_origin->lexeme,
+                        p_declarator->name->line,
+                        p_declarator->name->col);
+                    
+                    if (p_declarator->static_analisys_flags & MUST_FREE)
+                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
+                            p_declarator->name->lexeme);
+                }
+
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
@@ -4253,7 +4310,7 @@ assembly-instruction-list:
         }
         if (ctx->current->type == ';')
             parser_match(ctx);
-    }
+    }    
     else if (first_of_declaration_specifier(ctx) ||
         first_of_static_assert_declaration(ctx))
     {
@@ -4544,7 +4601,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
     {
         if (ctx->p_current_try_statement_opt == NULL)
         {
-            error->code = 1;
+            
             parser_seterror_with_token(ctx, ctx->current, "throw statement not within try block");
         }
         else
@@ -4711,6 +4768,14 @@ int fill_options(struct options* options, int argc, const char** argv, struct pr
             options->format_input = true;
             continue;
         }
+
+        if (strcmp(argv[i], "-st") == 0)
+        {
+            options->do_static_analisys = true;
+            continue;
+        }
+
+        
         if (strcmp(argv[i], "-fo") == 0)
         {
             options->format_ouput = true;
@@ -4820,14 +4885,14 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 
         snprintf(env, sizeof env, "%s"
-        "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
-        "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/include;"
-        "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um;"
-        "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
-        "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
-        "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
-        "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
-        "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt");
+            "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
+            "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/include;"
+            "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt");
 
         n = strlen(env);
     }
@@ -5077,8 +5142,9 @@ int compile(int argc, char** argv, struct error* error)
 
     /*tempo total da compilacao*/
     clock_t end_clock = clock();
-    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
+    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;    
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
+
     return has_errors;
 }
 

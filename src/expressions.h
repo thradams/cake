@@ -31,6 +31,7 @@ enum expression_type
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
     UNARY_EXPRESSION_HASHOF_TYPE,
+    UNARY_DECLARATOR_ATTRIBUTE_EXPR,
     UNARY_EXPRESSION_ALIGNOF,
 
     UNARY_EXPRESSION_INCREMENT,
@@ -153,12 +154,18 @@ struct expression
     struct token* first_token;
     struct token* last_token;
 
+    /*token used in _add_attr, _has_attr, _del_attr, return*/
+    struct token* contract_arg_token;
+
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* declarator;
 
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
+    /*value = x*/
+    enum static_analisys_flags flags_to_add;
+    enum static_analisys_flags flags_to_remove;
 
     struct expression* left;
     struct expression* right;
