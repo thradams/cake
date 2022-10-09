@@ -1338,3 +1338,107 @@ void x_destroy(struct X* p)
 }
 
 ```
+
+###  Extension - declarator static analisys flags
+
+Motivation:
+
+When we review code we follow some "imaginary operations" in code.
+For instance:
+
+```c
+int *p = malloc(sizeof(int)*10);
+free(p);
+p[0] = 1;
+```
+
+When we free(p) we know that p is invalid and should not be used anymore.
+
+How we could take notes that p is invalid? This is the motivation for
+declarator static analisys flags.
+
+### Mechanics.
+
+We can set/remove and checks declarator flags.
+
+For instance:
+
+```c
+int main()
+{
+    int *p = malloc(sizeof(int)*10);
+    _add_attr(p, MUST_FREE);
+
+    free(p);
+    _del_attr(p, MUST_FREE);
+
+    static_assert(!__has_attr(MUST_FREE));
+}
+```
+
+When we set/remove or check declarator flags on arguments
+the operation is delayed until the function instantiation.
+
+For instance:
+
+```c
+void my_free(void *arg1)
+{
+    static_assert(__has_attr(arg1, MUST_FREE));
+    _del_attr(arg1, MUST_FREE);
+}
+```
+
+We cannot determine if arg1 has the flag MUST_FREE without
+looking at caller. So static_assert is just ignored at
+first stage.
+
+But when we call my_free:
+
+```c
+int main()
+{
+    int *p = malloc(sizeof(int)*10);
+    _add_attr(p, MUST_FREE);
+
+    my_free(p);
+
+    static_assert(!__has_attr(MUST_FREE));
+}
+
+Then the flags of p are plugged into arg1 by "reference" and the function
+my_free is analised again. set/remove and check are now using the flags of p.
+
+We can also add flags to the receiver declarator using "return"
+
+```c
+void* my_malloc(int size)
+{    
+    _add_attr(return, MUST_FREE);
+}
+```
+
+So we can write
+
+```c
+int main()
+{
+    int *p = my_malloc(sizeof(int)*10);
+    static_assert(__has_attr(MUST_FREE));
+
+    my_free(p);
+    static_assert(!__has_attr(MUST_FREE));
+}
+```
+
+Cake have some built in flags on header annotations.h. 
+
+It also  have some built in checks.
+
+When the declarators go out of scope we check if MUST\_FREE flag
+is cleared.
+
+There is also a MUST\_DESTROY flag that is used when other function
+needs to be called. For instance, x_destroy for struct x.
+
+
