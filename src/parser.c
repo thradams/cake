@@ -1909,11 +1909,9 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             if (p_init_declarator->initializer->assignment_expression)
             {
                 /*let's apply the compile time flags*/
-                p_init_declarator->declarator->static_analisys_flags |=
-                    p_init_declarator->initializer->assignment_expression->flags_to_add;
-
-                p_init_declarator->declarator->static_analisys_flags &=
-                    ~p_init_declarator->initializer->assignment_expression->flags_to_remove;
+                p_init_declarator->declarator->static_analisys_flags =
+                    p_init_declarator->initializer->assignment_expression->returnflag | ISVALID;
+                
             }
             /*
                auto requires we find the type after initializer

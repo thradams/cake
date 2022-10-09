@@ -782,9 +782,7 @@ int main()
 }
 `;
 
-/*
- *  Removed because it is too experimental
- * 
+
 sample["Extension - compile time declarator flag"] =
     `
 #include <annotations.h>
@@ -806,9 +804,9 @@ int main()
     //free(p);
 }
 `;
-*/
 
-/*
+
+
 
 sample["declarator annotations"] =
 `
@@ -856,11 +854,12 @@ int main()
 
 `;
 
-*/
 
-/*
+
+
 sample["declarator annotations II"] =
 `
+
 
 #include <annotations.h>
 
@@ -877,6 +876,7 @@ void free(void* p) {
 void* move(void *p)
 {
   _del_attr(p, MUST_FREE);
+  _add_attr(p, UNINITIALIZED);
   _add_attr(return, MUST_FREE);
   return p;
 }
@@ -884,14 +884,20 @@ void* move(void *p)
 int main()
 {
     int * p = malloc(10);
+    static_assert(_has_attr(p, MUST_FREE));
 
     int * p2;
 
+    static_assert(_has_attr(p2, UNINITIALIZED));
+
     p2 = move(p);
+
+    static_assert(_has_attr(p, UNINITIALIZED));
+    static_assert(_has_attr(p2, MUST_FREE));
 
     free(p2);
 
     //free(p2);
 }
+
 `;
-*/

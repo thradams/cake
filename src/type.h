@@ -12,9 +12,10 @@ struct parser_ctx;
 */
 enum static_analisys_flags
 {
-    UNINITIALIZED = 1 << 1,
-    MUST_DESTROY = 1 << 2,
-    MUST_FREE = 1 << 3
+    ISVALID = 1 << 1,
+    UNINITIALIZED = 1 << 2,
+    MUST_DESTROY = 1 << 3,
+    MUST_FREE = 1 << 4
 };
 
 

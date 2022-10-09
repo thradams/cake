@@ -164,8 +164,8 @@ struct expression
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
     /*value = x*/
-    enum static_analisys_flags flags_to_add;
-    enum static_analisys_flags flags_to_remove;
+    enum static_analisys_flags returnflag;
+    
 
     struct expression* left;
     struct expression* right;

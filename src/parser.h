@@ -521,10 +521,7 @@ struct declarator
 
     bool is_parameter_declarator;
 
-    /*
-    * 
-    */
-    struct declarator* caller_declarator;
+    
     /*
     * EXPERIMENTAL
     * compile time flags for declarators
