@@ -2736,10 +2736,10 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
 
 
         struct enum_specifier* pPreviousTagInThisScope = NULL;
-        bool bHasIdentifier = false;
+        bool has_identifier = false;
         if (ctx->current->type == TK_IDENTIFIER)
         {
-            bHasIdentifier = true;
+            has_identifier = true;
             p_enum_specifier->tag_token = ctx->current;
             parser_match(ctx);
         }
@@ -2776,7 +2776,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
         }
         else
         {
-            if (!bHasIdentifier)
+            if (!has_identifier)
             {
                 parser_seterror_with_token(ctx, ctx->current, "missing enum tag name");
                 
@@ -2978,7 +2978,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* p_specifier_qualifier_list,
     struct declaration_specifiers* p_declaration_specifiers,
     bool bAbstractAcceptable,
-    struct token** pptokenName,
+    struct token** pp_token_name,
     struct error* error)
 {
     /*
@@ -2989,7 +2989,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->first_token = ctx->current;
     p_declarator->type_id.type = TAG_TYPE_DECLARATOR;
     p_declarator->pointer = pointer_opt(ctx, error);
-    p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pptokenName, error);
+    p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pp_token_name, error);
 
     p_declarator->last_token = ctx->previous;
 
@@ -5133,7 +5133,6 @@ int compile_one_file(const char* file_name,
 
 int compile(int argc, char** argv, struct report* report)
 {
-    int has_errors = 0;
     clock_t begin_clock = clock();
     int no_files = 0;
 
@@ -5159,7 +5158,7 @@ int compile(int argc, char** argv, struct report* report)
     
     printf("\n");
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
-    printf("%d errors %d warnings %d info\n", report->error_count, report->warnings_count, report->info_count);
+    printf("%d errors %d warnings %d infos\n", report->error_count, report->warnings_count, report->info_count);
 
     return 0;
 }
