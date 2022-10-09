@@ -70,6 +70,7 @@ struct parser_ctx
     int try_catch_block_index;
     int n_warnings;
     int n_errors;
+    int n_info;
     int (*printf)(const char* fmt, ...);
 
     /*

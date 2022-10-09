@@ -244,7 +244,7 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
 
 void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
-    ctx->n_warnings++;
+    ctx->n_info++;
     int line = 0;
     if (p_token)
     {
@@ -4732,6 +4732,7 @@ struct declaration_list parse(struct options* options,
 
     report->error_count = ctx.n_errors;
     report->warnings_count= ctx.n_warnings;
+    report->info_count= ctx.n_info;
     
 
     return l;
@@ -5149,6 +5150,7 @@ int compile(int argc, char** argv, struct report* report)
         
         report->error_count += local_report.error_count;
         report->warnings_count += local_report.warnings_count;
+        report->info_count += local_report.info_count;
     }
 
     /*tempo total da compilacao*/
