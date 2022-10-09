@@ -2642,7 +2642,8 @@ void sizeoftest1()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -2656,7 +2657,8 @@ void sizeof_struct_test()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code != 0);
 }
 
@@ -2666,7 +2668,8 @@ static int expression_type(const char* expression, const char* result)
     snprintf(source, sizeof source, "_Static_assert(typeid(%s) == typeid(%s));", expression, result);
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     return error.code;
 }
 
@@ -2742,7 +2745,8 @@ void test_expressions()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -2756,7 +2760,8 @@ void literal_string_type()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 void type_suffix_test()
@@ -2800,7 +2805,8 @@ void type_suffix_test()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -2812,7 +2818,8 @@ void type_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -2823,7 +2830,8 @@ void digit_separator_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -2836,7 +2844,8 @@ void numbers_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -2849,7 +2858,8 @@ void binary_digits_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -2862,7 +2872,8 @@ void is_arithmetic_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
 
     struct declarator* d1 = ast.declaration_list.head->init_declarator_list.head->declarator;
     struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list.head->declarator;
@@ -2892,7 +2903,8 @@ void type_is_pointer_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
 
     struct declarator* d1 = ast.declaration_list.head->init_declarator_list.head->declarator;
     struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list.head->declarator;
@@ -2921,7 +2933,8 @@ void params_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 #endif

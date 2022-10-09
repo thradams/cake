@@ -63,20 +63,11 @@ int main(int argc, char** argv)
 	}
 	
 
-	struct error error = { 0 };
-	compile(argc, argv, &error);
+	struct report report = { 0 };
+	compile(argc, argv, &report);
 
 
-
-	if (error.code)
-	{
-		printf("\n%s\n", error.message);
-#ifdef _WIN32
-		OutputDebugStringA(error.message);
-#endif
-	}
-
-	return error.code;
+	return report.error_count > 0;
 }
 #else
 #include "unit_test.c"

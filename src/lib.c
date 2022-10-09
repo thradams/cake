@@ -8500,6 +8500,14 @@ struct scope_list
 void scope_list_push(struct scope_list* list, struct scope* s);
 void scope_list_pop(struct scope_list* list);
 
+struct report
+{
+    int error_count;
+    int warnings_count;
+    int info_count;
+};
+
+
 struct parser_ctx
 {
     struct options options;
@@ -8562,8 +8570,8 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
 void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
-int compile(int argc, char** argv, struct error* error);
-struct declaration_list parse(struct options* options, struct token_list* list, struct error* error);
+int compile(int argc, char** argv, struct report* error);
+struct declaration_list parse(struct options* options, struct token_list* list, struct error* error, struct report* report);
 
 
 struct token* parser_skip_blanks(struct parser_ctx* ctx);
@@ -9675,7 +9683,7 @@ struct ast
 };
 
 
-struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error);
+struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error, struct report* report);
 void ast_destroy(struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
@@ -12312,7 +12320,8 @@ void sizeoftest1()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -12326,7 +12335,8 @@ void sizeof_struct_test()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code != 0);
 }
 
@@ -12336,7 +12346,8 @@ static int expression_type(const char* expression, const char* result)
     snprintf(source, sizeof source, "_Static_assert(typeid(%s) == typeid(%s));", expression, result);
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     return error.code;
 }
 
@@ -12412,7 +12423,8 @@ void test_expressions()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -12426,7 +12438,8 @@ void literal_string_type()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 void type_suffix_test()
@@ -12470,7 +12483,8 @@ void type_suffix_test()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -12482,7 +12496,8 @@ void type_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -12493,7 +12508,8 @@ void digit_separator_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -12506,7 +12522,8 @@ void numbers_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -12519,7 +12536,8 @@ void binary_digits_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
@@ -12532,7 +12550,8 @@ void is_arithmetic_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
 
     struct declarator* d1 = ast.declaration_list.head->init_declarator_list.head->declarator;
     struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list.head->declarator;
@@ -12562,7 +12581,8 @@ void type_is_pointer_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
 
     struct declarator* d1 = ast.declaration_list.head->init_declarator_list.head->declarator;
     struct declarator* d2 = ast.declaration_list.head->next->init_declarator_list.head->declarator;
@@ -12591,7 +12611,8 @@ void params_test()
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 #endif
@@ -15589,7 +15610,8 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
             ctx->printf(" ");
         }
     }
-    ctx->printf(LIGHTGREEN "^\n");
+    ctx->printf(LIGHTGREEN "^\n" RESET);
+    
 }
 
 
@@ -17095,13 +17117,9 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
                     parameter->name->level == 0 /*direct source*/
                     )
                 {
-
-                    ctx->printf(WHITE "%s:%d:%d: ",
-                        parameter->name->token_origin->lexeme,
-                        parameter->name->line,
-                        parameter->name->col);
-
-                    ctx->printf(LIGHTMAGENTA "warning: " WHITE "'%s': unreferenced formal parameter\n",
+                    parser_setwarning_with_token(ctx, 
+                        parameter->declarator->first_token,
+                        "'%s': unreferenced formal parameter\n",
                         parameter->name->lexeme);
                 }
             }
@@ -18536,11 +18554,11 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
         parser_match_tk(ctx, '[', error);
         if (error->code != 0) throw;
 
-        bool bIsStatic = false;
+        bool has_static = false;
         if (ctx->current->type == TK_KEYWORD_STATIC)
         {
             parser_match(ctx);
-            bIsStatic = true;
+            has_static = true;
         }
 
         if (first_of_type_qualifier(ctx))
@@ -18548,16 +18566,16 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             p_array_declarator->type_qualifier_list_opt = type_qualifier_list(ctx, error);
         }
 
-        if (!bIsStatic)
+        if (!has_static)
         {
             if (ctx->current->type == TK_KEYWORD_STATIC)
             {
                 parser_match(ctx);
-                bIsStatic = true;
+                has_static = true;
             }
         }
 
-        if (bIsStatic)
+        if (has_static)
         {
             //tem que ter..
             struct expression_ctx ectx = { 0 };
@@ -20059,7 +20077,10 @@ struct compound_statement* function_body(struct parser_ctx* ctx, struct error* e
 }
 
 
-struct declaration_list parse(struct options* options, struct token_list* list, struct error* error)
+struct declaration_list parse(struct options* options,
+    struct token_list* list,
+    struct error* error, 
+    struct report* report)
 {
 
     anonymous_struct_count = 0;
@@ -20081,6 +20102,10 @@ struct declaration_list parse(struct options* options, struct token_list* list, 
     struct declaration_list l = translation_unit(&ctx, error);
     if (ctx.n_errors > 0)
         error->code = 1;
+
+    report->error_count = ctx.n_errors;
+    report->warnings_count= ctx.n_warnings;
+    
 
     return l;
 }
@@ -20236,7 +20261,8 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * to generate this string
         */
 
-        snprintf(env, sizeof env, "%s"
+        snprintf(env, sizeof env, 
+            "%s",
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/include;"
             "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um;"
@@ -20318,7 +20344,8 @@ const char* format_code(struct options* options,
         if (error->code != 0)
             throw;
 
-        ast.declaration_list = parse(options, &ast.token_list, error);
+        struct report report = { 0 };
+        ast.declaration_list = parse(options, &ast.token_list, error, &report);
         if (error->code != 0)
         {
             throw;
@@ -20344,10 +20371,11 @@ const char* format_code(struct options* options,
     return s;
 }
 
+
 int compile_one_file(const char* file_name,
     int argc,
-    char** argv,
-    struct error* error)
+    char** argv,    
+    struct report* report)
 {
 
     struct preprocessor_ctx prectx = { 0 };
@@ -20360,7 +20388,8 @@ int compile_one_file(const char* file_name,
 
 
     prectx.macros.capacity = 5000;
-    add_standard_macros(&prectx, error);
+    struct error error = { 0 };
+    add_standard_macros(&prectx, &error);
 
 
     //int no_files = 0;
@@ -20372,7 +20401,7 @@ int compile_one_file(const char* file_name,
 
     try
     {
-        if (fill_options(&options, argc, argv, &prectx, error) != 0)
+        if (fill_options(&options, argc, argv, &prectx, &error) != 0)
         {
             throw;
         }
@@ -20384,18 +20413,18 @@ int compile_one_file(const char* file_name,
         char* content = readfile(file_name);
         if (content == NULL)
         {
-            seterror(error, "file not found '%s'\n", file_name);
+            seterror(&error, "file not found '%s'\n", file_name);
             throw;
         }
         //printf(".");//1
 
-        struct token_list tokens = tokenizer(content, file_name, 0, TK_FLAG_NONE, error);
-        if (error->code != 0)
+        struct token_list tokens = tokenizer(content, file_name, 0, TK_FLAG_NONE, &error);
+        if (error.code != 0)
             throw;
         //print_tokens(tokens.head);
         //printf(".");//2
-        ast.token_list = preprocessor(&prectx, &tokens, 0, error);
-        if (error->code != 0)
+        ast.token_list = preprocessor(&prectx, &tokens, 0, &error);
+        if (error.code != 0)
             throw;
 
         //_splitpath
@@ -20415,8 +20444,8 @@ int compile_one_file(const char* file_name,
         else
         {
 
-            ast.declaration_list = parse(&options, &ast.token_list, error);
-            if (error->code != 0)
+            ast.declaration_list = parse(&options, &ast.token_list, &error, report);
+            if (error.code != 0)
             {
                 throw;
             }
@@ -20426,13 +20455,13 @@ int compile_one_file(const char* file_name,
                 /*format input source before transformation*/
                 struct format_visit_ctx visit_ctx = { 0 };
                 visit_ctx.ast = ast;
-                format_visit(&visit_ctx, error);
+                format_visit(&visit_ctx, &error);
             }
 
             struct visit_ctx visit_ctx = { 0 };
             visit_ctx.target = options.target;
             visit_ctx.ast = ast;
-            visit(&visit_ctx, error);
+            visit(&visit_ctx, &error);
 
             if (options.bRemoveMacros)
                 s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
@@ -20442,7 +20471,7 @@ int compile_one_file(const char* file_name,
             if (options.format_ouput)
             {
                 /*re-parser ouput and format*/
-                const char* s2 = format_code(&options, s, error);
+                const char* s2 = format_code(&options, s, &error);
                 free((void*)s);
                 s = s2;
             }
@@ -20456,7 +20485,7 @@ int compile_one_file(const char* file_name,
             }
             else
             {
-                seterror(error, "cannot open output file");
+                seterror(&error, "cannot open output file");
                 throw;
             }
         }
@@ -20471,10 +20500,10 @@ int compile_one_file(const char* file_name,
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
 
-    return error->code;
+    return error.code;
 }
 
-int compile(int argc, char** argv, struct error* error)
+int compile(int argc, char** argv, struct report* report)
 {
     int has_errors = 0;
     clock_t begin_clock = clock();
@@ -20486,22 +20515,28 @@ int compile(int argc, char** argv, struct error* error)
         if (argv[i][0] == '-')
             continue;
         no_files++;
-        clearerror(error);
-        compile_one_file(argv[i], argc, argv, error);
-        if (error->code != 0)
-            has_errors = true;
+        
+        struct report local_report = { 0 };
+        compile_one_file(argv[i], argc, argv, &local_report);
+        
+        
+        report->error_count += local_report.error_count;
+        report->warnings_count += local_report.warnings_count;
     }
 
     /*tempo total da compilacao*/
     clock_t end_clock = clock();
     double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;    
+    
+    printf("\n");
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
+    printf("%d errors %d warnings %d info\n", report->error_count, report->warnings_count, report->info_count);
 
-    return has_errors;
+    return 0;
 }
 
 
-struct ast get_ast(struct options* options, const char* filename, const char* source, struct error* error)
+struct ast get_ast(struct options* options, const char* filename, const char* source, struct error* error, struct report* report)
 {
     struct ast ast = { 0 };
 
@@ -20524,7 +20559,7 @@ struct ast get_ast(struct options* options, const char* filename, const char* so
     if (error->code != 0)
         return ast;
 
-    ast.declaration_list = parse(options, &ast.token_list, error);
+    ast.declaration_list = parse(options, &ast.token_list, error, report);
     return ast;
 }
 
@@ -20556,7 +20591,7 @@ int strtoargv(char* s, int n, const char* argv[/*n*/])
     return argvc;
 }
 
-const char* compile_source(const char* pszoptions, const char* content)
+const char* compile_source(const char* pszoptions, const char* content, struct report* report)
 {
     const char* argv[100] = { 0 };
     char string[200] = { 0 };
@@ -20607,7 +20642,7 @@ const char* compile_source(const char* pszoptions, const char* content)
         {
             struct visit_ctx visit_ctx = { 0 };
             visit_ctx.target = options.target;
-            struct ast ast = get_ast(&options, "source", content, &error);
+            struct ast ast = get_ast(&options, "source", content, &error, report);
             visit_ctx.ast = ast;
             visit(&visit_ctx, &error);
 
@@ -20647,7 +20682,8 @@ const char* compile_source(const char* pszoptions, const char* content)
 /*Função exportada para web*/
 char* CompileText(const char* pszoptions, const char* content)
 {
-    return  (char*)compile_source(pszoptions, content);
+    struct report report = { 0 };
+    return  (char*)compile_source(pszoptions, content, &report);
 }
 
 void ast_destroy(struct ast* ast)
@@ -20854,7 +20890,8 @@ void parser_specifier_test()
     const char* source = "long long long i;";
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code != 0); //esperado erro    
 }
 
@@ -20867,7 +20904,8 @@ void take_address_type_test()
         "}";
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
 
     assert(error.code == 0);
 }
@@ -20877,7 +20915,8 @@ void parser_scope_test()
     const char* source = "void f() {int i; char i;}";
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code != 0); //tem que dar erro
 }
 
@@ -20887,22 +20926,25 @@ void parser_tag_test()
     const char* source = "enum E { A }; struct E { int i; };";
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code != 0); //tem que dar erro        
 }
 
 void string_concatenation_test()
 {
-    const char* source = " \"part1\" \"part2\"";
+    const char* source = " const char* s = \"part1\" \"part2\";";
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    struct ast ast = get_ast(&options, "source", source, &error);
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code == 0);
 }
 
 void test_digit_separator()
 {
-    char* result = compile_source("-std=C99", "int i = 1'000;");
+    struct report report = { 0 };
+    char* result = compile_source("-std=C99", "int i = 1'000;", &report);
     assert(strcmp(result, "int i = 1000;") == 0);
     free(result);
 }
@@ -20910,7 +20952,8 @@ void test_digit_separator()
 void test_lit()
 {
     //_Static_assert(1 == 2, "");
-    char* result = compile_source("-std=C99", "char * s = u8\"maçã\";");
+    struct report report = { 0 };
+    char* result = compile_source("-std=C99", "char * s = u8\"maçã\";", &report);
     assert(strcmp(result, "char * s = \"ma\\xc3\\xa7\\xc3\\xa3\";") == 0);
     free(result);
 }
@@ -20931,7 +20974,8 @@ void type_test2()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    get_ast(&options, "source", src, &error);
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
     assert(error.code == 0);
 
 }
@@ -20947,7 +20991,8 @@ void type_test3()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
-    get_ast(&options, "source", src, &error);
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
     assert(error.code == 0);
 
 }
@@ -20962,7 +21007,8 @@ void expand_test()
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C2X };
-    get_ast(&options, "source", src, &error);
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
     assert(error.code == 0);
     clearerror(&error);
 
@@ -20972,7 +21018,8 @@ void expand_test()
         "typedef const A* B; "
         "static_assert(typeid(B) == typeid(char * const *);";
 
-    get_ast(&options, "source", src2, &error);
+    
+    get_ast(&options, "source", src2, &error, &report);
     assert(error.code == 0);
     clearerror(&error);
 
@@ -20985,8 +21032,8 @@ void expand_test()
     //char* (* [3])(int)
 
 
-
-    get_ast(&options, "source", src3, &error);
+    
+    get_ast(&options, "source", src3, &error, &report);
     assert(error.code == 0);
     clearerror(&error);
 
