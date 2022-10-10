@@ -1580,7 +1580,7 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
             attribute_specifier_sequence_opt(ctx, error);
 
             if (ctx->current->type == TK_IDENTIFIER &&
-                p_declaration_specifiers->type_specifier_flags != TK_NONE)
+                p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
             {
                 //typedef nao pode aparecer com outro especifier
                 //entao ja tem tem algo e vier identifier signfica que acabou 
