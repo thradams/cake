@@ -261,7 +261,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
 {
     snprintf(fullpath, 300, "%s", path);
 
-    if (hashmap_find(&ctx->pragmaOnce, fullpath) != NULL)
+    if (hashmap_find(&ctx->pragma_once_map, fullpath) != NULL)
     {
         *bAlreadyIncluded = true;
         return NULL;
@@ -276,7 +276,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
         {
             snprintf(fullpath, 300, "%s%s", current->path, path);
 
-            if (hashmap_find(&ctx->pragmaOnce, fullpath) != NULL)
+            if (hashmap_find(&ctx->pragma_once_map, fullpath) != NULL)
             {
                 *bAlreadyIncluded = true;
                 return NULL;
@@ -2715,7 +2715,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    hashmap_set(&ctx->pragmaOnce, input_list->head->token_origin->lexeme, (void*)1);
+                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);//pragma
                 }
                 else if (strcmp(input_list->head->lexeme, "expand") == 0)

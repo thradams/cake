@@ -32,7 +32,7 @@ struct preprocessor_ctx
     struct include_dir_list include_dir;
 
     /*lista dos headers marcados com pragma once*/
-    struct hash_map pragmaOnce;
+    struct hash_map pragma_once_map;
     
     struct token* current;
     struct token_list input_list;
