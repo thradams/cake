@@ -15527,7 +15527,7 @@ void visit(struct visit_ctx* ctx, struct error* error);
 struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* error);
 
 
-static int anonymous_struct_count = 0;
+static int s_anonymous_struct_count = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token);
@@ -17083,7 +17083,7 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
             attribute_specifier_sequence_opt(ctx, error);
 
             if (ctx->current->type == TK_IDENTIFIER &&
-                p_declaration_specifiers->type_specifier_flags != TK_NONE)
+                p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
             {
                 //typedef nao pode aparecer com outro especifier
                 //entao ja tem tem algo e vier identifier signfica que acabou 
@@ -17107,7 +17107,7 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx, st
 
 struct declaration* declaration_core(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt /*SINK*/,
-    bool canBeFunctionDefinition,
+    bool can_be_function_definition,
     bool* is_function_definition,
     struct error* error)
 {
@@ -17164,7 +17164,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
 
             if (first_is(ctx, '{'))
             {
-                if (canBeFunctionDefinition)
+                if (can_be_function_definition)
                     *is_function_definition = true;
                 else
                 {
@@ -17814,13 +17814,13 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
 
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error)
 {
-    struct struct_or_union_specifier* pStruct_or_union_specifier = calloc(1, sizeof * pStruct_or_union_specifier);
-    pStruct_or_union_specifier->type_id.type = TAG_TYPE_STRUCT_OR_UNION_SPECIFIER;
+    struct struct_or_union_specifier* p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
+    p_struct_or_union_specifier->type_id.type = TAG_TYPE_STRUCT_OR_UNION_SPECIFIER;
 
     if (ctx->current->type == TK_KEYWORD_STRUCT ||
         ctx->current->type == TK_KEYWORD_UNION)
     {
-        pStruct_or_union_specifier->first_token = ctx->current;
+        p_struct_or_union_specifier->first_token = ctx->current;
         parser_match(ctx);
     }
     else
@@ -17828,20 +17828,20 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         assert(false);
     }
 
-    pStruct_or_union_specifier->attribute_specifier_sequence_opt =
+    p_struct_or_union_specifier->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx, error);
 
-    struct struct_or_union_specifier* pPreviousTagInThisScope = NULL;
+    struct struct_or_union_specifier* p_previous_tag_in_this_scope = NULL;
 
     if (ctx->current->type == TK_IDENTIFIER)
     {
-        pStruct_or_union_specifier->tagtoken = ctx->current;
+        p_struct_or_union_specifier->tagtoken = ctx->current;
         /*
          Structure, union, and enumeration tags have scope that begins just after the
          appearance of the tag in a type specifier that declares the tag.
         */
 
-        snprintf(pStruct_or_union_specifier->tag_name, sizeof pStruct_or_union_specifier->tag_name, "%s", ctx->current->lexeme);
+        snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "%s", ctx->current->lexeme);
 
         struct type_tag_id* tag_type_id = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
         if (tag_type_id)
@@ -17849,8 +17849,8 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             /*este tag já existe neste escopo*/
             if (tag_type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
             {
-                pPreviousTagInThisScope = container_of(tag_type_id, struct struct_or_union_specifier, type_id);
-                pStruct_or_union_specifier->complete_struct_or_union_specifier = pPreviousTagInThisScope;
+                p_previous_tag_in_this_scope = container_of(tag_type_id, struct struct_or_union_specifier, type_id);
+                p_struct_or_union_specifier->complete_struct_or_union_specifier = p_previous_tag_in_this_scope;
             }
             else
             {
@@ -17860,17 +17860,17 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         else
         {
             /*ok neste escopo nao tinha este tag..vamos escopos para cima*/
-            struct struct_or_union_specifier* pOther = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
-            if (pOther == NULL)
+            struct struct_or_union_specifier* p_other = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
+            if (p_other == NULL)
             {
-                pStruct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
+                p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
                 /*nenhum escopo tinha este tag vamos adicionar no escopo local*/
-                hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, &pStruct_or_union_specifier->type_id);
+                hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, &p_struct_or_union_specifier->type_id);
             }
             else
             {
                 /*achou a tag em um escopo mais a cima*/
-                pStruct_or_union_specifier->complete_struct_or_union_specifier = pOther;
+                p_struct_or_union_specifier->complete_struct_or_union_specifier = p_other;
             }
         }
 
@@ -17879,66 +17879,66 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     else
     {
         /*struct sem tag, neste caso vou inventar um tag "oculto" e adicionar no escopo atual*/
-        snprintf(pStruct_or_union_specifier->tag_name, sizeof pStruct_or_union_specifier->tag_name, "_anonymous_struct_%d", anonymous_struct_count);
-        anonymous_struct_count++;
-        pStruct_or_union_specifier->has_anonymous_tag = true;
-        pStruct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-        hashmap_set(&ctx->scopes.tail->tags, pStruct_or_union_specifier->tag_name, &pStruct_or_union_specifier->type_id);
+        snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
+        s_anonymous_struct_count++;
+        p_struct_or_union_specifier->has_anonymous_tag = true;
+        p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
+        hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, &p_struct_or_union_specifier->type_id);
     }
 
 
 
     if (ctx->current->type == '{')
     {
-        if (pStruct_or_union_specifier->tagtoken)
-            naming_convention_struct_tag(ctx, pStruct_or_union_specifier->tagtoken);
+        if (p_struct_or_union_specifier->tagtoken)
+            naming_convention_struct_tag(ctx, p_struct_or_union_specifier->tagtoken);
 
         struct token* first = ctx->current;
         parser_match(ctx);
-        pStruct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, error);
-        pStruct_or_union_specifier->member_declaration_list.first_token = first;
-        pStruct_or_union_specifier->last_token = ctx->current;
-        pStruct_or_union_specifier->member_declaration_list.last_token = ctx->current;
+        p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, error);
+        p_struct_or_union_specifier->member_declaration_list.first_token = first;
+        p_struct_or_union_specifier->last_token = ctx->current;
+        p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
         parser_match_tk(ctx, '}', error);
 
     }
     else
     {
-        pStruct_or_union_specifier->last_token = ctx->current;
+        p_struct_or_union_specifier->last_token = ctx->current;
     }
 
-    if (pPreviousTagInThisScope)
+    if (p_previous_tag_in_this_scope)
     {
-        if (pPreviousTagInThisScope->member_declaration_list.head == NULL &&
-            pStruct_or_union_specifier->member_declaration_list.head != NULL)
+        if (p_previous_tag_in_this_scope->member_declaration_list.head == NULL &&
+            p_struct_or_union_specifier->member_declaration_list.head != NULL)
         {
             /*
               Temos uma versao mais completa deste tag neste escopo. Vamos ficar com ela.
             */
-            hashmap_set(&ctx->scopes.tail->tags, pStruct_or_union_specifier->tag_name, &pStruct_or_union_specifier->type_id);
+            hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, &p_struct_or_union_specifier->type_id);
         }
     }
 
 
     /*check if complete struct is deprecated*/
-    if (pStruct_or_union_specifier->complete_struct_or_union_specifier)
+    if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
     {
-        if (pStruct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt &&
-            pStruct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags && STD_ATTRIBUTE_DEPRECATED)
+        if (p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt &&
+            p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags && STD_ATTRIBUTE_DEPRECATED)
         {
-            if (pStruct_or_union_specifier->tagtoken)
+            if (p_struct_or_union_specifier->tagtoken)
             {
                 //TODO add deprecated message
-                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first_token, "'%s' is deprecated", pStruct_or_union_specifier->tagtoken->lexeme);
+                parser_setwarning_with_token(ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
             }
             else
             {
-                parser_setwarning_with_token(ctx, pStruct_or_union_specifier->first_token, "deprecated");
+                parser_setwarning_with_token(ctx, p_struct_or_union_specifier->first_token, "deprecated");
             }
         }
     }
 
-    return pStruct_or_union_specifier;
+    return p_struct_or_union_specifier;
 }
 
 struct member_declarator* member_declarator(struct parser_ctx* ctx,
@@ -18243,7 +18243,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             attribute_specifier_sequence_opt(ctx, error);
 
 
-        struct enum_specifier* pPreviousTagInThisScope = NULL;
+        struct enum_specifier* p_previous_tag_in_this_scope = NULL;
         bool has_identifier = false;
         if (ctx->current->type == TK_IDENTIFIER)
         {
@@ -18299,8 +18299,8 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
                 /*we have this tag at this scope*/
                 if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
                 {
-                    pPreviousTagInThisScope = container_of(tag_type_id, struct enum_specifier, type_id);
-                    p_enum_specifier->complete_enum_specifier = pPreviousTagInThisScope;
+                    p_previous_tag_in_this_scope = container_of(tag_type_id, struct enum_specifier, type_id);
+                    p_enum_specifier->complete_enum_specifier = p_previous_tag_in_this_scope;
                 }
                 else
                 {
@@ -18310,16 +18310,16 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             }
             else
             {
-                struct enum_specifier* pOther = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
+                struct enum_specifier* p_other = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
                 /*ok neste escopo nao tinha este tag..vamos escopos para cima*/
-                if (pOther == NULL)
+                if (p_other == NULL)
                 {
                     hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, &p_enum_specifier->type_id);
                 }
                 else
                 {
                     /*achou a tag em um escopo mais a cima*/
-                    p_enum_specifier->complete_enum_specifier = pOther;
+                    p_enum_specifier->complete_enum_specifier = p_other;
                 }
             }
 
@@ -18489,7 +18489,7 @@ struct function_specifier* function_specifier(struct parser_ctx* ctx, struct err
 struct declarator* declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* p_specifier_qualifier_list,
     struct declaration_specifiers* p_declaration_specifiers,
-    bool bAbstractAcceptable,
+    bool abstract_acceptable,
     struct token** pp_token_name,
     struct error* error)
 {
@@ -18501,7 +18501,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->first_token = ctx->current;
     p_declarator->type_id.type = TAG_TYPE_DECLARATOR;
     p_declarator->pointer = pointer_opt(ctx, error);
-    p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, bAbstractAcceptable, pp_token_name, error);
+    p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name, error);
 
     p_declarator->last_token = ctx->previous;
 
@@ -18534,8 +18534,8 @@ struct function_declarator* function_declarator(struct direct_declarator* p_dire
 struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* p_specifier_qualifier_list,
     struct declaration_specifiers* p_declaration_specifiers,
-    bool bAbstractAcceptable,
-    struct token** pptokenName,
+    bool abstract_acceptable,
+    struct token** pptoken_name,
     struct error* error)
 {
     /*
@@ -18603,9 +18603,9 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
             }
 
             p_direct_declarator->name_opt = ctx->current;
-            if (pptokenName != NULL)
+            if (pptoken_name != NULL)
             {
-                *pptokenName = ctx->current;
+                *pptoken_name = ctx->current;
             }
             else
             {
@@ -18633,8 +18633,8 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
                 p_direct_declarator->declarator = declarator(ctx,
                     p_specifier_qualifier_list,
                     p_declaration_specifiers,
-                    bAbstractAcceptable,
-                    pptokenName,
+                    abstract_acceptable,
+                    pptoken_name,
                     error);
 
 
@@ -20299,7 +20299,7 @@ struct declaration_list parse(struct options* options,
     struct report* report)
 {
 
-    anonymous_struct_count = 0;
+    s_anonymous_struct_count = 0;
 
     struct scope file_scope = { 0 };
     struct parser_ctx ctx = { .options = *options };
@@ -20455,9 +20455,9 @@ int fill_options(struct options* options, int argc, const char** argv, struct pr
 
 #ifdef _WIN32
 unsigned long __stdcall GetEnvironmentVariableA(
-    const char* lpName,
-    char* lpBuffer,
-    unsigned long nSize
+    const char* lpname,
+    char* lpbuffer,
+    unsigned long nsize
 );
 #endif
 
