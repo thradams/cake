@@ -1445,3 +1445,8 @@ There is also a MUST\_DESTROY flag that is used when other function
 needs to be called. For instance, x_destroy for struct x.
 
 
+## Pré-defined macros
+
+ * \_\_CAKE\_\_ 202311L
+ * \_\_STDC_VERSION\_\_ 202311L
+ * 

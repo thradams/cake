@@ -385,7 +385,9 @@ struct enumerator_list
     struct enumerator* tail;
 };
 
-struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* error);
+struct enumerator_list enumerator_list(struct parser_ctx* ctx,
+    struct enum_specifier*  p_enum_specifier,
+    struct error* error);
 
 
 struct enum_specifier
@@ -1145,12 +1147,12 @@ struct enumerator
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
 
     struct expression* constant_expression_opt;
-
+    struct enum_specifier* enum_specifier;
     struct enumerator* next;
     long long value;    
 };
 
-struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error);
+struct enumerator* enumerator(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error);
 
 struct attribute_argument_clause
 {

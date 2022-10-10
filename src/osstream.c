@@ -10,10 +10,9 @@ void ss_clear(struct osstream* stream)
     stream->size = 0;
 }
 
-int ss_close(struct osstream* stream)
+void ss_close(struct osstream* stream)
 {
-    free(stream->c_str);
-    return 0;
+    free(stream->c_str);    
 }
 
 static int reserve(struct osstream* stream, int size)

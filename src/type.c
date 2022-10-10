@@ -547,7 +547,7 @@ bool type_is_arithmetic(struct type* p_type)
 
 
     return p_type->type_specifier_flags &
-        (
+        (           
             TYPE_SPECIFIER_FLOAT |
             TYPE_SPECIFIER_DOUBLE |
 
@@ -557,7 +557,10 @@ bool type_is_arithmetic(struct type* p_type)
 
             TYPE_SPECIFIER_CHAR |
             TYPE_SPECIFIER_SHORT |
-            TYPE_SPECIFIER_INT |
+            
+            TYPE_SPECIFIER_INT |            
+            TYPE_SPECIFIER_ENUM | /*work as int*/
+
             TYPE_SPECIFIER_LONG |
             TYPE_SPECIFIER_SIGNED |
             TYPE_SPECIFIER_UNSIGNED |
@@ -976,7 +979,8 @@ int type_get_sizeof(struct parser_ctx* ctx, struct type* p_type, struct error* e
             {
                 size = sizeof(int);
             }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
+            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT ||
+                     p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
             {
                 size = sizeof(int);
             }

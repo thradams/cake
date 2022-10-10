@@ -1,15 +1,7 @@
-
-#include <annotations.h>
-
-void* malloc(int i) {
-    _add_attr(return, MUST_FREE);
-    return 0;
-}
-
+enum E1;
+enum E1 { A1 };
+enum E2 { A2 };
 int main()
 {
-    struct x* px = malloc(sizeof(struct x));
-    _add_attr(px, MUST_DESTROY);
+    if (A1 == A2) {}
 }
-
-

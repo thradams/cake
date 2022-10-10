@@ -268,7 +268,7 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTCYAN "info: " WHITE "%s\n", buffer);
+    ctx->printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 
 
 
@@ -1674,8 +1674,15 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
         }
         else
         {
-            parser_seterror_with_token(ctx, ctx->current, "unknown type name '%s'", ctx->current->lexeme);
-            
+            if (ctx->current->type == TK_IDENTIFIER)
+            {
+                parser_seterror_with_token(ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
+            }
+            else
+            {
+                parser_seterror_with_token(ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
+            }
+            parser_match(ctx); //we need to go ahead
         }
     }
 
@@ -2765,7 +2772,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             p_enum_specifier->complete_enum_specifier = p_enum_specifier;
 
             parser_match_tk(ctx, '{', error);
-            p_enum_specifier->enumerator_list = enumerator_list(ctx, error);
+            p_enum_specifier->enumerator_list = enumerator_list(ctx, p_enum_specifier, error);
             if (ctx->current->type == ',')
             {
                 parser_match(ctx);
@@ -2821,7 +2828,9 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
     return p_enum_specifier;
 }
 
-struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* error)
+struct enumerator_list enumerator_list(struct parser_ctx* ctx, 
+    struct enum_specifier* p_enum_specifier, 
+    struct error* error)
 {
     struct enumerator_list enumeratorlist = { 0 };
     try
@@ -2829,7 +2838,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* err
 
         //enumerator
         //enumerator_list ',' enumerator
-        list_add(&enumeratorlist, enumerator(ctx, error));
+        list_add(&enumeratorlist, enumerator(ctx, p_enum_specifier, error));
         if (error->code != 0) throw;
 
         while (ctx->current != NULL &&
@@ -2838,7 +2847,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* err
             parser_match(ctx);  /*pode ter uma , vazia no fim*/
 
             if (ctx->current->type != '}')
-                list_add(&enumeratorlist, enumerator(ctx, error));
+                list_add(&enumeratorlist, enumerator(ctx, p_enum_specifier, error));
 
             if (error->code != 0) throw;
         }
@@ -2850,12 +2859,14 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct error* err
     return enumeratorlist;
 }
 
-struct enumerator* enumerator(struct parser_ctx* ctx, struct error* error)
+struct enumerator* enumerator(struct parser_ctx* ctx,
+    struct enum_specifier* p_enum_specifier,
+    struct error* error)
 {
     //TODO VALUE
     struct enumerator* p_enumerator = calloc(1, sizeof(struct enumerator));
     p_enumerator->type_id.type = TAG_TYPE_ENUMERATOR;
-
+    p_enumerator->enum_specifier = p_enum_specifier;
     struct token* name = ctx->current;
 
     naming_convention_enumerator(ctx, name);
@@ -4701,6 +4712,83 @@ struct compound_statement* function_body(struct parser_ctx* ctx, struct error* e
     return compound_statement(ctx, error);
 }
 
+static void show_unused_file_scope(struct parser_ctx* ctx)
+{
+    
+    for (int i = 0; i < ctx->scopes.head->variables.capacity; i++)
+    {
+        if (ctx->scopes.head->variables.table == NULL)
+            continue;
+        struct map_entry* entry = ctx->scopes.head->variables.table[i];
+        while (entry)
+        {
+
+            if (entry->p->type != TAG_TYPE_DECLARATOR)
+            {
+                entry = entry->next;
+                continue;
+            }
+
+            struct declarator* p_declarator =
+                p_declarator = container_of(entry->p, struct declarator, type_id);
+
+            if (p_declarator && 
+                p_declarator->first_token &&
+                p_declarator->first_token->level == 0 &&
+                declarator_is_function(p_declarator) && 
+                (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))                
+            {
+                /*
+                  let's print the declarators that were not cleared for these
+                  flags
+                */
+                if (p_declarator->static_analisys_flags & MUST_DESTROY)
+                {
+                    ctx->printf(WHITE "%s:%d:%d: ",
+                        p_declarator->name->token_origin->lexeme,
+                        p_declarator->name->line,
+                        p_declarator->name->col);
+
+                    if (p_declarator->static_analisys_flags & MUST_DESTROY)
+                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
+                            p_declarator->name->lexeme);
+                }
+
+                if (p_declarator->static_analisys_flags & MUST_FREE)
+                {
+                    ctx->printf(WHITE "%s:%d:%d: ",
+                        p_declarator->name->token_origin->lexeme,
+                        p_declarator->name->line,
+                        p_declarator->name->col);
+
+                    if (p_declarator->static_analisys_flags & MUST_FREE)
+                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
+                            p_declarator->name->lexeme);
+                }
+
+                if (!type_is_maybe_unused(&p_declarator->type) &&
+                    p_declarator->num_uses == 0)
+                {
+                    //setwarning_with_token(ctx, p_declarator->name, )
+                    ctx->n_warnings++;
+                    if (p_declarator->name &&
+                        p_declarator->name->token_origin)
+                    {
+                        ctx->printf(WHITE "%s:%d:%d: ",
+                            p_declarator->name->token_origin->lexeme,
+                            p_declarator->name->line,
+                            p_declarator->name->col);
+
+                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "'%s': defined but not used\n",
+                            p_declarator->name->lexeme);
+                    }
+                }
+            }
+
+            entry = entry->next;
+        }
+    }
+}
 
 struct declaration_list parse(struct options* options,
     struct token_list* list,
@@ -4728,11 +4816,13 @@ struct declaration_list parse(struct options* options,
     if (ctx.n_errors > 0)
         error->code = 1;
 
+    show_unused_file_scope(&ctx);
+
     report->error_count = ctx.n_errors;
     report->warnings_count= ctx.n_warnings;
     report->info_count= ctx.n_info;
     
-
+    
     return l;
 }
 
@@ -4748,17 +4838,17 @@ int fill_options(struct options* options, int argc, const char** argv, struct pr
 
         if (strcmp(argv[i], "-E") == 0)
         {
-            options->bPreprocessOnly = true;
+            options->preprocess_only = true;
             continue;
         }
         if (strcmp(argv[i], "-r") == 0)
         {
-            options->bRemoveComments = true;
+            options->remove_comments = true;
             continue;
         }
         if (strcmp(argv[i], "-rm") == 0)
         {
-            options->bRemoveMacros = true;
+            options->remove_macros = true;
             continue;
         }
         if (strcmp(argv[i], "-n") == 0)
@@ -4980,10 +5070,10 @@ const char* format_code(struct options* options,
         visit_ctx.ast = ast;
         format_visit(&visit_ctx, error);
 
-        if (options->bRemoveMacros)
+        if (options->remove_macros)
             s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
         else
-            s = get_code_as_we_see(&visit_ctx.ast.token_list, options->bRemoveComments);
+            s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
     }
     catch
@@ -4996,6 +5086,7 @@ const char* format_code(struct options* options,
     preprocessor_ctx_destroy(&prectx);
     return s;
 }
+
 
 
 int compile_one_file(const char* file_name,
@@ -5061,7 +5152,7 @@ int compile_one_file(const char* file_name,
         mkdir("./out", 0777);
 
 
-        if (options.bPreprocessOnly)
+        if (options.preprocess_only)
         {
             const char* s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
@@ -5069,7 +5160,6 @@ int compile_one_file(const char* file_name,
         }
         else
         {
-
             ast.declaration_list = parse(&options, &ast.token_list, &error, report);
             if (error.code != 0)
             {
@@ -5089,10 +5179,10 @@ int compile_one_file(const char* file_name,
             visit_ctx.ast = ast;
             visit(&visit_ctx, &error);
 
-            if (options.bRemoveMacros)
+            if (options.remove_macros)
                 s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
             else
-                s = get_code_as_we_see(&visit_ctx.ast.token_list, options.bRemoveComments);
+                s = get_code_as_we_see(&visit_ctx.ast.token_list, options.remove_comments);
 
             if (options.format_ouput)
             {
@@ -5156,7 +5246,7 @@ int compile(int argc, char** argv, struct report* report)
     
     printf("\n");
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
-    printf("%d errors %d warnings %d infos\n", report->error_count, report->warnings_count, report->info_count);
+    printf("%d errors %d warnings %d notes\n", report->error_count, report->warnings_count, report->info_count);
 
     return 0;
 }
@@ -5247,7 +5337,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
         add_standard_macros(&prectx, &error);
 
 
-        if (options.bPreprocessOnly)
+        if (options.preprocess_only)
         {
 
             struct token_list tokens = tokenizer(content, "source", 0, TK_FLAG_NONE, &error);
@@ -5272,13 +5362,13 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             visit_ctx.ast = ast;
             visit(&visit_ctx, &error);
 
-            if (options.bRemoveMacros)
+            if (options.remove_macros)
             {
                 s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
             }
             else
             {
-                s = get_code_as_we_see(&visit_ctx.ast.token_list, options.bRemoveComments);
+                s = get_code_as_we_see(&visit_ctx.ast.token_list, options.remove_comments);
             }
             if (options.format_ouput)
             {

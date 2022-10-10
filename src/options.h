@@ -18,9 +18,9 @@ struct options
 {
     enum language_version input;
     enum language_version target;
-    bool bRemoveComments;
-    bool bPreprocessOnly;
-    bool bRemoveMacros;
+    bool remove_comments;
+    bool preprocess_only;
+    bool remove_macros;
     bool format_input;
     bool format_ouput;
     bool nodiscard_is_default;

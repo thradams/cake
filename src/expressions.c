@@ -519,9 +519,12 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             struct enumerator* p_enumerator = find_enumerator(ctx, ctx->current->lexeme, NULL);
             if (p_enumerator)
             {
+
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = p_enumerator->value;
-                type_set_int(&p_expression_node->type);
+                
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_ENUM;
+                p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;                
             }
             else
             {
@@ -949,7 +952,7 @@ static void contract_visit_expression(struct parser_ctx* ctx, struct expression*
     }
     else if (expression_opt->expression_type == UNARY_EXPRESSION_NOT)
     {
-        contract_visit_expression(ctx, expression_opt->right, &returnflag);
+        contract_visit_expression(ctx, expression_opt->right, returnflag);
         expression_opt->constant_value = !expression_opt->right->constant_value;
     }
         }
@@ -1518,8 +1521,9 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
             new_expression->constant_value = new_expression->declarator->static_analisys_flags;
             break;
         case TK_KEYWORD_ATTR_REMOVE:
-            new_expression->declarator->static_analisys_flags = new_expression->declarator->static_analisys_flags &= ~
+            new_expression->declarator->static_analisys_flags &= ~
                 (unsigned int)(new_expression->right->constant_value);
+
             new_expression->constant_value = new_expression->declarator->static_analisys_flags;
             break;
 
@@ -2172,14 +2176,44 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
             ctx->current->type == '!='))
     {
         struct expression* new_expression = calloc(1, sizeof * new_expression);
-        enum token_type op = ctx->current->type;
+        struct  token* operator_token = ctx->current;
         parser_match(ctx);
         new_expression->left = p_expression_node;
         new_expression->right = relational_expression(ctx, error, ectx);
         if (error->code != 0)
             break;
 
-        if (op == '==')
+        if (new_expression->left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
+            new_expression->right->type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        {
+            if (new_expression->left->type.enum_specifier->complete_enum_specifier != 
+                new_expression->right->type.enum_specifier->complete_enum_specifier)
+            {
+                const char* lefttag = "";
+                if (new_expression->left->type.enum_specifier->tag_token)
+                    lefttag = new_expression->left->type.enum_specifier->tag_token->lexeme;
+
+                const char* righttag = "";
+                if (new_expression->right->type.enum_specifier->tag_token)
+                    righttag = new_expression->right->type.enum_specifier->tag_token->lexeme;
+
+                if (strcmp(lefttag, righttag) != 0)
+                {
+                    /*
+                     * This comparison by name is not 100% correct because they be from
+                     * diferent scopes.
+                    */
+
+                    parser_setwarning_with_token(ctx,
+                        operator_token,
+                        "comparison between 'enum %s' and 'enum %s'",
+                        lefttag,
+                        righttag);
+                }
+            }
+        }
+
+        if (operator_token->type == '==')
         {
             new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
 
@@ -2193,7 +2227,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
                 new_expression->constant_value = (new_expression->left->constant_value == new_expression->right->constant_value);
             }
         }
-        else if (op == '!=')
+        else if (operator_token->type == '!=')
         {
             new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
 

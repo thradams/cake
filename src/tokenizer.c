@@ -165,7 +165,7 @@ void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token,
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTCYAN "info: " WHITE "%s\n", buffer);
+    ctx->printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 
     struct token* prev = p_token;
     while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
@@ -1759,9 +1759,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
                 bool bAlreadyIncluded = false;
-                char* s = find_and_read_include_file(ctx, path, fullpath, &bAlreadyIncluded);
-
-
+                const char* s = find_and_read_include_file(ctx, path, fullpath, &bAlreadyIncluded);
 
                 bool bHasInclude = s != NULL;
                 free(s);
@@ -3873,19 +3871,33 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
     struct token_list l2 = tokenizer(timestr, "__TIME__ macro inclusion", 0, TK_FLAG_NONE, error);
     preprocessor(ctx, &l2, 0, error);
 
-    //token_list_destroy(&l2);
+
+    /*
+      Some macros are dynamic like __LINE__ they are replaced  at
+      macro_copy_replacement_list but they need to be registered here.
+    */
 
     const char* pre_defined_macros_text =
-        "#define __FILE__\n"
-        "#define __LINE__\n"
-        "#define __COUNT__\n"
+        "#define __CAKE__ 202311L\n"
+        "#define __STDC_VERSION__ 202311L\n"
+        "#define __FILE__ \"__FILE__\"\n"
+        "#define __LINE__ 0\n"
+        "#define __COUNT__ 0\n"
         "#define _CONSOLE\n"        
+
+#ifdef WIN32
         "#define _WINDOWS\n"
+        "#define _WIN32\n"
+#endif
+
+#ifdef __linux__
+        "#define __linux__\n"
+#endif
+
         "#define _M_IX86\n"
         "#define _X86_\n"
         "#define __fastcall\n"
-        "#define __stdcall\n"
-        "#define _WIN32\n"
+        "#define __stdcall\n"      
         "#define __cdecl\n"
         "#define __pragma(a)\n"
         "#define __declspec(a)\n"
@@ -3893,12 +3905,12 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
         "#define __builtin_offsetof(type, member) 0\n"; //como nao defini msver ele pensa que eh gcc aqui
 
     struct token_list l = tokenizer(pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE, error);
-    struct token_list l3 = preprocessor(ctx, &l, 0, error);
+    struct token_list l10 = preprocessor(ctx, &l, 0, error);
 
     //nao quer ver warning de nao usado nestas macros padrao
     mark_macros_as_used(&ctx->macros);
     token_list_destroy(&l);
-    token_list_destroy(&l3);
+    token_list_destroy(&l10);
 }
 
 
