@@ -1918,7 +1918,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     int level,
     struct error* error)
 {
-    ctx->bConditionalInclusion = true;
+    ctx->conditional_inclusion = true;
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
@@ -1973,7 +1973,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         //TODO error
     }
 
-    ctx->bConditionalInclusion = false;
+    ctx->conditional_inclusion = false;
     return value;
 }
 
@@ -3238,7 +3238,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
                 }
 
 
-                if (ctx->bConditionalInclusion)
+                if (ctx->conditional_inclusion)
                 {
                     /*
                      Quando estamos expandindo em condinonal inclusion o defined macro ou defined (macro)
@@ -3527,7 +3527,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                     macro = NULL;
                 }
 
-                if (ctx->bConditionalInclusion)
+                if (ctx->conditional_inclusion)
                 {
                     /*
                      Quando estamos expandindo em condinonal inclusion o defined macro ou defined (macro)

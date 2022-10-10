@@ -37,7 +37,7 @@ struct preprocessor_ctx
     struct token* current;
     struct token_list input_list;
 
-    bool bConditionalInclusion;
+    bool conditional_inclusion;
     int n_warnings;
     int n_errors;
     int (*printf)(const char* fmt, ...);
