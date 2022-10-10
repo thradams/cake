@@ -92,9 +92,8 @@ See [Manual](manual.html)
 
 # Road map
 
-* Complete semantic analisys
-* Static analysis
-* Backend, maybe qbe [QBE](https://c9x.me/compile/)
+* Complete semantic analisys + static analysis
+* Backend ?
   
  
 # References
