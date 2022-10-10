@@ -2882,7 +2882,7 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
     if (ctx->current->type == '=')
     {
         parser_match(ctx);
-        struct expression_ctx ectx = { .bConstantExpressionRequired = true };
+        struct expression_ctx ectx = { .constant_expression_required = true };
         p_enumerator->constant_expression_opt = constant_expression(ctx, error, &ectx);
         p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
     }
@@ -2907,7 +2907,7 @@ struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx, struct e
     }
     else
     {
-        struct expression_ctx ectx = { .bConstantExpressionRequired = true };
+        struct expression_ctx ectx = { .constant_expression_required = true };
         constant_expression(ctx, error, &ectx);
     }
     parser_match_tk(ctx, ')', error);
@@ -3733,7 +3733,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         struct token* position = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT, error);
         parser_match_tk(ctx, '(', error);
-        struct expression_ctx ectx = { .bConstantExpressionRequired = true };
+        struct expression_ctx ectx = { .constant_expression_required = true };
 
         ctx->evaluated_at_caller = false;
         p_static_assert_declaration->constant_expression = constant_expression(ctx, error, &ectx);
@@ -4130,7 +4130,7 @@ struct label* label(struct parser_ctx* ctx, struct error* error)
     else if (ctx->current->type == TK_KEYWORD_CASE)
     {
         parser_match(ctx);
-        struct expression_ctx ectx = { .bConstantExpressionRequired = true };
+        struct expression_ctx ectx = { .constant_expression_required = true };
         p_label->constant_expression = constant_expression(ctx, error, &ectx);
         parser_match_tk(ctx, ':', error);
     }

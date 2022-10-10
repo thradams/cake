@@ -174,8 +174,8 @@ struct expression
 /*contexto expressões parser*/
 struct expression_ctx
 {
-    bool bConstantExpressionRequired;
-    bool bResultIsType;
+    bool constant_expression_required;
+    bool result_is_type;
 };
 
 struct expression* assignment_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);

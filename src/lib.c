@@ -8475,8 +8475,8 @@ struct expression
 /*contexto expressões parser*/
 struct expression_ctx
 {
-    bool bConstantExpressionRequired;
-    bool bResultIsType;
+    bool constant_expression_required;
+    bool result_is_type;
 };
 
 struct expression* assignment_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
@@ -10073,14 +10073,14 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
         else
         {
 
-            bool constant_expr_required_old = ectx->bConstantExpressionRequired;
-            ectx->bConstantExpressionRequired = false;
+            bool constant_expr_required_old = ectx->constant_expression_required;
+            ectx->constant_expression_required = false;
             p_expression_node->right = expression(ctx, error, ectx);
 
             if (p_expression_node->right == NULL)
                 throw;
 
-            ectx->bConstantExpressionRequired = constant_expr_required_old;
+            ectx->constant_expression_required = constant_expr_required_old;
             p_expression_node->type = type_copy(&p_expression_node->right->type);
 
             //printf("typeid() = ");
@@ -10219,7 +10219,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             }
             else
             {
-                if (ectx->bConstantExpressionRequired)
+                if (ectx->constant_expression_required)
                 {
                     parser_seterror_with_token(ctx, ctx->current, "not constant");
                     error->code = 1;
@@ -10273,7 +10273,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
             p_expression_node->type.declarator_type = p_declarator_type;
 
-            if (ectx->bConstantExpressionRequired)
+            if (ectx->constant_expression_required)
             {
                 parser_seterror_with_token(ctx, ctx->current, "not constant");
                 error->code = 1;
@@ -10357,7 +10357,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_GENERIC;
 
-            if (ectx->bConstantExpressionRequired)
+            if (ectx->constant_expression_required)
             {
                 parser_seterror_with_token(ctx, ctx->current, "not constant");
                 error->code = 1;
@@ -11155,8 +11155,8 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
     struct token* func = ctx->current;
     parser_match(ctx);
 
-    bool old = ectx->bConstantExpressionRequired;
-    ectx->bConstantExpressionRequired = true;
+    bool old = ectx->constant_expression_required;
+    ectx->constant_expression_required = true;
     parser_match_tk(ctx, '(', error);
 
 
@@ -11190,7 +11190,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
 
     new_expression->right = constant_expression(ctx, error, ectx);
     parser_match_tk(ctx, ')', error);
-    ectx->bConstantExpressionRequired = old;
+    ectx->constant_expression_required = old;
 
     if (new_expression->declarator == NULL ||
         new_expression->declarator->is_parameter_declarator)
@@ -11355,10 +11355,10 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             }
             else
             {
-                bool old = ectx->bConstantExpressionRequired;
-                ectx->bConstantExpressionRequired = false;
+                bool old = ectx->constant_expression_required;
+                ectx->constant_expression_required = false;
                 new_expression->right = unary_expression(ctx, error, ectx);
-                ectx->bConstantExpressionRequired = old;
+                ectx->constant_expression_required = old;
 
                 if (error->code != 0)
                     throw;
@@ -11396,10 +11396,10 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             }
             else
             {
-                bool old = ectx->bConstantExpressionRequired;
-                ectx->bConstantExpressionRequired = false;
+                bool old = ectx->constant_expression_required;
+                ectx->constant_expression_required = false;
                 new_expression->right = unary_expression(ctx, error, ectx);
-                ectx->bConstantExpressionRequired = old;
+                ectx->constant_expression_required = old;
 
                 if (error->code != 0)
                     throw;
@@ -12223,7 +12223,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
         {
             parser_match(ctx);
 
-            if (ectx->bConstantExpressionRequired)
+            if (ectx->constant_expression_required)
             {
                 parser_seterror_with_token(ctx, ctx->current, "assignment is not an constant expression");
                 error->code = 1;
@@ -12354,7 +12354,7 @@ struct expression* constant_expression(struct parser_ctx* ctx, struct error* err
     if (error->code != 0)
         return NULL;
 
-    ectx->bConstantExpressionRequired = true;
+    ectx->constant_expression_required = true;
     return conditional_expression(ctx, error, ectx);
 }
 
@@ -12377,7 +12377,7 @@ struct type type_make_using_string(const char* expr)
     parser_ctx.current = parser_ctx.input_list.head;
     parser_skip_blanks(&parser_ctx);
 
-    struct expression_ctx expression_ctx = { .bConstantExpressionRequired = true };
+    struct expression_ctx expression_ctx = { .constant_expression_required = true };
     struct expression* expression = conditional_expression(&parser_ctx, &error, &expression_ctx);
     assert(error.code == 0);
     return expression->type;
@@ -12399,7 +12399,7 @@ int test_constant_expression(const char* expr, int result)
     parser_ctx.current = parser_ctx.input_list.head;
     parser_skip_blanks(&parser_ctx);
 
-    struct expression_ctx expression_ctx = { .bConstantExpressionRequired = true };
+    struct expression_ctx expression_ctx = { .constant_expression_required = true };
     struct expression* expression = constant_expression(&parser_ctx, &error, &expression_ctx);
 
     return expression->constant_value == result ? 0 : 1;
@@ -18384,7 +18384,7 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
     if (ctx->current->type == '=')
     {
         parser_match(ctx);
-        struct expression_ctx ectx = { .bConstantExpressionRequired = true };
+        struct expression_ctx ectx = { .constant_expression_required = true };
         p_enumerator->constant_expression_opt = constant_expression(ctx, error, &ectx);
         p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
     }
@@ -18409,7 +18409,7 @@ struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx, struct e
     }
     else
     {
-        struct expression_ctx ectx = { .bConstantExpressionRequired = true };
+        struct expression_ctx ectx = { .constant_expression_required = true };
         constant_expression(ctx, error, &ectx);
     }
     parser_match_tk(ctx, ')', error);
@@ -19235,7 +19235,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         struct token* position = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT, error);
         parser_match_tk(ctx, '(', error);
-        struct expression_ctx ectx = { .bConstantExpressionRequired = true };
+        struct expression_ctx ectx = { .constant_expression_required = true };
 
         ctx->evaluated_at_caller = false;
         p_static_assert_declaration->constant_expression = constant_expression(ctx, error, &ectx);
@@ -19632,7 +19632,7 @@ struct label* label(struct parser_ctx* ctx, struct error* error)
     else if (ctx->current->type == TK_KEYWORD_CASE)
     {
         parser_match(ctx);
-        struct expression_ctx ectx = { .bConstantExpressionRequired = true };
+        struct expression_ctx ectx = { .constant_expression_required = true };
         p_label->constant_expression = constant_expression(ctx, error, &ectx);
         parser_match_tk(ctx, ':', error);
     }
