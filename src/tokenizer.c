@@ -3380,7 +3380,7 @@ struct token_list  copy_replacement_list(struct token_list* list)
     }
     //remover flag de espaco antes se tiver
     bool bIsFirst = true;
-    bool previousIsBlank = false;
+    bool previous_is_blank = false;
     for (; current;)
     {
         if (current && token_is_blank(current))
@@ -3391,20 +3391,20 @@ struct token_list  copy_replacement_list(struct token_list* list)
             current = current->next;
             continue;
         }
-        struct token* pAdded = token_list_clone_and_add(&r, current);
-        if (pAdded->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+        struct token* token_added = token_list_clone_and_add(&r, current);
+        if (token_added->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
-            pAdded->flags |= TK_FLAG_HAS_SPACE_BEFORE;
+            token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
+            token_added->flags |= TK_FLAG_HAS_SPACE_BEFORE;
         }
         if (bIsFirst)
         {
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
+            token_added->flags = token_added->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
+            token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
             bIsFirst = false;
         }
-        remove_line_continuation(pAdded->lexeme);
-        previousIsBlank = false;
+        remove_line_continuation(token_added->lexeme);
+        previous_is_blank = false;
 
         if (current == list->tail)
             break;
@@ -3577,10 +3577,10 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 if (error->code) throw;
 
 
-                struct token_list startMacro = expand_macro(ctx, NULL, macro, &arguments, level, error);
-                if (startMacro.head)
+                struct token_list start_macro = expand_macro(ctx, NULL, macro, &arguments, level, error);
+                if (start_macro.head)
                 {
-                    startMacro.head->flags |= flags;
+                    start_macro.head->flags |= flags;
                 }
 
                 if (macro->bExpand)
@@ -3595,8 +3595,8 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
 
                     //mostra a expansao da macro
                     /*teste de expandir so algumas macros*/
-                    for (struct token* current = startMacro.head;
-                        current != startMacro.tail->next;
+                    for (struct token* current = start_macro.head;
+                        current != start_macro.tail->next;
                         current = current->next)
                     {
                         current->flags = current->flags & ~TK_FLAG_MACRO_EXPANDED;
@@ -3604,9 +3604,9 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 }
 
                 //seta nos tokens expandidos da onde eles vieram
-                token_list_set_file(&startMacro, start_token->token_origin, start_token->line, start_token->col);
+                token_list_set_file(&start_macro, start_token->token_origin, start_token->line, start_token->col);
 
-                token_list_append_list_at_beginning(input_list, &startMacro);
+                token_list_append_list_at_beginning(input_list, &start_macro);
 
                 if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
