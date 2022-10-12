@@ -238,7 +238,7 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
         }
     }
     ctx->printf(LIGHTGREEN "^\n" RESET);
-    
+
 }
 
 
@@ -926,9 +926,9 @@ enum token_type is_keyword(const char* text)
         //
         //end microsoft
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
-        
+
         /*EXPERIMENTAL EXTENSION*/
-        else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;        
+        else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
         else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
         else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
         /*EXPERIMENTAL EXTENSION*/
@@ -1373,7 +1373,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
 
     if (ctx->current == NULL)
     {
-        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");        
+        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");
         return;
     }
 
@@ -1469,7 +1469,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
-            parser_seterror_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");            
+            parser_seterror_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
             return 1;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) //ja tinha um long
@@ -1637,7 +1637,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
         }
 
         p_declaration->static_assert_declaration = static_assert_declaration(ctx, error);
-    }    
+    }
     else
     {
 
@@ -1659,8 +1659,13 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
 
             p_declaration->last_token = ctx->current;
 
-            if (first_is(ctx, '{'))
+            if (ctx->current->type == '{' ||
+                ctx->current->type == TK_KEYWORD_EXTERN)
             {
+                /*
+                * extension
+                * void F(int arg) extern{  }
+                */
                 if (can_be_function_definition)
                     *is_function_definition = true;
                 else
@@ -1715,6 +1720,10 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     {
         naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name_opt);
 
+
+        struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
+        struct declarator* registered_declarator = find_declarator(ctx, function_declarator->name->lexeme, NULL);
+        
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
@@ -1727,10 +1736,23 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         scope_list_push(&ctx->scopes, parameters_scope);
 
 
-        //o function_prototype_scope era um block_scope
-        p_declaration->function_body = function_body(ctx, error);
-        p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
-
+        if (ctx->current->type == TK_KEYWORD_EXTERN)
+        {            
+            parser_match(ctx);
+            //o function_prototype_scope era um block_scope
+            p_declaration->function_body = function_body(ctx, error);
+            p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
+            /*we need to point to all declarator*/
+            registered_declarator->contract_declarator = p_declaration->init_declarator_list.head->declarator;
+        }
+        else
+        {
+            //o function_prototype_scope era um block_scope
+            p_declaration->function_body = function_body(ctx, error);
+            p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
+            
+            /*we need to point to all declarator with body because tree is linked with argumetns*/
+        }
 
         struct parameter_declaration* parameter = NULL;
 
@@ -1751,7 +1773,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
                     parameter->name->level == 0 /*direct source*/
                     )
                 {
-                    parser_setwarning_with_token(ctx, 
+                    parser_setwarning_with_token(ctx,
                         parameter->declarator->first_token,
                         "'%s': unreferenced formal parameter\n",
                         parameter->name->lexeme);
@@ -1848,7 +1870,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         if (tkname == NULL)
         {
             parser_seterror_with_token(ctx, ctx->current, "empty declarator name?? unexpected");
-            
+
             return p_init_declarator;
         }
 
@@ -1865,44 +1887,67 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         {
             p_init_declarator->declarator->type =
                 make_type_using_declarator(ctx, p_init_declarator->declarator);
+
+            if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
+                type_is_nodiscard(&p_init_declarator->declarator->type) &&
+                !type_is_pointer(&p_init_declarator->declarator->type))
+            {
+                p_init_declarator->declarator->static_analisys_flags = MUST_DESTROY | ISVALID;
+            }
         }
 
-
-
-        if (error->code != 0) throw;
         const char* name = p_init_declarator->declarator->name->lexeme;
         if (name)
         {
-            if (!type_is_function(&p_init_declarator->declarator->type))
+            struct scope* out = NULL;
+            struct declarator* previous = find_declarator(ctx, name, &out);
+            if (previous)
             {
-                if (!(p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
+                if (out->scope_level == ctx->scopes.tail->scope_level)
                 {
-                    struct scope* out = NULL;
-                    struct declarator* previous = find_declarator(ctx, name, &out);
-                    if (previous != NULL)
-                    {
-                        if (!type_is_function(&previous->type))
-                        {
-                            if (out->scope_level == ctx->scopes.tail->scope_level ||
-                                out->is_parameters_scope)
-                            {
-                                //mesmo nivel
-                                parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
-                                parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
-                            }
-                            else
-                            {
-                                //nivel diferente eh warning hides
-                                parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
-                                parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
-                            }
-                        }
+                    const bool previous_is_function = type_is_function(&previous->type);
+                    const bool previous_is_typedef_or_extern =
+                        previous->declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_TYPEDEF);
 
+
+                    struct declarator* current = p_init_declarator->declarator;
+
+                    const bool current_is_function = type_is_function(&current->type);
+                    const bool current_is_typedef_or_extern =
+                        current->declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_TYPEDEF);
+
+
+                    /*
+                      TODO compare if the declaration is identical
+                    */
+
+                    if (!previous_is_function && !previous_is_typedef_or_extern)
+                    {
+                        if (!current_is_function && !current_is_function)
+                        {
+                            parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
+                            parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                        }
+                    }
+                }
+                else
+                {
+                    hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
+                    
+                    /*global scope no warning...*/
+                    if (out->scope_level != 0) 
+                    {
+                        /*but redeclaration at function scope we show warning*/
+                        parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
+                        parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
                     }
                 }
             }
-            //TODO se ja existe?
-            hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
+            else
+            {
+                /*first time we see this declarator*/
+                hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
+            }
         }
         else
         {
@@ -1918,7 +1963,15 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 /*let's apply the compile time flags*/
                 p_init_declarator->declarator->static_analisys_flags =
                     p_init_declarator->initializer->assignment_expression->returnflag | ISVALID;
-                
+
+                if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
+                    (p_init_declarator->declarator->static_analisys_flags & MUST_FREE) &&
+                    type_is_nodiscard(&p_init_declarator->declarator->type) &&
+                    type_is_pointer(&p_init_declarator->declarator->type))
+                {
+                    /*pointer to MUST_FREE of a struct [[nodiscard]] has must_destroy*/
+                    p_init_declarator->declarator->static_analisys_flags |= (MUST_DESTROY);
+                }
             }
             /*
                auto requires we find the type after initializer
@@ -1953,7 +2006,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         */
                         pointer_type_list_pop_front(&t.declarator_type->pointers);
                     }
-                    
+
                     struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, p_init_declarator->declarator);
                     declarator_type_merge(dectype, t.declarator_type);
                     p_init_declarator->declarator->type = t; /*MOVED*/
@@ -2421,7 +2474,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
     {
         if (p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt &&
-            p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags && STD_ATTRIBUTE_DEPRECATED)
+            p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
         {
             if (p_struct_or_union_specifier->tagtoken)
             {
@@ -2761,14 +2814,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             if (p_enum_specifier->tag_token)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
 
-            /*TODO redeclaration?*/
-            /*adicionar no escopo*/
-            if (p_enum_specifier->tag_token)
-            {
-                hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, &p_enum_specifier->type_id);
-            }
-
-            /*self*/
+            /*points to itself*/
             p_enum_specifier->complete_enum_specifier = p_enum_specifier;
 
             parser_match_tk(ctx, '{', error);
@@ -2784,52 +2830,104 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             if (!has_identifier)
             {
                 parser_seterror_with_token(ctx, ctx->current, "missing enum tag name");
-                
                 throw;
             }
+        }
 
+        /*
+        * Let's search for this tag at current scope only
+        */
+        struct type_tag_id* tag_type_id = NULL;
 
-            /*searches for this tag in the current scope*/
-            struct type_tag_id* tag_type_id = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
-            if (tag_type_id)
+        if (p_enum_specifier->tag_token &&
+            p_enum_specifier->tag_token->lexeme)
+        {
+            tag_type_id = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
+        }
+        if (tag_type_id)
+        {
+            /*
+               ok.. we have this tag at this scope
+            */
+            if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
             {
-                /*we have this tag at this scope*/
-                if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
+                p_previous_tag_in_this_scope = container_of(tag_type_id, struct enum_specifier, type_id);
+
+                if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
+                    p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    p_previous_tag_in_this_scope = container_of(tag_type_id, struct enum_specifier, type_id);
+                    parser_seterror_with_token(ctx, p_enum_specifier->tag_token, "multiple definition of 'enum %s'",
+                        p_enum_specifier->tag_token->lexeme);
+                }
+                else if (p_previous_tag_in_this_scope->enumerator_list.head != NULL)
+                {
                     p_enum_specifier->complete_enum_specifier = p_previous_tag_in_this_scope;
                 }
-                else
+                else if (p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
-                    throw;
+                    p_previous_tag_in_this_scope->complete_enum_specifier = p_enum_specifier;
                 }
             }
             else
             {
-                struct enum_specifier* p_other = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
-                /*ok neste escopo nao tinha este tag..vamos escopos para cima*/
-                if (p_other == NULL)
+                parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
+                throw;
+            }
+        }
+        else
+        {
+            /*
+            * we didn't find at current scope let's search in previous scopes
+            */
+            struct enum_specifier* p_other = NULL;
+
+            if (p_enum_specifier->tag_token)
+            {
+                p_other = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
+            }
+
+            if (p_other == NULL)
+            {
+                /*
+                 * we didn't find, so this is the first time this tag is used
+                */
+                if (p_enum_specifier->tag_token)
                 {
                     hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, &p_enum_specifier->type_id);
                 }
                 else
                 {
-                    /*achou a tag em um escopo mais a cima*/
+                    //make a name?
+                }
+            }
+            else
+            {
+
+
+                /*
+                 * we found this enum tag in previous scopes
+                */
+
+                if (p_enum_specifier->enumerator_list.head != NULL)
+                {
+                    /*it is a new definition*/
+                }
+                else if (p_other->enumerator_list.head != NULL)
+                {
+                    /*previous enum is complete*/
                     p_enum_specifier->complete_enum_specifier = p_other;
                 }
             }
-
-
         }
+
     }
     catch
     {}
     return p_enum_specifier;
 }
 
-struct enumerator_list enumerator_list(struct parser_ctx* ctx, 
-    struct enum_specifier* p_enum_specifier, 
+struct enumerator_list enumerator_list(struct parser_ctx* ctx,
+    struct enum_specifier* p_enum_specifier,
     struct error* error)
 {
     struct enumerator_list enumeratorlist = { 0 };
@@ -3002,7 +3100,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
 
     p_declarator->last_token = ctx->previous;
 
-    
+
     return p_declarator;
 }
 
@@ -3054,51 +3152,6 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
         struct token* p_token_ahead = parser_look_ahead(ctx);
         if (ctx->current->type == TK_IDENTIFIER)
         {
-            struct scope* pscope = NULL;
-            struct declarator* pdeclarator =
-                find_declarator(ctx, ctx->current->lexeme, &pscope);
-            if (pdeclarator)
-            {
-                if (pscope == ctx->scopes.tail)
-                {
-                    if (pscope->scope_level != 0)
-                    {
-                        if (declarator_is_function(pdeclarator))
-                        {
-                            //redeclaracao de algo q era funcao agora nao eh nao eh problema
-                        }
-                        else
-                        {
-                            //TODO tem que ver se esta dentro struct dai nao pode dar erro
-                            //parser_seterror_with_token(ctx, ctx->current, "redefinition of '%s'", ctx->current->lexeme);
-                        }
-                    }
-                    else
-                    {
-                        //global aceita redefinicao!
-                        //TODO ver seh eh o mesmo                        
-                    }
-                }
-                else
-                {
-                    if (pscope->scope_level != 0)
-                    {
-                        if (pdeclarator->direct_declarator &&
-                            pdeclarator->direct_declarator->name_opt &&
-                            pdeclarator->direct_declarator->name_opt->token_origin)
-                        {
-                            //TODO ver se esta dentro de struct
-                            //printf("warning '%s' at line %d hides previous definition %d\n",
-                              //  ctx->current->lexeme,
-                                //ctx->current->line,                                
-                                //pdeclarator->direct_declarator->name->line);
-                        }
-                    }
-
-                    //parser_seterror_with_token(ctx, ctx->current, "redefinition of '%s'", ctx->current->lexeme);
-                }
-            }
-
             p_direct_declarator->name_opt = ctx->current;
             if (pptoken_name != NULL)
             {
@@ -3768,7 +3821,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
                 else
                 {
                     parser_seterror_with_token(ctx, position, "_Static_assert failed");
-                }                
+                }
             }
         }
     }
@@ -3987,12 +4040,12 @@ struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* c
     if (count2 != 0)
     {
         parser_seterror_with_token(ctx, ctx->current, "expected ']' before ')'");
-        
+
     }
     if (count3 != 0)
     {
         parser_seterror_with_token(ctx, ctx->current, "expected '}' before ')'");
-        
+
     }
     return p_balanced_token_sequence;
 }
@@ -4205,8 +4258,8 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                         p_declarator->name->col);
 
                     if (p_declarator->static_analisys_flags & MUST_DESTROY)
-                      ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
-                        p_declarator->name->lexeme);                                        
+                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
+                            p_declarator->name->lexeme);
                 }
 
                 if (p_declarator->static_analisys_flags & MUST_FREE)
@@ -4215,7 +4268,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                         p_declarator->name->token_origin->lexeme,
                         p_declarator->name->line,
                         p_declarator->name->col);
-                    
+
                     if (p_declarator->static_analisys_flags & MUST_FREE)
                         ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
                             p_declarator->name->lexeme);
@@ -4316,7 +4369,7 @@ assembly-instruction-list:
         }
         if (ctx->current->type == ';')
             parser_match(ctx);
-    }    
+    }
     else if (first_of_declaration_specifier(ctx) ||
         first_of_static_assert_declaration(ctx))
     {
@@ -4607,7 +4660,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
     {
         if (ctx->p_current_try_statement_opt == NULL)
         {
-            
+
             parser_seterror_with_token(ctx, ctx->current, "throw statement not within try block");
         }
         else
@@ -4714,7 +4767,7 @@ struct compound_statement* function_body(struct parser_ctx* ctx, struct error* e
 
 static void show_unused_file_scope(struct parser_ctx* ctx)
 {
-    
+
     for (int i = 0; i < ctx->scopes.head->variables.capacity; i++)
     {
         if (ctx->scopes.head->variables.table == NULL)
@@ -4732,11 +4785,11 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
             struct declarator* p_declarator =
                 p_declarator = container_of(entry->p, struct declarator, type_id);
 
-            if (p_declarator && 
+            if (p_declarator &&
                 p_declarator->first_token &&
                 p_declarator->first_token->level == 0 &&
-                declarator_is_function(p_declarator) && 
-                (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))                
+                declarator_is_function(p_declarator) &&
+                (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
             {
                 /*
                   let's print the declarators that were not cleared for these
@@ -4792,7 +4845,7 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
 
 struct declaration_list parse(struct options* options,
     struct token_list* list,
-    struct error* error, 
+    struct error* error,
     struct report* report)
 {
 
@@ -4819,10 +4872,10 @@ struct declaration_list parse(struct options* options,
     show_unused_file_scope(&ctx);
 
     report->error_count = ctx.n_errors;
-    report->warnings_count= ctx.n_warnings;
-    report->info_count= ctx.n_info;
-    
-    
+    report->warnings_count = ctx.n_warnings;
+    report->info_count = ctx.n_info;
+
+
     return l;
 }
 
@@ -4868,7 +4921,7 @@ int fill_options(struct options* options, int argc, const char** argv, struct pr
             continue;
         }
 
-        
+
         if (strcmp(argv[i], "-fo") == 0)
         {
             options->format_ouput = true;
@@ -4977,7 +5030,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * to generate this string
         */
 
-        snprintf(env, sizeof env, 
+        snprintf(env, sizeof env,
             "%s",
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/include;"
@@ -5091,7 +5144,7 @@ const char* format_code(struct options* options,
 
 int compile_one_file(const char* file_name,
     int argc,
-    char** argv,    
+    char** argv,
     struct report* report)
 {
 
@@ -5230,11 +5283,11 @@ int compile(int argc, char** argv, struct report* report)
         if (argv[i][0] == '-')
             continue;
         no_files++;
-        
+
         struct report local_report = { 0 };
         compile_one_file(argv[i], argc, argv, &local_report);
-        
-        
+
+
         report->error_count += local_report.error_count;
         report->warnings_count += local_report.warnings_count;
         report->info_count += local_report.info_count;
@@ -5242,8 +5295,8 @@ int compile(int argc, char** argv, struct report* report)
 
     /*tempo total da compilacao*/
     clock_t end_clock = clock();
-    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;    
-    
+    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
+
     printf("\n");
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
     printf("%d errors %d warnings %d notes\n", report->error_count, report->warnings_count, report->info_count);
@@ -5252,7 +5305,11 @@ int compile(int argc, char** argv, struct report* report)
 }
 
 
-struct ast get_ast(struct options* options, const char* filename, const char* source, struct error* error, struct report* report)
+struct ast get_ast(struct options* options,
+    const char* filename,
+    const char* source,
+    struct error* error,
+    struct report* report)
 {
     struct ast ast = { 0 };
 
@@ -5270,6 +5327,9 @@ struct ast get_ast(struct options* options, const char* filename, const char* so
 #endif
 
     prectx.macros.capacity = 5000;
+
+    add_standard_macros(&prectx, error);
+
 
     ast.token_list = preprocessor(&prectx, &list, 0, error);
     if (error->code != 0)
@@ -5735,7 +5795,7 @@ void expand_test()
         "typedef const A* B; "
         "static_assert(typeid(B) == typeid(char * const *);";
 
-    
+
     get_ast(&options, "source", src2, &error, &report);
     assert(error.code == 0);
     clearerror(&error);
@@ -5749,7 +5809,7 @@ void expand_test()
     //char* (* [3])(int)
 
 
-    
+
     get_ast(&options, "source", src3, &error, &report);
     assert(error.code == 0);
     clearerror(&error);

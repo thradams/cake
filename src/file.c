@@ -1,7 +1,24 @@
-enum E1;
-enum E1 { A1 };
-enum E2 { A2 };
+enum static_analisys_flags
+{
+    ISVALID = 1 << 1,
+    UNINITIALIZED = 1 << 2,
+    MUST_DESTROY = 1 << 3,
+    MUST_FREE = 1 << 4
+};
+
+
+void free(void* ptr) extern {
+    _del_attr(ptr, MUST_FREE);
+}
+
+void free(void* ptr);
+
+void free(void* ptr)
+{
+}
 int main()
 {
-    if (A1 == A2) {}
+    int* p;
+    _add_attr(p, MUST_FREE);
+    free(p);
 }

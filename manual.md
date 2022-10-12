@@ -1445,6 +1445,39 @@ There is also a MUST\_DESTROY flag that is used when other function
 needs to be called. For instance, x_destroy for struct x.
 
 
+declarators of type struct with [[nodiscard]] are considered
+MUST\_DESTROY
+
+```c
+struct [[nodiscard]] x {
+    char* name;
+};
+
+void x_destroy(struct x* p) {
+    static_assert(_has_attr(p, MUST_DESTROY));
+    _del_attr(p, MUST_DESTROY);
+    free(p->name);
+}
+
+int main()
+{
+    struct x x = {0};    
+    x_destroy(&x);
+}
+```
+
+declarators with pointer to struct with [[nodiscard]] are considered
+MUST\_DESTROY if they also have MUST\_FREE
+
+```c
+int main()
+{
+    struct x* px = malloc(sizeof(struct x));        
+    x_destroy(px);
+    free(px)
+}
+```
+
 ## Pré-defined macros
 
  * \_\_CAKE\_\_ 202311L

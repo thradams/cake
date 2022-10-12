@@ -1,5 +1,7 @@
 
 #pragma once
+#include "annotations.h"
+
 typedef long long fpos_t;
 typedef int size_t;
 typedef int wchar_t;
@@ -38,3 +40,19 @@ int system(const char* string);
 #define NULL ((void*)0)
 #endif
 
+
+void* malloc(size_t i) extern {
+    _add_attr(return, MUST_FREE);
+}
+
+void free(void* p) extern {
+    static_assert(_has_attr(p, MUST_FREE));
+    _del_attr(p, MUST_FREE);
+}
+
+void* moveptr(void* p) extern {
+    static_assert(_has_attr(p, MUST_FREE));
+    _del_attr(p, MUST_FREE);
+    _add_attr(p, UNINITIALIZED);
+    _add_attr(return, MUST_FREE);
+}

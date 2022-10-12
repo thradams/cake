@@ -128,9 +128,38 @@ void c_clrscr();
 //#pragma once
 
 
+
 #include <stdarg.h>
 
-struct osstream
+
+
+//#pragma once
+
+enum static_analisys_flags
+{
+    ISVALID = 1 << 1,
+    UNINITIALIZED = 1 << 2,
+    MUST_DESTROY = 1 << 3,
+    MUST_FREE = 1 << 4
+};
+
+
+#ifdef __CAKE__
+
+#define dtor [[nodiscard]]
+#define check(...) static_assert(__VA_ARGS__)
+
+#else
+
+#define dtor
+#define _del_attr(a, b)
+#define _add_attr(a, b)
+#define check(a) 
+
+#endif
+
+
+struct dtor osstream
 {
     char* c_str;
     int size;
@@ -143,6 +172,14 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args);
 int ss_fprintf(struct osstream* stream, const char* fmt, ...);
 int ss_putc(char ch, struct osstream* stream);
 void ss_clear(struct osstream* stream);
+
+#ifdef __CAKE__
+void ss_close(struct osstream* stream) extern {
+    static_assert(_has_attr(stream, MUST_DESTROY));
+    _del_attr(stream, MUST_DESTROY);
+}
+#endif
+
 
 
 
@@ -536,12 +573,12 @@ struct preprocessor_ctx
     struct include_dir_list include_dir;
 
     /*lista dos headers marcados com pragma once*/
-    struct hash_map pragmaOnce;
+    struct hash_map pragma_once_map;
     
     struct token* current;
     struct token_list input_list;
 
-    bool bConditionalInclusion;
+    bool conditional_inclusion;
     int n_warnings;
     int n_errors;
     int (*printf)(const char* fmt, ...);
@@ -1723,7 +1760,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
 {
     snprintf(fullpath, 300, "%s", path);
 
-    if (hashmap_find(&ctx->pragmaOnce, fullpath) != NULL)
+    if (hashmap_find(&ctx->pragma_once_map, fullpath) != NULL)
     {
         *bAlreadyIncluded = true;
         return NULL;
@@ -1738,7 +1775,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
         {
             snprintf(fullpath, 300, "%s%s", current->path, path);
 
-            if (hashmap_find(&ctx->pragmaOnce, fullpath) != NULL)
+            if (hashmap_find(&ctx->pragma_once_map, fullpath) != NULL)
             {
                 *bAlreadyIncluded = true;
                 return NULL;
@@ -3380,7 +3417,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     int level,
     struct error* error)
 {
-    ctx->bConditionalInclusion = true;
+    ctx->conditional_inclusion = true;
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
@@ -3435,7 +3472,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         //TODO error
     }
 
-    ctx->bConditionalInclusion = false;
+    ctx->conditional_inclusion = false;
     return value;
 }
 
@@ -4177,7 +4214,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    hashmap_set(&ctx->pragmaOnce, input_list->head->token_origin->lexeme, (void*)1);
+                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);//pragma
                 }
                 else if (strcmp(input_list->head->lexeme, "expand") == 0)
@@ -4700,7 +4737,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
                 }
 
 
-                if (ctx->bConditionalInclusion)
+                if (ctx->conditional_inclusion)
                 {
                     /*
                      Quando estamos expandindo em condinonal inclusion o defined macro ou defined (macro)
@@ -4842,7 +4879,7 @@ struct token_list  copy_replacement_list(struct token_list* list)
     }
     //remover flag de espaco antes se tiver
     bool bIsFirst = true;
-    bool previousIsBlank = false;
+    bool previous_is_blank = false;
     for (; current;)
     {
         if (current && token_is_blank(current))
@@ -4853,20 +4890,20 @@ struct token_list  copy_replacement_list(struct token_list* list)
             current = current->next;
             continue;
         }
-        struct token* pAdded = token_list_clone_and_add(&r, current);
-        if (pAdded->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
+        struct token* token_added = token_list_clone_and_add(&r, current);
+        if (token_added->flags & TK_FLAG_HAS_NEWLINE_BEFORE)
         {
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
-            pAdded->flags |= TK_FLAG_HAS_SPACE_BEFORE;
+            token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
+            token_added->flags |= TK_FLAG_HAS_SPACE_BEFORE;
         }
         if (bIsFirst)
         {
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
-            pAdded->flags = pAdded->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
+            token_added->flags = token_added->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
+            token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
             bIsFirst = false;
         }
-        remove_line_continuation(pAdded->lexeme);
-        previousIsBlank = false;
+        remove_line_continuation(token_added->lexeme);
+        previous_is_blank = false;
 
         if (current == list->tail)
             break;
@@ -4989,7 +5026,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                     macro = NULL;
                 }
 
-                if (ctx->bConditionalInclusion)
+                if (ctx->conditional_inclusion)
                 {
                     /*
                      Quando estamos expandindo em condinonal inclusion o defined macro ou defined (macro)
@@ -5039,10 +5076,10 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 if (error->code) throw;
 
 
-                struct token_list startMacro = expand_macro(ctx, NULL, macro, &arguments, level, error);
-                if (startMacro.head)
+                struct token_list start_macro = expand_macro(ctx, NULL, macro, &arguments, level, error);
+                if (start_macro.head)
                 {
-                    startMacro.head->flags |= flags;
+                    start_macro.head->flags |= flags;
                 }
 
                 if (macro->bExpand)
@@ -5057,8 +5094,8 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
 
                     //mostra a expansao da macro
                     /*teste de expandir so algumas macros*/
-                    for (struct token* current = startMacro.head;
-                        current != startMacro.tail->next;
+                    for (struct token* current = start_macro.head;
+                        current != start_macro.tail->next;
                         current = current->next)
                     {
                         current->flags = current->flags & ~TK_FLAG_MACRO_EXPANDED;
@@ -5066,9 +5103,9 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                 }
 
                 //seta nos tokens expandidos da onde eles vieram
-                token_list_set_file(&startMacro, start_token->token_origin, start_token->line, start_token->col);
+                token_list_set_file(&start_macro, start_token->token_origin, start_token->line, start_token->col);
 
-                token_list_append_list_at_beginning(input_list, &startMacro);
+                token_list_append_list_at_beginning(input_list, &start_macro);
 
                 if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
@@ -7405,65 +7442,80 @@ char* readfile(const char* path)
 
 
 
-13,10,35,112,114,97,103,109,97,32,111,110,99,101,13,10,116,121,112,101,100,101,102,32,108
-,111,110,103,32,108,111,110,103,32,102,112,111,115,95,116,59,13,10,116,121,112,101,100,101,102
-,32,105,110,116,32,115,105,122,101,95,116,59,13,10,116,121,112,101,100,101,102,32,105,110,116
-,32,119,99,104,97,114,95,116,59,13,10,13,10,91,91,110,111,100,105,115,99,97,114,100,93
-,93,32,100,111,117,98,108,101,32,97,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42
-,32,110,112,116,114,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,105,110
-,116,32,97,116,111,105,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59
-,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,105,110,116,32
-,97,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59,13,10
-,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,108,111,110,103,32,105
-,110,116,32,97,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114
-,41,59,13,10,13,10,100,111,117,98,108,101,32,115,116,114,116,111,100,40,99,111,110,115,116
-,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97
-,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,13,10,102,108
-,111,97,116,32,115,116,114,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101
-,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114
-,105,99,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,100,111,117,98,108,101
-,32,115,116,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116
-,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99
-,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,105,110,116,32,115,116,114,116
-,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110
-,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112
-,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,108,111,110,103,32,108,111,110,103
-,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32
-,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115
-,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13
-,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117
-,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112
-,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116
-,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,117,110,115,105,103,110,101,100,32,108
-,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,108,40,99,111,110
-,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99
-,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110
-,116,32,98,97,115,101,41,59,13,10,105,110,116,32,114,97,110,100,40,118,111,105,100,41,59
-,13,10,118,111,105,100,32,115,114,97,110,100,40,117,110,115,105,103,110,101,100,32,105,110,116
-,32,115,101,101,100,41,59,13,10,118,111,105,100,42,32,97,108,105,103,110,101,100,95,97,108
-,108,111,99,40,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,44,32,115,105,122
-,101,95,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93
-,32,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109,101,109
-,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100,32,102,114
-,101,101,40,118,111,105,100,42,32,112,116,114,41,59,13,10,13,10,91,91,110,111,100,105,115
-,99,97,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108,111,99,40,115,105,122,101,95
-,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,118
-,111,105,100,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44,32,115
-,105,122,101,95,116,32,115,105,122,101,41,59,13,10,13,10,91,91,110,111,114,101,116,117,114
-,110,93,93,32,118,111,105,100,32,97,98,111,114,116,40,118,111,105,100,41,59,13,10,105,110
-,116,32,97,116,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105
-,100,41,41,59,13,10,105,110,116,32,97,116,95,113,117,105,99,107,95,101,120,105,116,40,118
-,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,13,10,91,91,110,111
-,114,101,116,117,114,110,93,93,32,118,111,105,100,32,101,120,105,116,40,105,110,116,32,115,116
-,97,116,117,115,41,59,13,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100
-,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10,99,104,97,114
-,42,32,103,101,116,101,110,118,40,99,111,110,115,116,32,99,104,97,114,42,32,110,97,109,101
-,41,59,13,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,113,117,105
-,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10,105,110,116
-,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114,105,110
-,103,41,59,13,10,13,10,35,105,102,110,100,101,102,32,78,85,76,76,13,10,35,100,101,102
-,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48,41,13,10,35,101,110,100
-,105,102,13,10,13,10
+13,10,35,112,114,97,103,109,97,32,111,110,99,101,13,10,35,105,110,99,108,117,100,101,32
+,34,97,110,110,111,116,97,116,105,111,110,115,46,104,34,13,10,13,10,116,121,112,101,100,101
+,102,32,108,111,110,103,32,108,111,110,103,32,102,112,111,115,95,116,59,13,10,116,121,112,101
+,100,101,102,32,105,110,116,32,115,105,122,101,95,116,59,13,10,116,121,112,101,100,101,102,32
+,105,110,116,32,119,99,104,97,114,95,116,59,13,10,13,10,91,91,110,111,100,105,115,99,97
+,114,100,93,93,32,100,111,117,98,108,101,32,97,116,111,102,40,99,111,110,115,116,32,99,104
+,97,114,42,32,110,112,116,114,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93
+,32,105,110,116,32,97,116,111,105,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116
+,114,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,105
+,110,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41
+,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,108,111,110
+,103,32,105,110,116,32,97,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110
+,112,116,114,41,59,13,10,13,10,100,111,117,98,108,101,32,115,116,114,116,111,100,40,99,111
+,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32
+,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,13
+,10,102,108,111,97,116,32,115,116,114,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42
+,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101
+,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,100,111,117
+,98,108,101,32,115,116,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114
+,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116
+,114,105,99,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,105,110,116,32,115
+,116,114,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
+,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101
+,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,108,111,110,103,32,108
+,111,110,103,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104,97
+,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32
+,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101
+,41,59,13,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,115,116,114
+,116,111,117,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110
+,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,117,110,115,105,103,110,101
+,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,108,40
+,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114
+,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44
+,32,105,110,116,32,98,97,115,101,41,59,13,10,105,110,116,32,114,97,110,100,40,118,111,105
+,100,41,59,13,10,118,111,105,100,32,115,114,97,110,100,40,117,110,115,105,103,110,101,100,32
+,105,110,116,32,115,101,101,100,41,59,13,10,118,111,105,100,42,32,97,108,105,103,110,101,100
+,95,97,108,108,111,99,40,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,44,32
+,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114
+,100,93,93,32,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110
+,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100
+,32,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,13,10,13,10,91,91,110,111
+,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108,111,99,40,115,105
+,122,101,95,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93
+,93,32,118,111,105,100,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114
+,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,13,10,91,91,110,111,114,101
+,116,117,114,110,93,93,32,118,111,105,100,32,97,98,111,114,116,40,118,111,105,100,41,59,13
+,10,105,110,116,32,97,116,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40
+,118,111,105,100,41,41,59,13,10,105,110,116,32,97,116,95,113,117,105,99,107,95,101,120,105
+,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,13,10,91
+,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,101,120,105,116,40,105,110,116
+,32,115,116,97,116,117,115,41,59,13,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118
+,111,105,100,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10,99
+,104,97,114,42,32,103,101,116,101,110,118,40,99,111,110,115,116,32,99,104,97,114,42,32,110
+,97,109,101,41,59,13,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32
+,113,117,105,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10
+,105,110,116,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116
+,114,105,110,103,41,59,13,10,13,10,35,105,102,110,100,101,102,32,78,85,76,76,13,10,35
+,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48,41,13,10,35
+,101,110,100,105,102,13,10,13,10,13,10,118,111,105,100,42,32,109,97,108,108,111,99,40,115
+,105,122,101,95,116,32,105,41,32,101,120,116,101,114,110,32,123,13,10,32,32,32,32,95,97
+,100,100,95,97,116,116,114,40,114,101,116,117,114,110,44,32,77,85,83,84,95,70,82,69,69
+,41,59,13,10,125,13,10,13,10,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32
+,112,41,32,101,120,116,101,114,110,32,123,13,10,32,32,32,32,115,116,97,116,105,99,95,97
+,115,115,101,114,116,40,95,104,97,115,95,97,116,116,114,40,112,44,32,77,85,83,84,95,70
+,82,69,69,41,41,59,13,10,32,32,32,32,95,100,101,108,95,97,116,116,114,40,112,44,32
+,77,85,83,84,95,70,82,69,69,41,59,13,10,125,13,10,13,10,118,111,105,100,42,32,109
+,111,118,101,112,116,114,40,118,111,105,100,42,32,112,41,32,101,120,116,101,114,110,32,123,13
+,10,32,32,32,32,115,116,97,116,105,99,95,97,115,115,101,114,116,40,95,104,97,115,95,97
+,116,116,114,40,112,44,32,77,85,83,84,95,70,82,69,69,41,41,59,13,10,32,32,32,32
+,95,100,101,108,95,97,116,116,114,40,112,44,32,77,85,83,84,95,70,82,69,69,41,59,13
+,10,32,32,32,32,95,97,100,100,95,97,116,116,114,40,112,44,32,85,78,73,78,73,84,73
+,65,76,73,90,69,68,41,59,13,10,32,32,32,32,95,97,100,100,95,97,116,116,114,40,114
+,101,116,117,114,110,44,32,77,85,83,84,95,70,82,69,69,41,59,13,10,125,13,10
     ,0 };
 
     static const unsigned char file_math_h[] = {
@@ -8097,18 +8149,6 @@ char* readfile(const char* path)
 
 struct parser_ctx;
 
-/*
-* EXPERIMENTAL default compile flags
-* for declarators
-*/
-enum static_analisys_flags
-{
-    ISVALID = 1 << 1,
-    UNINITIALIZED = 1 << 2,
-    MUST_DESTROY = 1 << 3,
-    MUST_FREE = 1 << 4
-};
-
 
 enum type_category
 {
@@ -8494,7 +8534,7 @@ struct scope
     int scope_level;
     struct hash_map tags;
     struct hash_map variables;
-    
+        
     struct scope* next;
     struct scope* previous;
     
@@ -8832,6 +8872,7 @@ struct declaration
     struct init_declarator_list init_declarator_list;
 
     struct compound_statement* function_body;
+    struct declarator* contract_declarator;
 
     struct token* first_token;
     struct token* last_token;
@@ -8999,6 +9040,15 @@ struct declarator
 
     struct compound_statement* function_body;
 
+    /*
+      extension
+      we need to point to declarator with arguments and body of the contract of the function
+      so we can attach this information in previouly declarared functions.
+      void f();
+      void f() extern {} /*we attach this declarator f into previous f
+    */
+    struct declarator* contract_declarator;
+    
     int num_uses; /*used to show not used warnings*/
 
     bool is_parameter_declarator;
@@ -10213,9 +10263,9 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = p_enumerator->value;
-                
+
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_ENUM;
-                p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;                
+                p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;
             }
             else
             {
@@ -10557,7 +10607,7 @@ void collect_static_flags(
 
 
 static enum static_analisys_flags contract_visit_compound_statement(struct parser_ctx* ctx,
-    struct compound_statement* function_body,
+    struct compound_statement* extern_body,
     struct expression* call_expression);
 
 
@@ -10646,19 +10696,19 @@ static void contract_visit_expression(struct parser_ctx* ctx, struct expression*
         contract_visit_expression(ctx, expression_opt->right, returnflag);
         expression_opt->constant_value = !expression_opt->right->constant_value;
     }
-        }
+}
 
 
 /*
 * second pass for declarator compile time flags
 */
-static enum static_analisys_flags contract_visit_return(struct parser_ctx* ctx, struct compound_statement* function_body)
+static enum static_analisys_flags contract_visit_return(struct parser_ctx* ctx, struct compound_statement* extern_body)
 {
     enum static_analisys_flags returnflag = 0;
 
     /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
 
-    struct block_item* p_block_item = function_body->block_item_list.head;
+    struct block_item* p_block_item = extern_body->block_item_list.head;
     while (p_block_item)
     {
         if (p_block_item->unlabeled_statement &&
@@ -10694,14 +10744,14 @@ static enum static_analisys_flags contract_visit_return(struct parser_ctx* ctx, 
     * second pass for declarator compile time flags
     */
 static enum static_analisys_flags contract_visit_compound_statement(struct parser_ctx* ctx,
-    struct compound_statement* function_body,
+    struct compound_statement* extern_body,
     struct expression* call_expression)
 {
     /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
 
     enum static_analisys_flags returnflag = 0;
 
-    struct block_item* p_block_item = function_body->block_item_list.head;
+    struct block_item* p_block_item = extern_body->block_item_list.head;
     while (p_block_item)
     {
         if (p_block_item->unlabeled_statement)
@@ -10845,7 +10895,11 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 {
                     struct declarator* func = find_declarator(ctx,
                         p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt, NULL);
-                    if (func->function_body)
+
+                    if (func)
+                      func = func->contract_declarator;
+
+                    if (func)
                     {
 
 
@@ -10859,7 +10913,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                                     &p_expression_node_new->argument_expression_list,
                                     func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
 
-                            
+
 
 
                             if (has_all_argument_flags)
@@ -11175,6 +11229,10 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
                 new_expression->contract_arg_token,
                 "declarator not found");
         }
+        else
+        {
+            new_expression->declarator->num_uses++;
+        }
         parser_match(ctx);
     }
     else if (ctx->current->type == TK_KEYWORD_RETURN)
@@ -11199,7 +11257,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
         ctx->evaluated_at_caller = true;
     }
     else
-    {
+    {        
         new_expression->declarator->static_analisys_flags |= ISVALID;
 
         switch (func->type)
@@ -11877,7 +11935,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
         if (new_expression->left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
             new_expression->right->type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
-            if (new_expression->left->type.enum_specifier->complete_enum_specifier != 
+            if (new_expression->left->type.enum_specifier->complete_enum_specifier !=
                 new_expression->right->type.enum_specifier->complete_enum_specifier)
             {
                 const char* lefttag = "";
@@ -11888,19 +11946,16 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
                 if (new_expression->right->type.enum_specifier->tag_token)
                     righttag = new_expression->right->type.enum_specifier->tag_token->lexeme;
 
-                if (strcmp(lefttag, righttag) != 0)
-                {
-                    /*
-                     * This comparison by name is not 100% correct because they be from
-                     * diferent scopes.
-                    */
+                /*
+                 * This comparison by name is not 100% correct because they be from
+                 * diferent scopes.
+                */
 
-                    parser_setwarning_with_token(ctx,
-                        operator_token,
-                        "comparison between 'enum %s' and 'enum %s'",
-                        lefttag,
-                        righttag);
-                }
+                parser_setwarning_with_token(ctx,
+                    operator_token,
+                    "comparison between 'enum %s' and 'enum %s'",
+                    lefttag,
+                    righttag);
             }
         }
 
@@ -15740,7 +15795,7 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
         }
     }
     ctx->printf(LIGHTGREEN "^\n" RESET);
-    
+
 }
 
 
@@ -16428,9 +16483,9 @@ enum token_type is_keyword(const char* text)
         //
         //end microsoft
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
-        
+
         /*EXPERIMENTAL EXTENSION*/
-        else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;        
+        else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
         else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
         else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
         /*EXPERIMENTAL EXTENSION*/
@@ -16875,7 +16930,7 @@ void parser_match_tk(struct parser_ctx* ctx, enum token_type type, struct error*
 
     if (ctx->current == NULL)
     {
-        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");        
+        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");
         return;
     }
 
@@ -16971,7 +17026,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
-            parser_seterror_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");            
+            parser_seterror_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
             return 1;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) //ja tinha um long
@@ -17139,7 +17194,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
         }
 
         p_declaration->static_assert_declaration = static_assert_declaration(ctx, error);
-    }    
+    }
     else
     {
 
@@ -17161,8 +17216,13 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
 
             p_declaration->last_token = ctx->current;
 
-            if (first_is(ctx, '{'))
+            if (ctx->current->type == '{' ||
+                ctx->current->type == TK_KEYWORD_EXTERN)
             {
+                /*
+                * extension
+                * void F(int arg) extern{  }
+                */
                 if (can_be_function_definition)
                     *is_function_definition = true;
                 else
@@ -17217,6 +17277,10 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
     {
         naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name_opt);
 
+
+        struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
+        struct declarator* registered_declarator = find_declarator(ctx, function_declarator->name->lexeme, NULL);
+        
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
@@ -17229,10 +17293,23 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         scope_list_push(&ctx->scopes, parameters_scope);
 
 
-        //o function_prototype_scope era um block_scope
-        p_declaration->function_body = function_body(ctx, error);
-        p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
-
+        if (ctx->current->type == TK_KEYWORD_EXTERN)
+        {            
+            parser_match(ctx);
+            //o function_prototype_scope era um block_scope
+            p_declaration->function_body = function_body(ctx, error);
+            p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
+            /*we need to point to all declarator*/
+            registered_declarator->contract_declarator = p_declaration->init_declarator_list.head->declarator;
+        }
+        else
+        {
+            //o function_prototype_scope era um block_scope
+            p_declaration->function_body = function_body(ctx, error);
+            p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
+            
+            /*we need to point to all declarator with body because tree is linked with argumetns*/
+        }
 
         struct parameter_declaration* parameter = NULL;
 
@@ -17253,7 +17330,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
                     parameter->name->level == 0 /*direct source*/
                     )
                 {
-                    parser_setwarning_with_token(ctx, 
+                    parser_setwarning_with_token(ctx,
                         parameter->declarator->first_token,
                         "'%s': unreferenced formal parameter\n",
                         parameter->name->lexeme);
@@ -17350,7 +17427,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         if (tkname == NULL)
         {
             parser_seterror_with_token(ctx, ctx->current, "empty declarator name?? unexpected");
-            
+
             return p_init_declarator;
         }
 
@@ -17367,44 +17444,67 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         {
             p_init_declarator->declarator->type =
                 make_type_using_declarator(ctx, p_init_declarator->declarator);
+
+            if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
+                type_is_nodiscard(&p_init_declarator->declarator->type) &&
+                !type_is_pointer(&p_init_declarator->declarator->type))
+            {
+                p_init_declarator->declarator->static_analisys_flags = MUST_DESTROY | ISVALID;
+            }
         }
 
-
-
-        if (error->code != 0) throw;
         const char* name = p_init_declarator->declarator->name->lexeme;
         if (name)
         {
-            if (!type_is_function(&p_init_declarator->declarator->type))
+            struct scope* out = NULL;
+            struct declarator* previous = find_declarator(ctx, name, &out);
+            if (previous)
             {
-                if (!(p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
+                if (out->scope_level == ctx->scopes.tail->scope_level)
                 {
-                    struct scope* out = NULL;
-                    struct declarator* previous = find_declarator(ctx, name, &out);
-                    if (previous != NULL)
-                    {
-                        if (!type_is_function(&previous->type))
-                        {
-                            if (out->scope_level == ctx->scopes.tail->scope_level ||
-                                out->is_parameters_scope)
-                            {
-                                //mesmo nivel
-                                parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
-                                parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
-                            }
-                            else
-                            {
-                                //nivel diferente eh warning hides
-                                parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
-                                parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
-                            }
-                        }
+                    const bool previous_is_function = type_is_function(&previous->type);
+                    const bool previous_is_typedef_or_extern =
+                        previous->declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_TYPEDEF);
 
+
+                    struct declarator* current = p_init_declarator->declarator;
+
+                    const bool current_is_function = type_is_function(&current->type);
+                    const bool current_is_typedef_or_extern =
+                        current->declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_TYPEDEF);
+
+
+                    /*
+                      TODO compare if the declaration is identical
+                    */
+
+                    if (!previous_is_function && !previous_is_typedef_or_extern)
+                    {
+                        if (!current_is_function && !current_is_function)
+                        {
+                            parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
+                            parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                        }
+                    }
+                }
+                else
+                {
+                    hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
+                    
+                    /*global scope no warning...*/
+                    if (out->scope_level != 0) 
+                    {
+                        /*but redeclaration at function scope we show warning*/
+                        parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
+                        parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
                     }
                 }
             }
-            //TODO se ja existe?
-            hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
+            else
+            {
+                /*first time we see this declarator*/
+                hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
+            }
         }
         else
         {
@@ -17420,7 +17520,15 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 /*let's apply the compile time flags*/
                 p_init_declarator->declarator->static_analisys_flags =
                     p_init_declarator->initializer->assignment_expression->returnflag | ISVALID;
-                
+
+                if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
+                    (p_init_declarator->declarator->static_analisys_flags & MUST_FREE) &&
+                    type_is_nodiscard(&p_init_declarator->declarator->type) &&
+                    type_is_pointer(&p_init_declarator->declarator->type))
+                {
+                    /*pointer to MUST_FREE of a struct [[nodiscard]] has must_destroy*/
+                    p_init_declarator->declarator->static_analisys_flags |= (MUST_DESTROY);
+                }
             }
             /*
                auto requires we find the type after initializer
@@ -17455,7 +17563,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         */
                         pointer_type_list_pop_front(&t.declarator_type->pointers);
                     }
-                    
+
                     struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, p_init_declarator->declarator);
                     declarator_type_merge(dectype, t.declarator_type);
                     p_init_declarator->declarator->type = t; /*MOVED*/
@@ -17923,7 +18031,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
     {
         if (p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt &&
-            p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags && STD_ATTRIBUTE_DEPRECATED)
+            p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
         {
             if (p_struct_or_union_specifier->tagtoken)
             {
@@ -18263,14 +18371,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             if (p_enum_specifier->tag_token)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
 
-            /*TODO redeclaration?*/
-            /*adicionar no escopo*/
-            if (p_enum_specifier->tag_token)
-            {
-                hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, &p_enum_specifier->type_id);
-            }
-
-            /*self*/
+            /*points to itself*/
             p_enum_specifier->complete_enum_specifier = p_enum_specifier;
 
             parser_match_tk(ctx, '{', error);
@@ -18286,52 +18387,104 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx, struct error* erro
             if (!has_identifier)
             {
                 parser_seterror_with_token(ctx, ctx->current, "missing enum tag name");
-                
                 throw;
             }
+        }
 
+        /*
+        * Let's search for this tag at current scope only
+        */
+        struct type_tag_id* tag_type_id = NULL;
 
-            /*searches for this tag in the current scope*/
-            struct type_tag_id* tag_type_id = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
-            if (tag_type_id)
+        if (p_enum_specifier->tag_token &&
+            p_enum_specifier->tag_token->lexeme)
+        {
+            tag_type_id = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
+        }
+        if (tag_type_id)
+        {
+            /*
+               ok.. we have this tag at this scope
+            */
+            if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
             {
-                /*we have this tag at this scope*/
-                if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
+                p_previous_tag_in_this_scope = container_of(tag_type_id, struct enum_specifier, type_id);
+
+                if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
+                    p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    p_previous_tag_in_this_scope = container_of(tag_type_id, struct enum_specifier, type_id);
+                    parser_seterror_with_token(ctx, p_enum_specifier->tag_token, "multiple definition of 'enum %s'",
+                        p_enum_specifier->tag_token->lexeme);
+                }
+                else if (p_previous_tag_in_this_scope->enumerator_list.head != NULL)
+                {
                     p_enum_specifier->complete_enum_specifier = p_previous_tag_in_this_scope;
                 }
-                else
+                else if (p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
-                    throw;
+                    p_previous_tag_in_this_scope->complete_enum_specifier = p_enum_specifier;
                 }
             }
             else
             {
-                struct enum_specifier* p_other = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
-                /*ok neste escopo nao tinha este tag..vamos escopos para cima*/
-                if (p_other == NULL)
+                parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
+                throw;
+            }
+        }
+        else
+        {
+            /*
+            * we didn't find at current scope let's search in previous scopes
+            */
+            struct enum_specifier* p_other = NULL;
+
+            if (p_enum_specifier->tag_token)
+            {
+                p_other = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
+            }
+
+            if (p_other == NULL)
+            {
+                /*
+                 * we didn't find, so this is the first time this tag is used
+                */
+                if (p_enum_specifier->tag_token)
                 {
                     hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, &p_enum_specifier->type_id);
                 }
                 else
                 {
-                    /*achou a tag em um escopo mais a cima*/
+                    //make a name?
+                }
+            }
+            else
+            {
+
+
+                /*
+                 * we found this enum tag in previous scopes
+                */
+
+                if (p_enum_specifier->enumerator_list.head != NULL)
+                {
+                    /*it is a new definition*/
+                }
+                else if (p_other->enumerator_list.head != NULL)
+                {
+                    /*previous enum is complete*/
                     p_enum_specifier->complete_enum_specifier = p_other;
                 }
             }
-
-
         }
+
     }
     catch
     {}
     return p_enum_specifier;
 }
 
-struct enumerator_list enumerator_list(struct parser_ctx* ctx, 
-    struct enum_specifier* p_enum_specifier, 
+struct enumerator_list enumerator_list(struct parser_ctx* ctx,
+    struct enum_specifier* p_enum_specifier,
     struct error* error)
 {
     struct enumerator_list enumeratorlist = { 0 };
@@ -18504,7 +18657,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
 
     p_declarator->last_token = ctx->previous;
 
-    
+
     return p_declarator;
 }
 
@@ -18556,51 +18709,6 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
         struct token* p_token_ahead = parser_look_ahead(ctx);
         if (ctx->current->type == TK_IDENTIFIER)
         {
-            struct scope* pscope = NULL;
-            struct declarator* pdeclarator =
-                find_declarator(ctx, ctx->current->lexeme, &pscope);
-            if (pdeclarator)
-            {
-                if (pscope == ctx->scopes.tail)
-                {
-                    if (pscope->scope_level != 0)
-                    {
-                        if (declarator_is_function(pdeclarator))
-                        {
-                            //redeclaracao de algo q era funcao agora nao eh nao eh problema
-                        }
-                        else
-                        {
-                            //TODO tem que ver se esta dentro struct dai nao pode dar erro
-                            //parser_seterror_with_token(ctx, ctx->current, "redefinition of '%s'", ctx->current->lexeme);
-                        }
-                    }
-                    else
-                    {
-                        //global aceita redefinicao!
-                        //TODO ver seh eh o mesmo                        
-                    }
-                }
-                else
-                {
-                    if (pscope->scope_level != 0)
-                    {
-                        if (pdeclarator->direct_declarator &&
-                            pdeclarator->direct_declarator->name_opt &&
-                            pdeclarator->direct_declarator->name_opt->token_origin)
-                        {
-                            //TODO ver se esta dentro de struct
-                            //printf("warning '%s' at line %d hides previous definition %d\n",
-                              //  ctx->current->lexeme,
-                                //ctx->current->line,                                
-                                //pdeclarator->direct_declarator->name->line);
-                        }
-                    }
-
-                    //parser_seterror_with_token(ctx, ctx->current, "redefinition of '%s'", ctx->current->lexeme);
-                }
-            }
-
             p_direct_declarator->name_opt = ctx->current;
             if (pptoken_name != NULL)
             {
@@ -19270,7 +19378,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
                 else
                 {
                     parser_seterror_with_token(ctx, position, "_Static_assert failed");
-                }                
+                }
             }
         }
     }
@@ -19489,12 +19597,12 @@ struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* c
     if (count2 != 0)
     {
         parser_seterror_with_token(ctx, ctx->current, "expected ']' before ')'");
-        
+
     }
     if (count3 != 0)
     {
         parser_seterror_with_token(ctx, ctx->current, "expected '}' before ')'");
-        
+
     }
     return p_balanced_token_sequence;
 }
@@ -19707,8 +19815,8 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                         p_declarator->name->col);
 
                     if (p_declarator->static_analisys_flags & MUST_DESTROY)
-                      ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
-                        p_declarator->name->lexeme);                                        
+                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
+                            p_declarator->name->lexeme);
                 }
 
                 if (p_declarator->static_analisys_flags & MUST_FREE)
@@ -19717,7 +19825,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                         p_declarator->name->token_origin->lexeme,
                         p_declarator->name->line,
                         p_declarator->name->col);
-                    
+
                     if (p_declarator->static_analisys_flags & MUST_FREE)
                         ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
                             p_declarator->name->lexeme);
@@ -19818,7 +19926,7 @@ assembly-instruction-list:
         }
         if (ctx->current->type == ';')
             parser_match(ctx);
-    }    
+    }
     else if (first_of_declaration_specifier(ctx) ||
         first_of_static_assert_declaration(ctx))
     {
@@ -20109,7 +20217,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
     {
         if (ctx->p_current_try_statement_opt == NULL)
         {
-            
+
             parser_seterror_with_token(ctx, ctx->current, "throw statement not within try block");
         }
         else
@@ -20216,7 +20324,7 @@ struct compound_statement* function_body(struct parser_ctx* ctx, struct error* e
 
 static void show_unused_file_scope(struct parser_ctx* ctx)
 {
-    
+
     for (int i = 0; i < ctx->scopes.head->variables.capacity; i++)
     {
         if (ctx->scopes.head->variables.table == NULL)
@@ -20234,11 +20342,11 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
             struct declarator* p_declarator =
                 p_declarator = container_of(entry->p, struct declarator, type_id);
 
-            if (p_declarator && 
+            if (p_declarator &&
                 p_declarator->first_token &&
                 p_declarator->first_token->level == 0 &&
-                declarator_is_function(p_declarator) && 
-                (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))                
+                declarator_is_function(p_declarator) &&
+                (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
             {
                 /*
                   let's print the declarators that were not cleared for these
@@ -20294,7 +20402,7 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
 
 struct declaration_list parse(struct options* options,
     struct token_list* list,
-    struct error* error, 
+    struct error* error,
     struct report* report)
 {
 
@@ -20321,10 +20429,10 @@ struct declaration_list parse(struct options* options,
     show_unused_file_scope(&ctx);
 
     report->error_count = ctx.n_errors;
-    report->warnings_count= ctx.n_warnings;
-    report->info_count= ctx.n_info;
-    
-    
+    report->warnings_count = ctx.n_warnings;
+    report->info_count = ctx.n_info;
+
+
     return l;
 }
 
@@ -20370,7 +20478,7 @@ int fill_options(struct options* options, int argc, const char** argv, struct pr
             continue;
         }
 
-        
+
         if (strcmp(argv[i], "-fo") == 0)
         {
             options->format_ouput = true;
@@ -20479,7 +20587,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * to generate this string
         */
 
-        snprintf(env, sizeof env, 
+        snprintf(env, sizeof env,
             "%s",
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/include;"
@@ -20593,7 +20701,7 @@ const char* format_code(struct options* options,
 
 int compile_one_file(const char* file_name,
     int argc,
-    char** argv,    
+    char** argv,
     struct report* report)
 {
 
@@ -20732,11 +20840,11 @@ int compile(int argc, char** argv, struct report* report)
         if (argv[i][0] == '-')
             continue;
         no_files++;
-        
+
         struct report local_report = { 0 };
         compile_one_file(argv[i], argc, argv, &local_report);
-        
-        
+
+
         report->error_count += local_report.error_count;
         report->warnings_count += local_report.warnings_count;
         report->info_count += local_report.info_count;
@@ -20744,8 +20852,8 @@ int compile(int argc, char** argv, struct report* report)
 
     /*tempo total da compilacao*/
     clock_t end_clock = clock();
-    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;    
-    
+    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
+
     printf("\n");
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
     printf("%d errors %d warnings %d notes\n", report->error_count, report->warnings_count, report->info_count);
@@ -20754,7 +20862,11 @@ int compile(int argc, char** argv, struct report* report)
 }
 
 
-struct ast get_ast(struct options* options, const char* filename, const char* source, struct error* error, struct report* report)
+struct ast get_ast(struct options* options,
+    const char* filename,
+    const char* source,
+    struct error* error,
+    struct report* report)
 {
     struct ast ast = { 0 };
 
@@ -20772,6 +20884,9 @@ struct ast get_ast(struct options* options, const char* filename, const char* so
 #endif
 
     prectx.macros.capacity = 5000;
+
+    add_standard_macros(&prectx, error);
+
 
     ast.token_list = preprocessor(&prectx, &list, 0, error);
     if (error->code != 0)
@@ -21236,7 +21351,7 @@ void expand_test()
         "typedef const A* B; "
         "static_assert(typeid(B) == typeid(char * const *);";
 
-    
+
     get_ast(&options, "source", src2, &error, &report);
     assert(error.code == 0);
     clearerror(&error);
@@ -21250,7 +21365,7 @@ void expand_test()
     //char* (* [3])(int)
 
 
-    
+
     get_ast(&options, "source", src3, &error, &report);
     assert(error.code == 0);
     clearerror(&error);
@@ -21263,7 +21378,6 @@ void expand_test()
 
 
 #endif
-
 
 
 
@@ -21639,6 +21753,8 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
             free(p_try_statement->last_token->lexeme);
             p_try_statement->last_token->lexeme = strdup(buffer);
         }
+
+        ss_close(&ss);
     }
 }
 
@@ -21669,6 +21785,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     if (p_selection_statement->else_secondary_block_opt)
         visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt, error);
 
+    ss_close(&ss);
 }
 
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error);
@@ -22134,6 +22251,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
             ctx->tail_block = ctx->tail_block->previous;
         }
 
+        ss_close(&ss);
     }
 }
 
@@ -22154,16 +22272,22 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "goto _catch_label_%d;", p_jump_statement->try_catch_block_index);
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            p_jump_statement->token->lexeme = ss.c_str; 
+            _del_attr(ss, MUST_DESTROY); /*MOVED*/
+
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
+            
         }
         else
         {
             struct osstream ss = { 0 };
             ss_fprintf(&ss, "goto _catch_label_%d", p_jump_statement->try_catch_block_index);
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            _del_attr(ss, MUST_DESTROY); /*MOVED*/
         }
+
+        ss_close(&ss0);
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_RETURN)
     {
@@ -22176,10 +22300,15 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "return");
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            
+            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            ss.c_str = NULL; /*MOVED*/
+
             free(p_jump_statement->last_token->lexeme);
             p_jump_statement->last_token->lexeme = strdup(";}");
+            ss_close(&ss);
         }
+        ss_close(&ss0);
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
         p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
@@ -22195,8 +22324,13 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;  /*MOVED*/
+            ss.c_str = NULL;
+
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
+            ss_close(&ss);
         }
+
+        ss_close(&ss0);
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_GOTO)
     {
@@ -22209,10 +22343,14 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "goto");
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            ss.c_str = NULL; /*MOVED*/
             free(p_jump_statement->last_token->lexeme);
             p_jump_statement->last_token->lexeme = strdup(";}");
+            ss_close(&ss);
         }
+
+        ss_close(&ss0);
     }
     else
     {
@@ -22448,6 +22586,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
                 }
                 p = p->next;
             }
+            ss_close(&ss0);
         }
     }
 
@@ -22472,6 +22611,8 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             /*let's hide the old declarator*/
             token_range_add_flag(p_init_declarator->declarator->first_token,
                 p_init_declarator->declarator->last_token, TK_FLAG_HIDE);
+
+            ss_close(&ss);
         }
 
         if (!ctx->is_second_pass &&
@@ -22994,7 +23135,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
                 token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, &l);
             }
-
+            ss_close(&ss);
         }
         else
         {
@@ -23068,6 +23209,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                     //TODO  check /* inside
                     ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
                     free(current->lexeme);
+                    _del_attr(ss, MUST_DESTROY);
                     current->lexeme = ss.c_str;/*MOVED*/
                 }
             }

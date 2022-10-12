@@ -4,7 +4,7 @@
 #include <assert.h>
 #include "visit.h"
 #include "expressions.h"
-
+#include "annotations.h"
 
 static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence, struct error* error);
 
@@ -376,6 +376,8 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
             free(p_try_statement->last_token->lexeme);
             p_try_statement->last_token->lexeme = strdup(buffer);
         }
+
+        ss_close(&ss);
     }
 }
 
@@ -406,6 +408,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     if (p_selection_statement->else_secondary_block_opt)
         visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt, error);
 
+    ss_close(&ss);
 }
 
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error);
@@ -871,6 +874,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
             ctx->tail_block = ctx->tail_block->previous;
         }
 
+        ss_close(&ss);
     }
 }
 
@@ -891,16 +895,22 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "goto _catch_label_%d;", p_jump_statement->try_catch_block_index);
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            p_jump_statement->token->lexeme = ss.c_str; 
+            _del_attr(ss, MUST_DESTROY); /*MOVED*/
+
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
+            
         }
         else
         {
             struct osstream ss = { 0 };
             ss_fprintf(&ss, "goto _catch_label_%d", p_jump_statement->try_catch_block_index);
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            _del_attr(ss, MUST_DESTROY); /*MOVED*/
         }
+
+        ss_close(&ss0);
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_RETURN)
     {
@@ -913,10 +923,15 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "return");
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            
+            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            ss.c_str = NULL; /*MOVED*/
+
             free(p_jump_statement->last_token->lexeme);
             p_jump_statement->last_token->lexeme = strdup(";}");
+            ss_close(&ss);
         }
+        ss_close(&ss0);
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
         p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
@@ -932,8 +947,13 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
             p_jump_statement->token->lexeme = ss.c_str;  /*MOVED*/
+            ss.c_str = NULL;
+
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
+            ss_close(&ss);
         }
+
+        ss_close(&ss0);
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_GOTO)
     {
@@ -946,10 +966,14 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "goto");
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            ss.c_str = NULL; /*MOVED*/
             free(p_jump_statement->last_token->lexeme);
             p_jump_statement->last_token->lexeme = strdup(";}");
+            ss_close(&ss);
         }
+
+        ss_close(&ss0);
     }
     else
     {
@@ -1185,6 +1209,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
                 }
                 p = p->next;
             }
+            ss_close(&ss0);
         }
     }
 
@@ -1209,6 +1234,8 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             /*let's hide the old declarator*/
             token_range_add_flag(p_init_declarator->declarator->first_token,
                 p_init_declarator->declarator->last_token, TK_FLAG_HIDE);
+
+            ss_close(&ss);
         }
 
         if (!ctx->is_second_pass &&
@@ -1731,7 +1758,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
                 token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, &l);
             }
-
+            ss_close(&ss);
         }
         else
         {
@@ -1805,6 +1832,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
                     //TODO  check /* inside
                     ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
                     free(current->lexeme);
+                    _del_attr(ss, MUST_DESTROY);
                     current->lexeme = ss.c_str;/*MOVED*/
                 }
             }

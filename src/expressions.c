@@ -522,9 +522,9 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = p_enumerator->value;
-                
+
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_ENUM;
-                p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;                
+                p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;
             }
             else
             {
@@ -866,7 +866,7 @@ void collect_static_flags(
 
 
 static enum static_analisys_flags contract_visit_compound_statement(struct parser_ctx* ctx,
-    struct compound_statement* function_body,
+    struct compound_statement* extern_body,
     struct expression* call_expression);
 
 
@@ -955,19 +955,19 @@ static void contract_visit_expression(struct parser_ctx* ctx, struct expression*
         contract_visit_expression(ctx, expression_opt->right, returnflag);
         expression_opt->constant_value = !expression_opt->right->constant_value;
     }
-        }
+}
 
 
 /*
 * second pass for declarator compile time flags
 */
-static enum static_analisys_flags contract_visit_return(struct parser_ctx* ctx, struct compound_statement* function_body)
+static enum static_analisys_flags contract_visit_return(struct parser_ctx* ctx, struct compound_statement* extern_body)
 {
     enum static_analisys_flags returnflag = 0;
 
     /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
 
-    struct block_item* p_block_item = function_body->block_item_list.head;
+    struct block_item* p_block_item = extern_body->block_item_list.head;
     while (p_block_item)
     {
         if (p_block_item->unlabeled_statement &&
@@ -1003,14 +1003,14 @@ static enum static_analisys_flags contract_visit_return(struct parser_ctx* ctx, 
     * second pass for declarator compile time flags
     */
 static enum static_analisys_flags contract_visit_compound_statement(struct parser_ctx* ctx,
-    struct compound_statement* function_body,
+    struct compound_statement* extern_body,
     struct expression* call_expression)
 {
     /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
 
     enum static_analisys_flags returnflag = 0;
 
-    struct block_item* p_block_item = function_body->block_item_list.head;
+    struct block_item* p_block_item = extern_body->block_item_list.head;
     while (p_block_item)
     {
         if (p_block_item->unlabeled_statement)
@@ -1154,7 +1154,11 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 {
                     struct declarator* func = find_declarator(ctx,
                         p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt, NULL);
-                    if (func->function_body)
+
+                    if (func)
+                      func = func->contract_declarator;
+
+                    if (func)
                     {
 
 
@@ -1168,7 +1172,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                                     &p_expression_node_new->argument_expression_list,
                                     func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
 
-                            
+
 
 
                             if (has_all_argument_flags)
@@ -1484,6 +1488,10 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
                 new_expression->contract_arg_token,
                 "declarator not found");
         }
+        else
+        {
+            new_expression->declarator->num_uses++;
+        }
         parser_match(ctx);
     }
     else if (ctx->current->type == TK_KEYWORD_RETURN)
@@ -1508,7 +1516,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
         ctx->evaluated_at_caller = true;
     }
     else
-    {
+    {        
         new_expression->declarator->static_analisys_flags |= ISVALID;
 
         switch (func->type)
@@ -2186,7 +2194,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
         if (new_expression->left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
             new_expression->right->type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
-            if (new_expression->left->type.enum_specifier->complete_enum_specifier != 
+            if (new_expression->left->type.enum_specifier->complete_enum_specifier !=
                 new_expression->right->type.enum_specifier->complete_enum_specifier)
             {
                 const char* lefttag = "";
@@ -2197,19 +2205,16 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
                 if (new_expression->right->type.enum_specifier->tag_token)
                     righttag = new_expression->right->type.enum_specifier->tag_token->lexeme;
 
-                if (strcmp(lefttag, righttag) != 0)
-                {
-                    /*
-                     * This comparison by name is not 100% correct because they be from
-                     * diferent scopes.
-                    */
+                /*
+                 * This comparison by name is not 100% correct because they be from
+                 * diferent scopes.
+                */
 
-                    parser_setwarning_with_token(ctx,
-                        operator_token,
-                        "comparison between 'enum %s' and 'enum %s'",
-                        lefttag,
-                        righttag);
-                }
+                parser_setwarning_with_token(ctx,
+                    operator_token,
+                    "comparison between 'enum %s' and 'enum %s'",
+                    lefttag,
+                    righttag);
             }
         }
 

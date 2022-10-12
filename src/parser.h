@@ -14,7 +14,7 @@ struct scope
     int scope_level;
     struct hash_map tags;
     struct hash_map variables;
-    
+        
     struct scope* next;
     struct scope* previous;
     
@@ -352,6 +352,7 @@ struct declaration
     struct init_declarator_list init_declarator_list;
 
     struct compound_statement* function_body;
+    struct declarator* contract_declarator;
 
     struct token* first_token;
     struct token* last_token;
@@ -519,6 +520,15 @@ struct declarator
 
     struct compound_statement* function_body;
 
+    /*
+      extension
+      we need to point to declarator with arguments and body of the contract of the function
+      so we can attach this information in previouly declarared functions.
+      void f();
+      void f() extern {} /*we attach this declarator f into previous f
+    */
+    struct declarator* contract_declarator;
+    
     int num_uses; /*used to show not used warnings*/
 
     bool is_parameter_declarator;

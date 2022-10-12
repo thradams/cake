@@ -783,74 +783,43 @@ int main()
 `;
 
 
-sample["Extension - compile time declarator flag"] =
-    `
-#include <annotations.h>
+sample["declarator annotations"] =
+`
+#include <stdlib.h>
 
-void* malloc(int i) {
-    _add_attr(return, MUST_FREE);
-    return 0;
+struct [[nodiscard]] x {
+    char* name;
+};
+
+void x_destroy(struct x* p) extern {
+    static_assert(_has_attr(p, MUST_DESTROY));
+    _del_attr(p, MUST_DESTROY);
 }
 
-void free(void* p) {
-    static_assert(_has_attr(p, MUST_FREE));
-    _del_attr(p, MUST_FREE);
+void x_delete(struct x* p) extern {
+    _del_attr(p, MUST_DESTROY | MUST_FREE);
 }
 
 int main()
 {
-    int * p = malloc(10);
-    //free(p);
-    //free(p);
-}
-`;
+    struct x x = {0};
+    struct x* px = malloc(sizeof(struct x));
 
-
-
-
-sample["declarator annotations"] =
-`
-
-#include <annotations.h>
-
-void* malloc(int i) {
-    _add_attr(return, MUST_FREE);
-    return 0;
+    x_delete(px);
+    x_destroy(&x);
 }
 
-void free(void* p) {
-    _del_attr(p, MUST_FREE);
-}
-
-
-struct x {
-    char* name;
-};
 
 void x_destroy(struct x* p) {
-    static_assert(_has_attr(p, MUST_DESTROY));
-    _del_attr(p, MUST_DESTROY);
     free(p->name);
 }
 
 void x_delete(struct x* p) {
-
     if (p) {
         x_destroy(p);
         free(p);
     }
-
-    _del_attr(p, MUST_DESTROY | MUST_FREE);
 }
-
-
-int main()
-{
-    struct x* px = malloc(sizeof(struct x));
-    _add_attr(px, MUST_DESTROY);
-    x_delete(px);
-}
-
 
 `;
 
@@ -859,27 +828,7 @@ int main()
 
 sample["declarator annotations II"] =
 `
-
-
-#include <annotations.h>
-
-void* malloc(int i) {
-    _add_attr(return, MUST_FREE);
-    return 0;
-}
-
-void free(void* p) {
-    static_assert(_has_attr(p, MUST_FREE));
-    _del_attr(p, MUST_FREE);
-}
-
-void* move(void *p)
-{
-  _del_attr(p, MUST_FREE);
-  _add_attr(p, UNINITIALIZED);
-  _add_attr(return, MUST_FREE);
-  return p;
-}
+#include <stdlib.h>
 
 int main()
 {
@@ -890,13 +839,12 @@ int main()
 
     static_assert(_has_attr(p2, UNINITIALIZED));
 
-    p2 = move(p);
+    p2 = moveptr(p);
 
     static_assert(_has_attr(p, UNINITIALIZED));
     static_assert(_has_attr(p2, MUST_FREE));
 
     free(p2);
-
     //free(p2);
 }
 

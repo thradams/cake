@@ -1,7 +1,7 @@
-
 #pragma once
 
-enum 
+/*web only*/
+enum
 {
     ISVALID = 1 << 1,
     UNINITIALIZED = 1 << 2,
