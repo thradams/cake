@@ -658,14 +658,29 @@ enum token_type is_punctuator(struct stream* stream)
     case '/':
         type = '/';
         stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '/=';
+            stream_match(stream);
+        }
         break;
     case '*':
         type = '*';
         stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '*=';
+            stream_match(stream);
+        }
         break;
     case '%':
         type = '%';
         stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '%=';
+            stream_match(stream);
+        }
         break;
     case '-':
         type = '-';
@@ -1035,14 +1050,14 @@ struct token* ppnumber(struct stream* stream)
             }
         }
         else if ((stream->current[0] == 'e' ||
-                 stream->current[0] == 'E' ||
-                 stream->current[0] == 'p' ||
-                 stream->current[0] == 'P') && 
-                 (stream->current[1] == '+' || stream->current[1] == '-' ) )
+            stream->current[0] == 'E' ||
+            stream->current[0] == 'p' ||
+            stream->current[0] == 'P') &&
+            (stream->current[1] == '+' || stream->current[1] == '-'))
         {
             stream_match(stream);//e E  p P
             stream_match(stream);//sign            
-        }        
+        }
         else if (stream->current[0] == '.')
         {
             stream_match(stream);//.            
@@ -1725,9 +1740,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
-                     (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
-                     strcmp(input_list->head->lexeme, "__has_embed") == 0)
-                     )                
+                (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
+                    strcmp(input_list->head->lexeme, "__has_embed") == 0)
+                )
             {
                 token_list_pop_front(input_list); //pop __has_include
                 skip_blanks(&r, input_list);
@@ -1791,13 +1806,13 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 token_list_pop_front(input_list); //pop >					
 
                 /*nodiscard
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall 
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall
                 * return the value 202003L
                 * when given nodiscard as the pp-tokens operand.
                 */
-                
+
                 /*maybe_unused
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return 
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return
                 * the value 202106L when given maybe_unused as the pp-tokens operand.
                 */
 
@@ -2433,12 +2448,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (!bAlreadyIncluded)
                 {
                     pre_seterror_with_token(ctx, r.tail, "file %s not found", path + 1);
-                    
+
                     for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
                     {
                         /*let's print the include path*/
                         ctx->printf("%s\n", p->path);
-                    }                    
+                    }
                 }
                 else
                 {
@@ -2560,7 +2575,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             // printf("define %s\n%s : %d\n", input_list->head->lexeme, input_list->head->token_origin->lexeme, input_list->head->line);
 
             struct token* macro_name_token = input_list->head;
-            
+
 
             if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
             {
@@ -2635,7 +2650,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx, error);
 
             if (macro_name_token)
-              naming_convention_macro(ctx, macro_name_token);
+                naming_convention_macro(ctx, macro_name_token);
         }
         else if (strcmp(input_list->head->lexeme, "undef") == 0)
         {
@@ -3466,7 +3481,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
     try
     {
         assert(!macro_already_expanded(pList, macro->name));
-        struct macro_expanded macro_expanded = {0};
+        struct macro_expanded macro_expanded = { 0 };
         macro_expanded.name = macro->name;
         macro_expanded.pPrevious = pList;
         if (macro->bIsFunction)
@@ -3883,7 +3898,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
         "#define __FILE__ \"__FILE__\"\n"
         "#define __LINE__ 0\n"
         "#define __COUNT__ 0\n"
-        "#define _CONSOLE\n"        
+        "#define _CONSOLE\n"
 
 #ifdef WIN32
         "#define _WINDOWS\n"
@@ -3897,7 +3912,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
         "#define _M_IX86\n"
         "#define _X86_\n"
         "#define __fastcall\n"
-        "#define __stdcall\n"      
+        "#define __stdcall\n"
         "#define __cdecl\n"
         "#define __pragma(a)\n"
         "#define __declspec(a)\n"
@@ -4343,7 +4358,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
     if (!is_screaming_case(token->lexeme)) {
         pre_setinfo_with_token(ctx, token, "use SCREAMING_CASE for macros");
     }
-    
+
 }
 
 
