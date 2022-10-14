@@ -87,6 +87,7 @@ void type_test3(void);
 void crazy_decl(void);
 void crazy_decl2(void);
 void crazy_decl4(void);
+void comp_error1(void);
 void expand_test(void);
 
 /*end of forward declarations*/
@@ -166,6 +167,7 @@ g_unit_test_success_count = 0;
     crazy_decl();
     crazy_decl2();
     crazy_decl4();
+    comp_error1();
     expand_test();
 return g_unit_test_error_count;
 

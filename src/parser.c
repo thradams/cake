@@ -5853,6 +5853,20 @@ void crazy_decl4()
 }
 
 
+void comp_error1()
+{
+    const char* src =
+        "void F() {\n"
+        "    char* z;\n"
+        "    *z-- = '\0';\n"
+        "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
 
 void expand_test()
 {

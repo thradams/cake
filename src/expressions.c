@@ -1288,6 +1288,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->type = type_copy(&p_expression_node->type);
                 parser_match(ctx);
                 p_expression_node = p_expression_node_new;
             }
