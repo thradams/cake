@@ -44,29 +44,22 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 {
     try
     {
-        struct params parameter_type = { 0 };
+        struct  function_declarator_type*   p_function_declarator_type =
+            get_function_declarator_type(p_type);
 
+        if (p_function_declarator_type == NULL)
+            throw;
 
-        bool is_var_args = false;
-        bool is_void = false;
+        const bool is_var_args = p_function_declarator_type->is_var_args;
+        const bool is_void =
+            /*detectar que o parametro é (void)*/            
+            p_function_declarator_type->params.head &&
+            p_function_declarator_type->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
+            p_function_declarator_type->params.head->declarator_type->pointers.head == NULL;
 
-        if (p_type &&
-            p_type->declarator_type &&
-            p_type->declarator_type->direct_declarator_type &&
-            p_type->declarator_type->direct_declarator_type->function_declarator_type)
-        {
-            parameter_type = p_type->declarator_type->direct_declarator_type->function_declarator_type->params;
-            is_var_args = p_type->declarator_type->direct_declarator_type->function_declarator_type->is_var_args;
+            
 
-            /*detectar que o parametro é (void)*/
-            is_void =
-                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head &&
-                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
-                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head->declarator_type->pointers.head == NULL;
-        }
-
-
-        struct type* current_parameter_type = parameter_type.head;
+        struct type* current_parameter_type = p_function_declarator_type->params.head;
 
         int param_num = 1;
         struct argument_expression* current_argument =

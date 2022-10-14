@@ -5834,6 +5834,26 @@ void crazy_decl2()
     get_ast(&options, "source", src, &error, &report);
     assert(report.error_count == 0);
 }
+
+
+void crazy_decl4()
+{
+    const char* src =
+        "void (*F(int a, int b))(void) { return 0; }\n"
+        "void (*(*PF)(int a, int b))(void) = F;\n"
+        "int main() {\n"
+        "    PF(1, 2);\n"
+        "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
+
+
 void expand_test()
 {
     char* src =

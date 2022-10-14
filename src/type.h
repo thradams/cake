@@ -175,6 +175,7 @@ bool type_is_function(struct type* p_type);
 bool type_is_nodiscard(struct type* p_type);
 bool type_is_deprecated(struct type* p_type);
 bool type_is_maybe_unused(struct type* p_type);
+struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
 struct type get_pointer_content_type(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);

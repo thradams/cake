@@ -441,6 +441,25 @@ bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
     return false;
 }
 
+struct  function_declarator_type* get_function_declarator_type(struct type* p_type)
+{
+    assert(type_is_function_or_function_pointer(p_type));
+    struct declarator_type* inner = p_type->declarator_type;
+    for (;;)
+    {
+        if (inner->direct_declarator_type &&
+            inner->direct_declarator_type->function_declarator_type &&
+            inner->direct_declarator_type->function_declarator_type->direct_declarator_type &&
+            inner->direct_declarator_type->function_declarator_type->direct_declarator_type->declarator_opt)
+        {
+            inner = inner->direct_declarator_type->function_declarator_type->direct_declarator_type->declarator_opt;
+        }
+        else
+            break;
+    }
+    return inner->direct_declarator_type->function_declarator_type;
+}
+
 bool type_is_maybe_unused(struct type* p_type)
 {
     return type_has_attribute(p_type, STD_ATTRIBUTE_MAYBE_UNUSED);
