@@ -1939,6 +1939,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                     /*
                       TODO compare if the declaration is identical
+                      Rules for file scope are diferent see #12
                     */
 
                     if (!previous_is_function && !previous_is_typedef_or_extern)
@@ -5812,7 +5813,26 @@ void crazy_decl()
     struct report report = { 0 };
     get_ast(&options, "source", src, &error, &report);
     assert(report.error_count == 0);
+}
 
+void crazy_decl2()
+{
+    const char* src =
+        "void (*f(int i))(void)\n"
+        "{\n"
+        "   i = 1; \n"
+        "    return 0;\n"
+        "}\n"
+        "int main()\n"
+        "{\n"
+        "  f(1);\n"
+        "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
 }
 void expand_test()
 {
