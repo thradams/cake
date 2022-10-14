@@ -768,6 +768,11 @@ enum token_type is_punctuator(struct stream* stream)
         {
             type = '>>';
             stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '>>=';                
+                stream_match(stream);
+            }
         }
         else if (stream->current[0] == '=')
         {
@@ -783,6 +788,11 @@ enum token_type is_punctuator(struct stream* stream)
         {
             type = '<<';
             stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '<<=';
+                stream_match(stream);
+            }
         }
         else if (stream->current[0] == '=')
         {

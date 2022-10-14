@@ -84,6 +84,7 @@ void test_digit_separator(void);
 void test_lit(void);
 void type_test2(void);
 void type_test3(void);
+void crazy_decl(void);
 void expand_test(void);
 
 /*end of forward declarations*/
@@ -160,6 +161,7 @@ g_unit_test_success_count = 0;
     test_lit();
     type_test2();
     type_test3();
+    crazy_decl();
     expand_test();
 return g_unit_test_error_count;
 

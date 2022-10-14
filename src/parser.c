@@ -1723,21 +1723,41 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
         struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
         struct declarator* registered_declarator = find_declarator(ctx, function_declarator->name->lexeme, NULL);
-        
+
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
         assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator);
 
-        struct scope* parameters_scope =
-            &p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameters_scope;
+        /* 
+            scope of parameters is the inner declarator
 
+            void (*f(int i))(void) {
+                i = 1;
+                return 0;
+            }
+        */
 
+        struct declarator* inner = p_declaration->init_declarator_list.head->declarator;
+        for (;;)
+        {
+            if (inner->direct_declarator &&
+                inner->direct_declarator->function_declarator &&
+                inner->direct_declarator->function_declarator->direct_declarator &&
+                inner->direct_declarator->function_declarator->direct_declarator->declarator)
+            {
+                inner = inner->direct_declarator->function_declarator->direct_declarator->declarator;
+            }
+            else
+                break;
+        }
+
+        struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
         scope_list_push(&ctx->scopes, parameters_scope);
 
 
         if (ctx->current->type == TK_KEYWORD_EXTERN)
-        {            
+        {
             parser_match(ctx);
             //o function_prototype_scope era um block_scope
             p_declaration->function_body = function_body(ctx, error);
@@ -1750,7 +1770,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
             //o function_prototype_scope era um block_scope
             p_declaration->function_body = function_body(ctx, error);
             p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
-            
+
             /*we need to point to all declarator with body because tree is linked with argumetns*/
         }
 
@@ -1933,9 +1953,9 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 else
                 {
                     hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
-                    
+
                     /*global scope no warning...*/
-                    if (out->scope_level != 0) 
+                    if (out->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
                         parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
@@ -3320,6 +3340,9 @@ struct function_declarator* function_declarator(struct direct_declarator* p_dire
     p_function_declarator->direct_declarator = p_direct_declarator;
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
     p_function_declarator->parameters_scope.is_parameters_scope = true;
+    p_function_declarator->parameters_scope.variables.capacity = 5;
+    p_function_declarator->parameters_scope.tags.capacity = 1;
+
 
     scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
 
@@ -5774,6 +5797,22 @@ void type_test3()
 
 }
 
+void crazy_decl()
+{
+    const char* src =
+        "void (*f(int i))(void)\n"
+        "{\n"
+        "   i = 1; \n"
+        "    return 0;\n"
+        "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+
+}
 void expand_test()
 {
     char* src =

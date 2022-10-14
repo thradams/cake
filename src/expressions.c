@@ -1864,8 +1864,12 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx, struct erro
             parser_match(ctx);
             new_expression->left = p_expression_node;
             new_expression->right = cast_expression(ctx, error, ectx);
-            if (error->code != 0)
+            
+            if (new_expression->left == NULL ||
+                new_expression->right == NULL)
+            {
                 throw;
+            }
 
             if (op == '*')
             {
@@ -2063,8 +2067,10 @@ struct expression* shift_expression(struct parser_ctx* ctx, struct error* error,
             parser_match(ctx);
             new_expression->left = p_expression_node;
             new_expression->right = multiplicative_expression(ctx, error, ectx);
-            if (error->code != 0)
+            if (new_expression->left == NULL || new_expression->right == NULL)
+            {
                 throw;
+            }
 
             if (op == '>>')
             {
@@ -2527,6 +2533,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
             (ctx->current->type == '=' ||
                 ctx->current->type == '*=' ||
                 ctx->current->type == '/=' ||
+                ctx->current->type == '%=' ||
                 ctx->current->type == '+=' ||
                 ctx->current->type == '-=' ||
                 ctx->current->type == '<<=' ||
