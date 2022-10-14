@@ -1945,8 +1945,9 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     {
                         if (!current_is_function && !current_is_function)
                         {
-                            parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
-                            parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                            //See TODO
+                            //parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
+                            //parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
                         }
                     }
                 }
