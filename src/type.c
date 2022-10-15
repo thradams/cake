@@ -1721,7 +1721,8 @@ struct declarator_type* direct_declarator_find_inner_declarator(struct direct_de
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type)
 {
 
-    if (p_declarator_type->direct_declarator_type == NULL)
+    if (p_declarator_type == NULL ||
+        p_declarator_type->direct_declarator_type == NULL)
         return p_declarator_type;
 
     if (p_declarator_type->direct_declarator_type->declarator_opt == NULL &&
