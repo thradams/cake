@@ -350,6 +350,7 @@ enum token_type
     TK_KEYWORD_IS_ARITHMETIC,
     TK_KEYWORD_IS_FLOATING_POINT,
     TK_KEYWORD_IS_INTEGRAL,
+    TK_KEYWORD_IS_SAME,
 
     TK_KEYWORD_STATIC,
     TK_KEYWORD_STRUCT,
@@ -8411,6 +8412,7 @@ enum expression_type
     UNARY_EXPRESSION_SIZEOF_TYPE,
     UNARY_EXPRESSION_HASHOF_TYPE,
     UNARY_EXPRESSION_TRAITS,
+    UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
     UNARY_EXPRESSION_ALIGNOF,
 
@@ -8526,7 +8528,8 @@ struct expression
     long long constant_value;
     unsigned long long constant_ull_value;
 
-    struct type_name* type_name; //cast or compound literal    
+    struct type_name* type_name; 
+    struct type_name* type_name2; /*is_same*/
     struct braced_initializer* braced_initializer;
     struct compound_statement* compound_statement; //function literal (lambda)
     struct generic_selection* generic_selection; //_Generic
@@ -11229,6 +11232,7 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
         //
         ctx->current->type == TK_KEYWORD_HASHOF ||
+        ctx->current->type == TK_KEYWORD_IS_SAME ||
         ctx->current->type == TK_KEYWORD_ATTR_ADD ||
         ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
         ctx->current->type == TK_KEYWORD_ATTR_HAS;
@@ -11542,7 +11546,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             case TK_KEYWORD_IS_INTEGRAL:
                 new_expression->constant_value = type_is_integer(p_type);
                 break;
-                
+
             default:
                 assert(false);
 
@@ -11551,22 +11555,35 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             type_set_int(&new_expression->type); //resultado sizeof
             p_expression_node = new_expression;
         }
+        else if (ctx->current->type == TK_KEYWORD_IS_SAME)
+        {
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->first_token = ctx->current;
+            parser_match(ctx);
+            new_expression->expression_type = UNARY_EXPRESSION_IS_SAME;
+            parser_match_tk(ctx, '(', error);
+            new_expression->type_name = type_name(ctx, error);
+            parser_match_tk(ctx, ',', error);
+            new_expression->type_name2 = type_name(ctx, error);
+            parser_match_tk(ctx, ')', error);
+            new_expression->constant_value = type_is_same(&new_expression->type_name->declarator->type,
+                                                          &new_expression->type_name2->declarator->type, true);
+            type_set_int(&new_expression->type);
+            p_expression_node = new_expression;
+        }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
         {
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
 
             parser_match(ctx);
 
             if (first_of_type_name_ahead(ctx))
-            {
-                new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
+            {                
                 parser_match_tk(ctx, '(', error);
                 new_expression->type_name = type_name(ctx, error);
-                new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
-
                 new_expression->last_token = ctx->current;
-
                 parser_match_tk(ctx, ')', error);
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->type, error);
             }
@@ -11577,10 +11594,9 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 new_expression->right = unary_expression(ctx, error, ectx);
                 ectx->constant_expression_required = old;
 
-                if (error->code != 0)
+                if (new_expression->right == NULL)
                     throw;
-
-                new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
+                
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->right->type, error);
                 new_expression->last_token = ctx->previous;
             }
@@ -16637,8 +16653,7 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
         //
         //end microsoft
-        else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
-
+       
         /*EXPERIMENTAL EXTENSION*/
         else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
         else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
@@ -16656,6 +16671,7 @@ enum token_type is_keyword(const char* text)
         /*TRAITS EXTENSION*/
 
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
+        else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
         else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
         else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
         else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
@@ -21582,7 +21598,10 @@ void traits_test()
         "static_assert(_is_pointer(F));\n"
         "static_assert(_is_integral(1));\n"
         "int a[2];\n"
-        "static_assert(_is_array(a));\n";
+        "static_assert(_is_array(a));\n"
+        "int((a2))[10];\n"
+        "static_assert(_is_array(a2));"
+        ;
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };

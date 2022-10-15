@@ -32,6 +32,7 @@ enum expression_type
     UNARY_EXPRESSION_SIZEOF_TYPE,
     UNARY_EXPRESSION_HASHOF_TYPE,
     UNARY_EXPRESSION_TRAITS,
+    UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
     UNARY_EXPRESSION_ALIGNOF,
 
@@ -147,7 +148,8 @@ struct expression
     long long constant_value;
     unsigned long long constant_ull_value;
 
-    struct type_name* type_name; //cast or compound literal    
+    struct type_name* type_name; 
+    struct type_name* type_name2; /*is_same*/
     struct braced_initializer* braced_initializer;
     struct compound_statement* compound_statement; //function literal (lambda)
     struct generic_selection* generic_selection; //_Generic

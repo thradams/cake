@@ -939,6 +939,8 @@ int main()
   static_assert(!_is_array(pf));
   static_assert(_is_pointer(pf));
 
+  static_assert(_is_same(int, typeof(i)));
+
 }
 `;
 

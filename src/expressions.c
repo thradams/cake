@@ -1449,6 +1449,7 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
         //
         ctx->current->type == TK_KEYWORD_HASHOF ||
+        ctx->current->type == TK_KEYWORD_IS_SAME ||
         ctx->current->type == TK_KEYWORD_ATTR_ADD ||
         ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
         ctx->current->type == TK_KEYWORD_ATTR_HAS;
@@ -1762,7 +1763,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             case TK_KEYWORD_IS_INTEGRAL:
                 new_expression->constant_value = type_is_integer(p_type);
                 break;
-                
+
             default:
                 assert(false);
 
@@ -1771,22 +1772,35 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             type_set_int(&new_expression->type); //resultado sizeof
             p_expression_node = new_expression;
         }
+        else if (ctx->current->type == TK_KEYWORD_IS_SAME)
+        {
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->first_token = ctx->current;
+            parser_match(ctx);
+            new_expression->expression_type = UNARY_EXPRESSION_IS_SAME;
+            parser_match_tk(ctx, '(', error);
+            new_expression->type_name = type_name(ctx, error);
+            parser_match_tk(ctx, ',', error);
+            new_expression->type_name2 = type_name(ctx, error);
+            parser_match_tk(ctx, ')', error);
+            new_expression->constant_value = type_is_same(&new_expression->type_name->declarator->type,
+                                                          &new_expression->type_name2->declarator->type, true);
+            type_set_int(&new_expression->type);
+            p_expression_node = new_expression;
+        }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
         {
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
 
             parser_match(ctx);
 
             if (first_of_type_name_ahead(ctx))
-            {
-                new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
+            {                
                 parser_match_tk(ctx, '(', error);
                 new_expression->type_name = type_name(ctx, error);
-                new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
-
                 new_expression->last_token = ctx->current;
-
                 parser_match_tk(ctx, ')', error);
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->type, error);
             }
@@ -1797,10 +1811,9 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 new_expression->right = unary_expression(ctx, error, ectx);
                 ectx->constant_expression_required = old;
 
-                if (error->code != 0)
+                if (new_expression->right == NULL)
                     throw;
-
-                new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
+                
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->right->type, error);
                 new_expression->last_token = ctx->previous;
             }

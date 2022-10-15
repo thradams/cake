@@ -61,3 +61,5 @@ dkms.conf
 /src/build
 /vc/DebugTest
 /vc/x64/Debug
+/src/sqlite3.h
+/src/sqlite3.c

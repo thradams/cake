@@ -1361,7 +1361,29 @@ This is the motivation for *declarator static analisys* flags.
 
 ### Mechanics.
 
-We can set/remove and checks declarator flags.
+We can set/remove and verify declarator flags at compile time.
+
+Flags are declared at "annotations.h"
+
+```c
+
+enum
+{
+    /*to diferenciate "I know down" from "flags are zero"
+    ISVALID = 1 << 1,
+
+    /*object was not initialized yet"
+    UNINITIALIZED = 1 << 2,
+
+    /*some "destroy" function needs to be called before end of scope*/
+    MUST_DESTROY = 1 << 3,
+
+    /*memory is heap allocated with free, free must be called before end of scope*/
+    MUST_FREE = 1 << 4
+};
+
+```
+
 
 For instance:
 
@@ -1369,14 +1391,45 @@ For instance:
 int main()
 {
     int *p = malloc(sizeof(int)*10);
+    
+    /*we can annotate here that we must call free(p) before the end of scope*/
     _add_attr(p, MUST_FREE);
 
     free(p);
-    _del_attr(p, MUST_FREE);
 
-    static_assert(!__has_attr(MUST_FREE));
+    /*
+     We manually remove flag so compiler will not complain free was not called before
+     end of scope
+    */
+    _del_attr(p, MUST_FREE);    
 }
 ```
+
+We have a way to set MUST/_FREE  when malloc is called and remove MUST\_FREE
+when free is called. For this task we create a "extern function body". You can
+think it as something called at compile time each time a function is called.
+
+Syntax
+
+```
+ function-extern-definition:
+   declaration-specifiers declarator "extern" function-extern-body
+
+
+  function-extern-body:
+    static_assert-declaration
+    attribute
+
+```
+
+
+```c
+void* malloc(int size) extern {
+    _add(return, MUST_FREE)
+}
+```
+
+
 
 When we set/remove or check declarator flags on arguments
 the operation is delayed until the function instantiation.
@@ -1492,6 +1545,7 @@ _is_floating_point
 _is_integral
 _is_scalar
 
+_is_same
 ```
 
 

@@ -925,8 +925,7 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
         //
         //end microsoft
-        else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
-
+       
         /*EXPERIMENTAL EXTENSION*/
         else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
         else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
@@ -944,6 +943,7 @@ enum token_type is_keyword(const char* text)
         /*TRAITS EXTENSION*/
 
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
+        else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
         else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
         else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
         else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
@@ -5871,7 +5871,10 @@ void traits_test()
         "static_assert(_is_pointer(F));\n"
         "static_assert(_is_integral(1));\n"
         "int a[2];\n"
-        "static_assert(_is_array(a));\n";
+        "static_assert(_is_array(a));\n"
+        "int((a2))[10];\n"
+        "static_assert(_is_array(a2));"
+        ;
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
