@@ -850,6 +850,66 @@ int main()
 
 `;
 
+sample["Extension - flags"] =
+    `
+
+#include <stdlib.h>
+
+struct item {
+    struct item* next;
+};
+
+struct [[nodiscard]] list {
+    struct item* head;
+    struct item* tail;
+};
+
+void list_add(struct list* list, struct item* pnew) extern {
+    _del_attr(pnew, MUST_FREE);
+    _add_attr(pnew, UNINITIALIZED);
+}
+
+void list_add(struct list* list, struct item* pnew)
+{
+    void* pitem = (pnew);
+    if (list->head == NULL)
+    {
+        list->head = pitem;
+        list->tail = pitem;
+    }
+    else
+    {
+        list->tail->next = pitem;
+        list->tail = pitem;
+    }
+}
+
+void list_destroy(struct list* list) extern {
+    _del_attr(list, MUST_DESTROY);
+    _add_attr(list, UNINITIALIZED);
+}
+
+void list_destroy(struct list* list)
+{
+    struct item* p = list->head;
+    while (p)
+    {
+        struct item* temp = p;
+        _add_attr(temp, MUST_FREE);
+        p = p->next;
+        free(temp);
+    }
+}
+int main()
+{
+    struct list list = {};
+    struct item* p = calloc(1, sizeof * p);
+    list_add(&list, p);
+    //list_destroy(&list);
+}
+
+
+`;
 
 
 sample["Extension - Traits"] =

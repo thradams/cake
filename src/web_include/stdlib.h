@@ -45,6 +45,10 @@ void* malloc(size_t i) extern {
     _add_attr(return, MUST_FREE);
 }
 
+void* calloc(size_t nmemb, size_t size) extern {
+    _add_attr(return, MUST_FREE);
+}
+
 void free(void* p) extern {
     static_assert(_has_attr(p, MUST_FREE));
     _del_attr(p, MUST_FREE);
