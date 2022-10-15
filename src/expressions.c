@@ -44,7 +44,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 {
     try
     {
-        struct  function_declarator_type*   p_function_declarator_type =
+        struct  function_declarator_type* p_function_declarator_type =
             get_function_declarator_type(p_type);
 
         if (p_function_declarator_type == NULL)
@@ -52,12 +52,12 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 
         const bool is_var_args = p_function_declarator_type->is_var_args;
         const bool is_void =
-            /*detectar que o parametro é (void)*/            
+            /*detectar que o parametro é (void)*/
             p_function_declarator_type->params.head &&
             p_function_declarator_type->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
             p_function_declarator_type->params.head->declarator_type->pointers.head == NULL;
 
-            
+
 
         struct type* current_parameter_type = p_function_declarator_type->params.head;
 
@@ -1149,7 +1149,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                         p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt, NULL);
 
                     if (func)
-                      func = func->contract_declarator;
+                        func = func->contract_declarator;
 
                     if (func)
                     {
@@ -1510,7 +1510,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
         ctx->evaluated_at_caller = true;
     }
     else
-    {        
+    {
         new_expression->declarator->static_analisys_flags |= ISVALID;
 
         switch (func->type)
@@ -1858,7 +1858,7 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx, struct erro
             parser_match(ctx);
             new_expression->left = p_expression_node;
             new_expression->right = cast_expression(ctx, error, ectx);
-            
+
             if (new_expression->left == NULL ||
                 new_expression->right == NULL)
             {
@@ -1980,7 +1980,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
                     //tem que ser do mesmo tipo..
                     if (op == '-')
                     {
-                        if (type_is_same(&new_expression->left->type, &new_expression->right->type, true))
+                        if (type_is_same(&new_expression->left->type, &new_expression->right->type, false))
                         {
                             type_set_int(&new_expression->type);//
                         }
@@ -2590,14 +2590,20 @@ struct expression* expression(struct parser_ctx* ctx, struct error* error, struc
         if (error->code != 0)
             throw;
 
-        struct expression* p_expression_node_tail = p_expression_node;
-        while (ctx->current->type == ',')
+        if (ctx->current->type == ',')
         {
-            parser_match(ctx);
-            p_expression_node_tail->right = expression(ctx, error, ectx);
-            if (error->code != 0)
-                throw;
-            p_expression_node_tail = p_expression_node_tail->right;
+            while (ctx->current->type == ',')
+            {
+                parser_match(ctx);
+                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
+                p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->right = expression(ctx, error, ectx);
+                p_expression_node = p_expression_node_new;
+            }
+
+            /*same type of the last expression*/
+            p_expression_node->type = type_copy(&p_expression_node->right->type);
         }
     }
     catch
