@@ -783,7 +783,7 @@ int main()
 `;
 
 
-sample["declarator annotations"] =
+sample["Extension - declarator annotations"] =
 `
 #include <stdlib.h>
 
@@ -826,7 +826,7 @@ void x_delete(struct x* p) {
 
 
 
-sample["declarator annotations II"] =
+sample["Extension - declarator annotations II"] =
 `
 #include <stdlib.h>
 
@@ -854,6 +854,7 @@ int main()
 
 sample["Extension - Traits"] =
     `
+
 /*
   These type traits are based on C++ version
   https://en.cppreference.com/w/cpp/header/type_traits
@@ -864,7 +865,20 @@ int main()
   int i;
   static_assert(_is_integral(i));
   static_assert(_is_floating_point(double) && _is_floating_point(float));
-}
+  static_assert(_is_function(main));
 
+  char * p;
+  static_assert(_is_scalar(p));
+  static_assert(_is_scalar(nullptr));
+
+  int a[10];
+  static_assert(_is_array(a));
+
+  /*pf = pointer to function (void) returning array 10 of int*/
+  int (*pf)(void)[10];
+  static_assert(!_is_array(pf));
+  static_assert(_is_pointer(pf));
+
+}
 `;
 

@@ -933,6 +933,7 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
         /*EXPERIMENTAL EXTENSION*/
 
+        /*TRAITS EXTENSION*/
         else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
         else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
         else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
@@ -940,6 +941,7 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
         else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
         else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
+        /*TRAITS EXTENSION*/
 
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
         else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;

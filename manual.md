@@ -1484,8 +1484,16 @@ We have some compile time functions to infer properties of types.
 They are based on C++ https://en.cppreference.com/w/cpp/header/type_traits
 
 ```c
+_is_pointer
+_is_array
+_is_function
+_is_arithmetic
+_is_floating_point
+_is_integral
+_is_scalar
 
 ```
+
 
 
 
