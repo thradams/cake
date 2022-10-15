@@ -342,7 +342,14 @@ enum token_type
     TK_KEYWORD_ATTR_ADD, /*extension*/
     TK_KEYWORD_ATTR_REMOVE, /*extension*/
     TK_KEYWORD_ATTR_HAS, /*extension*/
-    
+    /*https://en.cppreference.com/w/cpp/header/type_traits*/
+    TK_KEYWORD_IS_POINTER,
+    TK_KEYWORD_IS_ARRAY,
+    TK_KEYWORD_IS_FUNCTION,
+    TK_KEYWORD_IS_SCALAR,
+    TK_KEYWORD_IS_ARITHMETIC,
+    TK_KEYWORD_IS_FLOATING_POINT,
+    TK_KEYWORD_IS_INTEGRAL,
 
     TK_KEYWORD_STATIC,
     TK_KEYWORD_STRUCT,
@@ -2157,14 +2164,29 @@ enum token_type is_punctuator(struct stream* stream)
     case '/':
         type = '/';
         stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '/=';
+            stream_match(stream);
+        }
         break;
     case '*':
         type = '*';
         stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '*=';
+            stream_match(stream);
+        }
         break;
     case '%':
         type = '%';
         stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '%=';
+            stream_match(stream);
+        }
         break;
     case '-':
         type = '-';
@@ -2252,6 +2274,11 @@ enum token_type is_punctuator(struct stream* stream)
         {
             type = '>>';
             stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '>>=';                
+                stream_match(stream);
+            }
         }
         else if (stream->current[0] == '=')
         {
@@ -2267,6 +2294,11 @@ enum token_type is_punctuator(struct stream* stream)
         {
             type = '<<';
             stream_match(stream);
+            if (stream->current[0] == '=')
+            {
+                type = '<<=';
+                stream_match(stream);
+            }
         }
         else if (stream->current[0] == '=')
         {
@@ -2534,14 +2566,14 @@ struct token* ppnumber(struct stream* stream)
             }
         }
         else if ((stream->current[0] == 'e' ||
-                 stream->current[0] == 'E' ||
-                 stream->current[0] == 'p' ||
-                 stream->current[0] == 'P') && 
-                 (stream->current[1] == '+' || stream->current[1] == '-' ) )
+            stream->current[0] == 'E' ||
+            stream->current[0] == 'p' ||
+            stream->current[0] == 'P') &&
+            (stream->current[1] == '+' || stream->current[1] == '-'))
         {
             stream_match(stream);//e E  p P
             stream_match(stream);//sign            
-        }        
+        }
         else if (stream->current[0] == '.')
         {
             stream_match(stream);//.            
@@ -3224,9 +3256,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
-                     (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
-                     strcmp(input_list->head->lexeme, "__has_embed") == 0)
-                     )                
+                (strcmp(input_list->head->lexeme, "__has_include") == 0 ||
+                    strcmp(input_list->head->lexeme, "__has_embed") == 0)
+                )
             {
                 token_list_pop_front(input_list); //pop __has_include
                 skip_blanks(&r, input_list);
@@ -3290,13 +3322,13 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 token_list_pop_front(input_list); //pop >					
 
                 /*nodiscard
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall 
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall
                 * return the value 202003L
                 * when given nodiscard as the pp-tokens operand.
                 */
-                
+
                 /*maybe_unused
-                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return 
+                * The __has_c_attribute conditional inclusion expression (6.10.1) shall return
                 * the value 202106L when given maybe_unused as the pp-tokens operand.
                 */
 
@@ -3932,12 +3964,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (!bAlreadyIncluded)
                 {
                     pre_seterror_with_token(ctx, r.tail, "file %s not found", path + 1);
-                    
+
                     for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
                     {
                         /*let's print the include path*/
                         ctx->printf("%s\n", p->path);
-                    }                    
+                    }
                 }
                 else
                 {
@@ -4059,7 +4091,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             // printf("define %s\n%s : %d\n", input_list->head->lexeme, input_list->head->token_origin->lexeme, input_list->head->line);
 
             struct token* macro_name_token = input_list->head;
-            
+
 
             if (hashmap_find(&ctx->macros, input_list->head->lexeme) != NULL)
             {
@@ -4134,7 +4166,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx, error);
 
             if (macro_name_token)
-              naming_convention_macro(ctx, macro_name_token);
+                naming_convention_macro(ctx, macro_name_token);
         }
         else if (strcmp(input_list->head->lexeme, "undef") == 0)
         {
@@ -4965,7 +4997,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
     try
     {
         assert(!macro_already_expanded(pList, macro->name));
-        struct macro_expanded macro_expanded = {0};
+        struct macro_expanded macro_expanded = { 0 };
         macro_expanded.name = macro->name;
         macro_expanded.pPrevious = pList;
         if (macro->bIsFunction)
@@ -5382,7 +5414,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
         "#define __FILE__ \"__FILE__\"\n"
         "#define __LINE__ 0\n"
         "#define __COUNT__ 0\n"
-        "#define _CONSOLE\n"        
+        "#define _CONSOLE\n"
 
 #ifdef WIN32
         "#define _WINDOWS\n"
@@ -5396,7 +5428,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error)
         "#define _M_IX86\n"
         "#define _X86_\n"
         "#define __fastcall\n"
-        "#define __stdcall\n"      
+        "#define __stdcall\n"
         "#define __cdecl\n"
         "#define __pragma(a)\n"
         "#define __declspec(a)\n"
@@ -5842,7 +5874,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
     if (!is_screaming_case(token->lexeme)) {
         pre_setinfo_with_token(ctx, token, "use SCREAMING_CASE for macros");
     }
-    
+
 }
 
 
@@ -7504,18 +7536,22 @@ char* readfile(const char* path)
 ,101,110,100,105,102,13,10,13,10,13,10,118,111,105,100,42,32,109,97,108,108,111,99,40,115
 ,105,122,101,95,116,32,105,41,32,101,120,116,101,114,110,32,123,13,10,32,32,32,32,95,97
 ,100,100,95,97,116,116,114,40,114,101,116,117,114,110,44,32,77,85,83,84,95,70,82,69,69
-,41,59,13,10,125,13,10,13,10,118,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32
-,112,41,32,101,120,116,101,114,110,32,123,13,10,32,32,32,32,115,116,97,116,105,99,95,97
-,115,115,101,114,116,40,95,104,97,115,95,97,116,116,114,40,112,44,32,77,85,83,84,95,70
-,82,69,69,41,41,59,13,10,32,32,32,32,95,100,101,108,95,97,116,116,114,40,112,44,32
-,77,85,83,84,95,70,82,69,69,41,59,13,10,125,13,10,13,10,118,111,105,100,42,32,109
-,111,118,101,112,116,114,40,118,111,105,100,42,32,112,41,32,101,120,116,101,114,110,32,123,13
-,10,32,32,32,32,115,116,97,116,105,99,95,97,115,115,101,114,116,40,95,104,97,115,95,97
-,116,116,114,40,112,44,32,77,85,83,84,95,70,82,69,69,41,41,59,13,10,32,32,32,32
-,95,100,101,108,95,97,116,116,114,40,112,44,32,77,85,83,84,95,70,82,69,69,41,59,13
-,10,32,32,32,32,95,97,100,100,95,97,116,116,114,40,112,44,32,85,78,73,78,73,84,73
-,65,76,73,90,69,68,41,59,13,10,32,32,32,32,95,97,100,100,95,97,116,116,114,40,114
-,101,116,117,114,110,44,32,77,85,83,84,95,70,82,69,69,41,59,13,10,125,13,10
+,41,59,13,10,125,13,10,13,10,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122
+,101,95,116,32,110,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,32,101
+,120,116,101,114,110,32,123,13,10,32,32,32,32,95,97,100,100,95,97,116,116,114,40,114,101
+,116,117,114,110,44,32,77,85,83,84,95,70,82,69,69,41,59,13,10,125,13,10,13,10,118
+,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32,112,41,32,101,120,116,101,114,110,32
+,123,13,10,32,32,32,32,115,116,97,116,105,99,95,97,115,115,101,114,116,40,95,104,97,115
+,95,97,116,116,114,40,112,44,32,77,85,83,84,95,70,82,69,69,41,41,59,13,10,32,32
+,32,32,95,100,101,108,95,97,116,116,114,40,112,44,32,77,85,83,84,95,70,82,69,69,41
+,59,13,10,125,13,10,13,10,118,111,105,100,42,32,109,111,118,101,112,116,114,40,118,111,105
+,100,42,32,112,41,32,101,120,116,101,114,110,32,123,13,10,32,32,32,32,115,116,97,116,105
+,99,95,97,115,115,101,114,116,40,95,104,97,115,95,97,116,116,114,40,112,44,32,77,85,83
+,84,95,70,82,69,69,41,41,59,13,10,32,32,32,32,95,100,101,108,95,97,116,116,114,40
+,112,44,32,77,85,83,84,95,70,82,69,69,41,59,13,10,32,32,32,32,95,97,100,100,95
+,97,116,116,114,40,112,44,32,85,78,73,78,73,84,73,65,76,73,90,69,68,41,59,13,10
+,32,32,32,32,95,97,100,100,95,97,116,116,114,40,114,101,116,117,114,110,44,32,77,85,83
+,84,95,70,82,69,69,41,59,13,10,125,13,10
     ,0 };
 
     static const unsigned char file_math_h[] = {
@@ -8308,6 +8344,7 @@ struct type get_pointer_content_type(struct type* p_type);
 bool type_is_array(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
 bool type_is_integer(struct type* p_type);
+bool type_is_floating_point(struct type* p_type);
 bool type_is_void(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
@@ -8317,6 +8354,7 @@ bool type_is_function(struct type* p_type);
 bool type_is_nodiscard(struct type* p_type);
 bool type_is_deprecated(struct type* p_type);
 bool type_is_maybe_unused(struct type* p_type);
+struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
 struct type get_pointer_content_type(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
@@ -8372,6 +8410,7 @@ enum expression_type
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
     UNARY_EXPRESSION_HASHOF_TYPE,
+    UNARY_EXPRESSION_TRAITS,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
     UNARY_EXPRESSION_ALIGNOF,
 
@@ -9785,29 +9824,22 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 {
     try
     {
-        struct params parameter_type = { 0 };
+        struct  function_declarator_type* p_function_declarator_type =
+            get_function_declarator_type(p_type);
 
+        if (p_function_declarator_type == NULL)
+            throw;
 
-        bool is_var_args = false;
-        bool is_void = false;
-
-        if (p_type &&
-            p_type->declarator_type &&
-            p_type->declarator_type->direct_declarator_type &&
-            p_type->declarator_type->direct_declarator_type->function_declarator_type)
-        {
-            parameter_type = p_type->declarator_type->direct_declarator_type->function_declarator_type->params;
-            is_var_args = p_type->declarator_type->direct_declarator_type->function_declarator_type->is_var_args;
-
+        const bool is_var_args = p_function_declarator_type->is_var_args;
+        const bool is_void =
             /*detectar que o parametro é (void)*/
-            is_void =
-                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head &&
-                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
-                p_type->declarator_type->direct_declarator_type->function_declarator_type->params.head->declarator_type->pointers.head == NULL;
-        }
+            p_function_declarator_type->params.head &&
+            p_function_declarator_type->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
+            p_function_declarator_type->params.head->declarator_type->pointers.head == NULL;
 
 
-        struct type* current_parameter_type = parameter_type.head;
+
+        struct type* current_parameter_type = p_function_declarator_type->params.head;
 
         int param_num = 1;
         struct argument_expression* current_argument =
@@ -10897,7 +10929,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                         p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt, NULL);
 
                     if (func)
-                      func = func->contract_declarator;
+                        func = func->contract_declarator;
 
                     if (func)
                     {
@@ -11036,6 +11068,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->type = type_copy(&p_expression_node->type);
                 parser_match(ctx);
                 p_expression_node = p_expression_node_new;
             }
@@ -11179,6 +11212,27 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
     return p_expression_node;
 }
 
+bool is_first_of_compiler_function(struct parser_ctx* ctx)
+{
+    if (ctx->current == NULL)
+        return false;
+
+    return
+        //traits
+        ctx->current->type == TK_KEYWORD_IS_POINTER ||
+        ctx->current->type == TK_KEYWORD_IS_ARRAY ||
+        ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
+
+        ctx->current->type == TK_KEYWORD_IS_SCALAR ||
+        ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
+        ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
+        ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
+        //
+        ctx->current->type == TK_KEYWORD_HASHOF ||
+        ctx->current->type == TK_KEYWORD_ATTR_ADD ||
+        ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
+        ctx->current->type == TK_KEYWORD_ATTR_HAS;
+}
 
 bool is_first_of_unary_expression(struct parser_ctx* ctx)
 {
@@ -11194,11 +11248,8 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == '~' ||
         ctx->current->type == '!' ||
         ctx->current->type == TK_KEYWORD_SIZEOF ||
-        ctx->current->type == TK_KEYWORD_HASHOF ||
-        ctx->current->type == TK_KEYWORD_ATTR_ADD ||
-        ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
-        ctx->current->type == TK_KEYWORD_ATTR_HAS ||
-        ctx->current->type == TK_KEYWORD__ALIGNOF;
+        ctx->current->type == TK_KEYWORD__ALIGNOF ||
+        is_first_of_compiler_function(ctx);
 }
 
 struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
@@ -11257,7 +11308,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
         ctx->evaluated_at_caller = true;
     }
     else
-    {        
+    {
         new_expression->declarator->static_analisys_flags |= ISVALID;
 
         switch (func->type)
@@ -11433,6 +11484,73 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
         {
             p_expression_node = declarator_attribute_expression(ctx, error, ectx);
         }
+        else if (ctx->current->type == TK_KEYWORD_IS_POINTER ||
+            ctx->current->type == TK_KEYWORD_IS_ARRAY ||
+            ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
+            ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
+            ctx->current->type == TK_KEYWORD_IS_SCALAR ||
+            ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
+            ctx->current->type == TK_KEYWORD_IS_INTEGRAL)
+        {
+            struct token* traits_token = ctx->current;
+
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_TRAITS;
+
+            parser_match(ctx);
+
+            struct type* p_type = NULL;
+            if (first_of_type_name_ahead(ctx))
+            {
+                parser_match_tk(ctx, '(', error);
+                new_expression->type_name = type_name(ctx, error);
+                new_expression->last_token = ctx->current;
+                parser_match_tk(ctx, ')', error);
+                p_type = &new_expression->type_name->declarator->type;
+            }
+            else
+            {
+                bool old = ectx->constant_expression_required;
+                ectx->constant_expression_required = false;
+                new_expression->right = unary_expression(ctx, error, ectx);
+                if (new_expression->right == NULL) throw;
+                ectx->constant_expression_required = old;
+                p_type = &new_expression->right->type;
+                new_expression->last_token = ctx->previous;
+            }
+            switch (traits_token->type)
+            {
+            case TK_KEYWORD_IS_POINTER:
+                new_expression->constant_value = type_is_pointer(p_type);
+                break;
+            case TK_KEYWORD_IS_FUNCTION:
+                new_expression->constant_value = type_is_function(p_type);
+                break;
+            case TK_KEYWORD_IS_ARRAY:
+                new_expression->constant_value = type_is_array(p_type);
+                break;
+            case TK_KEYWORD_IS_ARITHMETIC:
+                new_expression->constant_value = type_is_arithmetic(p_type);
+                break;
+            case TK_KEYWORD_IS_SCALAR:
+                new_expression->constant_value = type_is_scalar(p_type);
+                break;
+            case TK_KEYWORD_IS_FLOATING_POINT:
+                new_expression->constant_value = type_is_floating_point(p_type);
+                break;
+            case TK_KEYWORD_IS_INTEGRAL:
+                new_expression->constant_value = type_is_integer(p_type);
+                break;
+                
+            default:
+                assert(false);
+
+            }
+
+            type_set_int(&new_expression->type); //resultado sizeof
+            p_expression_node = new_expression;
+        }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
         {
             struct expression* new_expression = calloc(1, sizeof * new_expression);
@@ -11605,8 +11723,12 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx, struct erro
             parser_match(ctx);
             new_expression->left = p_expression_node;
             new_expression->right = cast_expression(ctx, error, ectx);
-            if (error->code != 0)
+
+            if (new_expression->left == NULL ||
+                new_expression->right == NULL)
+            {
                 throw;
+            }
 
             if (op == '*')
             {
@@ -11723,7 +11845,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
                     //tem que ser do mesmo tipo..
                     if (op == '-')
                     {
-                        if (type_is_same(&new_expression->left->type, &new_expression->right->type, true))
+                        if (type_is_same(&new_expression->left->type, &new_expression->right->type, false))
                         {
                             type_set_int(&new_expression->type);//
                         }
@@ -11804,8 +11926,10 @@ struct expression* shift_expression(struct parser_ctx* ctx, struct error* error,
             parser_match(ctx);
             new_expression->left = p_expression_node;
             new_expression->right = multiplicative_expression(ctx, error, ectx);
-            if (error->code != 0)
+            if (new_expression->left == NULL || new_expression->right == NULL)
+            {
                 throw;
+            }
 
             if (op == '>>')
             {
@@ -12268,6 +12392,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
             (ctx->current->type == '=' ||
                 ctx->current->type == '*=' ||
                 ctx->current->type == '/=' ||
+                ctx->current->type == '%=' ||
                 ctx->current->type == '+=' ||
                 ctx->current->type == '-=' ||
                 ctx->current->type == '<<=' ||
@@ -12330,14 +12455,20 @@ struct expression* expression(struct parser_ctx* ctx, struct error* error, struc
         if (error->code != 0)
             throw;
 
-        struct expression* p_expression_node_tail = p_expression_node;
-        while (ctx->current->type == ',')
+        if (ctx->current->type == ',')
         {
-            parser_match(ctx);
-            p_expression_node_tail->right = expression(ctx, error, ectx);
-            if (error->code != 0)
-                throw;
-            p_expression_node_tail = p_expression_node_tail->right;
+            while (ctx->current->type == ',')
+            {
+                parser_match(ctx);
+                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
+                p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->right = expression(ctx, error, ectx);
+                p_expression_node = p_expression_node_new;
+            }
+
+            /*same type of the last expression*/
+            p_expression_node->type = type_copy(&p_expression_node->right->type);
         }
     }
     catch
@@ -12473,17 +12604,7 @@ void test_compiler_constant_expression()
     assert(test_constant_expression("sizeof(unsigned long)", sizeof(unsigned long)) == 0);
 }
 
-void is_pointer_test()
-{
-    struct type t1 = type_make_using_string("(int *)0");
-    assert(type_is_pointer(&t1));
 
-    struct type t2 = type_make_using_string("1");
-    assert(type_is_integer(&t2));
-
-    struct type t3 = type_make_using_string("(void (*)(void))0");
-    assert(type_is_pointer(&t3));
-}
 
 void sizeoftest1()
 {
@@ -13969,6 +14090,25 @@ bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
     return false;
 }
 
+struct  function_declarator_type* get_function_declarator_type(struct type* p_type)
+{
+    assert(type_is_function_or_function_pointer(p_type));
+    struct declarator_type* inner = p_type->declarator_type;
+    for (;;)
+    {
+        if (inner->direct_declarator_type &&
+            inner->direct_declarator_type->function_declarator_type &&
+            inner->direct_declarator_type->function_declarator_type->direct_declarator_type &&
+            inner->direct_declarator_type->function_declarator_type->direct_declarator_type->declarator_opt)
+        {
+            inner = inner->direct_declarator_type->function_declarator_type->direct_declarator_type->declarator_opt;
+        }
+        else
+            break;
+    }
+    return inner->direct_declarator_type->function_declarator_type;
+}
+
 bool type_is_maybe_unused(struct type* p_type)
 {
     return type_has_attribute(p_type, STD_ATTRIBUTE_MAYBE_UNUSED);
@@ -14035,6 +14175,21 @@ bool type_is_void(struct type* p_type)
 
     return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
 }
+
+/*
+  The type char, the signed and unsigned integer types, and the enumerated types are collectively
+  called integer types. The integer and real floating types are collectively called real types
+*/
+bool type_is_floating_point(struct type* p_type)
+{
+    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return false;
+
+    return p_type->type_specifier_flags &
+        (TYPE_SPECIFIER_DOUBLE |
+            TYPE_SPECIFIER_FLOAT);
+}
+
 
 /*
   The type char, the signed and unsigned integer types, and the enumerated types are collectively
@@ -16490,6 +16645,16 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
         /*EXPERIMENTAL EXTENSION*/
 
+        /*TRAITS EXTENSION*/
+        else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
+        else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
+        else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
+        else if (strcmp("_is_arithmetic", text) == 0) result = TK_KEYWORD_IS_ARITHMETIC;
+        else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
+        else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
+        else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
+        /*TRAITS EXTENSION*/
+
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
         else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
         else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
@@ -17280,21 +17445,41 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
         struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
         struct declarator* registered_declarator = find_declarator(ctx, function_declarator->name->lexeme, NULL);
-        
+
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
         assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator);
 
-        struct scope* parameters_scope =
-            &p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameters_scope;
+        /* 
+            scope of parameters is the inner declarator
 
+            void (*f(int i))(void) {
+                i = 1;
+                return 0;
+            }
+        */
 
+        struct declarator* inner = p_declaration->init_declarator_list.head->declarator;
+        for (;;)
+        {
+            if (inner->direct_declarator &&
+                inner->direct_declarator->function_declarator &&
+                inner->direct_declarator->function_declarator->direct_declarator &&
+                inner->direct_declarator->function_declarator->direct_declarator->declarator)
+            {
+                inner = inner->direct_declarator->function_declarator->direct_declarator->declarator;
+            }
+            else
+                break;
+        }
+
+        struct scope* parameters_scope = &inner->direct_declarator->function_declarator->parameters_scope;
         scope_list_push(&ctx->scopes, parameters_scope);
 
 
         if (ctx->current->type == TK_KEYWORD_EXTERN)
-        {            
+        {
             parser_match(ctx);
             //o function_prototype_scope era um block_scope
             p_declaration->function_body = function_body(ctx, error);
@@ -17307,7 +17492,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
             //o function_prototype_scope era um block_scope
             p_declaration->function_body = function_body(ctx, error);
             p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
-            
+
             /*we need to point to all declarator with body because tree is linked with argumetns*/
         }
 
@@ -17476,23 +17661,25 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                     /*
                       TODO compare if the declaration is identical
+                      Rules for file scope are diferent see #12
                     */
 
                     if (!previous_is_function && !previous_is_typedef_or_extern)
                     {
                         if (!current_is_function && !current_is_function)
                         {
-                            parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
-                            parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                            //See TODO
+                            //parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
+                            //parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
                         }
                     }
                 }
                 else
                 {
                     hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
-                    
+
                     /*global scope no warning...*/
-                    if (out->scope_level != 0) 
+                    if (out->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
                         parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
@@ -18877,6 +19064,9 @@ struct function_declarator* function_declarator(struct direct_declarator* p_dire
     p_function_declarator->direct_declarator = p_direct_declarator;
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
     p_function_declarator->parameters_scope.is_parameters_scope = true;
+    p_function_declarator->parameters_scope.variables.capacity = 5;
+    p_function_declarator->parameters_scope.tags.capacity = 1;
+
 
     scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
 
@@ -21328,6 +21518,92 @@ void type_test3()
     get_ast(&options, "source", src, &error, &report);
     assert(error.code == 0);
 
+}
+
+void crazy_decl()
+{
+    const char* src =
+        "void (*f(int i))(void)\n"
+        "{\n"
+        "   i = 1; \n"
+        "    return 0;\n"
+        "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
+void crazy_decl2()
+{
+    const char* src =
+        "void (*f(int i))(void)\n"
+        "{\n"
+        "   i = 1; \n"
+        "    return 0;\n"
+        "}\n"
+        "int main()\n"
+        "{\n"
+        "  f(1);\n"
+        "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
+
+void crazy_decl4()
+{
+    const char* src =
+        "void (*F(int a, int b))(void) { return 0; }\n"
+        "void (*(*PF)(int a, int b))(void) = F;\n"
+        "int main() {\n"
+        "    PF(1, 2);\n"
+        "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
+
+void traits_test()
+{
+    //https://en.cppreference.com/w/cpp/header/type_traits
+    const char* src =
+        "void (*F)();\n"
+        "static_assert(_is_pointer(F));\n"
+        "static_assert(_is_integral(1));\n"
+        "int a[2];\n"
+        "static_assert(_is_array(a));\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
+void comp_error1()
+{
+    const char* src =
+        "void F() {\n"
+        "    char* z;\n"
+        "    *z-- = '\0';\n"
+        "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
 }
 
 void expand_test()
