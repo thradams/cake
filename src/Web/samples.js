@@ -849,3 +849,22 @@ int main()
 }
 
 `;
+
+
+
+sample["Extension - Traits"] =
+    `
+/*
+  These type traits are based on C++ version
+  https://en.cppreference.com/w/cpp/header/type_traits
+*/
+
+int main()
+{
+  int i;
+  static_assert(_is_integral(i));
+  static_assert(_is_floating_point(double) && _is_floating_point(float));
+}
+
+`;
+

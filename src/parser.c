@@ -933,6 +933,14 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
         /*EXPERIMENTAL EXTENSION*/
 
+        else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
+        else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
+        else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
+        else if (strcmp("_is_arithmetic", text) == 0) result = TK_KEYWORD_IS_ARITHMETIC;
+        else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
+        else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
+        else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
+
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
         else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
         else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
@@ -5852,6 +5860,23 @@ void crazy_decl4()
     assert(report.error_count == 0);
 }
 
+
+void traits_test()
+{
+    //https://en.cppreference.com/w/cpp/header/type_traits
+    const char* src =
+        "void (*F)();\n"
+        "static_assert(_is_pointer(F));\n"
+        "static_assert(_is_integral(1));\n"
+        "int a[2];\n"
+        "static_assert(_is_array(a));\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
 
 void comp_error1()
 {

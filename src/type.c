@@ -531,6 +531,21 @@ bool type_is_void(struct type* p_type)
   The type char, the signed and unsigned integer types, and the enumerated types are collectively
   called integer types. The integer and real floating types are collectively called real types
 */
+bool type_is_floating_point(struct type* p_type)
+{
+    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
+        return false;
+
+    return p_type->type_specifier_flags &
+        (TYPE_SPECIFIER_DOUBLE |
+            TYPE_SPECIFIER_FLOAT);
+}
+
+
+/*
+  The type char, the signed and unsigned integer types, and the enumerated types are collectively
+  called integer types. The integer and real floating types are collectively called real types
+*/
 bool type_is_integer(struct type* p_type)
 {
     if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)

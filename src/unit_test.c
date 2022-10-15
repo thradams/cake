@@ -60,7 +60,6 @@ int test_line_continuation(void);
 
 /* tests from expressions.c*/
 void test_compiler_constant_expression(void);
-void is_pointer_test(void);
 void sizeoftest1(void);
 void sizeof_struct_test(void);
 void test_expressions(void);
@@ -87,6 +86,7 @@ void type_test3(void);
 void crazy_decl(void);
 void crazy_decl2(void);
 void crazy_decl4(void);
+void traits_test(void);
 void comp_error1(void);
 void expand_test(void);
 
@@ -142,7 +142,6 @@ g_unit_test_success_count = 0;
     test_utf8();
     test_line_continuation();
     test_compiler_constant_expression();
-    is_pointer_test();
     sizeoftest1();
     sizeof_struct_test();
     test_expressions();
@@ -167,6 +166,7 @@ g_unit_test_success_count = 0;
     crazy_decl();
     crazy_decl2();
     crazy_decl4();
+    traits_test();
     comp_error1();
     expand_test();
 return g_unit_test_error_count;

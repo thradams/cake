@@ -166,6 +166,7 @@ struct type get_pointer_content_type(struct type* p_type);
 bool type_is_array(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
 bool type_is_integer(struct type* p_type);
+bool type_is_floating_point(struct type* p_type);
 bool type_is_void(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);

@@ -1478,7 +1478,21 @@ int main()
 }
 ```
 
-## Pré-defined macros
+## Type traits
+
+We have some compile time functions to infer properties of types.
+They are based on C++ https://en.cppreference.com/w/cpp/header/type_traits
+
+```c
+
+```
+
+
+
+
+
+
+## Pre-defined macros
 
  * \_\_CAKE\_\_ 202311L
  * \_\_STDC_VERSION\_\_ 202311L

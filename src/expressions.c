@@ -1432,6 +1432,27 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
     return p_expression_node;
 }
 
+bool is_first_of_compiler_function(struct parser_ctx* ctx)
+{
+    if (ctx->current == NULL)
+        return false;
+
+    return
+        //traits
+        ctx->current->type == TK_KEYWORD_IS_POINTER ||
+        ctx->current->type == TK_KEYWORD_IS_ARRAY ||
+        ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
+
+        ctx->current->type == TK_KEYWORD_IS_SCALAR ||
+        ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
+        ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
+        ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
+        //
+        ctx->current->type == TK_KEYWORD_HASHOF ||
+        ctx->current->type == TK_KEYWORD_ATTR_ADD ||
+        ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
+        ctx->current->type == TK_KEYWORD_ATTR_HAS;
+}
 
 bool is_first_of_unary_expression(struct parser_ctx* ctx)
 {
@@ -1447,11 +1468,8 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == '~' ||
         ctx->current->type == '!' ||
         ctx->current->type == TK_KEYWORD_SIZEOF ||
-        ctx->current->type == TK_KEYWORD_HASHOF ||
-        ctx->current->type == TK_KEYWORD_ATTR_ADD ||
-        ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
-        ctx->current->type == TK_KEYWORD_ATTR_HAS ||
-        ctx->current->type == TK_KEYWORD__ALIGNOF;
+        ctx->current->type == TK_KEYWORD__ALIGNOF ||
+        is_first_of_compiler_function(ctx);
 }
 
 struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
@@ -1685,6 +1703,73 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             ctx->current->type == TK_KEYWORD_ATTR_HAS)
         {
             p_expression_node = declarator_attribute_expression(ctx, error, ectx);
+        }
+        else if (ctx->current->type == TK_KEYWORD_IS_POINTER ||
+            ctx->current->type == TK_KEYWORD_IS_ARRAY ||
+            ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
+            ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
+            ctx->current->type == TK_KEYWORD_IS_SCALAR ||
+            ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
+            ctx->current->type == TK_KEYWORD_IS_INTEGRAL)
+        {
+            struct token* traits_token = ctx->current;
+
+            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            new_expression->first_token = ctx->current;
+            new_expression->expression_type = UNARY_EXPRESSION_TRAITS;
+
+            parser_match(ctx);
+
+            struct type* p_type = NULL;
+            if (first_of_type_name_ahead(ctx))
+            {
+                parser_match_tk(ctx, '(', error);
+                new_expression->type_name = type_name(ctx, error);
+                new_expression->last_token = ctx->current;
+                parser_match_tk(ctx, ')', error);
+                p_type = &new_expression->type_name->declarator->type;
+            }
+            else
+            {
+                bool old = ectx->constant_expression_required;
+                ectx->constant_expression_required = false;
+                new_expression->right = unary_expression(ctx, error, ectx);
+                if (new_expression->right == NULL) throw;
+                ectx->constant_expression_required = old;
+                p_type = &new_expression->right->type;
+                new_expression->last_token = ctx->previous;
+            }
+            switch (traits_token->type)
+            {
+            case TK_KEYWORD_IS_POINTER:
+                new_expression->constant_value = type_is_pointer(p_type);
+                break;
+            case TK_KEYWORD_IS_FUNCTION:
+                new_expression->constant_value = type_is_function(p_type);
+                break;
+            case TK_KEYWORD_IS_ARRAY:
+                new_expression->constant_value = type_is_array(p_type);
+                break;
+            case TK_KEYWORD_IS_ARITHMETIC:
+                new_expression->constant_value = type_is_arithmetic(p_type);
+                break;
+            case TK_KEYWORD_IS_SCALAR:
+                new_expression->constant_value = type_is_scalar(p_type);
+                break;
+            case TK_KEYWORD_IS_FLOATING_POINT:
+                new_expression->constant_value = type_is_floating_point(p_type);
+                break;
+            case TK_KEYWORD_IS_INTEGRAL:
+                new_expression->constant_value = type_is_integer(p_type);
+                break;
+                
+            default:
+                assert(false);
+
+            }
+
+            type_set_int(&new_expression->type); //resultado sizeof
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
         {
@@ -2740,17 +2825,7 @@ void test_compiler_constant_expression()
     assert(test_constant_expression("sizeof(unsigned long)", sizeof(unsigned long)) == 0);
 }
 
-void is_pointer_test()
-{
-    struct type t1 = type_make_using_string("(int *)0");
-    assert(type_is_pointer(&t1));
 
-    struct type t2 = type_make_using_string("1");
-    assert(type_is_integer(&t2));
-
-    struct type t3 = type_make_using_string("(void (*)(void))0");
-    assert(type_is_pointer(&t3));
-}
 
 void sizeoftest1()
 {
