@@ -2884,7 +2884,7 @@ static int expression_type(const char* expression, const char* result)
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    return error.code;
+    assert(report.error_count == 0);
 }
 
 void test_expressions()
@@ -2961,7 +2961,7 @@ void test_expressions()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void literal_string_type()
@@ -2976,7 +2976,7 @@ void literal_string_type()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 void type_suffix_test()
 {
@@ -3021,20 +3021,20 @@ void type_suffix_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count== 0);
 }
 
 void type_test()
 {
     const char* source =
         "int * p = 0;"
-        "_Static_assert(typeid(*(p + 1)) == typeid(int));"
+        "static_assert(_is_same( typeof( *(p + 1) ), int)   );"
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void digit_separator_test()
@@ -3046,7 +3046,7 @@ void digit_separator_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void numbers_test()
@@ -3060,7 +3060,7 @@ void numbers_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void binary_digits_test()
@@ -3074,7 +3074,7 @@ void binary_digits_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void is_arithmetic_test()
@@ -3149,6 +3149,6 @@ void params_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count== 0);
 }
 #endif
