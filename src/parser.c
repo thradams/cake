@@ -21,6 +21,8 @@
 #include "visit.h"
 #include <time.h>
 
+
+
 struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* error);
 
 
@@ -94,6 +96,10 @@ void scope_list_pop(struct scope_list* list)
 }
 
 
+void parser_ctx_destroy(struct parser_ctx* ctx)
+{
+//TODO
+}
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
@@ -4287,26 +4293,20 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                 */
                 if (p_declarator->static_analisys_flags & MUST_DESTROY)
                 {
-                    ctx->printf(WHITE "%s:%d:%d: ",
-                        p_declarator->name->token_origin->lexeme,
-                        p_declarator->name->line,
-                        p_declarator->name->col);
+                    parser_seterror_with_token(ctx,
+                        p_declarator->name, 
+                        "destructor of '%s' must be called before the end of scope",
+                        p_declarator->name->lexeme);
 
-                    if (p_declarator->static_analisys_flags & MUST_DESTROY)
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
-                            p_declarator->name->lexeme);
                 }
 
                 if (p_declarator->static_analisys_flags & MUST_FREE)
                 {
-                    ctx->printf(WHITE "%s:%d:%d: ",
-                        p_declarator->name->token_origin->lexeme,
-                        p_declarator->name->line,
-                        p_declarator->name->col);
-
-                    if (p_declarator->static_analisys_flags & MUST_FREE)
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
-                            p_declarator->name->lexeme);
+                    
+                    parser_seterror_with_token(ctx,
+                        p_declarator->name,
+                        "free('%s') must be called before the end of scope",
+                        p_declarator->name->lexeme);                    
                 }
 
                 if (!type_is_maybe_unused(&p_declarator->type) &&
@@ -4910,7 +4910,7 @@ struct declaration_list parse(struct options* options,
     report->warnings_count = ctx.n_warnings;
     report->info_count = ctx.n_info;
 
-
+    parser_ctx_destroy(&ctx);
     return l;
 }
 
@@ -5371,6 +5371,8 @@ struct ast get_ast(struct options* options,
         return ast;
 
     ast.declaration_list = parse(options, &ast.token_list, error, report);
+
+    _del_attr(ast, MUST_DESTROY); //MOVED
     return ast;
 }
 

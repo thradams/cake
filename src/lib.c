@@ -8570,8 +8570,7 @@ struct expression* constant_expression(struct parser_ctx* ctx, struct error* err
 //#pragma once
 
 
-
-struct scope
+struct dtor scope
 {
     int scope_level;
     struct hash_map tags;
@@ -8602,7 +8601,7 @@ struct report
 };
 
 
-struct parser_ctx
+struct dtor parser_ctx
 {
     struct options options;
     
@@ -8644,6 +8643,14 @@ struct parser_ctx
 
 ///////////////////////////////////////////////////////
 
+void parser_ctx_destroy(struct parser_ctx* ctx);
+
+#ifdef __CAKE__
+void parser_ctx_destroy(struct parser_ctx* ctx) extern
+{
+    _del_attr(ctx, MUST_DESTROY);
+}
+#endif
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 
@@ -9780,7 +9787,7 @@ struct label
 struct label* label(struct parser_ctx* ctx, struct error* error);
 
 
-struct ast
+struct dtor ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
@@ -9791,6 +9798,13 @@ struct ast get_ast(struct options* options, const char* fileName, const char* so
 void ast_destroy(struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
+
+#ifdef __CAKE__
+void ast_destroy(struct ast* ast) extern
+{
+    _del_attr(ast, MUST_DESTROY);
+}
+#endif
 
 
 #ifdef _WIN32
@@ -12666,7 +12680,7 @@ static int expression_type(const char* expression, const char* result)
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    return error.code;
+    assert(report.error_count == 0);
 }
 
 void test_expressions()
@@ -12743,7 +12757,7 @@ void test_expressions()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void literal_string_type()
@@ -12758,65 +12772,72 @@ void literal_string_type()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 void type_suffix_test()
 {
-
     const char* source =
-        "_Static_assert("
-        "1 == typeid(int) && "
-        "1L == typeid(long) && "
-        "1LL == typeid(long long)  && "
-        "1U == typeid(unsigned int) && "
-        "1ULL == typeid(unsigned long long) &&"
-        "1 == typeid(int) && "
-        "1l == typeid(long) && "
-        "1ll == typeid(long long)  && "
-        "1u == typeid(unsigned int) && "
-        "1ull == typeid(unsigned long long) && "
-        "0x1 == typeid(int) && "
-        "0x1L == typeid(long) && "
-        "0x1LL == typeid(long long)  && "
-        "0x1U == typeid(unsigned int) && "
-        "0x1ULL == typeid(unsigned long long) &&"
-        "0x1 == typeid(int)  &&"
-        "0x1l == typeid(long)  && "
-        "0x1ll == typeid(long long)  && "
-        "0x1u == typeid(unsigned int) && "
-        "0x1ull == typeid(unsigned long long) &&"
-        "0b1 == typeid(int)  &&"
-        "0b1L == typeid(long) && "
-        "0b1LL == typeid(long long) &&  "
-        "0b1U == typeid(unsigned int) && "
-        "0b1ULL == typeid(unsigned long long) &&"
-        "0b1l == typeid(long) && "
-        "0b1ll == typeid(long long)   &&"
-        "0b1ul == typeid(unsigned long)  &&"
-        "0b1ull == typeid(unsigned long long) && "
-        "1.0f == typeid(float) && "
-        "1.0 == typeid(double) "
-        ");"
+        "\n"
+        "#ifdef __cplusplus\n"
+        "#include <type_traits>\n"
+        "#define typeof decltype\n"
+        "#define _is_same(a, b) std::is_same<a, b>::value\n"
+        "#endif\n"
+        "\n"
+        "\n"
+        "static_assert(_is_same(typeof(1), int));\n"
+        "static_assert(_is_same(typeof(1L), long));\n"
+        "static_assert(_is_same(typeof(1LL), long long));\n"
+        "static_assert(_is_same(typeof(1U), unsigned int));\n"
+        "static_assert(_is_same(typeof(1ULL), unsigned long long));\n"
+        "static_assert(_is_same(typeof(1), int));\n"
+        "static_assert(_is_same(typeof(1l), long));\n"
+        "static_assert(_is_same(typeof(1ll), long long) );\n"
+        "static_assert(_is_same(typeof(1u), unsigned int));\n"
+        "static_assert(_is_same(typeof(1ull), unsigned long long));\n"
+        "static_assert(_is_same(typeof(0x1), int));\n"
+        "static_assert(_is_same(typeof(0x1L), long));\n"
+        "static_assert(_is_same(typeof(0x1LL), long long));\n"
+        "static_assert(_is_same(typeof(0x1U), unsigned int));\n"
+        "static_assert(_is_same(typeof(0x1ULL), unsigned long long));  \n"
+        "static_assert(_is_same(typeof(0x1), int));\n"
+        "static_assert(_is_same(typeof(0x1l), long));\n"
+        "static_assert(_is_same(typeof(0x1ll), long long));\n"
+        "static_assert(_is_same(typeof(0x1u), unsigned int));\n"
+        "static_assert(_is_same(typeof(0x1ull), unsigned long long));\n"
+        "static_assert(_is_same(typeof(0b1), int));\n"
+        "static_assert(_is_same(typeof(0b1L), long));\n"
+        "static_assert(_is_same(typeof(0b1LL), long long));\n"
+        "static_assert(_is_same(typeof(0b1U), unsigned int));\n"
+        "static_assert(_is_same(typeof(0b1ULL), unsigned long long));\n"
+        "static_assert(_is_same(typeof(0b1l), long));\n"
+        "static_assert(_is_same(typeof(0b1ll), long long));\n"
+        "static_assert(_is_same(typeof(0b1ul), unsigned long));\n"
+        "static_assert(_is_same(typeof(0b1ull), unsigned long long));\n"
+        "static_assert(_is_same(typeof(1.0f), float));\n"
+        "static_assert(_is_same(typeof(1.0), double));\n"
+        "static_assert(_is_same(typeof(1.0L), long double));\n"
         ;
+
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count== 0);
 }
 
 void type_test()
 {
     const char* source =
         "int * p = 0;"
-        "_Static_assert(typeid(*(p + 1)) == typeid(int));"
+        "static_assert(_is_same( typeof( *(p + 1) ), int)   );"
         ;
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void digit_separator_test()
@@ -12828,7 +12849,7 @@ void digit_separator_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void numbers_test()
@@ -12842,7 +12863,7 @@ void numbers_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void binary_digits_test()
@@ -12856,7 +12877,7 @@ void binary_digits_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count == 0);
 }
 
 void is_arithmetic_test()
@@ -12931,7 +12952,7 @@ void params_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    assert(report.error_count== 0);
 }
 #endif
 
@@ -15389,7 +15410,8 @@ struct declarator_type* direct_declarator_find_inner_declarator(struct direct_de
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type)
 {
 
-    if (p_declarator_type->direct_declarator_type == NULL)
+    if (p_declarator_type == NULL ||
+        p_declarator_type->direct_declarator_type == NULL)
         return p_declarator_type;
 
     if (p_declarator_type->direct_declarator_type->declarator_opt == NULL &&
@@ -15749,6 +15771,8 @@ struct visit_ctx
 void visit(struct visit_ctx* ctx, struct error* error);
 
 
+
+
 struct defer_statement* defer_statement(struct parser_ctx* ctx, struct error* error);
 
 
@@ -15822,6 +15846,10 @@ void scope_list_pop(struct scope_list* list)
 }
 
 
+void parser_ctx_destroy(struct parser_ctx* ctx)
+{
+//TODO
+}
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
@@ -20015,26 +20043,20 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                 */
                 if (p_declarator->static_analisys_flags & MUST_DESTROY)
                 {
-                    ctx->printf(WHITE "%s:%d:%d: ",
-                        p_declarator->name->token_origin->lexeme,
-                        p_declarator->name->line,
-                        p_declarator->name->col);
+                    parser_seterror_with_token(ctx,
+                        p_declarator->name, 
+                        "destructor of '%s' must be called before the end of scope",
+                        p_declarator->name->lexeme);
 
-                    if (p_declarator->static_analisys_flags & MUST_DESTROY)
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
-                            p_declarator->name->lexeme);
                 }
 
                 if (p_declarator->static_analisys_flags & MUST_FREE)
                 {
-                    ctx->printf(WHITE "%s:%d:%d: ",
-                        p_declarator->name->token_origin->lexeme,
-                        p_declarator->name->line,
-                        p_declarator->name->col);
-
-                    if (p_declarator->static_analisys_flags & MUST_FREE)
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
-                            p_declarator->name->lexeme);
+                    
+                    parser_seterror_with_token(ctx,
+                        p_declarator->name,
+                        "free('%s') must be called before the end of scope",
+                        p_declarator->name->lexeme);                    
                 }
 
                 if (!type_is_maybe_unused(&p_declarator->type) &&
@@ -20638,7 +20660,7 @@ struct declaration_list parse(struct options* options,
     report->warnings_count = ctx.n_warnings;
     report->info_count = ctx.n_info;
 
-
+    parser_ctx_destroy(&ctx);
     return l;
 }
 
@@ -21099,6 +21121,8 @@ struct ast get_ast(struct options* options,
         return ast;
 
     ast.declaration_list = parse(options, &ast.token_list, error, report);
+
+    _del_attr(ast, MUST_DESTROY); //MOVED
     return ast;
 }
 

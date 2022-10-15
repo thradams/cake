@@ -247,7 +247,7 @@ int build_main()
 #ifndef TEST
 #ifdef BUILD_WINDOWS
     /*compila usando ele mesmo*/
-    if (system(RUN OUTPUT  " -n -default_nodiscard " HEADER_FILES SOURCE_FILES) != 0) exit(1);
+    if (system(RUN OUTPUT  " -n " HEADER_FILES SOURCE_FILES) != 0) exit(1);
 #endif
 #endif
 

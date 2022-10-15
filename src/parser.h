@@ -6,10 +6,10 @@
 #include "osstream.h"
 #include "type.h"
 #include "options.h"
+#include "annotations.h"
 
 
-
-struct scope
+struct dtor scope
 {
     int scope_level;
     struct hash_map tags;
@@ -40,7 +40,7 @@ struct report
 };
 
 
-struct parser_ctx
+struct dtor parser_ctx
 {
     struct options options;
     
@@ -82,6 +82,14 @@ struct parser_ctx
 
 ///////////////////////////////////////////////////////
 
+void parser_ctx_destroy(struct parser_ctx* ctx);
+
+#ifdef __CAKE__
+void parser_ctx_destroy(struct parser_ctx* ctx) extern
+{
+    _del_attr(ctx, MUST_DESTROY);
+}
+#endif
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 
@@ -1218,7 +1226,7 @@ struct label
 struct label* label(struct parser_ctx* ctx, struct error* error);
 
 
-struct ast
+struct dtor ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
@@ -1229,3 +1237,10 @@ struct ast get_ast(struct options* options, const char* fileName, const char* so
 void ast_destroy(struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
+
+#ifdef __CAKE__
+void ast_destroy(struct ast* ast) extern
+{
+    _del_attr(ast, MUST_DESTROY);
+}
+#endif
