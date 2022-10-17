@@ -1339,6 +1339,55 @@ void x_destroy(struct X* p)
 
 ```
 
+
+## Type traits
+
+We have some compile time functions to infer properties of types.
+They are based on C++ https://en.cppreference.com/w/cpp/header/type_traits
+
+```c
+
+_is_char (TODO)
+The three types char, signed char, and unsigned char are collectively called the character types.
+
+_is_pointer
+Pointer to object or function
+
+_is_array
+Array type
+
+_is_function
+A function type describes a function with specified return type. 
+
+_is_floating_point
+float, double, and long double return true
+
+_is_integral
+The standard signed integer types and standard unsigned integer types are collectively called the
+standard integer types;
+
+_is_arithmetic
+Integer and floating types are collectively called arithmetic types. 
+
+_is_scalar
+Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
+
+_is_same(T, U)
+If T and U name the same type (taking into account const/volatile qualifications returns 1
+
+```
+
+
+## Pre-defined macros
+
+```c
+ #define __CAKE__ 202311L
+ #define __STDC_VERSION__ 202311L
+```
+
+
+
+
 ###  Extension - declarator static analisys flags
 
 Motivation:
@@ -1530,32 +1579,3 @@ int main()
     free(px)
 }
 ```
-
-## Type traits
-
-We have some compile time functions to infer properties of types.
-They are based on C++ https://en.cppreference.com/w/cpp/header/type_traits
-
-```c
-_is_pointer
-_is_array
-_is_function
-_is_arithmetic
-_is_floating_point
-_is_integral
-_is_scalar
-
-_is_same
-```
-
-
-
-
-
-
-
-## Pre-defined macros
-
- * \_\_CAKE\_\_ 202311L
- * \_\_STDC_VERSION\_\_ 202311L
- * 

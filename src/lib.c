@@ -21649,6 +21649,18 @@ void comp_error1()
     assert(report.error_count == 0);
 }
 
+void expr_type()
+{
+    const char* src =
+        "static_assert(_is_same(typeof(1 + 2.0), double));";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
 void expand_test()
 {
     char* src =
