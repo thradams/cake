@@ -1318,11 +1318,15 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 bHasSpace = false;
                 continue;
             }
-            if (stream.current[0] == ' ' || stream.current[0] == '\t')
+            if (stream.current[0] == ' ' ||
+                stream.current[0] == '\t' || 
+                stream.current[0] == '\f')
             {
                 const char* start = stream.current;
                 while (stream.current[0] == ' ' ||
-                    stream.current[0] == '\t')
+                       stream.current[0] == '\t' ||
+                       stream.current[0] == '\f'
+                    )
                 {
                     stream_match(&stream);
                 }
