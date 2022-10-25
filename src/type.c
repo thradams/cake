@@ -475,6 +475,11 @@ bool type_is_nodiscard(struct type* p_type)
     return type_has_attribute(p_type, STD_ATTRIBUTE_NODISCARD);    
 }
 
+bool type_is_destroy(struct type* p_type)
+{
+    return type_has_attribute(p_type, CUSTOM_ATTRIBUTE_DESTROY);
+}
+
 bool type_is_array(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_ARRAY;

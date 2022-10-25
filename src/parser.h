@@ -9,7 +9,7 @@
 #include "annotations.h"
 
 
-struct dtor scope
+struct _destroy scope
 {
     int scope_level;
     struct hash_map tags;
@@ -22,7 +22,7 @@ struct dtor scope
     bool is_parameters_scope;
 };
 
-
+void scope_destroy(_destroy struct scope* p);
 
 struct scope_list
 {
@@ -40,7 +40,7 @@ struct report
 };
 
 
-struct dtor parser_ctx
+struct _destroy parser_ctx
 {
     struct options options;
     
@@ -82,14 +82,8 @@ struct dtor parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(struct parser_ctx* ctx);
+void parser_ctx_destroy(_destroy struct parser_ctx* ctx);
 
-#ifdef __CAKE__
-void parser_ctx_destroy(struct parser_ctx* ctx) extern
-{
-    _del_attr(ctx, MUST_DESTROY);
-}
-#endif
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 
@@ -340,7 +334,11 @@ struct init_declarator_list
     struct init_declarator* head;
     struct init_declarator* tail;
 };
-struct init_declarator_list init_declarator_list(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
+
+struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
+    struct declaration_specifiers* p_declaration_specifiers,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
+    struct error* error);
 
 
 struct declaration
@@ -487,7 +485,11 @@ struct init_declarator
     struct initializer* initializer;
     struct init_declarator* next;
 };
-struct init_declarator* init_declarator(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
+
+struct init_declarator* init_declarator(struct parser_ctx* ctx,
+    struct declaration_specifiers* p_declaration_specifiers,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
+    struct error* error);
 
 struct initializer
 {
@@ -528,15 +530,8 @@ struct declarator
 
     struct compound_statement* function_body;
 
-    /*
-      extension
-      we need to point to declarator with arguments and body of the contract of the function
-      so we can attach this information in previouly declarared functions.
-      void f();
-      void f() extern {} /*we attach this declarator f into previous f
-    */
-    struct declarator* contract_declarator;
     
+   
     int num_uses; /*used to show not used warnings*/
 
     bool is_parameter_declarator;
@@ -1226,7 +1221,7 @@ struct label
 struct label* label(struct parser_ctx* ctx, struct error* error);
 
 
-struct dtor ast
+struct _destroy ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
@@ -1234,13 +1229,7 @@ struct dtor ast
 
 
 struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error, struct report* report);
-void ast_destroy(struct ast* ast);
+void ast_destroy(_destroy struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
-#ifdef __CAKE__
-void ast_destroy(struct ast* ast) extern
-{
-    _del_attr(ast, MUST_DESTROY);
-}
-#endif

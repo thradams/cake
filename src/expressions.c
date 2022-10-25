@@ -770,303 +770,6 @@ bool first_of_postfix_expression(struct parser_ctx* ctx)
 }
 
 
-/*
-* This function set's the declaration on the argument expression into parameter declarators
-*/
-bool plug_arguments_into_parameters(
-    struct argument_expression_list* p_argument_expression_list,
-    struct parameter_list* p_parameter_list)
-{
-
-    bool hasAllFlags = true;
-
-    struct argument_expression* argument = p_argument_expression_list->head;
-
-    struct parameter_declaration* par = p_parameter_list->head;
-
-    while (par && argument)
-    {
-        if (argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-        {
-            if (argument->expression->declarator->static_analisys_flags & ISVALID)
-            {
-                par->declarator->static_analisys_flags = argument->expression->declarator->static_analisys_flags;
-            }
-            else
-            {
-                hasAllFlags = false;
-                break;
-            }
-        }
-        else if (argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
-        {
-            struct expression* right = argument->expression->right;
-            if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-            {
-                if (right->declarator->static_analisys_flags & ISVALID)
-                {
-                    par->declarator->static_analisys_flags = right->declarator->static_analisys_flags;
-                }
-                else
-                {
-                    hasAllFlags = false;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            hasAllFlags = false;
-            break;
-
-        }
-        argument = argument->next;
-        par = par->next;
-    }
-    return hasAllFlags;
-}
-
-void collect_static_flags(
-    struct argument_expression_list* p_argument_expression_list,
-    struct parameter_list* p_parameter_list)
-{
-    struct argument_expression* argument = p_argument_expression_list->head;
-
-    struct parameter_declaration* par = p_parameter_list->head;
-
-    while (par && argument)
-    {
-        if (argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-        {
-            argument->expression->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
-        }
-        else if (argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
-        {
-            struct expression* right = argument->expression->right;
-            if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-            {
-                right->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
-            }
-        }
-        else
-        {
-
-        }
-        argument = argument->next;
-        par = par->next;
-    }
-}
-
-
-static enum static_analisys_flags contract_visit_compound_statement(struct parser_ctx* ctx,
-    struct compound_statement* extern_body,
-    struct expression* call_expression);
-
-
-
-static void contract_visit_expression(struct parser_ctx* ctx, struct expression* expression_opt, enum static_analisys_flags* returnflag)
-{
-    if (expression_opt->expression_type == UNARY_DECLARATOR_ATTRIBUTE_EXPR)
-    {
-        enum static_analisys_flags flags = expression_opt->right->constant_value;
-        struct token* identifier = expression_opt->contract_arg_token;
-        if (identifier)
-        {
-            struct declarator* p_declarator = expression_opt->declarator;
-
-            if (p_declarator == NULL)
-            {
-                if (expression_opt->first_token->type == TK_KEYWORD_ATTR_ADD)
-                {
-                    *returnflag |= flags;
-                }
-                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_REMOVE)
-                {
-                    *returnflag &= ~flags;
-                }
-            }
-            else
-            {
-                if (expression_opt->first_token->type == TK_KEYWORD_ATTR_ADD)
-                {
-                    p_declarator->static_analisys_flags |= flags;
-                }
-                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_REMOVE)
-                {
-                    p_declarator->static_analisys_flags &= ~flags;
-                }
-                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_HAS)
-                {
-                    expression_opt->constant_value =
-                        (p_declarator->static_analisys_flags & flags) != 0;
-                }
-            }
-        }
-    }
-    else if (expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
-    {
-        if (expression_opt->type.declarator_type &&
-            expression_opt->type.declarator_type->direct_declarator_type &&
-            expression_opt->type.declarator_type->direct_declarator_type->name_opt)
-        {
-
-#if 0
-            /*
-             * I am disabling the visit of function inside function for two reasons
-             * 1 - we need to add a check for recursivity
-             * 2 - The inner function may have "ifs" that maybe are impossible to prove
-             *     the will always set some flags. So this flags need to me assured
-             *     by the programmer externally.
-            */
-            if (expression_opt->left->declarator &&
-                expression_opt->left->declarator->function_body)
-            {
-                struct declarator* function_declarator = expression_opt->left->declarator;
-
-                if (function_declarator->direct_declarator &&
-                    function_declarator->direct_declarator->function_declarator &&
-                    function_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
-                    function_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
-                {
-                    plug_declarators_into_params(
-                        &expression_opt->argument_expression_list,
-                        function_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
-                }
-
-                enum static_analisys_flags to_add = 0;
-                enum static_analisys_flags to_remove = 0;
-                contract_visit_compound_statement(ctx,
-                    expression_opt->left->declarator->function_body,
-                    &expression_opt->flags_to_add,
-                    &expression_opt->flags_to_remove);
-            }
-#endif
-        }
-    }
-    else if (expression_opt->expression_type == UNARY_EXPRESSION_NOT)
-    {
-        contract_visit_expression(ctx, expression_opt->right, returnflag);
-        expression_opt->constant_value = !expression_opt->right->constant_value;
-    }
-}
-
-
-/*
-* second pass for declarator compile time flags
-*/
-static enum static_analisys_flags contract_visit_return(struct parser_ctx* ctx, struct compound_statement* extern_body)
-{
-    enum static_analisys_flags returnflag = 0;
-
-    /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
-
-    struct block_item* p_block_item = extern_body->block_item_list.head;
-    while (p_block_item)
-    {
-        if (p_block_item->unlabeled_statement &&
-            p_block_item->unlabeled_statement->expression_statement &&
-            p_block_item->unlabeled_statement->expression_statement->expression_opt)
-        {
-            struct expression* expression_opt =
-                p_block_item->unlabeled_statement->expression_statement->expression_opt;
-
-            if (expression_opt->expression_type == UNARY_DECLARATOR_ATTRIBUTE_EXPR)
-            {
-                enum static_analisys_flags flags = expression_opt->right->constant_value;
-                struct token* identifier = expression_opt->contract_arg_token;
-                if (identifier->type == TK_KEYWORD_RETURN)
-                {
-                    if (expression_opt->first_token->type == TK_KEYWORD_ATTR_ADD)
-                    {
-                        returnflag |= flags;
-                    }
-                    else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_REMOVE)
-                    {
-                        returnflag &= ~flags;
-                    }
-                }
-            }
-        }
-        p_block_item = p_block_item->next;
-    }
-    return returnflag;
-}
-
-/*
-    * second pass for declarator compile time flags
-    */
-static enum static_analisys_flags contract_visit_compound_statement(struct parser_ctx* ctx,
-    struct compound_statement* extern_body,
-    struct expression* call_expression)
-{
-    /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
-
-    enum static_analisys_flags returnflag = 0;
-
-    struct block_item* p_block_item = extern_body->block_item_list.head;
-    while (p_block_item)
-    {
-        if (p_block_item->unlabeled_statement)
-        {
-            if (p_block_item->unlabeled_statement->expression_statement &&
-                p_block_item->unlabeled_statement->expression_statement->expression_opt)
-            {
-                contract_visit_expression(ctx,
-                    p_block_item->unlabeled_statement->expression_statement->expression_opt, &returnflag);
-            }
-            else if (p_block_item->unlabeled_statement->primary_block)
-            {
-                if (p_block_item->unlabeled_statement->primary_block->selection_statement)
-                {
-                    if (p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block &&
-                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement &&
-                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement &&
-                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
-                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
-                    {
-                        returnflag = contract_visit_compound_statement(ctx,
-                            p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement,
-                            call_expression);
-                    }
-                }
-
-            }
-        }
-        else if (p_block_item->declaration &&
-            p_block_item->declaration->static_assert_declaration &&
-            p_block_item->declaration->static_assert_declaration->evaluated_at_caller)
-        {
-
-            contract_visit_expression(ctx,
-                p_block_item->declaration->static_assert_declaration->constant_expression, &returnflag);
-
-
-            if (!p_block_item->declaration->static_assert_declaration->constant_expression->constant_value)
-            {
-                if (p_block_item->declaration->static_assert_declaration->string_literal_opt)
-                {
-                    parser_seterror_with_token(ctx, p_block_item->declaration->static_assert_declaration->first_token, "static_assert failed %s\n",
-                        p_block_item->declaration->static_assert_declaration->string_literal_opt->lexeme);
-                }
-                else
-                {
-                    parser_seterror_with_token(ctx,
-                        p_block_item->declaration->static_assert_declaration->first_token,
-                        "static_assert failed");
-                }
-
-                parser_set_info_with_token(ctx, call_expression->first_token, "call point");
-            }
-        }
-        else
-        {
-            // assert(false);
-        }
-        p_block_item = p_block_item->next;
-    }
-    return returnflag;
-}
-
 struct expression* postfix_expression_tail(struct parser_ctx* ctx,
     struct error* error,
     struct expression* p_expression_node,
@@ -1148,43 +851,55 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                     struct declarator* func = find_declarator(ctx,
                         p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt, NULL);
 
-                    if (func)
-                        func = func->contract_declarator;
 
                     if (func)
                     {
 
-
-
-                        if (/*ctx->options.do_static_analisys &&*/
-                            func->direct_declarator->function_declarator->parameter_type_list_opt &&
+                        if (func->direct_declarator->function_declarator->parameter_type_list_opt &&
                             func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
                         {
-                            bool has_all_argument_flags =
-                                plug_arguments_into_parameters(
-                                    &p_expression_node_new->argument_expression_list,
-                                    func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
+                            struct argument_expression* argument = p_expression_node_new->argument_expression_list.head;
+                            struct parameter_declaration* par = func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
 
-
-
-
-                            if (has_all_argument_flags)
+                            while (par && argument)
                             {
-                                enum static_analisys_flags returnflag =
-                                    contract_visit_compound_statement(ctx,
-                                        func->function_body,
-                                        p_expression_node_new);
+                                struct declarator* arg_declarator = NULL;
+                                if (argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                                {
+                                    arg_declarator = argument->expression->declarator;
 
-                                collect_static_flags(
-                                    &p_expression_node_new->argument_expression_list,
-                                    func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
-                                p_expression_node_new->returnflag = returnflag;
-                            }
-                            else
-                            {
-                                enum static_analisys_flags returnflag =
-                                    contract_visit_return(ctx, func->function_body);
-                                p_expression_node_new->returnflag = returnflag;
+                                    //argument->expression->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
+                                }
+                                else if (argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+                                {
+                                    struct expression* right = argument->expression->right;
+                                    if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                                    {
+                                        arg_declarator = right->declarator;
+                                        //right->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
+
+                                    }
+                                }
+                                else
+                                {
+                                    arg_declarator = NULL;
+                                }
+
+                                if (arg_declarator && 
+                                    !arg_declarator->is_parameter_declarator)
+                                {
+                                    if (par->declarator->static_analisys_flags & MUST_DESTROY)
+                                    {
+                                        arg_declarator->static_analisys_flags &= ~MUST_DESTROY;
+                                    }
+
+                                    if (par->declarator->static_analisys_flags & MUST_FREE)
+                                    {
+                                        arg_declarator->static_analisys_flags &= ~MUST_FREE;
+                                    }
+                                }
+                                argument = argument->next;
+                                par = par->next;
                             }
                         }
                     }
@@ -1784,7 +1499,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             new_expression->type_name2 = type_name(ctx, error);
             parser_match_tk(ctx, ')', error);
             new_expression->constant_value = type_is_same(&new_expression->type_name->declarator->type,
-                                                          &new_expression->type_name2->declarator->type, true);
+                &new_expression->type_name2->declarator->type, true);
             type_set_int(&new_expression->type);
             p_expression_node = new_expression;
         }
@@ -1797,7 +1512,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             parser_match(ctx);
 
             if (first_of_type_name_ahead(ctx))
-            {                
+            {
                 parser_match_tk(ctx, '(', error);
                 new_expression->type_name = type_name(ctx, error);
                 new_expression->last_token = ctx->current;
@@ -1813,7 +1528,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
 
                 if (new_expression->right == NULL)
                     throw;
-                
+
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->right->type, error);
                 new_expression->last_token = ctx->previous;
             }
@@ -2652,10 +2367,6 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
 
             if (new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
             {
-                new_expression->left->declarator->static_analisys_flags =
-                    new_expression->right->returnflag | ISVALID;
-
-
                 /*let's remove the UNINITIALIZED flag*/
                 new_expression->left->declarator->static_analisys_flags &=
                     ~UNINITIALIZED;
@@ -3028,7 +2739,7 @@ void type_suffix_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(report.error_count== 0);
+    assert(report.error_count == 0);
 }
 
 void type_test()
@@ -3156,6 +2867,6 @@ void params_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(report.error_count== 0);
+    assert(report.error_count == 0);
 }
 #endif

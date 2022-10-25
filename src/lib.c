@@ -146,20 +146,23 @@ enum static_analisys_flags
 
 #ifdef __CAKE__
 
-#define dtor [[nodiscard]]
-#define check(...) static_assert(__VA_ARGS__)
+#define _destroy [[destroy]]
+#define _delete [[destroy,free]]
+#define _free [[free]]
 
 #else
 
-#define dtor
+#define _destroy 
+#define _delete
+#define _free
+
 #define _del_attr(a, b)
 #define _add_attr(a, b)
-#define check(a) 
 
 #endif
 
 
-struct dtor osstream
+struct _destroy osstream
 {
     char* c_str;
     int size;
@@ -167,18 +170,11 @@ struct dtor osstream
 };
 
 
-void ss_close(struct osstream* stream);
+void ss_close(_destroy struct osstream* stream);
 int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args);
 int ss_fprintf(struct osstream* stream, const char* fmt, ...);
 int ss_putc(char ch, struct osstream* stream);
 void ss_clear(struct osstream* stream);
-
-#ifdef __CAKE__
-void ss_close(struct osstream* stream) extern {
-    static_assert(_has_attr(stream, MUST_DESTROY));
-    _del_attr(stream, MUST_DESTROY);
-}
-#endif
 
 
 
@@ -2825,11 +2821,15 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 bHasSpace = false;
                 continue;
             }
-            if (stream.current[0] == ' ' || stream.current[0] == '\t')
+            if (stream.current[0] == ' ' ||
+                stream.current[0] == '\t' || 
+                stream.current[0] == '\f')
             {
                 const char* start = stream.current;
                 while (stream.current[0] == ' ' ||
-                    stream.current[0] == '\t')
+                       stream.current[0] == '\t' ||
+                       stream.current[0] == '\f'
+                    )
                 {
                     stream_match(&stream);
                 }
@@ -7475,84 +7475,65 @@ char* readfile(const char* path)
 
 
 
-13,10,35,112,114,97,103,109,97,32,111,110,99,101,13,10,35,105,110,99,108,117,100,101,32
-,34,97,110,110,111,116,97,116,105,111,110,115,46,104,34,13,10,13,10,116,121,112,101,100,101
-,102,32,108,111,110,103,32,108,111,110,103,32,102,112,111,115,95,116,59,13,10,116,121,112,101
-,100,101,102,32,105,110,116,32,115,105,122,101,95,116,59,13,10,116,121,112,101,100,101,102,32
-,105,110,116,32,119,99,104,97,114,95,116,59,13,10,13,10,91,91,110,111,100,105,115,99,97
-,114,100,93,93,32,100,111,117,98,108,101,32,97,116,111,102,40,99,111,110,115,116,32,99,104
-,97,114,42,32,110,112,116,114,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93
-,32,105,110,116,32,97,116,111,105,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116
-,114,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,105
-,110,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41
-,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,108,111,110
-,103,32,105,110,116,32,97,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110
-,112,116,114,41,59,13,10,13,10,100,111,117,98,108,101,32,115,116,114,116,111,100,40,99,111
-,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32
-,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,13
-,10,102,108,111,97,116,32,115,116,114,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42
-,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101
-,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,100,111,117
-,98,108,101,32,115,116,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114
-,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116
-,114,105,99,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,105,110,116,32,115
-,116,114,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99
-,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101
-,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,108,111,110,103,32,108
-,111,110,103,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104,97
-,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32
-,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101
-,41,59,13,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,115,116,114
-,116,111,117,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
+13,10,35,112,114,97,103,109,97,32,111,110,99,101,13,10,13,10,116,121,112,101,100,101,102
+,32,108,111,110,103,32,108,111,110,103,32,102,112,111,115,95,116,59,13,10,116,121,112,101,100
+,101,102,32,105,110,116,32,115,105,122,101,95,116,59,13,10,116,121,112,101,100,101,102,32,105
+,110,116,32,119,99,104,97,114,95,116,59,13,10,13,10,91,91,110,111,100,105,115,99,97,114
+,100,93,93,32,100,111,117,98,108,101,32,97,116,111,102,40,99,111,110,115,116,32,99,104,97
+,114,42,32,110,112,116,114,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32
+,105,110,116,32,97,116,111,105,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114
+,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,105,110
+,116,32,97,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112,116,114,41,59
+,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93,32,108,111,110,103,32,108,111,110,103
+,32,105,110,116,32,97,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114,42,32,110,112
+,116,114,41,59,13,10,13,10,100,111,117,98,108,101,32,115,116,114,116,111,100,40,99,111,110
+,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99
+,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,41,59,13,10
+,102,108,111,97,116,32,115,116,114,116,111,102,40,99,111,110,115,116,32,99,104,97,114,42,32
+,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115
+,116,114,105,99,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,100,111,117,98
+,108,101,32,115,116,114,116,111,108,100,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101
+,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114
+,105,99,116,32,101,110,100,112,116,114,41,59,13,10,108,111,110,103,32,105,110,116,32,115,116
+,114,116,111,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116
 ,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110
-,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,117,110,115,105,103,110,101
-,100,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,108,40
-,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114
-,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44
-,32,105,110,116,32,98,97,115,101,41,59,13,10,105,110,116,32,114,97,110,100,40,118,111,105
-,100,41,59,13,10,118,111,105,100,32,115,114,97,110,100,40,117,110,115,105,103,110,101,100,32
-,105,110,116,32,115,101,101,100,41,59,13,10,118,111,105,100,42,32,97,108,105,103,110,101,100
-,95,97,108,108,111,99,40,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,44,32
-,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114
-,100,93,93,32,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110
-,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100
-,32,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,13,10,13,10,91,91,110,111
-,100,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108,111,99,40,115,105
-,122,101,95,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93
-,93,32,118,111,105,100,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114
-,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,13,10,91,91,110,111,114,101
-,116,117,114,110,93,93,32,118,111,105,100,32,97,98,111,114,116,40,118,111,105,100,41,59,13
-,10,105,110,116,32,97,116,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40
-,118,111,105,100,41,41,59,13,10,105,110,116,32,97,116,95,113,117,105,99,107,95,101,120,105
-,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,13,10,91
-,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,101,120,105,116,40,105,110,116
-,32,115,116,97,116,117,115,41,59,13,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118
-,111,105,100,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10,99
-,104,97,114,42,32,103,101,116,101,110,118,40,99,111,110,115,116,32,99,104,97,114,42,32,110
-,97,109,101,41,59,13,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32
-,113,117,105,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10
-,105,110,116,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116
-,114,105,110,103,41,59,13,10,13,10,35,105,102,110,100,101,102,32,78,85,76,76,13,10,35
-,100,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48,41,13,10,35
-,101,110,100,105,102,13,10,13,10,13,10,118,111,105,100,42,32,109,97,108,108,111,99,40,115
-,105,122,101,95,116,32,105,41,32,101,120,116,101,114,110,32,123,13,10,32,32,32,32,95,97
-,100,100,95,97,116,116,114,40,114,101,116,117,114,110,44,32,77,85,83,84,95,70,82,69,69
-,41,59,13,10,125,13,10,13,10,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122
-,101,95,116,32,110,109,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,32,101
-,120,116,101,114,110,32,123,13,10,32,32,32,32,95,97,100,100,95,97,116,116,114,40,114,101
-,116,117,114,110,44,32,77,85,83,84,95,70,82,69,69,41,59,13,10,125,13,10,13,10,118
-,111,105,100,32,102,114,101,101,40,118,111,105,100,42,32,112,41,32,101,120,116,101,114,110,32
-,123,13,10,32,32,32,32,115,116,97,116,105,99,95,97,115,115,101,114,116,40,95,104,97,115
-,95,97,116,116,114,40,112,44,32,77,85,83,84,95,70,82,69,69,41,41,59,13,10,32,32
-,32,32,95,100,101,108,95,97,116,116,114,40,112,44,32,77,85,83,84,95,70,82,69,69,41
-,59,13,10,125,13,10,13,10,118,111,105,100,42,32,109,111,118,101,112,116,114,40,118,111,105
-,100,42,32,112,41,32,101,120,116,101,114,110,32,123,13,10,32,32,32,32,115,116,97,116,105
-,99,95,97,115,115,101,114,116,40,95,104,97,115,95,97,116,116,114,40,112,44,32,77,85,83
-,84,95,70,82,69,69,41,41,59,13,10,32,32,32,32,95,100,101,108,95,97,116,116,114,40
-,112,44,32,77,85,83,84,95,70,82,69,69,41,59,13,10,32,32,32,32,95,97,100,100,95
-,97,116,116,114,40,112,44,32,85,78,73,78,73,84,73,65,76,73,90,69,68,41,59,13,10
-,32,32,32,32,95,97,100,100,95,97,116,116,114,40,114,101,116,117,114,110,44,32,77,85,83
-,84,95,70,82,69,69,41,59,13,10,125,13,10
+,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,108,111,110,103,32,108,111
+,110,103,32,105,110,116,32,115,116,114,116,111,108,108,40,99,111,110,115,116,32,99,104,97,114
+,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44,32,99,104,97,114,42,42,32,114
+,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32,105,110,116,32,98,97,115,101,41
+,59,13,10,117,110,115,105,103,110,101,100,32,108,111,110,103,32,105,110,116,32,115,116,114,116
+,111,117,108,40,99,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32
+,110,112,116,114,44,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100
+,112,116,114,44,32,105,110,116,32,98,97,115,101,41,59,13,10,117,110,115,105,103,110,101,100
+,32,108,111,110,103,32,108,111,110,103,32,105,110,116,32,115,116,114,116,111,117,108,108,40,99
+,111,110,115,116,32,99,104,97,114,42,32,114,101,115,116,114,105,99,116,32,110,112,116,114,44
+,32,99,104,97,114,42,42,32,114,101,115,116,114,105,99,116,32,101,110,100,112,116,114,44,32
+,105,110,116,32,98,97,115,101,41,59,13,10,105,110,116,32,114,97,110,100,40,118,111,105,100
+,41,59,13,10,118,111,105,100,32,115,114,97,110,100,40,117,110,115,105,103,110,101,100,32,105
+,110,116,32,115,101,101,100,41,59,13,10,118,111,105,100,42,32,97,108,105,103,110,101,100,95
+,97,108,108,111,99,40,115,105,122,101,95,116,32,97,108,105,103,110,109,101,110,116,44,32,115
+,105,122,101,95,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100
+,93,93,32,118,111,105,100,42,32,99,97,108,108,111,99,40,115,105,122,101,95,116,32,110,109
+,101,109,98,44,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,118,111,105,100,32
+,102,114,101,101,40,118,111,105,100,42,32,112,116,114,41,59,13,10,13,10,91,91,110,111,100
+,105,115,99,97,114,100,93,93,32,118,111,105,100,42,32,109,97,108,108,111,99,40,115,105,122
+,101,95,116,32,115,105,122,101,41,59,13,10,91,91,110,111,100,105,115,99,97,114,100,93,93
+,32,118,111,105,100,42,32,114,101,97,108,108,111,99,40,118,111,105,100,42,32,112,116,114,44
+,32,115,105,122,101,95,116,32,115,105,122,101,41,59,13,10,13,10,91,91,110,111,114,101,116
+,117,114,110,93,93,32,118,111,105,100,32,97,98,111,114,116,40,118,111,105,100,41,59,13,10
+,105,110,116,32,97,116,101,120,105,116,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118
+,111,105,100,41,41,59,13,10,105,110,116,32,97,116,95,113,117,105,99,107,95,101,120,105,116
+,40,118,111,105,100,32,40,42,102,117,110,99,41,40,118,111,105,100,41,41,59,13,10,91,91
+,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,101,120,105,116,40,105,110,116,32
+,115,116,97,116,117,115,41,59,13,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111
+,105,100,32,95,69,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10,99,104
+,97,114,42,32,103,101,116,101,110,118,40,99,111,110,115,116,32,99,104,97,114,42,32,110,97
+,109,101,41,59,13,10,91,91,110,111,114,101,116,117,114,110,93,93,32,118,111,105,100,32,113
+,117,105,99,107,95,101,120,105,116,40,105,110,116,32,115,116,97,116,117,115,41,59,13,10,105
+,110,116,32,115,121,115,116,101,109,40,99,111,110,115,116,32,99,104,97,114,42,32,115,116,114
+,105,110,103,41,59,13,10,13,10,35,105,102,110,100,101,102,32,78,85,76,76,13,10,35,100
+,101,102,105,110,101,32,78,85,76,76,32,40,40,118,111,105,100,42,41,48,41,13,10,35,101
+,110,100,105,102,13,10,13,10
     ,0 };
 
     static const unsigned char file_math_h[] = {
@@ -8205,7 +8186,10 @@ enum attribute_flags
     STD_ATTRIBUTE_NODISCARD = 1 << 3,
     STD_ATTRIBUTE_NORETURN = 1 << 4,
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
-    STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6
+    STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
+
+    CUSTOM_ATTRIBUTE_FREE = 1 << 7,
+    CUSTOM_ATTRIBUTE_DESTROY = 1 << 8
 };
 
 enum type_specifier_flags
@@ -8353,6 +8337,7 @@ bool type_is_compatible_type_function_call(struct type* a, struct type* b);
 bool type_is_function_or_function_pointer(struct type* p_type);
 bool type_is_function(struct type* p_type);
 bool type_is_nodiscard(struct type* p_type);
+bool type_is_destroy(struct type* p_type);
 bool type_is_deprecated(struct type* p_type);
 bool type_is_maybe_unused(struct type* p_type);
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
@@ -8546,10 +8531,7 @@ struct expression
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
-    /*value = x*/
-    enum static_analisys_flags returnflag;
     
-
     struct expression* left;
     struct expression* right;
 };
@@ -8570,7 +8552,7 @@ struct expression* constant_expression(struct parser_ctx* ctx, struct error* err
 //#pragma once
 
 
-struct dtor scope
+struct _destroy scope
 {
     int scope_level;
     struct hash_map tags;
@@ -8583,7 +8565,7 @@ struct dtor scope
     bool is_parameters_scope;
 };
 
-
+void scope_destroy(_destroy struct scope* p);
 
 struct scope_list
 {
@@ -8601,7 +8583,7 @@ struct report
 };
 
 
-struct dtor parser_ctx
+struct _destroy parser_ctx
 {
     struct options options;
     
@@ -8643,14 +8625,8 @@ struct dtor parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(struct parser_ctx* ctx);
+void parser_ctx_destroy(_destroy struct parser_ctx* ctx);
 
-#ifdef __CAKE__
-void parser_ctx_destroy(struct parser_ctx* ctx) extern
-{
-    _del_attr(ctx, MUST_DESTROY);
-}
-#endif
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 
@@ -8901,7 +8877,11 @@ struct init_declarator_list
     struct init_declarator* head;
     struct init_declarator* tail;
 };
-struct init_declarator_list init_declarator_list(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
+
+struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
+    struct declaration_specifiers* p_declaration_specifiers,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
+    struct error* error);
 
 
 struct declaration
@@ -9048,7 +9028,11 @@ struct init_declarator
     struct initializer* initializer;
     struct init_declarator* next;
 };
-struct init_declarator* init_declarator(struct parser_ctx* ctx, struct declaration_specifiers* declaration_specifiers, struct error* error);
+
+struct init_declarator* init_declarator(struct parser_ctx* ctx,
+    struct declaration_specifiers* p_declaration_specifiers,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
+    struct error* error);
 
 struct initializer
 {
@@ -9089,15 +9073,8 @@ struct declarator
 
     struct compound_statement* function_body;
 
-    /*
-      extension
-      we need to point to declarator with arguments and body of the contract of the function
-      so we can attach this information in previouly declarared functions.
-      void f();
-      void f() extern {} /*we attach this declarator f into previous f
-    */
-    struct declarator* contract_declarator;
     
+   
     int num_uses; /*used to show not used warnings*/
 
     bool is_parameter_declarator;
@@ -9787,7 +9764,7 @@ struct label
 struct label* label(struct parser_ctx* ctx, struct error* error);
 
 
-struct dtor ast
+struct _destroy ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
@@ -9795,16 +9772,10 @@ struct dtor ast
 
 
 struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error, struct report* report);
-void ast_destroy(struct ast* ast);
+void ast_destroy(_destroy struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
-#ifdef __CAKE__
-void ast_destroy(struct ast* ast) extern
-{
-    _del_attr(ast, MUST_DESTROY);
-}
-#endif
 
 
 #ifdef _WIN32
@@ -10567,303 +10538,6 @@ bool first_of_postfix_expression(struct parser_ctx* ctx)
 }
 
 
-/*
-* This function set's the declaration on the argument expression into parameter declarators
-*/
-bool plug_arguments_into_parameters(
-    struct argument_expression_list* p_argument_expression_list,
-    struct parameter_list* p_parameter_list)
-{
-
-    bool hasAllFlags = true;
-
-    struct argument_expression* argument = p_argument_expression_list->head;
-
-    struct parameter_declaration* par = p_parameter_list->head;
-
-    while (par && argument)
-    {
-        if (argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-        {
-            if (argument->expression->declarator->static_analisys_flags & ISVALID)
-            {
-                par->declarator->static_analisys_flags = argument->expression->declarator->static_analisys_flags;
-            }
-            else
-            {
-                hasAllFlags = false;
-                break;
-            }
-        }
-        else if (argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
-        {
-            struct expression* right = argument->expression->right;
-            if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-            {
-                if (right->declarator->static_analisys_flags & ISVALID)
-                {
-                    par->declarator->static_analisys_flags = right->declarator->static_analisys_flags;
-                }
-                else
-                {
-                    hasAllFlags = false;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            hasAllFlags = false;
-            break;
-
-        }
-        argument = argument->next;
-        par = par->next;
-    }
-    return hasAllFlags;
-}
-
-void collect_static_flags(
-    struct argument_expression_list* p_argument_expression_list,
-    struct parameter_list* p_parameter_list)
-{
-    struct argument_expression* argument = p_argument_expression_list->head;
-
-    struct parameter_declaration* par = p_parameter_list->head;
-
-    while (par && argument)
-    {
-        if (argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-        {
-            argument->expression->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
-        }
-        else if (argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
-        {
-            struct expression* right = argument->expression->right;
-            if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-            {
-                right->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
-            }
-        }
-        else
-        {
-
-        }
-        argument = argument->next;
-        par = par->next;
-    }
-}
-
-
-static enum static_analisys_flags contract_visit_compound_statement(struct parser_ctx* ctx,
-    struct compound_statement* extern_body,
-    struct expression* call_expression);
-
-
-
-static void contract_visit_expression(struct parser_ctx* ctx, struct expression* expression_opt, enum static_analisys_flags* returnflag)
-{
-    if (expression_opt->expression_type == UNARY_DECLARATOR_ATTRIBUTE_EXPR)
-    {
-        enum static_analisys_flags flags = expression_opt->right->constant_value;
-        struct token* identifier = expression_opt->contract_arg_token;
-        if (identifier)
-        {
-            struct declarator* p_declarator = expression_opt->declarator;
-
-            if (p_declarator == NULL)
-            {
-                if (expression_opt->first_token->type == TK_KEYWORD_ATTR_ADD)
-                {
-                    *returnflag |= flags;
-                }
-                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_REMOVE)
-                {
-                    *returnflag &= ~flags;
-                }
-            }
-            else
-            {
-                if (expression_opt->first_token->type == TK_KEYWORD_ATTR_ADD)
-                {
-                    p_declarator->static_analisys_flags |= flags;
-                }
-                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_REMOVE)
-                {
-                    p_declarator->static_analisys_flags &= ~flags;
-                }
-                else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_HAS)
-                {
-                    expression_opt->constant_value =
-                        (p_declarator->static_analisys_flags & flags) != 0;
-                }
-            }
-        }
-    }
-    else if (expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
-    {
-        if (expression_opt->type.declarator_type &&
-            expression_opt->type.declarator_type->direct_declarator_type &&
-            expression_opt->type.declarator_type->direct_declarator_type->name_opt)
-        {
-
-#if 0
-            /*
-             * I am disabling the visit of function inside function for two reasons
-             * 1 - we need to add a check for recursivity
-             * 2 - The inner function may have "ifs" that maybe are impossible to prove
-             *     the will always set some flags. So this flags need to me assured
-             *     by the programmer externally.
-            */
-            if (expression_opt->left->declarator &&
-                expression_opt->left->declarator->function_body)
-            {
-                struct declarator* function_declarator = expression_opt->left->declarator;
-
-                if (function_declarator->direct_declarator &&
-                    function_declarator->direct_declarator->function_declarator &&
-                    function_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
-                    function_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
-                {
-                    plug_declarators_into_params(
-                        &expression_opt->argument_expression_list,
-                        function_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
-                }
-
-                enum static_analisys_flags to_add = 0;
-                enum static_analisys_flags to_remove = 0;
-                contract_visit_compound_statement(ctx,
-                    expression_opt->left->declarator->function_body,
-                    &expression_opt->flags_to_add,
-                    &expression_opt->flags_to_remove);
-            }
-#endif
-        }
-    }
-    else if (expression_opt->expression_type == UNARY_EXPRESSION_NOT)
-    {
-        contract_visit_expression(ctx, expression_opt->right, returnflag);
-        expression_opt->constant_value = !expression_opt->right->constant_value;
-    }
-}
-
-
-/*
-* second pass for declarator compile time flags
-*/
-static enum static_analisys_flags contract_visit_return(struct parser_ctx* ctx, struct compound_statement* extern_body)
-{
-    enum static_analisys_flags returnflag = 0;
-
-    /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
-
-    struct block_item* p_block_item = extern_body->block_item_list.head;
-    while (p_block_item)
-    {
-        if (p_block_item->unlabeled_statement &&
-            p_block_item->unlabeled_statement->expression_statement &&
-            p_block_item->unlabeled_statement->expression_statement->expression_opt)
-        {
-            struct expression* expression_opt =
-                p_block_item->unlabeled_statement->expression_statement->expression_opt;
-
-            if (expression_opt->expression_type == UNARY_DECLARATOR_ATTRIBUTE_EXPR)
-            {
-                enum static_analisys_flags flags = expression_opt->right->constant_value;
-                struct token* identifier = expression_opt->contract_arg_token;
-                if (identifier->type == TK_KEYWORD_RETURN)
-                {
-                    if (expression_opt->first_token->type == TK_KEYWORD_ATTR_ADD)
-                    {
-                        returnflag |= flags;
-                    }
-                    else if (expression_opt->first_token->type == TK_KEYWORD_ATTR_REMOVE)
-                    {
-                        returnflag &= ~flags;
-                    }
-                }
-            }
-        }
-        p_block_item = p_block_item->next;
-    }
-    return returnflag;
-}
-
-/*
-    * second pass for declarator compile time flags
-    */
-static enum static_analisys_flags contract_visit_compound_statement(struct parser_ctx* ctx,
-    struct compound_statement* extern_body,
-    struct expression* call_expression)
-{
-    /*we visit static_assert and UNARY_DECLARATOR_ATTRIBUTE_EXPR*/
-
-    enum static_analisys_flags returnflag = 0;
-
-    struct block_item* p_block_item = extern_body->block_item_list.head;
-    while (p_block_item)
-    {
-        if (p_block_item->unlabeled_statement)
-        {
-            if (p_block_item->unlabeled_statement->expression_statement &&
-                p_block_item->unlabeled_statement->expression_statement->expression_opt)
-            {
-                contract_visit_expression(ctx,
-                    p_block_item->unlabeled_statement->expression_statement->expression_opt, &returnflag);
-            }
-            else if (p_block_item->unlabeled_statement->primary_block)
-            {
-                if (p_block_item->unlabeled_statement->primary_block->selection_statement)
-                {
-                    if (p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block &&
-                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement &&
-                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement &&
-                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
-                        p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)
-                    {
-                        returnflag = contract_visit_compound_statement(ctx,
-                            p_block_item->unlabeled_statement->primary_block->selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement,
-                            call_expression);
-                    }
-                }
-
-            }
-        }
-        else if (p_block_item->declaration &&
-            p_block_item->declaration->static_assert_declaration &&
-            p_block_item->declaration->static_assert_declaration->evaluated_at_caller)
-        {
-
-            contract_visit_expression(ctx,
-                p_block_item->declaration->static_assert_declaration->constant_expression, &returnflag);
-
-
-            if (!p_block_item->declaration->static_assert_declaration->constant_expression->constant_value)
-            {
-                if (p_block_item->declaration->static_assert_declaration->string_literal_opt)
-                {
-                    parser_seterror_with_token(ctx, p_block_item->declaration->static_assert_declaration->first_token, "static_assert failed %s\n",
-                        p_block_item->declaration->static_assert_declaration->string_literal_opt->lexeme);
-                }
-                else
-                {
-                    parser_seterror_with_token(ctx,
-                        p_block_item->declaration->static_assert_declaration->first_token,
-                        "static_assert failed");
-                }
-
-                parser_set_info_with_token(ctx, call_expression->first_token, "call point");
-            }
-        }
-        else
-        {
-            // assert(false);
-        }
-        p_block_item = p_block_item->next;
-    }
-    return returnflag;
-}
-
 struct expression* postfix_expression_tail(struct parser_ctx* ctx,
     struct error* error,
     struct expression* p_expression_node,
@@ -10945,43 +10619,55 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                     struct declarator* func = find_declarator(ctx,
                         p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt, NULL);
 
-                    if (func)
-                        func = func->contract_declarator;
 
                     if (func)
                     {
 
-
-
-                        if (/*ctx->options.do_static_analisys &&*/
-                            func->direct_declarator->function_declarator->parameter_type_list_opt &&
+                        if (func->direct_declarator->function_declarator->parameter_type_list_opt &&
                             func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
                         {
-                            bool has_all_argument_flags =
-                                plug_arguments_into_parameters(
-                                    &p_expression_node_new->argument_expression_list,
-                                    func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
+                            struct argument_expression* argument = p_expression_node_new->argument_expression_list.head;
+                            struct parameter_declaration* par = func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
 
-
-
-
-                            if (has_all_argument_flags)
+                            while (par && argument)
                             {
-                                enum static_analisys_flags returnflag =
-                                    contract_visit_compound_statement(ctx,
-                                        func->function_body,
-                                        p_expression_node_new);
+                                struct declarator* arg_declarator = NULL;
+                                if (argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                                {
+                                    arg_declarator = argument->expression->declarator;
 
-                                collect_static_flags(
-                                    &p_expression_node_new->argument_expression_list,
-                                    func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list);
-                                p_expression_node_new->returnflag = returnflag;
-                            }
-                            else
-                            {
-                                enum static_analisys_flags returnflag =
-                                    contract_visit_return(ctx, func->function_body);
-                                p_expression_node_new->returnflag = returnflag;
+                                    //argument->expression->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
+                                }
+                                else if (argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+                                {
+                                    struct expression* right = argument->expression->right;
+                                    if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                                    {
+                                        arg_declarator = right->declarator;
+                                        //right->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
+
+                                    }
+                                }
+                                else
+                                {
+                                    arg_declarator = NULL;
+                                }
+
+                                if (arg_declarator && 
+                                    !arg_declarator->is_parameter_declarator)
+                                {
+                                    if (par->declarator->static_analisys_flags & MUST_DESTROY)
+                                    {
+                                        arg_declarator->static_analisys_flags &= ~MUST_DESTROY;
+                                    }
+
+                                    if (par->declarator->static_analisys_flags & MUST_FREE)
+                                    {
+                                        arg_declarator->static_analisys_flags &= ~MUST_FREE;
+                                    }
+                                }
+                                argument = argument->next;
+                                par = par->next;
                             }
                         }
                     }
@@ -11581,7 +11267,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             new_expression->type_name2 = type_name(ctx, error);
             parser_match_tk(ctx, ')', error);
             new_expression->constant_value = type_is_same(&new_expression->type_name->declarator->type,
-                                                          &new_expression->type_name2->declarator->type, true);
+                &new_expression->type_name2->declarator->type, true);
             type_set_int(&new_expression->type);
             p_expression_node = new_expression;
         }
@@ -11594,7 +11280,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             parser_match(ctx);
 
             if (first_of_type_name_ahead(ctx))
-            {                
+            {
                 parser_match_tk(ctx, '(', error);
                 new_expression->type_name = type_name(ctx, error);
                 new_expression->last_token = ctx->current;
@@ -11610,7 +11296,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
 
                 if (new_expression->right == NULL)
                     throw;
-                
+
                 new_expression->constant_value = type_get_hashof(ctx, &new_expression->right->type, error);
                 new_expression->last_token = ctx->previous;
             }
@@ -12449,10 +12135,6 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
 
             if (new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
             {
-                new_expression->left->declarator->static_analisys_flags =
-                    new_expression->right->returnflag | ISVALID;
-
-
                 /*let's remove the UNINITIALIZED flag*/
                 new_expression->left->declarator->static_analisys_flags &=
                     ~UNINITIALIZED;
@@ -12824,7 +12506,7 @@ void type_suffix_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(report.error_count== 0);
+    assert(report.error_count == 0);
 }
 
 void type_test()
@@ -12952,7 +12634,7 @@ void params_test()
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(report.error_count== 0);
+    assert(report.error_count == 0);
 }
 #endif
 
@@ -14159,6 +13841,11 @@ bool type_is_deprecated(struct type* p_type)
 bool type_is_nodiscard(struct type* p_type)
 {
     return type_has_attribute(p_type, STD_ATTRIBUTE_NODISCARD);    
+}
+
+bool type_is_destroy(struct type* p_type)
+{
+    return type_has_attribute(p_type, CUSTOM_ATTRIBUTE_DESTROY);
 }
 
 bool type_is_array(struct type* p_type)
@@ -15796,6 +15483,12 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 int printf_nothing(const char* fmt, ...) { return 0; }
 #endif
 
+void scope_destroy(struct scope* p)
+{
+    hashmap_destroy(&p->tags);
+    hashmap_destroy(&p->variables);
+}
+
 void scope_list_push(struct scope_list* list, struct scope* pnew)
 {
     if (list->tail)
@@ -15813,8 +15506,6 @@ void scope_list_push(struct scope_list* list, struct scope* pnew)
         list->tail->next = pnew;
         list->tail = pnew;
     }
-
-    //return pnew;
 }
 
 void scope_list_pop(struct scope_list* list)
@@ -15848,7 +15539,7 @@ void scope_list_pop(struct scope_list* list)
 
 void parser_ctx_destroy(struct parser_ctx* ctx)
 {
-//TODO
+    //TODO
 }
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
@@ -16681,7 +16372,7 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
         //
         //end microsoft
-       
+
         /*EXPERIMENTAL EXTENSION*/
         else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
         else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
@@ -17419,7 +17110,10 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
 
             if (ctx->current->type != ';')
             {
-                p_declaration->init_declarator_list = init_declarator_list(ctx, p_declaration->declaration_specifiers, error);
+                p_declaration->init_declarator_list = init_declarator_list(ctx,
+                    p_declaration->declaration_specifiers,
+                    p_declaration->p_attribute_specifier_sequence_opt,
+                    error);
             }
 
 
@@ -17488,14 +17182,14 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
 
         struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
-        struct declarator* registered_declarator = find_declarator(ctx, function_declarator->name->lexeme, NULL);
+        
 
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
         assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator);
 
-        /* 
+        /*
             scope of parameters is the inner declarator
 
             void (*f(int i))(void) {
@@ -17522,23 +17216,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         scope_list_push(&ctx->scopes, parameters_scope);
 
 
-        if (ctx->current->type == TK_KEYWORD_EXTERN)
-        {
-            parser_match(ctx);
-            //o function_prototype_scope era um block_scope
-            p_declaration->function_body = function_body(ctx, error);
-            p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
-            /*we need to point to all declarator*/
-            registered_declarator->contract_declarator = p_declaration->init_declarator_list.head->declarator;
-        }
-        else
-        {
-            //o function_prototype_scope era um block_scope
-            p_declaration->function_body = function_body(ctx, error);
-            p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
 
-            /*we need to point to all declarator with body because tree is linked with argumetns*/
-        }
+        //o function_prototype_scope era um block_scope
+        p_declaration->function_body = function_body(ctx, error);
+        p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
+
 
         struct parameter_declaration* parameter = NULL;
 
@@ -17635,6 +17317,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
 
 struct init_declarator* init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
     struct error* error)
 {
     /*
@@ -17660,6 +17343,19 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             return p_init_declarator;
         }
 
+        if (p_attribute_specifier_sequence_opt &&
+            p_attribute_specifier_sequence_opt->attributes_flags)
+        {
+            if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+            {
+                p_init_declarator->declarator->static_analisys_flags |= MUST_FREE;
+            }
+            if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+            {
+                p_init_declarator->declarator->static_analisys_flags |= MUST_DESTROY;
+            }
+        }
+
         p_init_declarator->declarator->declaration_specifiers = p_declaration_specifiers;
         p_init_declarator->declarator->name = tkname;
 
@@ -17675,7 +17371,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 make_type_using_declarator(ctx, p_init_declarator->declarator);
 
             if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                type_is_nodiscard(&p_init_declarator->declarator->type) &&
+                type_is_destroy(&p_init_declarator->declarator->type) &&
                 !type_is_pointer(&p_init_declarator->declarator->type))
             {
                 p_init_declarator->declarator->static_analisys_flags = MUST_DESTROY | ISVALID;
@@ -17748,9 +17444,22 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
             if (p_init_declarator->initializer->assignment_expression)
             {
+                if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL &&
+                    type_is_function(&p_init_declarator->initializer->assignment_expression->left->type))
+                {
+                    /*
+                      FILE * f = fopen();
+                    */
+
+                    p_init_declarator->declarator->static_analisys_flags |=
+                        p_init_declarator->initializer->assignment_expression->left->declarator->static_analisys_flags;
+                }
+
                 /*let's apply the compile time flags*/
-                p_init_declarator->declarator->static_analisys_flags =
-                    p_init_declarator->initializer->assignment_expression->returnflag | ISVALID;
+               // p_init_declarator->declarator->static_analisys_flags =
+                   // p_init_declarator->initializer->assignment_expression->returnflag | ISVALID;
+
+                //TODO function with MUST_DESTROY
 
                 if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
                     (p_init_declarator->declarator->static_analisys_flags & MUST_FREE) &&
@@ -17815,6 +17524,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
 struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
     struct error* error)
 {
     /*
@@ -17823,12 +17533,15 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
       init-declarator-list , init-declarator
     */
     struct init_declarator_list init_declarator_list = { 0 };
-    list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
+    list_add(&init_declarator_list, init_declarator(ctx,
+        p_declaration_specifiers,
+        p_attribute_specifier_sequence_opt,
+        error));
     while (error->code == 0 &&
         ctx->current != NULL && ctx->current->type == ',')
     {
         parser_match(ctx);
-        list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
+        list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, p_attribute_specifier_sequence_opt, error));
         if (error->code) break;
     }
     return init_declarator_list;
@@ -19253,6 +18966,17 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx, stru
         &p_parameter_declaration->name,
         error);
 
+    if (p_parameter_declaration->attribute_specifier_sequence_opt)
+    {
+        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+        {
+            p_parameter_declaration->declarator->static_analisys_flags |= MUST_DESTROY;
+        }
+        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+        {
+            p_parameter_declaration->declarator->static_analisys_flags |= MUST_FREE;
+        }
+    }
     p_parameter_declaration->declarator->is_parameter_declarator = true;
     p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
@@ -19761,7 +19485,15 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* er
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
     }
-
+    else if (strcmp(attr_token->lexeme, "free") == 0) {
+        is_standard_attribute = true;
+        p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_FREE;
+    }
+    else if (strcmp(attr_token->lexeme, "destroy") == 0) {
+        is_standard_attribute = true;
+        p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_DESTROY;
+    }
+    
     parser_match_tk(ctx, TK_IDENTIFIER, error);
 
     if (ctx->current->type == '::')
@@ -20044,7 +19776,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                 if (p_declarator->static_analisys_flags & MUST_DESTROY)
                 {
                     parser_seterror_with_token(ctx,
-                        p_declarator->name, 
+                        p_declarator->name,
                         "destructor of '%s' must be called before the end of scope",
                         p_declarator->name->lexeme);
 
@@ -20052,11 +19784,11 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
                 if (p_declarator->static_analisys_flags & MUST_FREE)
                 {
-                    
+
                     parser_seterror_with_token(ctx,
                         p_declarator->name,
                         "free('%s') must be called before the end of scope",
-                        p_declarator->name->lexeme);                    
+                        p_declarator->name->lexeme);
                 }
 
                 if (!type_is_maybe_unused(&p_declarator->type) &&
@@ -20266,7 +19998,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         if (first_of_declaration_specifier(ctx))
         {
             struct declaration_specifiers* p_declaration_specifiers = declaration_specifiers(ctx, error);
-            struct init_declarator_list list = init_declarator_list(ctx, p_declaration_specifiers, error);
+            struct init_declarator_list list = init_declarator_list(ctx, p_declaration_specifiers, NULL, error);
             p_selection_statement->init_declarator = list.head; //only one
             parser_match_tk(ctx, ';', error);
         }
@@ -20825,6 +20557,18 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt");
+
+        snprintf(env, sizeof env,
+            "%s",
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.33.31629/include;"
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.33.31629/ATLMFC/include;"
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt;"
+            "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
 
         n = strlen(env);
     }

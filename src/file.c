@@ -1,1 +1,3 @@
-static_assert(_is_same(typeof(1 + 2.0), double));
+
+void free(void*);
+void free([[free]] void*);

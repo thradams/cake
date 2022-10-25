@@ -785,42 +785,39 @@ int main()
 
 sample["Extension - declarator annotations"] =
 `
-#include <stdlib.h>
 
-struct [[nodiscard]] x {
+
+#include "annotations.h"
+
+[[free]] void* malloc(size_t);
+void free([[free]] void*);
+
+
+struct _destroy x {
     char* name;
 };
 
-void x_destroy(struct x* p) extern {
-    static_assert(_has_attr(p, MUST_DESTROY));
-    _del_attr(p, MUST_DESTROY);
-}
 
-void x_delete(struct x* p) extern {
-    _del_attr(p, MUST_DESTROY | MUST_FREE);
-}
-
-int main()
-{
-    struct x x = {0};
-    struct x* px = malloc(sizeof(struct x));
-
-    x_delete(px);
-    x_destroy(&x);
-}
-
-
-void x_destroy(struct x* p) {
+void x_destroy(_destroy struct x* p) {
     free(p->name);
 }
 
-void x_delete(struct x* p) {
+void x_delete(_delete struct x* p) {
     if (p) {
         x_destroy(p);
         free(p);
     }
 }
 
+
+int main()
+{
+    struct x x = { 0 };
+    struct x* px = malloc(sizeof(struct x));
+
+    //x_delete(px);
+    //x_destroy(&x);
+}
 `;
 
 
@@ -828,7 +825,14 @@ void x_delete(struct x* p) {
 
 sample["Extension - declarator annotations II"] =
 `
+[[free]] void* malloc(size_t);
+void free([[free]] void*);
+[[free]] void * moveptr([[free]] void *p);
+
 #include <stdlib.h>
+#include "annotations.h" 
+
+
 
 int main()
 {
@@ -848,68 +852,10 @@ int main()
     //free(p2);
 }
 
-`;
-
-sample["Extension - flags"] =
-    `
-
-#include <stdlib.h>
-
-struct item {
-    struct item* next;
-};
-
-struct [[nodiscard]] list {
-    struct item* head;
-    struct item* tail;
-};
-
-void list_add(struct list* list, struct item* pnew) extern {
-    _del_attr(pnew, MUST_FREE);
-    _add_attr(pnew, UNINITIALIZED);
-}
-
-void list_add(struct list* list, struct item* pnew)
-{
-    void* pitem = (pnew);
-    if (list->head == NULL)
-    {
-        list->head = pitem;
-        list->tail = pitem;
-    }
-    else
-    {
-        list->tail->next = pitem;
-        list->tail = pitem;
-    }
-}
-
-void list_destroy(struct list* list) extern {
-    _del_attr(list, MUST_DESTROY);
-    _add_attr(list, UNINITIALIZED);
-}
-
-void list_destroy(struct list* list)
-{
-    struct item* p = list->head;
-    while (p)
-    {
-        struct item* temp = p;
-        _add_attr(temp, MUST_FREE);
-        p = p->next;
-        free(temp);
-    }
-}
-int main()
-{
-    struct list list = {};
-    struct item* p = calloc(1, sizeof * p);
-    list_add(&list, p);
-    //list_destroy(&list);
-}
 
 
 `;
+
 
 
 sample["Extension - Traits"] =

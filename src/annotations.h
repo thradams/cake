@@ -12,14 +12,17 @@ enum static_analisys_flags
 
 #ifdef __CAKE__
 
-#define dtor [[nodiscard]]
-#define check(...) static_assert(__VA_ARGS__)
+#define _destroy [[destroy]]
+#define _delete [[destroy,free]]
+#define _free [[free]]
 
 #else
 
-#define dtor
+#define _destroy 
+#define _delete
+#define _free
+
 #define _del_attr(a, b)
 #define _add_attr(a, b)
-#define check(a) 
 
 #endif

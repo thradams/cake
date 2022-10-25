@@ -46,6 +46,12 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 int printf_nothing(const char* fmt, ...) { return 0; }
 #endif
 
+void scope_destroy(struct scope* p)
+{
+    hashmap_destroy(&p->tags);
+    hashmap_destroy(&p->variables);
+}
+
 void scope_list_push(struct scope_list* list, struct scope* pnew)
 {
     if (list->tail)
@@ -63,8 +69,6 @@ void scope_list_push(struct scope_list* list, struct scope* pnew)
         list->tail->next = pnew;
         list->tail = pnew;
     }
-
-    //return pnew;
 }
 
 void scope_list_pop(struct scope_list* list)
@@ -98,7 +102,7 @@ void scope_list_pop(struct scope_list* list)
 
 void parser_ctx_destroy(struct parser_ctx* ctx)
 {
-//TODO
+    //TODO
 }
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
@@ -931,7 +935,7 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
         //
         //end microsoft
-       
+
         /*EXPERIMENTAL EXTENSION*/
         else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
         else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
@@ -1669,7 +1673,10 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
 
             if (ctx->current->type != ';')
             {
-                p_declaration->init_declarator_list = init_declarator_list(ctx, p_declaration->declaration_specifiers, error);
+                p_declaration->init_declarator_list = init_declarator_list(ctx,
+                    p_declaration->declaration_specifiers,
+                    p_declaration->p_attribute_specifier_sequence_opt,
+                    error);
             }
 
 
@@ -1738,14 +1745,14 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
 
         struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
-        struct declarator* registered_declarator = find_declarator(ctx, function_declarator->name->lexeme, NULL);
+        
 
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
         assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator);
 
-        /* 
+        /*
             scope of parameters is the inner declarator
 
             void (*f(int i))(void) {
@@ -1772,23 +1779,11 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
         scope_list_push(&ctx->scopes, parameters_scope);
 
 
-        if (ctx->current->type == TK_KEYWORD_EXTERN)
-        {
-            parser_match(ctx);
-            //o function_prototype_scope era um block_scope
-            p_declaration->function_body = function_body(ctx, error);
-            p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
-            /*we need to point to all declarator*/
-            registered_declarator->contract_declarator = p_declaration->init_declarator_list.head->declarator;
-        }
-        else
-        {
-            //o function_prototype_scope era um block_scope
-            p_declaration->function_body = function_body(ctx, error);
-            p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
 
-            /*we need to point to all declarator with body because tree is linked with argumetns*/
-        }
+        //o function_prototype_scope era um block_scope
+        p_declaration->function_body = function_body(ctx, error);
+        p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
+
 
         struct parameter_declaration* parameter = NULL;
 
@@ -1885,6 +1880,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx, stru
 
 struct init_declarator* init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
     struct error* error)
 {
     /*
@@ -1910,6 +1906,19 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             return p_init_declarator;
         }
 
+        if (p_attribute_specifier_sequence_opt &&
+            p_attribute_specifier_sequence_opt->attributes_flags)
+        {
+            if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+            {
+                p_init_declarator->declarator->static_analisys_flags |= MUST_FREE;
+            }
+            if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+            {
+                p_init_declarator->declarator->static_analisys_flags |= MUST_DESTROY;
+            }
+        }
+
         p_init_declarator->declarator->declaration_specifiers = p_declaration_specifiers;
         p_init_declarator->declarator->name = tkname;
 
@@ -1925,7 +1934,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 make_type_using_declarator(ctx, p_init_declarator->declarator);
 
             if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                type_is_nodiscard(&p_init_declarator->declarator->type) &&
+                type_is_destroy(&p_init_declarator->declarator->type) &&
                 !type_is_pointer(&p_init_declarator->declarator->type))
             {
                 p_init_declarator->declarator->static_analisys_flags = MUST_DESTROY | ISVALID;
@@ -1998,9 +2007,22 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
             if (p_init_declarator->initializer->assignment_expression)
             {
+                if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL &&
+                    type_is_function(&p_init_declarator->initializer->assignment_expression->left->type))
+                {
+                    /*
+                      FILE * f = fopen();
+                    */
+
+                    p_init_declarator->declarator->static_analisys_flags |=
+                        p_init_declarator->initializer->assignment_expression->left->declarator->static_analisys_flags;
+                }
+
                 /*let's apply the compile time flags*/
-                p_init_declarator->declarator->static_analisys_flags =
-                    p_init_declarator->initializer->assignment_expression->returnflag | ISVALID;
+               // p_init_declarator->declarator->static_analisys_flags =
+                   // p_init_declarator->initializer->assignment_expression->returnflag | ISVALID;
+
+                //TODO function with MUST_DESTROY
 
                 if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
                     (p_init_declarator->declarator->static_analisys_flags & MUST_FREE) &&
@@ -2065,6 +2087,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
 struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt,
     struct error* error)
 {
     /*
@@ -2073,12 +2096,15 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
       init-declarator-list , init-declarator
     */
     struct init_declarator_list init_declarator_list = { 0 };
-    list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
+    list_add(&init_declarator_list, init_declarator(ctx,
+        p_declaration_specifiers,
+        p_attribute_specifier_sequence_opt,
+        error));
     while (error->code == 0 &&
         ctx->current != NULL && ctx->current->type == ',')
     {
         parser_match(ctx);
-        list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, error));
+        list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, p_attribute_specifier_sequence_opt, error));
         if (error->code) break;
     }
     return init_declarator_list;
@@ -3503,6 +3529,17 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx, stru
         &p_parameter_declaration->name,
         error);
 
+    if (p_parameter_declaration->attribute_specifier_sequence_opt)
+    {
+        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+        {
+            p_parameter_declaration->declarator->static_analisys_flags |= MUST_DESTROY;
+        }
+        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+        {
+            p_parameter_declaration->declarator->static_analisys_flags |= MUST_FREE;
+        }
+    }
     p_parameter_declaration->declarator->is_parameter_declarator = true;
     p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
@@ -4011,7 +4048,15 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* er
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
     }
-
+    else if (strcmp(attr_token->lexeme, "free") == 0) {
+        is_standard_attribute = true;
+        p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_FREE;
+    }
+    else if (strcmp(attr_token->lexeme, "destroy") == 0) {
+        is_standard_attribute = true;
+        p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_DESTROY;
+    }
+    
     parser_match_tk(ctx, TK_IDENTIFIER, error);
 
     if (ctx->current->type == '::')
@@ -4294,7 +4339,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
                 if (p_declarator->static_analisys_flags & MUST_DESTROY)
                 {
                     parser_seterror_with_token(ctx,
-                        p_declarator->name, 
+                        p_declarator->name,
                         "destructor of '%s' must be called before the end of scope",
                         p_declarator->name->lexeme);
 
@@ -4302,11 +4347,11 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
                 if (p_declarator->static_analisys_flags & MUST_FREE)
                 {
-                    
+
                     parser_seterror_with_token(ctx,
                         p_declarator->name,
                         "free('%s') must be called before the end of scope",
-                        p_declarator->name->lexeme);                    
+                        p_declarator->name->lexeme);
                 }
 
                 if (!type_is_maybe_unused(&p_declarator->type) &&
@@ -4516,7 +4561,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
         if (first_of_declaration_specifier(ctx))
         {
             struct declaration_specifiers* p_declaration_specifiers = declaration_specifiers(ctx, error);
-            struct init_declarator_list list = init_declarator_list(ctx, p_declaration_specifiers, error);
+            struct init_declarator_list list = init_declarator_list(ctx, p_declaration_specifiers, NULL, error);
             p_selection_statement->init_declarator = list.head; //only one
             parser_match_tk(ctx, ';', error);
         }
@@ -5075,6 +5120,18 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt");
+
+        snprintf(env, sizeof env,
+            "%s",
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.33.31629/include;"
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.33.31629/ATLMFC/include;"
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt;"
+            "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
 
         n = strlen(env);
     }

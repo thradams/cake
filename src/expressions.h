@@ -166,10 +166,7 @@ struct expression
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
-    /*value = x*/
-    enum static_analisys_flags returnflag;
     
-
     struct expression* left;
     struct expression* right;
 };
