@@ -102,7 +102,7 @@ void scope_list_pop(struct scope_list* list)
 
 void parser_ctx_destroy(struct parser_ctx* ctx)
 {
-    //TODO
+    ctx;
 }
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
@@ -4379,6 +4379,8 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx, struct err
 
     scope_list_pop(&ctx->scopes);
 
+    scope_destroy(&block_scope);
+
     return p_compound_statement;
 }
 
@@ -4606,6 +4608,8 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
 
     scope_list_pop(&ctx->scopes);
 
+    scope_destroy(&if_scope);
+
     return p_selection_statement;
 }
 
@@ -4686,6 +4690,8 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
             p_iteration_statement->secondary_block = secondary_block(ctx, error);
 
             scope_list_pop(&ctx->scopes);
+
+            scope_destroy(&for_scope);
         }
         else
         {
@@ -4956,6 +4962,9 @@ struct declaration_list parse(struct options* options,
     report->info_count = ctx.n_info;
 
     parser_ctx_destroy(&ctx);
+
+    scope_destroy(&file_scope);
+
     return l;
 }
 
@@ -5533,6 +5542,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
                 free((void*)s);
                 s = s2;
             }
+            ast_destroy(&ast);
         }
 
         if (error.code)
@@ -5544,6 +5554,8 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
     catch
     {
     }
+
+    
 
     return s;
 }

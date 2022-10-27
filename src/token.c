@@ -170,7 +170,12 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    return ss.c_str;
+    const char* cstr = ss.c_str;
+    ss.c_str = NULL; /*MOVED*/
+
+    ss_close(&ss);
+
+    return cstr;
 }
 
 void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)

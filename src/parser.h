@@ -548,13 +548,13 @@ struct declarator
 };
 
 struct declarator;
-void print_declarator(struct osstream* ss, struct declarator* declarator, bool bAbstract);
+void print_declarator(struct osstream* ss, struct declarator* declarator, bool is_abstract);
 
 struct declarator* declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* specifier_qualifier_list,
     struct declaration_specifiers* declaration_specifiers,
-    bool bAbstractAcceptable,
-    struct token** pptokenName,
+    bool abstract_acceptable,
+    struct token** pptokenname,
     struct error* error);
 
 struct array_declarator
@@ -605,8 +605,8 @@ struct direct_declarator
 struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* specifier_qualifier_list,
     struct declaration_specifiers* declaration_specifiers,
-    bool bAbstractAcceptable,
-    struct token** pptokenName,
+    bool abstract_acceptable,
+    struct token** pptoken_name,
     struct error* error);
 
 
@@ -1228,7 +1228,7 @@ struct _destroy ast
 };
 
 
-struct ast get_ast(struct options* options, const char* fileName, const char* source, struct error* error, struct report* report);
+struct ast get_ast(struct options* options, const char* filename, const char* source, struct error* error, struct report* report);
 void ast_destroy(_destroy struct ast* ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 

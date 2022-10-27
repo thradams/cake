@@ -31,8 +31,8 @@ struct hash_map {
     int  size;
 };
 
-void hashmap_remove_all(struct hash_map* pMap);
-void hashmap_destroy(struct hash_map* pMap);
-struct type_tag_id* hashmap_find(struct hash_map* pMap, const char* key);
+void hashmap_remove_all(struct hash_map* map);
+void hashmap_destroy(struct hash_map* map);
+struct type_tag_id* hashmap_find(struct hash_map* map, const char* key);
 struct type_tag_id* hashmap_remove(struct hash_map* map, const char* key);
-int hashmap_set(struct hash_map* pMap, const char* key, struct type_tag_id* pNew);
+int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* pnew);

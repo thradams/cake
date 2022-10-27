@@ -200,7 +200,7 @@ void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token,
     }
 }
 
-void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_token, bool bError)
+void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_token, bool is_error)
 {
     ctx->n_warnings++;
     //er->code = 1;
@@ -217,7 +217,7 @@ void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_
         ctx->printf(WHITE "<>");
     }
 
-    if (bError)
+    if (is_error)
         ctx->printf(LIGHTRED "error: " WHITE);
     else
         ctx->printf(LIGHTMAGENTA "warning: " WHITE);
@@ -241,29 +241,29 @@ void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_
 
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path)
 {
-    struct include_dir* pNew = calloc(1, sizeof * pNew);
-    pNew->path = strdup(path);
+    struct include_dir* p_new_include_dir = calloc(1, sizeof * p_new_include_dir);
+    p_new_include_dir->path = strdup(path);
     if (list->head == NULL)
     {
-        list->head = pNew;
-        list->tail = pNew;
+        list->head = p_new_include_dir;
+        list->tail = p_new_include_dir;
     }
     else
     {
-        list->tail->next = pNew;
-        list->tail = pNew;
+        list->tail->next = p_new_include_dir;
+        list->tail = p_new_include_dir;
     }
-    return pNew;
+    return p_new_include_dir;
 }
 
 
-const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char* path, char fullpath[300], bool* bAlreadyIncluded)
+const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char* path, char fullpath[300], bool* p_already_included)
 {
     snprintf(fullpath, 300, "%s", path);
 
     if (hashmap_find(&ctx->pragma_once_map, fullpath) != NULL)
     {
-        *bAlreadyIncluded = true;
+        *p_already_included = true;
         return NULL;
     }
 
@@ -278,7 +278,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
 
             if (hashmap_find(&ctx->pragma_once_map, fullpath) != NULL)
             {
-                *bAlreadyIncluded = true;
+                *p_already_included = true;
                 return NULL;
             }
 
@@ -303,12 +303,12 @@ struct macro
 {
     struct type_tag_id type_id;
     const char* name;
-    struct token_list replacementList; /*copia*/
-    struct macro_parameter* pParameters;
-    bool bIsFunction;
+    struct token_list replacement_list; /*copia*/
+    struct macro_parameter* parameters;
+    bool is_function;
     int usage;
 
-    bool bExpand;
+    bool expand;
 };
 
 /*usado para verificar recursividade*/
@@ -391,16 +391,15 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
 
 
 struct token_list copy_argument_list(struct macro_argument* pMacroArgument)
-{
-    //pnew->tokens
+{    
     struct token_list list = copy_argument_list_tokens(&pMacroArgument->tokens);
     if (list.head == NULL)
     {
         /*nunca eh vazio..se for ele colocar um TK_PLACEMARKER*/
-        struct token* pNew = calloc(1, sizeof * pNew);
-        pNew->lexeme = strdup("");
-        pNew->type = TK_PLACEMARKER;
-        token_list_add(&list, pNew);
+        struct token* p_new_token = calloc(1, sizeof * p_new_token);
+        p_new_token->lexeme = strdup("");
+        p_new_token->type = TK_PLACEMARKER;
+        token_list_add(&list, p_new_token);
     }
     //print_list(&list);
     return list;
@@ -463,19 +462,19 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
 void print_macro(struct macro* macro)
 {
     printf("%s", macro->name);
-    if (macro->bIsFunction)
+    if (macro->is_function)
         printf("(");
-    struct macro_parameter* pParameter = macro->pParameters;
+    struct macro_parameter* pParameter = macro->parameters;
     while (pParameter)
     {
-        if (macro->pParameters != pParameter)
+        if (macro->parameters != pParameter)
             printf(",");
         printf("%s", pParameter->name);
         pParameter = pParameter->next;
     }
-    if (macro->bIsFunction)
+    if (macro->is_function)
         printf(") ");
-    print_list(&macro->replacementList);
+    print_list(&macro->replacement_list);
 }
 
 void delete_macro(struct macro* macro)
@@ -826,12 +825,12 @@ enum token_type is_punctuator(struct stream* stream)
 
 struct token* new_token(const char* lexeme_head, const char* lexeme_tail, enum token_type type)
 {
-    struct token* pNew = calloc(1, sizeof * pNew);
+    struct token* p_new_token = calloc(1, sizeof * p_new_token);
     size_t sz = lexeme_tail - lexeme_head;
-    pNew->lexeme = calloc(sz + 1, sizeof(char));
-    pNew->type = type;
-    strncpy(pNew->lexeme, lexeme_head, sz);
-    return pNew;
+    p_new_token->lexeme = calloc(sz + 1, sizeof(char));
+    p_new_token->type = type;
+    strncpy(p_new_token->lexeme, lexeme_head, sz);
+    return p_new_token;
 }
 
 struct token* identifier(struct stream* stream)
@@ -854,10 +853,10 @@ struct token* identifier(struct stream* stream)
         stream_match(stream);
     }
 
-    struct token* pNew = new_token(start, stream->current, TK_IDENTIFIER);
+    struct token* p_new_token = new_token(start, stream->current, TK_IDENTIFIER);
 
 
-    return pNew;
+    return p_new_token;
 }
 
 
@@ -918,9 +917,9 @@ struct token* character_constant(struct stream* stream)
     {
         //warning: character constant too long for its type
     }
-    struct token* pNew = new_token(start, stream->current, TK_CHAR_CONSTANT);
+    struct token* p_new_token = new_token(start, stream->current, TK_CHAR_CONSTANT);
 
-    return pNew;
+    return p_new_token;
 }
 
 bool first_of_string_literal(struct stream* stream)
@@ -945,7 +944,7 @@ bool first_of_string_literal(struct stream* stream)
 
 struct token* string_literal(struct stream* stream, struct error* error)
 {
-    struct token* pNew = NULL;
+    struct token* p_new_token = NULL;
 
     const char* start = stream->current;
     int start_line = stream->line;
@@ -991,13 +990,13 @@ struct token* string_literal(struct stream* stream, struct error* error)
                 stream_match(stream);
         }
         stream_match(stream);
-        pNew = new_token(start, stream->current, TK_STRING_LITERAL);
+        p_new_token = new_token(start, stream->current, TK_STRING_LITERAL);
     }
     catch
     {
     }
 
-    return pNew;
+    return p_new_token;
 }
 
 struct token* ppnumber(struct stream* stream)
@@ -1086,8 +1085,8 @@ struct token* ppnumber(struct stream* stream)
             break;
         }
     }
-    struct token* pNew = new_token(start, stream->current, TK_PPNUMBER);
-    return pNew;
+    struct token* p_new_token = new_token(start, stream->current, TK_PPNUMBER);
+    return p_new_token;
 }
 
 struct token_list embed_tokenizer(const char* filename_opt, int level, enum token_flags addflags, struct error* error)
@@ -1138,13 +1137,13 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
             else
             {
                 char b[] = ",";
-                struct token* pNew = new_token(b, &b[1], TK_COMMA);
-                pNew->flags |= addflags;
-                pNew->level = level;
-                pNew->token_origin = NULL;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                struct token* p_new_token = new_token(b, &b[1], TK_COMMA);
+                p_new_token->flags |= addflags;
+                p_new_token->level = level;
+                p_new_token->token_origin = NULL;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
 
                 if (count > 0 && count % 25 == 0)
                 {
@@ -1162,13 +1161,13 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
             char buffer[30];
             int c = snprintf(buffer, sizeof buffer, "%d", (int)ch);
 
-            struct token* pNew = new_token(buffer, &buffer[c], TK_PPNUMBER);
-            pNew->flags |= addflags;
-            pNew->level = level;
-            pNew->token_origin = NULL;
-            pNew->line = line;
-            pNew->col = col;
-            token_list_add(&list, pNew);
+            struct token* p_new_token = new_token(buffer, &buffer[c], TK_PPNUMBER);
+            p_new_token->flags |= addflags;
+            p_new_token->level = level;
+            p_new_token->token_origin = NULL;
+            p_new_token->line = line;
+            p_new_token->col = col;
+            token_list_add(&list, p_new_token);
 
 
             count++;
@@ -1183,12 +1182,12 @@ struct token_list embed_tokenizer(const char* filename_opt, int level, enum toke
 
     /*new line*/
     char newline[] = "\n";
-    struct token* pNew = new_token(newline, &newline[1], TK_NEWLINE);
-    pNew->level = level;
-    pNew->token_origin = NULL;
-    pNew->line = line;
-    pNew->col = col;
-    token_list_add(&list, pNew);
+    struct token* p_new_token = new_token(newline, &newline[1], TK_NEWLINE);
+    p_new_token->level = level;
+    p_new_token->token_origin = NULL;
+    p_new_token->line = line;
+    p_new_token->col = col;
+    token_list_add(&list, p_new_token);
 
     if (file) fclose(file);
 
@@ -1243,18 +1242,18 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
             if (is_digit(&stream) ||
                 (stream.current[0] == '.' && isdigit(stream.current[0])))
             {
-                struct token* pNew = ppnumber(&stream);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = ppnumber(&stream);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->flags |= addflags;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 bNewLine = false;
                 bHasSpace = false;
                 continue;
@@ -1265,20 +1264,20 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
             */
             if (first_of_string_literal(&stream))
             {
-                struct token* pNew = string_literal(&stream, error);
-                if (pNew == NULL)
+                struct token* p_new_token = string_literal(&stream, error);
+                if (p_new_token == NULL)
                     throw;
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->flags |= addflags;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);;
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);;
                 bNewLine = false;
                 bHasSpace = false;
                 continue;
@@ -1287,16 +1286,16 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
             if (first_of_character_constant(&stream))
             {
                 //TODO if we have ' in the middle then it is not character constant
-                struct token* pNew = character_constant(&stream);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = character_constant(&stream);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 bNewLine = false;
                 bHasSpace = false;
                 continue;
@@ -1304,16 +1303,16 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
 
             if (is_nondigit(&stream))
             {
-                struct token* pNew = identifier(&stream);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = identifier(&stream);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 bNewLine = false;
                 bHasSpace = false;
                 continue;
@@ -1330,16 +1329,16 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 {
                     stream_match(&stream);
                 }
-                struct token* pNew = new_token(start, stream.current, TK_BLANKS);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = new_token(start, stream.current, TK_BLANKS);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 /*bNewLine = false;*/ //deixa assim
                 bHasSpace = true;
                 continue;
@@ -1355,16 +1354,16 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                 {
                     stream_match(&stream);
                 }
-                struct token* pNew = new_token(start, stream.current, TK_LINE_COMMENT);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = new_token(start, stream.current, TK_LINE_COMMENT);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 bNewLine = true;
                 bHasSpace = false;
                 continue;
@@ -1394,16 +1393,16 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                         stream_match(&stream);
                     }
                 }
-                struct token* pNew = new_token(start, stream.current, TK_COMENT);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = new_token(start, stream.current, TK_COMENT);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 bNewLine = false;
                 bHasSpace = false;
                 continue;
@@ -1412,17 +1411,17 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
             {
                 const char* start = stream.current;
                 stream_match(&stream);
-                struct token* pNew = new_token(start, stream.current, '#');
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = new_token(start, stream.current, '#');
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                pNew->type = TK_PREPROCESSOR_LINE;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                p_new_token->type = TK_PREPROCESSOR_LINE;
+                token_list_add(&list, p_new_token);
                 bNewLine = false;
                 bHasSpace = false;
                 continue;
@@ -1441,16 +1440,16 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
                     stream_match(&stream);
                 }
                 char  newline[] = "\n";
-                struct token* pNew = new_token(newline, newline + 1, TK_NEWLINE);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = new_token(newline, newline + 1, TK_NEWLINE);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 bNewLine = true;
                 bHasSpace = false;
                 continue;
@@ -1460,16 +1459,16 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
             if (t != TK_NONE)
             {
 
-                struct token* pNew = new_token(start, stream.current, t);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = new_token(start, stream.current, t);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 bNewLine = false;
                 bHasSpace = false;
                 continue;
@@ -1477,16 +1476,16 @@ struct token_list tokenizer(const char* text, const char* filename_opt, int leve
             else
             {
                 stream_match(&stream);
-                struct token* pNew = new_token(start, stream.current, ANY_OTHER_PP_TOKEN);
-                pNew->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                pNew->flags |= addflags;
+                struct token* p_new_token = new_token(start, stream.current, ANY_OTHER_PP_TOKEN);
+                p_new_token->flags |= bHasSpace ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= bNewLine ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
 
-                pNew->level = level;
-                pNew->token_origin = pFirst;
-                pNew->line = line;
-                pNew->col = col;
-                token_list_add(&list, pNew);
+                p_new_token->level = level;
+                p_new_token->token_origin = pFirst;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
                 bNewLine = false;
                 bHasSpace = false;
 
@@ -1727,19 +1726,19 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
                 struct macro* macro = find_macro(ctx, input_list->head->lexeme);
-                struct token* pNew = token_list_pop_front(input_list);
-                pNew->type = TK_PPNUMBER;
-                free(pNew->lexeme);
+                struct token* p_new_token = token_list_pop_front(input_list);
+                p_new_token->type = TK_PPNUMBER;
+                free(p_new_token->lexeme);
                 if (macro)
                 {
-                    pNew->lexeme = strdup("1");
+                    p_new_token->lexeme = strdup("1");
                 }
                 else
                 {
-                    pNew->lexeme = strdup("0");
+                    p_new_token->lexeme = strdup("0");
                 }
 
-                token_list_add(&r, pNew);
+                token_list_add(&r, p_new_token);
 
                 if (bHasParentesis)
                 {
@@ -1793,13 +1792,13 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 bool bHasInclude = s != NULL;
                 free(s);
 
-                struct token* pNew = calloc(1, sizeof * pNew);
-                pNew->type = TK_PPNUMBER;
-                free(pNew->lexeme);
-                pNew->lexeme = strdup(bHasInclude ? "1" : "0");
-                pNew->flags |= TK_FLAG_FINAL;
+                struct token* p_new_token = calloc(1, sizeof * p_new_token);
+                p_new_token->type = TK_PPNUMBER;
+                free(p_new_token->lexeme);
+                p_new_token->lexeme = strdup(bHasInclude ? "1" : "0");
+                p_new_token->flags |= TK_FLAG_FINAL;
 
-                token_list_add(&r, pNew);
+                token_list_add(&r, p_new_token);
                 token_list_pop_front(input_list); //pop )
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
@@ -1851,13 +1850,13 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 */
                 bool bHas_C_Attribute = false;
 
-                struct token* pNew = calloc(1, sizeof * pNew);
-                pNew->type = TK_PPNUMBER;
-                free(pNew->lexeme);
-                pNew->lexeme = strdup(bHas_C_Attribute ? "1" : "0");
-                pNew->flags |= TK_FLAG_FINAL;
+                struct token* p_new_token = calloc(1, sizeof * p_new_token);
+                p_new_token->type = TK_PPNUMBER;
+                free(p_new_token->lexeme);
+                p_new_token->lexeme = strdup(bHas_C_Attribute ? "1" : "0");
+                p_new_token->flags |= TK_FLAG_FINAL;
 
-                token_list_add(&r, pNew);
+                token_list_add(&r, p_new_token);
                 token_list_pop_front(input_list); //pop )
             }
             else
@@ -1886,13 +1885,13 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token
         {
 
             struct macro* macro = find_macro(ctx, list->head->lexeme);
-            struct token* pNew = token_list_pop_front(list);
-            pNew->type = TK_PPNUMBER;
+            struct token* p_new_token = token_list_pop_front(list);
+            p_new_token->type = TK_PPNUMBER;
 
             if (macro)
             {
-                free(pNew->lexeme);
-                pNew->lexeme = strdup("1");
+                free(p_new_token->lexeme);
+                p_new_token->lexeme = strdup("1");
             }
             else
             {
@@ -1903,23 +1902,23 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token
                   to keywords such as false) are replaced with the pp-number 0, true is replaced with pp-number
                   1, and then each preprocessing token is converted into a token.
                 */
-                if (strcmp(pNew->lexeme, "true") == 0)
+                if (strcmp(p_new_token->lexeme, "true") == 0)
                 {
-                    pNew->lexeme[0] = '1';
-                    pNew->lexeme[1] = '\0';
+                    p_new_token->lexeme[0] = '1';
+                    p_new_token->lexeme[1] = '\0';
                 }
-                else if (strcmp(pNew->lexeme, "false") == 0)
+                else if (strcmp(p_new_token->lexeme, "false") == 0)
                 {
-                    pNew->lexeme[0] = '0';
-                    pNew->lexeme[1] = '\0';
+                    p_new_token->lexeme[0] = '0';
+                    p_new_token->lexeme[1] = '\0';
                 }
                 else
                 {
-                    free(pNew->lexeme);
-                    pNew->lexeme = strdup("0");
+                    free(p_new_token->lexeme);
+                    p_new_token->lexeme = strdup("0");
                 }
             }
-            token_list_add(&list2, pNew);
+            token_list_add(&list2, p_new_token);
         }
         else
         {
@@ -2322,7 +2321,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
     skip_blanks(&r, input_list);
     struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
     pMacroParameter->name = strdup(input_list->head->lexeme);
-    macro->pParameters = pMacroParameter;
+    macro->parameters = pMacroParameter;
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);
     skip_blanks(&r, input_list);
     while (input_list->head->type == ',')
@@ -2354,9 +2353,9 @@ struct token_list replacement_list(struct macro* macro, struct token_list* input
             //terminou define sem quebra de linha
         }
     }
-    assert(macro->replacementList.head == NULL);
+    assert(macro->replacement_list.head == NULL);
     struct token_list copy = copy_replacement_list(&r);
-    token_list_append_list(&macro->replacementList, &copy);
+    token_list_append_list(&macro->replacement_list, &copy);
     return r;
 }
 
@@ -2610,7 +2609,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (input_list->head->type == '(')
             {
 
-                macro->bIsFunction = true;
+                macro->is_function = true;
 
 
                 match_token_level(&r, input_list, '(', level, ctx, error); //nome da macro
@@ -2619,7 +2618,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
                     pMacroParameter->name = strdup("__VA_ARGS__");
-                    macro->pParameters = pMacroParameter;
+                    macro->parameters = pMacroParameter;
 
                     // assert(false);
                     match_token_level(&r, input_list, '...', level, ctx, error); //nome da macro
@@ -2640,7 +2639,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     {
                         struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
                         pMacroParameter->name = strdup("__VA_ARGS__");
-                        struct macro_parameter* pLast = macro->pParameters;
+                        struct macro_parameter* pLast = macro->parameters;
                         assert(pLast != NULL);
                         while (pLast->next)
                         {
@@ -2657,7 +2656,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             else
             {
-                macro->bIsFunction = false;
+                macro->is_function = false;
             }
             struct token_list r4 = replacement_list(macro, input_list, level);
             token_list_append_list(&r, &r4);
@@ -2755,7 +2754,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     struct macro* macro = find_macro(ctx, input_list->head->lexeme);
                     if (macro)
                     {
-                        macro->bExpand = true;
+                        macro->expand = true;
                     }
 
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx, error);//pragma
@@ -2798,20 +2797,20 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
         assert(input_list->head->type == TK_IDENTIFIER); //nome da macro
 
         match_token_level(&macroArgumentList.tokens, input_list, TK_IDENTIFIER, level, ctx, error); //NOME DA MACRO
-        if (!macro->bIsFunction)
+        if (!macro->is_function)
         {
             //se nao eh funcao so faz isso e retorna o nome da macro
             return macroArgumentList;
         }
 
-        struct macro_parameter* pCurrentParameter = macro->pParameters;
+        struct macro_parameter* pCurrentParameter = macro->parameters;
         int count = 1;
         skip_blanks(&macroArgumentList.tokens, input_list);
         match_token_level(&macroArgumentList.tokens, input_list, '(', level, ctx, error);
         skip_blanks(&macroArgumentList.tokens, input_list);
         if (input_list->head->type == ')')
         {
-            if (macro->pParameters != NULL)
+            if (macro->parameters != NULL)
             {
                 struct macro_argument* pArgument = calloc(1, sizeof(struct macro_argument));
                 pArgument->name = strdup(pCurrentParameter->name);
@@ -2984,6 +2983,9 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
 
             /*adiciona novo token no fim do r*/
             token_list_append_list(&r, &newlist);
+
+            ss_close(&ss);
+
             if (input_list->head == NULL)
                 break;
         }
@@ -3132,11 +3134,11 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                         pre_seterror_with_token(ctx, input_list->head, "unexpected");
                         throw;
                     }
-                    struct token* pNew = calloc(1, sizeof * pNew);
-                    pNew->lexeme = s;
-                    pNew->type = TK_STRING_LITERAL;
-                    pNew->flags = flags;
-                    token_list_add(&r, pNew);
+                    struct token* p_new_token = calloc(1, sizeof * p_new_token);
+                    p_new_token->lexeme = s;
+                    p_new_token->type = TK_STRING_LITERAL;
+                    p_new_token->flags = flags;
+                    token_list_add(&r, p_new_token);
                     continue;
                 }
                 else if (r.tail != NULL && r.tail->type == '##')
@@ -3254,7 +3256,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
             {
                 macro = find_macro(ctx, newList.head->lexeme);
                 if (macro &&
-                    macro->bIsFunction &&
+                    macro->is_function &&
                     !preprocessor_token_ahead_is(newList.head, '('))
                 {
                     macro = NULL;
@@ -3471,7 +3473,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
         return r;
     }
 
-    return copy_replacement_list(&macro->replacementList);
+    return copy_replacement_list(&macro->replacement_list);
 }
 
 void print_literal2(const char* s);
@@ -3498,7 +3500,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
         struct macro_expanded macro_expanded = { 0 };
         macro_expanded.name = macro->name;
         macro_expanded.pPrevious = pList;
-        if (macro->bIsFunction)
+        if (macro->is_function)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro, error);
             struct token_list copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments, error);
@@ -3550,7 +3552,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
 
                 macro = find_macro(ctx, input_list->head->lexeme);
                 if (macro &&
-                    macro->bIsFunction &&
+                    macro->is_function &&
                     !preprocessor_token_ahead_is(input_list->head, '('))
                 {
                     macro = NULL;
@@ -3612,7 +3614,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                     start_macro.head->flags |= flags;
                 }
 
-                if (macro->bExpand)
+                if (macro->expand)
                 {
                     //Esconde a macro e os argumentos
                     for (struct token* current = arguments.tokens.head;
@@ -3653,7 +3655,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                     if (input_list->head->type == TK_IDENTIFIER)
                     {
                         macro = find_macro(ctx, input_list->head->lexeme);
-                        if (macro && macro->bIsFunction &&
+                        if (macro && macro->is_function &&
                             !preprocessor_token_ahead_is(input_list->head, '('))
                         {
                             macro = NULL;
@@ -4131,7 +4133,13 @@ const char* get_code_as_we_see_plusmacros(struct token_list* list)
         }
         current = current->next;
     }
-    return ss.c_str;
+    
+    const char* cstr = ss.c_str;
+    ss.c_str = NULL; /*MOVED*/
+
+    ss_close(&ss);    
+
+    return cstr;
 }
 
 const char* get_code_as_we_see(struct token_list* list, bool remove_comments)
@@ -4168,7 +4176,13 @@ const char* get_code_as_we_see(struct token_list* list, bool remove_comments)
         }
         current = current->next;
     }
-    return ss.c_str;
+    
+    const char* cstr = ss.c_str;
+    ss.c_str = NULL; /*MOVED*/
+
+    ss_close(&ss);
+
+    return cstr;
 }
 
 
@@ -4197,7 +4211,13 @@ const char* get_code_as_compiler_see(struct token_list* list)
         }
         current = current->next;
     }
-    return ss.c_str;
+
+    const char* cstr = ss.c_str;
+    ss.c_str = NULL; /*MOVED*/
+
+    ss_close(&ss);
+
+    return cstr;
 }
 
 const char* print_preprocessed_to_string2(struct token* p_token)
@@ -4274,7 +4294,13 @@ const char* print_preprocessed_to_string2(struct token* p_token)
             current = current->next;
         }
     }
-    return ss.c_str; //MOVED
+
+    const char* cstr = ss.c_str;
+    ss.c_str = NULL; /*MOVED*/
+
+    ss_close(&ss);
+
+    return cstr;
 }
 
 const char* print_preprocessed_to_string(struct token* p_token)
@@ -4323,7 +4349,13 @@ const char* print_preprocessed_to_string(struct token* p_token)
             current = current->next;
         }
     }
-    return ss.c_str;
+
+    const char* cstr = ss.c_str;
+    ss.c_str = NULL; /*MOVED*/
+
+    ss_close(&ss);
+
+    return cstr;
 }
 
 void print_preprocessed(struct token* p_token)

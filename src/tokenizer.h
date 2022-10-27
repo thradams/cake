@@ -61,20 +61,20 @@ struct token* token_list_pop_front(struct token_list* list);
 void remove_line_continuation(char* s);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
-void token_list_insert_after(struct token_list* list, struct token* pAfter, struct token_list* append);
+void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* append);
 struct token_list tokenizer(const char* text, const char* filename_opt, int level, enum token_flags addflags, struct error* error);
 
-const char* get_code_as_we_see(struct token_list* list, bool removeComments);
+const char* get_code_as_we_see(struct token_list* list, bool remove_comments);
 const char* get_code_as_compiler_see(struct token_list* list);
 
 const char* get_code_as_we_see_plusmacros(struct token_list* list);
-const char* get_code_as_we_see(struct token_list* list, bool removeComments);
+const char* get_code_as_we_see(struct token_list* list, bool remove_comments);
 
 void print_tokens(struct token* p_token);
 void print_preprocessed(struct token* p_token);
 const char* print_preprocessed_to_string(struct token* p_token);
 const char* print_preprocessed_to_string2(struct token* p_token);
-void check_unused_macros(struct hash_map* pMap);
+void check_unused_macros(struct hash_map* map);
 
 char* readfile(const char* path);
 const char* get_token_name(enum token_type tk);

@@ -7,10 +7,6 @@
 #include <crtdbg.h>
 #endif
 
-extern void node_delete(struct type_tag_id* pNode);
-
-
-
 
 void hashmap_remove_all(struct hash_map* map)
 {
@@ -22,13 +18,10 @@ void hashmap_remove_all(struct hash_map* map)
 
             while (pentry != NULL)
             {
-                struct map_entry* pentryCurrent = pentry;
-
-                //node_delete(pentryCurrent->p);
-
+                struct map_entry* p_entry_current = pentry;
                 pentry = pentry->next;
-                free(pentryCurrent->key);
-                free(pentryCurrent);
+                free(p_entry_current->key);
+                free(p_entry_current);
             }
         }
 
@@ -94,7 +87,7 @@ struct type_tag_id* hashmap_remove(struct hash_map* map, const char* key)
     return p;
 }
 
-int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* pNew)
+int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* p_new)
 {
     int result = 0;
 
@@ -124,7 +117,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* pNew)
         {
             pentry = calloc(1, sizeof(*pentry));
             pentry->hash = hash;
-            pentry->p = pNew;
+            pentry->p = p_new;
             pentry->key = strdup(key);
             pentry->next = map->table[index];
             map->table[index] = pentry;
@@ -134,7 +127,7 @@ int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* pNew)
         else
         {
             result = 1;
-            pentry->p = pNew;
+            pentry->p = p_new;
         }
     }
 
