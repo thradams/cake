@@ -52,13 +52,26 @@ void help()
 		"  cake -target=c99 source.c\n"
 		;
 
-	printf("Cake " __DATE__ "\n%s", options);
+	printf("%s", options);
 }
 
 #ifndef TEST
 int main(int argc, char** argv)
 {
 	enable_vt_mode();
+	
+	printf("Cake " __DATE__ "\n");
+	
+#ifdef _WIN32
+	printf("Windows ");
+#endif
+#ifdef _MSC_VER
+	printf("MSCVER ");
+#endif
+#ifdef __GNUC__
+	printf("GNUC ");
+#endif
+	printf("\n\n");
 	
 
 	if (argc < 2)

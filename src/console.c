@@ -71,6 +71,11 @@ int c_getch(void)
 
 bool enable_vt_mode(void)
 {
+//missing in mingw (installed with codeblocs)
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING  
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
+#endif
+
     DWORD dwMode = 0;
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if ((hOut = GetStdHandle(STD_OUTPUT_HANDLE)) != INVALID_HANDLE_VALUE &&

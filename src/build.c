@@ -134,9 +134,11 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#ifdef BUILD_LINUX_GCC
+
+#if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC
+
     //#define GCC_ANALIZER  " -fanalyzer "
-    system(GCC
+    system("gcc "
            " -Wall "
            " -Wno-multichar "
            " -Wno-switch "

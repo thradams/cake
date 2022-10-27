@@ -150,11 +150,7 @@ enum static_analisys_flags
 #define _delete [[destroy,free]]
 #define _free [[free]]
 
-#define MOVED(a) _del_attr(a, MUST_DESTROY | MUST_FREE)
-
 #else
-
-#define MOVED(a)
 
 #define _destroy 
 #define _delete
@@ -164,7 +160,6 @@ enum static_analisys_flags
 #define _add_attr(a, b)
 
 #endif
-
 
 
 struct _destroy osstream
@@ -1400,6 +1395,11 @@ int c_getch(void)
 
 bool enable_vt_mode(void)
 {
+//missing in mingw (installed with codeblocs)
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING  
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
+#endif
+
     DWORD dwMode = 0;
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if ((hOut = GetStdHandle(STD_OUTPUT_HANDLE)) != INVALID_HANDLE_VALUE &&

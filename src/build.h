@@ -41,6 +41,11 @@
 #define BUILD_LINUX_GCC
 #define COMPILER_NAME "gcc"
 #define RUN "./"
+#elif defined(_WIN32) && defined(__GNUC__)
+#define BUILD_WINDOWS
+#define BUILD_WINDOWS_GCC
+#define COMPILER_NAME "gcc"
+#define RUN ""
 #else
 #error Unknown Platform/Compiler
 #endif
