@@ -38,19 +38,17 @@ struct TAGDIR
     struct dirent dirent;
 };
 
-//typedef struct TAGDIR DIR;
-
 
 DIR* opendir(const char* name)
 {
     assert(name != 0);
-    WIN32_FIND_DATAA fdFile;
+    WIN32_FIND_DATAA fdfile;
 
-    char sPath[MAX_PATH] = { 0 };
-    strcat(sPath, name);
-    strcat(sPath, "\\*.*");
+    char path[MAX_PATH] = { 0 };
+    strcat(path, name);
+    strcat(path, "\\*.*");
 
-    HANDLE handle = FindFirstFileA(sPath, &fdFile);
+    HANDLE handle = FindFirstFileA(path, &fdfile);
 
     if (handle != INVALID_HANDLE_VALUE)
     {
@@ -83,21 +81,21 @@ int closedir(DIR* dirp)
 
 struct dirent* readdir(DIR* dirp)
 {
-    WIN32_FIND_DATAA fdFile;
-    BOOL b = FindNextFileA(dirp->handle, &fdFile);
+    WIN32_FIND_DATAA fdfile;
+    BOOL b = FindNextFileA(dirp->handle, &fdfile);
     if (b)
     {
         /*clear*/
         memset(&dirp->dirent, 0, sizeof(dirp->dirent));
 
-        if (fdFile.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        if (fdfile.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         {
             dirp->dirent.d_type |= DT_DIR;
         }
 
         /*worst case trunks the string*/
         strncpy(dirp->dirent.d_name,
-                fdFile.cFileName,
+                fdfile.cFileName,
                 sizeof(dirp->dirent.d_name) - 1);
 
         return &dirp->dirent;
