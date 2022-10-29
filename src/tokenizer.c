@@ -2373,15 +2373,17 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 {
     /*
         control-line:
-            # include pp-tokens new-line
-            # define identifier replacement-list new-line
-            # define identifier ( identifier-list_opt ) replacement-list new-line
-            # define identifier ( ... ) replacement-list new-line
-            # define identifier lparen identifier-list , ... ) replacement-list new-line
-            # undef identifier new-line
-            # line pp-tokens new-line
-            # error pp-tokensopt new-line
-            # pragma pp-tokensopt new-line
+            # "include" pp-tokens new-line
+            # "embed" pp-tokens new-line
+            # "define" identifier replacement-list new-line
+            # "define" identifier ( identifier-list opt ) replacement-list new-line
+            # "define" identifier ( ... ) replacement-list new-line
+            # "define" identifier ( identifier-list , ... ) replacement-list new-line
+            # "undef" identifier new-line
+            # "line" pp-tokens new-line
+            # "error" pp-tokens opt new-line
+            # "warning" pp-tokens opt new-line
+            # "pragma" pp-tokens opt new-line
             # new-line
     */
 
