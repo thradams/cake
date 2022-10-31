@@ -157,6 +157,27 @@ void compile_cake()
            " -DNDEBUG"
            " -o " OUTPUT
     );
+
+
+if defined BUILD_WINDOWS_OCC
+
+    system("occ "
+           " /w+ "
+           " /g "
+           SOURCE_FILES " main.c "
+
+#if defined DEBUG
+           " /D_DEBUG"
+#else
+           " /D_NDEBUG"
+#endif
+
+#ifdef TEST
+           " /DTEST"
+#endif
+           " /DNDEBUG"
+           " /oname " OUTPUT
+    );
 #endif
 }
 

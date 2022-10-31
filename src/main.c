@@ -71,6 +71,9 @@ int main(int argc, char** argv)
 #ifdef __GNUC__
 	printf("GNUC ");
 #endif
+#ifdef __ORANGEC__
+	printf("ORANGEC ");
+#endif
 	printf("\n\n");
 	
 

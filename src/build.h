@@ -26,6 +26,11 @@
 #define BUILD_WINDOWS_MSC
 #define COMPILER_NAME "cl"
 #define RUN ""
+#elif defined(_WIN32) && defined(__ORANGEC__)
+#define BUILD_WINDOWS
+#define BUILD_WINDOWS_OCC
+#define COMPILER_NAME "occ"
+#define RUN ""
 #elif defined(_WIN32) && defined(__clang__)
 #define BUILD_WINDOWS
 #define BUILD_WINDOWS_CLANG
