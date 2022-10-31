@@ -7,11 +7,12 @@
 
 #include "stack.h"
 
-#ifndef _MSC_VER
+#ifndef _WIN32
 #include <strings.h>
 #else
 #define strncasecmp	_strnicmp
 #endif
+
 
 #define REF_TABLE_SIZE 8
 

@@ -6,15 +6,21 @@
 #include "osstream.h"
 #include "tokenizer.h"
 
-
 #ifdef _WIN32
-#include <crtdbg.h>
 #include <Windows.h>
-#include <debugapi.h>
-
-#undef assert
-#define assert _ASSERTE
 #endif
+
+#if defined _MSC_VER && !defined __POCC__
+#include <crtdbg.h>
+#endif
+
+#if defined _MSC_VER && !defined __POCC__
+#include <crtdbg.h>
+#include <debugapi.h>
+#endif
+
+
+
 void print_literal2(const char* s);
 
 void token_list_clear(struct token_list* list)
@@ -175,7 +181,7 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
 
     ss_close(&ss);
 
-    return cstr;
+    return (char*) cstr;
 }
 
 void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)

@@ -10,10 +10,14 @@
 #include <string.h>
 
 #ifdef _WIN32
-#include <crtdbg.h>
-#undef assert
-#define assert _ASSERTE
+#include <Windows.h>
 #endif
+
+#if defined _MSC_VER && !defined __POCC__
+#include <crtdbg.h>
+#include <debugapi.h>
+#endif
+
 
 /*contexto expressoes preprocessador*/
 struct pre_expression_ctx

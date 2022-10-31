@@ -14,6 +14,12 @@
  include dirent.h on linux
 */
 
+#ifdef __POCC__
+/*missing in pelles c*/
+typedef unsigned short ino_t; // inode number (unused on Windows)
+typedef long off_t; // file offset value
+#endif
+
 enum
 {
     DT_UNKNOWN = 0,

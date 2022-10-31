@@ -1,76 +1,126 @@
 #pragma once
-
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
+
 #ifdef _WIN32
-#include <Windows.h>
-#include <direct.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#define mkdir(a, b) _mkdir(a)
-#define rmdir _rmdir
-#define mkdir(A, B)  _mkdir(A)
-#define chdir  _chdir
-#else
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
+
+    #include <Windows.h>
+    #include <direct.h>
+    #include <sys/types.h>
+    #include <sys/stat.h>
+
+    #define rmdir _rmdir
+    #define mkdir(A, B)  _mkdir(A)
+    #define chdir  _chdir
+
+    #define BUILD_WINDOWS
+    #define RUN ""
+
+    #if defined __clang__
+
+        #define BUILD_WINDOWS_CLANG
+        #define CC "clang "
+        #define OUT_OPT " -o "
+        #define CC_DESCRIPTION "clang windows"
+
+    #elif defined __POCC__ /*pelles C*/
+
+        /*use cc -Ze build.c */
+        #define BUILD_WINDOWS_POCC
+        #define CC "cc "
+        #define OUT_OPT " /OUT:"
+        #define CC_DESCRIPTION "pelles c"
+
+    #elif defined __GNUC__
+
+        #define BUILD_WINDOWS_GCC
+        #define CC "gcc "
+        #define OUT_OPT " -o "
+        #define CC_DESCRIPTION "mingw"
+
+    #elif defined __ORANGEC__
+
+        /*https://github.com/LADSoft/OrangeC*/
+
+        #define BUILD_WINDOWS_OCC
+        #define CC "occ "
+        #define OUT_OPT " /o"
+        #define CC_DESCRIPTION "orange c"
+
+    #elif defined __TINYC__
+
+        #define BUILD_WINDOWS_TCC
+        #define CC "tcc "
+        #define OUT_OPT " -o "
+        #define CC_DESCRIPTION "tiny c compiler"
+
+    #elif defined _MSC_VER
+
+        #define BUILD_WINDOWS_MSC
+        #define CC "cl "
+        #define OUT_OPT " -o "
+        #define CC_DESCRIPTION "msvc"
+
+    #else
+
+        #error unknown compiler for windows
+
+    #endif
 
 
-#if defined(_WIN32) && defined(_MSC_VER) && !defined(__clang__)
-#define BUILD_WINDOWS
-#define BUILD_WINDOWS_MSC
-#define COMPILER_NAME "cl"
-#define RUN ""
-#elif defined(_WIN32) && defined(__clang__)
-#define BUILD_WINDOWS
-#define BUILD_WINDOWS_CLANG
-#define RUN ""
-#define COMPILER_NAME "clang"
-#elif defined(__linux__) && defined(__clang__)
-#define BUILD_LINUX
-#define BUILD_LINUX_CLANG
-#define COMPILER_NAME "clang"
-#define RUN "./"
-#elif defined(__linux__) && defined(__GNUC__)
-#define BUILD_LINUX
-#define BUILD_LINUX_GCC
-#define COMPILER_NAME "gcc"
-#define RUN "./"
-#elif defined(_WIN32) && defined(__GNUC__)
-#define BUILD_WINDOWS
-#define BUILD_WINDOWS_GCC
-#define COMPILER_NAME "gcc"
-#define RUN ""
-#else
-#error Unknown Platform/Compiler
-#endif
+#elif __linux__
 
+    #include <sys/wait.h>
+    #include <sys/stat.h>
+    #include <unistd.h>
 
-#ifndef _WIN32
-int system_like(const char* command)
-{
-    int test_result = system(command);
-    int stat = 0;
-    wait(&stat);
-    if (WIFEXITED(stat))
+    #define BUILD_LINUX
+    #define RUN "./"
+
+    #if defined __clang__
+
+        #define BUILD_LINUX_CLANG
+        #define CC "clang "
+        #define OUT_OPT " -o "
+        #define CC_DESCRIPTION "clang linux"
+
+    #elif defined __GNUC__
+
+        #define BUILD_LINUX_GCC
+        #define CC "gcc "
+        #define OUT_OPT " -o "
+        #define CC_DESCRIPTION "gcc"
+
+    #else
+
+        #error unknown compiler for linux
+
+    #endif
+
+    int system_like(const char* command)
     {
-        test_result = WEXITSTATUS(stat);
+        int test_result = system(command);
+        int stat = 0;
+        wait(&stat);
+        if (WIFEXITED(stat))
+        {
+            test_result = WEXITSTATUS(stat);
+        }
+        else if (WIFSIGNALED(stat))
+        {
+            test_result = WTERMSIG(stat);
+        }
+        return test_result;
     }
-    else if (WIFSIGNALED(stat))
-    {
-        test_result = WTERMSIG(stat);
-    }
-    return test_result;
-}
 
-#define system system_like
+    #define system system_like
+#else
+
+#error Unknown Platform
+
 #endif
-
 
 
     
@@ -94,22 +144,3 @@ int system_like(const char* command)
 #define YELLOW "\x1b[33;1m"
 #define WHITE "\x1b[37;1m"
 
-extern int build_main();
-
-int main()
-{
-
-#ifdef BUILD_LINUX_GCC
-#define STR(a) #a
-#define F(a)  STR(a)
-#define GCC  F(gcc-__GNUC__)
-    printf("Gcc version %s %s \n", GCC, __VERSION__);
-#endif
-
-    int r = build_main();
-
-
-
-    
-    return r;
-}

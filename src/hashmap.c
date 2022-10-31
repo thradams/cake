@@ -3,7 +3,12 @@
 #include <string.h>
 #include "hashmap.h"
 #include "hash.h"
-#ifdef _WIN32 
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
+#if defined _MSC_VER && !defined __POCC__
 #include <crtdbg.h>
 #endif
 

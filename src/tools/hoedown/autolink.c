@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#ifndef _MSC_VER
+#ifndef _WIN32
 #include <strings.h>
 #else
 #define strncasecmp	_strnicmp
@@ -150,7 +150,7 @@ hoedown_autolink__www(
 	uint8_t *data,
 	size_t max_rewind,
 	size_t size,
-	unsigned int flags)
+	hoedown_autolink_flags flags)
 {
 	size_t link_end;
 
@@ -186,7 +186,7 @@ hoedown_autolink__email(
 	uint8_t *data,
 	size_t max_rewind,
 	size_t size,
-	unsigned int flags)
+	hoedown_autolink_flags flags)
 {
 	size_t link_end, rewind;
 	int nb = 0, np = 0;
@@ -242,7 +242,7 @@ hoedown_autolink__url(
 	uint8_t *data,
 	size_t max_rewind,
 	size_t size,
-	unsigned int flags)
+	hoedown_autolink_flags flags)
 {
 	size_t link_end, rewind = 0, domain_len;
 

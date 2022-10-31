@@ -11,12 +11,16 @@
 #include "fs.h"
 #include <ctype.h>
 #include "formatvisit.h"
-#ifdef _WIN32
-#include <crtdbg.h>
 
-#undef assert
-#define assert _ASSERTE
+#ifdef _WIN32
+#include <Windows.h>
 #endif
+
+#if defined _MSC_VER && !defined __POCC__
+#include <crtdbg.h>
+#include <debugapi.h>
+#endif
+
 
 #include "visit.h"
 #include <time.h>
@@ -5118,7 +5122,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * echo %INCLUDE%
          * to generate this string
         */
-
+#if 0  /*DEBUG INSIDE MSVC IDE*/
         snprintf(env, sizeof env,
             "%s",
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
@@ -5143,7 +5147,9 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
 
         n = strlen(env);
+#endif
     }
+
 
     if (n > 0 && n < sizeof(env))
     {

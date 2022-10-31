@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 
-#if defined(_MSC_VER)
+#if !defined(__GNUC__)
 #define __attribute__(x)
 #define inline __inline
 #define __builtin_expect(x,n) x

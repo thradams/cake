@@ -154,11 +154,68 @@ void compile_cake()
 #ifdef TEST
            " -DTEST"
 #endif
-           " -DNDEBUG"
            " -o " OUTPUT
     );
 #endif
+
+
+#if defined BUILD_WINDOWS_OCC
+
+        system(CC 
+            " /w+ "
+            " /g "
+            SOURCE_FILES " main.c "
+
+#if defined DEBUG
+            " /D_DEBUG"
+#else
+            " /D_NDEBUG"
+#endif
+
+#ifdef TEST
+            " /DTEST"
+#endif
+            " /oname " OUTPUT
+        );
+#endif
+
+
+#ifdef BUILD_WINDOWS_POCC
+        system(CC
+            " -Ze " SOURCE_FILES " main.c "
+
+#if defined DEBUG
+            " /D_DEBUG"
+#else
+            " /D_NDEBUG"
+#endif
+
+#ifdef TEST
+            " /DTEST"
+#endif
+            " /OUT:" OUTPUT
+        );
+#endif
+
+#ifdef BUILD_WINDOWS_TCC
+        system(CC
+            SOURCE_FILES " main.c "
+
+#if defined DEBUG
+            " /D_DEBUG"
+#else
+            " /D_NDEBUG"
+#endif
+
+#ifdef TEST
+            " /DTEST"
+#endif
+            " -o " OUTPUT
+        );
+#endif
 }
+
+
 
 void generate_doc(const char* mdfilename, const char* outfile)
 {
@@ -197,21 +254,22 @@ void generate_doc(const char* mdfilename, const char* outfile)
     }
 }
 
-int build_main()
+int main()
 {
+    printf(CC_DESCRIPTION "\n");
 
     printf("Building tools-------------------------------------------\n");
     chdir("./tools");
     
-    if (system(COMPILER_NAME " -D_CRT_SECURE_NO_WARNINGS maketest.c -o ../maketest.exe") != 0) exit(1);
-    if (system(COMPILER_NAME " -D_CRT_SECURE_NO_WARNINGS amalgamator.c -o ../amalgamator.exe") != 0) exit(1);
-    if (system(COMPILER_NAME " -D_CRT_SECURE_NO_WARNINGS embed.c -o ../embed.exe") != 0) exit(1);
+    if (system(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe") != 0) exit(1);
+    if (system(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c "  OUT_OPT "../amalgamator.exe") != 0) exit(1);
+    if (system(CC " -D_CRT_SECURE_NO_WARNINGS embed.c " OUT_OPT "../embed.exe") != 0) exit(1);
 
     chdir("./hoedown");
 
 #define HOEDOWN_SRC " autolink.c buffer.c document.c escape.c hoedown.c html.c html_blocks.c html_smartypants.c stack.c version.c"
 
-    if (system(COMPILER_NAME HOEDOWN_SRC  " -o ../../hoedown.exe") != 0) exit(1);
+    if (system(CC HOEDOWN_SRC  OUT_OPT "../../hoedown.exe") != 0) exit(1);
 
     chdir("..");
     chdir("..");
@@ -231,6 +289,8 @@ int build_main()
     if (system(RUN "amalgamator.exe -olib.c" SOURCE_FILES) != 0) exit(1);
     remove("amalgamator.exe");
 
+    
+
 #define EMBED_SRC \
     " ./web_include/stdio.h " \
     " ./web_include/stdlib.h " \
@@ -242,15 +302,13 @@ int build_main()
     
     if (system(RUN "embed.exe " EMBED_SRC) != 0) exit(1);
     remove("embed.exe");
-
-
+    
     compile_cake();
 
-#ifndef TEST
-#ifdef BUILD_WINDOWS
-    /*compila usando ele mesmo*/
+
+#if !defined TEST && defined BUILD_WINDOWS_MSC
+    /*run cake on it´s own source*/
     if (system(RUN OUTPUT  " -n " HEADER_FILES SOURCE_FILES) != 0) exit(1);
-#endif
 #endif
 
 #ifdef TEST
@@ -263,5 +321,5 @@ int build_main()
     }
 #endif
 
-
+    return 0;
 }

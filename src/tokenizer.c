@@ -54,12 +54,14 @@
 #include "tokenizer.h"
 
 #ifdef _WIN32
-#include <crtdbg.h>
 #include <Windows.h>
-#include <debugapi.h>
-#undef assert
-#define assert _ASSERTE
 #endif
+
+#if defined _MSC_VER && !defined __POCC__
+#include <crtdbg.h>
+#include <debugapi.h>
+#endif
+
 
 //declaração da macro container_of
 #ifndef container_of
@@ -1790,7 +1792,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* s = find_and_read_include_file(ctx, path, fullpath, &bAlreadyIncluded);
 
                 bool bHasInclude = s != NULL;
-                free(s);
+                free((void*)s);
 
                 struct token* p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
@@ -2449,11 +2451,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             path[strlen(path) - 1] = '\0';
 
             bool bAlreadyIncluded = false;
-            char* content = find_and_read_include_file(ctx, path + 1, fullpath, &bAlreadyIncluded);
+            const char* content = find_and_read_include_file(ctx, path + 1, fullpath, &bAlreadyIncluded);
             if (content != NULL)
             {
                 struct token_list list = tokenizer(content, fullpath, level + 1, TK_FLAG_NONE, error);
-                free(content);
+                free((void*)content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1, error);
                 token_list_append_list(&r, &list2);

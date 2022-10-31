@@ -125,6 +125,7 @@ int c_getch(void);
 void c_clrscr();
 
 
+
 //#pragma once
 
 
@@ -516,6 +517,7 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void);
 int windows_error_to_posix(int i);
 
 
+
 //#pragma once
 
 /*
@@ -625,21 +627,26 @@ char* readfile(const char* path);
 const char* get_token_name(enum token_type tk);
 
 
-
 #ifdef _WIN32
 
 
-#include <crtdbg.h>
-
-
 #include <Windows.h>
+#endif
+
+#if defined _MSC_VER && !defined __POCC__
+
+
+#include <crtdbg.h>
+#endif
+
+#if defined _MSC_VER && !defined __POCC__
 
 
 #include <debugapi.h>
-
-#undef assert
-#define assert _ASSERTE
 #endif
+
+
+
 void print_literal2(const char* s);
 
 void token_list_clear(struct token_list* list)
@@ -800,7 +807,7 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
 
     ss_close(&ss);
 
-    return cstr;
+    return (char*) cstr;
 }
 
 void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
@@ -1171,6 +1178,7 @@ void print_tokens_html(struct token* p_token)
 
 unsigned int stringhash(const char* key);
 
+
 unsigned int stringhash(const char* key)
 {
     // hash key to unsigned int value by pseudorandomizing transform
@@ -1189,7 +1197,12 @@ unsigned int stringhash(const char* key)
 }
 
 
-#ifdef _WIN32 
+
+
+#ifdef _WIN32
+#endif
+
+#if defined _MSC_VER && !defined __POCC__
 #endif
 
 
@@ -1498,6 +1511,12 @@ void c_clrscr()
  include dirent.h on linux
 */
 
+#ifdef __POCC__
+/*missing in pelles c*/
+typedef unsigned short ino_t; // inode number (unused on Windows)
+typedef long off_t; // file offset value
+#endif
+
 enum
 {
     DT_UNKNOWN = 0,
@@ -1563,9 +1582,11 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, struct error* error, l
 
 
 #ifdef _WIN32
-#undef assert
-#define assert _ASSERTE
 #endif
+
+#if defined _MSC_VER && !defined __POCC__
+#endif
+
 
 //declaração da macro container_of
 #ifndef container_of
@@ -3296,7 +3317,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* s = find_and_read_include_file(ctx, path, fullpath, &bAlreadyIncluded);
 
                 bool bHasInclude = s != NULL;
-                free(s);
+                free((void*)s);
 
                 struct token* p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
@@ -3879,15 +3900,17 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 {
     /*
         control-line:
-            # include pp-tokens new-line
-            # define identifier replacement-list new-line
-            # define identifier ( identifier-list_opt ) replacement-list new-line
-            # define identifier ( ... ) replacement-list new-line
-            # define identifier lparen identifier-list , ... ) replacement-list new-line
-            # undef identifier new-line
-            # line pp-tokens new-line
-            # error pp-tokensopt new-line
-            # pragma pp-tokensopt new-line
+            # "include" pp-tokens new-line
+            # "embed" pp-tokens new-line
+            # "define" identifier replacement-list new-line
+            # "define" identifier ( identifier-list opt ) replacement-list new-line
+            # "define" identifier ( ... ) replacement-list new-line
+            # "define" identifier ( identifier-list , ... ) replacement-list new-line
+            # "undef" identifier new-line
+            # "line" pp-tokens new-line
+            # "error" pp-tokens opt new-line
+            # "warning" pp-tokens opt new-line
+            # "pragma" pp-tokens opt new-line
             # new-line
     */
 
@@ -3953,11 +3976,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             path[strlen(path) - 1] = '\0';
 
             bool bAlreadyIncluded = false;
-            char* content = find_and_read_include_file(ctx, path + 1, fullpath, &bAlreadyIncluded);
+            const char* content = find_and_read_include_file(ctx, path + 1, fullpath, &bAlreadyIncluded);
             if (content != NULL)
             {
                 struct token_list list = tokenizer(content, fullpath, level + 1, TK_FLAG_NONE, error);
-                free(content);
+                free((void*)content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1, error);
                 token_list_append_list(&r, &list2);
@@ -7041,7 +7064,13 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 
 
 #ifdef _WIN32
+#endif
 
+#if defined _MSC_VER && !defined __POCC__
+#endif
+
+
+#ifdef _WIN32
 #pragma comment (lib, "Rpcrt4.lib")
 
 #else
@@ -7064,19 +7093,17 @@ struct TAGDIR
     struct dirent dirent;
 };
 
-//typedef struct TAGDIR DIR;
-
 
 DIR* opendir(const char* name)
 {
     assert(name != 0);
-    WIN32_FIND_DATAA fdFile;
+    WIN32_FIND_DATAA fdfile;
 
-    char sPath[MAX_PATH] = { 0 };
-    strcat(sPath, name);
-    strcat(sPath, "\\*.*");
+    char path[MAX_PATH] = { 0 };
+    strcat(path, name);
+    strcat(path, "\\*.*");
 
-    HANDLE handle = FindFirstFileA(sPath, &fdFile);
+    HANDLE handle = FindFirstFileA(path, &fdfile);
 
     if (handle != INVALID_HANDLE_VALUE)
     {
@@ -7109,21 +7136,21 @@ int closedir(DIR* dirp)
 
 struct dirent* readdir(DIR* dirp)
 {
-    WIN32_FIND_DATAA fdFile;
-    BOOL b = FindNextFileA(dirp->handle, &fdFile);
+    WIN32_FIND_DATAA fdfile;
+    BOOL b = FindNextFileA(dirp->handle, &fdfile);
     if (b)
     {
         /*clear*/
         memset(&dirp->dirent, 0, sizeof(dirp->dirent));
 
-        if (fdFile.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        if (fdfile.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
         {
             dirp->dirent.d_type |= DT_DIR;
         }
 
         /*worst case trunks the string*/
         strncpy(dirp->dirent.d_name,
-                fdFile.cFileName,
+                fdfile.cFileName,
                 sizeof(dirp->dirent.d_name) - 1);
 
         return &dirp->dirent;
@@ -7145,11 +7172,11 @@ int copy_file(const char* pathfrom,
     int saved_errno;
 
     FILE* fd_from = fopen(pathfrom, "rb");
-    if (fd_from < 0)
+    if (fd_from == NULL)
         return -1;
 
     FILE* fd_to = fopen(pathto, "wb");
-    if (fd_to < 0)
+    if (fd_to == NULL)
         goto out_error;
 
     while (nread = fread(buf, sizeof(char), sizeof buf, fd_from), nread > 0) //lint !e668  (warning -- possibly passing null pointer to function 'fread(void *, size_t, size_t, FILE *)', arg. no. 4)
@@ -9814,10 +9841,10 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
 
 #ifdef _WIN32
-#undef assert
-#define assert _ASSERTE
 #endif
 
+#if defined _MSC_VER && !defined __POCC__
+#endif
 
 
 
@@ -12680,9 +12707,11 @@ void params_test()
 
 
 #ifdef _WIN32
-#undef assert
-#define assert _ASSERTE
 #endif
+
+#if defined _MSC_VER && !defined __POCC__
+#endif
+
 
 /*contexto expressoes preprocessador*/
 struct pre_expression_ctx
@@ -15442,11 +15471,13 @@ struct format_visit_ctx
 
 void format_visit(struct format_visit_ctx* ctx, struct error* error);
 
-#ifdef _WIN32
 
-#undef assert
-#define assert _ASSERTE
+#ifdef _WIN32
 #endif
+
+#if defined _MSC_VER && !defined __POCC__
+#endif
+
 
 
 
@@ -20590,7 +20621,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * echo %INCLUDE%
          * to generate this string
         */
-
+#if 0  /*DEBUG INSIDE MSVC IDE*/
         snprintf(env, sizeof env,
             "%s",
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
@@ -20615,7 +20646,9 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
 
         n = strlen(env);
+#endif
     }
+
 
     if (n > 0 && n < sizeof(env))
     {

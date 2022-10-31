@@ -9,9 +9,16 @@
 #include <stdlib.h>
 
 #ifdef _WIN32
-#include <crtdbg.h>
 #include <Windows.h>
+#endif
 
+#if defined _MSC_VER && !defined __POCC__
+#include <crtdbg.h>
+#include <debugapi.h>
+#endif
+
+
+#ifdef _WIN32
 #pragma comment (lib, "Rpcrt4.lib")
 
 #else
@@ -117,11 +124,11 @@ int copy_file(const char* pathfrom,
     int saved_errno;
 
     FILE* fd_from = fopen(pathfrom, "rb");
-    if (fd_from < 0)
+    if (fd_from == NULL)
         return -1;
 
     FILE* fd_to = fopen(pathto, "wb");
-    if (fd_to < 0)
+    if (fd_to == NULL)
         goto out_error;
 
     while (nread = fread(buf, sizeof(char), sizeof buf, fd_from), nread > 0) //lint !e668  (warning -- possibly passing null pointer to function 'fread(void *, size_t, size_t, FILE *)', arg. no. 4)
