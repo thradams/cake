@@ -5251,7 +5251,7 @@ const char* format_code(struct options* options,
 
 int compile_one_file(const char* file_name,
     int argc,
-    char** argv,
+    const char** argv,
     struct report* report)
 {
 
@@ -5379,7 +5379,7 @@ int compile_one_file(const char* file_name,
     return error.code;
 }
 
-int compile(int argc, char** argv, struct report* report)
+int compile(int argc, const char** argv, struct report* report)
 {
     clock_t begin_clock = clock();
     int no_files = 0;

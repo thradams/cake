@@ -105,7 +105,7 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
 void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
-int compile(int argc, char** argv, struct report* error);
+int compile(int argc, const char** argv, struct report* error);
 struct declaration_list parse(struct options* options, struct token_list* list, struct error* error, struct report* report);
 
 

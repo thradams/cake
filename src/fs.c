@@ -12,11 +12,16 @@
 #include <Windows.h>
 #endif
 
+
 #if defined _MSC_VER && !defined __POCC__
 #include <crtdbg.h>
 #include <debugapi.h>
 #endif
 
+
+#ifdef __POCC__
+#define stat _stat
+#endif
 
 #ifdef _WIN32
 #pragma comment (lib, "Rpcrt4.lib")
@@ -305,6 +310,8 @@ static bool fs_fread2(void* buffer, size_t size, size_t count, FILE* stream, siz
 char* readfile_core(const char* path)
 {
     char* result = NULL;
+
+
 
     struct stat info;
     if (stat(path, &info) == 0)

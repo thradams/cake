@@ -1435,7 +1435,7 @@ static void direct_declarator_type_clear_name(struct direct_declarator_type* p_d
 
     if (p_direct_declarator_type->name_opt)
     {
-        free(p_direct_declarator_type->name_opt);
+        free((void*)p_direct_declarator_type->name_opt);
         p_direct_declarator_type->name_opt = NULL;
     }
     else if (p_direct_declarator_type->array_declarator_type)

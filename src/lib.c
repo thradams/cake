@@ -7066,9 +7066,14 @@ int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 #ifdef _WIN32
 #endif
 
+
 #if defined _MSC_VER && !defined __POCC__
 #endif
 
+
+#ifdef __POCC__
+#define stat _stat
+#endif
 
 #ifdef _WIN32
 #pragma comment (lib, "Rpcrt4.lib")
@@ -7352,6 +7357,8 @@ static bool fs_fread2(void* buffer, size_t size, size_t count, FILE* stream, siz
 char* readfile_core(const char* path)
 {
     char* result = NULL;
+
+
 
     struct stat info;
     if (stat(path, &info) == 0)
@@ -8710,7 +8717,7 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
 void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
-int compile(int argc, char** argv, struct report* error);
+int compile(int argc, const char** argv, struct report* error);
 struct declaration_list parse(struct options* options, struct token_list* list, struct error* error, struct report* report);
 
 
@@ -14867,7 +14874,7 @@ static void direct_declarator_type_clear_name(struct direct_declarator_type* p_d
 
     if (p_direct_declarator_type->name_opt)
     {
-        free(p_direct_declarator_type->name_opt);
+        free((void*)p_direct_declarator_type->name_opt);
         p_direct_declarator_type->name_opt = NULL;
     }
     else if (p_direct_declarator_type->array_declarator_type)
@@ -20750,7 +20757,7 @@ const char* format_code(struct options* options,
 
 int compile_one_file(const char* file_name,
     int argc,
-    char** argv,
+    const char** argv,
     struct report* report)
 {
 
@@ -20878,7 +20885,7 @@ int compile_one_file(const char* file_name,
     return error.code;
 }
 
-int compile(int argc, char** argv, struct report* report)
+int compile(int argc, const char** argv, struct report* report)
 {
     clock_t begin_clock = clock();
     int no_files = 0;
