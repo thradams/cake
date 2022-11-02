@@ -1398,7 +1398,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 //declarator_type_clear_name(new_expression->type.declarator_type);
 
                 parser_match_tk(ctx, ')', error);
-                new_expression->constant_value = type_get_sizeof(ctx, &new_expression->type_name->declarator->type, error);
+                new_expression->constant_value = type_get_sizeof(&new_expression->type_name->declarator->type, error);
             }
             else
             {
@@ -1411,7 +1411,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                     throw;
 
                 new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_EXPRESSION;
-                new_expression->constant_value = type_get_sizeof(ctx, &new_expression->right->type, error);
+                new_expression->constant_value = type_get_sizeof(&new_expression->right->type, error);
             }
             type_set_int(&new_expression->type); //resultado sizeof
             p_expression_node = new_expression;
@@ -1549,7 +1549,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             new_expression->type_name = type_name(ctx, error);
             new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
             parser_match_tk(ctx, ')', error);
-            new_expression->constant_value = type_get_sizeof(ctx, &new_expression->type, error);
+            new_expression->constant_value = type_get_sizeof(&new_expression->type, error);
 
 
             type_set_int(&new_expression->type); //resultado sizeof
@@ -2553,41 +2553,8 @@ void test_compiler_constant_expression()
 
 
 
-void sizeoftest1()
-{
-    const char* source =
-        "char a[10];"
-        "static_assert(sizeof(a) == 10);"
-        "char *p[10];"
-        "static_assert(sizeof(p) == 40);"
-        "static_assert(sizeof(int) == 4);"
-        "static_assert(sizeof(long) == 4);"
-        "static_assert(sizeof(char) == 1);"
-        "static_assert(sizeof(short) == 4);"
-        "static_assert(sizeof(unsigned int) == 4);"
-        ;
-
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
-}
 
 
-void sizeof_struct_test()
-{
-    const char* source =
-        "struct X { int i; char c; };"
-        "_Static_assert(sizeof(struct X) == 4);"
-        ;
-
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code != 0);
-}
 
 static int expression_type(const char* expression, const char* result)
 {

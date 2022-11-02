@@ -396,6 +396,11 @@ enum type_category find_type_category(const struct type* p_type)
     return type_category;
 }
 
+void type_destroy(struct type* p_type)
+{
+    //TODO
+}
+
 bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
 {
     if (p_type->attributes_flags & attributes)
@@ -992,126 +997,141 @@ struct type type_copy(struct type* p_type)
 
 
 
+int get_array_size(struct type* p_type, struct error* error)
+{
+    if (type_is_array(p_type))
+    {
+        return p_type->declarator_type->direct_declarator_type->array_declarator_type->constant_size;
+    }
+    else
+    {
+        assert(false);
+    }
+    return 0;
+}
+int type_get_sizeof(struct type* p_type, struct error* error);
+int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, struct error* error)
+{
+    int size = 0;
+    struct member_declaration* d = complete_struct_or_union_specifier->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                //TODO padding
+                size += type_get_sizeof(&md->declarator->type, error);                
+                md = md->next;
+            }
+        }
+        d = d->next;
+    }
+    return size;
+}
 
-int type_get_sizeof(struct parser_ctx* ctx, struct type* p_type, struct error* error)
+int type_get_sizeof( struct type* p_type, struct error* error)
 {
     size_t size = 0;
 
-    try
-    {
-        if (p_type->declarator_type &&
-            p_type->declarator_type->pointers.head != NULL)
-        {
-            size = sizeof(void*);
-        }
-        else {
+    enum type_category category = find_type_category(p_type);
 
-            if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+    if (category == TYPE_CATEGORY_POINTER)
+    {
+        size = sizeof(void*);
+    }
+    else if (category == TYPE_CATEGORY_FUNCTION)
+    {
+        seterror(error, "sizeof function");
+    }
+    else if (category == TYPE_CATEGORY_ITSELF)
+    {
+        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        {
+            size = sizeof(char);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        {
+            size = sizeof(_Bool);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
+        {
+            size = sizeof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
+        {
+            size = sizeof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        {
+            //TODO enum type
+            size = sizeof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
+        {
+            size = sizeof(long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+        {
+            size = sizeof(long long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
+        {
+            size = sizeof(long long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
+        {
+            size = 4;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
+        {
+            size = 2;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
+        {
+            size = 1;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+        {
+            size = sizeof(double);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+        {
+            size = 1;
+            if (p_type->struct_or_union_specifier->complete_struct_or_union_specifier)
             {
-                size = sizeof(char);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
-            {
-                size = sizeof(_Bool);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
-            {
-                size = sizeof(int);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT ||
-                     p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
-            {
-                size = sizeof(int);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
-            {
-                size = sizeof(long);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-            {
-                size = sizeof(long long);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
-            {
-                size = sizeof(long long);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
-            {
-                size = sizeof(long);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
-            {
-                size = sizeof(short);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
-            {
-                size = sizeof(char);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
-            {
-                size = sizeof(double);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
-            {
-                size = 1;       //TODO
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
-            {
-                size = sizeof(int);
-            }
-            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
-            {
-                seterror(error, "type information is missing");
-                throw;
-            }
-            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
-            {
-                size = 1; //TODO
-                //assert(false);
-                //;; size =
-                    //  type_get_sizeof(ctx, struct type* p_type, struct error* error)
-            }
-            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
-            {
-                //
+                size = get_sizeof_struct(p_type->struct_or_union_specifier->complete_struct_or_union_specifier, error);
             }
             else
             {
-                assert(false);
+                seterror(error, "invalid application of 'sizeof' to incomplete type 'struct %s'", p_type->struct_or_union_specifier->tag_name);
             }
-
         }
-
-        if (p_type->declarator_type->direct_declarator_type)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
-            if (p_type->declarator_type->direct_declarator_type->array_declarator_type)
-            {
-
-            }
-            //assert(false);
+            size = sizeof(int);
         }
-
-#if 0
-        //Multiplica size pelo numero de elementos
-        if (p_type->declarator_type &&
-            p_type->declarator_type->direct_declarator_type)
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            struct array_function_type* p_array_function_type =
-                p_type->declarator_type->direct_declarator_type->array_function_type_list.head;
-            while (p_array_function_type)
-            {
-                if (p_array_function_type->bIsArray)
-                {
-                    size = size * p_array_function_type->array_size;
-                }
-                p_array_function_type = p_array_function_type->next;
-            }
+            seterror(error, "type information is missing");            
         }
-#endif
-
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
+        {
+            size = 1;
+        }
+        else
+        {
+            assert(false);
+        }
     }
-    catch
+    else if (category == TYPE_CATEGORY_ARRAY)
     {
+        int arraysize = get_array_size(p_type, error);
+        struct type type = get_array_item_type(p_type);
+        int sz = type_get_sizeof(&type, error);
+        size = sz * arraysize;
+        type_destroy(&type);
     }
 
     return size;

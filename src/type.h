@@ -139,7 +139,7 @@ struct declarator_type
 };
 
 
-struct type
+struct _destroy type
 {    
     enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
@@ -157,7 +157,7 @@ struct type
 void print_type(struct osstream* ss, struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_copy(struct type* p_type);
-
+void type_destroy(struct type* p_type);
 struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type);
 void debug_print_declarator_type(struct declarator_type* p_declarator_type);
 void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type);
@@ -191,7 +191,7 @@ struct type get_function_return_type(struct type* p_type);
 bool type_is_pointer_or_array(struct type* p_type);
 int type_get_rank(struct type* p_type1, struct error* error);
 void type_set_int(struct type* p_type);
-int type_get_sizeof(struct parser_ctx* ctx, struct type* p_type, struct error* error);
+int type_get_sizeof(struct type* p_type, struct error* error);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct error* error);
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);

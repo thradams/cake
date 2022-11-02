@@ -5939,6 +5939,33 @@ void crazy_decl4()
     assert(report.error_count == 0);
 }
 
+void sizeof_test()
+{
+    const char* src =
+        "struct X { int i; char c; };"
+        "static_assert(sizeof(struct X) == sizeof(int) + sizeof(char));"
+        "static_assert(sizeof(\"ABC\") == 4);"
+        "char a[10];"
+        "char b[10][2];"
+        "static_assert(sizeof(a) == 10);"
+        "static_assert(sizeof(b) == sizeof(char)*10*2);"
+        "char *p[10];"
+        "static_assert(sizeof(p) == 40);"
+        "static_assert(sizeof(int) == 4);"
+        "static_assert(sizeof(long) == 4);"
+        "static_assert(sizeof(char) == 1);"
+        "static_assert(sizeof(short) == 4);"
+        "static_assert(sizeof(unsigned int) == 4);"
+        "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));"
+        ;
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
 
 void traits_test()
 {

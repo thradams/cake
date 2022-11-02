@@ -8368,7 +8368,7 @@ struct declarator_type
 };
 
 
-struct type
+struct _destroy type
 {    
     enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
@@ -8386,7 +8386,7 @@ struct type
 void print_type(struct osstream* ss, struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_copy(struct type* p_type);
-
+void type_destroy(struct type* p_type);
 struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type);
 void debug_print_declarator_type(struct declarator_type* p_declarator_type);
 void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type);
@@ -8420,7 +8420,7 @@ struct type get_function_return_type(struct type* p_type);
 bool type_is_pointer_or_array(struct type* p_type);
 int type_get_rank(struct type* p_type1, struct error* error);
 void type_set_int(struct type* p_type);
-int type_get_sizeof(struct parser_ctx* ctx, struct type* p_type, struct error* error);
+int type_get_sizeof(struct type* p_type, struct error* error);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct error* error);
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
@@ -11233,7 +11233,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                 //declarator_type_clear_name(new_expression->type.declarator_type);
 
                 parser_match_tk(ctx, ')', error);
-                new_expression->constant_value = type_get_sizeof(ctx, &new_expression->type_name->declarator->type, error);
+                new_expression->constant_value = type_get_sizeof(&new_expression->type_name->declarator->type, error);
             }
             else
             {
@@ -11246,7 +11246,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
                     throw;
 
                 new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_EXPRESSION;
-                new_expression->constant_value = type_get_sizeof(ctx, &new_expression->right->type, error);
+                new_expression->constant_value = type_get_sizeof(&new_expression->right->type, error);
             }
             type_set_int(&new_expression->type); //resultado sizeof
             p_expression_node = new_expression;
@@ -11384,7 +11384,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             new_expression->type_name = type_name(ctx, error);
             new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
             parser_match_tk(ctx, ')', error);
-            new_expression->constant_value = type_get_sizeof(ctx, &new_expression->type, error);
+            new_expression->constant_value = type_get_sizeof(&new_expression->type, error);
 
 
             type_set_int(&new_expression->type); //resultado sizeof
@@ -12387,41 +12387,8 @@ void test_compiler_constant_expression()
 
 
 
-void sizeoftest1()
-{
-    const char* source =
-        "char a[10];"
-        "static_assert(sizeof(a) == 10);"
-        "char *p[10];"
-        "static_assert(sizeof(p) == 40);"
-        "static_assert(sizeof(int) == 4);"
-        "static_assert(sizeof(long) == 4);"
-        "static_assert(sizeof(char) == 1);"
-        "static_assert(sizeof(short) == 4);"
-        "static_assert(sizeof(unsigned int) == 4);"
-        ;
-
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
-}
 
 
-void sizeof_struct_test()
-{
-    const char* source =
-        "struct X { int i; char c; };"
-        "_Static_assert(sizeof(struct X) == 4);"
-        ;
-
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code != 0);
-}
 
 static int expression_type(const char* expression, const char* result)
 {
@@ -13835,6 +13802,11 @@ enum type_category find_type_category(const struct type* p_type)
     return type_category;
 }
 
+void type_destroy(struct type* p_type)
+{
+    //TODO
+}
+
 bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
 {
     if (p_type->attributes_flags & attributes)
@@ -14431,126 +14403,141 @@ struct type type_copy(struct type* p_type)
 
 
 
+int get_array_size(struct type* p_type, struct error* error)
+{
+    if (type_is_array(p_type))
+    {
+        return p_type->declarator_type->direct_declarator_type->array_declarator_type->constant_size;
+    }
+    else
+    {
+        assert(false);
+    }
+    return 0;
+}
+int type_get_sizeof(struct type* p_type, struct error* error);
+int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, struct error* error)
+{
+    int size = 0;
+    struct member_declaration* d = complete_struct_or_union_specifier->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                //TODO padding
+                size += type_get_sizeof(&md->declarator->type, error);                
+                md = md->next;
+            }
+        }
+        d = d->next;
+    }
+    return size;
+}
 
-int type_get_sizeof(struct parser_ctx* ctx, struct type* p_type, struct error* error)
+int type_get_sizeof( struct type* p_type, struct error* error)
 {
     size_t size = 0;
 
-    try
-    {
-        if (p_type->declarator_type &&
-            p_type->declarator_type->pointers.head != NULL)
-        {
-            size = sizeof(void*);
-        }
-        else {
+    enum type_category category = find_type_category(p_type);
 
-            if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+    if (category == TYPE_CATEGORY_POINTER)
+    {
+        size = sizeof(void*);
+    }
+    else if (category == TYPE_CATEGORY_FUNCTION)
+    {
+        seterror(error, "sizeof function");
+    }
+    else if (category == TYPE_CATEGORY_ITSELF)
+    {
+        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        {
+            size = sizeof(char);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        {
+            size = sizeof(_Bool);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
+        {
+            size = sizeof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
+        {
+            size = sizeof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        {
+            //TODO enum type
+            size = sizeof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
+        {
+            size = sizeof(long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+        {
+            size = sizeof(long long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
+        {
+            size = sizeof(long long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
+        {
+            size = 4;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
+        {
+            size = 2;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
+        {
+            size = 1;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+        {
+            size = sizeof(double);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+        {
+            size = 1;
+            if (p_type->struct_or_union_specifier->complete_struct_or_union_specifier)
             {
-                size = sizeof(char);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
-            {
-                size = sizeof(_Bool);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
-            {
-                size = sizeof(int);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT ||
-                     p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
-            {
-                size = sizeof(int);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
-            {
-                size = sizeof(long);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-            {
-                size = sizeof(long long);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
-            {
-                size = sizeof(long long);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
-            {
-                size = sizeof(long);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
-            {
-                size = sizeof(short);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
-            {
-                size = sizeof(char);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
-            {
-                size = sizeof(double);
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
-            {
-                size = 1;       //TODO
-            }
-            else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
-            {
-                size = sizeof(int);
-            }
-            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
-            {
-                seterror(error, "type information is missing");
-                throw;
-            }
-            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
-            {
-                size = 1; //TODO
-                //assert(false);
-                //;; size =
-                    //  type_get_sizeof(ctx, struct type* p_type, struct error* error)
-            }
-            else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
-            {
-                //
+                size = get_sizeof_struct(p_type->struct_or_union_specifier->complete_struct_or_union_specifier, error);
             }
             else
             {
-                assert(false);
+                seterror(error, "invalid application of 'sizeof' to incomplete type 'struct %s'", p_type->struct_or_union_specifier->tag_name);
             }
-
         }
-
-        if (p_type->declarator_type->direct_declarator_type)
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
-            if (p_type->declarator_type->direct_declarator_type->array_declarator_type)
-            {
-
-            }
-            //assert(false);
+            size = sizeof(int);
         }
-
-#if 0
-        //Multiplica size pelo numero de elementos
-        if (p_type->declarator_type &&
-            p_type->declarator_type->direct_declarator_type)
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            struct array_function_type* p_array_function_type =
-                p_type->declarator_type->direct_declarator_type->array_function_type_list.head;
-            while (p_array_function_type)
-            {
-                if (p_array_function_type->bIsArray)
-                {
-                    size = size * p_array_function_type->array_size;
-                }
-                p_array_function_type = p_array_function_type->next;
-            }
+            seterror(error, "type information is missing");            
         }
-#endif
-
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
+        {
+            size = 1;
+        }
+        else
+        {
+            assert(false);
+        }
     }
-    catch
+    else if (category == TYPE_CATEGORY_ARRAY)
     {
+        int arraysize = get_array_size(p_type, error);
+        struct type type = get_array_item_type(p_type);
+        int sz = type_get_sizeof(&type, error);
+        size = sz * arraysize;
+        type_destroy(&type);
     }
 
     return size;
@@ -21436,6 +21423,33 @@ void crazy_decl4()
         "int main() {\n"
         "    PF(1, 2);\n"
         "}\n";
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
+void sizeof_test()
+{
+    const char* src =
+        "struct X { int i; char c; };"
+        "static_assert(sizeof(struct X) == sizeof(int) + sizeof(char));"
+        "static_assert(sizeof(\"ABC\") == 4);"
+        "char a[10];"
+        "char b[10][2];"
+        "static_assert(sizeof(a) == 10);"
+        "static_assert(sizeof(b) == sizeof(char)*10*2);"
+        "char *p[10];"
+        "static_assert(sizeof(p) == 40);"
+        "static_assert(sizeof(int) == 4);"
+        "static_assert(sizeof(long) == 4);"
+        "static_assert(sizeof(char) == 1);"
+        "static_assert(sizeof(short) == 4);"
+        "static_assert(sizeof(unsigned int) == 4);"
+        "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));"
+        ;
 
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
