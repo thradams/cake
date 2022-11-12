@@ -83,7 +83,7 @@ int main()
 }
 `;
 
-sample["C11 _AlignOf / C23 alignof"] =
+sample["C11 _Alignof / C23 alignof"] =
 `
 struct X
 {
