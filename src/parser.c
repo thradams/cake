@@ -958,6 +958,7 @@ enum token_type is_keyword(const char* text)
 
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
         else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
+        else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
         else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
         else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
         else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
@@ -5122,7 +5123,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * echo %INCLUDE%
          * to generate this string
         */
-#if 0  /*DEBUG INSIDE MSVC IDE*/
+#if 1  /*DEBUG INSIDE MSVC IDE*/
         snprintf(env, sizeof env,
             "%s",
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
@@ -5134,18 +5135,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt");
 
-        snprintf(env, sizeof env,
-            "%s",
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.33.31629/include;"
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.33.31629/ATLMFC/include;"
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt;"
-            "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
-
+     
         n = strlen(env);
 #endif
     }

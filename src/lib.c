@@ -14419,6 +14419,7 @@ int get_array_size(struct type* p_type, struct error* error)
 int type_get_sizeof(struct type* p_type, struct error* error);
 int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, struct error* error)
 {
+    int maxalign = 0;
     int size = 0;
     struct member_declaration* d = complete_struct_or_union_specifier->member_declaration_list.head;
     while (d)
@@ -14429,9 +14430,14 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
             while (md)
             {                
                 int align = type_get_alignof(&md->declarator->type, error);
+
+                if (align > maxalign)
+                {
+                    maxalign = align;
+                }
                 if (size % align != 0)
                 {
-                    size = size + align - (size % align);
+                    size += align - (size % align);
                 }
 
                 size += type_get_sizeof(&md->declarator->type, error);                
@@ -14440,6 +14446,12 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
         }
         d = d->next;
     }
+
+    if (size % maxalign != 0)
+    {
+        size += maxalign - (size % maxalign);
+    }
+
     return size;
 }
 int type_get_alignof(struct type* p_type, struct error* error);
@@ -14455,7 +14467,7 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
             while (md)
             {
                 //TODO padding
-                int temp_align += type_get_alignof(&md->declarator->type, error);
+                int temp_align = type_get_alignof(&md->declarator->type, error);
                 if (temp_align > align)
                 {
                     align = temp_align;
@@ -14528,6 +14540,10 @@ int type_get_alignof(struct type* p_type, struct error* error)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
         {
             align = _Alignof(char);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+        {
+            align = _Alignof(float);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
@@ -14633,6 +14649,10 @@ int type_get_sizeof( struct type* p_type, struct error* error)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
         {
             size = 1;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+        {
+            size = sizeof(float);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
@@ -16587,6 +16607,7 @@ enum token_type is_keyword(const char* text)
 
         else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
         else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
+        else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
         else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
         else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
         else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
@@ -20751,7 +20772,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * echo %INCLUDE%
          * to generate this string
         */
-#if 0  /*DEBUG INSIDE MSVC IDE*/
+#if 1  /*DEBUG INSIDE MSVC IDE*/
         snprintf(env, sizeof env,
             "%s",
             "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
@@ -20763,18 +20784,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt");
 
-        snprintf(env, sizeof env,
-            "%s",
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.33.31629/include;"
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.33.31629/ATLMFC/include;"
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt;"
-            "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
-
+     
         n = strlen(env);
 #endif
     }
@@ -21600,6 +21610,7 @@ void alignof_test()
     const char* src =
         "struct X { char s; double c; char s2;};\n"
         "static_assert(alignof(struct X) == 8);"
+        "static_assert(sizeof(struct X) == 24);"
         ;
 
     struct error error = { 0 };

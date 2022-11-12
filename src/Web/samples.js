@@ -83,6 +83,18 @@ int main()
 }
 `;
 
+sample["C11 _AlignOf / C23 alignof"] =
+`
+struct X {char c; int n;};
+
+int main(void)
+{
+    static_assert(_Alignof(float[10]) == alignof(float));
+    static_assert(alignof(char) == 1);
+    static_assert(alignof(struct X) == alignof(int));
+}
+`;
+
 
 sample["C23 Digit Separator"] =
 `

@@ -1134,6 +1134,10 @@ int type_get_alignof(struct type* p_type, struct error* error)
         {
             align = _Alignof(char);
         }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+        {
+            align = _Alignof(float);
+        }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
             align = _Alignof(double);
@@ -1238,6 +1242,10 @@ int type_get_sizeof( struct type* p_type, struct error* error)
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
         {
             size = 1;
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+        {
+            size = sizeof(float);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
