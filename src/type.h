@@ -192,6 +192,7 @@ bool type_is_pointer_or_array(struct type* p_type);
 int type_get_rank(struct type* p_type1, struct error* error);
 void type_set_int(struct type* p_type);
 int type_get_sizeof(struct type* p_type, struct error* error);
+int type_get_alignof(struct type* p_type, struct error* error);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct error* error);
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);

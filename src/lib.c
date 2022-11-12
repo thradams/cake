@@ -8421,6 +8421,7 @@ bool type_is_pointer_or_array(struct type* p_type);
 int type_get_rank(struct type* p_type1, struct error* error);
 void type_set_int(struct type* p_type);
 int type_get_sizeof(struct type* p_type, struct error* error);
+int type_get_alignof(struct type* p_type, struct error* error);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct error* error);
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
@@ -11384,7 +11385,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             new_expression->type_name = type_name(ctx, error);
             new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
             parser_match_tk(ctx, ')', error);
-            new_expression->constant_value = type_get_sizeof(&new_expression->type, error);
+            new_expression->constant_value = type_get_alignof(&new_expression->type, error);
 
 
             type_set_int(&new_expression->type); //resultado sizeof
@@ -14426,8 +14427,13 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
         {
             struct member_declarator* md = d->member_declarator_list_opt->head;
             while (md)
-            {
-                //TODO padding
+            {                
+                int align = type_get_alignof(&md->declarator->type, error);
+                if (size % align != 0)
+                {
+                    size = size + align - (size % align);
+                }
+
                 size += type_get_sizeof(&md->declarator->type, error);                
                 md = md->next;
             }
@@ -14435,6 +14441,136 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
         d = d->next;
     }
     return size;
+}
+int type_get_alignof(struct type* p_type, struct error* error);
+int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, struct error* error)
+{
+    int align = 0;
+    struct member_declaration* d = complete_struct_or_union_specifier->member_declaration_list.head;
+    while (d)
+    {
+        if (d->member_declarator_list_opt)
+        {
+            struct member_declarator* md = d->member_declarator_list_opt->head;
+            while (md)
+            {
+                //TODO padding
+                int temp_align += type_get_alignof(&md->declarator->type, error);
+                if (temp_align > align)
+                {
+                    align = temp_align;
+                }
+                md = md->next;
+            }
+        }
+        d = d->next;
+    }
+    return align;
+}
+
+int type_get_alignof(struct type* p_type, struct error* error)
+{
+    size_t align = 0;
+
+    enum type_category category = find_type_category(p_type);
+
+    if (category == TYPE_CATEGORY_POINTER)
+    {
+        align = _Alignof(void*);
+    }
+    else if (category == TYPE_CATEGORY_FUNCTION)
+    {
+        seterror(error, "sizeof function");
+    }
+    else if (category == TYPE_CATEGORY_ITSELF)
+    {
+        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        {
+            align = _Alignof(char);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        {
+            align = _Alignof(_Bool);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
+        {
+            align = _Alignof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
+        {
+            align = _Alignof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        {
+            //TODO enum type
+            align = _Alignof(int);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
+        {
+            align = _Alignof(long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+        {
+            align = _Alignof(long long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
+        {
+            align = _Alignof(long long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
+        {
+            align = _Alignof(long);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
+        {
+            align = _Alignof(short);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
+        {
+            align = _Alignof(char);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+        {
+            align = _Alignof(double);
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+        {
+            align = 1;
+            if (p_type->struct_or_union_specifier->complete_struct_or_union_specifier)
+            {
+                align = get_alignof_struct(p_type->struct_or_union_specifier->complete_struct_or_union_specifier, error);
+            }
+            else
+            {
+                seterror(error, "invalid application of 'sizeof' to incomplete type 'struct %s'", p_type->struct_or_union_specifier->tag_name);
+            }
+        }
+        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        {
+            align = _Alignof(int);
+        }
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
+        {
+            seterror(error, "type information is missing");
+        }
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
+        {
+            align = 1;
+        }
+        else
+        {
+            assert(false);
+        }
+    }
+    else if (category == TYPE_CATEGORY_ARRAY)
+    {
+        
+        struct type type = get_array_item_type(p_type);
+        align = type_get_alignof(&type, error);
+        type_destroy(&type);
+    }
+
+    return align;
 }
 
 int type_get_sizeof( struct type* p_type, struct error* error)
@@ -21458,6 +21594,20 @@ void sizeof_test()
     assert(report.error_count == 0);
 }
 
+
+void alignof_test()
+{
+    const char* src =
+        "struct X { char s; double c; char s2;};\n"
+        "static_assert(alignof(struct X) == 8);"
+        ;
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
 
 void traits_test()
 {

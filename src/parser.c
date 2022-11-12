@@ -5967,6 +5967,21 @@ void sizeof_test()
 }
 
 
+void alignof_test()
+{
+    const char* src =
+        "struct X { char s; double c; char s2;};\n"
+        "static_assert(alignof(struct X) == 8);"
+        "static_assert(sizeof(struct X) == 24);"
+        ;
+
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    assert(report.error_count == 0);
+}
+
 void traits_test()
 {
     //https://en.cppreference.com/w/cpp/header/type_traits

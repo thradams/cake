@@ -1549,7 +1549,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             new_expression->type_name = type_name(ctx, error);
             new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
             parser_match_tk(ctx, ')', error);
-            new_expression->constant_value = type_get_sizeof(&new_expression->type, error);
+            new_expression->constant_value = type_get_alignof(&new_expression->type, error);
 
 
             type_set_int(&new_expression->type); //resultado sizeof
