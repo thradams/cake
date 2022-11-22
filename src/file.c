@@ -1,12 +1,30 @@
-#include <stdio.h>
 
+int printf(const char* restrict format, ...);
 
-
-int main(void)
+int main()
 {
-    printf("Alignment of char = %zu\n", alignof(char));
+    int alignment = alignof(short);
+    printf("alignof(short) = %d\n", alignment); // 2
+    printf("alignof(int) = %d\n", alignof(int)); // 4
+    printf("alignof(long) = %d\n", alignof(long)); // 4
+    printf("alignof(float) = %d\n", alignof(float)); // 4
+    printf("alignof(double) = %d\n", alignof(double)); // 8
 
-    printf("alignof(float[10]) = %zu\n", alignof(float[10]));
-    printf("alignof(struct{char c; int n;}) = %zu\n",
-        alignof(struct { char c; int n; }));
+    typedef struct
+    {
+        int a;
+        double b;
+    } test;
+
+    printf("alignof(test) = %d\n", alignof(test)); // 8 because that is the alignment of the largest element in the structure
+
+    /* output
+
+       alignof(short) = 2
+       alignof(int) = 4
+       alignof(long) = 4
+       alignof(float) = 4
+       alignof(double) = 8
+       alignof(test) = 8
+    */
 }

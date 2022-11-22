@@ -486,6 +486,28 @@ char * s1 = "ma\xc3\xa7\xc3\xa3";
 char * s2 = "maca";
 ```
 
+### C11 _Alignof or C23 alignof
+When compiling to C99 or C89 it is replaced by the equivalent constant.
+
+```c
+ int main()
+ {
+   int align = alignof(int);
+ }
+```
+
+becomes
+
+```c
+ int main()
+ {
+   int align = 4;
+ }
+```
+
+### C11 _Alignas or C23 alignas
+
+Not implemented. 
 
 ## C23 Transformations
 

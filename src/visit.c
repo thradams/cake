@@ -740,6 +740,29 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         break;
 
+    case UNARY_EXPRESSION_ALIGNOF:
+
+        if (ctx->target < LANGUAGE_C11)
+        {
+            token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
+            char buffer[30] = { 0 };
+            snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
+            struct token_list l3 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+            token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l3);
+        }
+
+        if (p_expression->right)
+        {
+            visit_expression(ctx, p_expression->right, error);
+        }
+
+        if (p_expression->type_name)
+        {
+            /*sizeof*/
+            visit_type_name(ctx, p_expression->type_name, error);
+        }
+        break;
+        
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
@@ -778,7 +801,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         }
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF:
+    
     case CAST_EXPRESSION:
     case ASSIGNMENT_EXPRESSION:
     case MULTIPLICATIVE_EXPRESSION_MULT:

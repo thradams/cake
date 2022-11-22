@@ -498,6 +498,28 @@ char * s2 = u8&quot;maca&quot;;
 char * s2 = &quot;maca&quot;;
 </code></pre>
 
+<h3>C11 _Alignof or C23 alignof</h3>
+
+<p>When compiling to C99 or C89 it is replaced by the equivalent constant.</p>
+
+<pre><code class="language-c"> int main()
+ {
+   int align = alignof(int);
+ }
+</code></pre>
+
+<p>becomes</p>
+
+<pre><code class="language-c"> int main()
+ {
+   int align = 4;
+ }
+</code></pre>
+
+<h3>C11 _Alignas or C23 alignas</h3>
+
+<p>Not implemented. </p>
+
 <h2 id="toc_5">C23 Transformations</h2>
 
 <h3>C23 _Decimal32, _Decimal64, and _Decimal128</h3>

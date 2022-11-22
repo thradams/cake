@@ -11376,11 +11376,12 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
-            parser_match(ctx);
             struct expression* new_expression = calloc(1, sizeof * new_expression);
 
-
             new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
+            new_expression->first_token = ctx->current;
+
+            parser_match(ctx);
             parser_match_tk(ctx, '(', error);
             new_expression->type_name = type_name(ctx, error);
             new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
@@ -11390,6 +11391,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
 
             type_set_int(&new_expression->type); //resultado sizeof
             p_expression_node = new_expression;
+            new_expression->last_token = ctx->previous;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNAS)
         {
@@ -14506,7 +14508,7 @@ int type_get_alignof(struct type* p_type, struct error* error)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
-            align = _Alignof(int);
+            align = _Alignof(short);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
         {
@@ -18157,7 +18159,10 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
 
 
     if (ctx->current->type == '{')
-    {
+    {        
+        /*ele mesmo é completo*/
+        p_struct_or_union_specifier->complete_struct_or_union_specifier = p_struct_or_union_specifier;
+
         if (p_struct_or_union_specifier->tagtoken)
             naming_convention_struct_tag(ctx, p_struct_or_union_specifier->tagtoken);
 
@@ -22454,6 +22459,29 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         break;
 
+    case UNARY_EXPRESSION_ALIGNOF:
+
+        if (ctx->target < LANGUAGE_C11)
+        {
+            token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
+            char buffer[30] = { 0 };
+            snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
+            struct token_list l3 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+            token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l3);
+        }
+
+        if (p_expression->right)
+        {
+            visit_expression(ctx, p_expression->right, error);
+        }
+
+        if (p_expression->type_name)
+        {
+            /*sizeof*/
+            visit_type_name(ctx, p_expression->type_name, error);
+        }
+        break;
+        
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
@@ -22492,7 +22520,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         }
         break;
 
-    case UNARY_EXPRESSION_ALIGNOF:
+    
     case CAST_EXPRESSION:
     case ASSIGNMENT_EXPRESSION:
     case MULTIPLICATIVE_EXPRESSION_MULT:

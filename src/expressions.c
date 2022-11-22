@@ -1540,11 +1540,12 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
-            parser_match(ctx);
             struct expression* new_expression = calloc(1, sizeof * new_expression);
 
-
             new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
+            new_expression->first_token = ctx->current;
+
+            parser_match(ctx);
             parser_match_tk(ctx, '(', error);
             new_expression->type_name = type_name(ctx, error);
             new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
@@ -1554,6 +1555,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
 
             type_set_int(&new_expression->type); //resultado sizeof
             p_expression_node = new_expression;
+            new_expression->last_token = ctx->previous;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNAS)
         {

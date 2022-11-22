@@ -1099,7 +1099,7 @@ int type_get_alignof(struct type* p_type, struct error* error)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
-            align = _Alignof(int);
+            align = _Alignof(short);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
         {

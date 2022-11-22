@@ -2508,7 +2508,10 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
 
 
     if (ctx->current->type == '{')
-    {
+    {        
+        /*ele mesmo é completo*/
+        p_struct_or_union_specifier->complete_struct_or_union_specifier = p_struct_or_union_specifier;
+
         if (p_struct_or_union_specifier->tagtoken)
             naming_convention_struct_tag(ctx, p_struct_or_union_specifier->tagtoken);
 
