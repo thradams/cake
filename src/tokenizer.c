@@ -141,7 +141,7 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
         {
             ctx->printf(" ");
         }
-        ctx->printf(LIGHTGREEN "^\n");
+        ctx->printf(LIGHTGREEN "^\n" RESET);
     }
 }
 
@@ -198,7 +198,7 @@ void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token,
         {
             ctx->printf(" ");
         }
-        ctx->printf(LIGHTGREEN "^\n");
+        ctx->printf(LIGHTGREEN "^\n" RESET);
     }
 }
 

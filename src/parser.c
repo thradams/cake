@@ -178,7 +178,7 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
             ctx->printf(" ");
         }
     }
-    ctx->printf(LIGHTGREEN "^\n");
+    ctx->printf(LIGHTGREEN "^\n" RESET);
 }
 
 
@@ -329,7 +329,7 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
             ctx->printf(" ");
         }
     }
-    ctx->printf(LIGHTGREEN "^\n");
+    ctx->printf(LIGHTGREEN "^\n" RESET);
 }
 
 
@@ -3318,6 +3318,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
         bool has_static = false;
         if (ctx->current->type == TK_KEYWORD_STATIC)
         {
+            p_array_declarator->static_token_opt = ctx->current;
             parser_match(ctx);
             has_static = true;
         }

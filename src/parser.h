@@ -572,6 +572,7 @@ struct array_declarator
     struct type_qualifier_list* type_qualifier_list_opt;
     unsigned long long constant_size;
     struct token* token;
+    struct token* static_token_opt;
 };
 
 struct function_declarator

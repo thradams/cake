@@ -1666,7 +1666,7 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
         {
             ctx->printf(" ");
         }
-        ctx->printf(LIGHTGREEN "^\n");
+        ctx->printf(LIGHTGREEN "^\n" RESET);
     }
 }
 
@@ -1723,7 +1723,7 @@ void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token,
         {
             ctx->printf(" ");
         }
-        ctx->printf(LIGHTGREEN "^\n");
+        ctx->printf(LIGHTGREEN "^\n" RESET);
     }
 }
 
@@ -9185,6 +9185,7 @@ struct array_declarator
     struct type_qualifier_list* type_qualifier_list_opt;
     unsigned long long constant_size;
     struct token* token;
+    struct token* static_token_opt;
 };
 
 struct function_declarator
@@ -15829,7 +15830,7 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
             ctx->printf(" ");
         }
     }
-    ctx->printf(LIGHTGREEN "^\n");
+    ctx->printf(LIGHTGREEN "^\n" RESET);
 }
 
 
@@ -15980,7 +15981,7 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
             ctx->printf(" ");
         }
     }
-    ctx->printf(LIGHTGREEN "^\n");
+    ctx->printf(LIGHTGREEN "^\n" RESET);
 }
 
 
@@ -18969,6 +18970,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
         bool has_static = false;
         if (ctx->current->type == TK_KEYWORD_STATIC)
         {
+            p_array_declarator->static_token_opt = ctx->current;
             parser_match(ctx);
             has_static = true;
         }
@@ -22890,7 +22892,7 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt)
         {
-            p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+            parameter = p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
 
         while (parameter)
@@ -22906,7 +22908,16 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
         }
 
     }
-    //TODO
+    else if (p_direct_declarator->array_declarator)
+    {
+        if (ctx->target < LANGUAGE_C99)
+        {
+            if (p_direct_declarator->array_declarator->static_token_opt)
+            {
+                p_direct_declarator->array_declarator->static_token_opt->flags |= TK_FLAG_HIDE;
+            }
+        }
+    }
 }
 
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error)

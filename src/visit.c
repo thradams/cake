@@ -1171,7 +1171,7 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt)
         {
-            p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+            parameter = p_direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
 
         while (parameter)
@@ -1187,7 +1187,16 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
         }
 
     }
-    //TODO
+    else if (p_direct_declarator->array_declarator)
+    {
+        if (ctx->target < LANGUAGE_C99)
+        {
+            if (p_direct_declarator->array_declarator->static_token_opt)
+            {
+                p_direct_declarator->array_declarator->static_token_opt->flags |= TK_FLAG_HIDE;
+            }
+        }
+    }
 }
 
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error)
