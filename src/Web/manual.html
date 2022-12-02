@@ -156,9 +156,9 @@ int main() {
 <pre><code class="language-c">void F1(int a[static 5]){}
 </code></pre>
 
-<p>Becomes in C89 (not implemented yet)</p>
+<p>Becomes in C89 (discarded)</p>
 
-<pre><code class="language-c">void F1(int a[/*static*/ 5]){}
+<pre><code class="language-c">void F1(int a[5]){}
 </code></pre>
 
 <h2 id="toc_2">Complex and imaginary support</h2>

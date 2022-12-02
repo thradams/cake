@@ -1,23 +1,47 @@
-﻿<!doctype html>
-<html lang="en-us">
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Cake online compiler</title>
 
+    <link href="SplitterBar.css" type="text/css" rel="stylesheet">
+
+    <title>Document</title>
+ 
     <script src="codemirror.js"></script>
     <link rel="stylesheet" href="codemirror.css">
-    <link rel="stylesheet" href="style.css" />
     <script src="clike.js"></script>
     <script src="samples.js"></script>
-
-
     <script src="playground.js"></script>
     <script type="text/javascript" src="cake.js"></script>
+    <link rel="stylesheet" href="style.css" />
+
+    <style>
+        .containerOne {
+            position: relative;
+            height: 500px;
+            width: 100%;
+            margin: auto;
+        }
+
+
+        #container {
+            height: 500px;
+            background-color: aqua;
+            position: relative;
+            width: 100%;
+            margin: auto;
+        }
+    </style>
 
 </head>
-<body background="r: rgb(33, 37, 41)">
+<body>
+    
+
 
     <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a>
 
@@ -45,28 +69,38 @@
     <button onclick="Share()">Share</button>
     <input type="text" id="sharelink" style="width:100%;display:none" />
 
-    <div style="width: 100%; overflow: hidden;">
-        <div style="width: 48%; float: left;border-width: thin;border-style: solid;">
-            <textarea id="in" style="height: 100%; width: 100%"></textarea>
+    <div id="containerOne" class="containerOne">
+        
+        <div id="div1" class="leftSide">
+            <div>
+                <div>                    
+                    <textarea id="in" style="height: 100%; width: 100%"></textarea>
+                </div>
+            </div>
         </div>
-        <div style="margin-left: 50%; width: 48%;border-width: thin;border-style: solid;">
-            <textarea id="out" style="width: 100%"></textarea>
-            <button onclick="OnCompileOuput()">Compile Ouput (using coliru online)</button>
+        <div id="div2" class="rightSide" ">
+            <div>
+                <div >                    
+                    <textarea id="out" style="height: 100%; width: 100%"></textarea>
+                </div>
+            </div>
         </div>
     </div>
-    
+
+            <button onclick="OnCompileOuput()">Compile Ouput (using coliru online)</button>
+
     <pre id="output" rows="8" style="background-color:black; width: 100%"></pre>
 
     <p>Cake is compiled with emscripten and it is running in your browser.</p>
 
+    <script src="splitterbar.js"></script>
 
     <script>
 
 
         //monta a lista com exemplos
         var se = document.getElementById("samples");
-        for (var i in sample)
-        {
+        for (var i in sample) {
             var o = document.createElement('option');
             o.textContent = i;
             o.value = i;
@@ -74,14 +108,22 @@
             se.appendChild(o);
         }
 
+        const containerOne = document.getElementById('containerOne');
+        const div1 = document.getElementById('div1');
+        const div2 = document.getElementById('div2');
+        const splitterBar = new SplitterBar(containerOne, div1, div2);
+
+
+
         var inputEditor = CodeMirror.fromTextArea(document.getElementById('in'),
             {
                 lineNumbers: true,
                 matchBrackets: true,
                 mode: "text/x-csrc"
+
             }
         );
-        inputEditor.setSize(null, 400);
+        inputEditor.setSize(null, "500");
 
         var outputEditor = CodeMirror.fromTextArea(document.getElementById('out'),
 
@@ -91,18 +133,18 @@
                 mode: "text/x-csrc",
                 foldGutter: true,
                 gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+
             }
         );
-        outputEditor.setSize(null, 400);
+
+        outputEditor.setSize("100%", "500");
 
         const urlParams = new URLSearchParams(window.location.search);
 
 
         var to = urlParams.get('to');
-        if (to)
-        {
-            try
-            {
+        if (to) {
+            try {
                 to = decodeURI(to);
                 document.getElementById("outtype").value = to;
             }
@@ -110,10 +152,8 @@
         }
 
         var options = urlParams.get('options');
-        if (options)
-        {
-            try
-            {
+        if (options) {
+            try {
                 options = decodeURI(options);
                 document.getElementById("options").value = options;
             } catch { }
@@ -121,8 +161,7 @@
 
 
         var code = urlParams.get('code');
-        if (code)
-        {
+        if (code) {
             code = atob(decodeURIComponent(code));
 
 
@@ -131,8 +170,7 @@
 
         }
 
-        function Share()
-        {
+        function Share() {
 
 
             var source = inputEditor.getValue();
@@ -150,14 +188,12 @@
 
         }
 
-        function OnSwap()
-        {
+        function OnSwap() {
             var temp = inputEditor.getValue();
             inputEditor.setValue(outputEditor.getValue());
             outputEditor.setValue(temp);
         }
-        function OnCompileOuput()
-        {
+        function OnCompileOuput() {
             document.getElementById("output").value = "";
             var http = new XMLHttpRequest();
 
@@ -181,8 +217,7 @@
             //text = text.replace(/>/g, "&gt;");
             //text = text.replace('\n', '<br>', 'g');
             //console.log(text);
-            if (element)
-            {
+            if (element) {
                 element.innerHTML = text + "\n";
                 element.scrollTop = element.scrollHeight; // focus on bottom
             }
@@ -190,8 +225,7 @@
         }
 
 
-        function OnCompileButton()
-        {
+        function OnCompileButton() {
             document.getElementById("output").value = "";
             outputEditor.setValue("");
             var outputLanguage = document.getElementById("outtype").value;
@@ -219,16 +253,10 @@
         }
 
 
-        function OnChangeSelection(index)
-        {
+        function OnChangeSelection(index) {
             inputEditor.setValue(sample[index], -1);
         }
 
-
     </script>
-
-
-
 </body>
-
 </html>
