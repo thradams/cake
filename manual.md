@@ -127,17 +127,14 @@ struct s {
 void F1(int a[static 5]){}
 ```
 
-Becomes in C89 (not implemented yet)
+Becomes in C89
 
 ```c
-void F1(int a[/*static*/ 5]){}
+void F1(int a[5]){}
 ```
 
 ## Complex and imaginary support
 TODO
-
-### C99 The long long int type and library functions
-TODO ?
 
 ### C99 Universal character names (\u and \U)
 TODO
@@ -193,6 +190,8 @@ int f(void) {
   return p == q && q -> i == 1;
 }
 ```
+N716
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm
 
 ### C99 designated initializers
 
@@ -222,6 +221,8 @@ int main()
 
 ```
 
+N494
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 ### C99 line comments
 
@@ -236,6 +237,15 @@ Becomes in C89
 ```c
 /*line comments*/
 ```
+
+N644
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n644.htm
+
+### C99 preprocessor arithmetic done in intmax_t/uintmax_t
+Cake uses 64 bits internally.
+
+N736
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n736.htm
 
 
 ### C99 mixed declarations and code
@@ -277,7 +287,7 @@ TODO
 TODO 
 
 ### \_\_func\_\_ predefined identifier
-TODO
+Parsed. C89 conversion not implemented yet.
 
 ###  init-statement in for loops 
 
@@ -345,6 +355,9 @@ int main()
 >I am considering to mark the debug macro to be expanded automatically
 >if \_\_VA\_ARGS\_\_ is used. Then pragma expand will not be necessary.
 
+N707
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
+
 ###  Trailing comma in enumerator-list
 
 TODO. We could remove this extra comma. (low prioriry)
@@ -379,6 +392,11 @@ int main(void)
 
 ```c
 ```
+
+
+## _Pragma preprocessing operator
+Not
+
 
 ## C11 Transformations
 
@@ -427,6 +445,8 @@ The result of \_Generic in C99 will be cbrtl. Because this is inside
 a macro we need to tell the transpiler to expand that macro using 
 pragma expand.
 
+N1441
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm
 
 ```c
 #include <math.h>
@@ -486,6 +506,9 @@ char * s1 = "ma\xc3\xa7\xc3\xa3";
 char * s2 = "maca";
 ```
 
+N1488
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm
+
 ### C11 _Alignof or C23 alignof
 When compiling to C99 or C89 it is replaced by the equivalent constant.
 
@@ -520,6 +543,8 @@ In C23 static\_assert is a keyword and the text message is optional.
 Whe comping to C11, static\_assert is replaced by \_Static\_assert
 If the static\_assert has only one argument the text becomes "error".
 
+N1330
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf
 
 ```c
 int main()
@@ -562,6 +587,8 @@ int main()
 
 >This transformation uses only tokens. So even preprocessor and inactive
 >code is transformed.
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf
 
 ### C23 Binary literals 
 
@@ -817,6 +844,25 @@ More work is necessary to implement the checks in C23.
 
 Convertion to C11, C99, C89 will just remove the attributes.
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf
+
+### C23 fallthrough attribute
+Not implemented
+
+### C23 deprecated attribute
+
+Partially implemented
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf
+
+### C23 maybe_unused attribute
+Implemented
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf
+
+### C23 nodiscard attribute
+Partially implemented
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf
+
 
 ###  C23 \_\_has\_attribute
 
@@ -868,6 +914,7 @@ int main()
 }
 ```
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf
 
 ###  C23 #embed
 
@@ -889,6 +936,7 @@ Becomes in C11, C99, C89
 
 ```c
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3017.htm
 
 #include <stdio.h>
 

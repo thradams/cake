@@ -1,1 +1,3 @@
-void F1(int a[static 5]) {}
+void F() {
+    __func__;
+}

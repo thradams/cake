@@ -24,19 +24,22 @@
 <a href="#toc_3">C99 Improvements of braced-init-list for array, struct and union types</a>
 </li>
 <li>
-<a href="#toc_4">C11 Transformations</a>
+<a href="#toc_4">_Pragma preprocessing operator</a>
 </li>
 <li>
-<a href="#toc_5">C23 Transformations</a>
+<a href="#toc_5">C11 Transformations</a>
 </li>
 <li>
-<a href="#toc_6">Extensions (Not in C23)</a>
+<a href="#toc_6">C23 Transformations</a>
 </li>
 <li>
-<a href="#toc_7">Type traits</a>
+<a href="#toc_7">Extensions (Not in C23)</a>
 </li>
 <li>
-<a href="#toc_8">Pre-defined macros</a>
+<a href="#toc_8">Type traits</a>
+</li>
+<li>
+<a href="#toc_9">Pre-defined macros</a>
 </li>
 </ul>
 <h2 id="toc_0">Command line</h2>
@@ -156,7 +159,7 @@ int main() {
 <pre><code class="language-c">void F1(int a[static 5]){}
 </code></pre>
 
-<p>Becomes in C89 (discarded)</p>
+<p>Becomes in C89</p>
 
 <pre><code class="language-c">void F1(int a[5]){}
 </code></pre>
@@ -164,10 +167,6 @@ int main() {
 <h2 id="toc_2">Complex and imaginary support</h2>
 
 <p>TODO</p>
-
-<h3>C99 The long long int type and library functions</h3>
-
-<p>TODO ?</p>
 
 <h3>C99 Universal character names (\u and \U)</h3>
 
@@ -222,6 +221,9 @@ int f(void) {
 }
 </code></pre>
 
+<p>N716
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm</a></p>
+
 <h3>C99 designated initializers</h3>
 
 <pre><code class="language-c"> int main()
@@ -248,6 +250,9 @@ int f(void) {
 
 </code></pre>
 
+<p>N494
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf</a></p>
+
 <h3>C99 line comments</h3>
 
 <p>When compiling to C89 line comments are converted to comments.</p>
@@ -259,6 +264,16 @@ int f(void) {
 
 <pre><code class="language-c">/*line comments*/
 </code></pre>
+
+<p>N644
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n644.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n644.htm</a></p>
+
+<h3>C99 preprocessor arithmetic done in intmax<em>t/uintmax</em>t</h3>
+
+<p>Cake uses 64 bits internally.</p>
+
+<p>N736
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n736.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n736.htm</a></p>
 
 <h3>C99 mixed declarations and code</h3>
 
@@ -299,7 +314,7 @@ int main()
 
 <h3>__func__ predefined identifier</h3>
 
-<p>TODO</p>
+<p>Parsed. C89 conversion not implemented yet.</p>
 
 <h3>init-statement in for loops</h3>
 
@@ -366,6 +381,9 @@ int main()
 if __VA_ARGS__ is used. Then pragma expand will not be necessary.</p>
 </blockquote>
 
+<p>N707
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm</a></p>
+
 <h3>Trailing comma in enumerator-list</h3>
 
 <p>TODO. We could remove this extra comma. (low prioriry)</p>
@@ -398,7 +416,11 @@ int main(void)
 
 <pre><code class="language-c"></code></pre>
 
-<h2 id="toc_4">C11 Transformations</h2>
+<h2 id="toc_4">_Pragma preprocessing operator</h2>
+
+<p>Not</p>
+
+<h2 id="toc_5">C11 Transformations</h2>
 
 <h3>C11 _Static_assert</h3>
 
@@ -443,6 +465,9 @@ an obsolescent feature</p>
 <p>The result of _Generic in C99 will be cbrtl. Because this is inside
 a macro we need to tell the transpiler to expand that macro using 
 pragma expand.</p>
+
+<p>N1441
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm</a></p>
 
 <pre><code class="language-c">#include &lt;math.h&gt;
 
@@ -498,6 +523,9 @@ char * s2 = u8&quot;maca&quot;;
 char * s2 = &quot;maca&quot;;
 </code></pre>
 
+<p>N1488
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm</a></p>
+
 <h3>C11 _Alignof or C23 alignof</h3>
 
 <p>When compiling to C99 or C89 it is replaced by the equivalent constant.</p>
@@ -520,7 +548,7 @@ char * s2 = &quot;maca&quot;;
 
 <p>Not implemented. </p>
 
-<h2 id="toc_5">C23 Transformations</h2>
+<h2 id="toc_6">C23 Transformations</h2>
 
 <h3>C23 _Decimal32, _Decimal64, and _Decimal128</h3>
 
@@ -532,6 +560,9 @@ char * s2 = &quot;maca&quot;;
 
 <p>Whe comping to C11, static_assert is replaced by _Static_assert
 If the static_assert has only one argument the text becomes &quot;error&quot;.</p>
+
+<p>N1330
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf</a></p>
 
 <pre><code class="language-c">int main()
 {    
@@ -576,6 +607,8 @@ If the static_assert has only one argument the text becomes &quot;error&quot;.</
 <p>This transformation uses only tokens. So even preprocessor and inactive
 code is transformed.</p>
 </blockquote>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf</a></p>
 
 <h3>C23 Binary literals</h3>
 
@@ -820,6 +853,28 @@ More work is necessary to implement the checks in C23.</p>
 
 <p>Convertion to C11, C99, C89 will just remove the attributes.</p>
 
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf</a>
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf</a></p>
+
+<h3>C23 fallthrough attribute</h3>
+
+<p>Not implemented</p>
+
+<h3>C23 deprecated attribute</h3>
+
+<p>Partially implemented
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf</a></p>
+
+<h3>C23 maybe_unused attribute</h3>
+
+<p>Implemented
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf</a></p>
+
+<h3>C23 nodiscard attribute</h3>
+
+<p>Partially implemented
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf</a></p>
+
 <h3>C23 __has_attribute</h3>
 
 <p>It is implemented in C23.</p>
@@ -866,6 +921,8 @@ More work is necessary to implement the checks in C23.</p>
 }
 </code></pre>
 
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf</a></p>
+
 <h3>C23 #embed</h3>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
@@ -885,6 +942,7 @@ int main()
 <p>Becomes in C11, C99, C89</p>
 
 <pre><code class="language-c">
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3017.htm
 
 #include &lt;stdio.h&gt;
 
@@ -1057,7 +1115,7 @@ x   }
 
 </code></pre>
 
-<h2 id="toc_6">Extensions (Not in C23)</h2>
+<h2 id="toc_7">Extensions (Not in C23)</h2>
 
 <h3>Extension - try catch throw</h3>
 
@@ -1325,7 +1383,7 @@ void x_destroy(struct X* p)
 
 </code></pre>
 
-<h2 id="toc_7">Type traits</h2>
+<h2 id="toc_8">Type traits</h2>
 
 <p>We have some compile time functions to infer properties of types.
 They are based on C++ <a href="https://en.cppreference.com/w/cpp/header/type_traits">https://en.cppreference.com/w/cpp/header/type_traits</a></p>
@@ -1361,7 +1419,7 @@ If T and U name the same type (taking into account const/volatile qualifications
 
 </code></pre>
 
-<h2 id="toc_8">Pre-defined macros</h2>
+<h2 id="toc_9">Pre-defined macros</h2>
 
 <pre><code class="language-c"> #define __CAKE__ 202311L
  #define __STDC_VERSION__ 202311L

@@ -94,7 +94,7 @@ void print_declarator_type(struct osstream* ss, struct declarator_type* p_declar
     }
 
     if (p_declarator_type->direct_declarator_type)
-    {        
+    {
         print_direct_declarator_type(ss, p_declarator_type->direct_declarator_type);
     }
 
@@ -127,8 +127,8 @@ void print_direct_declarator_type(struct osstream* ss,
             p_direct_declarator_type->declarator_opt->direct_declarator_type->function_declarator_type == NULL &&
             p_direct_declarator_type->declarator_opt->direct_declarator_type->declarator_opt == NULL)
         {
-           /*no need ()*/            
-            print_declarator_type(ss, p_direct_declarator_type->declarator_opt);            
+            /*no need ()*/
+            print_declarator_type(ss, p_direct_declarator_type->declarator_opt);
         }
         else
         {
@@ -137,7 +137,7 @@ void print_direct_declarator_type(struct osstream* ss,
             ss_fprintf(ss, ")");
         }
     }
-    
+
 
     if (p_direct_declarator_type->function_declarator_type)
     {
@@ -172,7 +172,7 @@ void print_direct_declarator_type(struct osstream* ss,
             //assert(false);
         }
         ss_fprintf(ss, "[%d]", p_direct_declarator_type->array_declarator_type->constant_size);
-        
+
     }
 }
 
@@ -314,13 +314,13 @@ struct direct_declarator_type* direct_declarator_type_copy(struct direct_declara
     if (p_direct_declarator_type_opt == NULL)
         return NULL;
     struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
-    
+
     p_direct_declarator_type->declarator_opt = declarator_type_copy(p_direct_declarator_type_opt->declarator_opt);
     p_direct_declarator_type->function_declarator_type = function_declarator_type_copy(p_direct_declarator_type_opt->function_declarator_type);
     p_direct_declarator_type->array_declarator_type = array_declarator_type_copy(p_direct_declarator_type_opt->array_declarator_type);
-    
+
     if (p_direct_declarator_type_opt->name_opt)
-      p_direct_declarator_type->name_opt = strdup(p_direct_declarator_type_opt->name_opt);
+        p_direct_declarator_type->name_opt = strdup(p_direct_declarator_type_opt->name_opt);
 
     return p_direct_declarator_type;
 }
@@ -332,7 +332,7 @@ struct declarator_type* declarator_type_copy(struct declarator_type* p_declarato
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
     p_declarator_type->pointers = pointer_type_list_copy(&p_declarator_type_opt->pointers);
     p_declarator_type->direct_declarator_type = direct_declarator_type_copy(p_declarator_type_opt->direct_declarator_type);
-    
+
     return p_declarator_type;
 }
 
@@ -354,10 +354,10 @@ void visit_direct_declarator_get(enum type_category* type_category, struct direc
 
         if (*type_category == TYPE_CATEGORY_ITSELF)
         {
-            *type_category = TYPE_CATEGORY_FUNCTION;         
+            *type_category = TYPE_CATEGORY_FUNCTION;
         }
     }
-    
+
     if (p_direct_declarator_type->array_declarator_type)
     {
         if (p_direct_declarator_type->array_declarator_type->direct_declarator_type)
@@ -367,7 +367,7 @@ void visit_direct_declarator_get(enum type_category* type_category, struct direc
 
         if (*type_category == TYPE_CATEGORY_ITSELF)
         {
-            *type_category = TYPE_CATEGORY_ARRAY; /*array*/            
+            *type_category = TYPE_CATEGORY_ARRAY; /*array*/
         }
     }
 }
@@ -405,7 +405,7 @@ bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
 {
     if (p_type->attributes_flags & attributes)
     {
-        /*like 
+        /*like
           [[maybe_unused]] int i;
         */
         return true;
@@ -477,7 +477,7 @@ bool type_is_deprecated(struct type* p_type)
 
 bool type_is_nodiscard(struct type* p_type)
 {
-    return type_has_attribute(p_type, STD_ATTRIBUTE_NODISCARD);    
+    return type_has_attribute(p_type, STD_ATTRIBUTE_NODISCARD);
 }
 
 bool type_is_destroy(struct type* p_type)
@@ -490,9 +490,6 @@ bool type_is_array(struct type* p_type)
     return find_type_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
-
-
-
 bool type_is_pointer(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_POINTER;
@@ -502,7 +499,7 @@ bool type_is_pointer(struct type* p_type)
 bool type_is_enum(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
-           p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM;
+        p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM;
 }
 
 bool type_is_struct_or_union(struct type* p_type)
@@ -512,11 +509,10 @@ bool type_is_struct_or_union(struct type* p_type)
 }
 
 /*
-* The three types char, signed char, and unsigned char are collectively called the character types.
-The implementation shall define char to have the same range, representation, and behavior as either
-signed char or unsigned char.50)
+  The three types 
+  char, signed char, and unsigned char 
+  are collectively called the character types.
 */
-
 bool type_is_character(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
@@ -537,9 +533,11 @@ bool type_is_void(struct type* p_type)
     return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
 }
 
-/*
-  The type char, the signed and unsigned integer types, and the enumerated types are collectively
-  called integer types. The integer and real floating types are collectively called real types
+/*  
+ There are three standard floating types, designated as 
+ float, double, and long double.
+
+ There are three decimal floating types, designated as _Decimal32, _Decimal64, and _Decimal128.
 */
 bool type_is_floating_point(struct type* p_type)
 {
@@ -553,8 +551,9 @@ bool type_is_floating_point(struct type* p_type)
 
 
 /*
-  The type char, the signed and unsigned integer types, and the enumerated types are collectively
-  called integer types. The integer and real floating types are collectively called real types
+  The type char, the signed and unsigned integer types, 
+  and the enumerated types 
+  are collectively  called integer types.   
 */
 bool type_is_integer(struct type* p_type)
 {
@@ -566,6 +565,11 @@ bool type_is_integer(struct type* p_type)
         /*we cannot check long without check double*/
         //long double
         return false;
+    }
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+    {
+        return true;
     }
 
     return p_type->type_specifier_flags &
@@ -586,42 +590,15 @@ bool type_is_integer(struct type* p_type)
 */
 bool type_is_arithmetic(struct type* p_type)
 {
-    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
-        return false;
-
-
-    return p_type->type_specifier_flags &
-        (           
-            TYPE_SPECIFIER_FLOAT |
-            TYPE_SPECIFIER_DOUBLE |
-
-            TYPE_SPECIFIER_DECIMAL32 |
-            TYPE_SPECIFIER_DECIMAL64 |
-            TYPE_SPECIFIER_DECIMAL128 |
-
-            TYPE_SPECIFIER_CHAR |
-            TYPE_SPECIFIER_SHORT |
-            
-            TYPE_SPECIFIER_INT |            
-            TYPE_SPECIFIER_ENUM | /*work as int*/
-
-            TYPE_SPECIFIER_LONG |
-            TYPE_SPECIFIER_SIGNED |
-            TYPE_SPECIFIER_UNSIGNED |
-            TYPE_SPECIFIER_INT8 |
-            TYPE_SPECIFIER_INT16 |
-            TYPE_SPECIFIER_INT64 |
-            TYPE_SPECIFIER_LONG_LONG
-            );
+    return type_is_integer(p_type) || type_is_floating_point(p_type);
 }
 
 /*
- Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types. Array
-and structure types are collectively called aggregate types51).
+ Arithmetic types, pointer types, and the nullptr_t type are collectively 
+ called scalar types.
 */
 bool type_is_scalar(struct type* p_type)
 {
-
     if (type_is_arithmetic(p_type))
         return true;
 
@@ -719,7 +696,7 @@ bool type_is_compatible_type_function_call(struct type* argument_type, struct ty
 
 bool type_is_function(struct type* p_type)
 {
-    return find_type_category(p_type) == TYPE_CATEGORY_FUNCTION;        
+    return find_type_category(p_type) == TYPE_CATEGORY_FUNCTION;
 }
 
 bool type_is_function_or_function_pointer(struct type* p_type)
@@ -749,9 +726,9 @@ struct type get_address_of_type(struct type* p_type)
     }
 
     if (p->direct_declarator_type && p->direct_declarator_type->function_declarator_type)
-    {   
+    {
         struct direct_declarator_type* pdirect_declarator_type = calloc(1, sizeof * pdirect_declarator_type);
-        struct declarator_type* p2 = calloc(1, sizeof * p);        
+        struct declarator_type* p2 = calloc(1, sizeof * p);
         struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
         list_add(&p2->pointers, p_pointer_type);
         pdirect_declarator_type->declarator_opt = p2;
@@ -858,7 +835,7 @@ struct type get_function_return_type(struct type* p_type)
         struct function_declarator_type* removed = r.declarator_type->direct_declarator_type->function_declarator_type;
 
         r.declarator_type->direct_declarator_type =
-            r.declarator_type->direct_declarator_type->function_declarator_type->direct_declarator_type;        
+            r.declarator_type->direct_declarator_type->function_declarator_type->direct_declarator_type;
     }
 
     return r;
@@ -867,31 +844,11 @@ struct type get_function_return_type(struct type* p_type)
 
 bool type_is_pointer_or_array(struct type* p_type)
 {
-    if (p_type->declarator_type == NULL)
-        return false;
+    const enum type_category category = find_type_category(p_type);
 
-    struct declarator_type* p_inner_declarator = find_inner_declarator(p_type->declarator_type);
-
-    if (p_inner_declarator &&
-        p_inner_declarator->pointers.head != NULL)
-    {
+    if (category == TYPE_CATEGORY_POINTER ||
+        category == TYPE_CATEGORY_ARRAY)
         return true;
-    }
-
-    if (p_inner_declarator->direct_declarator_type &&
-        p_inner_declarator->direct_declarator_type->array_declarator_type)
-    {        
-            /*arrays sao equivalentes a ponteiros em C*/
-        
-            return true;        
-    }
-
-    if (p_inner_declarator->direct_declarator_type &&
-        p_inner_declarator->direct_declarator_type->function_declarator_type)
-    {
-        /*funcoes sao equivalentes a ponteiros em C*/
-        return true;
-    }
 
     return false;
 }
@@ -1021,7 +978,7 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
         {
             struct member_declarator* md = d->member_declarator_list_opt->head;
             while (md)
-            {                
+            {
                 int align = type_get_alignof(&md->declarator->type, error);
 
                 if (align > maxalign)
@@ -1033,16 +990,22 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
                     size += align - (size % align);
                 }
 
-                size += type_get_sizeof(&md->declarator->type, error);                
+                size += type_get_sizeof(&md->declarator->type, error);
                 md = md->next;
             }
         }
         d = d->next;
     }
-
-    if (size % maxalign != 0)
+    if (maxalign != 0)
     {
-        size += maxalign - (size % maxalign);
+        if (size % maxalign != 0)
+        {
+            size += maxalign - (size % maxalign);
+        }
+    }
+    else
+    {
+        assert(false);
     }
 
     return size;
@@ -1173,7 +1136,7 @@ int type_get_alignof(struct type* p_type, struct error* error)
     }
     else if (category == TYPE_CATEGORY_ARRAY)
     {
-        
+
         struct type type = get_array_item_type(p_type);
         align = type_get_alignof(&type, error);
         type_destroy(&type);
@@ -1182,7 +1145,7 @@ int type_get_alignof(struct type* p_type, struct error* error)
     return align;
 }
 
-int type_get_sizeof( struct type* p_type, struct error* error)
+int type_get_sizeof(struct type* p_type, struct error* error)
 {
     size_t size = 0;
 
@@ -1269,7 +1232,7 @@ int type_get_sizeof( struct type* p_type, struct error* error)
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            seterror(error, "type information is missing");            
+            seterror(error, "type information is missing");
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
         {
@@ -1402,7 +1365,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
         else
         {
             assert(false);
-        }        
+        }
     }
     catch
     {
@@ -1519,9 +1482,9 @@ struct function_declarator_type* clone_function_declarator_to_function_declarato
     {
         p_function_declarator_type->is_var_args = p_function_declarator->parameter_type_list_opt->is_var_args;
     }
-    
+
     //TODO ...
-    
+
 
     while (p_parameter_declaration)
     {
@@ -1537,7 +1500,7 @@ struct function_declarator_type* clone_function_declarator_to_function_declarato
         p_parameter_declaration = p_parameter_declaration->next;
     }
 
-    
+
     return p_function_declarator_type;
 }
 
@@ -1565,10 +1528,10 @@ struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type
         p_direct_declarator_type->array_declarator_type =
             clone_array_declarator_to_array_declarator_type(ctx, p_direct_declarator->array_declarator);
     }
-    
+
     if (p_direct_declarator->function_declarator)
     {
-        p_direct_declarator_type->function_declarator_type=
+        p_direct_declarator_type->function_declarator_type =
             clone_function_declarator_to_function_declarator_type(ctx, p_direct_declarator->function_declarator);
     }
 
@@ -1583,7 +1546,7 @@ struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* c
         return NULL;
     }
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
-    
+
     p_declarator_type->pointers = clone_pointer_to_pointer_type_list(p_declarator->pointer);
     p_declarator_type->direct_declarator_type = clone_direct_declarator_to_direct_declarator_type(ctx, p_declarator->direct_declarator);
 
@@ -1625,11 +1588,11 @@ static void direct_declarator_type_clear_name(struct direct_declarator_type* p_d
 }
 
 void declarator_type_clear_name(struct declarator_type* p_declarator_type_opt)
-{           
+{
     if (p_declarator_type_opt == NULL)
         return;
 
-     direct_declarator_type_clear_name(p_declarator_type_opt->direct_declarator_type);
+    direct_declarator_type_clear_name(p_declarator_type_opt->direct_declarator_type);
 }
 
 
@@ -1658,20 +1621,20 @@ void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct d
         =>int* [1]
 
         */
-        
+
         if (p_typedef_decl->direct_declarator_type &&
             (p_typedef_decl->direct_declarator_type->array_declarator_type ||
-            p_typedef_decl->direct_declarator_type->function_declarator_type))
-        {            
+                p_typedef_decl->direct_declarator_type->function_declarator_type))
+        {
             struct declarator_type* copy =
                 declarator_type_copy(p_declarator_typet1);
 
-            p_typedef_decl->direct_declarator_type->declarator_opt = copy;                
+            p_typedef_decl->direct_declarator_type->declarator_opt = copy;
         }
         else
         {
             struct declarator_type* copy = declarator_type_copy(p_declarator_typet1);
-            
+
             struct pointer_type* p = copy->pointers.head;
             while (p)
             {
@@ -1686,7 +1649,7 @@ void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct d
             p_typedef_decl->direct_declarator_type = copy->direct_declarator_type;
             copy->direct_declarator_type = NULL; //mOVED?
 
-            
+
             //p_typedef_de//cl->direct_declarator_type->declarator_opt = copy->direct_declarator_type->declarator_opt;
         }
 
@@ -1715,7 +1678,7 @@ typedef T2 T3[2];
 
 int main()
 {
-    TYPE(T1);    
+    TYPE(T1);
 }
 #endif
 /*
@@ -1758,17 +1721,17 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     if (pdeclarator->specifier_qualifier_list)
     {
 
-        
+
 
         if (pdeclarator->specifier_qualifier_list->typeof_specifier)
         {
-         
+
             if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression)
             {
                 t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression->type);
                 struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
                 declarator_type_merge(dectype, t.declarator_type);
-                
+
             }
             else if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name)
             {
@@ -1776,7 +1739,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
                 declarator_type_merge(dectype, t.declarator_type);
 
-                
+
             }
         }
         else  if (pdeclarator->specifier_qualifier_list->typedef_declarator)
@@ -1800,35 +1763,35 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         {
             if (pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression)
             {
-                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression->type);                
-                
+                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression->type);
+
                 declarator_type_clear_name(t.declarator_type);
 
                 struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-                
+
                 if (t.declarator_type != NULL) /*expression it may be null*/
                 {
-                    
+
                     declarator_type_merge(dectype, t.declarator_type);
                 }
                 else
                 {
                     t.declarator_type = dectype;
-                }          
+                }
             }
             else if (pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name)
             {
                 t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
-                
-                struct declarator_type *dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-                
+
+                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+
                 if (t.declarator_type != NULL) /*expression it may be null*/
                 {
                     declarator_type_merge(dectype, t.declarator_type);
                 }
                 else
                 {
-                    /*works but unexpected*/                    
+                    /*works but unexpected*/
                     t.declarator_type = dectype;
                     assert(false);
                 }
@@ -1916,7 +1879,7 @@ struct declarator_type* find_inner_declarator(struct declarator_type* p_declarat
     struct declarator_type* p2 = direct_declarator_find_inner_declarator(p_declarator_type->direct_declarator_type);
     if (p2 != NULL)
     {
-        p_declarator_type = p2;        
+        p_declarator_type = p2;
     }
 
     return p_declarator_type;
@@ -2070,7 +2033,7 @@ bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct dir
 
             return true;
         }
-        
+
     }
     return direct_declarator_type_is_empty(a) && direct_declarator_type_is_empty(b);
 }
