@@ -521,6 +521,44 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
                 p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_ENUM;
                 p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;
             }
+            else if (ctx->p_current_function_opt &&
+                     strcmp(ctx->current->lexeme, "__func__") == 0)
+            {
+                /*
+                   not sure if this is the best way to implement but
+                   works for now
+                */
+                const char* funcname =
+                    ctx->p_current_function_opt->init_declarator_list.head->declarator->name->lexeme;
+
+                p_expression_node = calloc(1, sizeof * p_expression_node);
+                p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
+                p_expression_node->first_token = ctx->current;
+                p_expression_node->last_token = ctx->current;
+
+                p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
+                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
+
+                struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
+                struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
+                struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
+                struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
+
+                p_declarator_type->direct_declarator_type = p_direct_declarator_type;
+
+                array_declarator_type->constant_size = strlen(funcname) + 1;
+                array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
+                p_direct_declarator_type->array_declarator_type = array_declarator_type;
+
+                p_expression_node->type.declarator_type = p_declarator_type;
+
+                if (ectx->constant_expression_required)
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "not constant");
+                    error->code = 1;
+                    throw;
+                }                              
+            }
             else
             {
                 if (ectx->constant_expression_required)
