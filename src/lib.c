@@ -20511,13 +20511,6 @@ struct compound_statement* function_body(struct parser_ctx* ctx, struct error* e
     */
     ctx->try_catch_block_index = 0;
     ctx->p_current_try_statement_opt = NULL;
-
-    /*
-     The identifier __func__ shall be implicitly declared by the translator as if,
-     immediately following the opening brace of each function definition, the declaration
-     static const char __func__[] = "function-name";
-     appeared, where function-name is the name of the lexically-enclosing function.
-    */
     return compound_statement(ctx, error);
 }
 
