@@ -5130,14 +5130,15 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
         snprintf(env, sizeof env,
             "%s",
-            "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/ATLMFC/include;"
-            "C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/include;"
-            "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um;"
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.34.31933/include;"
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.34.31933/ATLMFC/include;"
+            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt");
+            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt;"
+            "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
 
      
         n = strlen(env);
@@ -5776,6 +5777,20 @@ void parser_specifier_test()
     struct report report = { 0 };
     struct ast ast = get_ast(&options, "source", source, &error, &report);
     assert(error.code != 0); //esperado erro    
+}
+
+
+void array_item_type_test()
+{
+    const char* source =
+        "void (*pf[10])(void* val);\n"
+        "static_assert(_is_same(typeof(pf[0]), void (*)(void* val)));\n";
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    struct ast ast = get_ast(&options, "source", source, &error, &report);
+
+    assert(error.code == 0);
 }
 
 void take_address_type_test()

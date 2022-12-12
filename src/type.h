@@ -109,6 +109,8 @@ struct array_declarator_type
     unsigned long long constant_size;
 };
 
+void array_declarator_type_delete(struct array_declarator_type* p);
+
 struct direct_declarator_type
 {
     const char* name_opt;

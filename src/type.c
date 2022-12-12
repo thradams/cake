@@ -772,21 +772,63 @@ struct type get_pointer_content_type(struct type* p_type)
     return r;
 }
 
+void array_declarator_type_delete(struct array_declarator_type* p)
+{
+    if (p)
+    {
+        //TODO recursive free
+        //p->direct_declarator_type
+        free(p);
+    }
+}
+
+static void visit_declarator_to_remove_array(int* removed, struct declarator_type* declarator);
+static void visit_direct_declarator_to_remove_array(int *removed, struct direct_declarator_type* p_direct_declarator_type)
+{
+    if (p_direct_declarator_type->declarator_opt)
+        visit_declarator_to_remove_array(removed, p_direct_declarator_type->declarator_opt);
+
+    if (p_direct_declarator_type->function_declarator_type)
+    {
+        if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_remove_array(removed, p_direct_declarator_type->function_declarator_type->direct_declarator_type);
+        }        
+    }
+
+    if (p_direct_declarator_type->array_declarator_type)
+    {
+        if (p_direct_declarator_type->array_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_remove_array(removed, p_direct_declarator_type->array_declarator_type->direct_declarator_type);
+        }
+
+        if (*removed == false)
+        {            
+            array_declarator_type_delete(p_direct_declarator_type->array_declarator_type);            
+            p_direct_declarator_type->array_declarator_type = NULL;
+            *removed = true;
+        }
+    }
+}
+
+static void visit_declarator_to_remove_array(int *removed, struct declarator_type* declarator)
+{
+    if (declarator == NULL)
+        return;
+
+    if (declarator->direct_declarator_type)
+        visit_direct_declarator_to_remove_array(removed, declarator->direct_declarator_type);    
+}
+
 
 struct type get_array_item_type(struct type* p_type)
 {
     assert(type_is_array(p_type));
-
     struct type r = type_copy(p_type);
-
-    if (r.declarator_type)
-    {
-        struct array_declarator_type* removed = r.declarator_type->direct_declarator_type->array_declarator_type;
-        r.declarator_type->direct_declarator_type = removed->direct_declarator_type;
-        removed->direct_declarator_type = NULL; /*MOVED*/
-        //array_declarator_type
-    }
-
+    int removed = false;
+    visit_declarator_to_remove_array(&removed, r.declarator_type);
+    assert(removed);
     return r;
 }
 
@@ -1031,13 +1073,50 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
                 md = md->next;
             }
         }
+        else
+        {
+            /*We don't have the declarator like in */
+            /*
+              struct X {
+                union {
+                    struct {
+                        int Zone;
+                    };
+                    int Value;
+                };
+            };
+            static_assert(alignof(struct X) == 1);                        
+            */
+
+            /*so we create a type using only specifiers*/
+
+            struct type type = { 0 };
+            if (d->specifier_qualifier_list)
+            {
+                type.type_specifier_flags =
+                    d->specifier_qualifier_list->type_specifier_flags;
+
+                type.enum_specifier = d->specifier_qualifier_list->enum_specifier;
+                type.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
+
+            }
+
+            int temp_align = type_get_alignof(&type, error);
+            if (temp_align > align)
+            {
+                align = temp_align;
+            }            
+
+            type_destroy(&type);
+        }
         d = d->next;
     }
+    assert(align != 0);
     return align;
 }
 
 int type_get_alignof(struct type* p_type, struct error* error)
-{
+{    
     size_t align = 0;
 
     enum type_category category = find_type_category(p_type);
@@ -1137,16 +1216,16 @@ int type_get_alignof(struct type* p_type, struct error* error)
     else if (category == TYPE_CATEGORY_ARRAY)
     {
 
-        struct type type = get_array_item_type(p_type);
+        struct type type = get_array_item_type(p_type);        
         align = type_get_alignof(&type, error);
         type_destroy(&type);
     }
-
+    assert(align > 0);
     return align;
 }
 
 int type_get_sizeof(struct type* p_type, struct error* error)
-{
+{    
     size_t size = 0;
 
     enum type_category category = find_type_category(p_type);

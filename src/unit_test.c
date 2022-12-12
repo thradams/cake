@@ -73,6 +73,7 @@ void params_test(void);
 
 /* tests from parser.c*/
 void parser_specifier_test(void);
+void array_item_type_test(void);
 void take_address_type_test(void);
 void parser_scope_test(void);
 void parser_tag_test(void);
@@ -154,6 +155,7 @@ g_unit_test_success_count = 0;
     type_is_pointer_test();
     params_test();
     parser_specifier_test();
+    array_item_type_test();
     take_address_type_test();
     parser_scope_test();
     parser_tag_test();
