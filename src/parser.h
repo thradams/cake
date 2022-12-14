@@ -465,13 +465,16 @@ struct struct_or_union_specifier
     int visit_moved; /*nivel escopo 0 global*/
 
     /*
-    * O tag de uma struct aponta para uma especificação completa (se existir)
-    * da struct. Aqui apontamos para esta struct completa.
+    * This points to the first struct_or_union_specifier that will have it´s
+    * complete_struct_or_union_specifier_indirection pointing to the complete
+    * struct_or_union_specifier.
     */
-    struct struct_or_union_specifier* complete_struct_or_union_specifier;
+    struct struct_or_union_specifier* complete_struct_or_union_specifier_indirection;
 };
-struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error);
 
+struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error);
+bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
+struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
 
 struct init_declarator
 {

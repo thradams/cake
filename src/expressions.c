@@ -958,8 +958,8 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p =
-                        find_struct_or_union_specifier(ctx,
-                            p_expression_node->type.struct_or_union_specifier->tag_name);
+                        find_struct_or_union_specifier(ctx, p_expression_node->type.struct_or_union_specifier->tag_name);
+                    p = get_complete_struct_or_union_specifier(p);
                     if (p)
                     {
                         struct member_declarator* p_member_declarator =
@@ -997,13 +997,13 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 parser_match(ctx);
                 if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
-                    struct struct_or_union_specifier* p = find_struct_or_union_specifier(ctx,
-                        p_expression_node->type.struct_or_union_specifier->tag_name);
+                    struct struct_or_union_specifier* p_complete =
+                        get_complete_struct_or_union_specifier(p_expression_node->type.struct_or_union_specifier);
 
-                    if (p)
+                    if (p_complete)
                     {
                         struct member_declarator* p_member_declarator =
-                            find_member_declarator(&p->member_declaration_list, ctx->current->lexeme);
+                            find_member_declarator(&p_complete->member_declaration_list, ctx->current->lexeme);
                         if (p_member_declarator)
                         {
                             p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
@@ -1018,7 +1018,10 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        print_scope(&ctx->scopes);
+                        parser_seterror_with_token(ctx,
+                            ctx->current,
+                            "struct '%s' is incomplete.", 
+                            p_expression_node->type.struct_or_union_specifier->tag_name);                        
                     }
                     parser_match_tk(ctx, TK_IDENTIFIER, error);
                 }

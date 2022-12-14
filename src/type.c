@@ -421,10 +421,13 @@ bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
           struct X x;
         */
         p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->attribute_specifier_sequence_opt;
-        if (p_attribute_specifier_sequence_opt == NULL &&
-            p_type->struct_or_union_specifier->complete_struct_or_union_specifier)
-        {
-            p_attribute_specifier_sequence_opt = p_type->struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt;
+
+        struct struct_or_union_specifier* p_complete =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_attribute_specifier_sequence_opt == NULL && p_complete)
+        {        
+            p_attribute_specifier_sequence_opt = p_complete->attribute_specifier_sequence_opt;
         }
     }
     else if (p_type->enum_specifier)
@@ -1186,10 +1189,13 @@ int type_get_alignof(struct type* p_type, struct error* error)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
+            struct struct_or_union_specifier* p_complete =
+                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
             align = 1;
-            if (p_type->struct_or_union_specifier->complete_struct_or_union_specifier)
+            if (p_complete)
             {
-                align = get_alignof_struct(p_type->struct_or_union_specifier->complete_struct_or_union_specifier, error);
+                align = get_alignof_struct(p_complete, error);
             }
             else
             {
@@ -1295,10 +1301,13 @@ int type_get_sizeof(struct type* p_type, struct error* error)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
+            struct struct_or_union_specifier* p_complete =
+                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
             size = 1;
-            if (p_type->struct_or_union_specifier->complete_struct_or_union_specifier)
+            if (p_complete)
             {
-                size = get_sizeof_struct(p_type->struct_or_union_specifier->complete_struct_or_union_specifier, error);
+                size = get_sizeof_struct(p_complete, error);
             }
             else
             {
@@ -1389,26 +1398,24 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
         {
             struct osstream ss = { 0 };
 
-            struct struct_or_union_specifier* p_struct_or_union_specifier =
-                p_type->struct_or_union_specifier;
-
-            if (p_struct_or_union_specifier->member_declaration_list.head == NULL)
+            struct struct_or_union_specifier* p_complete =
+                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            
+            if (p_complete)
             {
-                p_struct_or_union_specifier =
-                    p_type->struct_or_union_specifier->complete_struct_or_union_specifier;
-            }
-
-            struct token* current = p_struct_or_union_specifier->first_token;
-            for (;
-                current != p_struct_or_union_specifier->last_token->next;
-                current = current->next)
-            {
-                if (current->flags & TK_FLAG_FINAL)
+                struct token* current = p_complete->first_token;
+                for (;
+                    current != p_complete->last_token->next;
+                    current = current->next)
                 {
-                    ss_fprintf(&ss, "%s", current->lexeme);
+                    if (current->flags & TK_FLAG_FINAL)
+                    {
+                        ss_fprintf(&ss, "%s", current->lexeme);
 
+                    }
                 }
             }
+
             hash = stringhash(ss.c_str);
             ss_close(&ss);
         }
@@ -2121,9 +2128,12 @@ bool struct_or_union_specifier_is_same(struct struct_or_union_specifier* a, stru
 {
     if (a && b)
     {
-        if (a->complete_struct_or_union_specifier != NULL && b->complete_struct_or_union_specifier != NULL)
+        struct struct_or_union_specifier* p_complete_a = get_complete_struct_or_union_specifier(a);
+        struct struct_or_union_specifier* p_complete_b = get_complete_struct_or_union_specifier(b);
+
+        if (p_complete_a != NULL && p_complete_b != NULL)
         {
-            if (a->complete_struct_or_union_specifier != b->complete_struct_or_union_specifier)
+            if (p_complete_a != p_complete_b)
             {
                 return false;
             }
@@ -2138,8 +2148,7 @@ bool struct_or_union_specifier_is_same(struct struct_or_union_specifier* a, stru
                     return true;
             }
         }
-        return a->complete_struct_or_union_specifier == NULL &&
-            b->complete_struct_or_union_specifier == NULL;
+        return p_complete_a == NULL && p_complete_b == NULL;
     }
     return a == NULL && b == NULL;
 }

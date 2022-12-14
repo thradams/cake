@@ -546,8 +546,7 @@ struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* l
 
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme)
 {
-
-    struct struct_or_union_specifier* best = NULL;
+    struct struct_or_union_specifier* p = NULL;
     struct scope* scope = ctx->scopes.tail;
     while (scope)
     {
@@ -555,19 +554,12 @@ struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_c
         if (type_id &&
             type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
         {
-
-            best = container_of(type_id, struct struct_or_union_specifier, type_id);
-            if (best->member_declaration_list.head != NULL)
-                return best; //OK bem completo
-            else
-            {
-                //nao eh completo vamos continuar subindo
-            }
-
+            p = container_of(type_id, struct struct_or_union_specifier, type_id);
+            break;
         }
         scope = scope->previous;
     }
-    return best; //mesmo que nao seja tao completo vamos retornar.    
+    return p;
 }
 
 
@@ -1750,7 +1742,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx, s
 
 
         struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
-        
+
 
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
@@ -2431,6 +2423,39 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx, struct error* erro
     return p_type_specifier;
 }
 
+struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
+{
+    struct struct_or_union_specifier* p = NULL;
+
+
+    if (p_struct_or_union_specifier->member_declaration_list.head)
+    {
+        /*p_struct_or_union_specifier is complete*/
+        return p_struct_or_union_specifier;
+    }
+    else if (p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection &&
+        p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->member_declaration_list.head)
+    {
+        /*p_struct_or_union_specifier is the first seem tag tag points directly to complete*/
+        return p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection;
+    }
+    else if (p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection &&
+        p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection &&
+        p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection->member_declaration_list.head)
+    {
+        /* all others points to the first seem that points to the complete*/
+        return p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection->complete_struct_or_union_specifier_indirection;
+    }
+
+    return NULL;
+}
+
+bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier)
+{
+    return
+        get_complete_struct_or_union_specifier(p_struct_or_union_specifier) != NULL;
+}
+
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx, struct error* error)
 {
     struct struct_or_union_specifier* p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
@@ -2450,7 +2475,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     p_struct_or_union_specifier->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx, error);
 
-    struct struct_or_union_specifier* p_previous_tag_in_this_scope = NULL;
+    struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
 
     if (ctx->current->type == TK_IDENTIFIER)
     {
@@ -2465,11 +2490,11 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         struct type_tag_id* tag_type_id = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
         if (tag_type_id)
         {
-            /*este tag já existe neste escopo*/
+            /*this tag already exist in this scope*/
             if (tag_type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
             {
-                p_previous_tag_in_this_scope = container_of(tag_type_id, struct struct_or_union_specifier, type_id);
-                p_struct_or_union_specifier->complete_struct_or_union_specifier = p_previous_tag_in_this_scope;
+                p_first_tag_in_this_scope = container_of(tag_type_id, struct struct_or_union_specifier, type_id);
+                p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
             }
             else
             {
@@ -2478,18 +2503,19 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         }
         else
         {
-            /*ok neste escopo nao tinha este tag..vamos escopos para cima*/
-            struct struct_or_union_specifier* p_other = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
-            if (p_other == NULL)
+            /*tag does not exist in the current scope, let search on upper scopes*/
+            struct struct_or_union_specifier* p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
+            if (p_first_tag_previous_scopes == NULL)
             {
+                /*tag not found, so it is the first appearence*/
                 p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-                /*nenhum escopo tinha este tag vamos adicionar no escopo local*/
+
                 hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, &p_struct_or_union_specifier->type_id);
             }
             else
             {
-                /*achou a tag em um escopo mais a cima*/
-                p_struct_or_union_specifier->complete_struct_or_union_specifier = p_other;
+                /*tag already exists in some scope*/
+                p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
             }
         }
 
@@ -2497,7 +2523,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     }
     else
     {
-        /*struct sem tag, neste caso vou inventar um tag "oculto" e adicionar no escopo atual*/
+        /*struct without a tag, in this case we make one*/
         snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
         s_anonymous_struct_count++;
         p_struct_or_union_specifier->has_anonymous_tag = true;
@@ -2506,19 +2532,28 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     }
 
 
-
     if (ctx->current->type == '{')
-    {        
-        /*ele mesmo é completo*/
-        p_struct_or_union_specifier->complete_struct_or_union_specifier = p_struct_or_union_specifier;
+    {
+        /*
+        this is the complete struct
+        */
+
+        struct struct_or_union_specifier* first = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tag_name);
+        if (first)
+        {
+            /*
+               The first tag (will the one at symbol table) will point to the complete struct
+            */
+            first->complete_struct_or_union_specifier_indirection = p_struct_or_union_specifier;
+        }
 
         if (p_struct_or_union_specifier->tagtoken)
             naming_convention_struct_tag(ctx, p_struct_or_union_specifier->tagtoken);
 
-        struct token* first = ctx->current;
+        struct token* firsttoken = ctx->current;
         parser_match(ctx);
         p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, error);
-        p_struct_or_union_specifier->member_declaration_list.first_token = first;
+        p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
         p_struct_or_union_specifier->last_token = ctx->current;
         p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
         parser_match_tk(ctx, '}', error);
@@ -2529,24 +2564,14 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         p_struct_or_union_specifier->last_token = ctx->current;
     }
 
-    if (p_previous_tag_in_this_scope)
-    {
-        if (p_previous_tag_in_this_scope->member_declaration_list.head == NULL &&
-            p_struct_or_union_specifier->member_declaration_list.head != NULL)
-        {
-            /*
-              Temos uma versao mais completa deste tag neste escopo. Vamos ficar com ela.
-            */
-            hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, &p_struct_or_union_specifier->type_id);
-        }
-    }
-
+    struct struct_or_union_specifier* p_complete =
+        get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
 
     /*check if complete struct is deprecated*/
-    if (p_struct_or_union_specifier->complete_struct_or_union_specifier)
+    if (p_complete)
     {
-        if (p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt &&
-            p_struct_or_union_specifier->complete_struct_or_union_specifier->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
+        if (p_complete->attribute_specifier_sequence_opt &&
+            p_complete->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
         {
             if (p_struct_or_union_specifier->tagtoken)
             {
@@ -4065,7 +4090,7 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx, struct error* er
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_DESTROY;
     }
-    
+
     parser_match_tk(ctx, TK_IDENTIFIER, error);
 
     if (ctx->current->type == '::')
@@ -4773,6 +4798,16 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
             struct expression_ctx ectx = { 0 };
             p_jump_statement->expression_opt = expression(ctx, error, &ectx);
 
+            if (p_jump_statement->expression_opt && 
+                p_jump_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            {
+                /*
+                   returning a declarator will remove the flags must destroy or must free, 
+                   similar of moving
+                */
+                p_jump_statement->expression_opt->declarator->static_analisys_flags &= ~ (MUST_DESTROY | MUST_FREE);
+            }
+
             if (p_jump_statement->expression_opt)
             {
                 /*
@@ -5140,7 +5175,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt;"
             "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
 
-     
+
         n = strlen(env);
 #endif
     }
@@ -5556,7 +5591,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
     {
     }
 
-    
+
 
     return s;
 }
@@ -5769,74 +5804,66 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 #ifdef TEST
 #include "unit_test.h"
 
-void parser_specifier_test()
+static bool compile_without_errors(const char* src)
 {
-    const char* source = "long long long i;";
     struct error error = { 0 };
     struct options options = { .input = LANGUAGE_C99 };
     struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code != 0); //esperado erro    
+    get_ast(&options, "source", src, &error, &report);
+    return report.error_count == 0;
+}
+
+static bool compile_with_errors(const char* src)
+{
+    struct error error = { 0 };
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
+    get_ast(&options, "source", src, &error, &report);
+    return report.error_count != 0;
 }
 
 
+void parser_specifier_test()
+{
+    const char* src = "long long long i;";
+    assert(compile_with_errors(src));
+}
+
 void array_item_type_test()
 {
-    const char* source =
+    const char* src =
         "void (*pf[10])(void* val);\n"
         "static_assert(_is_same(typeof(pf[0]), void (*)(void* val)));\n";
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-
-    assert(error.code == 0);
+    assert(compile_without_errors(src));
 }
 
 void take_address_type_test()
 {
-    const char* source =
+    const char* src =
         "void F(char(*p)[10])"
         "{"
         "    (*p)[0] = 'a';"
         "}";
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-
-    assert(error.code == 0);
+    assert(compile_without_errors(src));
 }
 
 void parser_scope_test()
 {
-    const char* source = "void f() {int i; char i;}";
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code != 0); //tem que dar erro
+    const char* src = "void f() {int i; char i;}";
+    assert(compile_with_errors(src));
 }
 
 void parser_tag_test()
 {
     //mudou tipo do tag no mesmo escopo
-    const char* source = "enum E { A }; struct E { int i; };";
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code != 0); //tem que dar erro        
+    const char* src = "enum E { A }; struct E { int i; };";
+    assert(compile_with_errors(src));
 }
 
 void string_concatenation_test()
 {
-    const char* source = " const char* s = \"part1\" \"part2\";";
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    struct ast ast = get_ast(&options, "source", source, &error, &report);
-    assert(error.code == 0);
+    const char* src = " const char* s = \"part1\" \"part2\";";
+    assert(compile_without_errors(src));
 }
 
 void test_digit_separator()
@@ -5849,7 +5876,6 @@ void test_digit_separator()
 
 void test_lit()
 {
-    //_Static_assert(1 == 2, "");
     struct report report = { 0 };
     char* result = compile_source("-std=C99", "char * s = u8\"maçã\";", &report);
     assert(strcmp(result, "char * s = \"ma\\xc3\\xa7\\xc3\\xa3\";") == 0);
@@ -5858,24 +5884,12 @@ void test_lit()
 
 void type_test2()
 {
-    /*char* src =
-        "int a[10];\n"
-        "struct X* F() { return 0; }\n"
-        " static_assert(typeid(*F()) == typeid(struct X));\n"
-        " static_assert(typeid(&a) == typeid(int (*)[10]));\n"
-        ;
-        */
     char* src =
         "int a[10];\n"
         " static_assert(typeid(&a) == typeid(int (*)[10]));\n"
         ;
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(error.code == 0);
-
+    assert(compile_without_errors(src));
 }
 
 void type_test3()
@@ -5887,12 +5901,7 @@ void type_test3()
         " static_assert(typeid(&f) == typeid(int (**)(void)));"
         ;
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(error.code == 0);
-
+    assert(compile_without_errors(src));
 }
 
 void crazy_decl()
@@ -5904,11 +5913,7 @@ void crazy_decl()
         "    return 0;\n"
         "}\n";
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(report.error_count == 0);
+    assert(compile_without_errors(src));
 }
 
 void crazy_decl2()
@@ -5924,11 +5929,7 @@ void crazy_decl2()
         "  f(1);\n"
         "}\n";
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(report.error_count == 0);
+    assert(compile_without_errors(src));
 }
 
 
@@ -5941,11 +5942,7 @@ void crazy_decl4()
         "    PF(1, 2);\n"
         "}\n";
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(report.error_count == 0);
+    assert(compile_without_errors(src));
 }
 
 void sizeof_test()
@@ -5968,11 +5965,7 @@ void sizeof_test()
         "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));"
         ;
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(report.error_count == 0);
+    assert(compile_without_errors(src));
 }
 
 
@@ -5984,11 +5977,22 @@ void alignof_test()
         "static_assert(sizeof(struct X) == 24);"
         ;
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(report.error_count == 0);
+    assert(compile_without_errors(src));
+}
+
+
+
+void indirection_struct_size()
+{
+    const char* src =
+        "typedef struct X X;\n"
+        "struct X {\n"
+        "    void* data;\n"
+        "};\n"
+        "static_assert(sizeof(X) == sizeof(void*));"
+        ;
+
+    assert(compile_without_errors(src));
 }
 
 void traits_test()
@@ -6003,12 +6007,7 @@ void traits_test()
         "int((a2))[10];\n"
         "static_assert(_is_array(a2));"
         ;
-
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(report.error_count == 0);
+    assert(compile_without_errors(src));
 }
 
 void comp_error1()
@@ -6019,11 +6018,7 @@ void comp_error1()
         "    *z-- = '\0';\n"
         "}\n";
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(report.error_count == 0);
+    assert(compile_without_errors(src));
 }
 
 void expr_type()
@@ -6031,11 +6026,7 @@ void expr_type()
     const char* src =
         "static_assert(_is_same(typeof(1 + 2.0), double));";
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(report.error_count == 0);
+    assert(compile_without_errors(src));
 }
 
 void expand_test()
@@ -6046,12 +6037,7 @@ void expand_test()
         "static_assert(typeid(B) == typeid(int (*[1])[2]);";
     ;
 
-    struct error error = { 0 };
-    struct options options = { .input = LANGUAGE_C2X };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &error, &report);
-    assert(error.code == 0);
-    clearerror(&error);
+    assert(compile_without_errors(src));
 
 
     char* src2 =
@@ -6059,25 +6045,15 @@ void expand_test()
         "typedef const A* B; "
         "static_assert(typeid(B) == typeid(char * const *);";
 
-
-    get_ast(&options, "source", src2, &error, &report);
-    assert(error.code == 0);
-    clearerror(&error);
-
+    assert(compile_without_errors(src2));
 
 
     char* src3 =
         "typedef char* T1;"
         "typedef T1(*f[3])(int); "
         "static_assert(typeid(f) == typeid(char* (* [3])(int)));";
-    //char* (* [3])(int)
 
-
-
-    get_ast(&options, "source", src3, &error, &report);
-    assert(error.code == 0);
-    clearerror(&error);
-
+    assert(compile_without_errors(src3));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
