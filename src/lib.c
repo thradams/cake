@@ -21805,11 +21805,22 @@ void crazy_decl4()
     assert(compile_without_errors(src));
 }
 
+void sizeof_array_test()
+{
+    assert(compile_without_errors(
+        "int main() {\n"
+        "int a[] = { 1, 2, 3 };\n"
+        "static_assert(sizeof(a) == sizeof(int) * 3);\n"
+        "}\n"
+    ));
+}
+
 void sizeof_test()
 {
+
     const char* src =
         "struct X { int i; char c; };"
-        "static_assert(sizeof(struct X) == sizeof(int) + sizeof(char));"
+       "static_assert(sizeof(struct X) == sizeof(int) + sizeof(char));"
         "static_assert(sizeof(\"ABC\") == 4);"
         "char a[10];"
         "char b[10][2];"
