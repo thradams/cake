@@ -332,7 +332,7 @@ struct init_declarator_list
        init-declarator-list , init-declarator
     */
     struct init_declarator* head;
-    struct init_declarator* tail;
+    struct init_declarator* tail;    
 };
 
 struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
@@ -1015,6 +1015,7 @@ struct initializer_list
     struct token* first_token;
     struct initializer* head;
     struct initializer* tail;
+    int size;
 };
 struct initializer_list* initializer_list(struct parser_ctx* ctx, struct error* error);
 

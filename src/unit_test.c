@@ -90,6 +90,7 @@ void alignof_test(void);
 void indirection_struct_size(void);
 void traits_test(void);
 void comp_error1(void);
+void array_size(void);
 void expr_type(void);
 void expand_test(void);
 
@@ -173,6 +174,7 @@ g_unit_test_success_count = 0;
     indirection_struct_size();
     traits_test();
     comp_error1();
+    array_size();
     expr_type();
     expand_test();
 return g_unit_test_error_count;

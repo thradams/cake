@@ -8948,7 +8948,7 @@ struct init_declarator_list
        init-declarator-list , init-declarator
     */
     struct init_declarator* head;
-    struct init_declarator* tail;
+    struct init_declarator* tail;    
 };
 
 struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
@@ -9631,6 +9631,7 @@ struct initializer_list
     struct token* first_token;
     struct initializer* head;
     struct initializer* tail;
+    int size;
 };
 struct initializer_list* initializer_list(struct parser_ctx* ctx, struct error* error);
 
@@ -14455,12 +14456,52 @@ struct type type_copy(struct type* p_type)
 }
 
 
+static void visit_declarator_to_get_array_size(int* array_size, struct declarator_type* declarator);
+static void visit_direct_declarator_to_get_array_size(int* array_size, struct direct_declarator_type* p_direct_declarator_type)
+{
+    if (p_direct_declarator_type->declarator_opt)
+    {
+        visit_declarator_to_get_array_size(array_size, p_direct_declarator_type->declarator_opt);
+    }
 
+    if (p_direct_declarator_type->function_declarator_type)
+    {
+        if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_get_array_size(array_size, p_direct_declarator_type->function_declarator_type->direct_declarator_type);
+        }
+    }
+
+    if (p_direct_declarator_type->array_declarator_type)
+    {
+        if (p_direct_declarator_type->array_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_get_array_size(array_size, p_direct_declarator_type->array_declarator_type->direct_declarator_type);
+        }
+
+        if (*array_size == 0)
+        {
+            //TODO maybe array does not have size?
+            *array_size = p_direct_declarator_type->array_declarator_type->constant_size;
+        }
+    }
+}
+static void visit_declarator_to_get_array_size(int* array_size, struct declarator_type* declarator)
+{
+    if (declarator == NULL)
+        return;
+
+    if (declarator->direct_declarator_type)
+        visit_direct_declarator_to_get_array_size(array_size, declarator->direct_declarator_type);
+}
 int get_array_size(struct type* p_type, struct error* error)
 {
     if (type_is_array(p_type))
     {
-        return p_type->declarator_type->direct_declarator_type->array_declarator_type->constant_size;
+        int sz = 0;
+        visit_declarator_to_get_array_size(&sz, p_type->declarator_type);
+
+        return sz;
     }
     else
     {
@@ -14468,6 +14509,63 @@ int get_array_size(struct type* p_type, struct error* error)
     }
     return 0;
 }
+
+
+static void visit_declarator_to_set_array_size(int* array_size, struct declarator_type* declarator, int size);
+static void visit_direct_declarator_to_set_array_size(int* array_size, struct direct_declarator_type* p_direct_declarator_type, int size)
+{
+    if (p_direct_declarator_type->declarator_opt)
+    {
+        visit_declarator_to_set_array_size(array_size, p_direct_declarator_type->declarator_opt, size);
+    }
+
+    if (p_direct_declarator_type->function_declarator_type)
+    {
+        if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_set_array_size(array_size, p_direct_declarator_type->function_declarator_type->direct_declarator_type, size);
+        }
+    }
+
+    if (p_direct_declarator_type->array_declarator_type)
+    {
+        if (p_direct_declarator_type->array_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_set_array_size(array_size, p_direct_declarator_type->array_declarator_type->direct_declarator_type, size);
+        }
+
+        if (*array_size == 0)
+        {            
+            *array_size = 1;
+            p_direct_declarator_type->array_declarator_type->constant_size = size;
+        }
+    }
+}
+static void visit_declarator_to_set_array_size(int* array_size, struct declarator_type* declarator, int size)
+{
+    if (declarator == NULL)
+        return;
+
+    if (declarator->direct_declarator_type)
+        visit_direct_declarator_to_set_array_size(array_size, declarator->direct_declarator_type, size);
+}
+
+int set_array_size(struct type* p_type, int size, struct error* error)
+{
+    if (type_is_array(p_type))
+    {
+        int sz = 0;
+        visit_declarator_to_set_array_size(&sz, p_type->declarator_type, size);
+
+        return sz;
+    }
+    else
+    {
+        assert(false);
+    }
+    return 0;
+}
+
 int type_get_sizeof(struct type* p_type, struct error* error);
 int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, struct error* error)
 {
@@ -17429,20 +17527,10 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
 
             p_declaration->last_token = ctx->current;
 
-            if (ctx->current->type == '{' ||
-                ctx->current->type == TK_KEYWORD_EXTERN)
+            if (ctx->current->type == '{')
             {
-                /*
-                * extension
-                * void F(int arg) extern{  }
-                */
                 if (can_be_function_definition)
                     *is_function_definition = true;
-                else
-                {
-                    assert(false);
-                    error->code = 1;
-                }
             }
             else
                 parser_match_tk(ctx, ';', error);
@@ -17752,7 +17840,22 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             parser_match(ctx);
             p_init_declarator->initializer = initializer(ctx, error);
 
-            if (p_init_declarator->initializer->assignment_expression)
+            if (p_init_declarator->initializer->braced_initializer)
+            {
+                if (type_is_array(&p_init_declarator->declarator->type))
+                {                    
+                    const int sz = get_array_size(&p_init_declarator->declarator->type, error);
+                    if (error->code == 0 && sz == 0)
+                    {
+                        /*int a[] = {1, 2, 3}*/
+                        const int braced_initializer_size = 
+                            p_init_declarator->initializer->braced_initializer->initializer_list->size;
+
+                        set_array_size(&p_init_declarator->declarator->type, braced_initializer_size);
+                    }
+                }
+            }
+            else if (p_init_declarator->initializer->assignment_expression)
             {
                 if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL &&
                     type_is_function(&p_init_declarator->initializer->assignment_expression->left->type))
@@ -17847,11 +17950,12 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
         p_declaration_specifiers,
         p_attribute_specifier_sequence_opt,
         error));
+    
     while (error->code == 0 &&
         ctx->current != NULL && ctx->current->type == ',')
     {
         parser_match(ctx);
-        list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, p_attribute_specifier_sequence_opt, error));
+        list_add(&init_declarator_list, init_declarator(ctx, p_declaration_specifiers, p_attribute_specifier_sequence_opt, error));    
         if (error->code) break;
     }
     return init_declarator_list;
@@ -19136,7 +19240,11 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
 
                 p_array_declarator->constant_size = p_array_declarator->assignment_expression->constant_value;
             }
-
+            else
+            {
+                //int a [] = {};
+                p_array_declarator->constant_size = 0;
+            }
         }
 
         parser_match_tk(ctx, ']', error);
@@ -19564,6 +19672,8 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx, struct error* 
     struct initializer* p_initializer = initializer(ctx, error);
     p_initializer->designation = p_designation;
     list_add(p_initializer_list, p_initializer);
+    p_initializer_list->size++;
+
     while (error->code == 0 && ctx->current != NULL &&
         ctx->current->type == ',')
     {
@@ -19579,6 +19689,7 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx, struct error* 
         struct initializer* p_initializer2 = initializer(ctx, error);
         p_initializer2->designation = p_designation;
         list_add(p_initializer_list, p_initializer2);
+        p_initializer_list->size++;
     }
     return p_initializer_list;
 }
@@ -21769,6 +21880,20 @@ void comp_error1()
 
     assert(compile_without_errors(src));
 }
+
+void array_size()
+{
+    const char* src =
+        "void (*f[2][3])(int i);\n"
+        "int main() {\n"
+        "static_assert(sizeof(void (*[2])(int i)) == sizeof(void*) * 2);\n"
+        "static_assert(sizeof(f) == sizeof(void (*[2])(int i)) * 3);\n"
+        "}"
+    ;
+
+    assert(compile_without_errors(src));
+}
+
 
 void expr_type()
 {

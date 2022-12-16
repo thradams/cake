@@ -998,12 +998,52 @@ struct type type_copy(struct type* p_type)
 }
 
 
+static void visit_declarator_to_get_array_size(int* array_size, struct declarator_type* declarator);
+static void visit_direct_declarator_to_get_array_size(int* array_size, struct direct_declarator_type* p_direct_declarator_type)
+{
+    if (p_direct_declarator_type->declarator_opt)
+    {
+        visit_declarator_to_get_array_size(array_size, p_direct_declarator_type->declarator_opt);
+    }
 
+    if (p_direct_declarator_type->function_declarator_type)
+    {
+        if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_get_array_size(array_size, p_direct_declarator_type->function_declarator_type->direct_declarator_type);
+        }
+    }
+
+    if (p_direct_declarator_type->array_declarator_type)
+    {
+        if (p_direct_declarator_type->array_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_get_array_size(array_size, p_direct_declarator_type->array_declarator_type->direct_declarator_type);
+        }
+
+        if (*array_size == 0)
+        {
+            //TODO maybe array does not have size?
+            *array_size = p_direct_declarator_type->array_declarator_type->constant_size;
+        }
+    }
+}
+static void visit_declarator_to_get_array_size(int* array_size, struct declarator_type* declarator)
+{
+    if (declarator == NULL)
+        return;
+
+    if (declarator->direct_declarator_type)
+        visit_direct_declarator_to_get_array_size(array_size, declarator->direct_declarator_type);
+}
 int get_array_size(struct type* p_type, struct error* error)
 {
     if (type_is_array(p_type))
     {
-        return p_type->declarator_type->direct_declarator_type->array_declarator_type->constant_size;
+        int sz = 0;
+        visit_declarator_to_get_array_size(&sz, p_type->declarator_type);
+
+        return sz;
     }
     else
     {
@@ -1011,6 +1051,63 @@ int get_array_size(struct type* p_type, struct error* error)
     }
     return 0;
 }
+
+
+static void visit_declarator_to_set_array_size(int* array_size, struct declarator_type* declarator, int size);
+static void visit_direct_declarator_to_set_array_size(int* array_size, struct direct_declarator_type* p_direct_declarator_type, int size)
+{
+    if (p_direct_declarator_type->declarator_opt)
+    {
+        visit_declarator_to_set_array_size(array_size, p_direct_declarator_type->declarator_opt, size);
+    }
+
+    if (p_direct_declarator_type->function_declarator_type)
+    {
+        if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_set_array_size(array_size, p_direct_declarator_type->function_declarator_type->direct_declarator_type, size);
+        }
+    }
+
+    if (p_direct_declarator_type->array_declarator_type)
+    {
+        if (p_direct_declarator_type->array_declarator_type->direct_declarator_type)
+        {
+            visit_direct_declarator_to_set_array_size(array_size, p_direct_declarator_type->array_declarator_type->direct_declarator_type, size);
+        }
+
+        if (*array_size == 0)
+        {            
+            *array_size = 1;
+            p_direct_declarator_type->array_declarator_type->constant_size = size;
+        }
+    }
+}
+static void visit_declarator_to_set_array_size(int* array_size, struct declarator_type* declarator, int size)
+{
+    if (declarator == NULL)
+        return;
+
+    if (declarator->direct_declarator_type)
+        visit_direct_declarator_to_set_array_size(array_size, declarator->direct_declarator_type, size);
+}
+
+int set_array_size(struct type* p_type, int size, struct error* error)
+{
+    if (type_is_array(p_type))
+    {
+        int sz = 0;
+        visit_declarator_to_set_array_size(&sz, p_type->declarator_type, size);
+
+        return sz;
+    }
+    else
+    {
+        assert(false);
+    }
+    return 0;
+}
+
 int type_get_sizeof(struct type* p_type, struct error* error);
 int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, struct error* error)
 {
