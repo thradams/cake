@@ -2003,7 +2003,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         const int braced_initializer_size = 
                             p_init_declarator->initializer->braced_initializer->initializer_list->size;
 
-                        set_array_size(&p_init_declarator->declarator->type, braced_initializer_size);
+                        set_array_size(&p_init_declarator->declarator->type, braced_initializer_size, error);
                     }
                 }
             }

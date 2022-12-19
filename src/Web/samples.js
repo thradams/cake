@@ -804,80 +804,6 @@ int main()
 `;
 
 
-sample["Extension - declarator annotations"] =
-`
-
-
-#include "annotations.h"
-
-[[free]] void* malloc(size_t);
-void free([[free]] void*);
-
-
-struct _destroy x {
-    char* name;
-};
-
-
-void x_destroy(_destroy struct x* p) {
-    free(p->name);
-}
-
-void x_delete(_delete struct x* p) {
-    if (p) {
-        x_destroy(p);
-        free(p);
-    }
-}
-
-
-int main()
-{
-    struct x x = { 0 };
-    struct x* px = malloc(sizeof(struct x));
-
-    //x_delete(px);
-    //x_destroy(&x);
-}
-`;
-
-
-
-
-sample["Extension - declarator annotations II"] =
-`
-[[free]] void* malloc(size_t);
-void free([[free]] void*);
-[[free]] void * moveptr([[free]] void *p);
-
-#include <stdlib.h>
-#include "annotations.h" 
-
-
-
-int main()
-{
-    int * p = malloc(10);
-    static_assert(_has_attr(p, MUST_FREE));
-
-    int * p2;
-
-    static_assert(_has_attr(p2, UNINITIALIZED));
-
-    p2 = moveptr(p);
-
-    static_assert(_has_attr(p, UNINITIALIZED));
-    static_assert(_has_attr(p2, MUST_FREE));
-
-    free(p2);
-    //free(p2);
-}
-
-
-
-`;
-
-
 
 sample["Extension - Traits"] =
     `
@@ -911,3 +837,77 @@ int main()
 }
 `;
 
+sample["Extension - [[free]] attribute"] =
+`
+[[free]] void *  malloc(int i){}
+void free([[free]] void *p) {}
+
+struct X {
+  int i;
+};
+
+[[free]] struct X* f() {
+    struct X * p = malloc(1);  
+    struct X * p2;
+    p2 = p; 
+    return ;
+}
+
+int main() {
+   struct X * p = f();   
+   //free(p);
+}`;
+
+sample["Extension - [[destroy]] attribute"] =
+    `
+struct [[destroy]] X {
+  int i;
+};
+
+void x_destroy([[destroy]] struct x *p) { }
+
+struct X f() {
+    struct X x = {0};
+    struct X x2 = {0};
+    x2 = x;
+    return x2;
+}
+
+int main() {
+   struct X x = f();   
+   //x_destroy(&x);
+}
+`;
+
+sample["Extension - _has_att, destroy and free iteraction"] =
+`
+
+/*pre defined constants*/
+
+#define ISVALID        2
+#define UNINITIALIZED  4
+#define MUST_DESTROY   8
+#define MUST_FREE      16
+
+[[free]] void* malloc(int){};
+void free([[free]] void*) {}
+
+
+int main()
+{
+    int * p = malloc(10);
+    static_assert(_has_attr(p, MUST_FREE));
+    
+    int * p2;
+
+    static_assert(_has_attr(p2, UNINITIALIZED));
+
+    p2 = p;
+    static_assert(!_has_attr(p, MUST_FREE));
+    static_assert(_has_attr(p, UNINITIALIZED));
+    static_assert(_has_attr(p2, MUST_FREE));
+   
+    //free(p2);
+}
+
+`;

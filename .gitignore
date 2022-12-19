@@ -65,3 +65,5 @@ dkms.conf
 /src/sqlite3.c
 /vc/.vs/cake/FileContentIndex
 /vc/.vs/cake/config/applicationhost.config
+/src/sqlite3ext.h
+/src/shell.c

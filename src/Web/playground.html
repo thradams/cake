@@ -81,7 +81,7 @@
                 </div>
             </div>
         </div>
-        <div id="div2" class="rightSide" ">
+        <div id="div2" class="rightSide">
             <div>
                 <div >                    
                     <textarea id="out" style="height: 100%; width: 100%"></textarea>
@@ -127,6 +127,7 @@
             }
         );
         inputEditor.setSize(null, "500");
+        
 
         var outputEditor = CodeMirror.fromTextArea(document.getElementById('out'),
 
@@ -141,6 +142,7 @@
         );
 
         outputEditor.setSize("100%", "500");
+        
 
         const urlParams = new URLSearchParams(window.location.search);
 

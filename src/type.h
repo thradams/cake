@@ -168,6 +168,9 @@ struct type get_function_return_type(struct type* p_type);
 struct type type_common(struct type* p_type1, struct type* p_type2, struct error* error);
 struct type get_array_item_type(struct type* p_type);
 struct type get_pointer_content_type(struct type* p_type);
+int get_array_size(struct type* p_type, struct error* error);
+int set_array_size(struct type* p_type, int size, struct error* error);
+
 bool type_is_array(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
 bool type_is_integer(struct type* p_type);

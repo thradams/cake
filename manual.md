@@ -1457,24 +1457,198 @@ If T and U name the same type (taking into account const/volatile qualifications
 
 
 
-###  Extension - declarator static analisys flags
+###  Extension - [[destroy, free]]  attributes
 
-Motivation:
+Cake has imaginary flags with explicity and implicity operations to set or 
+clear these flags.  
 
-When we review code we follow some "imaginary operations" in code.
+These operations and flags exists only in compile time, 
+no runtime operation is executed.
+
+At this moment cake has 3 built-in imaginary flags:
+
+- _must free_
+- _must destroy_
+- _uninitialized_
+
+
+**[[free]]** and **[[destroy]]** attributes can be used to set or clear implicitly these 
+flags.
+
+When **[[free]]** is used in return types the imaginary flag _"must free"_ is set
+on the declarator that receives the value. 
+
 For instance:
 
 ```c
-int *p = malloc(sizeof(int)*10);
-free(p);
-p[0] = 1;
+[[free]] void *  malloc(int i){}
+
+void f() {
+  int * p = malloc(1);  
+}
 ```
 
-When we free(p) we know that p is invalid and should not be used anymore.
+In this sample p has the imaginary flag _"must free"_ that is set implifity 
+because malloc has the attribute **[[free]]**.
 
-#### How we could take notes that p is invalid?
-#### How compiler could check our notes?
+We can check the existence of this imaginary flag at compile time using static_assert and \_has\_attr.
+
+Sample:
+
+```c
+[[free]] void *  malloc(int i){}
+
+void f() {
+  int * p = malloc(1);  
+  static_assert(_has_attr(p, 16 /*MUST_FREE*/));
+}
+```
 
 
+At the end of scope cake emmits an warning if the flag _"must free"_ was not cleared.
+
+This flag can be turned off implicity when used by a function that uses the attribute 
+**[[free]]**.
+
+For instance:
+
+```c
+
+[[free]] void *  malloc(int i){}
+void free([[free]] void * p) {}
+
+void f() {
+  int * p = malloc(1);  
+  free(p);
+}
+```
+
+After calling free the imaginary flag _"must free"_ is removed and there is 
+no warning at end of scope.
+
+When a declarator is returned or assigned the _"must free"_ flag is moved
+to the declarator that receives the value.
+
+if the return type of a function does not have the flag then compiler shows
+an warning.
+
+**[[destroy]]** attribute can be used in structs.
+
+For instance:
+
+```c
+struct [[destroy]] X {
+  int i;
+};
+
+```
+
+Then when a struct X is instanciated the flag _"must destroy"_ is set automatically.
+
+Sample:
+
+```c
+int main() {
+   struct X x;   
+   static_assert(_has_attr(p, 8 /*MUST_DESTROY*/));
+}
+```
+
+Similarly of _"must free"_ this flag must be turned off before the end of scope,
+otherwise the compiler will emmit an warning.
+
+To clear this flag the process is the same of free. We declare a funcion with
+the attribute **[[destroy]]**.
+
+For instance:
+
+```c
+void x_destroy([[destroy]] struct x *p) { }
+```
+
+Then
+
+```c
+struct [[destroy]] X {
+  int i;
+};
+
+void x_destroy([[destroy]] struct x *p) { }
+
+int main() {
+   struct X x = {0};   
+   //...
+   x_destroy(&x);
+}
+
+```
+
+Will work without any warnings.
+
+Similary of _"must free"_, _"must destroy"_ is transfered when we copy or return 
+one variable to other.
+
+If we copy or return a variable with _"must free"_, _"must destroy"_ flag this
+flag is transfered copied to the destin variable and cleared from the origim variable.
+
+In other words, the onwership is moved.
+
+The origin variable also receives the flag _"uninitialized"_.
+
+For instance:
+
+```c
+[[free]] void *  malloc(int i){}
+void free([[free]] void *p) {}
+
+struct X {
+  int i;
+};
+
+void f() {
+    struct X * p = malloc(1);  
+    struct X * p2;
+    p2 = p;     
+    static_assert(!_has_attr(p, 16 /*MUST_FREE*/));
+    static_assert(_has_attr(p2, 16 /*MUST_FREE*/));  
+    static_assert(_has_attr(p, 4 /*UNINITIALIZED*/));
+  
+    free(p2);
+    static_assert(!_has_attr(p2, 16 /*MUST_FREE*/));
+}
 
 
+```
+
+
+Because these flags are in compile time, runtime time conditionals
+are always "executed". For instance:
+
+```c
+int f(int i) {
+   struct X x = {0};   
+   if (i > 3)
+     x_destroy(&x);
+}
+```
+
+This will not emmit any warning. This implementation is not ready yet
+but cake must ensure that there is a path that is 100% sure that the flag
+will be cleared. So, in the previous sample the compiler should emmit an
+warning saying the there is static path that clear the flag.
+
+Having this feature we can ensure that cake has the same garantees of C++ 
+destrutors. We ensure that is required one function will be called before
+the end of the scope.
+
+
+The imaginary flags also can be set or cleared explicitly. For this task 
+we have \_add\_attr and \_del\_attr
+
+```c
+    int * p = 0;
+    _add_attr(p, MUST_FREE);
+    _del_attr(p, MUST_FREE);
+```
+
+(probabily these names will change)

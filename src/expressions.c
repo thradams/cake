@@ -522,7 +522,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
                 p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;
             }
             else if (ctx->p_current_function_opt &&
-                     strcmp(ctx->current->lexeme, "__func__") == 0)
+                strcmp(ctx->current->lexeme, "__func__") == 0)
             {
                 /*
                    not sure if this is the best way to implement but
@@ -557,7 +557,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
                     parser_seterror_with_token(ctx, ctx->current, "not constant");
                     error->code = 1;
                     throw;
-                }                              
+                }
             }
             else
             {
@@ -925,7 +925,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                                     arg_declarator = NULL;
                                 }
 
-                                if (arg_declarator && 
+                                if (arg_declarator &&
                                     !arg_declarator->is_parameter_declarator)
                                 {
                                     if (par->declarator->static_analisys_flags & MUST_DESTROY)
@@ -1020,8 +1020,8 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                     {
                         parser_seterror_with_token(ctx,
                             ctx->current,
-                            "struct '%s' is incomplete.", 
-                            p_expression_node->type.struct_or_union_specifier->tag_name);                        
+                            "struct '%s' is incomplete.",
+                            p_expression_node->type.struct_or_union_specifier->tag_name);
                     }
                     parser_match_tk(ctx, TK_IDENTIFIER, error);
                 }
@@ -2415,7 +2415,36 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
                 /*let's remove the UNINITIALIZED flag*/
                 new_expression->left->declarator->static_analisys_flags &=
                     ~UNINITIALIZED;
+
+
+                if (new_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                {
+                    /*let's remove the UNINITIALIZED flag*/
+                    if (new_expression->right->declarator->static_analisys_flags & MUST_DESTROY)
+                    {
+                        new_expression->left->declarator->static_analisys_flags |= MUST_DESTROY;
+                        new_expression->right->declarator->static_analisys_flags &= ~MUST_DESTROY;
+                    }
+
+                    if (new_expression->right->declarator->static_analisys_flags & MUST_FREE)
+                    {
+                        new_expression->left->declarator->static_analisys_flags |= MUST_FREE;
+                        new_expression->right->declarator->static_analisys_flags &= ~MUST_FREE;
+                    }
+
+                    new_expression->right->declarator->static_analisys_flags |= UNINITIALIZED;
+
+                    if (new_expression->right->declarator->static_analisys_flags & UNINITIALIZED)
+                    {
+                        //TODO fix uninitialized value
+                        //parser_setwarning_with_token(ctx, ctx->current, "using uninitialized value");
+                    }
+                }
+
+
             }
+
+
 
             new_expression->type = type_copy(&new_expression->right->type);
 
