@@ -1290,28 +1290,7 @@ void create_app(const char* appname)
 }
 ```
 
-###  Extension typeid
-
-syntax:
-
-```c
-  typeid (expression)
-  typeid (type-name)
-```
-
-typeid returns a **type object** that can be used with == and !=.
-If any left or right side of the ==/!= contains a **type object** then
-the evaluation is based on type comparison not value.
-
-Sample:
-
-```c
-static_assert(1 == typeid(int));
-static_assert(typeid(1) == typeid(int));
-```
-
 ###  Extension Repeat
-
 
 ```
 iteration-statement:

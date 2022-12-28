@@ -6,7 +6,7 @@
 #include "expressions.h"
 #include "annotations.h"
 
-static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence, struct error* error);
+static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence);
 
 struct token* next_parser_token(struct token* token)
 {
@@ -18,13 +18,13 @@ struct token* next_parser_token(struct token* token)
     return r;
 }
 
-static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier, struct error* error);
-static void visit_expression(struct visit_ctx* ctx, struct expression* p_expression, struct error* error);
-static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement, struct error* error);
-static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error);
-static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error);
+static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
+static void visit_expression(struct visit_ctx* ctx, struct expression* p_expression);
+static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement);
+static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
+static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier);
 
-void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement, struct error* error)
+void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
     if (p_selection_statement->init_declarator == NULL ||
         p_selection_statement->first_token->type != TK_KEYWORD_IF)
@@ -49,11 +49,12 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
     token_list_insert_after(&ctx->ast.token_list,
         before_first_token,
         &list);
-    struct token_list list1 = tokenizer("{", "", 0, TK_FLAG_NONE, error);
+    struct tokenizer_ctx tctx = { 0 };
+    struct token_list list1 = tokenizer(&tctx, "{", "", 0, TK_FLAG_NONE);
     token_list_insert_after(&ctx->ast.token_list,
         before_first_token,
         &list1);
-    struct token_list list2 = tokenizer("}", "", 0, TK_FLAG_NONE, error);
+    struct token_list list2 = tokenizer(&tctx, "}", "", 0, TK_FLAG_NONE);
     token_list_insert_after(&ctx->ast.token_list,
         p_selection_statement->last_token,
         &list2);
@@ -296,12 +297,12 @@ void print_all_defer_until_end(struct defer_scope* deferblock, struct osstream* 
     }
 }
 
-static void visit_secondary_block(struct visit_ctx* ctx, struct secondary_block* p_secondary_block, struct error* error)
+static void visit_secondary_block(struct visit_ctx* ctx, struct secondary_block* p_secondary_block)
 {
-    visit_statement(ctx, p_secondary_block->statement, error);
+    visit_statement(ctx, p_secondary_block->statement);
 }
 
-static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement* p_defer_statement, struct error* error)
+static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
 
 
@@ -319,17 +320,17 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
 
         if (p_defer_statement->secondary_block)
         {
-            visit_secondary_block(ctx, p_defer_statement->secondary_block, error);
+            visit_secondary_block(ctx, p_defer_statement->secondary_block);
         }
     }
     else //if (ctx->is_second_pass)
     {
         if (p_defer_statement->secondary_block)
-            visit_secondary_block(ctx, p_defer_statement->secondary_block, error);
+            visit_secondary_block(ctx, p_defer_statement->secondary_block);
     }
 }
 
-static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_try_statement, struct error* error)
+static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_try_statement)
 {
     if (!ctx->is_second_pass)
     {
@@ -339,13 +340,14 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         p_defer->p_try_statement = p_try_statement;
 
         if (p_try_statement->secondary_block)
-            visit_secondary_block(ctx, p_try_statement->secondary_block, error);
+            visit_secondary_block(ctx, p_try_statement->secondary_block);
 
 
         struct osstream ss = { 0 };
 
         print_block_defer(p_defer, &ss, true);
-        struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
         token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, &l);
 
 
@@ -368,7 +370,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
             free(p_try_statement->catch_token_opt->lexeme);
             p_try_statement->catch_token_opt->lexeme = strdup(buffer);
 
-            visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt, error);
+            visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
         }
         else
         {
@@ -381,9 +383,9 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
     }
 }
 
-static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement, struct error* error)
+static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
-    convert_if_statement(ctx, p_selection_statement, error);
+    convert_if_statement(ctx, p_selection_statement);
 
     //PUSH
     struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
@@ -392,26 +394,27 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     p_defer->p_selection_statement2 = p_selection_statement;
 
     if (p_selection_statement->secondary_block)
-        visit_secondary_block(ctx, p_selection_statement->secondary_block, error);
+        visit_secondary_block(ctx, p_selection_statement->secondary_block);
 
     struct osstream ss = { 0 };
     print_block_defer(p_defer, &ss, true);
 
     if (ss.size > 0)
     {
-        struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
         token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last_token->prev, &l);
     }
     //POP
     ctx->tail_block = ctx->tail_block->previous;
 
     if (p_selection_statement->else_secondary_block_opt)
-        visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt, error);
+        visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
 
     ss_close(&ss);
 }
 
-static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error);
+static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement);
 
 
 
@@ -438,9 +441,9 @@ char* remove_char(char* input, char ch)
     return input;
 }
 
-static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_list* p_initializer_list, struct error* error);
+static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_list* p_initializer_list);
 
-static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list, struct error* error)
+static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list)
 {
     if (p_bracket_initializer_list->initializer_list == NULL)
     {
@@ -449,7 +452,8 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
             assert(p_bracket_initializer_list->first_token->type == '{');
 
             //Criar token 0
-            struct token_list list2 = tokenizer("0", NULL, 0, TK_FLAG_NONE, error);
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list list2 = tokenizer(&tctx, "0", NULL, 0, TK_FLAG_NONE);
 
             //inserir na frente
             token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first_token, &list2);
@@ -457,44 +461,42 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
     }
     else
     {
-        visit_initializer_list(ctx, p_bracket_initializer_list->initializer_list, error);
+        visit_initializer_list(ctx, p_bracket_initializer_list->initializer_list);
     }
 }
 
-static void visit_designation(struct visit_ctx* ctx, struct designation* p_designation, struct error* error)
+static void visit_designation(struct visit_ctx* ctx, struct designation* p_designation)
 {
 }
 
-static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initializer, struct error* error)
+static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initializer)
 {
     if (p_initializer->designation)
     {
-        visit_designation(ctx, p_initializer->designation, error);
+        visit_designation(ctx, p_initializer->designation);
     }
 
     if (p_initializer->assignment_expression)
     {
-        visit_expression(ctx, p_initializer->assignment_expression, error);
+        visit_expression(ctx, p_initializer->assignment_expression);
     }
     else if (p_initializer->braced_initializer)
     {
-        visit_bracket_initializer_list(ctx, p_initializer->braced_initializer, error);
+        visit_bracket_initializer_list(ctx, p_initializer->braced_initializer);
     }
 }
 
-static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_list* p_initializer_list, struct error* error)
+static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_list* p_initializer_list)
 {
     struct initializer* p_initializer = p_initializer_list->head;
     while (p_initializer)
     {
-        visit_initializer(ctx, p_initializer, error);
-        if (error->code != 0)
-            break;
+        visit_initializer(ctx, p_initializer);        
         p_initializer = p_initializer->next;
     }
 }
 
-static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p_type_qualifier, struct error* error)
+static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p_type_qualifier)
 {
     if (p_type_qualifier->token &&
         p_type_qualifier->token->type == TK_KEYWORD_RESTRICT)
@@ -507,27 +509,27 @@ static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p
     }
 }
 
-static void visit_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_specifier_qualifier, struct error* error)
+static void visit_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_specifier_qualifier)
 {
     if (p_specifier_qualifier->type_specifier)
-        visit_type_specifier(is_declaration, ctx, p_specifier_qualifier->type_specifier, error);
+        visit_type_specifier(is_declaration, ctx, p_specifier_qualifier->type_specifier);
 
     if (p_specifier_qualifier->type_qualifier)
-        visit_type_qualifier(ctx, p_specifier_qualifier->type_qualifier, error);
+        visit_type_qualifier(ctx, p_specifier_qualifier->type_qualifier);
 }
 
-static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt, struct error* error)
+static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt)
 {
     if (p_specifier_qualifier_list_opt == NULL)
         return;
 
     if (p_specifier_qualifier_list_opt->struct_or_union_specifier)
     {
-        visit_struct_or_union_specifier(ctx, p_specifier_qualifier_list_opt->struct_or_union_specifier, error);
+        visit_struct_or_union_specifier(ctx, p_specifier_qualifier_list_opt->struct_or_union_specifier);
     }
     else if (p_specifier_qualifier_list_opt->enum_specifier)
     {
-        visit_enum_specifier(ctx, p_specifier_qualifier_list_opt->enum_specifier, error);
+        visit_enum_specifier(ctx, p_specifier_qualifier_list_opt->enum_specifier);
     }
     else if (p_specifier_qualifier_list_opt->typedef_declarator)
     {
@@ -535,42 +537,42 @@ static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx
     }
     //else if (p_specifier_qualifier_list->p_typeof_expression_opt)
     //{
-      //  visit_expression(ctx, p_specifier_qualifier_list->p_typeof_expression_opt, error);
+      //  visit_expression(ctx, p_specifier_qualifier_list->p_typeof_expression_opt);
     //}
     else
     {
         struct type_specifier_qualifier* p_specifier_qualifier = p_specifier_qualifier_list_opt->head;
         while (p_specifier_qualifier)
         {
-            visit_specifier_qualifier(is_declaration, ctx, p_specifier_qualifier, error);
+            visit_specifier_qualifier(is_declaration, ctx, p_specifier_qualifier);
             p_specifier_qualifier = p_specifier_qualifier->next;
         }
     }
 }
-static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error);
-static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name, struct error* error)
+static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator);
+static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name)
 {
-    visit_specifier_qualifier_list(false, ctx, p_type_name->specifier_qualifier_list, error);
-    visit_declarator(ctx, p_type_name->declarator, error);
+    visit_specifier_qualifier_list(false, ctx, p_type_name->specifier_qualifier_list);
+    visit_declarator(ctx, p_type_name->declarator);
 }
 
 #pragma warning(default : 4061)
 
 
-static void visit_argument_expression_list(struct visit_ctx* ctx, struct argument_expression_list* p_argument_expression_list, struct error* error)
+static void visit_argument_expression_list(struct visit_ctx* ctx, struct argument_expression_list* p_argument_expression_list)
 {
     struct argument_expression* p_argument_expression =
         p_argument_expression_list->head;
     while (p_argument_expression)
     {
-        visit_expression(ctx, p_argument_expression->expression, error);
+        visit_expression(ctx, p_argument_expression->expression);
         p_argument_expression = p_argument_expression->next;
     }
 }
 
-static void visit_generic_selection(struct visit_ctx* ctx, struct generic_selection* p_generic_selection, struct error* error)
+static void visit_generic_selection(struct visit_ctx* ctx, struct generic_selection* p_generic_selection)
 {
-    visit_expression(ctx, p_generic_selection->expression, error);
+    visit_expression(ctx, p_generic_selection->expression);
     if (ctx->target < LANGUAGE_C11)
     {
         token_range_add_flag(p_generic_selection->first_token, p_generic_selection->last_token, TK_FLAG_HIDE);
@@ -585,14 +587,12 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
 }
 
 
-static void visit_expression(struct visit_ctx* ctx, struct expression* p_expression, struct error* error)
+static void visit_expression(struct visit_ctx* ctx, struct expression* p_expression)
 {
     switch (p_expression->expression_type)
     {
     case PRIMARY_IDENTIFIER:
-        break;
-    case TYPEID_EXPRESSION_TYPE:
-        break;
+        break;    
     case PRIMARY_EXPRESSION_ENUMERATOR:
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
@@ -646,7 +646,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
     case PRIMARY_EXPRESSION_GENERIC:
-        visit_generic_selection(ctx, p_expression->generic_selection, error);
+        visit_generic_selection(ctx, p_expression->generic_selection);
         break;
 
     case POSTFIX_DOT:
@@ -658,18 +658,18 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case POSTFIX_DECREMENT:
         break;
     case POSTFIX_ARRAY:
-        //visit_expression(ctx, p_expression->left, error);
+        //visit_expression(ctx, p_expression->left);
         break;
     case POSTFIX_FUNCTION_CALL:
-        visit_expression(ctx, p_expression->left, error);
-        visit_argument_expression_list(ctx, &p_expression->argument_expression_list, error);
+        visit_expression(ctx, p_expression->left);
+        visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
         break;
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
     {
         ctx->has_lambda = true;
         ctx->is_inside_lambda = true;
-        visit_type_name(ctx, p_expression->type_name, error);
-        visit_compound_statement(ctx, p_expression->compound_statement, error);
+        visit_type_name(ctx, p_expression->type_name);
+        visit_compound_statement(ctx, p_expression->compound_statement);
         ctx->is_inside_lambda = false;
 
         if (ctx->is_second_pass)
@@ -698,8 +698,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             print_declarator_type(&ss, p_expression->type_name->declarator->type.declarator_type);
 
-
-            struct token_list l1 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list l1 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
 
             token_list_append_list(&ctx->insert_before_declaration, &l1);
             ss_close(&ss);
@@ -713,11 +713,12 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
 
-            struct token_list l3 = tokenizer("\n\n", NULL, 0, TK_FLAG_NONE, error);
+            
+            struct token_list l3 = tokenizer(&tctx, "\n\n", NULL, 0, TK_FLAG_NONE);
             token_list_append_list(&ctx->insert_before_declaration, &l3);
 
-
-            struct token_list l2 = tokenizer(name, NULL, 0, TK_FLAG_FINAL, error);
+            
+            struct token_list l2 = tokenizer(&tctx, name, NULL, 0, TK_FLAG_FINAL);
             token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l2);
         }
     }
@@ -727,13 +728,13 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         if (p_expression->type_name)
         {
-            visit_type_name(ctx, p_expression->type_name, error);
+            visit_type_name(ctx, p_expression->type_name);
         }
 
-        //struct token_list list0 = tokenizer("int teste = 0;", NULL, 0, TK_FLAG_NONE, error);
+        //struct token_list list0 = tokenizer("int teste = 0;", NULL, 0, TK_FLAG_NONE);
         //token_list_append_list(&ctx->insert_before_block_item, &list0);
 
-        visit_bracket_initializer_list(ctx, p_expression->braced_initializer, error);
+        visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
 
         assert(p_expression->left == NULL);
         assert(p_expression->right == NULL);
@@ -747,19 +748,20 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
             char buffer[30] = { 0 };
             snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
-            struct token_list l3 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
             token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l3);
         }
 
         if (p_expression->right)
         {
-            visit_expression(ctx, p_expression->right, error);
+            visit_expression(ctx, p_expression->right);
         }
 
         if (p_expression->type_name)
         {
             /*sizeof*/
-            visit_type_name(ctx, p_expression->type_name, error);
+            visit_type_name(ctx, p_expression->type_name);
         }
         break;
         
@@ -776,13 +778,13 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case UNARY_EXPRESSION_ADDRESSOF:
         if (p_expression->right)
         {
-            visit_expression(ctx, p_expression->right, error);
+            visit_expression(ctx, p_expression->right);
         }
 
         if (p_expression->type_name)
         {
             /*sizeof*/
-            visit_type_name(ctx, p_expression->type_name, error);
+            visit_type_name(ctx, p_expression->type_name);
         }
 
         break;
@@ -796,7 +798,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             char buffer[30] = { 0 };
             snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
 
-            struct token_list l3 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
             token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l3);
         }
         break;
@@ -825,15 +828,15 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         if (p_expression->left)
         {
-            visit_expression(ctx, p_expression->left, error);
+            visit_expression(ctx, p_expression->left);
         }
         if (p_expression->right)
         {
-            visit_expression(ctx, p_expression->right, error);
+            visit_expression(ctx, p_expression->right);
         }
         if (p_expression->type_name)
         {
-            visit_type_name(ctx, p_expression->type_name, error);
+            visit_type_name(ctx, p_expression->type_name);
         }
         break;
     default:
@@ -841,31 +844,31 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     }
 }
 
-static void visit_expression_statement(struct visit_ctx* ctx, struct expression_statement* p_expression_statement, struct error* error)
+static void visit_expression_statement(struct visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
     if (p_expression_statement->expression_opt)
-        visit_expression(ctx, p_expression_statement->expression_opt, error);
+        visit_expression(ctx, p_expression_statement->expression_opt);
 }
 
-static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list* p_block_item_list, struct error* error);
+static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list* p_block_item_list);
 
-static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement, struct error* error)
+static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement)
 {
-    visit_block_item_list(ctx, &p_compound_statement->block_item_list, error);
+    visit_block_item_list(ctx, &p_compound_statement->block_item_list);
 }
 
 //
-static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_statement* p_iteration_statement, struct error* error)
+static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
 
     if (p_iteration_statement->expression1)
     {
-        visit_expression(ctx, p_iteration_statement->expression1, error);
+        visit_expression(ctx, p_iteration_statement->expression1);
     }
 
     if (p_iteration_statement->expression2)
     {
-        visit_expression(ctx, p_iteration_statement->expression2, error);
+        visit_expression(ctx, p_iteration_statement->expression2);
     }
 
     if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
@@ -881,13 +884,14 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
         ctx->tail_block = p_defer;
         p_defer->p_iteration_statement = p_iteration_statement;
 
-        visit_secondary_block(ctx, p_iteration_statement->secondary_block, error);
+        visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
         struct osstream ss = { 0 };
         //defer_print(defer, &ss, ctx->bHasThrowWithVariable, ctx->bHasBreakWithVariable, ctx->bHasReturnWithVariable);
         print_block_defer(p_defer, &ss, true);
 
-        struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
         token_list_insert_after(&ctx->ast.token_list, p_iteration_statement->secondary_block->last_token->prev, &l);
 
 
@@ -903,7 +907,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 
 
 
-static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p_jump_statement, struct error* error)
+static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
 
     if (p_jump_statement->token->type == TK_KEYWORD_THROW)
@@ -1005,60 +1009,60 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
 }
 
 
-static void visit_labeled_statement(struct visit_ctx* ctx, struct labeled_statement* p_labeled_statement, struct error* error)
+static void visit_labeled_statement(struct visit_ctx* ctx, struct labeled_statement* p_labeled_statement)
 {
     //p_labeled_statement->label
 
     if (p_labeled_statement->statement)
     {
-        visit_statement(ctx, p_labeled_statement->statement, error);
+        visit_statement(ctx, p_labeled_statement->statement);
     }
 }
 
-static void visit_primary_block(struct visit_ctx* ctx, struct primary_block* p_primary_block, struct error* error)
+static void visit_primary_block(struct visit_ctx* ctx, struct primary_block* p_primary_block)
 {
 
 
 
     if (p_primary_block->defer_statement)
     {
-        visit_defer_statement(ctx, p_primary_block->defer_statement, error);
+        visit_defer_statement(ctx, p_primary_block->defer_statement);
     }
     else
     {
         if (p_primary_block->compound_statement)
         {
-            visit_compound_statement(ctx, p_primary_block->compound_statement, error);
+            visit_compound_statement(ctx, p_primary_block->compound_statement);
         }
         else if (p_primary_block->iteration_statement)
         {
-            visit_iteration_statement(ctx, p_primary_block->iteration_statement, error);
+            visit_iteration_statement(ctx, p_primary_block->iteration_statement);
         }
         else if (p_primary_block->selection_statement)
         {
-            visit_selection_statement(ctx, p_primary_block->selection_statement, error);
+            visit_selection_statement(ctx, p_primary_block->selection_statement);
         }
         else if (p_primary_block->try_statement)
         {
-            visit_try_statement(ctx, p_primary_block->try_statement, error);
+            visit_try_statement(ctx, p_primary_block->try_statement);
         }
     }
 
 }
 
-static void visit_unlabeled_statement(struct visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, struct error* error)
+static void visit_unlabeled_statement(struct visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
     if (p_unlabeled_statement->primary_block)
     {
-        visit_primary_block(ctx, p_unlabeled_statement->primary_block, error);
+        visit_primary_block(ctx, p_unlabeled_statement->primary_block);
     }
     else if (p_unlabeled_statement->expression_statement)
     {
-        visit_expression_statement(ctx, p_unlabeled_statement->expression_statement, error);
+        visit_expression_statement(ctx, p_unlabeled_statement->expression_statement);
     }
     else if (p_unlabeled_statement->jump_statement)
     {
-        visit_jump_statement(ctx, p_unlabeled_statement->jump_statement, error);
+        visit_jump_statement(ctx, p_unlabeled_statement->jump_statement);
     }
     else
     {
@@ -1066,37 +1070,37 @@ static void visit_unlabeled_statement(struct visit_ctx* ctx, struct unlabeled_st
     }
 }
 
-static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration, struct error* error);
+static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration);
 
-static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement, struct error* error)
+static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement)
 {
     if (p_statement->labeled_statement)
     {
-        visit_labeled_statement(ctx, p_statement->labeled_statement, error);
+        visit_labeled_statement(ctx, p_statement->labeled_statement);
     }
     else if (p_statement->unlabeled_statement)
     {
-        visit_unlabeled_statement(ctx, p_statement->unlabeled_statement, error);
+        visit_unlabeled_statement(ctx, p_statement->unlabeled_statement);
     }
 }
 
-static void visit_label(struct visit_ctx* ctx, struct label* p_label, struct error* error)
+static void visit_label(struct visit_ctx* ctx, struct label* p_label)
 {
     //p_label->name
 }
-static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_item, struct error* error)
+static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_item)
 {
     if (p_block_item->declaration)
     {
-        visit_declaration(ctx, p_block_item->declaration, error);
+        visit_declaration(ctx, p_block_item->declaration);
     }
     else if (p_block_item->unlabeled_statement)
     {
-        visit_unlabeled_statement(ctx, p_block_item->unlabeled_statement, error);
+        visit_unlabeled_statement(ctx, p_block_item->unlabeled_statement);
     }
     else if (p_block_item->label)
     {
-        visit_label(ctx, p_block_item->label, error);
+        visit_label(ctx, p_block_item->label);
     }
     if (ctx->insert_before_block_item.head != NULL)
     {
@@ -1107,19 +1111,19 @@ static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_i
     }
 }
 
-static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list* p_block_item_list, struct error* error)
+static void visit_block_item_list(struct visit_ctx* ctx, struct block_item_list* p_block_item_list)
 {
     struct block_item* p_block_item = p_block_item_list->head;
-    while (error->code == 0 && p_block_item)
+    while (p_block_item)
     {
-        visit_block_item(ctx, p_block_item, error);
+        visit_block_item(ctx, p_block_item);
         p_block_item = p_block_item->next;
     }
 }
 
-static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration, struct error* error)
+static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
-    visit_expression(ctx, p_static_assert_declaration->constant_expression, error);
+    visit_expression(ctx, p_static_assert_declaration->constant_expression);
 
     if (ctx->target < LANGUAGE_C11)
     {
@@ -1144,7 +1148,8 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
             struct token* rp = previous_parser_token(p_static_assert_declaration->last_token);
             rp = previous_parser_token(rp);
 
-            struct token_list list1 = tokenizer(", \"error\"", "", 0, TK_FLAG_NONE, error);
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list list1 = tokenizer(&tctx, ", \"error\"", "", 0, TK_FLAG_NONE);
             token_list_insert_after(&ctx->ast.token_list, rp, &list1);
         }
         if (strcmp(p_static_assert_declaration->first_token->lexeme, "static_assert") == 0)
@@ -1160,10 +1165,10 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
         p_static_assert_declaration->first_token->lexeme = strdup("static_assert");
     }
 }
-static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers, struct error* error);
+static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers);
 
 
-static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declarator* p_direct_declarator, struct error* error)
+static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declarator* p_direct_declarator)
 {
     if (p_direct_declarator->function_declarator)
     {
@@ -1178,11 +1183,11 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
         {
             if (parameter->attribute_specifier_sequence_opt)
             {
-                visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt, error);
+                visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt);
             }
 
-            visit_declaration_specifiers(ctx, parameter->declaration_specifiers, error);
-            visit_declarator(ctx, parameter->declarator, error);
+            visit_declaration_specifiers(ctx, parameter->declaration_specifiers);
+            visit_declarator(ctx, parameter->declarator);
             parameter = parameter->next;
         }
 
@@ -1199,15 +1204,15 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
     }
 }
 
-static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator, struct error* error)
+static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator)
 {
     if (p_declarator->direct_declarator)
     {
-        visit_direct_declarator(ctx, p_declarator->direct_declarator, error);
+        visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
 }
 
-static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list, struct error* error)
+static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
     struct init_declarator* p_init_declarator = p_init_declarator_list->head;
 
@@ -1256,9 +1261,11 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             * This declarator is using typeof, so we need to print its real type
             */
 
+            
             struct osstream ss = { 0 };
             print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
-            struct token_list l2 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
 
             l2.head->flags = p_init_declarator->declarator->first_token->flags;
             token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->last_token, &l2);
@@ -1278,7 +1285,8 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             if (p_init_declarator->initializer->assignment_expression->type.declarator_type)
             {
                 print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
-                struct token_list l2 = tokenizer(ss.c_str, NULL, 0, TK_FLAG_NONE, error);
+                struct tokenizer_ctx tctx = { 0 };
+                struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
                 l2.head->flags = p_init_declarator->declarator->first_token->flags;
                 token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->last_token, &l2);
 
@@ -1292,14 +1300,14 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
         if (p_init_declarator->declarator)
         {
-            visit_declarator(ctx, p_init_declarator->declarator, error);
+            visit_declarator(ctx, p_init_declarator->declarator);
         }
 
         if (p_init_declarator->initializer)
         {
             if (p_init_declarator->initializer->assignment_expression)
             {
-                visit_expression(ctx, p_init_declarator->initializer->assignment_expression, error);
+                visit_expression(ctx, p_init_declarator->initializer->assignment_expression);
             }
             else
             {
@@ -1307,7 +1315,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
                 if (p_init_declarator->initializer->braced_initializer)
                 {
                     visit_bracket_initializer_list(ctx,
-                        p_init_declarator->initializer->braced_initializer, error);
+                        p_init_declarator->initializer->braced_initializer);
                 }
 
             }
@@ -1319,7 +1327,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
 
 
-static void visit_member_declarator(struct visit_ctx* ctx, struct member_declarator* p_member_declarator, struct error* error)
+static void visit_member_declarator(struct visit_ctx* ctx, struct member_declarator* p_member_declarator)
 {
     if (p_member_declarator->declarator)
     {
@@ -1327,37 +1335,37 @@ static void visit_member_declarator(struct visit_ctx* ctx, struct member_declara
     }
 }
 
-static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_declarator_list* p_member_declarator_list, struct error* error)
+static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_declarator_list* p_member_declarator_list)
 {
     struct member_declarator* p_member_declarator = p_member_declarator_list->head;
     while (p_member_declarator)
     {
-        visit_member_declarator(ctx, p_member_declarator, error);
+        visit_member_declarator(ctx, p_member_declarator);
         p_member_declarator = p_member_declarator->next;
     }
 }
-static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration, struct error* error)
+static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration)
 {
-    visit_specifier_qualifier_list(true, ctx, p_member_declaration->specifier_qualifier_list, error);
+    visit_specifier_qualifier_list(true, ctx, p_member_declaration->specifier_qualifier_list);
 
     if (p_member_declaration->member_declarator_list_opt)
     {
-        visit_member_declarator_list(ctx, p_member_declaration->member_declarator_list_opt, error);
+        visit_member_declarator_list(ctx, p_member_declaration->member_declarator_list_opt);
     }
 }
 
-static void visit_member_declaration_list(struct visit_ctx* ctx, struct member_declaration_list* p_member_declaration_list, struct error* error)
+static void visit_member_declaration_list(struct visit_ctx* ctx, struct member_declaration_list* p_member_declaration_list)
 {
     struct member_declaration* p_member_declaration =
         p_member_declaration_list->head;
     while (p_member_declaration)
     {
-        visit_member_declaration(ctx, p_member_declaration, error);
+        visit_member_declaration(ctx, p_member_declaration);
         p_member_declaration = p_member_declaration->next;
     }
 }
 
-static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_specifier* p_attribute_specifier, struct error* error)
+static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
 {
     if (ctx->target < LANGUAGE_C2X)
     {
@@ -1365,21 +1373,21 @@ static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_sp
     }
 }
 
-static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence, struct error* error)
+static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence)
 {
     struct attribute_specifier* current = p_visit_attribute_specifier_sequence->head;
     while (current)
     {
-        visit_attribute_specifier(ctx, current, error);
+        visit_attribute_specifier(ctx, current);
         current = current->next;
     }
 }
 
-static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier, struct error* error)
+static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
 
     if (p_struct_or_union_specifier->attribute_specifier_sequence_opt)
-        visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence_opt, error);
+        visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence_opt);
 
     struct struct_or_union_specifier* p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
 
@@ -1419,39 +1427,39 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 
 
 
-    visit_member_declaration_list(ctx, &p_struct_or_union_specifier->member_declaration_list, error);
+    visit_member_declaration_list(ctx, &p_struct_or_union_specifier->member_declaration_list);
 
 }
 
-static void visit_enumerator(struct visit_ctx* ctx, struct enumerator* p_enumerator, struct error* error)
+static void visit_enumerator(struct visit_ctx* ctx, struct enumerator* p_enumerator)
 {
     if (p_enumerator->constant_expression_opt)
-        visit_expression(ctx, p_enumerator->constant_expression_opt, error);
+        visit_expression(ctx, p_enumerator->constant_expression_opt);
 
 }
 
 //struct enumerator_list* enumerator_list;
-static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list* p_enumerator_list, struct error* error)
+static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list* p_enumerator_list)
 {
     struct enumerator* current = p_enumerator_list->head;
-    while (error->code == 0 && current)
+    while (current)
     {
-        visit_enumerator(ctx, current, error);
+        visit_enumerator(ctx, current);
         current = current->next;
     }
 }
 
-static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier, struct error* error)
+static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier)
 {
     if (p_enum_specifier->attribute_specifier_sequence_opt)
     {
-        visit_attribute_specifier_sequence(ctx, p_enum_specifier->attribute_specifier_sequence_opt, error);
+        visit_attribute_specifier_sequence(ctx, p_enum_specifier->attribute_specifier_sequence_opt);
     }
-    visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list, error);
+    visit_enumerator_list(ctx, &p_enum_specifier->enumerator_list);
 
 }
 
-static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error)
+static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier)
 {
 
     if (!ctx->is_second_pass)
@@ -1508,7 +1516,8 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
                         const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
                         char buffer[200] = { 0 };
                         snprintf(buffer, sizeof buffer, " %s", tag);
-                        struct token_list l2 = tokenizer(buffer, NULL, 0, TK_FLAG_NONE, error);
+                        struct tokenizer_ctx tctx = { 0 };
+                        struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
                         token_list_insert_after(&ctx->ast.token_list, first, &l2);
 
                     }
@@ -1539,8 +1548,8 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
                 }
 
 
-
-                struct token_list list = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+                struct tokenizer_ctx tctx = { 0 };
+                struct token_list list = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
                 ss_close(&ss);
                 token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->last_token, &list);
             }
@@ -1548,27 +1557,27 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
     }
 }
 
-static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier, struct error* error)
+static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier)
 {
     if (p_type_specifier->typeof_specifier)
     {
-        visit_typeof_specifier(is_declaration, ctx, p_type_specifier, error);
+        visit_typeof_specifier(is_declaration, ctx, p_type_specifier);
     }
 
     if (p_type_specifier->struct_or_union_specifier)
     {
-        visit_struct_or_union_specifier(ctx, p_type_specifier->struct_or_union_specifier, error);
+        visit_struct_or_union_specifier(ctx, p_type_specifier->struct_or_union_specifier);
     }
 
     if (p_type_specifier->enum_specifier)
     {
-        visit_enum_specifier(ctx, p_type_specifier->enum_specifier, error);
+        visit_enum_specifier(ctx, p_type_specifier->enum_specifier);
     }
 
 
     if (p_type_specifier->atomic_type_specifier)
     {
-        //visit_deped(ctx, p_type_specifier->enum_specifier, error);
+        //visit_deped(ctx, p_type_specifier->enum_specifier);
     }
 
     if (p_type_specifier->flags & TYPE_SPECIFIER_BOOL)
@@ -1597,21 +1606,21 @@ static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, str
     }
 }
 
-static void visit_type_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier, struct error* error)
+static void visit_type_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier)
 {
     if (p_type_specifier_qualifier->type_qualifier)
     {
     }
     else if (p_type_specifier_qualifier->type_specifier)
     {
-        visit_type_specifier(is_declaration, ctx, p_type_specifier_qualifier->type_specifier, error);
+        visit_type_specifier(is_declaration, ctx, p_type_specifier_qualifier->type_specifier);
     }
     else if (p_type_specifier_qualifier->alignment_specifier)
     {
     }
 }
 
-static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_class_specifier* p_storage_class_specifier, struct error* error)
+static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_class_specifier* p_storage_class_specifier)
 {
     if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_AUTO)
     {
@@ -1619,7 +1628,7 @@ static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_
     }
 }
 
-static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier, struct error* error)
+static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier)
 {
 
     if (p_declaration_specifier->function_specifier)
@@ -1646,24 +1655,24 @@ static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* c
 
     if (p_declaration_specifier->storage_class_specifier)
     {
-        visit_storage_class_specifier(ctx, p_declaration_specifier->storage_class_specifier, error);
+        visit_storage_class_specifier(ctx, p_declaration_specifier->storage_class_specifier);
 
     }
 
     if (p_declaration_specifier->type_specifier_qualifier)
     {
-        visit_type_specifier_qualifier(is_declaration, ctx, p_declaration_specifier->type_specifier_qualifier, error);
+        visit_type_specifier_qualifier(is_declaration, ctx, p_declaration_specifier->type_specifier_qualifier);
 
     }
 
 }
 
-static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers, struct error* error)
+static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers)
 {
     struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
     while (p_declaration_specifier)
     {
-        visit_declaration_specifier(true, ctx, p_declaration_specifier, error);
+        visit_declaration_specifier(true, ctx, p_declaration_specifier);
         p_declaration_specifier = p_declaration_specifier->next;
     }
 }
@@ -1685,21 +1694,23 @@ static bool is_last_item_return(struct compound_statement* p_compound_statement)
     return false;
 }
 
-static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration, struct error* error)
+static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration)
 {
+    struct preprocessor_ctx prectx = { 0 };
+
     if (p_declaration->static_assert_declaration)
     {
-        visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration, error);
+        visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
     }
 
     if (p_declaration->p_attribute_specifier_sequence_opt)
     {
-        visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt, error);
+        visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt);
     }
 
     if (p_declaration->declaration_specifiers)
     {
-        visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, error);
+        visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers);
     }
 
     if (p_declaration->p_attribute_specifier_sequence_opt)
@@ -1720,14 +1731,16 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         {
             if (p_declaration->declaration_specifiers->struct_or_union_specifier->visit_moved == 1)
             {
-                struct token_list list0 = tokenizer("struct ", NULL, 0, TK_FLAG_FINAL, error);
+                struct tokenizer_ctx tctx = { 0 };
+                struct token_list list0 = tokenizer(&tctx, "struct ", NULL, 0, TK_FLAG_FINAL);
                 token_list_append_list(&ctx->insert_before_declaration, &list0);
 
-                struct token_list list = tokenizer(p_declaration->declaration_specifiers->struct_or_union_specifier->tagtoken->lexeme, NULL, 0, TK_FLAG_FINAL, error);
+                
+                struct token_list list = tokenizer(&tctx, p_declaration->declaration_specifiers->struct_or_union_specifier->tagtoken->lexeme, NULL, 0, TK_FLAG_FINAL);
                 token_list_append_list(&ctx->insert_before_declaration, &list);
 
 
-                //struct token_list list3 = tokenizer("{", NULL, 0, TK_FLAG_FINAL, error);
+                //struct token_list list3 = tokenizer("{", NULL, 0, TK_FLAG_FINAL);
                 //token_list_append_list(&ctx->insert_before_declaration, &list3);
 
 
@@ -1742,7 +1755,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                     //current->flags |= TK_FLAG_FINAL;
                 }
 
-                struct token_list list3 = tokenizer(";\n", NULL, 0, TK_FLAG_FINAL, error);
+                struct token_list list3 = tokenizer(&tctx, ";\n", NULL, 0, TK_FLAG_FINAL);
                 token_list_append_list(&ctx->insert_before_declaration, &list3);
 
 
@@ -1766,7 +1779,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
     if (p_declaration->init_declarator_list.head)
     {
 
-        visit_init_declarator_list(ctx, &p_declaration->init_declarator_list, error);
+        visit_init_declarator_list(ctx, &p_declaration->init_declarator_list);
     }
 
     if (p_declaration->function_body)
@@ -1779,7 +1792,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         ctx->tail_block = p_defer;
         p_defer->p_function_body = p_declaration->function_body;
 
-        visit_compound_statement(ctx, p_declaration->function_body, error);
+        visit_compound_statement(ctx, p_declaration->function_body);
 
         if (!is_last_item_return(p_declaration->function_body))
         {
@@ -1787,7 +1800,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             print_block_defer(p_defer, &ss, true);
             if (ss.size > 0)
             {
-                struct token_list l = tokenizer(ss.c_str, NULL, 0, TK_FLAG_FINAL, error);
+                struct tokenizer_ctx tctx = { 0 };
+                struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
                 token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, &l);
             }
             ss_close(&ss);
@@ -1806,12 +1820,12 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         {
             /*functions with lambdas requires two phases*/
             ctx->is_second_pass = true;
-            visit_compound_statement(ctx, p_declaration->function_body, error);
+            visit_compound_statement(ctx, p_declaration->function_body);
         }
     }
 }
 
-int visit_literal_string(struct visit_ctx* ctx, struct token* current, struct error* error)
+int visit_literal_string(struct visit_ctx* ctx, struct token* current)
 {
     bool has_u8_prefix =
         current->lexeme[0] == 'u' && current->lexeme[1] == '8';
@@ -1840,10 +1854,10 @@ int visit_literal_string(struct visit_ctx* ctx, struct token* current, struct er
         ss_close(&ss);
     }
 
-    return error->code;
+    return 0;
 }
 
-int visit_tokens(struct visit_ctx* ctx, struct error* error)
+int visit_tokens(struct visit_ctx* ctx)
 {
     struct token* current = ctx->ast.token_list.head;
     while (current)
@@ -1851,7 +1865,7 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
 
         if (current->type == TK_STRING_LITERAL)
         {
-            visit_literal_string(ctx, current, error);
+            visit_literal_string(ctx, current);
         }
 
         if (ctx->target < LANGUAGE_C2X)
@@ -1940,21 +1954,21 @@ int visit_tokens(struct visit_ctx* ctx, struct error* error)
 
         current = current->next;
     }
-    return error->code;
+    return 0;
 }
 
-void visit(struct visit_ctx* ctx, struct error* error)
+void visit(struct visit_ctx* ctx)
 {
     ctx->capture_index = 0;
     ctx->lambdas_index = 0;
 
-    if (visit_tokens(ctx, error) != 0)
+    if (visit_tokens(ctx) != 0)
         return;
 
     struct declaration* p_declaration = ctx->ast.declaration_list.head;
-    while (error->code == 0 && p_declaration)
+    while (p_declaration)
     {
-        visit_declaration(ctx, p_declaration, error);
+        visit_declaration(ctx, p_declaration);
 
         if (ctx->insert_before_block_item.head != NULL)
         {

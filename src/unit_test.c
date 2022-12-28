@@ -58,19 +58,6 @@ int test_predefined_macros(void);
 int test_utf8(void);
 int test_line_continuation(void);
 
-/* tests from expressions.c*/
-void test_compiler_constant_expression(void);
-void test_expressions(void);
-void literal_string_type(void);
-void type_suffix_test(void);
-void type_test(void);
-void digit_separator_test(void);
-void numbers_test(void);
-void binary_digits_test(void);
-void is_arithmetic_test(void);
-void type_is_pointer_test(void);
-void params_test(void);
-
 /* tests from parser.c*/
 void parser_specifier_test(void);
 void array_item_type_test(void);
@@ -94,6 +81,18 @@ void comp_error1(void);
 void array_size(void);
 void expr_type(void);
 void expand_test(void);
+void expand_test2(void);
+void expand_test3(void);
+void bigtest(void);
+void literal_string_type(void);
+void digit_separator_test(void);
+void numbers_test(void);
+void binary_digits_test(void);
+void type_suffix_test(void);
+void type_test(void);
+void is_pointer_test(void);
+void params_test(void);
+void test_compiler_constant_expression(void);
 
 /*end of forward declarations*/
 
@@ -146,17 +145,6 @@ g_unit_test_success_count = 0;
     test_predefined_macros();
     test_utf8();
     test_line_continuation();
-    test_compiler_constant_expression();
-    test_expressions();
-    literal_string_type();
-    type_suffix_test();
-    type_test();
-    digit_separator_test();
-    numbers_test();
-    binary_digits_test();
-    is_arithmetic_test();
-    type_is_pointer_test();
-    params_test();
     parser_specifier_test();
     array_item_type_test();
     take_address_type_test();
@@ -179,6 +167,18 @@ g_unit_test_success_count = 0;
     array_size();
     expr_type();
     expand_test();
+    expand_test2();
+    expand_test3();
+    bigtest();
+    literal_string_type();
+    digit_separator_test();
+    numbers_test();
+    binary_digits_test();
+    type_suffix_test();
+    type_test();
+    is_pointer_test();
+    params_test();
+    test_compiler_constant_expression();
 return g_unit_test_error_count;
 
 }

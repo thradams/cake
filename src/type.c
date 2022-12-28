@@ -764,7 +764,7 @@ struct type get_pointer_content_type(struct type* p_type)
 {
     struct type r = type_copy(p_type);
     struct declarator_type* p_inner_declarator = find_inner_declarator(r.declarator_type);
-    if (p_inner_declarator->pointers.head != NULL)
+    if (p_inner_declarator && p_inner_declarator->pointers.head != NULL)
     {
         pointer_type_list_pop_front(&p_inner_declarator->pointers);
     }
@@ -899,7 +899,7 @@ bool type_is_pointer_or_array(struct type* p_type)
 }
 
 
-int type_get_rank(struct type* p_type1, struct error* error)
+int type_get_rank(struct type* p_type1)
 {
     if (type_is_pointer_or_array(p_type1))
     {
@@ -946,36 +946,40 @@ int type_get_rank(struct type* p_type1, struct error* error)
     }
     else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION))
     {
-        seterror(error, "internal error - struct is not valid for rank");
+        return -1;
+        //seterror(error, "internal error - struct is not valid for rank");
     }
     else
     {
-        seterror(error, "unexpected type for rank");
+        return -2;
+        //seterror(error, "unexpected type for rank");
     }
     return rank;
 }
 
-struct type type_common(struct type* p_type1, struct type* p_type2, struct error* error)
+int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
 {
     try
     {
-        int rank_left = type_get_rank(p_type1, error);
-        if (error) throw;
+        type_destroy(out);
 
-        int rank_right = type_get_rank(p_type1, error);
-        if (error) throw;
+        int rank_left = type_get_rank(p_type1);
+        if (rank_left < 0) throw;
 
+        int rank_right = type_get_rank(p_type2);
+        if (rank_right < 0) throw;
 
         if (rank_left >= rank_right)
-            return type_copy(p_type1);
+            *out = type_copy(p_type1);
         else
-            return type_copy(p_type2);
+            *out = type_copy(p_type2);
     }
     catch
     {
+        return 1;
     }
 
-    return type_copy(p_type1);
+    return 0;
 }
 
 /*retorna uma cópia do tipo*/
@@ -1036,7 +1040,7 @@ static void visit_declarator_to_get_array_size(int* array_size, struct declarato
     if (declarator->direct_declarator_type)
         visit_direct_declarator_to_get_array_size(array_size, declarator->direct_declarator_type);
 }
-int get_array_size(struct type* p_type, struct error* error)
+int get_array_size(struct type* p_type)
 {
     if (type_is_array(p_type))
     {
@@ -1092,7 +1096,7 @@ static void visit_declarator_to_set_array_size(int* array_size, struct declarato
         visit_direct_declarator_to_set_array_size(array_size, declarator->direct_declarator_type, size);
 }
 
-int set_array_size(struct type* p_type, int size, struct error* error)
+int set_array_size(struct type* p_type, int size)
 {
     if (type_is_array(p_type))
     {
@@ -1108,8 +1112,8 @@ int set_array_size(struct type* p_type, int size, struct error* error)
     return 0;
 }
 
-int type_get_sizeof(struct type* p_type, struct error* error);
-int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, struct error* error)
+int type_get_sizeof(struct type* p_type);
+int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
     int maxalign = 0;
     int size = 0;
@@ -1121,7 +1125,7 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
             struct member_declarator* md = d->member_declarator_list_opt->head;
             while (md)
             {
-                int align = type_get_alignof(&md->declarator->type, error);
+                int align = type_get_alignof(&md->declarator->type);
 
                 if (align > maxalign)
                 {
@@ -1132,7 +1136,7 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
                     size += align - (size % align);
                 }
 
-                size += type_get_sizeof(&md->declarator->type, error);
+                size += type_get_sizeof(&md->declarator->type);
                 md = md->next;
             }
         }
@@ -1152,8 +1156,8 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
 
     return size;
 }
-int type_get_alignof(struct type* p_type, struct error* error);
-int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier, struct error* error)
+int type_get_alignof(struct type* p_type);
+int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
     int align = 0;
     struct member_declaration* d = complete_struct_or_union_specifier->member_declaration_list.head;
@@ -1165,7 +1169,7 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
             while (md)
             {
                 //TODO padding
-                int temp_align = type_get_alignof(&md->declarator->type, error);
+                int temp_align = type_get_alignof(&md->declarator->type);
                 if (temp_align > align)
                 {
                     align = temp_align;
@@ -1201,7 +1205,7 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
 
             }
 
-            int temp_align = type_get_alignof(&type, error);
+            int temp_align = type_get_alignof(&type);
             if (temp_align > align)
             {
                 align = temp_align;
@@ -1215,9 +1219,9 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
     return align;
 }
 
-int type_get_alignof(struct type* p_type, struct error* error)
+int type_get_alignof(struct type* p_type)
 {    
-    size_t align = 0;
+    int align = 0;
 
     enum type_category category = find_type_category(p_type);
 
@@ -1227,7 +1231,8 @@ int type_get_alignof(struct type* p_type, struct error* error)
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
-        seterror(error, "sizeof function");
+        align = -1;
+        //seterror(error, "sizeof function");
     }
     else if (category == TYPE_CATEGORY_ITSELF)
     {
@@ -1292,11 +1297,12 @@ int type_get_alignof(struct type* p_type, struct error* error)
             align = 1;
             if (p_complete)
             {
-                align = get_alignof_struct(p_complete, error);
+                align = get_alignof_struct(p_complete);
             }
             else
             {
-                seterror(error, "invalid application of 'sizeof' to incomplete type 'struct %s'", p_type->struct_or_union_specifier->tag_name);
+                align = -2;
+                //seterror(error, "invalid application of 'sizeof' to incomplete type 'struct %s'", p_type->struct_or_union_specifier->tag_name);
             }
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
@@ -1305,7 +1311,8 @@ int type_get_alignof(struct type* p_type, struct error* error)
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            seterror(error, "type information is missing");
+            align = -3;
+            //seterror(error, "type information is missing");
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
         {
@@ -1320,61 +1327,63 @@ int type_get_alignof(struct type* p_type, struct error* error)
     {
 
         struct type type = get_array_item_type(p_type);        
-        align = type_get_alignof(&type, error);
+        align = type_get_alignof(&type);
         type_destroy(&type);
     }
     assert(align > 0);
     return align;
 }
 
-int type_get_sizeof(struct type* p_type, struct error* error)
+
+int type_get_sizeof(struct type* p_type)
 {    
-    size_t size = 0;
+    int size = 0;
 
     enum type_category category = find_type_category(p_type);
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        size = sizeof(void*);
+        size = (int)sizeof(void*);
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
-        seterror(error, "sizeof function");
+        size = -1;
+        //seterror(error, "sizeof function");
     }
     else if (category == TYPE_CATEGORY_ITSELF)
     {
         if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
-            size = sizeof(char);
+            size = (int)sizeof(char);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
         {
-            size = sizeof(_Bool);
+            size = (int)sizeof(_Bool);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
-            size = sizeof(int);
+            size = (int)sizeof(int);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
         {
-            size = sizeof(int);
+            size = (int)sizeof(int);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
             //TODO enum type
-            size = sizeof(int);
+            size = (int)sizeof(int);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
         {
-            size = sizeof(long);
+            size = (int)sizeof(long);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
-            size = sizeof(long long);
+            size = (int)sizeof(long long);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
         {
-            size = sizeof(long long);
+            size = (int)sizeof(long long);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
         {
@@ -1390,11 +1399,11 @@ int type_get_sizeof(struct type* p_type, struct error* error)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
-            size = sizeof(float);
+            size = (int)sizeof(float);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
-            size = sizeof(double);
+            size = (int)sizeof(double);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
@@ -1404,20 +1413,22 @@ int type_get_sizeof(struct type* p_type, struct error* error)
             size = 1;
             if (p_complete)
             {
-                size = get_sizeof_struct(p_complete, error);
+                size = get_sizeof_struct(p_complete);
             }
             else
             {
-                seterror(error, "invalid application of 'sizeof' to incomplete type 'struct %s'", p_type->struct_or_union_specifier->tag_name);
+                size = -2;
+                //seterror(error, "invalid application of 'sizeof' to incomplete type 'struct %s'", p_type->struct_or_union_specifier->tag_name);
             }
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
-            size = sizeof(int);
+            size = (int)sizeof(int);
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            seterror(error, "type information is missing");
+            size = -3;
+            //seterror(error, "type information is missing");
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
         {
@@ -1430,9 +1441,9 @@ int type_get_sizeof(struct type* p_type, struct error* error)
     }
     else if (category == TYPE_CATEGORY_ARRAY)
     {
-        int arraysize = get_array_size(p_type, error);
+        int arraysize = get_array_size(p_type);
         struct type type = get_array_item_type(p_type);
-        int sz = type_get_sizeof(&type, error);
+        int sz = type_get_sizeof(&type);
         size = sz * arraysize;
         type_destroy(&type);
     }
@@ -1440,7 +1451,7 @@ int type_get_sizeof(struct type* p_type, struct error* error)
     return size;
 }
 
-unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct error* error)
+unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
 {
     unsigned int hash = 0;
 
@@ -1522,7 +1533,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            seterror(error, "type information is missing");
+            parser_set_info_with_token(ctx, ctx->current, "type information is missing");
             throw;
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
@@ -1530,7 +1541,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
             //s//ize = 1; //TODO
             //assert(false);
             //;; size =
-                //  type_get_sizeof(ctx, struct type* p_type, struct error* error)
+                //  type_get_sizeof(ctx, struct type* p_type)
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
         {
@@ -1541,7 +1552,9 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type, struct
             }
             else
             {
-                seterror(error, "invalid application of 'sizeof' to a void type");
+                parser_seterror_with_token(ctx, 
+                    ctx->current,
+                    "invalid application of 'sizeof' to a void type");
                 throw;
             }
         }

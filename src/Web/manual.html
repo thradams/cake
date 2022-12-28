@@ -1274,24 +1274,6 @@ void create_app(const char* appname)
 }
 </code></pre>
 
-<h3>Extension typeid</h3>
-
-<p>syntax:</p>
-
-<pre><code class="language-c">  typeid (expression)
-  typeid (type-name)
-</code></pre>
-
-<p>typeid returns a <strong>type object</strong> that can be used with == and !=.
-If any left or right side of the ==/!= contains a <strong>type object</strong> then
-the evaluation is based on type comparison not value.</p>
-
-<p>Sample:</p>
-
-<pre><code class="language-c">static_assert(1 == typeid(int));
-static_assert(typeid(1) == typeid(int));
-</code></pre>
-
 <h3>Extension Repeat</h3>
 
 <pre><code>iteration-statement:

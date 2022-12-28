@@ -8,4 +8,4 @@ struct format_visit_ctx
     int identation;
 };
 
-void format_visit(struct format_visit_ctx* ctx, struct error* error);
+void format_visit(struct format_visit_ctx* ctx);

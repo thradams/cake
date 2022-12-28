@@ -39,4 +39,4 @@ struct visit_ctx
     struct defer_scope* tail_block;
 };
 
-void visit(struct visit_ctx* ctx, struct error* error);
+void visit(struct visit_ctx* ctx);

@@ -7,7 +7,7 @@ struct parser_ctx;
 enum expression_type
 {
     PRIMARY_IDENTIFIER,
-    TYPEID_EXPRESSION_TYPE,
+    
 
     PRIMARY_EXPRESSION_ENUMERATOR,
     PRIMARY_EXPRESSION_DECLARATOR,
@@ -146,8 +146,10 @@ struct expression
     struct type type;
 
 
+    bool is_constant; /*if true we can read*/
     long long constant_value;
     unsigned long long constant_ull_value;
+    
 
     struct type_name* type_name; 
     struct type_name* type_name2; /*is_same*/
@@ -172,6 +174,6 @@ struct expression
     struct expression* right;
 };
 
-struct expression* assignment_expression(struct parser_ctx* ctx, struct error* error);
-struct expression* expression(struct parser_ctx* ctx, struct error* error);
-struct expression* constant_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* assignment_expression(struct parser_ctx* ctx);
+struct expression* expression(struct parser_ctx* ctx);
+struct expression* constant_expression(struct parser_ctx* ctx);

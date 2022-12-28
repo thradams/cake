@@ -44,12 +44,19 @@ struct preprocessor_ctx
 };
 void preprocessor_ctx_destroy(struct preprocessor_ctx* p);
 
+struct tokenizer_ctx
+{
+    struct options options;
+    int n_warnings;
+    int n_errors;
+    int (*printf)(const char* fmt, ...);
+};
 
-struct token_list tokenizer(const char* text, const char* filename_opt, int level, enum token_flags addflags, struct error* error);
-void add_standard_macros(struct preprocessor_ctx* ctx, struct error* error);
+struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* filename_opt, int level, enum token_flags addflags);
+void add_standard_macros(struct preprocessor_ctx* ctx);
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path);
 
-struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level, struct error* error);
+struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 struct token_list  copy_replacement_list(struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* source);
@@ -62,7 +69,7 @@ void remove_line_continuation(char* s);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
 void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* append);
-struct token_list tokenizer(const char* text, const char* filename_opt, int level, enum token_flags addflags, struct error* error);
+struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* filename_opt, int level, enum token_flags addflags);
 
 const char* get_code_as_we_see(struct token_list* list, bool remove_comments);
 const char* get_code_as_compiler_see(struct token_list* list);
