@@ -172,13 +172,6 @@ struct expression
     struct expression* right;
 };
 
-/*contexto expressões parser*/
-struct expression_ctx
-{
-    bool constant_expression_required;
-    bool result_is_type;
-};
-
-struct expression* assignment_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* constant_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct expression* assignment_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* expression(struct parser_ctx* ctx, struct error* error);
+struct expression* constant_expression(struct parser_ctx* ctx, struct error* error);

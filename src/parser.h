@@ -78,6 +78,8 @@ struct _destroy parser_ctx
       result is ignored for instance
     */
     bool evaluated_at_caller;
+
+    bool constant_expression_required;
 };
 
 ///////////////////////////////////////////////////////
@@ -1192,7 +1194,7 @@ struct balanced_token_sequence
 struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* ctx, struct error* error);
 
 
-struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error);
 
 bool is_first_of_conditional_expression(struct parser_ctx* ctx);
 bool first_of_type_name(struct parser_ctx* ctx);
@@ -1200,7 +1202,7 @@ bool first_of_type_name_ahead(struct parser_ctx* ctx);
 
 
 
-struct argument_expression_list argument_expression_list(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct argument_expression_list argument_expression_list(struct parser_ctx* ctx, struct error* error);
 
 
 struct declaration_list

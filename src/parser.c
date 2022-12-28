@@ -2172,9 +2172,8 @@ struct typeof_specifier_argument* typeof_specifier_argument(struct parser_ctx* c
         new_typeof_specifier_argument->type_name = type_name(ctx, error);
     }
     else
-    {
-        struct expression_ctx ectx = { 0 };
-        new_typeof_specifier_argument->expression = expression(ctx, error, &ectx);
+    {        
+        new_typeof_specifier_argument->expression = expression(ctx, error);
         declarator_type_clear_name(new_typeof_specifier_argument->expression->type.declarator_type);
     }
 
@@ -2616,9 +2615,8 @@ struct member_declarator* member_declarator(struct parser_ctx* ctx,
 
     if (ctx->current->type == ':')
     {
-        parser_match(ctx);
-        struct expression_ctx ectx = { 0 };
-        p_member_declarator->constant_expression = constant_expression(ctx, error, &ectx);
+        parser_match(ctx);        
+        p_member_declarator->constant_expression = constant_expression(ctx, error);
     }
     return p_member_declarator;
 }
@@ -3082,9 +3080,8 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
 
     if (ctx->current->type == '=')
     {
-        parser_match(ctx);
-        struct expression_ctx ectx = { .constant_expression_required = true };
-        p_enumerator->constant_expression_opt = constant_expression(ctx, error, &ectx);
+        parser_match(ctx);        
+        p_enumerator->constant_expression_opt = constant_expression(ctx, error);
         p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
     }
 
@@ -3108,8 +3105,7 @@ struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx, struct e
     }
     else
     {
-        struct expression_ctx ectx = { .constant_expression_required = true };
-        constant_expression(ctx, error, &ectx);
+        constant_expression(ctx, error);
     }
     parser_match_tk(ctx, ')', error);
     return alignment_specifier;
@@ -3371,8 +3367,8 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
         if (has_static)
         {
             //tem que ter..
-            struct expression_ctx ectx = { 0 };
-            p_array_declarator->assignment_expression = assignment_expression(ctx, error, &ectx);
+            
+            p_array_declarator->assignment_expression = assignment_expression(ctx, error);
             if (error->code != 0) throw;
 
             p_array_declarator->constant_size = p_array_declarator->assignment_expression->constant_value;
@@ -3386,8 +3382,8 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             }
             else if (ctx->current->type != ']')
             {
-                struct expression_ctx ectx = { 0 };
-                p_array_declarator->assignment_expression = assignment_expression(ctx, error, &ectx);
+                
+                p_array_declarator->assignment_expression = assignment_expression(ctx, error);
                 if (error->code != 0) throw;
 
                 p_array_declarator->constant_size = p_array_declarator->assignment_expression->constant_value;
@@ -3796,8 +3792,8 @@ struct initializer* initializer(struct parser_ctx* ctx, struct error* error)
     }
     else
     {
-        struct expression_ctx ectx = { 0 };
-        p_initializer->assignment_expression = assignment_expression(ctx, error, &ectx);
+        
+        p_initializer->assignment_expression = assignment_expression(ctx, error);
     }
     return p_initializer;
 }
@@ -3878,9 +3874,8 @@ struct designator* designator(struct parser_ctx* ctx, struct error* error)
     struct designator* p_designator = calloc(1, sizeof(struct designator));
     if (ctx->current->type == '[')
     {
-        parser_match_tk(ctx, '[', error);
-        struct expression_ctx ectx = { 0 };
-        p_designator->constant_expression_opt = constant_expression(ctx, error, &ectx);
+        parser_match_tk(ctx, '[', error);        
+        p_designator->constant_expression_opt = constant_expression(ctx, error);
         parser_match_tk(ctx, ']', error);
     }
     else if (ctx->current->type == '.')
@@ -3911,10 +3906,8 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         struct token* position = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT, error);
         parser_match_tk(ctx, '(', error);
-        struct expression_ctx ectx = { .constant_expression_required = true };
-
         ctx->evaluated_at_caller = false;
-        p_static_assert_declaration->constant_expression = constant_expression(ctx, error, &ectx);
+        p_static_assert_declaration->constant_expression = constant_expression(ctx, error);
         p_static_assert_declaration->evaluated_at_caller = ctx->evaluated_at_caller;
         ctx->evaluated_at_caller = false;
         if (error->code != 0)
@@ -4315,9 +4308,8 @@ struct label* label(struct parser_ctx* ctx, struct error* error)
     }
     else if (ctx->current->type == TK_KEYWORD_CASE)
     {
-        parser_match(ctx);
-        struct expression_ctx ectx = { .constant_expression_required = true };
-        p_label->constant_expression = constant_expression(ctx, error, &ectx);
+        parser_match(ctx);        
+        p_label->constant_expression = constant_expression(ctx, error);
         parser_match_tk(ctx, ':', error);
     }
     else if (ctx->current->type == TK_KEYWORD_DEFAULT)
@@ -4615,8 +4607,8 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
             parser_match_tk(ctx, ';', error);
         }
 
-        struct expression_ctx ectx = { 0 };
-        p_selection_statement->expression = expression(ctx, error, &ectx);
+        
+        p_selection_statement->expression = expression(ctx, error);
 
         parser_match_tk(ctx, ')', error);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
@@ -4639,8 +4631,8 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx, struct e
     {
         parser_match(ctx);
         parser_match_tk(ctx, '(', error);
-        struct expression_ctx ectx = { 0 };
-        p_selection_statement->expression = expression(ctx, error, &ectx);
+        
+        p_selection_statement->expression = expression(ctx, error);
         parser_match_tk(ctx, ')', error);
         p_selection_statement->secondary_block = secondary_block(ctx, error);
 
@@ -4691,8 +4683,8 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
         p_iteration_statement->second_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_WHILE, error);
         parser_match_tk(ctx, '(', error);
-        struct expression_ctx ectx = { 0 };
-        p_iteration_statement->expression1 = expression(ctx, error, &ectx);
+        
+        p_iteration_statement->expression1 = expression(ctx, error);
         parser_match_tk(ctx, ')', error);
         parser_match_tk(ctx, ';', error);
     }
@@ -4705,14 +4697,13 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
     {
         parser_match(ctx);
         parser_match_tk(ctx, '(', error);
-        struct expression_ctx ectx = { 0 };
-        p_iteration_statement->expression1 = expression(ctx, error, &ectx);
+        
+        p_iteration_statement->expression1 = expression(ctx, error);
         parser_match_tk(ctx, ')', error);
         p_iteration_statement->secondary_block = secondary_block(ctx, error);
     }
     else if (ctx->current->type == TK_KEYWORD_FOR)
-    {
-        struct expression_ctx ectx = { 0 };
+    {        
         parser_match(ctx);
         parser_match_tk(ctx, '(', error);
         if (first_of_declaration_specifier(ctx))
@@ -4726,11 +4717,11 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
             declaration(ctx, p_attribute_specifier_sequence_opt, error);
             if (ctx->current->type != ';')
             {
-                p_iteration_statement->expression1 = expression(ctx, error, &ectx);
+                p_iteration_statement->expression1 = expression(ctx, error);
             }
             parser_match_tk(ctx, ';', error);
             if (ctx->current->type != ')')
-                p_iteration_statement->expression2 = expression(ctx, error, &ectx);
+                p_iteration_statement->expression2 = expression(ctx, error);
 
             parser_match_tk(ctx, ')', error);
 
@@ -4743,13 +4734,13 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx, struct e
         else
         {
             if (ctx->current->type != ';')
-                expression(ctx, error, &ectx);
+                expression(ctx, error);
             parser_match_tk(ctx, ';', error);
             if (ctx->current->type != ';')
-                expression(ctx, error, &ectx);
+                expression(ctx, error);
             parser_match_tk(ctx, ';', error);
             if (ctx->current->type != ')')
-                p_iteration_statement->expression1 = expression(ctx, error, &ectx);
+                p_iteration_statement->expression1 = expression(ctx, error);
             parser_match_tk(ctx, ')', error);
 
             p_iteration_statement->secondary_block = secondary_block(ctx, error);
@@ -4807,9 +4798,8 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx, struct error* erro
     {
         parser_match(ctx);
         if (ctx->current->type != ';')
-        {
-            struct expression_ctx ectx = { 0 };
-            p_jump_statement->expression_opt = expression(ctx, error, &ectx);
+        {            
+            p_jump_statement->expression_opt = expression(ctx, error);
 
             if (p_jump_statement->expression_opt && 
                 p_jump_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
@@ -4856,9 +4846,8 @@ struct expression_statement* expression_statement(struct parser_ctx* ctx, struct
         attribute_specifier_sequence_opt(ctx, error);
 
     if (ctx->current->type != ';')
-    {
-        struct expression_ctx ectx = { 0 };
-        p_expression_statement->expression_opt = expression(ctx, error, &ectx);
+    {        
+        p_expression_statement->expression_opt = expression(ctx, error);
     }
 
     parser_match_tk(ctx, ';', error);

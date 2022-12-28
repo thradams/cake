@@ -20,22 +20,22 @@
 
 
 
-struct expression* postfix_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* multiplicative_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* unary_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* additive_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* shift_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* relational_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* equality_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* and_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* conditional_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
-struct expression* conditional_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx);
+struct expression* postfix_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* cast_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* multiplicative_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* unary_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* additive_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* shift_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* relational_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* equality_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* and_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* conditional_expression(struct parser_ctx* ctx, struct error* error);
+struct expression* expression(struct parser_ctx* ctx, struct error* error);
+struct expression* conditional_expression(struct parser_ctx* ctx, struct error* error);
 
 
 
@@ -216,7 +216,7 @@ bool is_first_of_primary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_TYPEID;
 }
 
-struct generic_association* generic_association(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct generic_association* generic_association(struct parser_ctx* ctx, struct error* error)
 {
     struct generic_association* p_generic_association = NULL;
     try
@@ -244,7 +244,7 @@ struct generic_association* generic_association(struct parser_ctx* ctx, struct e
             error->code = 1;
         }
         parser_match_tk(ctx, ':', error);
-        p_generic_association->expression = assignment_expression(ctx, error, ectx);
+        p_generic_association->expression = assignment_expression(ctx, error);
     }
     catch{
     }
@@ -252,13 +252,13 @@ struct generic_association* generic_association(struct parser_ctx* ctx, struct e
     return p_generic_association;
 }
 
-struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struct error* error)
 {
     struct generic_assoc_list list = { 0 };
     try
     {
         struct generic_association* p_generic_association =
-            generic_association(ctx, error, ectx);
+            generic_association(ctx, error);
         if (p_generic_association == NULL)
             throw;
 
@@ -270,7 +270,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx, struc
             parser_match(ctx);
 
             struct generic_association* p_generic_association2 =
-                generic_association(ctx, error, ectx);
+                generic_association(ctx, error);
             list_add(&list, p_generic_association2);
         }
     }
@@ -298,7 +298,7 @@ static void print_clean_list(struct token_list* list)
     }
 }
 
-struct generic_selection* generic_selection(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct generic_selection* generic_selection(struct parser_ctx* ctx, struct error* error)
 {
     /*
     generic-selection:
@@ -318,12 +318,12 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx, struct error
         parser_match_tk(ctx, '(', error);
         struct token_list l = { 0 };
         l.head = ctx->current;
-        p_generic_selection->expression = assignment_expression(ctx, error, ectx);
+        p_generic_selection->expression = assignment_expression(ctx, error);
         l.tail = ctx->current->prev;
 
         parser_match_tk(ctx, ',', error);
 
-        p_generic_selection->generic_assoc_list = generic_association_list(ctx, error, ectx);
+        p_generic_selection->generic_assoc_list = generic_association_list(ctx, error);
 
         struct generic_association* current = p_generic_selection->generic_assoc_list.head;
         while (current)
@@ -354,7 +354,7 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx, struct error
 }
 
 
-struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error)
 {
     struct expression* p_expression_node = NULL;
     try
@@ -377,14 +377,14 @@ struct expression* typeid_expression(struct parser_ctx* ctx, struct error* error
         else
         {
 
-            bool constant_expr_required_old = ectx->constant_expression_required;
-            ectx->constant_expression_required = false;
-            p_expression_node->right = expression(ctx, error, ectx);
+            bool constant_expr_required_old = ctx->constant_expression_required;
+            ctx->constant_expression_required = false;
+            p_expression_node->right = expression(ctx, error);
 
             if (p_expression_node->right == NULL)
                 throw;
 
-            ectx->constant_expression_required = constant_expr_required_old;
+            ctx->constant_expression_required = constant_expr_required_old;
             p_expression_node->type = type_copy(&p_expression_node->right->type);
 
             //printf("typeid() = ");
@@ -489,7 +489,7 @@ static bool is_integer_or_floating_constant(enum token_type type)
 }
 
 
-struct expression* primary_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* primary_expression(struct parser_ctx* ctx, struct error* error)
 {
     /*
      primary-expression:
@@ -552,7 +552,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
                 p_expression_node->type.declarator_type = p_declarator_type;
 
-                if (ectx->constant_expression_required)
+                if (ctx->constant_expression_required)
                 {
                     parser_seterror_with_token(ctx, ctx->current, "not constant");
                     error->code = 1;
@@ -561,7 +561,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             }
             else
             {
-                if (ectx->constant_expression_required)
+                if (ctx->constant_expression_required)
                 {
                     parser_seterror_with_token(ctx, ctx->current, "not constant");
                     error->code = 1;
@@ -615,7 +615,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
             p_expression_node->type.declarator_type = p_declarator_type;
 
-            if (ectx->constant_expression_required)
+            if (ctx->constant_expression_required)
             {
                 parser_seterror_with_token(ctx, ctx->current, "not constant");
                 error->code = 1;
@@ -699,7 +699,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_GENERIC;
 
-            if (ectx->constant_expression_required)
+            if (ctx->constant_expression_required)
             {
                 parser_seterror_with_token(ctx, ctx->current, "not constant");
                 error->code = 1;
@@ -707,7 +707,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
             else
             {
 
-                p_expression_node->generic_selection = generic_selection(ctx, error, ectx);
+                p_expression_node->generic_selection = generic_selection(ctx, error);
                 p_expression_node->first_token = p_expression_node->generic_selection->first_token;
                 p_expression_node->last_token = p_expression_node->generic_selection->last_token;
 
@@ -724,12 +724,12 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
         }
         else if (ctx->current->type == TK_KEYWORD_TYPEID)
         {
-            p_expression_node = typeid_expression(ctx, error, ectx);
+            p_expression_node = typeid_expression(ctx, error);
         }
         else if (ctx->current->type == '(')
         {
             parser_match(ctx);
-            p_expression_node = expression(ctx, error, ectx);
+            p_expression_node = expression(ctx, error);
             if (error->code != 0)
                 throw;
             parser_match_tk(ctx, ')', error);
@@ -755,7 +755,7 @@ struct expression* primary_expression(struct parser_ctx* ctx, struct error* erro
 
 
 
-struct argument_expression_list argument_expression_list(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct argument_expression_list argument_expression_list(struct parser_ctx* ctx, struct error* error)
 {
     /*
      argument-expression-list:
@@ -765,7 +765,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
     struct argument_expression_list list = { 0 };
 
     struct argument_expression* p_argument_expression = calloc(1, sizeof(struct argument_expression));
-    p_argument_expression->expression = assignment_expression(ctx, error, ectx);
+    p_argument_expression->expression = assignment_expression(ctx, error);
     list_add(&list, p_argument_expression);
 
     while (error->code == 0 &&
@@ -774,7 +774,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx,
         parser_match(ctx);
 
         struct argument_expression* p_argument_expression_2 = calloc(1, sizeof * p_argument_expression_2);
-        p_argument_expression_2->expression = assignment_expression(ctx, error, ectx);
+        p_argument_expression_2->expression = assignment_expression(ctx, error);
         list_add(&list, p_argument_expression_2);
 
 
@@ -812,8 +812,7 @@ bool first_of_postfix_expression(struct parser_ctx* ctx)
 
 struct expression* postfix_expression_tail(struct parser_ctx* ctx,
     struct error* error,
-    struct expression* p_expression_node,
-    struct expression_ctx* ectx)
+    struct expression* p_expression_node)
 {
     try
     {
@@ -845,7 +844,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
 
                 parser_match(ctx);
                 /*contem a expresao de dentro do  [ ] */
-                p_expression_node_new->right = expression(ctx, error, ectx);
+                p_expression_node_new->right = expression(ctx, error);
                 if (error->code != 0) throw;
                 parser_match_tk(ctx, ']', error);
                 p_expression_node = p_expression_node_new;
@@ -871,7 +870,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
                 parser_match(ctx);
                 if (ctx->current->type != ')')
                 {
-                    p_expression_node_new->argument_expression_list = argument_expression_list(ctx, error, ectx);
+                    p_expression_node_new->argument_expression_list = argument_expression_list(ctx, error);
                     if (error->code != 0) throw;
                 }
                 parser_match_tk(ctx, ')', error);
@@ -1063,7 +1062,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx,
     return p_expression_node;
 }
 
-struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* p_type_name, struct error* error, struct expression_ctx* ectx)
+struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* p_type_name, struct error* error)
 {
     /*
         ( type-name ) { initializer-ctx }
@@ -1107,13 +1106,12 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
 
     p_expression_node = postfix_expression_tail(ctx,
         error,
-        p_expression_node,
-        ectx);
+        p_expression_node);
 
     return p_expression_node;
 }
 
-struct expression* postfix_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* postfix_expression(struct parser_ctx* ctx, struct error* error)
 {
     /*
       postfix-expression:
@@ -1175,13 +1173,12 @@ struct expression* postfix_expression(struct parser_ctx* ctx, struct error* erro
         }
         else
         {
-            p_expression_node = primary_expression(ctx, error, ectx);
+            p_expression_node = primary_expression(ctx, error);
         }
 
         p_expression_node = postfix_expression_tail(ctx,
             error,
-            p_expression_node,
-            ectx);
+            p_expression_node);
 
     }
     catch
@@ -1231,7 +1228,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         is_first_of_compiler_function(ctx);
 }
 
-struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struct error* error)
 {
     struct expression* new_expression = calloc(1, sizeof * new_expression);
     new_expression->expression_type = UNARY_DECLARATOR_ATTRIBUTE_EXPR;
@@ -1239,8 +1236,8 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
     struct token* func = ctx->current;
     parser_match(ctx);
 
-    bool old = ectx->constant_expression_required;
-    ectx->constant_expression_required = true;
+    bool old = ctx->constant_expression_required;
+    ctx->constant_expression_required = true;
     parser_match_tk(ctx, '(', error);
 
 
@@ -1276,9 +1273,9 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
 
     parser_match_tk(ctx, ',', error);
 
-    new_expression->right = constant_expression(ctx, error, ectx);
+    new_expression->right = constant_expression(ctx, error);
     parser_match_tk(ctx, ')', error);
-    ectx->constant_expression_required = old;
+    ctx->constant_expression_required = old;
 
     if (new_expression->declarator == NULL ||
         new_expression->declarator->is_parameter_declarator)
@@ -1316,7 +1313,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx, struc
     return new_expression;
 }
 
-struct expression* unary_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* unary_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -1349,7 +1346,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             else
                 new_expression->expression_type = UNARY_EXPRESSION_DECREMENT;
             parser_match(ctx);
-            new_expression->right = unary_expression(ctx, error, ectx);
+            new_expression->right = unary_expression(ctx, error);
             if (error->code != 0) throw;
 
             new_expression->type = type_copy(&new_expression->right->type);
@@ -1373,7 +1370,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             struct token* op_position = ctx->current; //marcar posicao
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            new_expression->right = cast_expression(ctx, error, ectx);
+            new_expression->right = cast_expression(ctx, error);
             if (error->code != 0) throw;
             new_expression->last_token = new_expression->right->last_token;
             if (op == '!')
@@ -1443,10 +1440,10 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             }
             else
             {
-                bool old = ectx->constant_expression_required;
-                ectx->constant_expression_required = false;
-                new_expression->right = unary_expression(ctx, error, ectx);
-                ectx->constant_expression_required = old;
+                bool old = ctx->constant_expression_required;
+                ctx->constant_expression_required = false;
+                new_expression->right = unary_expression(ctx, error);
+                ctx->constant_expression_required = old;
 
                 if (error->code != 0)
                     throw;
@@ -1461,7 +1458,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
             ctx->current->type == TK_KEYWORD_ATTR_HAS)
         {
-            p_expression_node = declarator_attribute_expression(ctx, error, ectx);
+            p_expression_node = declarator_attribute_expression(ctx, error);
         }
         else if (ctx->current->type == TK_KEYWORD_IS_POINTER ||
             ctx->current->type == TK_KEYWORD_IS_ARRAY ||
@@ -1490,11 +1487,11 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             }
             else
             {
-                bool old = ectx->constant_expression_required;
-                ectx->constant_expression_required = false;
-                new_expression->right = unary_expression(ctx, error, ectx);
+                bool old = ctx->constant_expression_required;
+                ctx->constant_expression_required = false;
+                new_expression->right = unary_expression(ctx, error);
                 if (new_expression->right == NULL) throw;
-                ectx->constant_expression_required = old;
+                ctx->constant_expression_required = old;
                 p_type = &new_expression->right->type;
                 new_expression->last_token = ctx->previous;
             }
@@ -1564,10 +1561,10 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
             }
             else
             {
-                bool old = ectx->constant_expression_required;
-                ectx->constant_expression_required = false;
-                new_expression->right = unary_expression(ctx, error, ectx);
-                ectx->constant_expression_required = old;
+                bool old = ctx->constant_expression_required;
+                ctx->constant_expression_required = false;
+                new_expression->right = unary_expression(ctx, error);
+                ctx->constant_expression_required = old;
 
                 if (new_expression->right == NULL)
                     throw;
@@ -1603,7 +1600,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
         }
         else //if (is_first_of_primary_expression(ctx))
         {
-            p_expression_node = postfix_expression(ctx, error, ectx);
+            p_expression_node = postfix_expression(ctx, error);
         }
     }
     catch
@@ -1613,7 +1610,7 @@ struct expression* unary_expression(struct parser_ctx* ctx, struct error* error,
     return p_expression_node;
 }
 
-struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* cast_expression(struct parser_ctx* ctx, struct error* error)
 {
 
 
@@ -1640,7 +1637,7 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
                 throw;
 
             p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
-            //type_set_int(&ectx->result_type);
+            //type_set_int(&ctx->result_type);
             //print_type_name(p_cast_expression->type_name);
             parser_match_tk(ctx, ')', error);
             //struct token_list r = copy_replacement_list(&l);
@@ -1649,7 +1646,7 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
             {
                 // Achar que era um cast_expression foi um engano...
                 // porque apareceu o { então é compound literal que eh postfix.
-                struct expression* new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, error, ectx);
+                struct expression* new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name, error);
 
 
                 free(p_expression_node);
@@ -1657,16 +1654,16 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
             }
             else
             {
-                p_expression_node->left = cast_expression(ctx, error, ectx);
+                p_expression_node->left = cast_expression(ctx, error);
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
             }
-            //token_list_destroy(&ectx->type);
-            //ectx->type = r;
-            //print_list(&ectx->type);
+            //token_list_destroy(&ctx->type);
+            //ctx->type = r;
+            //print_list(&ctx->type);
         }
         else if (is_first_of_unary_expression(ctx))
         {
-            p_expression_node = unary_expression(ctx, error, ectx);
+            p_expression_node = unary_expression(ctx, error);
             if (error->code != 0)
                 throw;
         }
@@ -1685,7 +1682,7 @@ struct expression* cast_expression(struct parser_ctx* ctx, struct error* error, 
     return p_expression_node;
 }
 
-struct expression* multiplicative_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* multiplicative_expression(struct parser_ctx* ctx, struct error* error)
 {
 
 
@@ -1702,7 +1699,7 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx, struct erro
         if (error->code != 0)
             throw;
 
-        p_expression_node = cast_expression(ctx, error, ectx);
+        p_expression_node = cast_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -1715,7 +1712,7 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx, struct erro
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
-            new_expression->right = cast_expression(ctx, error, ectx);
+            new_expression->right = cast_expression(ctx, error);
 
             if (new_expression->left == NULL ||
                 new_expression->right == NULL)
@@ -1763,7 +1760,7 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx, struct erro
     return p_expression_node;
 }
 
-struct expression* additive_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* additive_expression(struct parser_ctx* ctx, struct error* error)
 {
     /*
      additive-expression:
@@ -1779,7 +1776,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
     {
         if (error->code != 0)
             throw;
-        p_expression_node = multiplicative_expression(ctx, error, ectx);
+        p_expression_node = multiplicative_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -1798,7 +1795,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
 
             static int count = 0;
             count++;
-            new_expression->right = multiplicative_expression(ctx, error, ectx);
+            new_expression->right = multiplicative_expression(ctx, error);
             if (error->code != 0)
                 throw;
 
@@ -1892,7 +1889,7 @@ struct expression* additive_expression(struct parser_ctx* ctx, struct error* err
     return p_expression_node;
 }
 
-struct expression* shift_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* shift_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -1906,7 +1903,7 @@ struct expression* shift_expression(struct parser_ctx* ctx, struct error* error,
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = additive_expression(ctx, error, ectx);
+        p_expression_node = additive_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -1918,7 +1915,7 @@ struct expression* shift_expression(struct parser_ctx* ctx, struct error* error,
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
-            new_expression->right = multiplicative_expression(ctx, error, ectx);
+            new_expression->right = multiplicative_expression(ctx, error);
             if (new_expression->left == NULL || new_expression->right == NULL)
             {
                 throw;
@@ -1953,7 +1950,7 @@ struct expression* shift_expression(struct parser_ctx* ctx, struct error* error,
     return p_expression_node;
 }
 
-struct expression* relational_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* relational_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -1966,7 +1963,7 @@ struct expression* relational_expression(struct parser_ctx* ctx, struct error* e
     relational-expression <= shift-expression
     relational-expression >= shift-expression
     */
-    struct expression* p_expression_node = shift_expression(ctx, error, ectx);
+    struct expression* p_expression_node = shift_expression(ctx, error);
     if (error->code != 0)
         return NULL;
 
@@ -1980,7 +1977,7 @@ struct expression* relational_expression(struct parser_ctx* ctx, struct error* e
         enum token_type op = ctx->current->type;
         parser_match(ctx);
         new_expression->left = p_expression_node;
-        new_expression->right = shift_expression(ctx, error, ectx);
+        new_expression->right = shift_expression(ctx, error);
         if (error->code != 0)
             break;
 
@@ -2012,7 +2009,7 @@ struct expression* relational_expression(struct parser_ctx* ctx, struct error* e
     return p_expression_node;
 }
 
-struct expression* equality_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* equality_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -2032,7 +2029,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
     version of void; or
     — one operand is a pointer and the other is a null pointer constant.
     */
-    struct expression* p_expression_node = relational_expression(ctx, error, ectx);
+    struct expression* p_expression_node = relational_expression(ctx, error);
     if (error->code != 0)
         return NULL;
 
@@ -2045,7 +2042,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
         struct  token* operator_token = ctx->current;
         parser_match(ctx);
         new_expression->left = p_expression_node;
-        new_expression->right = relational_expression(ctx, error, ectx);
+        new_expression->right = relational_expression(ctx, error);
         if (error->code != 0)
             break;
 
@@ -2114,7 +2111,7 @@ struct expression* equality_expression(struct parser_ctx* ctx, struct error* err
     return p_expression_node;
 }
 
-struct expression* and_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* and_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -2127,7 +2124,7 @@ struct expression* and_expression(struct parser_ctx* ctx, struct error* error, s
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = equality_expression(ctx, error, ectx);
+        p_expression_node = equality_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -2138,7 +2135,7 @@ struct expression* and_expression(struct parser_ctx* ctx, struct error* error, s
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->expression_type = AND_EXPRESSION;
             new_expression->left = p_expression_node;
-            new_expression->right = equality_expression(ctx, error, ectx);
+            new_expression->right = equality_expression(ctx, error);
             if (error->code != 0)
                 throw;
 
@@ -2162,7 +2159,7 @@ struct expression* and_expression(struct parser_ctx* ctx, struct error* error, s
     return p_expression_node;
 }
 
-struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -2175,7 +2172,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error*
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = and_expression(ctx, error, ectx);
+        p_expression_node = and_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -2186,7 +2183,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error*
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
-            new_expression->right = and_expression(ctx, error, ectx);
+            new_expression->right = and_expression(ctx, error);
             if (error->code != 0)
                 throw;
 
@@ -2210,7 +2207,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx, struct error*
     return p_expression_node;
 }
 
-struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -2223,7 +2220,7 @@ struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error*
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = exclusive_or_expression(ctx, error, ectx);
+        p_expression_node = exclusive_or_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -2235,7 +2232,7 @@ struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error*
 
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
-            new_expression->right = exclusive_or_expression(ctx, error, ectx);
+            new_expression->right = exclusive_or_expression(ctx, error);
             if (error->code != 0)
                 throw;
 
@@ -2258,7 +2255,7 @@ struct expression* inclusive_or_expression(struct parser_ctx* ctx, struct error*
     return p_expression_node;
 }
 
-struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -2271,7 +2268,7 @@ struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* 
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = inclusive_or_expression(ctx, error, ectx);
+        p_expression_node = inclusive_or_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -2282,7 +2279,7 @@ struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* 
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->expression_type = INCLUSIVE_AND_EXPRESSION;
             new_expression->left = p_expression_node;
-            new_expression->right = inclusive_or_expression(ctx, error, ectx);
+            new_expression->right = inclusive_or_expression(ctx, error);
             if (error->code != 0)
                 throw;
 
@@ -2305,7 +2302,7 @@ struct expression* logical_and_expression(struct parser_ctx* ctx, struct error* 
     return p_expression_node;
 }
 
-struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* error)
 {
     /*
       logical-OR-expression:
@@ -2318,7 +2315,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* e
         if (error->code != 0)
             throw;
 
-        p_expression_node = logical_and_expression(ctx, error, ectx);
+        p_expression_node = logical_and_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -2329,7 +2326,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* e
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->expression_type = LOGICAL_OR_EXPRESSION;
             new_expression->left = p_expression_node;
-            new_expression->right = logical_and_expression(ctx, error, ectx);
+            new_expression->right = logical_and_expression(ctx, error);
             if (error->code != 0)
                 throw;
 
@@ -2357,7 +2354,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx, struct error* e
 
 
 
-struct expression* assignment_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* assignment_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -2377,7 +2374,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = conditional_expression(ctx, error, ectx);
+        p_expression_node = conditional_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -2396,7 +2393,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
         {
             parser_match(ctx);
 
-            if (ectx->constant_expression_required)
+            if (ctx->constant_expression_required)
             {
                 parser_seterror_with_token(ctx, ctx->current, "assignment is not an constant expression");
                 error->code = 1;
@@ -2406,7 +2403,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
-            new_expression->right = assignment_expression(ctx, error, ectx);
+            new_expression->right = assignment_expression(ctx, error);
             if (error->code != 0)
                 throw;
 
@@ -2457,7 +2454,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx, struct error* e
     return p_expression_node;
 }
 
-struct expression* expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -2469,7 +2466,7 @@ struct expression* expression(struct parser_ctx* ctx, struct error* error, struc
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = assignment_expression(ctx, error, ectx);
+        p_expression_node = assignment_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -2481,7 +2478,7 @@ struct expression* expression(struct parser_ctx* ctx, struct error* error, struc
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
-                p_expression_node_new->right = expression(ctx, error, ectx);
+                p_expression_node_new->right = expression(ctx, error);
                 p_expression_node = p_expression_node_new;
             }
 
@@ -2501,7 +2498,7 @@ bool is_first_of_conditional_expression(struct parser_ctx* ctx)
         is_first_of_primary_expression(ctx);
 }
 
-struct expression* conditional_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* conditional_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
@@ -2514,7 +2511,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx, struct error* 
     struct expression* p_expression_node = NULL;
     try
     {
-        p_expression_node = logical_or_expression(ctx, error, ectx);
+        p_expression_node = logical_or_expression(ctx, error);
         if (error->code != 0)
             throw;
 
@@ -2525,23 +2522,22 @@ struct expression* conditional_expression(struct parser_ctx* ctx, struct error* 
             parser_match(ctx);
             if (p_expression_node->constant_value)
             {
-                p_expression_node->left = expression(ctx, error, ectx);
+                p_expression_node->left = expression(ctx, error);
                 if (error->code != 0)
                     throw;
 
                 parser_match(ctx); //:
-                struct expression_ctx temp = { 0 };
-                conditional_expression(ctx, error, &temp);
+                
+                conditional_expression(ctx, error);
             }
             else
-            {
-                struct expression_ctx temp = { 0 };
-                p_expression_node->left = expression(ctx, error, &temp);
+            {                
+                p_expression_node->left = expression(ctx, error);
                 if (error->code != 0)
                     throw;
 
                 parser_match(ctx); //:
-                p_expression_node->right = conditional_expression(ctx, error, ectx);
+                p_expression_node->right = conditional_expression(ctx, error);
                 if (error->code != 0)
                     throw;
             }
@@ -2553,13 +2549,19 @@ struct expression* conditional_expression(struct parser_ctx* ctx, struct error* 
     return p_expression_node;
 }
 
-struct expression* constant_expression(struct parser_ctx* ctx, struct error* error, struct expression_ctx* ectx)
+struct expression* constant_expression(struct parser_ctx* ctx, struct error* error)
 {
     if (error->code != 0)
         return NULL;
 
-    ectx->constant_expression_required = true;
-    return conditional_expression(ctx, error, ectx);
+    const bool old = ctx->constant_expression_required;
+    ctx->constant_expression_required = true;
+
+    struct expression* p_expression = conditional_expression(ctx, error);
+
+    ctx->constant_expression_required = old;
+
+    return p_expression;
 }
 
 
@@ -2582,8 +2584,8 @@ struct type type_make_using_string(const char* expr)
     parser_ctx.current = parser_ctx.input_list.head;
     parser_skip_blanks(&parser_ctx);
 
-    struct expression_ctx expression_ctx = { .constant_expression_required = true };
-    struct expression* expression = conditional_expression(&parser_ctx, &error, &expression_ctx);
+    
+    struct expression* expression = conditional_expression(&parser_ctx, &error);
     assert(error.code == 0);
     return expression->type;
 }
@@ -2603,9 +2605,8 @@ int test_constant_expression(const char* expr, int result)
     parser_ctx.input_list = input;
     parser_ctx.current = parser_ctx.input_list.head;
     parser_skip_blanks(&parser_ctx);
-
-    struct expression_ctx expression_ctx = { .constant_expression_required = true };
-    struct expression* expression = constant_expression(&parser_ctx, &error, &expression_ctx);
+    
+    struct expression* expression = constant_expression(&parser_ctx, &error);
 
     return expression->constant_value == result ? 0 : 1;
 }
