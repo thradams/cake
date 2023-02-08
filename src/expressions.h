@@ -75,13 +75,6 @@ enum expression_type
     ASSIGNMENT_EXPRESSION,
 };
 
-
-enum expression_flags
-{
-    EXPRESSION_NONE = 0,
-    CONSTANT_EXPRESSION_FLAG = 1 << 0
-};
-
 struct argument_expression_list
 {
     /*
@@ -142,7 +135,6 @@ struct generic_selection
 struct expression
 {
     enum expression_type expression_type;
-    enum expression_flags flags;
     struct type type;
 
 
