@@ -223,6 +223,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
 
 void type_remove_qualifiers(struct type* p_type)
 {
+    //TODO visit_declarator_to_remove_qualifier
     p_type->type_qualifier_flags = TYPE_QUALIFIER_NONE;
 }
 

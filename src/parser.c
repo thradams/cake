@@ -2219,24 +2219,21 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
         p_typeof_specifier->typeof_specifier_argument = typeof_specifier_argument(ctx);
         if (p_typeof_specifier->typeof_specifier_argument == NULL) throw;
 
+        if (p_typeof_specifier->typeof_specifier_argument->expression)
+        {
+            p_typeof_specifier->type = type_copy(&p_typeof_specifier->typeof_specifier_argument->expression->type);
+        }
+        else if (p_typeof_specifier->typeof_specifier_argument->type_name)
+        {
+            p_typeof_specifier->type = type_copy(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+        }
+
         if (is_typeof_unqual)
         {
-            /*
-             TODO incomplete bug page 115 std
-            */
-
-            /*let's remove qualifiers*/
-            if (p_typeof_specifier->typeof_specifier_argument->expression)
-            {
-                p_typeof_specifier->typeof_specifier_argument->expression->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
-                p_typeof_specifier->typeof_specifier_argument->expression->declarator->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
-            }
-            else if (p_typeof_specifier->typeof_specifier_argument->type_name)
-            {
-                p_typeof_specifier->typeof_specifier_argument->type_name->declarator->specifier_qualifier_list->type_qualifier_flags = TYPE_QUALIFIER_NONE;
-                p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type.type_qualifier_flags = TYPE_QUALIFIER_NONE;
-            }
+            type_remove_qualifiers(&p_typeof_specifier->type);
         }
+        
+
         p_typeof_specifier->last_token = ctx->current;
         parser_match_tk(ctx, ')');
     }

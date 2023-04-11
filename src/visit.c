@@ -491,7 +491,7 @@ static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_lis
     struct initializer* p_initializer = p_initializer_list->head;
     while (p_initializer)
     {
-        visit_initializer(ctx, p_initializer);        
+        visit_initializer(ctx, p_initializer);
         p_initializer = p_initializer->next;
     }
 }
@@ -592,7 +592,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     switch (p_expression->expression_type)
     {
     case PRIMARY_IDENTIFIER:
-        break;    
+        break;
     case PRIMARY_EXPRESSION_ENUMERATOR:
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
@@ -713,11 +713,11 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
 
-            
+
             struct token_list l3 = tokenizer(&tctx, "\n\n", NULL, 0, TK_FLAG_NONE);
             token_list_append_list(&ctx->insert_before_declaration, &l3);
 
-            
+
             struct token_list l2 = tokenizer(&tctx, name, NULL, 0, TK_FLAG_FINAL);
             token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l2);
         }
@@ -764,7 +764,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             visit_type_name(ctx, p_expression->type_name);
         }
         break;
-        
+
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
@@ -804,7 +804,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         }
         break;
 
-    
+
     case CAST_EXPRESSION:
     case ASSIGNMENT_EXPRESSION:
     case MULTIPLICATIVE_EXPRESSION_MULT:
@@ -922,11 +922,11 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "goto _catch_label_%d;", p_jump_statement->try_catch_block_index);
             ss_fprintf(&ss, "}");
             free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str; 
+            p_jump_statement->token->lexeme = ss.c_str;
             _del_attr(ss, MUST_DESTROY); /*MOVED*/
 
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
-            
+
         }
         else
         {
@@ -950,7 +950,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "return");
             free(p_jump_statement->token->lexeme);
-            
+
             p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
             ss.c_str = NULL; /*MOVED*/
 
@@ -1236,7 +1236,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
              * We need to convert types for instance _Bool to int or nullptr_t to void *
              */
 
-            struct type lvalue_type = 
+            struct type lvalue_type =
                 type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
 
             struct type new_type = type_convert_to(&lvalue_type, ctx->target);
@@ -1276,7 +1276,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             * This declarator is using typeof, so we need to print its real type
             */
 
-            
+
             struct osstream ss = { 0 };
             print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
             struct tokenizer_ctx tctx = { 0 };
@@ -1304,15 +1304,15 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
             struct type new_type = type_convert_to(&lvalue_type, ctx->target);
 
-            
+
 
             struct osstream ss = { 0 };
             /*let's fix the declarator that is using auto*/
             if (new_type.declarator_type)
             {
-                
-                new_type.declarator_type->direct_declarator_type = calloc(1, sizeof (struct direct_declarator_type));
-                
+
+                new_type.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
+
                 if (p_init_declarator->declarator &&
                     p_init_declarator->declarator->direct_declarator &&
                     p_init_declarator->declarator->direct_declarator->name_opt)
@@ -1331,7 +1331,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
                 /*let's hide the old declarator*/
                 token_range_add_flag(p_init_declarator->declarator->first_token,
-                    p_init_declarator->declarator->last_token, TK_FLAG_HIDE);             
+                    p_init_declarator->declarator->last_token, TK_FLAG_HIDE);
             }
             ss_close(&ss);
             type_destroy(&new_type);
@@ -1449,7 +1449,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 ctx->capture_index++;
 
                 free(p_complete->tagtoken->lexeme);
-                p_complete->tagtoken->lexeme =strdup(newtag);
+                p_complete->tagtoken->lexeme = strdup(newtag);
                 p_complete->visit_moved = 1;
             }
         }
@@ -1519,74 +1519,44 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
 
                 struct osstream ss = { 0 };
 
-                if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression)
+
+                if (!is_declaration)
                 {
-                    if (!is_declaration)
-                    {
-                        /*
-                        * typeof used like type-name
-                        * for instance sizeof(typeof(a)) -> sizeof(int [2])
-                        */
-
-                        /*we don't print declarator name here  - better way/place to do it?*/
-                        //free(p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt);
-                        //p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.declarator_name_opt = NULL;
-
-                        print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
-                    }
-                    else
-                    {
-                        /*
-                        * typeof used in declarations
-                        * We need to split specifiers and later add declarator part.
-                        */
-                        print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type);
-                    }
-
                     /*
-                    * typeof of anonymous struct?
+                    * typeof used like type-name
+                    * for instance sizeof(typeof(a)) -> sizeof(int [2])
                     */
-                    if (p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier &&
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag)
-                    {
-
-                        p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->has_anonymous_tag = false;
-
-                        struct token* first = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->first_token;
-
-                        const char* tag = p_type_specifier->typeof_specifier->typeof_specifier_argument->expression->type.struct_or_union_specifier->tag_name;
-                        char buffer[200] = { 0 };
-                        snprintf(buffer, sizeof buffer, " %s", tag);
-                        struct tokenizer_ctx tctx = { 0 };
-                        struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                        token_list_insert_after(&ctx->ast.token_list, first, &l2);
-
-                    }
-
-                }
-                else if (p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name)
-                {
-                    if (!is_declaration)
-                    {
-                        /*
-                        * typeof used like type-name
-                        * for instance sizeof(typeof(a)) -> sizeof(int [2])
-                        */
-                        print_type(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
-                    }
-                    else
-                    {
-                        /*
-                        * typeof used in declarations
-                        * We need to split specifiers and later add declarator part.
-                        */
-                        print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
-                    }
+                    print_type(&ss, &p_type_specifier->typeof_specifier->type);
                 }
                 else
                 {
-                    assert(false);
+                    /*
+                    * typeof used in declarations
+                    * We need to split specifiers and later add declarator part.
+                    */
+                    print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->type);
                 }
+
+                /*
+                * typeof of anonymous struct?
+                */
+                if (p_type_specifier->typeof_specifier->type.struct_or_union_specifier &&
+                    p_type_specifier->typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag)
+                {
+
+                    p_type_specifier->typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag = false;
+
+                    struct token* first = p_type_specifier->typeof_specifier->type.struct_or_union_specifier->first_token;
+
+                    const char* tag = p_type_specifier->typeof_specifier->type.struct_or_union_specifier->tag_name;
+                    char buffer[200] = { 0 };
+                    snprintf(buffer, sizeof buffer, " %s", tag);
+                    struct tokenizer_ctx tctx = { 0 };
+                    struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
+                    token_list_insert_after(&ctx->ast.token_list, first, &l2);
+
+                }
+
 
 
                 struct tokenizer_ctx tctx = { 0 };
@@ -1776,7 +1746,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 struct token_list list0 = tokenizer(&tctx, "struct ", NULL, 0, TK_FLAG_FINAL);
                 token_list_append_list(&ctx->insert_before_declaration, &list0);
 
-                
+
                 struct token_list list = tokenizer(&tctx, p_declaration->declaration_specifiers->struct_or_union_specifier->tagtoken->lexeme, NULL, 0, TK_FLAG_FINAL);
                 token_list_append_list(&ctx->insert_before_declaration, &list);
 

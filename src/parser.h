@@ -286,6 +286,7 @@ struct typeof_specifier
     struct token* first_token;
     struct token* last_token;
     struct typeof_specifier_argument* typeof_specifier_argument;
+    struct type type;
 };
 
 struct type_specifier
