@@ -1217,6 +1217,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
     struct init_declarator* p_init_declarator = p_init_declarator_list->head;
 
     if (!ctx->is_second_pass &&
+        ctx->target < LANGUAGE_C2X &&
         p_init_declarator &&
         p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
     {
@@ -1268,6 +1269,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
     {
 
         if (!ctx->is_second_pass &&
+            ctx->target < LANGUAGE_C2X &&
             p_init_declarator->declarator->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
         {
             /*
@@ -1291,6 +1293,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         }
 
         if (!ctx->is_second_pass &&
+            ctx->target < LANGUAGE_C2X &&
             p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
             /*

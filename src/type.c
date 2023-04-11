@@ -234,9 +234,9 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
     case TYPE_CATEGORY_FUNCTION:
     {
-        struct type t = get_function_return_type(p_type);
+        struct type t = get_address_of_type(p_type);        
         type_remove_qualifiers(&t);
-        return t;
+        return t;        
     }
 
     case TYPE_CATEGORY_ARRAY:

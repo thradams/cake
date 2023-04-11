@@ -1,4 +1,2 @@
-int main(void)
-{
-    auto a = nullptr;
-}
+extern int func(void);
+auto f = func;

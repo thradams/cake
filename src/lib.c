@@ -13425,9 +13425,9 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
     case TYPE_CATEGORY_FUNCTION:
     {
-        struct type t = get_function_return_type(p_type);
+        struct type t = get_address_of_type(p_type);        
         type_remove_qualifiers(&t);
-        return t;
+        return t;        
     }
 
     case TYPE_CATEGORY_ARRAY:
@@ -23301,6 +23301,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
     struct init_declarator* p_init_declarator = p_init_declarator_list->head;
 
     if (!ctx->is_second_pass &&
+        ctx->target < LANGUAGE_C2X &&
         p_init_declarator &&
         p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
     {
@@ -23352,6 +23353,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
     {
 
         if (!ctx->is_second_pass &&
+            ctx->target < LANGUAGE_C2X &&
             p_init_declarator->declarator->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
         {
             /*
@@ -23375,6 +23377,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         }
 
         if (!ctx->is_second_pass &&
+            ctx->target < LANGUAGE_C2X &&
             p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
             /*
