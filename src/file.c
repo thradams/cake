@@ -1,3 +1,8 @@
-double d = 1.123;
-//const auto c = d;
-const auto c2 = &d;
+int  main()
+{
+    char s[2];
+    _Generic(s,
+        char* : "char*",
+        char[2] : "char [2]",
+            default: "?");
+}

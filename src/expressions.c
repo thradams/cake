@@ -311,6 +311,7 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
 
         p_generic_selection->first_token = ctx->current;
 
+        
 
         parser_match_tk(ctx, TK_KEYWORD__GENERIC);
         parser_match_tk(ctx, '(');
@@ -323,12 +324,15 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
 
         p_generic_selection->generic_assoc_list = generic_association_list(ctx);
 
+        struct type lvalue_type = type_lvalue_conversion(&p_generic_selection->expression->type);
+
+
         struct generic_association* current = p_generic_selection->generic_assoc_list.head;
         while (current)
         {
             if (current->p_type_name)
             {
-                if (type_is_same(&p_generic_selection->expression->type, &current->type, true))
+                if (type_is_same(&lvalue_type, &current->type, true))
                 {
                     p_generic_selection->p_view_selected_expression = current->expression;
                     break;
@@ -344,6 +348,7 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
 
         p_generic_selection->last_token = ctx->current;
         parser_match_tk(ctx, ')');
+        type_destroy(&lvalue_type);
     }
     catch
     {
