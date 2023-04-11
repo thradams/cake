@@ -8297,7 +8297,7 @@ enum type_specifier_flags
     
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
-    TYPE_SPECIFIER_NULLPTR = 1 << 24,
+    TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
 };
 
 enum type_qualifier_flags
@@ -8418,6 +8418,10 @@ bool type_is_nodiscard(struct type* p_type);
 bool type_is_destroy(struct type* p_type);
 bool type_is_deprecated(struct type* p_type);
 bool type_is_maybe_unused(struct type* p_type);
+struct type type_convert_to(struct type* p_type, enum language_version target);
+struct type type_lvalue_conversion(struct type* p_type);
+void type_remove_qualifiers(struct type* p_type);
+
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
 struct type get_pointer_content_type(struct type* p_type);
@@ -8519,13 +8523,6 @@ enum expression_type
     ASSIGNMENT_EXPRESSION,
 };
 
-
-enum expression_flags
-{
-    EXPRESSION_NONE = 0,
-    CONSTANT_EXPRESSION_FLAG = 1 << 0
-};
-
 struct argument_expression_list
 {
     /*
@@ -8586,7 +8583,6 @@ struct generic_selection
 struct expression
 {
     enum expression_type expression_type;
-    enum expression_flags flags;
     struct type type;
 
 
@@ -10470,7 +10466,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->is_constant = true;
 
             /*TODO nullptr type*/
-            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
             p_expression_node->type.type_qualifier_flags = 0;
             p_expression_node->type.declarator_type = NULL;
 
@@ -13264,6 +13260,9 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
         print_item(ss, first, "_Decimal128");
 
+    if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
+        print_item(ss, first, "nullptr_t");
+
     return first;
 }
 
@@ -13411,6 +13410,74 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
     {
         print_type_specifier_flags(ss, &first, type->type_specifier_flags);
     }
+}
+
+void type_remove_qualifiers(struct type* p_type)
+{
+    p_type->type_qualifier_flags = TYPE_QUALIFIER_NONE;
+}
+
+struct type type_lvalue_conversion(struct type* p_type)
+{
+
+    enum type_category category = find_type_category(p_type);
+    switch (category)
+    {
+    case TYPE_CATEGORY_FUNCTION:
+    {
+        struct type t = get_function_return_type(p_type);
+        type_remove_qualifiers(&t);
+        return t;
+    }
+
+    case TYPE_CATEGORY_ARRAY:
+    {
+        struct type t = get_array_item_type(p_type);
+        struct type t2 = get_address_of_type(&t);
+        type_remove_qualifiers(&t);
+        type_destroy(&t);
+        return t2;
+    }
+
+    case TYPE_CATEGORY_POINTER:
+    case TYPE_CATEGORY_ITSELF:
+    default:
+        break;
+    }
+
+    struct type t = type_copy(p_type);
+    type_remove_qualifiers(&t);
+    return t;
+}
+
+struct type type_convert_to(struct type* p_type, enum language_version target)
+{
+    /*
+    * Convert types to previous standard format
+    */
+    struct type t = type_copy(p_type);
+    if (t.type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
+    {
+        if (target < LANGUAGE_C2X)
+        {
+            t.type_specifier_flags &= ~TYPE_SPECIFIER_NULLPTR_T;
+            t.type_specifier_flags |= TYPE_SPECIFIER_VOID;
+
+            struct pointer* p_pointer = calloc(1, sizeof(struct pointer));
+            t.declarator_type = calloc(1, sizeof(struct declarator_type));
+            list_add(&t.declarator_type->pointers, p_pointer);
+        }
+    }
+    else if (t.type_specifier_flags & TYPE_SPECIFIER_BOOL)
+    {
+        if (target < LANGUAGE_C99)
+        {
+            t.type_specifier_flags &= ~TYPE_SPECIFIER_BOOL;
+            t.type_specifier_flags |= TYPE_SPECIFIER_INT;
+        }
+    }
+
+    return t;
 }
 
 void print_type(struct osstream* ss, struct type* type)
@@ -13621,7 +13688,7 @@ bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         if (p_attribute_specifier_sequence_opt == NULL && p_complete)
-        {        
+        {
             p_attribute_specifier_sequence_opt = p_complete->attribute_specifier_sequence_opt;
         }
     }
@@ -13707,8 +13774,8 @@ bool type_is_struct_or_union(struct type* p_type)
 }
 
 /*
-  The three types 
-  char, signed char, and unsigned char 
+  The three types
+  char, signed char, and unsigned char
   are collectively called the character types.
 */
 bool type_is_character(struct type* p_type)
@@ -13731,8 +13798,8 @@ bool type_is_void(struct type* p_type)
     return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
 }
 
-/*  
- There are three standard floating types, designated as 
+/*
+ There are three standard floating types, designated as
  float, double, and long double.
 
  There are three decimal floating types, designated as _Decimal32, _Decimal64, and _Decimal128.
@@ -13749,9 +13816,9 @@ bool type_is_floating_point(struct type* p_type)
 
 
 /*
-  The type char, the signed and unsigned integer types, 
-  and the enumerated types 
-  are collectively  called integer types.   
+  The type char, the signed and unsigned integer types,
+  and the enumerated types
+  are collectively  called integer types.
 */
 bool type_is_integer(struct type* p_type)
 {
@@ -13792,7 +13859,7 @@ bool type_is_arithmetic(struct type* p_type)
 }
 
 /*
- Arithmetic types, pointer types, and the nullptr_t type are collectively 
+ Arithmetic types, pointer types, and the nullptr_t type are collectively
  called scalar types.
 */
 bool type_is_scalar(struct type* p_type)
@@ -13806,7 +13873,7 @@ bool type_is_scalar(struct type* p_type)
     if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
-    return p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR;
+    return p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T;
 }
 
 bool type_is_compatible(struct type* expression_type, struct type* return_type)
@@ -13981,7 +14048,7 @@ void array_declarator_type_delete(struct array_declarator_type* p)
 }
 
 static void visit_declarator_to_remove_array(int* removed, struct declarator_type* declarator);
-static void visit_direct_declarator_to_remove_array(int *removed, struct direct_declarator_type* p_direct_declarator_type)
+static void visit_direct_declarator_to_remove_array(int* removed, struct direct_declarator_type* p_direct_declarator_type)
 {
     if (p_direct_declarator_type->declarator_opt)
         visit_declarator_to_remove_array(removed, p_direct_declarator_type->declarator_opt);
@@ -13991,7 +14058,7 @@ static void visit_direct_declarator_to_remove_array(int *removed, struct direct_
         if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
         {
             visit_direct_declarator_to_remove_array(removed, p_direct_declarator_type->function_declarator_type->direct_declarator_type);
-        }        
+        }
     }
 
     if (p_direct_declarator_type->array_declarator_type)
@@ -14002,21 +14069,21 @@ static void visit_direct_declarator_to_remove_array(int *removed, struct direct_
         }
 
         if (*removed == false)
-        {            
-            array_declarator_type_delete(p_direct_declarator_type->array_declarator_type);            
+        {
+            array_declarator_type_delete(p_direct_declarator_type->array_declarator_type);
             p_direct_declarator_type->array_declarator_type = NULL;
             *removed = true;
         }
     }
 }
 
-static void visit_declarator_to_remove_array(int *removed, struct declarator_type* declarator)
+static void visit_declarator_to_remove_array(int* removed, struct declarator_type* declarator)
 {
     if (declarator == NULL)
         return;
 
     if (declarator->direct_declarator_type)
-        visit_direct_declarator_to_remove_array(removed, declarator->direct_declarator_type);    
+        visit_direct_declarator_to_remove_array(removed, declarator->direct_declarator_type);
 }
 
 
@@ -14125,6 +14192,10 @@ int type_get_rank(struct type* p_type1)
         (p_type1->type_specifier_flags & TYPE_SPECIFIER_INT32))
     {
         rank = 50;
+    }
+    else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T))
+    {
+        rank = 50; //?
     }
     else if ((p_type1->type_specifier_flags & TYPE_SPECIFIER_FLOAT))
     {
@@ -14276,7 +14347,7 @@ static void visit_direct_declarator_to_set_array_size(int* array_size, struct di
         }
 
         if (*array_size == 0)
-        {            
+        {
             *array_size = 1;
             p_direct_declarator_type->array_declarator_type->constant_size = size;
         }
@@ -14384,7 +14455,7 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
                     int Value;
                 };
             };
-            static_assert(alignof(struct X) == 1);                        
+            static_assert(alignof(struct X) == 1);
             */
 
             /*so we create a type using only specifiers*/
@@ -14404,7 +14475,7 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
             if (temp_align > align)
             {
                 align = temp_align;
-            }            
+            }
 
             type_destroy(&type);
         }
@@ -14415,7 +14486,7 @@ int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_unio
 }
 
 int type_get_alignof(struct type* p_type)
-{    
+{
     int align = 0;
 
     enum type_category category = find_type_category(p_type);
@@ -14521,7 +14592,7 @@ int type_get_alignof(struct type* p_type)
     else if (category == TYPE_CATEGORY_ARRAY)
     {
 
-        struct type type = get_array_item_type(p_type);        
+        struct type type = get_array_item_type(p_type);
         align = type_get_alignof(&type);
         type_destroy(&type);
     }
@@ -14531,7 +14602,7 @@ int type_get_alignof(struct type* p_type)
 
 
 int type_get_sizeof(struct type* p_type)
-{    
+{
     int size = 0;
 
     enum type_category category = find_type_category(p_type);
@@ -14703,7 +14774,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
 
             struct struct_or_union_specifier* p_complete =
                 get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-            
+
             if (p_complete)
             {
                 struct token* current = p_complete->first_token;
@@ -14747,7 +14818,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
             }
             else
             {
-                parser_seterror_with_token(ctx, 
+                parser_seterror_with_token(ctx,
                     ctx->current,
                     "invalid application of 'sizeof' to a void type");
                 throw;
@@ -23243,7 +23314,18 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         if (p_init_declarator->initializer->assignment_expression)
         {
             struct osstream ss0 = { 0 };
-            print_type_qualifier_specifiers(&ss0, &p_init_declarator->initializer->assignment_expression->type);
+
+            /*
+             * We need to convert types for instance _Bool to int or nullptr_t to void *
+             */
+
+            struct type lvalue_type = 
+                type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
+
+            struct type new_type = type_convert_to(&lvalue_type, ctx->target);
+
+
+            print_type_qualifier_specifiers(&ss0, &new_type);
 
             struct declaration_specifier* p = p_init_declarator->declarator->declaration_specifiers->head;
             while (p)
@@ -23259,6 +23341,8 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
                 }
                 p = p->next;
             }
+            type_destroy(&new_type);
+            type_destroy(&lvalue_type);
             ss_close(&ss0);
         }
     }
@@ -23293,11 +23377,34 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         if (!ctx->is_second_pass &&
             p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
+            /*
+            *  Types may change when compiling to previous versions
+            */
+            struct type lvalue_type =
+                type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
+
+            struct type new_type = type_convert_to(&lvalue_type, ctx->target);
+
+            
+
             struct osstream ss = { 0 };
             /*let's fix the declarator that is using auto*/
-            if (p_init_declarator->initializer->assignment_expression->type.declarator_type)
+            if (new_type.declarator_type)
             {
-                print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
+                
+                new_type.declarator_type->direct_declarator_type = calloc(1, sizeof (struct direct_declarator_type));
+                
+                if (p_init_declarator->declarator &&
+                    p_init_declarator->declarator->direct_declarator &&
+                    p_init_declarator->declarator->direct_declarator->name_opt)
+                {
+                    /*We need to copy the name*/
+                    new_type.declarator_type->direct_declarator_type->name_opt =
+                        strdup(p_init_declarator->declarator->direct_declarator->name_opt->lexeme);
+                }
+
+                print_declarator_type(&ss, new_type.declarator_type);
+
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
                 l2.head->flags = p_init_declarator->declarator->first_token->flags;
@@ -23305,9 +23412,11 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
                 /*let's hide the old declarator*/
                 token_range_add_flag(p_init_declarator->declarator->first_token,
-                    p_init_declarator->declarator->last_token, TK_FLAG_HIDE);
+                    p_init_declarator->declarator->last_token, TK_FLAG_HIDE);             
             }
             ss_close(&ss);
+            type_destroy(&new_type);
+            type_destroy(&lvalue_type);
         }
 
 

@@ -65,7 +65,7 @@ enum type_specifier_flags
     
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
-    TYPE_SPECIFIER_NULLPTR = 1 << 24,
+    TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
 };
 
 enum type_qualifier_flags
@@ -186,6 +186,10 @@ bool type_is_nodiscard(struct type* p_type);
 bool type_is_destroy(struct type* p_type);
 bool type_is_deprecated(struct type* p_type);
 bool type_is_maybe_unused(struct type* p_type);
+struct type type_convert_to(struct type* p_type, enum language_version target);
+struct type type_lvalue_conversion(struct type* p_type);
+void type_remove_qualifiers(struct type* p_type);
+
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
 struct type get_pointer_content_type(struct type* p_type);

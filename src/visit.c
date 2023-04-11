@@ -1230,7 +1230,18 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         if (p_init_declarator->initializer->assignment_expression)
         {
             struct osstream ss0 = { 0 };
-            print_type_qualifier_specifiers(&ss0, &p_init_declarator->initializer->assignment_expression->type);
+
+            /*
+             * We need to convert types for instance _Bool to int or nullptr_t to void *
+             */
+
+            struct type lvalue_type = 
+                type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
+
+            struct type new_type = type_convert_to(&lvalue_type, ctx->target);
+
+
+            print_type_qualifier_specifiers(&ss0, &new_type);
 
             struct declaration_specifier* p = p_init_declarator->declarator->declaration_specifiers->head;
             while (p)
@@ -1246,6 +1257,8 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
                 }
                 p = p->next;
             }
+            type_destroy(&new_type);
+            type_destroy(&lvalue_type);
             ss_close(&ss0);
         }
     }
@@ -1280,11 +1293,34 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         if (!ctx->is_second_pass &&
             p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
+            /*
+            *  Types may change when compiling to previous versions
+            */
+            struct type lvalue_type =
+                type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
+
+            struct type new_type = type_convert_to(&lvalue_type, ctx->target);
+
+            
+
             struct osstream ss = { 0 };
             /*let's fix the declarator that is using auto*/
-            if (p_init_declarator->initializer->assignment_expression->type.declarator_type)
+            if (new_type.declarator_type)
             {
-                print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
+                
+                new_type.declarator_type->direct_declarator_type = calloc(1, sizeof (struct direct_declarator_type));
+                
+                if (p_init_declarator->declarator &&
+                    p_init_declarator->declarator->direct_declarator &&
+                    p_init_declarator->declarator->direct_declarator->name_opt)
+                {
+                    /*We need to copy the name*/
+                    new_type.declarator_type->direct_declarator_type->name_opt =
+                        strdup(p_init_declarator->declarator->direct_declarator->name_opt->lexeme);
+                }
+
+                print_declarator_type(&ss, new_type.declarator_type);
+
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
                 l2.head->flags = p_init_declarator->declarator->first_token->flags;
@@ -1292,9 +1328,11 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
                 /*let's hide the old declarator*/
                 token_range_add_flag(p_init_declarator->declarator->first_token,
-                    p_init_declarator->declarator->last_token, TK_FLAG_HIDE);
+                    p_init_declarator->declarator->last_token, TK_FLAG_HIDE);             
             }
             ss_close(&ss);
+            type_destroy(&new_type);
+            type_destroy(&lvalue_type);
         }
 
 

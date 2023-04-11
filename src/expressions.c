@@ -625,7 +625,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->is_constant = true;
 
             /*TODO nullptr type*/
-            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_LONG;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
             p_expression_node->type.type_qualifier_flags = 0;
             p_expression_node->type.declarator_type = NULL;
 

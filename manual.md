@@ -641,6 +641,7 @@ int main()
 }
 ```
 
+https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
 ### C23 bool true false
 
