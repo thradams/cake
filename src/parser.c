@@ -2038,6 +2038,15 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 if (p_init_declarator->initializer &&
                     p_init_declarator->initializer->assignment_expression)
                 {
+
+                    
+                    bool bAddressOfExpression = false;
+
+                    if (p_init_declarator->initializer->assignment_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+                    {
+                        bAddressOfExpression = true;
+                    }
+
                     struct type t = type_copy(&p_init_declarator->initializer->assignment_expression->type);
 
                     if (p_init_declarator->declarator->pointer != NULL)
@@ -2065,9 +2074,24 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     }
 
                     struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, p_init_declarator->declarator);
+                    
                     declarator_type_merge(dectype, t.declarator_type);
-                    p_init_declarator->declarator->type = t; /*MOVED*/
+                    if (t.declarator_type == NULL)
+                    {
+                        t.declarator_type = calloc(1, sizeof(struct declarator_type));
+                        t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
+                        t.declarator_type->direct_declarator_type->name_opt = strdup(p_init_declarator->declarator->name->lexeme);                        
+                    }
 
+                    if (bAddressOfExpression)
+                    {
+                        p_init_declarator->declarator->type = t; /*MOVED*/
+                    }
+                    else
+                    {
+                        p_init_declarator->declarator->type = type_lvalue_conversion(&t);
+                        type_destroy(&t);
+                    }                    
                 }
             }
         }
@@ -6414,6 +6438,20 @@ void test_compiler_constant_expression()
         ;
 
     assert(compile_without_errors(source));    
+}
+
+void auto_test()
+{
+    //_is_same has a bug and does not ignore extra ( ) 
+    const char* source =
+        "int main()"
+        "{"
+        "  auto s = \"test\";\n"
+        "  static_assert(_is_same(typeof(s), char (*)));\n"        
+        "}"
+        ;
+
+    assert(compile_without_errors(source));
 }
 
 

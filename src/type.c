@@ -304,6 +304,16 @@ struct type type_convert_to(struct type* p_type, enum language_version target)
 
             struct pointer* p_pointer = calloc(1, sizeof(struct pointer));
             t.declarator_type = calloc(1, sizeof(struct declarator_type));
+            t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
+            
+            if (p_type->declarator_type&& 
+                p_type->declarator_type->direct_declarator_type &&
+                p_type->declarator_type->direct_declarator_type->name_opt)
+            {
+                /*let´s copy the name*/
+                t.declarator_type->direct_declarator_type->name_opt = strdup(p_type->declarator_type->direct_declarator_type->name_opt);
+            }
+
             list_add(&t.declarator_type->pointers, p_pointer);
         }
     }
@@ -1922,6 +1932,23 @@ void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct d
         =>int* [1]
 
         */
+        
+        
+        if (
+            p_typedef_decl0->direct_declarator_type &&
+            p_typedef_decl0->direct_declarator_type->function_declarator_type &&
+            p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type &&
+            p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt)
+        {
+            /*
+              extern int func(void);
+              auto f = func;
+              was repeating "func"
+              int  (* f) func(void) = func;
+            */
+            free(p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt);
+            p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt = NULL;
+        }
 
         if (p_typedef_decl->direct_declarator_type &&
             (p_typedef_decl->direct_declarator_type->array_declarator_type ||

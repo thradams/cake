@@ -1221,10 +1221,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         p_init_declarator &&
         p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
     {
-
-        bool bConstant =
-            p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
-
         /*
          * auto storage specifier
          * We assume all init declarator have the same type specifier.
@@ -1237,40 +1233,10 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             struct osstream ss0 = { 0 };
 
             /*
+             * The "final result" of auto is already on declarator->type.             
              * We need to convert types for instance _Bool to int or nullptr_t to void *
              */
-
-            struct type lvalue_type =
-                type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
-            
-            
-            struct type new_type = type_convert_to(&lvalue_type, ctx->target);
-
-            if (bConstant)
-            {                
-                /*
-                * We need to hide const qualifier
-                * double d = 1.2;
-                * auto const c = d
-                * 
-                * const double c = 1.2;
-                */
-                struct declaration_specifier* p =
-                    p_init_declarator->declarator->declaration_specifiers->head;
-                while (p != NULL)
-                {
-                    if (p->type_specifier_qualifier && 
-                        p->type_specifier_qualifier->type_qualifier &&
-                        p->type_specifier_qualifier->type_qualifier->flags & TYPE_QUALIFIER_CONST)
-                    {
-                        p->type_specifier_qualifier->type_qualifier->token->flags |= TK_FLAG_HIDE;
-                    }
-                    p = p->next;
-                }
-                
-                /*we add const to result*/
-                type_add_const(&new_type);
-            }
+            struct type new_type = type_convert_to(&p_init_declarator->declarator->type, ctx->target);
 
             print_type_qualifier_specifiers(&ss0, &new_type);
 
@@ -1289,7 +1255,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
                 p = p->next;
             }
             type_destroy(&new_type);
-            type_destroy(&lvalue_type);
+
             ss_close(&ss0);
         }
     }
@@ -1308,6 +1274,8 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
             struct osstream ss = { 0 };
             print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
+            /*TODO convert type?*/
+
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
 
@@ -1325,47 +1293,16 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             ctx->target < LANGUAGE_C2X &&
             p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
-
-            bool bConstant =
-                p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
-
-
             /*
             *  Types may change when compiling to previous versions
             */
-            struct type lvalue_type =
-                type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
 
-            struct type new_type = type_convert_to(&lvalue_type, ctx->target);
-
-            if (bConstant)
-            {
-
-               /*we add const to result*/
-                type_add_const(&new_type);
-            }
+            struct type new_type = type_convert_to(&p_init_declarator->declarator->type, ctx->target);
 
             struct osstream ss = { 0 };
             /*let's fix the declarator that is using auto*/
             if (new_type.declarator_type)
             {
-
-                struct declarator_type* p = find_inner_declarator(new_type.declarator_type);
-                
-
-                if (p && 
-                    p_init_declarator->declarator &&
-                    p_init_declarator->declarator->direct_declarator &&
-                    p_init_declarator->declarator->direct_declarator->name_opt)
-                {
-                    
-                    p->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
-
-                    /*We need to copy the name*/
-                    p->direct_declarator_type->name_opt =
-                        strdup(p_init_declarator->declarator->direct_declarator->name_opt->lexeme);
-                }
-
                 print_declarator_type(&ss, new_type.declarator_type);
 
                 struct tokenizer_ctx tctx = { 0 };
@@ -1379,7 +1316,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             }
             ss_close(&ss);
             type_destroy(&new_type);
-            type_destroy(&lvalue_type);
         }
 
 
