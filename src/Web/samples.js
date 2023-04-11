@@ -2,10 +2,15 @@
 
 sample["C99 _Bool"] =
 `
-//line comments
+//line comments are converted to comments in C89
 int main(void)
 {
-    _Bool b = 1;
+    /*
+       _Bool is converted to int. 
+       Maybe char is better?
+    */
+
+    _Bool b = 1; 
     return 0;
 }
 `;
@@ -15,6 +20,10 @@ sample["C99 Hexadecimal floating constants"] =
 const double d = 0x1p+1;
 const double dmax = 0x1.fffffffffffffp+1023;
 const double dmin = 0x1p-1022;
+
+/*
+  Note : The result may not be so precise as the original
+*/
 `;
 
 
@@ -115,6 +124,15 @@ int main()
     static_assert(1000'00 == 100000);
 }
 
+/*
+  Note:
+  This convesion happens at token level, even not active blocks
+  are converted
+*/
+#if 0
+#define X 100'00
+#endif
+
 `;
 
 sample["C23 Binary Literal"] =
@@ -126,6 +144,12 @@ int main()
     int a = X;
     int b = 0B1010;
 }
+
+/*
+  Note:
+  This convesion happens at token level, even not active blocks
+  are converted
+*/
 `;
 
 
@@ -134,6 +158,8 @@ sample["C23 static_assert"] =
 int main()
 {    
     static_assert(1 == 1, "error");
+    
+    /*message is optional in C23*/
     static_assert(1 == 1);
 }
 `;
@@ -143,7 +169,9 @@ sample["C23 #elifdef  #elifndef"] =
 `
 /*
   C23 preprocessing directives elifdef and elifndef N2645
+  https://open-std.org/jtc1/sc22/wg14/www/docs/n2645.pdf
 */
+
 #define Y
 
 #ifdef X
@@ -193,6 +221,10 @@ sample["C23 _has_include|__has_embed|__has_c_attribute"] =
 #warning at this moment we return 0 for all attributes
 #endif
 
+/*
+  __has_include is a sample of feature that is impossible to translate, 
+  unless for imediate compilation.
+*/
 `;
 
 sample["C23 #embed"] =
@@ -209,6 +241,18 @@ int main()
   printf("%s\\n", file_txt);
 
 }
+
+/* 
+  Note
+  The idea is to have a mode where cake generates a file to 
+  be included like this:
+
+  static const char file_txt[] = {
+   #include "stdio.h.embed"
+   ,0
+  };
+
+*/
 `;
 
 sample["C23 #warning"] =
@@ -217,6 +261,9 @@ sample["C23 #warning"] =
 
 int main()
 {
+  /*
+     We just comment this line when target is < c23
+  */
   #warning TODO ..missing code  
 }
 `;
@@ -465,13 +512,6 @@ int main()
     struct X x = {};
     x_destroy(&x);
 }
-
-
-
-
-
-
-
 
 
 
