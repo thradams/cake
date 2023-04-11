@@ -273,7 +273,7 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
         struct type t = get_array_item_type(p_type);
         struct type t2 = get_address_of_type(&t);
-        type_remove_qualifiers(&t);
+        type_remove_qualifiers(&t2);
         type_destroy(&t);
         return t2;
     }
