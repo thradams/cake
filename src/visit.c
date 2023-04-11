@@ -1304,21 +1304,24 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
             struct type new_type = type_convert_to(&lvalue_type, ctx->target);
 
-
-
             struct osstream ss = { 0 };
             /*let's fix the declarator that is using auto*/
             if (new_type.declarator_type)
             {
 
-                new_type.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
+                struct declarator_type* p = find_inner_declarator(new_type.declarator_type);
+                
 
-                if (p_init_declarator->declarator &&
+                if (p && 
+                    p_init_declarator->declarator &&
                     p_init_declarator->declarator->direct_declarator &&
                     p_init_declarator->declarator->direct_declarator->name_opt)
                 {
+                    
+                    p->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
+
                     /*We need to copy the name*/
-                    new_type.declarator_type->direct_declarator_type->name_opt =
+                    p->direct_declarator_type->name_opt =
                         strdup(p_init_declarator->declarator->direct_declarator->name_opt->lexeme);
                 }
 

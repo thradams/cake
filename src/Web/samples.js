@@ -321,6 +321,9 @@ struct X {int i;} x;
 
 #pragma expand SWAP
 
+extern int func(void);
+auto f = func;
+
 int main()
 {
    auto s = "hello auto";
@@ -334,7 +337,7 @@ int main()
    SWAP(a, b);
 
    auto bb = true;
-   auto p = nullptr;
+   auto pnull = nullptr;
 }
 
 `;
