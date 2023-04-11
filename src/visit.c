@@ -1221,6 +1221,10 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         p_init_declarator &&
         p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
     {
+
+        bool bConstant =
+            p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+
         /*
          * auto storage specifier
          * We assume all init declarator have the same type specifier.
@@ -1238,9 +1242,35 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
             struct type lvalue_type =
                 type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
-
+            
+            
             struct type new_type = type_convert_to(&lvalue_type, ctx->target);
 
+            if (bConstant)
+            {                
+                /*
+                * We need to hide const qualifier
+                * double d = 1.2;
+                * auto const c = d
+                * 
+                * const double c = 1.2;
+                */
+                struct declaration_specifier* p =
+                    p_init_declarator->declarator->declaration_specifiers->head;
+                while (p != NULL)
+                {
+                    if (p->type_specifier_qualifier && 
+                        p->type_specifier_qualifier->type_qualifier &&
+                        p->type_specifier_qualifier->type_qualifier->flags & TYPE_QUALIFIER_CONST)
+                    {
+                        p->type_specifier_qualifier->type_qualifier->token->flags |= TK_FLAG_HIDE;
+                    }
+                    p = p->next;
+                }
+                
+                /*we add const to result*/
+                type_add_const(&new_type);
+            }
 
             print_type_qualifier_specifiers(&ss0, &new_type);
 
@@ -1276,7 +1306,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             * This declarator is using typeof, so we need to print its real type
             */
 
-
             struct osstream ss = { 0 };
             print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
             struct tokenizer_ctx tctx = { 0 };
@@ -1296,6 +1325,11 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             ctx->target < LANGUAGE_C2X &&
             p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
+
+            bool bConstant =
+                p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+
+
             /*
             *  Types may change when compiling to previous versions
             */
@@ -1303,6 +1337,13 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
                 type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
 
             struct type new_type = type_convert_to(&lvalue_type, ctx->target);
+
+            if (bConstant)
+            {
+
+               /*we add const to result*/
+                type_add_const(&new_type);
+            }
 
             struct osstream ss = { 0 };
             /*let's fix the declarator that is using auto*/

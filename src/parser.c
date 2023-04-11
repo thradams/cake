@@ -3161,6 +3161,7 @@ struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx)
 struct type_qualifier* type_qualifier(struct parser_ctx* ctx)
 {    
     struct type_qualifier* p_type_qualifier = calloc(1, sizeof * p_type_qualifier);
+
     switch (ctx->current->type)
     {
     case TK_KEYWORD_CONST:
@@ -3176,6 +3177,9 @@ struct type_qualifier* type_qualifier(struct parser_ctx* ctx)
         p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
         break;
     }
+    
+    p_type_qualifier->token = ctx->current;
+
     //'const'
     //'restrict'
     //'volatile'

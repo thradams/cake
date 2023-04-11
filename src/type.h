@@ -189,6 +189,7 @@ bool type_is_maybe_unused(struct type* p_type);
 struct type type_convert_to(struct type* p_type, enum language_version target);
 struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
+void type_add_const(struct type* p_type);
 
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 

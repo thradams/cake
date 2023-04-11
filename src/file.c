@@ -1,2 +1,3 @@
-extern int func(void);
-auto f = func;
+double d = 1.123;
+//const auto c = d;
+const auto c2 = &d;

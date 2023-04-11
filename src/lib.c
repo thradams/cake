@@ -8421,6 +8421,7 @@ bool type_is_maybe_unused(struct type* p_type);
 struct type type_convert_to(struct type* p_type, enum language_version target);
 struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
+void type_add_const(struct type* p_type);
 
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
@@ -13413,6 +13414,35 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
     }
 }
 
+void type_add_const(struct type* p_type)
+{
+    enum type_category category = find_type_category(p_type);
+    switch (category)
+    {
+    case TYPE_CATEGORY_FUNCTION:
+        assert(false);
+        break;
+    case TYPE_CATEGORY_ARRAY:
+        assert(false);
+        break;
+    case TYPE_CATEGORY_POINTER:
+    {
+        struct declarator_type* p = find_inner_declarator(p_type->declarator_type);
+        if (p)
+        {
+            p->pointers.head->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+        }        
+    }
+    break;
+
+    case TYPE_CATEGORY_ITSELF:
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+        break;
+    default:
+        break;
+    }
+}
+
 void type_remove_qualifiers(struct type* p_type)
 {
     //TODO visit_declarator_to_remove_qualifier
@@ -13427,8 +13457,7 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
     case TYPE_CATEGORY_FUNCTION:
     {
-        struct type t = get_address_of_type(p_type);        
-        
+        struct type t = get_address_of_type(p_type);               
         type_remove_qualifiers(&t);
         return t;        
     }
@@ -18833,6 +18862,7 @@ struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx)
 struct type_qualifier* type_qualifier(struct parser_ctx* ctx)
 {    
     struct type_qualifier* p_type_qualifier = calloc(1, sizeof * p_type_qualifier);
+
     switch (ctx->current->type)
     {
     case TK_KEYWORD_CONST:
@@ -18848,6 +18878,9 @@ struct type_qualifier* type_qualifier(struct parser_ctx* ctx)
         p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
         break;
     }
+    
+    p_type_qualifier->token = ctx->current;
+
     //'const'
     //'restrict'
     //'volatile'
@@ -23305,6 +23338,10 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         p_init_declarator &&
         p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
     {
+
+        bool bConstant =
+            p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+
         /*
          * auto storage specifier
          * We assume all init declarator have the same type specifier.
@@ -23322,9 +23359,35 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
             struct type lvalue_type =
                 type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
-
+            
+            
             struct type new_type = type_convert_to(&lvalue_type, ctx->target);
 
+            if (bConstant)
+            {                
+                /*
+                * We need to hide const qualifier
+                * double d = 1.2;
+                * auto const c = d
+                * 
+                * const double c = 1.2;
+                */
+                struct declaration_specifier* p =
+                    p_init_declarator->declarator->declaration_specifiers->head;
+                while (p != NULL)
+                {
+                    if (p->type_specifier_qualifier && 
+                        p->type_specifier_qualifier->type_qualifier &&
+                        p->type_specifier_qualifier->type_qualifier->flags & TYPE_QUALIFIER_CONST)
+                    {
+                        p->type_specifier_qualifier->type_qualifier->token->flags |= TK_FLAG_HIDE;
+                    }
+                    p = p->next;
+                }
+                
+                /*we add const to result*/
+                type_add_const(&new_type);
+            }
 
             print_type_qualifier_specifiers(&ss0, &new_type);
 
@@ -23360,7 +23423,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             * This declarator is using typeof, so we need to print its real type
             */
 
-
             struct osstream ss = { 0 };
             print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
             struct tokenizer_ctx tctx = { 0 };
@@ -23380,6 +23442,11 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             ctx->target < LANGUAGE_C2X &&
             p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
+
+            bool bConstant =
+                p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+
+
             /*
             *  Types may change when compiling to previous versions
             */
@@ -23388,7 +23455,12 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
             struct type new_type = type_convert_to(&lvalue_type, ctx->target);
 
-            type_print(&new_type);
+            if (bConstant)
+            {
+
+               /*we add const to result*/
+                type_add_const(&new_type);
+            }
 
             struct osstream ss = { 0 };
             /*let's fix the declarator that is using auto*/

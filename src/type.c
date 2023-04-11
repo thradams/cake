@@ -221,6 +221,35 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
     }
 }
 
+void type_add_const(struct type* p_type)
+{
+    enum type_category category = find_type_category(p_type);
+    switch (category)
+    {
+    case TYPE_CATEGORY_FUNCTION:
+        assert(false);
+        break;
+    case TYPE_CATEGORY_ARRAY:
+        assert(false);
+        break;
+    case TYPE_CATEGORY_POINTER:
+    {
+        struct declarator_type* p = find_inner_declarator(p_type->declarator_type);
+        if (p)
+        {
+            p->pointers.head->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+        }        
+    }
+    break;
+
+    case TYPE_CATEGORY_ITSELF:
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+        break;
+    default:
+        break;
+    }
+}
+
 void type_remove_qualifiers(struct type* p_type)
 {
     //TODO visit_declarator_to_remove_qualifier
