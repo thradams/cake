@@ -359,33 +359,50 @@ int main()
 sample["C23 auto"] =
 `
 
-struct X {int i;} x;
 
-#define SWAP(a, b) \\
-  do {\\
-    auto temp = a; a = b; b = temp; \\
-  } while (0)
+/*function sample*/
+extern int func(void);
+auto p_func = func;
+const auto pc_func = func;
+
+/*using auto inside a macro*/
+#define SWAP(a, b)   do {    auto temp = a; a = b; b = temp;   } while (0)
 
 #pragma expand SWAP
 
-extern int func(void);
-auto f = func;
+void f()
+{
+  int a = 1;
+  int b = 2;
+  SWAP(a, b);
+}
+
+auto literal_string = "hello auto";
+
+struct {int i;} x;
+auto x2 = x; /*not working yet*/
+
+auto bb = true;
+auto pnull = nullptr;
+
+/*arrays*/
+int a5[5];
+auto a = a5; /*lvalue*/
+
+auto pa = &a5;
+
+const auto cpa = &a5;
+
 
 int main()
 {
-   auto s = "hello auto";
-
-   auto p = &x;
-   auto *p2 = &x;
-   const auto d = 1.0;
-   static auto c = 2;
-   int a = 1;
-   int b = 2;
-   SWAP(a, b);
-
-   auto bb = true;
-   auto pnull = nullptr;
+  double const x = 78.9;
+  double y = 78.9;
+  auto q = x;
+  auto const p = &x;
+  auto const r = &y;
 }
+
 
 `;
 

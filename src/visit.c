@@ -1230,7 +1230,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         struct tokenizer_ctx tctx = { 0 };
         struct token_list l2 = tokenizer(&tctx, ss0.c_str, NULL, 0, TK_FLAG_NONE);
 
-        l2.head->flags = p_init_declarator->declarator->first_token->flags;
 
         token_list_insert_after(&ctx->ast.token_list,
             p_init_declarator->declarator->declaration_specifiers->last_token,
