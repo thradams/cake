@@ -385,6 +385,8 @@ int main(void)
 }
 ```
 
+Alternative design - typedef ?
+
 ## C99 Improvements of braced-init-list for array, struct and union types 
 
 ```c
@@ -403,6 +405,8 @@ Not
 ###  C11 \_Static\_assert
 
 When compiling to versions C89, C99 \_Static\_Assert is removed
+
+Alternative design - macro ?
 
 ### C11 Anonymous structures and unions
 TODO
@@ -423,6 +427,9 @@ Expected in C99, C89 (not implemented yet)
   abort(); // ok
 }
 ```
+
+Alternative design - macro ?
+
 
 >Note: 
 >C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is 
