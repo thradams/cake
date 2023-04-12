@@ -936,6 +936,7 @@ enum token_type is_keyword(const char* text)
         /*EXPERIMENTAL EXTENSION*/
 
         /*TRAITS EXTENSION*/
+        else if (strcmp("_is_const", text) == 0) result = TK_KEYWORD_IS_CONST;
         else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
         else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
         else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;

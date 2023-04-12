@@ -341,6 +341,7 @@ enum token_type
     TK_KEYWORD_ATTR_HAS, /*extension*/
     /*https://en.cppreference.com/w/cpp/header/type_traits*/
     TK_KEYWORD_IS_POINTER,
+    TK_KEYWORD_IS_CONST,
     TK_KEYWORD_IS_ARRAY,
     TK_KEYWORD_IS_FUNCTION,
     TK_KEYWORD_IS_SCALAR,
@@ -8405,6 +8406,7 @@ int get_array_size(struct type* p_type);
 int set_array_size(struct type* p_type, int size);
 
 bool type_is_array(struct type* p_type);
+bool type_is_const(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
 bool type_is_integer(struct type* p_type);
 bool type_is_floating_point(struct type* p_type);
@@ -8422,6 +8424,7 @@ struct type type_convert_to(struct type* p_type, enum language_version target);
 struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
+
 
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
@@ -10996,6 +10999,7 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
 
     return
         //traits
+        ctx->current->type == TK_KEYWORD_IS_CONST ||
         ctx->current->type == TK_KEYWORD_IS_POINTER ||
         ctx->current->type == TK_KEYWORD_IS_ARRAY ||
         ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
@@ -11282,7 +11286,9 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             p_expression_node = declarator_attribute_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
-        else if (ctx->current->type == TK_KEYWORD_IS_POINTER ||
+        else if (
+            ctx->current->type == TK_KEYWORD_IS_CONST ||
+            ctx->current->type == TK_KEYWORD_IS_POINTER ||
             ctx->current->type == TK_KEYWORD_IS_ARRAY ||
             ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
             ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
@@ -11319,6 +11325,11 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             }
             switch (traits_token->type)
             {
+            case TK_KEYWORD_IS_CONST:
+                new_expression->constant_value = type_is_const(p_type);
+                new_expression->is_constant = true;
+                break;
+
             case TK_KEYWORD_IS_POINTER:
                 new_expression->constant_value = type_is_pointer(p_type);
                 new_expression->is_constant = true;
@@ -13800,6 +13811,35 @@ bool type_is_destroy(struct type* p_type)
 bool type_is_array(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_ARRAY;
+}
+
+
+bool type_is_const(struct type* p_type)
+{
+    enum type_category category = find_type_category(p_type);
+    switch (category)
+    {
+    case TYPE_CATEGORY_ITSELF:
+        return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+        break;
+    case TYPE_CATEGORY_FUNCTION:
+        return false;
+        break;
+    case TYPE_CATEGORY_ARRAY:
+        return false; //?
+        break;
+    case TYPE_CATEGORY_POINTER:
+    {
+        assert(false);
+        //find inner see if is const pointer
+    }
+        break;
+    default:
+        break;
+    }
+    
+
+    return false;
 }
 
 bool type_is_pointer(struct type* p_type)
@@ -16669,6 +16709,7 @@ enum token_type is_keyword(const char* text)
         /*EXPERIMENTAL EXTENSION*/
 
         /*TRAITS EXTENSION*/
+        else if (strcmp("_is_const", text) == 0) result = TK_KEYWORD_IS_CONST;
         else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
         else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
         else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;

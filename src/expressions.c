@@ -1153,6 +1153,7 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
 
     return
         //traits
+        ctx->current->type == TK_KEYWORD_IS_CONST ||
         ctx->current->type == TK_KEYWORD_IS_POINTER ||
         ctx->current->type == TK_KEYWORD_IS_ARRAY ||
         ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
@@ -1439,7 +1440,9 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             p_expression_node = declarator_attribute_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
-        else if (ctx->current->type == TK_KEYWORD_IS_POINTER ||
+        else if (
+            ctx->current->type == TK_KEYWORD_IS_CONST ||
+            ctx->current->type == TK_KEYWORD_IS_POINTER ||
             ctx->current->type == TK_KEYWORD_IS_ARRAY ||
             ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
             ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
@@ -1476,6 +1479,11 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             }
             switch (traits_token->type)
             {
+            case TK_KEYWORD_IS_CONST:
+                new_expression->constant_value = type_is_const(p_type);
+                new_expression->is_constant = true;
+                break;
+
             case TK_KEYWORD_IS_POINTER:
                 new_expression->constant_value = type_is_pointer(p_type);
                 new_expression->is_constant = true;

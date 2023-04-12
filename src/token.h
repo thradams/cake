@@ -116,6 +116,7 @@ enum token_type
     TK_KEYWORD_ATTR_HAS, /*extension*/
     /*https://en.cppreference.com/w/cpp/header/type_traits*/
     TK_KEYWORD_IS_POINTER,
+    TK_KEYWORD_IS_CONST,
     TK_KEYWORD_IS_ARRAY,
     TK_KEYWORD_IS_FUNCTION,
     TK_KEYWORD_IS_SCALAR,

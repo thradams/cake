@@ -103,6 +103,8 @@ See [Manual](manual.html)
  * https://en.wikipedia.org/wiki/ANSI_C#C89
  * https://en.cppreference.com/w/c
  * https://www.ibm.com/docs/en/xl-c-aix/13.1.0?topic=extensions-c99-features
+ * https://en.cppreference.com/w/c/compiler_support/23
+ * https://en.cppreference.com/w/c/compiler_support/99
 
 # Influenced by
 

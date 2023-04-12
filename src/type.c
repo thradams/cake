@@ -604,6 +604,35 @@ bool type_is_array(struct type* p_type)
     return find_type_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
+
+bool type_is_const(struct type* p_type)
+{
+    enum type_category category = find_type_category(p_type);
+    switch (category)
+    {
+    case TYPE_CATEGORY_ITSELF:
+        return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+        break;
+    case TYPE_CATEGORY_FUNCTION:
+        return false;
+        break;
+    case TYPE_CATEGORY_ARRAY:
+        return false; //?
+        break;
+    case TYPE_CATEGORY_POINTER:
+    {
+        assert(false);
+        //find inner see if is const pointer
+    }
+        break;
+    default:
+        break;
+    }
+    
+
+    return false;
+}
+
 bool type_is_pointer(struct type* p_type)
 {
     return find_type_category(p_type) == TYPE_CATEGORY_POINTER;
