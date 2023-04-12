@@ -240,10 +240,10 @@ void generate_doc(const char* mdfilename, const char* outfile)
         fclose(f2);
     }
     char cmd[200];
-    snprintf(cmd, sizeof cmd, RUN "hoedown.exe --html-toc --toc-level 2 --autolink --fenced-code %s >> %s", mdfilename, outfile);
+    snprintf(cmd, sizeof cmd, RUN "hoedown.exe --html-toc --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
     if (system(cmd) != 0) exit(1);
 
-    snprintf(cmd, sizeof cmd, RUN "hoedown.exe  --toc-level 2 --autolink --fenced-code %s >> %s", mdfilename, outfile);
+    snprintf(cmd, sizeof cmd, RUN "hoedown.exe  --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
     if (system(cmd) != 0) exit(1);
 
     FILE* f3 = fopen(outfile /*"./web/index.html"*/, "a");

@@ -35,6 +35,14 @@ Options
 
 The ouput dir is **./out**
 
+## Pre-defined macros
+
+```c
+ #define __CAKE__ 202311L
+ #define __STDC_VERSION__ 202311L
+```
+
+
 ## C99 Transformations
 
 ###  C99 restrict pointers
@@ -133,7 +141,7 @@ Becomes in C89
 void F1(int a[5]){}
 ```
 
-## Complex and imaginary support
+### C99 Complex and imaginary support
 TODO
 
 ### C99 Universal character names (\u and \U)
@@ -193,7 +201,7 @@ int f(void) {
 N716
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n716.htm
 
-### C99 designated initializers
+### C99 Designated initializers
 
 ```c
  int main()
@@ -224,7 +232,7 @@ int main()
 N494
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
-### C99 line comments
+### C99 Line comments
 
 When compiling to C89 line comments are converted to comments.
 
@@ -241,14 +249,14 @@ Becomes in C89
 N644
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n644.htm
 
-### C99 preprocessor arithmetic done in intmax_t/uintmax_t
+### C99 Preprocessor arithmetic done in intmax\_t / uintmax\_t
 Cake uses 64 bits internally.
 
 N736
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n736.htm
 
 
-### C99 mixed declarations and code
+### C99 Mixed declarations and code
 TODO
 
 ```c
@@ -283,13 +291,13 @@ int main()
 
 TODO
 
-### _Pragma preprocessing operator
+### C99 _Pragma preprocessing operator
 TODO 
 
-### \_\_func\_\_ predefined identifier
+### C99 \_\_func\_\_ predefined identifier
 Parsed. C89 conversion not implemented yet.
 
-###  init-statement in for loops 
+### C99 init-statement in for loops 
 
 ```c
 int main()
@@ -313,6 +321,7 @@ int main()
     }
 }
 ```
+
 
 ###  C99 Variadic macros
 
@@ -358,7 +367,7 @@ int main()
 N707
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
 
-###  Trailing comma in enumerator-list
+###  C99 Trailing comma in enumerator-list
 
 TODO. We could remove this extra comma. (low prioriry)
 
@@ -387,17 +396,13 @@ int main(void)
 
 Alternative design - typedef ?
 
-## C99 Improvements of braced-init-list for array, struct and union types 
+### C99 Improvements of braced-init-list for array, struct and union types 
 
 ```c
 ```
 
 ```c
 ```
-
-
-## _Pragma preprocessing operator
-Not
 
 
 ## C11 Transformations
@@ -984,6 +989,35 @@ int main()
 
 
 
+###  C23 #elifdef #elifndef
+
+```c
+#define Y
+
+#ifdef X
+#define VERSION 1
+#elifdef  Y
+#define VERSION 2
+#else
+#define VERSION 3
+#endif
+```
+
+Becomes C11, C99, C89
+
+```c
+#define Y
+
+#ifdef X
+#define VERSION 1
+#elif defined   Y
+#define VERSION 2
+#else
+#define VERSION 3
+#endif
+
+```
+
 
 ###  C23 \_\_VA_OPT\_\_
 
@@ -1079,7 +1113,7 @@ Parsed but not implemented.
 ```
 
 
-### Compound Literals with storage specifier
+### C23 Compound Literals with storage specifier
 
 ```c
 void F(int *p){}
@@ -1102,34 +1136,6 @@ int main()
 x   }
 ```
 
-###  C23 #elifdef #elifndef
-
-```c
-#define Y
-
-#ifdef X
-#define VERSION 1
-#elifdef  Y
-#define VERSION 2
-#else
-#define VERSION 3
-#endif
-```
-
-Becomes C11, C99, C89
-
-```c
-#define Y
-
-#ifdef X
-#define VERSION 1
-#elif defined   Y
-#define VERSION 2
-#else
-#define VERSION 3
-#endif
-
-```
 
 ## Extensions (Not in C23)
 
@@ -1397,7 +1403,7 @@ void x_destroy(struct X* p)
 ```
 
 
-## Type traits
+### Type traits
 
 We have some compile time functions to infer properties of types.
 They are based on C++ https://en.cppreference.com/w/cpp/header/type_traits
@@ -1432,14 +1438,6 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 _is_same(T, U)
 If T and U name the same type (taking into account const/volatile qualifications returns 1
 
-```
-
-
-## Pre-defined macros
-
-```c
- #define __CAKE__ 202311L
- #define __STDC_VERSION__ 202311L
 ```
 
 
