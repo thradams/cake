@@ -121,108 +121,120 @@
 <a href="#toc_34">C23 static_assert / single-argument static_assert</a>
 </li>
 <li>
-<a href="#toc_35">C23 u8 char literal</a>
+<a href="#toc_35">C23 u8 character prefix</a>
 </li>
 <li>
-<a href="#toc_36">C23 Digit separators</a>
+<a href="#toc_36">C23 Remove support for function definitions with identifier lists</a>
 </li>
 <li>
-<a href="#toc_37">C23 Binary literals</a>
+<a href="#toc_37">C23 Unnamed parameters in function definitions</a>
 </li>
 <li>
-<a href="#toc_38">C23 nullptr</a>
+<a href="#toc_38">C23 Digit separators</a>
 </li>
 <li>
-<a href="#toc_39">C23 bool true false</a>
+<a href="#toc_39">C23 Binary literals</a>
 </li>
 <li>
-<a href="#toc_40">C23 {} empty initializer</a>
+<a href="#toc_40">C23 Introduce the nullptr constant</a>
 </li>
 <li>
-<a href="#toc_41">C23 auto</a>
+<a href="#toc_41">C23 Make false and true first-class language features</a>
 </li>
 <li>
-<a href="#toc_42">C23 typeof / typeof_unqual</a>
+<a href="#toc_42">C23 {} empty initializer</a>
 </li>
 <li>
-<a href="#toc_43">C23 constexpr</a>
+<a href="#toc_43">C23 auto</a>
 </li>
 <li>
-<a href="#toc_44">C23 enuns with type</a>
+<a href="#toc_44">C23 typeof / typeof_unqual</a>
 </li>
 <li>
-<a href="#toc_45">C23 Attributes</a>
+<a href="#toc_45">C23 Improved Normal Enumerations</a>
 </li>
 <li>
-<a href="#toc_46">C23 fallthrough attribute</a>
+<a href="#toc_46">C23 constexpr for object definitions</a>
 </li>
 <li>
-<a href="#toc_47">C23 deprecated attribute</a>
+<a href="#toc_47">C23 Introduce storage class specifiers for compound literals</a>
 </li>
 <li>
-<a href="#toc_48">C23 maybe_unused attribute</a>
+<a href="#toc_48">C23 Enhancements to Enumerations</a>
 </li>
 <li>
-<a href="#toc_49">C23 nodiscard attribute</a>
+<a href="#toc_49">C23 Attributes</a>
 </li>
 <li>
-<a href="#toc_50">C23 __has_attribute</a>
+<a href="#toc_50">C23 fallthrough attribute</a>
 </li>
 <li>
-<a href="#toc_51">C23 __has_include</a>
+<a href="#toc_51">C23 deprecated attribute</a>
 </li>
 <li>
-<a href="#toc_52">C23 #warning</a>
+<a href="#toc_52">C23 maybe_unused attribute</a>
 </li>
 <li>
-<a href="#toc_53">C23 #embed</a>
+<a href="#toc_53">C23 nodiscard attribute</a>
 </li>
 <li>
-<a href="#toc_54">C23 #elifdef #elifndef</a>
+<a href="#toc_54">C23 __has_attribute</a>
 </li>
 <li>
-<a href="#toc_55">C23 __VA_OPT__</a>
+<a href="#toc_55">C23 __has_include</a>
 </li>
 <li>
-<a href="#toc_56">C23 BitInt(N))</a>
+<a href="#toc_56">C23 #warning</a>
 </li>
 <li>
-<a href="#toc_57">C23 constexpr</a>
+<a href="#toc_57">C23 #embed</a>
 </li>
 <li>
-<a href="#toc_58">C23 Compound Literals with storage specifier</a>
+<a href="#toc_58">C23 #elifdef #elifndef</a>
+</li>
+<li>
+<a href="#toc_59">C23 __VA_OPT__</a>
+</li>
+<li>
+<a href="#toc_60">C23 BitInt(N))</a>
+</li>
+<li>
+<a href="#toc_61">C23 constexpr</a>
+</li>
+<li>
+<a href="#toc_62">C23 Compound Literals with storage specifier</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_59">Extensions (Not in C23)</a>
+<a href="#toc_63">Extensions (Not in C23)</a>
 <ul>
 <li>
-<a href="#toc_60">Extension - try catch throw</a>
+<a href="#toc_64">Extension - try catch throw</a>
 </li>
 <li>
-<a href="#toc_61">Extension - defer</a>
+<a href="#toc_65">Extension - defer</a>
 </li>
 <li>
-<a href="#toc_62">Extension - if with initializer</a>
+<a href="#toc_66">Extension - if with initializer</a>
 </li>
 <li>
-<a href="#toc_63">Extension Literal function - lambdas</a>
+<a href="#toc_67">Extension Literal function - lambdas</a>
 </li>
 <li>
-<a href="#toc_64">Extension Repeat</a>
+<a href="#toc_68">Extension Repeat</a>
 </li>
 <li>
-<a href="#toc_65">Extension #pragma expand</a>
+<a href="#toc_69">Extension #pragma expand</a>
 </li>
 <li>
-<a href="#toc_66">Extension _Hashof</a>
+<a href="#toc_70">Extension _Hashof</a>
 </li>
 <li>
-<a href="#toc_67">Type traits</a>
+<a href="#toc_71">Type traits</a>
 </li>
 <li>
-<a href="#toc_68">Extension - [[destroy, free]]  attributes</a>
+<a href="#toc_72">Extension - [[destroy, free]]  attributes</a>
 </li>
 </ul>
 </li>
@@ -776,11 +788,25 @@ If the static_assert has only one argument the text becomes &quot;error&quot;.</
 
 <p>In C99, C89 it is replaced by one space;</p>
 
-<h3 id="toc_35">C23 u8 char literal</h3>
+<h3 id="toc_35">C23 u8 character prefix</h3>
 
 <p>not implemented yet.</p>
 
-<h3 id="toc_36">C23 Digit separators</h3>
+<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf</a></p>
+
+<h3 id="toc_36">C23 Remove support for function definitions with identifier lists</h3>
+
+<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf</a></p>
+
+<h3 id="toc_37">C23 Unnamed parameters in function definitions</h3>
+
+<p>Parsed.</p>
+
+<p>(Generated code should create a dummy identifier.)</p>
+
+<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf</a></p>
+
+<h3 id="toc_38">C23 Digit separators</h3>
 
 <pre><code class="language-c">int main()
 {
@@ -796,14 +822,12 @@ If the static_assert has only one argument the text becomes &quot;error&quot;.</
 }x  
 </code></pre>
 
-<blockquote>
-<p>This transformation uses only tokens. So even preprocessor and inactive
-code is transformed.</p>
-</blockquote>
+<p>This transformation uses only tokens. 
+So even preprocessor and inactive blocks are transformed.</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf</a></p>
 
-<h3 id="toc_37">C23 Binary literals</h3>
+<h3 id="toc_39">C23 Binary literals</h3>
 
 <pre><code class="language-c">#define X  0b1010
 
@@ -832,7 +856,7 @@ int main()
 code is transformed.</p>
 </blockquote>
 
-<h3 id="toc_38">C23 nullptr</h3>
+<h3 id="toc_40">C23 Introduce the nullptr constant</h3>
 
 <pre><code class="language-c">#include &lt;stdlib.h&gt;
 
@@ -854,7 +878,7 @@ int main()
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm</a></p>
 
-<h3 id="toc_39">C23 bool true false</h3>
+<h3 id="toc_41">C23 Make false and true first-class language features</h3>
 
 <p>When compiling to C89 bool is replaced by int true by 1 and false 0. 
 (I am considering adding an extra header file in C89 with bool definition.)</p>
@@ -862,7 +886,9 @@ int main()
 <p>When compiling to C99 and C11 bool is replaced with <strong>_Bool</strong>, true is replaced with <code>((_Bool)1)</code> 
 and false with <strong>(_Bool)0)</strong></p>
 
-<h3 id="toc_40">C23 {} empty initializer</h3>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf</a></p>
+
+<h3 id="toc_42">C23 {} empty initializer</h3>
 
 <pre><code class="language-c">
 int main()
@@ -904,7 +930,7 @@ int main()
 <p>Note: Cake code is 100% equivalent because it does not make padding bit zero.</p>
 </blockquote>
 
-<h3 id="toc_41">C23 auto</h3>
+<h3 id="toc_43">C23 auto</h3>
 
 <pre><code class="language-c">static auto a = 3.5;
 auto p = &amp;a;
@@ -925,7 +951,7 @@ double* pA = A; //TODO
 auto qA = &amp;A; //TODO?
 </code></pre>
 
-<h3 id="toc_42">C23 typeof / typeof_unqual</h3>
+<h3 id="toc_44">C23 typeof / typeof_unqual</h3>
 
 <pre><code class="language-c">
 #define SWAP(a, b) \
@@ -1015,11 +1041,27 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_43">C23 constexpr</h3>
+<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm</a>
+<a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf</a></p>
+
+<h3 id="toc_45">C23 Improved Normal Enumerations</h3>
+
+<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm</a></p>
+
+<h3 id="toc_46">C23 constexpr for object definitions</h3>
 
 <p>Not implemented yet (maybe parsed?)</p>
 
-<h3 id="toc_44">C23 enuns with type</h3>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm</a></p>
+
+<h3 id="toc_47">C23 Introduce storage class specifiers for compound literals</h3>
+
+<p>Not implemented. To implement this feature we need to create a separated
+object and this task is the same of suport compound literal in C89</p>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm</a></p>
+
+<h3 id="toc_48">C23 Enhancements to Enumerations</h3>
 
 <pre><code class="language-c">enum X : short {
   A
@@ -1030,7 +1072,7 @@ int main() {
 }
 </code></pre>
 
-<p>Becomes? in C11, C99, C89 (not implemented yet)</p>
+<p>Becomes in previous version?</p>
 
 <pre><code class="language-c">enum X {
   A
@@ -1041,7 +1083,9 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_45">C23 Attributes</h3>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm</a></p>
+
+<h3 id="toc_49">C23 Attributes</h3>
 
 <p>Attributes are being parsed and removed in some places. 
 More work is necessary to implement the checks in C23.</p>
@@ -1051,32 +1095,32 @@ More work is necessary to implement the checks in C23.</p>
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf</a>
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf</a></p>
 
-<h3 id="toc_46">C23 fallthrough attribute</h3>
+<h3 id="toc_50">C23 fallthrough attribute</h3>
 
 <p>Not implemented</p>
 
-<h3 id="toc_47">C23 deprecated attribute</h3>
+<h3 id="toc_51">C23 deprecated attribute</h3>
 
 <p>Partially implemented
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf</a></p>
 
-<h3 id="toc_48">C23 maybe_unused attribute</h3>
+<h3 id="toc_52">C23 maybe_unused attribute</h3>
 
 <p>Implemented
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf</a></p>
 
-<h3 id="toc_49">C23 nodiscard attribute</h3>
+<h3 id="toc_53">C23 nodiscard attribute</h3>
 
 <p>Partially implemented
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf</a></p>
 
-<h3 id="toc_50">C23 __has_attribute</h3>
+<h3 id="toc_54">C23 __has_attribute</h3>
 
 <p>It is implemented in C23.</p>
 
 <p>Convertion to C11, C99 C89 not defined yet.</p>
 
-<h3 id="toc_51">C23 __has_include</h3>
+<h3 id="toc_55">C23 __has_include</h3>
 
 <pre><code class="language-c">
 #if __has_include(&lt;stdio.h&gt;)
@@ -1096,7 +1140,7 @@ More work is necessary to implement the checks in C23.</p>
 <pre><code class="language-c">Not defined yet
 </code></pre>
 
-<h3 id="toc_52">C23 #warning</h3>
+<h3 id="toc_56">C23 #warning</h3>
 
 <p>When compiling to versions &lt; 23 it is commented out.</p>
 
@@ -1118,7 +1162,7 @@ More work is necessary to implement the checks in C23.</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2686.pdf</a></p>
 
-<h3 id="toc_53">C23 #embed</h3>
+<h3 id="toc_57">C23 #embed</h3>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
@@ -1174,7 +1218,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_54">C23 #elifdef #elifndef</h3>
+<h3 id="toc_58">C23 #elifdef #elifndef</h3>
 
 <pre><code class="language-c">#define Y
 
@@ -1201,7 +1245,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_55">C23 __VA_OPT__</h3>
+<h3 id="toc_59">C23 __VA_OPT__</h3>
 
 <p>Requires #pragma expand. (TODO make the expansion automatic)</p>
 
@@ -1270,11 +1314,11 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_56">C23 BitInt(N))</h3>
+<h3 id="toc_60">C23 BitInt(N))</h3>
 
 <p>Not implemented</p>
 
-<h3 id="toc_57">C23 constexpr</h3>
+<h3 id="toc_61">C23 constexpr</h3>
 
 <p>Parsed but not implemented.</p>
 
@@ -1289,7 +1333,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_58">C23 Compound Literals with storage specifier</h3>
+<h3 id="toc_62">C23 Compound Literals with storage specifier</h3>
 
 <pre><code class="language-c">void F(int *p){}
 
@@ -1310,9 +1354,9 @@ int main()
 x   }
 </code></pre>
 
-<h2 id="toc_59">Extensions (Not in C23)</h2>
+<h2 id="toc_63">Extensions (Not in C23)</h2>
 
-<h3 id="toc_60">Extension - try catch throw</h3>
+<h3 id="toc_64">Extension - try catch throw</h3>
 
 <pre><code>   try-statement:
       try secondary-block
@@ -1344,7 +1388,7 @@ catch
 }
 </code></pre>
 
-<h3 id="toc_61">Extension - defer</h3>
+<h3 id="toc_65">Extension - defer</h3>
 
 <p><em>defer</em> will call the defer statement before the block exit at inverse orden of declaration.</p>
 
@@ -1391,7 +1435,7 @@ int main() {
 
 <p>I guess everthing is working including <strong>goto</strong> jumps.</p>
 
-<h3 id="toc_62">Extension - if with initializer</h3>
+<h3 id="toc_66">Extension - if with initializer</h3>
 
 <p>No idea why C++ 17 if with initializer was not proposed for C23!
 But in cake it is implemented.</p>
@@ -1425,7 +1469,7 @@ int main()
 
 <p>An extension if + initializer + defer expression was considered but not implemented yet.</p>
 
-<h3 id="toc_63">Extension Literal function - lambdas</h3>
+<h3 id="toc_67">Extension Literal function - lambdas</h3>
 
 <p>Lambdas without capture where implemented using a syntax similar of 
 compound literal for function pointer.</p>
@@ -1469,7 +1513,7 @@ void create_app(const char* appname)
 }
 </code></pre>
 
-<h3 id="toc_64">Extension Repeat</h3>
+<h3 id="toc_68">Extension Repeat</h3>
 
 <pre><code>iteration-statement:
         ...
@@ -1489,7 +1533,7 @@ void create_app(const char* appname)
 
 <p>Repeat is equivalent of for(;;) </p>
 
-<h3 id="toc_65">Extension #pragma expand</h3>
+<h3 id="toc_69">Extension #pragma expand</h3>
 
 <p>pragma expand tells the back end to not hide macro expansions.</p>
 
@@ -1531,7 +1575,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_66">Extension _Hashof</h3>
+<h3 id="toc_70">Extension _Hashof</h3>
 
 <p>_Hashof is a compile time function that returns a hash of the parsing tokens
 of some struct enum etc.</p>
@@ -1560,7 +1604,7 @@ void x_destroy(struct X* p)
 
 </code></pre>
 
-<h3 id="toc_67">Type traits</h3>
+<h3 id="toc_71">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.
 They are based on C++ <a href="https://en.cppreference.com/w/cpp/header/type_traits">https://en.cppreference.com/w/cpp/header/type_traits</a></p>
@@ -1596,7 +1640,7 @@ If T and U name the same type (taking into account const/volatile qualifications
 
 </code></pre>
 
-<h3 id="toc_68">Extension - [[destroy, free]]  attributes</h3>
+<h3 id="toc_72">Extension - [[destroy, free]]  attributes</h3>
 
 <p>Cake has imaginary flags with explicity and implicity operations to set or 
 clear these flags.  </p>

@@ -577,8 +577,21 @@ int main()
 ```
 In C99, C89 it is replaced by one space;
 
-###  C23 u8 char literal
+###  C23 u8 character prefix
 not implemented yet.
+
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf
+
+### C23 Remove support for function definitions with identifier lists
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf
+
+### C23 Unnamed parameters in function definitions
+
+Parsed.
+
+(Generated code should create a dummy identifier.)
+
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf
 
 ### C23 Digit separators
 
@@ -597,8 +610,8 @@ int main()
 }x  
 ```
 
->This transformation uses only tokens. So even preprocessor and inactive
->code is transformed.
+This transformation uses only tokens. 
+So even preprocessor and inactive blocks are transformed.
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf
 
@@ -631,7 +644,7 @@ int main()
 >code is transformed.
 
 
-### C23 nullptr
+### C23 Introduce the nullptr constant
 
 ```c
 #include <stdlib.h>
@@ -655,7 +668,7 @@ int main()
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
-### C23 bool true false
+### C23 Make false and true first-class language features
 
 When compiling to C89 bool is replaced by int true by 1 and false 0. 
 (I am considering adding an extra header file in C89 with bool definition.)
@@ -663,6 +676,8 @@ When compiling to C89 bool is replaced by int true by 1 and false 0.
 When compiling to C99 and C11 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)` 
 and false with **(_Bool)0)**
 
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf
 
 ###  C23 {} empty initializer
 
@@ -821,11 +836,27 @@ int main()
 
 ```
 
-###  C23 constexpr
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf
+
+### C23 Improved Normal Enumerations
+
+https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm
+
+###  C23 constexpr for object definitions
 Not implemented yet (maybe parsed?)
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
-###  C23 enuns with type
+### C23 Introduce storage class specifiers for compound literals
+
+Not implemented. To implement this feature we need to create a separated
+object and this task is the same of suport compound literal in C89
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
+
+
+###  C23 Enhancements to Enumerations
 
 ```c
 enum X : short {
@@ -837,7 +868,7 @@ int main() {
 }
 ```
 
-Becomes? in C11, C99, C89 (not implemented yet)
+Becomes in previous version?
 
 ```c
 enum X {
@@ -848,6 +879,8 @@ int main() {
    short x = ((short)A);   
 }
 ```
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 
 
 ###  C23 Attributes

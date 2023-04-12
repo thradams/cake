@@ -108,6 +108,11 @@ See [Manual](manual.html)
  * https://en.cppreference.com/w/c/compiler_support/23
  * https://en.cppreference.com/w/c/compiler_support/99
 
+
+ A very nice text was written by Al Williams
+ C23 Programming For Everyone
+ https://hackaday.com/2022/09/13/c23-programming-for-everyone/
+
 # Influenced by
 
 * Typescript
