@@ -175,6 +175,8 @@ struct declaration_specifiers
     struct declarator* typedef_declarator;
     struct typeof_specifier* typeof_specifier;
 
+    struct token* first_token; /*not owner*/
+    struct token* last_token; /*not owner*/
 
     struct declaration_specifier* head;
     struct declaration_specifier* tail;

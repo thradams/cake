@@ -1221,43 +1221,30 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         p_init_declarator &&
         p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
     {
+        
+        /*now we print new especifiers then convert to tokens*/
+        struct osstream ss0 = { 0 };
+        struct type new_type = type_convert_to(&p_init_declarator->declarator->type, ctx->target);
+        print_type_qualifier_specifiers(&ss0, &new_type);
+
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list l2 = tokenizer(&tctx, ss0.c_str, NULL, 0, TK_FLAG_NONE);
+
+        l2.head->flags = p_init_declarator->declarator->first_token->flags;
+
+        token_list_insert_after(&ctx->ast.token_list,
+            p_init_declarator->declarator->declaration_specifiers->last_token,
+            &l2);
+
+        type_destroy(&new_type);
+        ss_close(&ss0);
+
         /*
-         * auto storage specifier
-         * We assume all init declarator have the same type specifier.
-         * So now we replace auto by the type specifier using the first one
-         * and we dont repeat this step for each
+         let´s hide old specifiers
         */
-
-        if (p_init_declarator->initializer->assignment_expression)
-        {
-            struct osstream ss0 = { 0 };
-
-            /*
-             * The "final result" of auto is already on declarator->type.             
-             * We need to convert types for instance _Bool to int or nullptr_t to void *
-             */
-            struct type new_type = type_convert_to(&p_init_declarator->declarator->type, ctx->target);
-
-            print_type_qualifier_specifiers(&ss0, &new_type);
-
-            struct declaration_specifier* p = p_init_declarator->declarator->declaration_specifiers->head;
-            while (p)
-            {
-                if (p->storage_class_specifier && p->storage_class_specifier->flags & STORAGE_SPECIFIER_AUTO)
-                {
-                    /*
-                    we replace auto for the specifiers (multiple?)
-                    */
-                    free(p->storage_class_specifier->token->lexeme);
-                    p->storage_class_specifier->token->lexeme = strdup(ss0.c_str);
-                    break;
-                }
-                p = p->next;
-            }
-            type_destroy(&new_type);
-
-            ss_close(&ss0);
-        }
+        token_range_add_flag(p_init_declarator->declarator->declaration_specifiers->first_token,
+            p_init_declarator->declarator->declaration_specifiers->last_token,
+            TK_FLAG_HIDE);
     }
 
 
