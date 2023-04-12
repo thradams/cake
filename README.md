@@ -23,6 +23,8 @@ the project development at the lower supported language version.  For instance,
 you can use attributes like *nodiscard* during the development or *defer*, both features 
 improving the code security. Then adding a extra step in your build you can distribute
 a readable C99 source code that compiles everywhere.
+Cake also can be used in some files of your project it is not all or nothing solution.
+
 
 
 # Features
