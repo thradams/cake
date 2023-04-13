@@ -37,6 +37,9 @@ Cake also can be used in some files of your project it is not all or nothing sol
 
 # Build
 
+Github 
+https://github.com/thradams/cake
+
 ## MSVC build instructions
 Open the Developer Command Prompt of visual studio. Go to the *src* directory and type
 
@@ -109,9 +112,11 @@ See [Manual](manual.html)
  * https://en.cppreference.com/w/c/compiler_support/99
 
 
- A very nice text was written by Al Williams
- C23 Programming For Everyone
- https://hackaday.com/2022/09/13/c23-programming-for-everyone/
+A very nice introduction was written by Al Williams
+
+C23 Programming For Everyone
+
+https://hackaday.com/2022/09/13/c23-programming-for-everyone/
 
 # Influenced by
 
