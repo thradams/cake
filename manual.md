@@ -45,12 +45,20 @@ The ouput dir is **./out**
 
 ## C99 Transformations
 
-but generate code that is compatible with C++ 98.
+C89 is the minimum target.
+
+However the ideia if C89 target is not suport very old compilers,
+but generate code that is compatible with C++.
+
 C89 
 https://port70.net/~nsz/c/c89/c89-draft.html
 
 C99
 https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
+
+```c
+ #define __STDC_VERSION__ 199901L  //C99
+```
 
 ###  C99 restrict pointers
 
@@ -64,9 +72,10 @@ Becomes in C89
 void f(const char* /*restrict*/ s);
 ```
 
-The intended use of the restrict qualifier 
-is to promote optimization, removing it will not 
-change the observable behavior.
+The intended use of the restrict qualifier  is to promote optimization,
+removing it will not change the observable behavior.
+
+C++ does not have standard support for restrict
 
 N448
 
@@ -269,37 +278,6 @@ N736
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n736.htm
 
 
-### C99 Mixed declarations and code
-TODO
-
-```c
-
-//-std=c90 -pedantic
-
-int main()
-{
-    int i;
-    /* ... */
-    i++;
-    int j = i + 2; //warning: ISO C90 forbids mixed declarations and code
-}
-```
-
-Expected in C89 (not implemented yet)
-
-```c
-int main()
-{
-    int i;
-    int j;
-    /* ... */
-    i++;
-    j = i + 2;
-}
-
-```
-
-
 ### C99 inline functions
 
 TODO
@@ -382,9 +360,6 @@ if \_\_VA\_ARGS\_\_ is used. Then pragma expand will not be necessary.
 N707
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
 
-###  C99 Trailing comma in enumerator-list
-
-TODO. We could remove this extra comma. (low prioriry)
 
 ###  C99 \_Bool
 When compiling to C89 _Bool is replaced by int.
@@ -410,17 +385,16 @@ int main(void)
 ```
 
 Alternative design - typedef ?
-
-### C99 Improvements of braced-init-list for array, struct and union types 
-
-```c
-```
-
-```c
-```
+Considering C23 has bool and the objective of C89 version is to have
+a version that compiles in C++ the best option would be use bool, true, false.
 
 
 ## C11 Transformations
+
+```c
+#define __STDC_VERSION__ 201112L //C11
+```
+
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n1570.pdf
 
@@ -567,6 +541,10 @@ Not implemented.
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf
 
+```c
+#define __STDC_VERSION__ 201710L  //C17
+#define __STDC_VERSION__ 202311L  //C23
+```
 
 ###  C23 \_Decimal32, \_Decimal64, and \_Decimal128
 Not implemented (maybe parsed?)
@@ -604,8 +582,29 @@ not implemented yet.
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf
 
-### C23 Remove support for function definitions with identifier lists
+### C23 No function declarators without prototypes
+https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm
+
+Yes
+
+```c
+int main(){
+    func(); //this is an error in C23
+}
+```
+
+Before C23 this was a warning.
+
+See also Remove support for function definitions with identifier lists
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf
+
+
+
+### C23 Improved Tag Compatibility
+No.
+To transform this to previous version we could generate a typedef.
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf
 
 ### C23 Unnamed parameters in function definitions
 
@@ -942,7 +941,8 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2448.pdf
 
 ### C23 [[unsequenced]] and [[reproducible]]
 
-Not implemented.
+Parsed.
+
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm
 
 
