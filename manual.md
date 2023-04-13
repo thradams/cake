@@ -45,6 +45,12 @@ The ouput dir is **./out**
 
 ## C99 Transformations
 
+C89 
+https://port70.net/~nsz/c/c89/c89-draft.html
+
+C99
+https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
+
 ###  C99 restrict pointers
 
 ```c
@@ -56,9 +62,12 @@ Becomes in C89
 ```c
 void f(const char* /*restrict*/ s);
 ```
-> The intended use of the restrict qualifier 
-> is to promote optimization, removing it will not 
-> change the observable behavior.
+
+The intended use of the restrict qualifier 
+is to promote optimization, removing it will not 
+change the observable behavior.
+
+N448
 
 ###  C99 Variable-length array (VLA) 
 
@@ -107,6 +116,9 @@ int main() {
 }
 
 ```
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
+
 
 
 ### C99 Flexible array members
@@ -291,6 +303,8 @@ int main()
 
 TODO
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm
+
 ### C99 _Pragma preprocessing operator
 TODO 
 
@@ -361,8 +375,8 @@ int main()
 
 ```
 
->I am considering to mark the debug macro to be expanded automatically
->if \_\_VA\_ARGS\_\_ is used. Then pragma expand will not be necessary.
+I am considering to mark the debug macro to be expanded automatically
+if \_\_VA\_ARGS\_\_ is used. Then pragma expand will not be necessary.
 
 N707
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
@@ -407,6 +421,10 @@ Alternative design - typedef ?
 
 ## C11 Transformations
 
+https://open-std.org/JTC1/SC22/WG14/www/docs/n1570.pdf
+
+https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf
+
 ###  C11 \_Static\_assert
 
 When compiling to versions C89, C99 \_Static\_Assert is removed
@@ -436,9 +454,9 @@ Expected in C99, C89 (not implemented yet)
 Alternative design - macro ?
 
 
->Note: 
->C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is 
-> an obsolescent feature
+Note: 
+C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is 
+ an obsolescent feature
 
 
 
@@ -546,6 +564,9 @@ Not implemented.
 
 ## C23 Transformations
 
+https://open-std.org/JTC1/SC22/WG14/www/docs/n3096.pdf
+
+
 ###  C23 \_Decimal32, \_Decimal64, and \_Decimal128
 Not implemented (maybe parsed?)
 
@@ -587,11 +608,18 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf
 
 ### C23 Unnamed parameters in function definitions
 
-Parsed.
 
-(Generated code should create a dummy identifier.)
+```c
+int f(int );
+
+int f(int ) {
+}
+
+```
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf
+
+We need to add a dummy variable name here to convert to < C23
 
 ### C23 Digit separators
 
@@ -744,6 +772,9 @@ double* pA = A; //TODO
 auto qA = &A; //TODO?
 ```
 
+https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm
+
+
 ###  C23 typeof / typeof_unqual
 
 
@@ -848,13 +879,6 @@ Not implemented yet (maybe parsed?)
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
-### C23 Introduce storage class specifiers for compound literals
-
-Not implemented. To implement this feature we need to create a separated
-object and this task is the same of suport compound literal in C89
-
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
-
 
 ###  C23 Enhancements to Enumerations
 
@@ -896,18 +920,29 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf
 ### C23 fallthrough attribute
 Not implemented
 
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2408.pdf
+
 ### C23 deprecated attribute
 
 Partially implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2334.pdf
 
 ### C23 maybe_unused attribute
+
 Implemented
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2270.pdf
 
 ### C23 nodiscard attribute
 Partially implemented
+
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2267.pdf
+
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2448.pdf
+
+### C23 [[unsequenced]] and [[reproducible]]
+
+Not implemented.
+https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm
 
 
 ###  C23 \_\_has\_attribute
@@ -1168,6 +1203,12 @@ int main()
     F(_compound_1);
 x   }
 ```
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
+
+### C23 Variably-modified (VM) types
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
 
 ## Extensions (Not in C23)
