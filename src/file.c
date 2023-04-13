@@ -1,7 +1,3 @@
-
-    double const x = 78.9;
-    double y = 78.9;
-    auto q = x;
-    auto const p = &x;
-    auto const r = &y;
-
+static_assert(_is_const(const int));
+static_assert(!_is_const(const int*));
+static_assert(_is_const(int* const));

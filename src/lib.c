@@ -10159,7 +10159,7 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
 
         p_generic_selection->first_token = ctx->current;
 
-        
+
 
         parser_match_tk(ctx, TK_KEYWORD__GENERIC);
         parser_match_tk(ctx, '(');
@@ -10515,7 +10515,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             {
                 parser_seterror_with_token(ctx, ctx->current, "no match for generic");
             }
-        }        
+        }
         else if (ctx->current->type == '(')
         {
             parser_match(ctx);
@@ -11043,7 +11043,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
     new_expression->first_token = ctx->current;
     struct token* func = ctx->current;
     parser_match(ctx);
-    
+
     parser_match_tk(ctx, '(');
 
 
@@ -11081,7 +11081,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 
     new_expression->right = constant_expression(ctx);
     parser_match_tk(ctx, ')');
-    
+
 
     if (new_expression->declarator == NULL ||
         new_expression->declarator->is_parameter_declarator)
@@ -11181,7 +11181,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             if (op == '!')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_NOT;
-                
+
                 if (new_expression->right->is_constant)
                 {
                     new_expression->constant_value = !new_expression->right->constant_value;
@@ -11193,7 +11193,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             else if (op == '~')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_BITNOT;
-                
+
                 if (new_expression->right->is_constant)
                 {
                     new_expression->constant_value = ~new_expression->right->constant_value;
@@ -11205,7 +11205,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             else if (op == '-')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_NEG;
-                
+
                 if (new_expression->right->is_constant)
                 {
                     new_expression->constant_value = -new_expression->right->constant_value;
@@ -11217,7 +11217,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             else if (op == '+')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_PLUS;
-                
+
                 if (new_expression->right->is_constant)
                 {
                     new_expression->constant_value = new_expression->right->constant_value;
@@ -11269,7 +11269,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 new_expression->is_constant = true;
             }
             else
-            {               
+            {
                 new_expression->right = unary_expression(ctx);
                 if (new_expression->right == NULL) throw;
 
@@ -11317,11 +11317,11 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                
-                
+
+
                 new_expression->right = unary_expression(ctx);
                 if (new_expression->right == NULL) throw;
-                
+
                 p_type = &new_expression->right->type;
                 new_expression->last_token = ctx->previous;
             }
@@ -11380,7 +11380,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             parser_match_tk(ctx, ',');
             new_expression->type_name2 = type_name(ctx);
             parser_match_tk(ctx, ')');
-            
+
             new_expression->constant_value = type_is_same(&new_expression->type_name->declarator->type,
                 &new_expression->type_name2->declarator->type, true);
             new_expression->is_constant = true;
@@ -11573,7 +11573,7 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
             if (op == '*')
             {
                 new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MULT;
-                
+
                 if (new_expression->left->is_constant && new_expression->right->is_constant)
                 {
                     new_expression->constant_value = (new_expression->left->constant_value * new_expression->right->constant_value);
@@ -11589,26 +11589,26 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                 {
                     if (new_expression->right->constant_value != 0)
                     {
-                        new_expression->constant_value = (new_expression->left->constant_value / new_expression->right->constant_value);                    
+                        new_expression->constant_value = (new_expression->left->constant_value / new_expression->right->constant_value);
                     }
                     else
-                    {                        
+                    {
                         parser_seterror_with_token(ctx, ctx->current, "divizion by zero");
                     }
-                    
+
                     new_expression->is_constant = true;
-                }                
+                }
             }
             else if (op == '%')
             {
                 new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_MOD;
-                
+
                 if (new_expression->left->is_constant && new_expression->right->is_constant)
                 {
                     new_expression->is_constant = true;
                     if (new_expression->right->constant_value != 0)
                     {
-                        new_expression->constant_value = (new_expression->left->constant_value % new_expression->right->constant_value);                        
+                        new_expression->constant_value = (new_expression->left->constant_value % new_expression->right->constant_value);
                     }
                     else
                     {
@@ -11622,7 +11622,7 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid type");
+                parser_seterror_with_token(ctx, ctx->current, "invalid type multiplicative expression");
                 throw;
             }
 
@@ -11679,14 +11679,79 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                 parser_seterror_with_token(ctx, operator_position, "right operator is not scalar");
             }
 
+
+            const bool b_left_is_arithmetic = type_is_arithmetic(&new_expression->left->type);
+            const bool b_right_is_arithmetic = type_is_arithmetic(&new_expression->right->type);
+
+            const enum type_category left_category = find_type_category(&new_expression->left->type);
+            const enum type_category right_category = find_type_category(&new_expression->right->type);
+
             if (op == '+')
             {
                 new_expression->expression_type = ADDITIVE_EXPRESSION_PLUS;
-                
+
                 if (new_expression->left->is_constant && new_expression->right->is_constant)
                 {
                     new_expression->constant_value = (new_expression->left->constant_value + new_expression->right->constant_value);
                     new_expression->is_constant = true;
+                }
+
+                /*
+                 For addition, either both operands shall have arithmetic type,
+                 or one operand shall be a pointer to a complete object type and
+                 the other shall have integer type. (Incrementing is equivalent to adding 1.)
+                */
+                if (b_left_is_arithmetic && b_right_is_arithmetic)
+                {
+                    int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
+                    if (code != 0)
+                    {
+                        parser_seterror_with_token(ctx, ctx->current, "internal error");
+                        throw;
+                    }
+                }
+                else
+                {
+                    if (left_category == TYPE_CATEGORY_POINTER || left_category == TYPE_CATEGORY_ARRAY  /* || left_category == TYPE_CATEGORY_FUNCTION*/)
+                    {
+                        if (type_is_integer(&new_expression->right->type))
+                        {
+                            if (left_category == TYPE_CATEGORY_ARRAY)
+                            {
+                                new_expression->type = get_array_item_type(&new_expression->left->type);
+                            }
+                            else
+                            {
+                                new_expression->type = type_copy(&new_expression->left->type);
+                            }
+                        }
+                        else
+                        {
+                            parser_seterror_with_token(ctx, ctx->current, "expected integer type on right");
+                        }
+                    }
+                    else if (right_category == TYPE_CATEGORY_POINTER || right_category == TYPE_CATEGORY_ARRAY /*|| right_category == TYPE_CATEGORY_FUNCTION*/)
+                    {
+                        if (type_is_integer(&new_expression->left->type))
+                        {
+                            if (right_category == TYPE_CATEGORY_ARRAY)
+                            {
+                                new_expression->type = get_array_item_type(&new_expression->right->type);
+                            }
+                            else
+                            {
+                                new_expression->type = type_copy(&new_expression->right->type);
+                            }
+                        }
+                        else
+                        {
+                            parser_seterror_with_token(ctx, ctx->current, "expected integer type on left");
+                        }
+                    }
+                    else
+                    {
+                        parser_seterror_with_token(ctx, ctx->current, "invalid types additive expression");
+                    }
                 }
             }
             else if (op == '-')
@@ -11697,49 +11762,61 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                     new_expression->constant_value = (new_expression->left->constant_value - new_expression->right->constant_value);
                     new_expression->is_constant = true;
                 }
-            }
 
-            if (type_is_pointer(&new_expression->left->type))
-            {
                 /*
-                 pointer +- integer
+                 For subtraction, one of the following shall hold:
+                    — both operands have arithmetic type;
+                    — both operands are pointers to qualified or unqualified versions of compatible complete object
+                    types; or
+                    — the left operand is a pointer to a complete object type and the right operand has integer type.
+                    (Decrementing is equivalent to subtracting 1.)
                 */
-                if (type_is_integer(&new_expression->right->type))
+                if (b_left_is_arithmetic && b_right_is_arithmetic)
                 {
-                    new_expression->type = type_copy(&new_expression->left->type);
-                }
-                else if (type_is_pointer_or_array(&new_expression->right->type))
-                {
-                    //tem que ser do mesmo tipo..
-                    if (op == '-')
+                    //— both operands have arithmetic type;
+                    int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
+                    if (code != 0)
                     {
-                        if (type_is_same(&new_expression->left->type, &new_expression->right->type, false))
-                        {
-                            type_set_int(&new_expression->type);//
-                        }
-                        else
-                        {
-                            parser_seterror_with_token(ctx, ctx->current, "incompatible types +-");
-                        }
-                    }
-                    else
-                    {
-                        parser_seterror_with_token(ctx, ctx->current, "invalid operands of types");
+                        parser_seterror_with_token(ctx, ctx->current, "internal error type_common");
+                        throw;
                     }
                 }
                 else
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "sorry not implemented yet...");
-                }
-            }
-            else
-            {
+                    if (left_category == TYPE_CATEGORY_POINTER || left_category == TYPE_CATEGORY_ARRAY)
+                    {
+                        if (right_category == TYPE_CATEGORY_POINTER || right_category == TYPE_CATEGORY_ARRAY)
+                        {
+                            //— both operands are pointers to qualified or unqualified versions of compatible complete object
+                            // types;
+                            struct type t1 = type_lvalue_conversion(&new_expression->left->type);
+                            struct type t2 = type_lvalue_conversion(&new_expression->right->type);
 
-                int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-                if (code != 0)
-                {
-                    parser_seterror_with_token(ctx, ctx->current, "invalid type");
-                    throw;
+                            if (!type_is_same(&t1, &t2, false)) 
+                            {
+                                parser_seterror_with_token(ctx, ctx->current, "incompatible pointer types");
+                            }
+                            type_set_int(&new_expression->type);
+                            type_destroy(&t1);
+                            type_destroy(&t2);
+                        }
+                        else
+                        {
+                            if (type_is_integer(&new_expression->right->type))
+                            {
+                                //- the left operand is a pointer to a complete object typeand the right operand has integer type.
+                                new_expression->type = type_copy(&new_expression->left->type);
+                            }
+                            else
+                            {
+                                parser_seterror_with_token(ctx, ctx->current, "right must be integer type");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        parser_seterror_with_token(ctx, ctx->current, "invalid types for operator -");
+                    }
                 }
             }
 
@@ -11804,7 +11881,7 @@ struct expression* shift_expression(struct parser_ctx* ctx)
             else if (op == '<<')
             {
                 new_expression->expression_type = SHIFT_EXPRESSION_LEFT;
-                
+
                 if (new_expression->left->is_constant && new_expression->right->is_constant)
                 {
                     new_expression->constant_value = (new_expression->left->constant_value << new_expression->right->constant_value);
@@ -11816,7 +11893,7 @@ struct expression* shift_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid type");
+                parser_seterror_with_token(ctx, ctx->current, "invalid type shift expression");
                 throw;
             }
 
@@ -11888,7 +11965,7 @@ struct expression* relational_expression(struct parser_ctx* ctx)
             else if (op == '>=')
             {
                 new_expression->expression_type = RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN;
-                
+
                 if (new_expression->left->is_constant && new_expression->right->is_constant)
                 {
                     new_expression->constant_value = (new_expression->left->constant_value >= new_expression->right->constant_value);
@@ -11989,13 +12066,13 @@ struct expression* equality_expression(struct parser_ctx* ctx)
             {
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
 
-                
+
                 if (new_expression->left->is_constant && new_expression->right->is_constant)
                 {
                     new_expression->constant_value = (new_expression->left->constant_value == new_expression->right->constant_value);
                     new_expression->is_constant = true;
                 }
-                
+
             }
             else if (operator_token->type == '!=')
             {
@@ -12061,7 +12138,7 @@ struct expression* and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types");
+                parser_seterror_with_token(ctx, ctx->current, "invalid types and expression");
                 throw;
             }
 
@@ -12105,19 +12182,19 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx)
             new_expression->right = and_expression(ctx);
             if (new_expression->right == NULL) throw;
 
-            
+
             if (new_expression->left->is_constant && new_expression->right->is_constant)
             {
                 new_expression->constant_value = (new_expression->left->constant_value ^ new_expression->right->constant_value);
                 new_expression->is_constant = true;
             }
 
-            
+
 
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types");
+                parser_seterror_with_token(ctx, ctx->current, "invalid types or expression");
                 throw;
             }
 
@@ -12162,12 +12239,12 @@ struct expression* inclusive_or_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = (new_expression->left->constant_value | new_expression->right->constant_value);
                 new_expression->is_constant = true;
             }
-            
+
 
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types");
+                parser_seterror_with_token(ctx, ctx->current, "invalid types inclusive or expression");
                 throw;
             }
             p_expression_node = new_expression;
@@ -12210,12 +12287,12 @@ struct expression* logical_and_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = (new_expression->left->constant_value && new_expression->right->constant_value);
                 new_expression->is_constant = true;
             }
-            
+
 
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types");
+                parser_seterror_with_token(ctx, ctx->current, "invalid types logicl and expression");
                 throw;
             }
             p_expression_node = new_expression;
@@ -12265,7 +12342,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types");
+                parser_seterror_with_token(ctx, ctx->current, "invalid types or expression");
                 throw;
             }
 
@@ -12321,6 +12398,26 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
 
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
+
+            enum type_category category =
+                find_type_category(&new_expression->left->type);
+
+            if (category == TYPE_CATEGORY_FUNCTION)
+            {
+                parser_seterror_with_token(ctx, ctx->current, "assignment of function");
+            }
+            else if (category == TYPE_CATEGORY_ARRAY)
+            {
+                parser_seterror_with_token(ctx, ctx->current, "assignment to expression with array type");
+            }
+            else {
+
+                if (type_is_const(&new_expression->left->type))
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "assignment of read-only object");
+                }
+            }
+
             new_expression->right = assignment_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -12393,7 +12490,7 @@ struct expression* expression(struct parser_ctx* ctx)
 
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
-                
+
                 p_expression_node_new->right = expression(ctx);
                 if (p_expression_node->right == NULL) throw;
 
@@ -13449,7 +13546,7 @@ void type_add_const(struct type* p_type)
         if (p)
         {
             p->pointers.head->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
-        }        
+        }
     }
     break;
 
@@ -13463,8 +13560,32 @@ void type_add_const(struct type* p_type)
 
 void type_remove_qualifiers(struct type* p_type)
 {
-    //TODO visit_declarator_to_remove_qualifier
-    p_type->type_qualifier_flags = TYPE_QUALIFIER_NONE;
+    enum type_category category = find_type_category(p_type);
+    switch (category)
+    {
+    case TYPE_CATEGORY_FUNCTION:
+    case TYPE_CATEGORY_ARRAY:
+        break;
+
+    case TYPE_CATEGORY_POINTER:
+    {
+        struct declarator_type* declarator =
+            find_inner_declarator(p_type->declarator_type);
+        if (declarator != NULL)
+        {
+            declarator->pointers.tail->type_qualifier_flags = TYPE_QUALIFIER_NONE;
+        }
+        else {
+            assert(false);
+        }
+        break;
+    }
+    case TYPE_CATEGORY_ITSELF:
+        p_type->type_qualifier_flags = TYPE_QUALIFIER_NONE;
+        break;
+    default:
+        break;
+    }
 }
 
 struct type type_lvalue_conversion(struct type* p_type)
@@ -13475,9 +13596,9 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
     case TYPE_CATEGORY_FUNCTION:
     {
-        struct type t = get_address_of_type(p_type);               
+        struct type t = get_address_of_type(p_type);
         type_remove_qualifiers(&t);
-        return t;        
+        return t;
     }
 
     case TYPE_CATEGORY_ARRAY:
@@ -13516,8 +13637,8 @@ struct type type_convert_to(struct type* p_type, enum language_version target)
             struct pointer* p_pointer = calloc(1, sizeof(struct pointer));
             t.declarator_type = calloc(1, sizeof(struct declarator_type));
             t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
-            
-            if (p_type->declarator_type&& 
+
+            if (p_type->declarator_type &&
                 p_type->declarator_type->direct_declarator_type &&
                 p_type->declarator_type->direct_declarator_type->name_opt)
             {
@@ -13823,23 +13944,31 @@ bool type_is_const(struct type* p_type)
     {
     case TYPE_CATEGORY_ITSELF:
         return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
-        break;
+
     case TYPE_CATEGORY_FUNCTION:
         return false;
-        break;
+
     case TYPE_CATEGORY_ARRAY:
         return false; //?
-        break;
+
     case TYPE_CATEGORY_POINTER:
     {
-        assert(false);
-        //find inner see if is const pointer
+        struct declarator_type* declarator =
+            find_inner_declarator(p_type->declarator_type);
+        if (declarator != NULL)
+        {
+            return
+                declarator->pointers.tail->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+        }
+        else {
+            assert(false);
+        }
     }
-        break;
+    break;
     default:
         break;
     }
-    
+
 
     return false;
 }
@@ -14250,6 +14379,7 @@ bool type_is_pointer_or_array(struct type* p_type)
 }
 
 
+//See 6.3.1.1
 int type_get_rank(struct type* p_type1)
 {
     if (type_is_pointer_or_array(p_type1))
@@ -14988,8 +15118,8 @@ struct pointer_type_list clone_pointer_to_pointer_type_list(struct pointer* p_po
     while (p)
     {
         struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
-        if (p_pointer->type_qualifier_list_opt)
-            p_pointer_type->type_qualifier_flags = p_pointer->type_qualifier_list_opt->flags;
+        if (p->type_qualifier_list_opt)
+            p_pointer_type->type_qualifier_flags = p->type_qualifier_list_opt->flags;
         list_add(&r, p_pointer_type);
         p = p->pointer;
     }
@@ -15172,8 +15302,8 @@ void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct d
         =>int* [1]
 
         */
-        
-        
+
+
         if (
             p_typedef_decl0->direct_declarator_type &&
             p_typedef_decl0->direct_declarator_type->function_declarator_type &&
@@ -15464,19 +15594,22 @@ void type_set_int(struct type* p_type)
 }
 
 
-bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b)
+bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b, bool compare_qualifiers)
 {
     if (a && b)
     {
-        if (a->type_qualifier_flags != b->type_qualifier_flags)
-            return false;
+        if (compare_qualifiers)
+        {
+            if (a->type_qualifier_flags != b->type_qualifier_flags)
+                return false;
+        }
 
         return true;
     }
     return a == NULL && b == NULL;
 }
 
-bool pointer_type_list_is_same(struct pointer_type_list* a, struct pointer_type_list* b)
+bool pointer_type_list_is_same(struct pointer_type_list* a, struct pointer_type_list* b, bool compare_qualifiers)
 {
     if (a && b)
     {
@@ -15487,7 +15620,7 @@ bool pointer_type_list_is_same(struct pointer_type_list* a, struct pointer_type_
         {
             while (pa && pb)
             {
-                if (!pointer_type_is_same(pa, pb))
+                if (!pointer_type_is_same(pa, pb, compare_qualifiers))
                     return false;
                 pa = pa->next;
                 pb = pb->next;
@@ -15582,7 +15715,7 @@ bool function_declarator_type_is_same(struct function_declarator_type* a, struct
     return a == b;
 }
 
-bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b)
+bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b, bool compare_qualifiers)
 {
     if (a && b)
     {
@@ -15597,7 +15730,7 @@ bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct dir
                 return false;
 
 
-            if (!declarator_type_is_same(a->declarator_opt, b->declarator_opt))
+            if (!declarator_type_is_same(a->declarator_opt, b->declarator_opt, compare_qualifiers))
             {
                 return false;
             }
@@ -15676,13 +15809,14 @@ bool declarator_type_is_empty(struct declarator_type* a)
     return true;
 }
 
-bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b)
+bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b, bool compare_qualifiers)
 {
     if (!declarator_type_is_empty(a) && !declarator_type_is_empty(b))
     {
-        if (!pointer_type_list_is_same(&a->pointers, &b->pointers))
+        if (!pointer_type_list_is_same(&a->pointers, &b->pointers, compare_qualifiers))
             return false;
-        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
+
+        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type, compare_qualifiers))
             return false;
 
         return true;
@@ -15694,17 +15828,14 @@ bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* 
 
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers)
 {
-    //debug
-    //type_print(a);
-    //type_print(b);
-    //TODO compare_qualifiers inner declarator
-    compare_qualifiers;
-
     if (a && b)
     {
-        if (a->type_qualifier_flags != b->type_qualifier_flags)
+        if (compare_qualifiers)
         {
-            return false;
+            if (a->type_qualifier_flags != b->type_qualifier_flags)
+            {
+                return false;
+            }
         }
 
         if (a->type_specifier_flags != b->type_specifier_flags)
@@ -15712,7 +15843,7 @@ bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers)
             return false;
         }
 
-        if (!declarator_type_is_same(a->declarator_type, b->declarator_type))
+        if (!declarator_type_is_same(a->declarator_type, b->declarator_type, compare_qualifiers))
         {
             return false;
         }
@@ -22190,6 +22321,10 @@ void is_pointer_test()
         "  static_assert(_is_pointer(pf));\n"
         "\n"
         "  static_assert(_is_same(int, typeof(i)));\n"
+        "\n"
+        "  static_assert(_is_const(const int));\n"
+        "  static_assert(!_is_const(const int*));\n"
+        "  static_assert(_is_const(int* const));\n"
         "\n"
         "}\n"
         ;

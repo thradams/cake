@@ -6417,6 +6417,10 @@ void is_pointer_test()
         "\n"
         "  static_assert(_is_same(int, typeof(i)));\n"
         "\n"
+        "  static_assert(_is_const(const int));\n"
+        "  static_assert(!_is_const(const int*));\n"
+        "  static_assert(_is_const(int* const));\n"
+        "\n"
         "}\n"
         ;
     assert(compile_without_errors(source));

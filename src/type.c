@@ -238,7 +238,7 @@ void type_add_const(struct type* p_type)
         if (p)
         {
             p->pointers.head->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
-        }        
+        }
     }
     break;
 
@@ -252,8 +252,32 @@ void type_add_const(struct type* p_type)
 
 void type_remove_qualifiers(struct type* p_type)
 {
-    //TODO visit_declarator_to_remove_qualifier
-    p_type->type_qualifier_flags = TYPE_QUALIFIER_NONE;
+    enum type_category category = find_type_category(p_type);
+    switch (category)
+    {
+    case TYPE_CATEGORY_FUNCTION:
+    case TYPE_CATEGORY_ARRAY:
+        break;
+
+    case TYPE_CATEGORY_POINTER:
+    {
+        struct declarator_type* declarator =
+            find_inner_declarator(p_type->declarator_type);
+        if (declarator != NULL)
+        {
+            declarator->pointers.tail->type_qualifier_flags = TYPE_QUALIFIER_NONE;
+        }
+        else {
+            assert(false);
+        }
+        break;
+    }
+    case TYPE_CATEGORY_ITSELF:
+        p_type->type_qualifier_flags = TYPE_QUALIFIER_NONE;
+        break;
+    default:
+        break;
+    }
 }
 
 struct type type_lvalue_conversion(struct type* p_type)
@@ -264,9 +288,9 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
     case TYPE_CATEGORY_FUNCTION:
     {
-        struct type t = get_address_of_type(p_type);               
+        struct type t = get_address_of_type(p_type);
         type_remove_qualifiers(&t);
-        return t;        
+        return t;
     }
 
     case TYPE_CATEGORY_ARRAY:
@@ -305,8 +329,8 @@ struct type type_convert_to(struct type* p_type, enum language_version target)
             struct pointer* p_pointer = calloc(1, sizeof(struct pointer));
             t.declarator_type = calloc(1, sizeof(struct declarator_type));
             t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
-            
-            if (p_type->declarator_type&& 
+
+            if (p_type->declarator_type &&
                 p_type->declarator_type->direct_declarator_type &&
                 p_type->declarator_type->direct_declarator_type->name_opt)
             {
@@ -612,23 +636,31 @@ bool type_is_const(struct type* p_type)
     {
     case TYPE_CATEGORY_ITSELF:
         return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
-        break;
+
     case TYPE_CATEGORY_FUNCTION:
         return false;
-        break;
+
     case TYPE_CATEGORY_ARRAY:
         return false; //?
-        break;
+
     case TYPE_CATEGORY_POINTER:
     {
-        assert(false);
-        //find inner see if is const pointer
+        struct declarator_type* declarator =
+            find_inner_declarator(p_type->declarator_type);
+        if (declarator != NULL)
+        {
+            return
+                declarator->pointers.tail->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+        }
+        else {
+            assert(false);
+        }
     }
-        break;
+    break;
     default:
         break;
     }
-    
+
 
     return false;
 }
@@ -1039,6 +1071,7 @@ bool type_is_pointer_or_array(struct type* p_type)
 }
 
 
+//See 6.3.1.1
 int type_get_rank(struct type* p_type1)
 {
     if (type_is_pointer_or_array(p_type1))
@@ -1777,8 +1810,8 @@ struct pointer_type_list clone_pointer_to_pointer_type_list(struct pointer* p_po
     while (p)
     {
         struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
-        if (p_pointer->type_qualifier_list_opt)
-            p_pointer_type->type_qualifier_flags = p_pointer->type_qualifier_list_opt->flags;
+        if (p->type_qualifier_list_opt)
+            p_pointer_type->type_qualifier_flags = p->type_qualifier_list_opt->flags;
         list_add(&r, p_pointer_type);
         p = p->pointer;
     }
@@ -1961,8 +1994,8 @@ void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct d
         =>int* [1]
 
         */
-        
-        
+
+
         if (
             p_typedef_decl0->direct_declarator_type &&
             p_typedef_decl0->direct_declarator_type->function_declarator_type &&
@@ -2250,19 +2283,22 @@ void type_set_int(struct type* p_type)
 }
 
 
-bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b)
+bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b, bool compare_qualifiers)
 {
     if (a && b)
     {
-        if (a->type_qualifier_flags != b->type_qualifier_flags)
-            return false;
+        if (compare_qualifiers)
+        {
+            if (a->type_qualifier_flags != b->type_qualifier_flags)
+                return false;
+        }
 
         return true;
     }
     return a == NULL && b == NULL;
 }
 
-bool pointer_type_list_is_same(struct pointer_type_list* a, struct pointer_type_list* b)
+bool pointer_type_list_is_same(struct pointer_type_list* a, struct pointer_type_list* b, bool compare_qualifiers)
 {
     if (a && b)
     {
@@ -2273,7 +2309,7 @@ bool pointer_type_list_is_same(struct pointer_type_list* a, struct pointer_type_
         {
             while (pa && pb)
             {
-                if (!pointer_type_is_same(pa, pb))
+                if (!pointer_type_is_same(pa, pb, compare_qualifiers))
                     return false;
                 pa = pa->next;
                 pb = pb->next;
@@ -2368,7 +2404,7 @@ bool function_declarator_type_is_same(struct function_declarator_type* a, struct
     return a == b;
 }
 
-bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b)
+bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b, bool compare_qualifiers)
 {
     if (a && b)
     {
@@ -2383,7 +2419,7 @@ bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct dir
                 return false;
 
 
-            if (!declarator_type_is_same(a->declarator_opt, b->declarator_opt))
+            if (!declarator_type_is_same(a->declarator_opt, b->declarator_opt, compare_qualifiers))
             {
                 return false;
             }
@@ -2462,13 +2498,14 @@ bool declarator_type_is_empty(struct declarator_type* a)
     return true;
 }
 
-bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b)
+bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b, bool compare_qualifiers)
 {
     if (!declarator_type_is_empty(a) && !declarator_type_is_empty(b))
     {
-        if (!pointer_type_list_is_same(&a->pointers, &b->pointers))
+        if (!pointer_type_list_is_same(&a->pointers, &b->pointers, compare_qualifiers))
             return false;
-        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
+
+        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type, compare_qualifiers))
             return false;
 
         return true;
@@ -2480,17 +2517,14 @@ bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* 
 
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers)
 {
-    //debug
-    //type_print(a);
-    //type_print(b);
-    //TODO compare_qualifiers inner declarator
-    compare_qualifiers;
-
     if (a && b)
     {
-        if (a->type_qualifier_flags != b->type_qualifier_flags)
+        if (compare_qualifiers)
         {
-            return false;
+            if (a->type_qualifier_flags != b->type_qualifier_flags)
+            {
+                return false;
+            }
         }
 
         if (a->type_specifier_flags != b->type_specifier_flags)
@@ -2498,7 +2532,7 @@ bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers)
             return false;
         }
 
-        if (!declarator_type_is_same(a->declarator_type, b->declarator_type))
+        if (!declarator_type_is_same(a->declarator_type, b->declarator_type, compare_qualifiers))
         {
             return false;
         }
