@@ -45,6 +45,7 @@ The ouput dir is **./out**
 
 ## C99 Transformations
 
+but generate code that is compatible with C++ 98.
 C89 
 https://port70.net/~nsz/c/c89/c89-draft.html
 
