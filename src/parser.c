@@ -2273,6 +2273,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
         if (is_typeof_unqual)
         {
             type_remove_qualifiers(&p_typeof_specifier->type);
+            
         }
 
 

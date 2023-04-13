@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdio.h>
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
-bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b);
+bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b, bool compare_qualifiers);
 struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type(struct parser_ctx* ctx, struct direct_declarator* p_direct_declarator);
 
 struct direct_declarator_type* direct_declarator_type_copy(struct direct_declarator_type* p_direct_declarator_type_opt);
@@ -2115,22 +2115,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         if (pdeclarator->specifier_qualifier_list->typeof_specifier)
         {
-
-            if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression)
-            {
-                t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression->type);
-                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-                declarator_type_merge(dectype, t.declarator_type);
-
-            }
-            else if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name)
-            {
-                t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
-                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-                declarator_type_merge(dectype, t.declarator_type);
-
-
-            }
+            t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->type);
+            struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+            declarator_type_merge(dectype, t.declarator_type);
         }
         else  if (pdeclarator->specifier_qualifier_list->typedef_declarator)
         {
@@ -2151,41 +2138,24 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     {
         if (pdeclarator->declaration_specifiers->typeof_specifier)
         {
-            if (pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression)
+
+            t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->type);
+
+            declarator_type_clear_name(t.declarator_type);
+
+            struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+
+            if (t.declarator_type != NULL) /*expression it may be null*/
             {
-                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression->type);
 
-                declarator_type_clear_name(t.declarator_type);
-
-                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-
-                if (t.declarator_type != NULL) /*expression it may be null*/
-                {
-
-                    declarator_type_merge(dectype, t.declarator_type);
-                }
-                else
-                {
-                    t.declarator_type = dectype;
-                }
+                declarator_type_merge(dectype, t.declarator_type);
             }
-            else if (pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name)
+            else
             {
-                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
-
-                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-
-                if (t.declarator_type != NULL) /*expression it may be null*/
-                {
-                    declarator_type_merge(dectype, t.declarator_type);
-                }
-                else
-                {
-                    /*works but unexpected*/
-                    t.declarator_type = dectype;
-                    assert(false);
-                }
+                t.declarator_type = dectype;
             }
+
+
         }
         else if (pdeclarator->declaration_specifiers->typedef_declarator)
         {
@@ -2349,7 +2319,7 @@ bool type_list_is_same(struct params* a, struct params* b)
 
 
 
-bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b);
+bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b, bool compare_qualifiers);
 
 bool direct_declarator_type_is_empty(struct direct_declarator_type* a)
 {
@@ -2380,7 +2350,7 @@ bool array_declarator_type_is_same(struct array_declarator_type* a, struct array
 {
     if (a && b)
     {
-        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
+        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type, false))
             return false;
 
         return a->constant_size == b->constant_size;
@@ -2392,7 +2362,7 @@ bool function_declarator_type_is_same(struct function_declarator_type* a, struct
 {
     if (a && b)
     {
-        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
+        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type, false))
             return false;
 
         if (!type_list_is_same(&a->params, &b->params))

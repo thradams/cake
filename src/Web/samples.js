@@ -286,7 +286,7 @@ int main()
 
 `;
 
-sample["C23 typeof"] =
+sample["C23 typeof / typeof_unqual"] =
 `
 #include <stdlib.h>
 
@@ -326,7 +326,12 @@ int main()
     typeof(int*) p1, p2;
     typeof(typeof(int*)) p3;
     typeof(typeof(p1)) p4;
+    
+
     typeof_unqual(const int) p5;
+    typeof_unqual(const int * const) p6;
+    static_assert(_is_same(typeof_unqual(const int * const), const int *));
+    
 
     /*let's expand this macro and see inside*/
     SWAP(a, b);

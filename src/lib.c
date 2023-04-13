@@ -13316,7 +13316,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx,long long* pvalue)
 
 
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
-bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b);
+bool direct_declarator_type_is_same(struct direct_declarator_type* a, struct direct_declarator_type* b, bool compare_qualifiers);
 struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type(struct parser_ctx* ctx, struct direct_declarator* p_direct_declarator);
 
 struct direct_declarator_type* direct_declarator_type_copy(struct direct_declarator_type* p_direct_declarator_type_opt);
@@ -15426,22 +15426,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         if (pdeclarator->specifier_qualifier_list->typeof_specifier)
         {
-
-            if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression)
-            {
-                t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->expression->type);
-                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-                declarator_type_merge(dectype, t.declarator_type);
-
-            }
-            else if (pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name)
-            {
-                t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
-                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-                declarator_type_merge(dectype, t.declarator_type);
-
-
-            }
+            t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->type);
+            struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+            declarator_type_merge(dectype, t.declarator_type);
         }
         else  if (pdeclarator->specifier_qualifier_list->typedef_declarator)
         {
@@ -15462,41 +15449,24 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     {
         if (pdeclarator->declaration_specifiers->typeof_specifier)
         {
-            if (pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression)
+
+            t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->type);
+
+            declarator_type_clear_name(t.declarator_type);
+
+            struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
+
+            if (t.declarator_type != NULL) /*expression it may be null*/
             {
-                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->expression->type);
 
-                declarator_type_clear_name(t.declarator_type);
-
-                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-
-                if (t.declarator_type != NULL) /*expression it may be null*/
-                {
-
-                    declarator_type_merge(dectype, t.declarator_type);
-                }
-                else
-                {
-                    t.declarator_type = dectype;
-                }
+                declarator_type_merge(dectype, t.declarator_type);
             }
-            else if (pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name)
+            else
             {
-                t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
-
-                struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
-
-                if (t.declarator_type != NULL) /*expression it may be null*/
-                {
-                    declarator_type_merge(dectype, t.declarator_type);
-                }
-                else
-                {
-                    /*works but unexpected*/
-                    t.declarator_type = dectype;
-                    assert(false);
-                }
+                t.declarator_type = dectype;
             }
+
+
         }
         else if (pdeclarator->declaration_specifiers->typedef_declarator)
         {
@@ -15660,7 +15630,7 @@ bool type_list_is_same(struct params* a, struct params* b)
 
 
 
-bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b);
+bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b, bool compare_qualifiers);
 
 bool direct_declarator_type_is_empty(struct direct_declarator_type* a)
 {
@@ -15691,7 +15661,7 @@ bool array_declarator_type_is_same(struct array_declarator_type* a, struct array
 {
     if (a && b)
     {
-        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
+        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type, false))
             return false;
 
         return a->constant_size == b->constant_size;
@@ -15703,7 +15673,7 @@ bool function_declarator_type_is_same(struct function_declarator_type* a, struct
 {
     if (a && b)
     {
-        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type))
+        if (!direct_declarator_type_is_same(a->direct_declarator_type, b->direct_declarator_type, false))
             return false;
 
         if (!type_list_is_same(&a->params, &b->params))
@@ -18179,6 +18149,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
         if (is_typeof_unqual)
         {
             type_remove_qualifiers(&p_typeof_specifier->type);
+            
         }
 
 
@@ -23603,7 +23574,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         p_init_declarator &&
         p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
     {
-        
+
         /*now we print new especifiers then convert to tokens*/
         struct osstream ss0 = { 0 };
         struct type new_type = type_convert_to(&p_init_declarator->declarator->type, ctx->target);
@@ -23848,71 +23819,70 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 
 }
 
-static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier)
+static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct typeof_specifier* p_typeof_specifier)
 {
 
     if (!ctx->is_second_pass)
     {
         if (ctx->target < LANGUAGE_C2X)
         {
-            if (p_type_specifier->typeof_specifier)
+
+            
+
+            struct osstream ss = { 0 };
+
+
+            if (!is_declaration)
             {
                 /*
-                * let's hide the typeof(..) tokens
+                * typeof used like type-name
+                * for instance sizeof(typeof(a)) -> sizeof(int [2])
                 */
-                token_range_add_flag(p_type_specifier->typeof_specifier->first_token,
-                    p_type_specifier->typeof_specifier->last_token,
-                    TK_FLAG_HIDE);
-
-
-                struct osstream ss = { 0 };
-
-
-                if (!is_declaration)
-                {
-                    /*
-                    * typeof used like type-name
-                    * for instance sizeof(typeof(a)) -> sizeof(int [2])
-                    */
-                    print_type(&ss, &p_type_specifier->typeof_specifier->type);
-                }
-                else
-                {
-                    /*
-                    * typeof used in declarations
-                    * We need to split specifiers and later add declarator part.
-                    */
-                    print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->type);
-                }
-
-                /*
-                * typeof of anonymous struct?
-                */
-                if (p_type_specifier->typeof_specifier->type.struct_or_union_specifier &&
-                    p_type_specifier->typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag)
-                {
-
-                    p_type_specifier->typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag = false;
-
-                    struct token* first = p_type_specifier->typeof_specifier->type.struct_or_union_specifier->first_token;
-
-                    const char* tag = p_type_specifier->typeof_specifier->type.struct_or_union_specifier->tag_name;
-                    char buffer[200] = { 0 };
-                    snprintf(buffer, sizeof buffer, " %s", tag);
-                    struct tokenizer_ctx tctx = { 0 };
-                    struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                    token_list_insert_after(&ctx->ast.token_list, first, &l2);
-
-                }
-
-
-
-                struct tokenizer_ctx tctx = { 0 };
-                struct token_list list = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-                ss_close(&ss);
-                token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->last_token, &list);
+                print_type(&ss, &p_typeof_specifier->type);
             }
+            else
+            {
+                /*
+                * typeof used in declarations
+                * We need to split specifiers and later add declarator part.
+                */
+                print_type_qualifier_specifiers(&ss, &p_typeof_specifier->type);
+            }
+
+            /*
+            * typeof of anonymous struct?
+            */
+            if (p_typeof_specifier->type.struct_or_union_specifier &&
+                p_typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag)
+            {
+
+                p_typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag = false;
+
+                struct token* first = p_typeof_specifier->type.struct_or_union_specifier->first_token;
+
+                const char* tag = p_typeof_specifier->type.struct_or_union_specifier->tag_name;
+                char buffer[200] = { 0 };
+                snprintf(buffer, sizeof buffer, " %s", tag);
+                struct tokenizer_ctx tctx = { 0 };
+                struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
+                token_list_insert_after(&ctx->ast.token_list, first, &l2);
+
+            }
+
+
+
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list list = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
+            ss_close(&ss);
+            token_list_insert_after(&ctx->ast.token_list, p_typeof_specifier->last_token, &list);
+
+            /*
+            * let's hide the typeof(..) tokens
+            */
+            token_range_add_flag(p_typeof_specifier->first_token, p_typeof_specifier->last_token, TK_FLAG_HIDE);
+
         }
+
     }
 }
 
@@ -23920,7 +23890,7 @@ static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, str
 {
     if (p_type_specifier->typeof_specifier)
     {
-        visit_typeof_specifier(is_declaration, ctx, p_type_specifier);
+        visit_typeof_specifier(is_declaration, ctx, p_type_specifier->typeof_specifier);
     }
 
     if (p_type_specifier->struct_or_union_specifier)

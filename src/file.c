@@ -1,3 +1,2 @@
-static_assert(_is_const(const int));
-static_assert(!_is_const(const int*));
-static_assert(_is_const(int* const));
+//typeof_unqual(const int* const) p6;
+static_assert(_is_same(typeof_unqual(const int* const), const int*));

@@ -1221,7 +1221,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
         p_init_declarator &&
         p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
     {
-        
+
         /*now we print new especifiers then convert to tokens*/
         struct osstream ss0 = { 0 };
         struct type new_type = type_convert_to(&p_init_declarator->declarator->type, ctx->target);
@@ -1466,71 +1466,70 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 
 }
 
-static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier)
+static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct typeof_specifier* p_typeof_specifier)
 {
 
     if (!ctx->is_second_pass)
     {
         if (ctx->target < LANGUAGE_C2X)
         {
-            if (p_type_specifier->typeof_specifier)
+
+            
+
+            struct osstream ss = { 0 };
+
+
+            if (!is_declaration)
             {
                 /*
-                * let's hide the typeof(..) tokens
+                * typeof used like type-name
+                * for instance sizeof(typeof(a)) -> sizeof(int [2])
                 */
-                token_range_add_flag(p_type_specifier->typeof_specifier->first_token,
-                    p_type_specifier->typeof_specifier->last_token,
-                    TK_FLAG_HIDE);
-
-
-                struct osstream ss = { 0 };
-
-
-                if (!is_declaration)
-                {
-                    /*
-                    * typeof used like type-name
-                    * for instance sizeof(typeof(a)) -> sizeof(int [2])
-                    */
-                    print_type(&ss, &p_type_specifier->typeof_specifier->type);
-                }
-                else
-                {
-                    /*
-                    * typeof used in declarations
-                    * We need to split specifiers and later add declarator part.
-                    */
-                    print_type_qualifier_specifiers(&ss, &p_type_specifier->typeof_specifier->type);
-                }
-
-                /*
-                * typeof of anonymous struct?
-                */
-                if (p_type_specifier->typeof_specifier->type.struct_or_union_specifier &&
-                    p_type_specifier->typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag)
-                {
-
-                    p_type_specifier->typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag = false;
-
-                    struct token* first = p_type_specifier->typeof_specifier->type.struct_or_union_specifier->first_token;
-
-                    const char* tag = p_type_specifier->typeof_specifier->type.struct_or_union_specifier->tag_name;
-                    char buffer[200] = { 0 };
-                    snprintf(buffer, sizeof buffer, " %s", tag);
-                    struct tokenizer_ctx tctx = { 0 };
-                    struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                    token_list_insert_after(&ctx->ast.token_list, first, &l2);
-
-                }
-
-
-
-                struct tokenizer_ctx tctx = { 0 };
-                struct token_list list = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-                ss_close(&ss);
-                token_list_insert_after(&ctx->ast.token_list, p_type_specifier->typeof_specifier->last_token, &list);
+                print_type(&ss, &p_typeof_specifier->type);
             }
+            else
+            {
+                /*
+                * typeof used in declarations
+                * We need to split specifiers and later add declarator part.
+                */
+                print_type_qualifier_specifiers(&ss, &p_typeof_specifier->type);
+            }
+
+            /*
+            * typeof of anonymous struct?
+            */
+            if (p_typeof_specifier->type.struct_or_union_specifier &&
+                p_typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag)
+            {
+
+                p_typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag = false;
+
+                struct token* first = p_typeof_specifier->type.struct_or_union_specifier->first_token;
+
+                const char* tag = p_typeof_specifier->type.struct_or_union_specifier->tag_name;
+                char buffer[200] = { 0 };
+                snprintf(buffer, sizeof buffer, " %s", tag);
+                struct tokenizer_ctx tctx = { 0 };
+                struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
+                token_list_insert_after(&ctx->ast.token_list, first, &l2);
+
+            }
+
+
+
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list list = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
+            ss_close(&ss);
+            token_list_insert_after(&ctx->ast.token_list, p_typeof_specifier->last_token, &list);
+
+            /*
+            * let's hide the typeof(..) tokens
+            */
+            token_range_add_flag(p_typeof_specifier->first_token, p_typeof_specifier->last_token, TK_FLAG_HIDE);
+
         }
+
     }
 }
 
@@ -1538,7 +1537,7 @@ static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, str
 {
     if (p_type_specifier->typeof_specifier)
     {
-        visit_typeof_specifier(is_declaration, ctx, p_type_specifier);
+        visit_typeof_specifier(is_declaration, ctx, p_type_specifier->typeof_specifier);
     }
 
     if (p_type_specifier->struct_or_union_specifier)
