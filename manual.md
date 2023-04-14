@@ -1712,3 +1712,25 @@ we have \_add\_attr and \_del\_attr
 ```
 
 (probabily these names will change)
+
+### Extension typename on _Generic (planned)
+
+```c
+  _Generic ( generic-argument , generic-assoc-list )
+
+  generic-argument
+    expression
+    type-name
+
+```
+
+Why?
+Because it can be used like
+
+```c
+  _Generic (typeof(x), ...)
+
+```
+and the lvalue conversion will not happen, allowing 
+more precise (with qualifiers) type match.
+

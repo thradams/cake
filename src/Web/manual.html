@@ -233,6 +233,9 @@
 <li>
 <a href="#toc_71">Extension - [[destroy, free]]  attributes</a>
 </li>
+<li>
+<a href="#toc_72">Extension typename on _Generic (planned)</a>
+</li>
 </ul>
 </li>
 </ul>
@@ -1847,4 +1850,24 @@ we have _add_attr and _del_attr</p>
 </code></pre>
 
 <p>(probabily these names will change)</p>
+
+<h3 id="toc_72">Extension typename on _Generic (planned)</h3>
+
+<pre><code class="language-c">  _Generic ( generic-argument , generic-assoc-list )
+
+  generic-argument
+    expression
+    type-name
+
+</code></pre>
+
+<p>Why?
+Because it can be used like</p>
+
+<pre><code class="language-c">  _Generic (typeof(x), ...)
+
+</code></pre>
+
+<p>and the lvalue conversion will not happen, allowing 
+more precise (with qualifiers) type match.</p>
 </body></html>
