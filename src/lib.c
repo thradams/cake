@@ -8445,7 +8445,7 @@ struct declarator_type* find_inner_declarator(struct declarator_type* p_declarat
 struct type get_address_of_type(struct type* p_type);
 void type_print(struct type* a);
 bool type_is_scalar(struct type* p_type);
-enum type_category find_type_category(const struct type* p_type);
+enum type_category type_get_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, struct type* type);
 void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);
 void declarator_type_clear_name(struct declarator_type* p_declarator_type);
@@ -11683,8 +11683,8 @@ struct expression* additive_expression(struct parser_ctx* ctx)
             const bool b_left_is_arithmetic = type_is_arithmetic(&new_expression->left->type);
             const bool b_right_is_arithmetic = type_is_arithmetic(&new_expression->right->type);
 
-            const enum type_category left_category = find_type_category(&new_expression->left->type);
-            const enum type_category right_category = find_type_category(&new_expression->right->type);
+            const enum type_category left_category = type_get_category(&new_expression->left->type);
+            const enum type_category right_category = type_get_category(&new_expression->right->type);
 
             if (op == '+')
             {
@@ -12400,7 +12400,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
 
             enum type_category category =
-                find_type_category(&new_expression->left->type);
+                type_get_category(&new_expression->left->type);
 
             if (category == TYPE_CATEGORY_FUNCTION)
             {
@@ -13531,7 +13531,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
 
 void type_add_const(struct type* p_type)
 {
-    enum type_category category = find_type_category(p_type);
+    enum type_category category = type_get_category(p_type);
     switch (category)
     {
     case TYPE_CATEGORY_FUNCTION:
@@ -13560,7 +13560,7 @@ void type_add_const(struct type* p_type)
 
 void type_remove_qualifiers(struct type* p_type)
 {
-    enum type_category category = find_type_category(p_type);
+    enum type_category category = type_get_category(p_type);
     switch (category)
     {
     case TYPE_CATEGORY_FUNCTION:
@@ -13591,7 +13591,7 @@ void type_remove_qualifiers(struct type* p_type)
 struct type type_lvalue_conversion(struct type* p_type)
 {
 
-    enum type_category category = find_type_category(p_type);
+    enum type_category category = type_get_category(p_type);
     switch (category)
     {
     case TYPE_CATEGORY_FUNCTION:
@@ -13832,7 +13832,7 @@ void visit_declarator_get(enum type_category* type_category, struct declarator_t
     }
 }
 
-enum type_category find_type_category(const struct type* p_type)
+enum type_category type_get_category(const struct type* p_type)
 {
     enum type_category type_category = TYPE_CATEGORY_ITSELF;
     visit_declarator_get(&type_category, p_type->declarator_type);
@@ -13933,13 +13933,13 @@ bool type_is_destroy(struct type* p_type)
 
 bool type_is_array(struct type* p_type)
 {
-    return find_type_category(p_type) == TYPE_CATEGORY_ARRAY;
+    return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
 
 bool type_is_const(struct type* p_type)
 {
-    enum type_category category = find_type_category(p_type);
+    enum type_category category = type_get_category(p_type);
     switch (category)
     {
     case TYPE_CATEGORY_ITSELF:
@@ -13975,19 +13975,19 @@ bool type_is_const(struct type* p_type)
 
 bool type_is_pointer(struct type* p_type)
 {
-    return find_type_category(p_type) == TYPE_CATEGORY_POINTER;
+    return type_get_category(p_type) == TYPE_CATEGORY_POINTER;
 }
 
 
 bool type_is_enum(struct type* p_type)
 {
-    return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM;
 }
 
 bool type_is_struct_or_union(struct type* p_type)
 {
-    return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION;
 }
 
@@ -13998,19 +13998,19 @@ bool type_is_struct_or_union(struct type* p_type)
 */
 bool type_is_character(struct type* p_type)
 {
-    return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR;
 }
 
 bool type_is_bool(struct type* p_type)
 {
-    return find_type_category(p_type) == TYPE_CATEGORY_ITSELF &&
+    return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL;
 }
 
 bool type_is_void(struct type* p_type)
 {
-    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
     return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
@@ -14024,7 +14024,7 @@ bool type_is_void(struct type* p_type)
 */
 bool type_is_floating_point(struct type* p_type)
 {
-    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
     return p_type->type_specifier_flags &
@@ -14040,7 +14040,7 @@ bool type_is_floating_point(struct type* p_type)
 */
 bool type_is_integer(struct type* p_type)
 {
-    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
@@ -14088,7 +14088,7 @@ bool type_is_scalar(struct type* p_type)
     if (type_is_pointer_or_array(p_type))
         return true;
 
-    if (find_type_category(p_type) != TYPE_CATEGORY_ITSELF)
+    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
     return p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T;
@@ -14179,7 +14179,7 @@ bool type_is_compatible_type_function_call(struct type* argument_type, struct ty
 
 bool type_is_function(struct type* p_type)
 {
-    return find_type_category(p_type) == TYPE_CATEGORY_FUNCTION;
+    return type_get_category(p_type) == TYPE_CATEGORY_FUNCTION;
 }
 
 bool type_is_function_or_function_pointer(struct type* p_type)
@@ -14369,7 +14369,7 @@ struct type get_function_return_type(struct type* p_type)
 
 bool type_is_pointer_or_array(struct type* p_type)
 {
-    const enum type_category category = find_type_category(p_type);
+    const enum type_category category = type_get_category(p_type);
 
     if (category == TYPE_CATEGORY_POINTER ||
         category == TYPE_CATEGORY_ARRAY)
@@ -14708,7 +14708,7 @@ int type_get_alignof(struct type* p_type)
 {
     int align = 0;
 
-    enum type_category category = find_type_category(p_type);
+    enum type_category category = type_get_category(p_type);
 
     if (category == TYPE_CATEGORY_POINTER)
     {
@@ -14824,7 +14824,7 @@ int type_get_sizeof(struct type* p_type)
 {
     int size = 0;
 
-    enum type_category category = find_type_category(p_type);
+    enum type_category category = type_get_category(p_type);
 
     if (category == TYPE_CATEGORY_POINTER)
     {

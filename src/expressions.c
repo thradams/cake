@@ -1835,8 +1835,8 @@ struct expression* additive_expression(struct parser_ctx* ctx)
             const bool b_left_is_arithmetic = type_is_arithmetic(&new_expression->left->type);
             const bool b_right_is_arithmetic = type_is_arithmetic(&new_expression->right->type);
 
-            const enum type_category left_category = find_type_category(&new_expression->left->type);
-            const enum type_category right_category = find_type_category(&new_expression->right->type);
+            const enum type_category left_category = type_get_category(&new_expression->left->type);
+            const enum type_category right_category = type_get_category(&new_expression->right->type);
 
             if (op == '+')
             {
@@ -2552,7 +2552,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
 
             enum type_category category =
-                find_type_category(&new_expression->left->type);
+                type_get_category(&new_expression->left->type);
 
             if (category == TYPE_CATEGORY_FUNCTION)
             {
