@@ -263,7 +263,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
     }
   }
     var cKeywords = "true false nullptr static_assert typeof_unqual typeof typeid try catch defer throw auto inline if break case register continue return default do sizeof " +
-    "static else struct switch extern constexpr typedef union repeat for goto while enum const volatile overload destroy new _Static_assert alignof alignas";
+    "static else struct switch extern constexpr typedef union repeat for goto while enum const volatile overload destroy new _Static_assert alignof alignas _Alignof _Generic";
   var cTypes = "int long char short double float unsigned signed void size_t ptrdiff_t";
 
   function cppHook(stream, state) {
@@ -370,7 +370,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
     keywords: words(cKeywords),
       types: words(cTypes + "inline throw defer bool _Complex _Bool float_t double_t intptr_t intmax_t " +
                  "int8_t int16_t int32_t int64_t uintptr_t uintmax_t uint8_t uint16_t " +
-                 "uint32_t uint64_t restrict _Noreturn"),
+                 "uint32_t uint64_t restrict _Noreturn _Generic"),
     blockKeywords: words("try case do else for if switch while struct"),
     defKeywords: words("struct"),
     typeFirstDefinitions: true,

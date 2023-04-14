@@ -116,12 +116,23 @@ struct generic_selection
 {
     /*
       generic-selection:
-      "_Generic" ( assignment-expression , generic-assoc-list )
+        "_Generic" ( assignment-expression , generic-assoc-list )
+    */
+
+
+    /*
+      Extension
+      generic-selection:
+        "_Generic" ( generic-argument, generic-assoc-list )
+
+        generic-argument:
+          assignment-expression
+          type-name
     */
 
 
     struct expression* expression;
-
+    struct type_name* type_name;
     /*
     * Points to the matching expression
     */
@@ -169,3 +180,4 @@ struct expression
 struct expression* assignment_expression(struct parser_ctx* ctx);
 struct expression* expression(struct parser_ctx* ctx);
 struct expression* constant_expression(struct parser_ctx* ctx);
+bool expression_is_subjected_to_lvalue_conversion(struct expression*);

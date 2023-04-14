@@ -298,10 +298,21 @@ static void print_clean_list(struct token_list* list)
 
 struct generic_selection* generic_selection(struct parser_ctx* ctx)
 {
-    /*
-    generic-selection:
-    _Generic ( assignment-expression , generic-assoc-ctx )
+    /*C23
+      generic-selection:
+        _Generic ( assignment-expression , generic-assoc-ctx )
     */
+
+    /*
+      Extension
+      generic-selection:
+        "_Generic" ( generic-argument, generic-assoc-list )
+
+        generic-argument:
+          assignment-expression
+          type-name
+    */
+
     struct generic_selection* p_generic_selection = NULL;
     try
     {
@@ -317,22 +328,50 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
         parser_match_tk(ctx, '(');
         struct token_list l = { 0 };
         l.head = ctx->current;
-        p_generic_selection->expression = assignment_expression(ctx);
+        
+        if (first_of_type_name(ctx))
+        {
+            /*extension*/
+            p_generic_selection->type_name = type_name(ctx);
+        }
+        else
+        {
+            p_generic_selection->expression = assignment_expression(ctx);
+        }
+
         l.tail = ctx->current->prev;
 
         parser_match_tk(ctx, ',');
-
+        
         p_generic_selection->generic_assoc_list = generic_association_list(ctx);
+        
 
-        struct type lvalue_type = type_lvalue_conversion(&p_generic_selection->expression->type);
+        struct type lvalue_type = { 0 };
+        
+        struct type* p_type = NULL;
+        
+        if (p_generic_selection->expression)
+        {
+            p_type = &p_generic_selection->expression->type;
 
+            if (expression_is_subjected_to_lvalue_conversion(p_generic_selection->expression))
+            {
+                lvalue_type = type_lvalue_conversion(&p_generic_selection->expression->type);
+                p_type = &lvalue_type;
+            }
+        }
+        else 
+        {
+            p_type = &p_generic_selection->type_name->declarator->type;
+        }
+                
 
         struct generic_association* current = p_generic_selection->generic_assoc_list.head;
         while (current)
         {
             if (current->p_type_name)
             {
-                if (type_is_same(&lvalue_type, &current->type, true))
+                if (type_is_same(p_type, &current->type, true))
                 {
                     p_generic_selection->p_view_selected_expression = current->expression;
                     break;
@@ -662,6 +701,9 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             if (p_expression_node->generic_selection->p_view_selected_expression)
             {
                 p_expression_node->type = type_copy(&p_expression_node->generic_selection->p_view_selected_expression->type);
+                
+                p_expression_node->constant_value = p_expression_node->generic_selection->p_view_selected_expression->constant_value;
+                p_expression_node->is_constant = p_expression_node->generic_selection->p_view_selected_expression->is_constant;
             }
             else
             {
@@ -1944,7 +1986,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                             struct type t1 = type_lvalue_conversion(&new_expression->left->type);
                             struct type t2 = type_lvalue_conversion(&new_expression->right->type);
 
-                            if (!type_is_same(&t1, &t2, false)) 
+                            if (!type_is_same(&t1, &t2, false))
                             {
                                 parser_seterror_with_token(ctx, ctx->current, "incompatible pointer types");
                             }
@@ -2722,4 +2764,24 @@ struct expression* constant_expression(struct parser_ctx* ctx)
     }
 
     return p_expression;
+}
+
+/*
+* Returns true if the type of expression is subjected to type_lvalue_conversion
+*/
+bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
+{
+
+    switch (expression->expression_type)
+    {
+    case UNARY_EXPRESSION_ADDRESSOF:
+    case UNARY_EXPRESSION_INCREMENT:
+    case UNARY_EXPRESSION_DECREMENT:
+    case POSTFIX_INCREMENT:
+    case POSTFIX_DECREMENT:
+        return false;
+    }
+
+
+    return true;
 }

@@ -234,7 +234,7 @@
 <a href="#toc_71">Extension - [[destroy, free]]  attributes</a>
 </li>
 <li>
-<a href="#toc_72">Extension typename on _Generic (planned)</a>
+<a href="#toc_72">Extension typename on _Generic</a>
 </li>
 </ul>
 </li>
@@ -1851,20 +1851,17 @@ we have _add_attr and _del_attr</p>
 
 <p>(probabily these names will change)</p>
 
-<h3 id="toc_72">Extension typename on _Generic (planned)</h3>
+<h3 id="toc_72">Extension typename on _Generic</h3>
 
-<pre><code class="language-c">  _Generic ( generic-argument , generic-assoc-list )
+<pre><code class="language-c"> int main()
+{
+    const int * const p;
+    static_assert(_Generic(p, const int *: 1));
 
-  generic-argument
-    expression
-    type-name
-
-</code></pre>
-
-<p>Why?
-Because it can be used like</p>
-
-<pre><code class="language-c">  _Generic (typeof(x), ...)
+    /*extension*/
+    static_assert(_Generic(int, int : 1));
+    static_assert(_Generic(typeof(p), const int * const: 1));
+}
 
 </code></pre>
 

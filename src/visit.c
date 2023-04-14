@@ -572,7 +572,15 @@ static void visit_argument_expression_list(struct visit_ctx* ctx, struct argumen
 
 static void visit_generic_selection(struct visit_ctx* ctx, struct generic_selection* p_generic_selection)
 {
-    visit_expression(ctx, p_generic_selection->expression);
+    if (p_generic_selection->expression)
+    {
+        visit_expression(ctx, p_generic_selection->expression);
+    }
+    else if (p_generic_selection->type_name)
+    {
+        visit_type_name(ctx, p_generic_selection->type_name);
+    }
+
     if (ctx->target < LANGUAGE_C11)
     {
         token_range_add_flag(p_generic_selection->first_token, p_generic_selection->last_token, TK_FLAG_HIDE);

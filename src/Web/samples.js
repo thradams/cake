@@ -44,6 +44,11 @@ sample["C11 _Generic"] =
 int main(void)
 {
     cbrt(1.0);
+
+    const int * const p;
+    _Static_assert(_Generic(p, const int * : 1 ), "");
+    _Static_assert(_Generic(&p, const int * const * : 1 ), "");
+    _Static_assert(_Generic(main, int (*)(void) : 1 ), "");
 }
 
 `;
@@ -535,6 +540,38 @@ void call(void) {
 
 
 `;
+
+sample["Extension _Generic with type name"] =
+`
+
+
+#define f(s)  \\
+ static_assert(_Generic(typeof(s),char [2]: 1), "we want buffer of 2");  \\
+ fimp(2)
+
+void fimp([[maybe_unused]] char s[2]) {
+
+}
+
+
+int main()
+{
+    const int * const p;
+    static_assert(_Generic(p, const int *: 1));
+
+    /*extension*/
+    static_assert(_Generic(int, int : 1));
+    static_assert(_Generic(typeof(p), const int * const: 1));
+
+    char s[2];/*try diferent size here*/
+    f(s);
+
+}
+
+
+`
+;
+
 
 sample["Extension _Hashof"] =
 `

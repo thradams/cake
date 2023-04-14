@@ -256,7 +256,13 @@ void type_remove_qualifiers(struct type* p_type)
     switch (category)
     {
     case TYPE_CATEGORY_FUNCTION:
+        break;
+
     case TYPE_CATEGORY_ARRAY:
+        /* TODO
+         int g(const int a[const 20]) {
+            // in this function, a has type const int* const (const pointer to const int)
+        }*/
         break;
 
     case TYPE_CATEGORY_POINTER:
@@ -288,16 +294,32 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
     case TYPE_CATEGORY_FUNCTION:
     {
+        /*
+           "function returning type" is converted to an expression that has type 
+           "pointer to function returning type".
+        */
         struct type t = get_address_of_type(p_type);
-        type_remove_qualifiers(&t);
+        
         return t;
     }
 
     case TYPE_CATEGORY_ARRAY:
     {
+        /*
+          An expression that has type "array of type" is converted
+          to an expression with type "pointer to type" that points to the initial element 
+          of the array object and s not an lvalue. 
+          If the array object has register storage class, the behavior is undefined.
+        */
         struct type t = get_array_item_type(p_type);
         struct type t2 = get_address_of_type(&t);
+        
         type_remove_qualifiers(&t2);
+        /*
+        int g(const int a[const 20]) {
+            // in this function, a has type const int* const (const pointer to const int)
+            }
+        */
         type_destroy(&t);
         return t2;
     }
