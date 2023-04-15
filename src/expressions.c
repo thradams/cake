@@ -99,10 +99,18 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 
         if (current_parameter_type != NULL && !is_void)
         {
-            parser_seterror_with_token(ctx,
-                p_argument_expression_list->tail->expression->first_token,
-                "too few arguments");
-
+            if (p_argument_expression_list->tail)
+            {
+                parser_seterror_with_token(ctx,
+                    p_argument_expression_list->tail->expression->first_token,
+                    "too few arguments");
+            }
+            else
+            {
+                parser_seterror_with_token(ctx,
+                    ctx->current,
+                    "too few arguments");
+            }
             throw;
         }
     }
@@ -2825,6 +2833,8 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
         return false;
     }
 
+    if (expression->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
+        return true;
 
     return true;
 }

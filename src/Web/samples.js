@@ -321,6 +321,10 @@ typeof(1 + 1) f()
   return 1;
 }
 
+void f(int a[2]) {
+    typeof(a) p;
+}
+
 int main()
 {
     /*simple case*/
@@ -402,6 +406,10 @@ auto a = a5; /*lvalue*/
 auto pa = &a5;
 
 const auto cpa = &a5;
+
+void f(int a[2]){
+  auto p = a;
+}
 
 
 int main()

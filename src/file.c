@@ -1,6 +1,12 @@
-struct [[destroy]] X { int i;  };
-int main() {    
-    struct X x;
+void f1()
+{
+}
 
-    _del_attr(x, "must destroy");
+void f3(int i)
+{
+}
+void f(int a[2]) {
+    typeof(a) p;
+    f();
+    f3();
 }

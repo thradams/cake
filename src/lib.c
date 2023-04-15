@@ -8262,7 +8262,9 @@ enum attribute_flags
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
 
     CUSTOM_ATTRIBUTE_FREE = 1 << 7,
-    CUSTOM_ATTRIBUTE_DESTROY = 1 << 8
+    CUSTOM_ATTRIBUTE_DESTROY = 1 << 8,
+
+    CUSTOM_ATTRIBUTE_PARAM = 1 << 9
 };
 
 enum type_specifier_flags
@@ -8298,7 +8300,7 @@ enum type_specifier_flags
     
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
-    TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
+    TYPE_SPECIFIER_NULLPTR_T = 1 << 24    
 };
 
 enum type_qualifier_flags
@@ -9958,10 +9960,18 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 
         if (current_parameter_type != NULL && !is_void)
         {
-            parser_seterror_with_token(ctx,
-                p_argument_expression_list->tail->expression->first_token,
-                "too few arguments");
-
+            if (p_argument_expression_list->tail)
+            {
+                parser_seterror_with_token(ctx,
+                    p_argument_expression_list->tail->expression->first_token,
+                    "too few arguments");
+            }
+            else
+            {
+                parser_seterror_with_token(ctx,
+                    ctx->current,
+                    "too few arguments");
+            }
             throw;
         }
     }
@@ -12684,6 +12694,8 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
         return false;
     }
 
+    if (expression->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
+        return true;
 
     return true;
 }
@@ -13712,6 +13724,7 @@ void type_remove_qualifiers(struct type* p_type)
 
 struct type type_lvalue_conversion(struct type* p_type)
 {
+ 
 
     enum type_category category = type_get_category(p_type);
     switch (category)
@@ -13723,7 +13736,7 @@ struct type type_lvalue_conversion(struct type* p_type)
            "pointer to function returning type".
         */
         struct type t = get_address_of_type(p_type);
-        
+        t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
         return t;
     }
 
@@ -13745,6 +13758,9 @@ struct type type_lvalue_conversion(struct type* p_type)
             }
         */
         type_destroy(&t);
+
+        
+        t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
         return t2;
     }
 
@@ -13756,6 +13772,10 @@ struct type type_lvalue_conversion(struct type* p_type)
 
     struct type t = type_copy(p_type);
     type_remove_qualifiers(&t);
+
+    
+    t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+
     return t;
 }
 
@@ -18312,6 +18332,15 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
             p_typeof_specifier->type = type_copy(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
         }
 
+        if (p_typeof_specifier->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
+        {
+            parser_setwarning_with_token(ctx, ctx->current, "typeof used in array arguments");
+
+            struct type t = type_lvalue_conversion(&p_typeof_specifier->type);
+            type_swap(&t, &p_typeof_specifier->type);
+            type_destroy(&t);            
+        }
+
         if (is_typeof_unqual)
         {
             type_remove_qualifiers(&p_typeof_specifier->type);
@@ -19711,6 +19740,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         attribute_specifier_sequence_opt(ctx);
 
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx);
+        
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
@@ -19744,6 +19774,8 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 
     p_parameter_declaration->declarator->type =
         make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+
+    p_parameter_declaration->declarator->type.attributes_flags |= CUSTOM_ATTRIBUTE_PARAM;
 
     if (p_parameter_declaration->name)
         naming_convention_parameter(ctx, p_parameter_declaration->name, &p_parameter_declaration->declarator->type);

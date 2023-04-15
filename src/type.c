@@ -288,7 +288,7 @@ void type_remove_qualifiers(struct type* p_type)
 
 struct type type_lvalue_conversion(struct type* p_type)
 {
-
+ 
     enum type_category category = type_get_category(p_type);
     switch (category)
     {
@@ -299,7 +299,7 @@ struct type type_lvalue_conversion(struct type* p_type)
            "pointer to function returning type".
         */
         struct type t = get_address_of_type(p_type);
-        
+        t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
         return t;
     }
 
@@ -321,6 +321,7 @@ struct type type_lvalue_conversion(struct type* p_type)
             }
         */
         type_destroy(&t);
+        t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
         return t2;
     }
 
@@ -331,7 +332,8 @@ struct type type_lvalue_conversion(struct type* p_type)
     }
 
     struct type t = type_copy(p_type);
-    type_remove_qualifiers(&t);
+    type_remove_qualifiers(&t);    
+    t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
     return t;
 }
 

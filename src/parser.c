@@ -2270,6 +2270,15 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
             p_typeof_specifier->type = type_copy(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
         }
 
+        if (p_typeof_specifier->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
+        {
+            parser_setwarning_with_token(ctx, ctx->current, "typeof used in array arguments");
+
+            struct type t = type_lvalue_conversion(&p_typeof_specifier->type);
+            type_swap(&t, &p_typeof_specifier->type);
+            type_destroy(&t);            
+        }
+
         if (is_typeof_unqual)
         {
             type_remove_qualifiers(&p_typeof_specifier->type);
@@ -3669,7 +3678,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         attribute_specifier_sequence_opt(ctx);
 
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx);
-
+        
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
         p_parameter_declaration->declaration_specifiers->attributes_flags =
@@ -3702,6 +3711,8 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 
     p_parameter_declaration->declarator->type =
         make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+
+    p_parameter_declaration->declarator->type.attributes_flags |= CUSTOM_ATTRIBUTE_PARAM;
 
     if (p_parameter_declaration->name)
         naming_convention_parameter(ctx, p_parameter_declaration->name, &p_parameter_declaration->declarator->type);

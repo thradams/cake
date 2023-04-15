@@ -29,7 +29,12 @@ enum attribute_flags
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
 
     CUSTOM_ATTRIBUTE_FREE = 1 << 7,
-    CUSTOM_ATTRIBUTE_DESTROY = 1 << 8
+    CUSTOM_ATTRIBUTE_DESTROY = 1 << 8,
+
+    /*
+     Used to detect argument type
+    */
+    CUSTOM_ATTRIBUTE_PARAM = 1 << 9
 };
 
 enum type_specifier_flags
@@ -65,7 +70,7 @@ enum type_specifier_flags
     
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
-    TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
+    TYPE_SPECIFIER_NULLPTR_T = 1 << 24    
 };
 
 enum type_qualifier_flags
