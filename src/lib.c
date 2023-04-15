@@ -1613,7 +1613,7 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
     ctx->n_errors++;
     //er->code = 1;
 
-    if (p_token)
+    if (p_token && p_token->token_origin)
     {
         ctx->printf(WHITE "%s:%d:%d: ",
             p_token->token_origin->lexeme,
@@ -8424,7 +8424,7 @@ struct type type_convert_to(struct type* p_type, enum language_version target);
 struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
-
+void type_swap(struct type* a, struct type* b);
 
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
@@ -14188,6 +14188,8 @@ bool type_is_arithmetic(struct type* p_type)
 */
 bool type_is_scalar(struct type* p_type)
 {
+    //TODO we need two concepts...is_scalar on real type or is_scalar after lvalue converison
+
     if (type_is_arithmetic(p_type))
         return true;
 
@@ -15953,6 +15955,13 @@ bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers)
     return a == NULL && b == NULL;
 }
 
+void type_swap(struct type* a, struct type* b)
+{
+    struct type temp = *a;
+    *a = *b;
+    *b = temp;
+    _del_attr(temp, MUST_DESTROY);
+}
 
 
 
@@ -18101,10 +18110,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
                         t.declarator_type->direct_declarator_type->name_opt = strdup(p_init_declarator->declarator->name->lexeme);
                     }
-
                     
-                    p_init_declarator->declarator->type = t; /*MOVED*/
-                    
+                    type_swap(&p_init_declarator->declarator->type, &t);
+                                        
+                    type_destroy(&t);                    
                 }
             }
         }

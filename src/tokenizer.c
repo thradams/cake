@@ -104,7 +104,7 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
     ctx->n_errors++;
     //er->code = 1;
 
-    if (p_token)
+    if (p_token && p_token->token_origin)
     {
         ctx->printf(WHITE "%s:%d:%d: ",
             p_token->token_origin->lexeme,

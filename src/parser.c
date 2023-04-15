@@ -2106,10 +2106,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
                         t.declarator_type->direct_declarator_type->name_opt = strdup(p_init_declarator->declarator->name->lexeme);
                     }
-
                     
-                    p_init_declarator->declarator->type = t; /*MOVED*/
-                    
+                    type_swap(&p_init_declarator->declarator->type, &t);
+                                        
+                    type_destroy(&t);                    
                 }
             }
         }

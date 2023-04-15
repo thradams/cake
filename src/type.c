@@ -2566,3 +2566,10 @@ bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers)
     return a == NULL && b == NULL;
 }
 
+void type_swap(struct type* a, struct type* b)
+{
+    struct type temp = *a;
+    *a = *b;
+    *b = temp;
+    _del_attr(temp, MUST_DESTROY);
+}
