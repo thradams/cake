@@ -1560,7 +1560,7 @@ Sample:
 
 void f() {
   int * p = malloc(1);  
-  static_assert(_has_attr(p, 16 /*MUST_FREE*/));
+  static_assert(_has_attr(p, "must free"));
 }
 ```
 
@@ -1578,9 +1578,18 @@ For instance:
 void free([[free]] void * p) {}
 
 void f() {
+  
   int * p = malloc(1);  
+  
+  /*malloc add this imaginary attribute*/
+  static_assert(_has_attr(p, "must free"));                
+  
   free(p);
+  
+  /*free removes this imaginary attribute*/
+  static_assert(!_has_attr(p, "must free"));  
 }
+
 ```
 
 After calling free the imaginary flag _"must free"_ is removed and there is 
@@ -1610,7 +1619,7 @@ Sample:
 ```c
 int main() {
    struct X x;   
-   static_assert(_has_attr(p, 8 /*MUST_DESTROY*/));
+   static_assert(_has_attr(p, "must destroy"));
 }
 ```
 
@@ -1669,14 +1678,13 @@ void f() {
     struct X * p = malloc(1);  
     struct X * p2;
     p2 = p;     
-    static_assert(!_has_attr(p, 16 /*MUST_FREE*/));
-    static_assert(_has_attr(p2, 16 /*MUST_FREE*/));  
-    static_assert(_has_attr(p, 4 /*UNINITIALIZED*/));
+    static_assert(!_has_attr(p, "must free"));
+    static_assert(_has_attr(p2, "must free"));  
+    static_assert(_has_attr(p,  "uninitialized"));
   
     free(p2);
-    static_assert(!_has_attr(p2, 16 /*MUST_FREE*/));
+    static_assert(!_has_attr(p2, "must free"));
 }
-
 
 ```
 
@@ -1707,8 +1715,8 @@ we have \_add\_attr and \_del\_attr
 
 ```c
     int * p = 0;
-    _add_attr(p, MUST_FREE);
-    _del_attr(p, MUST_FREE);
+    _add_attr(p, "must free");
+    _del_attr(p, "must free");
 ```
 
 (probabily these names will change)

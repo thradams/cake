@@ -966,24 +966,40 @@ struct X {
 };
 
 [[free]] struct X* f() {
-    struct X * p = malloc(1);  
+    struct X * p = malloc(1);
     struct X * p2;
-    p2 = p; 
-    return ;
+    p2 = p;
+    return p2; /*p2 is moved*/
 }
 
 int main() {
-   struct X * p = f();   
+   struct X * p = f();
+
+   /*we need call free here*/
    //free(p);
-}`;
+}
+
+`;
 
 sample["Extension - [[destroy]] attribute"] =
     `
+
 struct [[destroy]] X {
   int i;
 };
 
 void x_destroy([[destroy]] struct x *p) { }
+
+void x_swap(struct X *a, struct X *b)
+{
+  struct X temp = *a;
+  *a = *b;
+  *b = temp;
+
+  /*temp does not need to be destroy*/
+  _del_attr(temp, "must destroy");
+
+}
 
 struct X f() {
     struct X x = {0};
@@ -993,21 +1009,14 @@ struct X f() {
 }
 
 int main() {
-   struct X x = f();   
+   struct X x = f();
    //x_destroy(&x);
 }
+
 `;
 
 sample["Extension - _has_att, destroy and free iteraction"] =
 `
-
-/*pre defined constants*/
-
-#define ISVALID        2
-#define UNINITIALIZED  4
-#define MUST_DESTROY   8
-#define MUST_FREE      16
-
 [[free]] void* malloc(int){};
 void free([[free]] void*) {}
 
@@ -1015,17 +1024,17 @@ void free([[free]] void*) {}
 int main()
 {
     int * p = malloc(10);
-    static_assert(_has_attr(p, MUST_FREE));
-    
+    static_assert(_has_attr(p, "must free"));
+
     int * p2;
 
-    static_assert(_has_attr(p2, UNINITIALIZED));
+    static_assert(_has_attr(p2, "uninitialized"));
 
     p2 = p;
-    static_assert(!_has_attr(p, MUST_FREE));
-    static_assert(_has_attr(p, UNINITIALIZED));
-    static_assert(_has_attr(p2, MUST_FREE));
-   
+    static_assert(!_has_attr(p, "must free"));
+    static_assert(_has_attr(p, "uninitialized"));
+    static_assert(_has_attr(p2, "must free"));
+
     //free(p2);
 }
 

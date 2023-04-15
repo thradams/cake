@@ -1,6 +1,6 @@
+struct [[destroy]] X { int i;  };
+int main() {    
+    struct X x;
 
-int main() {
-    
-    int i;
-    i = 1 || (!!0, 0);
+    _del_attr(x, "must destroy");
 }

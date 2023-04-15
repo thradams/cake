@@ -851,7 +851,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 if (!type_is_function_or_function_pointer(&p_expression_node->type))
                 {
                     parser_seterror_with_token(ctx, ctx->current,
-                        "called object is not a function or function pointer");
+                        "called object is not attr function or function pointer");
                     throw;
                 }
 
@@ -1230,6 +1230,23 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         is_first_of_compiler_function(ctx);
 }
 
+enum static_analisys_flags string_to_static_analisys_flags(const char* s)
+{
+    if (strcmp(s, "\"must free\"") == 0)
+    {
+        return MUST_FREE;
+    }
+    else if (strcmp(s, "\"must destroy\"") == 0)
+    {
+        return MUST_DESTROY;
+    }
+    else if (strcmp(s, "\"uninitialized\"") == 0)
+    {
+        return UNINITIALIZED;
+    }
+    return 0;
+}
+
 struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 {
     struct expression* new_expression = calloc(1, sizeof * new_expression);
@@ -1273,7 +1290,28 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 
     parser_match_tk(ctx, ',');
 
-    new_expression->right = constant_expression(ctx);
+    enum static_analisys_flags attr = 0;
+    if (ctx->current->type == TK_STRING_LITERAL)
+    {
+        attr = string_to_static_analisys_flags(ctx->current->lexeme);
+
+        
+
+        if (attr != 0)
+        {
+            new_expression->right = NULL;
+        }
+        else
+        {
+            parser_seterror_with_token(ctx, ctx->current, "unknown attribute name");
+        }
+        parser_match(ctx);
+    }
+    else
+    {
+        new_expression->right = constant_expression(ctx);
+        attr = new_expression->right->constant_value;
+    }
     parser_match_tk(ctx, ')');
 
 
@@ -1292,7 +1330,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
         case TK_KEYWORD_ATTR_ADD:
 
             new_expression->declarator->static_analisys_flags |=
-                (unsigned int)(new_expression->right->constant_value);
+                (unsigned int)(attr);
 
             new_expression->constant_value = new_expression->declarator->static_analisys_flags;
             new_expression->is_constant = true;
@@ -1300,7 +1338,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
             break;
         case TK_KEYWORD_ATTR_REMOVE:
             new_expression->declarator->static_analisys_flags &= ~
-                (unsigned int)(new_expression->right->constant_value);
+                (unsigned int)(attr);
 
             new_expression->constant_value = new_expression->declarator->static_analisys_flags;
             new_expression->is_constant = true;
@@ -1309,7 +1347,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 
         case TK_KEYWORD_ATTR_HAS:
             new_expression->constant_value =
-                new_expression->declarator->static_analisys_flags & (unsigned int)(new_expression->right->constant_value);
+                new_expression->declarator->static_analisys_flags & (unsigned int)(attr);
             new_expression->is_constant = true;
             break;
         }
