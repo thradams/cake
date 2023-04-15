@@ -1382,7 +1382,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                     new_expression->is_constant = true;
                 }
 
-                new_expression->type = type_copy(&new_expression->right->type);
+                //same as v == 0
+                type_set_int(&new_expression->type);
             }
             else if (op == '~')
             {
@@ -2382,9 +2383,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = (new_expression->left->constant_value ^ new_expression->right->constant_value);
                 new_expression->is_constant = true;
             }
-
-
-
+            
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
@@ -2533,12 +2532,18 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
                 new_expression->is_constant = true;
             }
 
-            int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-            if (code != 0)
-            {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types or expression");
+
+            if (!type_is_scalar(&new_expression->left->type)) {
+                parser_seterror_with_token(ctx, ctx->current, "left type is not scalar for or expression");
                 throw;
             }
+            
+            if (!type_is_scalar(&new_expression->right->type)) {
+                parser_seterror_with_token(ctx, ctx->current, "right type is not scalar for or expression");
+                throw;
+            }
+
+            type_set_int(&new_expression->type);
 
             p_expression_node = new_expression;
         }
@@ -2686,7 +2691,7 @@ struct expression* expression(struct parser_ctx* ctx)
                 p_expression_node_new->left = p_expression_node;
 
                 p_expression_node_new->right = expression(ctx);
-                if (p_expression_node->right == NULL) throw;
+                if (p_expression_node_new->right == NULL) throw;
 
                 p_expression_node = p_expression_node_new;
             }

@@ -11241,7 +11241,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                     new_expression->is_constant = true;
                 }
 
-                new_expression->type = type_copy(&new_expression->right->type);
+                //same as v == 0
+                type_set_int(&new_expression->type);
             }
             else if (op == '~')
             {
@@ -12241,9 +12242,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = (new_expression->left->constant_value ^ new_expression->right->constant_value);
                 new_expression->is_constant = true;
             }
-
-
-
+            
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
@@ -12392,12 +12391,18 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
                 new_expression->is_constant = true;
             }
 
-            int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
-            if (code != 0)
-            {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types or expression");
+
+            if (!type_is_scalar(&new_expression->left->type)) {
+                parser_seterror_with_token(ctx, ctx->current, "left type is not scalar for or expression");
                 throw;
             }
+            
+            if (!type_is_scalar(&new_expression->right->type)) {
+                parser_seterror_with_token(ctx, ctx->current, "right type is not scalar for or expression");
+                throw;
+            }
+
+            type_set_int(&new_expression->type);
 
             p_expression_node = new_expression;
         }
@@ -12545,7 +12550,7 @@ struct expression* expression(struct parser_ctx* ctx)
                 p_expression_node_new->left = p_expression_node;
 
                 p_expression_node_new->right = expression(ctx);
-                if (p_expression_node->right == NULL) throw;
+                if (p_expression_node_new->right == NULL) throw;
 
                 p_expression_node = p_expression_node_new;
             }
@@ -14070,7 +14075,13 @@ bool type_is_const(struct type* p_type)
 
 bool type_is_pointer(struct type* p_type)
 {
-    return type_get_category(p_type) == TYPE_CATEGORY_POINTER;
+    enum type_category category = type_get_category(p_type);
+    if (category == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
+    {
+        return true;
+    }
+    return category  == TYPE_CATEGORY_POINTER;
 }
 
 
@@ -14186,7 +14197,16 @@ bool type_is_scalar(struct type* p_type)
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
-    return p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T;
+    
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        return true;
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
+        return true;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        return true;
+
+    return false;
 }
 
 bool type_is_compatible(struct type* expression_type, struct type* return_type)
@@ -14468,6 +14488,10 @@ bool type_is_pointer_or_array(struct type* p_type)
 
     if (category == TYPE_CATEGORY_POINTER ||
         category == TYPE_CATEGORY_ARRAY)
+        return true;
+    
+    if (category == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
         return true;
 
     return false;

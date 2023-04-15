@@ -1,5 +1,6 @@
 
 int main() {
-    const int* const p;
-    static_assert(_Generic(p, const int*  : 1, default: 0));
+    
+    int i;
+    i = 1 || (!!0, 0);
 }

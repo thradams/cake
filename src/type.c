@@ -689,7 +689,13 @@ bool type_is_const(struct type* p_type)
 
 bool type_is_pointer(struct type* p_type)
 {
-    return type_get_category(p_type) == TYPE_CATEGORY_POINTER;
+    enum type_category category = type_get_category(p_type);
+    if (category == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
+    {
+        return true;
+    }
+    return category  == TYPE_CATEGORY_POINTER;
 }
 
 
@@ -796,6 +802,8 @@ bool type_is_arithmetic(struct type* p_type)
 */
 bool type_is_scalar(struct type* p_type)
 {
+    //TODO we need two concepts...is_scalar on real type or is_scalar after lvalue converison
+
     if (type_is_arithmetic(p_type))
         return true;
 
@@ -805,7 +813,16 @@ bool type_is_scalar(struct type* p_type)
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
-    return p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T;
+    
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
+        return true;
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
+        return true;
+
+    if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
+        return true;
+
+    return false;
 }
 
 bool type_is_compatible(struct type* expression_type, struct type* return_type)
@@ -1087,6 +1104,10 @@ bool type_is_pointer_or_array(struct type* p_type)
 
     if (category == TYPE_CATEGORY_POINTER ||
         category == TYPE_CATEGORY_ARRAY)
+        return true;
+    
+    if (category == TYPE_CATEGORY_ITSELF &&
+        p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
         return true;
 
     return false;
