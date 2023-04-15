@@ -173,7 +173,7 @@ struct type get_function_return_type(struct type* p_type);
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
 struct type get_array_item_type(struct type* p_type);
-struct type get_pointer_content_type(struct type* p_type);
+struct type type_remove_pointer(struct type* p_type);
 int get_array_size(struct type* p_type);
 int set_array_size(struct type* p_type, int size);
 
@@ -200,7 +200,7 @@ void type_swap(struct type* a, struct type* b);
 
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
-struct type get_pointer_content_type(struct type* p_type);
+struct type type_remove_pointer(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
 
@@ -214,7 +214,7 @@ int type_get_alignof(struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
-struct type get_address_of_type(struct type* p_type);
+struct type type_add_pointer(struct type* p_type);
 void type_print(struct type* a);
 bool type_is_scalar(struct type* p_type);
 enum type_category type_get_category(const struct type* p_type);

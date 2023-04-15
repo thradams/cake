@@ -298,7 +298,7 @@ struct type type_lvalue_conversion(struct type* p_type)
            "function returning type" is converted to an expression that has type 
            "pointer to function returning type".
         */
-        struct type t = get_address_of_type(p_type);
+        struct type t = type_add_pointer(p_type);
         t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
         return t;
     }
@@ -312,7 +312,7 @@ struct type type_lvalue_conversion(struct type* p_type)
           If the array object has register storage class, the behavior is undefined.
         */
         struct type t = get_array_item_type(p_type);
-        struct type t2 = get_address_of_type(&t);
+        struct type t2 = type_add_pointer(&t);
         
         type_remove_qualifiers(&t2);
         /*
@@ -931,7 +931,7 @@ bool type_is_function_or_function_pointer(struct type* p_type)
     return false;
 }
 
-struct type get_address_of_type(struct type* p_type)
+struct type type_add_pointer(struct type* p_type)
 {
     //type_print(p_type);
     struct type r = type_copy(p_type);
@@ -973,7 +973,7 @@ struct type get_address_of_type(struct type* p_type)
     return r;
 }
 
-struct type get_pointer_content_type(struct type* p_type)
+struct type type_remove_pointer(struct type* p_type)
 {
     struct type r = type_copy(p_type);
     struct declarator_type* p_inner_declarator = find_inner_declarator(r.declarator_type);

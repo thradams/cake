@@ -832,7 +832,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 //}
                 if (type_is_pointer(&p_expression_node->type))
                 {
-                    p_expression_node_new->type = get_pointer_content_type(&p_expression_node->type);
+                    p_expression_node_new->type = type_remove_pointer(&p_expression_node->type);
 
                 }
                 else if (type_is_array(&p_expression_node->type))
@@ -1474,13 +1474,13 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 {
                     parser_seterror_with_token(ctx, op_position, "indirection requires pointer operand");
                 }
-                new_expression->type = get_pointer_content_type(&new_expression->right->type);
+                new_expression->type = type_remove_pointer(&new_expression->right->type);
             }
             else if (op == '&')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
                 //TODO nao tem como tirar endereco de uma constante
-                new_expression->type = get_address_of_type(&new_expression->right->type);
+                new_expression->type = type_add_pointer(&new_expression->right->type);
             }
             else
             {
@@ -1958,8 +1958,10 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                         if (type_is_integer(&new_expression->right->type))
                         {
                             if (left_category == TYPE_CATEGORY_ARRAY)
-                            {
-                                new_expression->type = get_array_item_type(&new_expression->left->type);
+                            {                                
+                                struct type t = get_array_item_type(&new_expression->left->type);
+                                new_expression->type = type_add_pointer(&t);
+                                type_destroy(&t);                                
                             }
                             else
                             {

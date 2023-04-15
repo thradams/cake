@@ -8264,6 +8264,9 @@ enum attribute_flags
     CUSTOM_ATTRIBUTE_FREE = 1 << 7,
     CUSTOM_ATTRIBUTE_DESTROY = 1 << 8,
 
+    /*
+     Used to detect argument type
+    */
     CUSTOM_ATTRIBUTE_PARAM = 1 << 9
 };
 
@@ -8403,7 +8406,7 @@ struct type get_function_return_type(struct type* p_type);
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
 struct type get_array_item_type(struct type* p_type);
-struct type get_pointer_content_type(struct type* p_type);
+struct type type_remove_pointer(struct type* p_type);
 int get_array_size(struct type* p_type);
 int set_array_size(struct type* p_type, int size);
 
@@ -8430,7 +8433,7 @@ void type_swap(struct type* a, struct type* b);
 
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
-struct type get_pointer_content_type(struct type* p_type);
+struct type type_remove_pointer(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
 
@@ -8444,7 +8447,7 @@ int type_get_alignof(struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
-struct type get_address_of_type(struct type* p_type);
+struct type type_add_pointer(struct type* p_type);
 void type_print(struct type* a);
 bool type_is_scalar(struct type* p_type);
 enum type_category type_get_category(const struct type* p_type);
@@ -10693,7 +10696,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 //}
                 if (type_is_pointer(&p_expression_node->type))
                 {
-                    p_expression_node_new->type = get_pointer_content_type(&p_expression_node->type);
+                    p_expression_node_new->type = type_remove_pointer(&p_expression_node->type);
 
                 }
                 else if (type_is_array(&p_expression_node->type))
@@ -11335,13 +11338,13 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 {
                     parser_seterror_with_token(ctx, op_position, "indirection requires pointer operand");
                 }
-                new_expression->type = get_pointer_content_type(&new_expression->right->type);
+                new_expression->type = type_remove_pointer(&new_expression->right->type);
             }
             else if (op == '&')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
                 //TODO nao tem como tirar endereco de uma constante
-                new_expression->type = get_address_of_type(&new_expression->right->type);
+                new_expression->type = type_add_pointer(&new_expression->right->type);
             }
             else
             {
@@ -11819,8 +11822,10 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                         if (type_is_integer(&new_expression->right->type))
                         {
                             if (left_category == TYPE_CATEGORY_ARRAY)
-                            {
-                                new_expression->type = get_array_item_type(&new_expression->left->type);
+                            {                                
+                                struct type t = get_array_item_type(&new_expression->left->type);
+                                new_expression->type = type_add_pointer(&t);
+                                type_destroy(&t);                                
                             }
                             else
                             {
@@ -13725,7 +13730,6 @@ void type_remove_qualifiers(struct type* p_type)
 struct type type_lvalue_conversion(struct type* p_type)
 {
  
-
     enum type_category category = type_get_category(p_type);
     switch (category)
     {
@@ -13735,7 +13739,7 @@ struct type type_lvalue_conversion(struct type* p_type)
            "function returning type" is converted to an expression that has type 
            "pointer to function returning type".
         */
-        struct type t = get_address_of_type(p_type);
+        struct type t = type_add_pointer(p_type);
         t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
         return t;
     }
@@ -13749,7 +13753,7 @@ struct type type_lvalue_conversion(struct type* p_type)
           If the array object has register storage class, the behavior is undefined.
         */
         struct type t = get_array_item_type(p_type);
-        struct type t2 = get_address_of_type(&t);
+        struct type t2 = type_add_pointer(&t);
         
         type_remove_qualifiers(&t2);
         /*
@@ -13758,8 +13762,6 @@ struct type type_lvalue_conversion(struct type* p_type)
             }
         */
         type_destroy(&t);
-
-        
         t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
         return t2;
     }
@@ -13771,11 +13773,8 @@ struct type type_lvalue_conversion(struct type* p_type)
     }
 
     struct type t = type_copy(p_type);
-    type_remove_qualifiers(&t);
-
-    
+    type_remove_qualifiers(&t);    
     t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
-
     return t;
 }
 
@@ -14373,7 +14372,7 @@ bool type_is_function_or_function_pointer(struct type* p_type)
     return false;
 }
 
-struct type get_address_of_type(struct type* p_type)
+struct type type_add_pointer(struct type* p_type)
 {
     //type_print(p_type);
     struct type r = type_copy(p_type);
@@ -14415,7 +14414,7 @@ struct type get_address_of_type(struct type* p_type)
     return r;
 }
 
-struct type get_pointer_content_type(struct type* p_type)
+struct type type_remove_pointer(struct type* p_type)
 {
     struct type r = type_copy(p_type);
     struct declarator_type* p_inner_declarator = find_inner_declarator(r.declarator_type);
@@ -19741,7 +19740,6 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx);
         
-
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
         p_parameter_declaration->declaration_specifiers->attributes_flags =
