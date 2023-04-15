@@ -24155,9 +24155,13 @@ static void visit_type_specifier_qualifier(bool is_declaration, struct visit_ctx
 
 static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_class_specifier* p_storage_class_specifier)
 {
-    if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_AUTO)
+    if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_CONSTEXPR)
     {
-
+        if (ctx->target < LANGUAGE_C2X)
+        {
+            p_storage_class_specifier->token->flags |= TK_FLAG_HIDE;
+        }
+        
     }
 }
 

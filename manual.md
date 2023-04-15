@@ -875,12 +875,15 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm
 
 ###  C23 constexpr for object definitions
-Not implemented yet (maybe parsed?)
+
+Only parsed. How to translate? defines?
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
 
 ###  C23 Enhancements to Enumerations
+
+Already parsed.
 
 ```c
 enum X : short {
