@@ -1486,6 +1486,16 @@ static void visit_enumerator_list(struct visit_ctx* ctx, struct enumerator_list*
 
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier)
 {
+
+    if (p_enum_specifier->type_specifier_qualifier == NULL)
+    {
+        if (p_enum_specifier->complete_enum_specifier != NULL&&
+            p_enum_specifier->complete_enum_specifier->type_specifier_qualifier)
+        {
+            //todo enum with diferent type
+        }
+    }
+
     if (p_enum_specifier->attribute_specifier_sequence_opt)
     {
         visit_attribute_specifier_sequence(ctx, p_enum_specifier->attribute_specifier_sequence_opt);

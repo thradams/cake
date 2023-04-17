@@ -1,1 +1,7 @@
-typeof(int[2])* p1;
+enum X : short {
+    A
+};
+
+int main() {
+    enum X x = A;
+}
