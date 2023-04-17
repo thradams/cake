@@ -9317,7 +9317,9 @@ struct type_name
     struct token* last_token;
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct declarator* declarator;
+    struct type type;
 };
+
 struct type_name* type_name(struct parser_ctx* ctx);
 void print_type_name(struct osstream* ss, struct type_name* p);
 
@@ -17584,7 +17586,7 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx)
 
     try
     {
-        if (p_declaration_specifiers == NULL) 
+        if (p_declaration_specifiers == NULL)
             throw;
 
         p_declaration_specifiers->first_token = ctx->current;
@@ -18127,12 +18129,12 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                     const bool is_const_auto =
                         p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
-                    
-                    if (is_const_auto) 
+
+                    if (is_const_auto)
                     {
                         type_add_const(&t);
                     }
-                    
+
 
                     if (p_init_declarator->declarator->pointer != NULL)
                     {
@@ -18167,10 +18169,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
                         t.declarator_type->direct_declarator_type->name_opt = strdup(p_init_declarator->declarator->name->lexeme);
                     }
-                    
+
                     type_swap(&p_init_declarator->declarator->type, &t);
-                                        
-                    type_destroy(&t);                    
+
+                    type_destroy(&t);
                 }
             }
         }
@@ -18337,13 +18339,13 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
 
             struct type t = type_lvalue_conversion(&p_typeof_specifier->type);
             type_swap(&t, &p_typeof_specifier->type);
-            type_destroy(&t);            
+            type_destroy(&t);
         }
 
         if (is_typeof_unqual)
         {
             type_remove_qualifiers(&p_typeof_specifier->type);
-            
+
         }
 
 
@@ -19353,7 +19355,18 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
-    p_declarator->last_token = ctx->previous;
+
+    if (ctx->current != p_declarator->first_token)
+    {
+        p_declarator->last_token = previous_parser_token(ctx->current);
+    }
+    else
+    {
+        /*empty declarator*/
+        
+        p_declarator->last_token = p_declarator->first_token;
+        p_declarator->first_token= NULL; /*this is the way we can know...first is null*/
+    }
 
 
     return p_declarator;
@@ -19739,7 +19752,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         attribute_specifier_sequence_opt(ctx);
 
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx);
-        
+
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
         p_parameter_declaration->declaration_specifiers->attributes_flags =
@@ -19927,17 +19940,23 @@ struct type_name* type_name(struct parser_ctx* ctx)
 
 
     p_type_name->specifier_qualifier_list = specifier_qualifier_list(ctx);
+
+
     p_type_name->declarator = declarator(ctx,
         p_type_name->specifier_qualifier_list,//??
         /*declaration_specifiers*/ NULL,
         true /*DEVE SER TODO*/,
         NULL);
 
+
     p_type_name->last_token = ctx->current->prev;
+
 
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
 
     p_type_name->declarator->type = make_type_using_declarator(ctx, p_type_name->declarator);
+
+
     return p_type_name;
 }
 
@@ -21428,10 +21447,10 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
                 break;
             }
             p++;
-            }
         }
-#endif
     }
+#endif
+}
 
 const char* format_code(struct options* options, const char* content)
 {
@@ -21475,7 +21494,7 @@ const char* format_code(struct options* options, const char* content)
         else
             s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
-    }
+}
     catch
     {
 
@@ -21705,7 +21724,7 @@ int strtoargv(char* s, int n, const char* argv[/*n*/])
             break;/*nao tem mais lugares*/
     }
     return argvc;
-    }
+}
 
 const char* compile_source(const char* pszoptions, const char* content, struct report* report)
 {
@@ -21781,7 +21800,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             }
             ast_destroy(&ast);
         }
-    }
+        }
     catch
     {
     }
@@ -21789,7 +21808,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
 
     return s;
-}
+    }
 
 
 /*Função exportada para web*/
@@ -23100,7 +23119,7 @@ static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx
 }
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator);
 static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name)
-{
+{  
     visit_specifier_qualifier_list(false, ctx, p_type_name->specifier_qualifier_list);
     visit_declarator(ctx, p_type_name->declarator);
 }
@@ -23763,6 +23782,82 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator)
 {
+
+    bool bNeedsTransformation = false;
+
+    if (ctx->target < LANGUAGE_C2X) 
+    {
+        if (p_declarator->declaration_specifiers)
+        {
+            if (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+            {
+                bNeedsTransformation = true;
+            }
+            if (p_declarator->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
+            {
+                bNeedsTransformation = true;
+            }
+        }
+        
+        
+
+        if (p_declarator->specifier_qualifier_list &&
+            p_declarator->specifier_qualifier_list->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
+        {
+            bNeedsTransformation = true;
+        }
+    }
+
+
+    //we may have a diference type from the current syntax 
+    if (bNeedsTransformation)
+    {
+        
+        struct osstream ss = { 0 };
+        
+        /*types like nullptr are converted to other types like void* */
+        struct type new_type = type_convert_to(&p_declarator->type, ctx->target);
+
+        print_declarator_type(&ss, new_type.declarator_type);
+        
+        if (ss.c_str != NULL)
+        {
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
+           
+            
+            /*let's hide the old declarator*/
+            if (p_declarator->first_token != NULL && 
+                p_declarator->first_token != p_declarator->last_token)
+            {
+                l2.head->flags = p_declarator->first_token->flags;
+                token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, &l2);
+                token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_FLAG_HIDE);
+            }
+            else
+            {
+                
+                if (p_declarator->first_token == NULL) {
+                    l2.head->flags = p_declarator->last_token->flags;
+                    /*it is a empty declarator, so first_token is not part of declarator it only marks de position*/
+                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token->prev, &l2);                    
+                }
+                else
+                {
+                    l2.head->flags = p_declarator->first_token->flags;
+                    /*it is a empty declarator, so first_token is not part of declarator it only marks de position*/
+                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, &l2);
+                    token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_FLAG_HIDE);
+                }
+                
+            }
+        }
+        
+        type_destroy(&new_type);
+        ss_close(&ss);
+    }
+
+
     if (p_declarator->direct_declarator)
     {
         visit_direct_declarator(ctx, p_declarator->direct_declarator);
@@ -23806,62 +23901,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
     while (p_init_declarator)
     {
-
-        if (!ctx->is_second_pass &&
-            ctx->target < LANGUAGE_C2X &&
-            p_init_declarator->declarator->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
-        {
-            /*
-            * This declarator is using typeof, so we need to print its real type
-            */
-
-            struct osstream ss = { 0 };
-            print_declarator_type(&ss, p_init_declarator->declarator->type.declarator_type);
-            /*TODO convert type?*/
-
-            struct tokenizer_ctx tctx = { 0 };
-            struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
-
-            l2.head->flags = p_init_declarator->declarator->first_token->flags;
-            token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->last_token, &l2);
-
-            /*let's hide the old declarator*/
-            token_range_add_flag(p_init_declarator->declarator->first_token,
-                p_init_declarator->declarator->last_token, TK_FLAG_HIDE);
-
-            ss_close(&ss);
-        }
-
-        if (!ctx->is_second_pass &&
-            ctx->target < LANGUAGE_C2X &&
-            p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
-        {
-            /*
-            *  Types may change when compiling to previous versions
-            */
-
-            struct type new_type = type_convert_to(&p_init_declarator->declarator->type, ctx->target);
-
-            struct osstream ss = { 0 };
-            /*let's fix the declarator that is using auto*/
-            if (new_type.declarator_type)
-            {
-                print_declarator_type(&ss, new_type.declarator_type);
-
-                struct tokenizer_ctx tctx = { 0 };
-                struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
-                l2.head->flags = p_init_declarator->declarator->first_token->flags;
-                token_list_insert_after(&ctx->ast.token_list, p_init_declarator->declarator->last_token, &l2);
-
-                /*let's hide the old declarator*/
-                token_range_add_flag(p_init_declarator->declarator->first_token,
-                    p_init_declarator->declarator->last_token, TK_FLAG_HIDE);
-            }
-            ss_close(&ss);
-            type_destroy(&new_type);
-        }
-
-
         if (p_init_declarator->declarator)
         {
             visit_declarator(ctx, p_init_declarator->declarator);
@@ -24031,27 +24070,11 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
         if (ctx->target < LANGUAGE_C2X)
         {
 
-            
 
             struct osstream ss = { 0 };
+            struct type new_type = type_convert_to(&p_typeof_specifier->type, ctx->target);
 
-
-            if (!is_declaration)
-            {
-                /*
-                * typeof used like type-name
-                * for instance sizeof(typeof(a)) -> sizeof(int [2])
-                */
-                print_type(&ss, &p_typeof_specifier->type);
-            }
-            else
-            {
-                /*
-                * typeof used in declarations
-                * We need to split specifiers and later add declarator part.
-                */
-                print_type_qualifier_specifiers(&ss, &p_typeof_specifier->type);
-            }
+            print_type_qualifier_specifiers(&ss, &new_type);            
 
             /*
             * typeof of anonymous struct?
@@ -24085,6 +24108,7 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
             */
             token_range_add_flag(p_typeof_specifier->first_token, p_typeof_specifier->last_token, TK_FLAG_HIDE);
 
+            type_destroy(&new_type);
         }
 
     }

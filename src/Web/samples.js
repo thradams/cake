@@ -321,7 +321,7 @@ typeof(1 + 1) f()
   return 1;
 }
 
-void f(int a[2]) {
+void f4(int a[2]) {
     typeof(a) p;
 }
 
@@ -366,6 +366,11 @@ int main()
 }
 
 
+int f5(){
+  typeof(int [2]) *p1;
+  auto p2 = (typeof(int [2]) *) p1 ;
+}
+
 
 `;
 
@@ -407,7 +412,7 @@ auto pa = &a5;
 
 const auto cpa = &a5;
 
-void f(int a[2]){
+void f2(int a[2]){
   auto p = a;
 }
 

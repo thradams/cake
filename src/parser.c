@@ -1523,7 +1523,7 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx)
 
     try
     {
-        if (p_declaration_specifiers == NULL) 
+        if (p_declaration_specifiers == NULL)
             throw;
 
         p_declaration_specifiers->first_token = ctx->current;
@@ -2066,12 +2066,12 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                     const bool is_const_auto =
                         p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
-                    
-                    if (is_const_auto) 
+
+                    if (is_const_auto)
                     {
                         type_add_const(&t);
                     }
-                    
+
 
                     if (p_init_declarator->declarator->pointer != NULL)
                     {
@@ -2106,10 +2106,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
                         t.declarator_type->direct_declarator_type->name_opt = strdup(p_init_declarator->declarator->name->lexeme);
                     }
-                    
+
                     type_swap(&p_init_declarator->declarator->type, &t);
-                                        
-                    type_destroy(&t);                    
+
+                    type_destroy(&t);
                 }
             }
         }
@@ -2276,13 +2276,13 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
 
             struct type t = type_lvalue_conversion(&p_typeof_specifier->type);
             type_swap(&t, &p_typeof_specifier->type);
-            type_destroy(&t);            
+            type_destroy(&t);
         }
 
         if (is_typeof_unqual)
         {
             type_remove_qualifiers(&p_typeof_specifier->type);
-            
+
         }
 
 
@@ -3292,7 +3292,18 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
-    p_declarator->last_token = ctx->previous;
+
+    if (ctx->current != p_declarator->first_token)
+    {
+        p_declarator->last_token = previous_parser_token(ctx->current);
+    }
+    else
+    {
+        /*empty declarator*/
+        
+        p_declarator->last_token = p_declarator->first_token;
+        p_declarator->first_token= NULL; /*this is the way we can know...first is null*/
+    }
 
 
     return p_declarator;
@@ -3678,7 +3689,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         attribute_specifier_sequence_opt(ctx);
 
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx);
-        
+
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
         p_parameter_declaration->declaration_specifiers->attributes_flags =
@@ -3866,17 +3877,23 @@ struct type_name* type_name(struct parser_ctx* ctx)
 
 
     p_type_name->specifier_qualifier_list = specifier_qualifier_list(ctx);
+
+
     p_type_name->declarator = declarator(ctx,
         p_type_name->specifier_qualifier_list,//??
         /*declaration_specifiers*/ NULL,
         true /*DEVE SER TODO*/,
         NULL);
 
+
     p_type_name->last_token = ctx->current->prev;
+
 
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
 
     p_type_name->declarator->type = make_type_using_declarator(ctx, p_type_name->declarator);
+
+
     return p_type_name;
 }
 
@@ -5367,10 +5384,10 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
                 break;
             }
             p++;
-            }
         }
-#endif
     }
+#endif
+}
 
 const char* format_code(struct options* options, const char* content)
 {
@@ -5414,7 +5431,7 @@ const char* format_code(struct options* options, const char* content)
         else
             s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
-    }
+}
     catch
     {
 
@@ -5644,7 +5661,7 @@ int strtoargv(char* s, int n, const char* argv[/*n*/])
             break;/*nao tem mais lugares*/
     }
     return argvc;
-    }
+}
 
 const char* compile_source(const char* pszoptions, const char* content, struct report* report)
 {
@@ -5720,7 +5737,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             }
             ast_destroy(&ast);
         }
-    }
+        }
     catch
     {
     }
@@ -5728,7 +5745,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
 
     return s;
-}
+    }
 
 
 /*Função exportada para web*/

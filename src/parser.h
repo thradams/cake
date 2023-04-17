@@ -683,7 +683,9 @@ struct type_name
     struct token* last_token;
     struct specifier_qualifier_list* specifier_qualifier_list;
     struct declarator* declarator;
+    struct type type;
 };
+
 struct type_name* type_name(struct parser_ctx* ctx);
 void print_type_name(struct osstream* ss, struct type_name* p);
 
