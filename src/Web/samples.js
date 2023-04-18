@@ -1016,6 +1016,33 @@ int main()
 }
 `;
 
+sample["Extension - type expression"] =
+    `
+int a[2];
+static_assert( a == (int[2])  );
+
+
+/* is array of ints? */    
+static_assert( _is_array(a) && a[0] == (int) );
+
+int main()
+{
+    int a;
+    
+    int t1 = 
+       a == (int) ? 1 : a == (double) ? 2 : 0;
+    
+    int t2 = 
+       _Generic(a, int: 1, double: 2, default: 0);
+}
+
+/* is function returning  int */    
+static_assert( _is_function(main) && (typeof(main())) == (int) );
+
+`;
+
+
+
 sample["Extension - [[free]] attribute"] =
 `
 [[free]] void *  malloc(int i){}

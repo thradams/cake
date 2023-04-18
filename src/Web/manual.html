@@ -231,10 +231,13 @@
 <a href="#toc_70">Type traits</a>
 </li>
 <li>
-<a href="#toc_71">Extension - [[destroy, free]]  attributes</a>
+<a href="#toc_71">Extension type-expression</a>
 </li>
 <li>
-<a href="#toc_72">Extension typename on _Generic</a>
+<a href="#toc_72">Extension - [[destroy, free]]  attributes</a>
+</li>
+<li>
+<a href="#toc_73">Extension typename on _Generic</a>
 </li>
 </ul>
 </li>
@@ -1669,7 +1672,40 @@ If T and U name the same type (taking into account const/volatile qualifications
 
 </code></pre>
 
-<h3 id="toc_71">Extension - [[destroy, free]]  attributes</h3>
+<h3 id="toc_71">Extension type-expression</h3>
+
+<p>syntax:</p>
+
+<pre><code>  cast-expression:
+    unary-expression
+    ( type-name ) cast-expression
+    ( type-name )              //&lt;- creates a void value of type
+</code></pre>
+
+<p>Sample</p>
+
+<pre><code class="language-c">    int a[2];
+    static_assert( a == (int[2]) );
+
+
+    /* is array of ints? */    
+    static_assert( _is_array(a) &amp;&amp; a[0] == (int) );
+
+int main()
+{
+    int a;
+    
+    int t1 = 
+       a == (int) ? 1 : a == (double) ? 2 : 0;
+    
+    int t2 = 
+       _Generic(a, int: 1, double: 2, default: 0);
+}
+</code></pre>
+
+<p>We can use != and == with void value to compare types.</p>
+
+<h3 id="toc_72">Extension - [[destroy, free]]  attributes</h3>
 
 <p>Cake has imaginary flags with explicity and implicity operations to set or 
 clear these flags.  </p>
@@ -1861,7 +1897,7 @@ we have _add_attr and _del_attr</p>
 
 <p>(probabily these names will change)</p>
 
-<h3 id="toc_72">Extension typename on _Generic</h3>
+<h3 id="toc_73">Extension typename on _Generic</h3>
 
 <pre><code class="language-c"> int main()
 {

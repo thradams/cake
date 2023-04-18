@@ -1,1 +1,2 @@
-static_assert(_Generic("abc",  char* : 1));
+int a[2];
+static_assert(a == (int[2]));

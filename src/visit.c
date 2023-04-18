@@ -847,6 +847,31 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             visit_type_name(ctx, p_expression->type_name);
         }
         break;
+
+    case UNARY_EXPRESSION_TRAITS:
+    {        
+        if (ctx->target < LANGUAGE_CXX)
+        {
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list l2 = { 0 };
+
+            if (p_expression->constant_value)
+                l2 = tokenizer(&tctx, "1", NULL, 0, TK_FLAG_NONE);
+            else
+                l2 = tokenizer(&tctx, "0", NULL, 0, TK_FLAG_NONE);
+
+
+            token_list_insert_after(&ctx->ast.token_list,
+                p_expression->last_token,
+                &l2);
+
+            token_range_add_flag(p_expression->first_token,
+                p_expression->last_token,
+                TK_FLAG_HIDE);
+        }
+    }
+    break;
+
     default:
         break;
     }

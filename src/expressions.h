@@ -152,7 +152,7 @@ struct expression
     bool is_constant; /*if true we can read*/
     long long constant_value;
     unsigned long long constant_ull_value;
-    
+    bool is_void_type_expression;
 
     struct type_name* type_name; 
     struct type_name* type_name2; /*is_same*/

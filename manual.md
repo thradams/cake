@@ -1480,8 +1480,6 @@ void x_destroy(struct X* p)
 
 ```
 
-
-    ( type-name ) void              //<- creates a nothing value of type
 ### Type traits
 
 We have some compile time functions to infer properties of types.
@@ -1519,6 +1517,42 @@ If T and U name the same type (taking into account const/volatile qualifications
 
 ```
 
+
+
+###  Extension type-expression
+
+syntax:
+
+``` 
+  cast-expression:
+    unary-expression
+    ( type-name ) cast-expression
+    ( type-name )              //<- creates a void value of type
+```
+
+Sample
+
+```c
+    int a[2];
+    static_assert( a == (int[2]) );
+
+
+    /* is array of ints? */    
+    static_assert( _is_array(a) && a[0] == (int) );
+
+int main()
+{
+    int a;
+    
+    int t1 = 
+       a == (int) ? 1 : a == (double) ? 2 : 0;
+    
+    int t2 = 
+       _Generic(a, int: 1, double: 2, default: 0);
+}
+```
+
+We can use != and == with void value to compare types.
 
 
 ###  Extension - [[destroy, free]]  attributes

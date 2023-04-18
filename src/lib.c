@@ -8609,7 +8609,7 @@ struct expression
     bool is_constant; /*if true we can read*/
     long long constant_value;
     unsigned long long constant_ull_value;
-    
+    bool is_void_type_expression;
 
     struct type_name* type_name; 
     struct type_name* type_name2; /*is_same*/
@@ -11575,6 +11575,9 @@ struct expression* cast_expression(struct parser_ctx* ctx)
      cast-expression:
       unary-expression
       ( type-name ) cast-expression
+
+
+      ( type-name ) //<- extension void value
     */
     struct expression* p_expression_node = NULL;
     try
@@ -11607,8 +11610,8 @@ struct expression* cast_expression(struct parser_ctx* ctx)
 
                 free(p_expression_node);
                 p_expression_node = new_expression;
-            }
-            else
+            }            
+            else if (is_first_of_unary_expression(ctx))
             {
                 p_expression_node->left = cast_expression(ctx);
                 if (p_expression_node->left == NULL) throw;
@@ -11621,6 +11624,10 @@ struct expression* cast_expression(struct parser_ctx* ctx)
                 }
 
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+            }
+            else
+            {                
+                p_expression_node->is_void_type_expression = true;
             }
             //token_list_destroy(&ctx->type);
             //ctx->type = r;
@@ -12187,6 +12194,11 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     new_expression->is_constant = true;
                 }
 
+                if (new_expression->left->is_void_type_expression || new_expression->right->is_void_type_expression)
+                {
+                    new_expression->constant_value = type_is_same( & new_expression->left->type, & new_expression->right->type, true);
+                    new_expression->is_constant = true;
+                }
             }
             else if (operator_token->type == '!=')
             {
@@ -12195,6 +12207,12 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                 if (new_expression->left->is_constant && new_expression->right->is_constant)
                 {
                     new_expression->constant_value = (new_expression->left->constant_value != new_expression->right->constant_value);
+                    new_expression->is_constant = true;
+                }
+                
+                if (new_expression->left->is_void_type_expression || new_expression->right->is_void_type_expression)
+                {
+                    new_expression->constant_value = !type_is_same(&new_expression->left->type, &new_expression->right->type, true);
                     new_expression->is_constant = true;
                 }
             }
@@ -23420,6 +23438,31 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             visit_type_name(ctx, p_expression->type_name);
         }
         break;
+
+    case UNARY_EXPRESSION_TRAITS:
+    {        
+        if (ctx->target < LANGUAGE_CXX)
+        {
+            struct tokenizer_ctx tctx = { 0 };
+            struct token_list l2 = { 0 };
+
+            if (p_expression->constant_value)
+                l2 = tokenizer(&tctx, "1", NULL, 0, TK_FLAG_NONE);
+            else
+                l2 = tokenizer(&tctx, "0", NULL, 0, TK_FLAG_NONE);
+
+
+            token_list_insert_after(&ctx->ast.token_list,
+                p_expression->last_token,
+                &l2);
+
+            token_range_add_flag(p_expression->first_token,
+                p_expression->last_token,
+                TK_FLAG_HIDE);
+        }
+    }
+    break;
+
     default:
         break;
     }
