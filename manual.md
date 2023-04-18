@@ -1527,7 +1527,7 @@ syntax:
   cast-expression:
     unary-expression
     ( type-name ) cast-expression
-    ( type-name )              //<- creates a void value of type
+    ( type-name )              //<- creates a type expression
 ```
 
 Sample
