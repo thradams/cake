@@ -1481,6 +1481,7 @@ void x_destroy(struct X* p)
 ```
 
 
+    ( type-name ) void              //<- creates a nothing value of type
 ### Type traits
 
 We have some compile time functions to infer properties of types.
