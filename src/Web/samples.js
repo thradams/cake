@@ -53,13 +53,13 @@ int main(void)
     const int * const p;
     static_assert(_Generic(p, const int *: 1));
 
-    static_assert(_Generic("abc", const char *: 1));
+    static_assert(_Generic("abc",  char *: 1));
 
     /* Extension type argument */
     static_assert(_Generic(int, int : 1));
     static_assert(_Generic(typeof(p), const int * const: 1));
 
-    static_assert(_Generic(typeof("abc"), const char [4]: 1));
+    static_assert(_Generic(typeof("abc"), char [4]: 1));
 }
 
 `;

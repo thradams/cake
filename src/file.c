@@ -1,7 +1,1 @@
-enum X : short {
-    A
-};
-
-int main() {
-    enum X x = A;
-}
+static_assert(_Generic("abc",  char* : 1));
