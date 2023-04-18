@@ -10467,8 +10467,6 @@ struct expression* primary_expression(struct parser_ctx* ctx)
               In C literal strings are not pointer to const 
             */
 
-            //p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
-
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
 
             struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
