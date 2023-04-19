@@ -370,7 +370,7 @@ struct type type_convert_to(struct type* p_type, enum language_version target)
         if (target < LANGUAGE_C99)
         {
             t.type_specifier_flags &= ~TYPE_SPECIFIER_BOOL;
-            t.type_specifier_flags |= TYPE_SPECIFIER_INT;
+            t.type_specifier_flags |= TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
         }
     }
 

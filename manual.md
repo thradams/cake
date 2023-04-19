@@ -47,8 +47,8 @@ The ouput dir is **./out**
 
 C89 is the minimum target.
 
-However the ideia if C89 target is not suport very old compilers,
-but generate code that is compatible with C++.
+However the ideia if C89 target is NOT suport very old compilers,
+but generate code that can be compiled with C++.
 
 C89 
 https://port70.net/~nsz/c/c89/c89-draft.html
@@ -258,25 +258,6 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 When compiling to C89 line comments are converted to comments.
 
-```c
-//line comments
-```
-
-Becomes in C89
-
-```c
-/*line comments*/
-```
-
-N644
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n644.htm
-
-### C99 Preprocessor arithmetic done in intmax\_t / uintmax\_t
-Cake uses 64 bits internally.
-
-N736
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n736.htm
-
 
 ### C99 inline functions
 
@@ -289,31 +270,6 @@ TODO
 
 ### C99 \_\_func\_\_ predefined identifier
 Parsed. C89 conversion not implemented yet.
-
-### C99 init-statement in for loops 
-
-```c
-int main()
-{
-    for (int i = 0; i < 10; i++)
-    {
-    }
-}
-```
-
-Becomes in C89 (not implemented yet)
-
-```c
-int main()
-{
-    {
-       int i = 0;
-       for (;i < 10; i++)
-       {
-       }
-    }
-}
-```
 
 
 ###  C99 Variadic macros
@@ -362,7 +318,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n707.htm
 
 
 ###  C99 \_Bool
-When compiling to C89 _Bool is replaced by int.
+When compiling to C89 _Bool is replaced by unsigned char.
 
 ```c
 //line comments

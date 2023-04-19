@@ -2,15 +2,12 @@
 
 sample["C99 _Bool"] =
 `
-//line comments are converted to comments in C89
 int main(void)
 {
-    /*
-       _Bool is converted to int. 
-       Maybe char is better?
-    */
+    // _Bool is converted to unsigned char. 
 
-    _Bool b = 1; 
+    _Bool b = 1;
+
     return 0;
 }
 `;

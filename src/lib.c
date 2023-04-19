@@ -13837,7 +13837,7 @@ struct type type_convert_to(struct type* p_type, enum language_version target)
         if (target < LANGUAGE_C99)
         {
             t.type_specifier_flags &= ~TYPE_SPECIFIER_BOOL;
-            t.type_specifier_flags |= TYPE_SPECIFIER_INT;
+            t.type_specifier_flags |= TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
         }
     }
 
@@ -24199,7 +24199,7 @@ static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, str
         if (ctx->target < LANGUAGE_C99)
         {
             free(p_type_specifier->token->lexeme);
-            p_type_specifier->token->lexeme = strdup("int");
+            p_type_specifier->token->lexeme = strdup("unsigned char");
         }
         else
         {
