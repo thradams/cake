@@ -406,7 +406,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
 
 
 struct token_list copy_argument_list(struct macro_argument* pMacroArgument)
-{    
+{
     struct token_list list = copy_argument_list_tokens(&pMacroArgument->tokens);
     if (list.head == NULL)
     {
@@ -532,14 +532,6 @@ void stream_print_line(struct stream* stream)
 
 void stream_match(struct stream* stream)
 {
-    /*
-    2. Each instance of a backslash character (\) immediately followed by a new-line character is
-    deleted, splicing physical source lines to form logical source lines. Only the last backslash on
-    any physical source line shall be eligible for being part of such a splice. A source file that is
-    not empty shall end in a new-line character, which shall not be immediately preceded by a
-    backslash character before any such splicing takes place.
-    */
-    stream->current++;
     if (stream->current[0] == '\n')
     {
         stream->line++;
@@ -549,8 +541,19 @@ void stream_match(struct stream* stream)
     {
         stream->col++;
     }
+
+    stream->current++;
+
     if (stream->current[0] == '\\' && stream->current[1] == '\n')
     {
+        /*
+            2. Each instance of a backslash character (\) immediately followed by a new-line character is
+            deleted, splicing physical source lines to form logical source lines. Only the last backslash on
+            any physical source line shall be eligible for being part of such a splice. A source file that is
+            not empty shall end in a new-line character, which shall not be immediately preceded by a
+            backslash character before any such splicing takes place.
+        */
+
         stream->current++;
         stream->current++;
         stream->line++;
@@ -784,7 +787,7 @@ enum token_type is_punctuator(struct stream* stream)
             stream_match(stream);
             if (stream->current[0] == '=')
             {
-                type = '>>=';                
+                type = '>>=';
                 stream_match(stream);
             }
         }
@@ -1127,7 +1130,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         /*web versions only text files that are included*/
         const char* textfile = readfile(filename_opt);
         if (textfile == NULL)
-        {            
+        {
             pre_seterror_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
             throw;
         }
@@ -1333,13 +1336,13 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 continue;
             }
             if (stream.current[0] == ' ' ||
-                stream.current[0] == '\t' || 
+                stream.current[0] == '\t' ||
                 stream.current[0] == '\f')
             {
                 const char* start = stream.current;
                 while (stream.current[0] == ' ' ||
-                       stream.current[0] == '\t' ||
-                       stream.current[0] == '\f'
+                    stream.current[0] == '\t' ||
+                    stream.current[0] == '\f'
                     )
                 {
                     stream_match(&stream);
@@ -1399,7 +1402,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         break;
                     }
                     else if (stream.current[0] == '\0')
-                    {                        
+                    {
                         tk_seterror_with_token(ctx, "missing end of comment");
                         break;
                     }
@@ -1959,7 +1962,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list* output_list,
     struct token_list* input_list,
     int level
-    )
+)
 {
     ctx->conditional_inclusion = true;
     struct token_list r = { 0 };
@@ -2010,7 +2013,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     //pre_skip_blanks(&parser_ctx);
 
     long long value = 0;
-    if (pre_constant_expression(&pre_ctx,  &value) != 0)
+    if (pre_constant_expression(&pre_ctx, &value) != 0)
     {
         assert(false);
         //TODO error
@@ -2545,7 +2548,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             path[strlen(path) - 1] = '\0';
 
             snprintf(fullpath, sizeof(fullpath), "%s", path + 1);
-            
+
 
             int nlevel = level;
 
@@ -2563,7 +2566,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
             struct token_list list = embed_tokenizer(ctx, fullpath, nlevel, f);
-            
+
 
             token_list_append_list(&r, &list);
             token_list_destroy(&discard0);
@@ -2585,7 +2588,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct macro* macro = calloc(1, sizeof * macro);
             if (macro == NULL)
             {
-                pre_seterror_with_token(ctx, ctx->current, "out of mem");                
+                pre_seterror_with_token(ctx, ctx->current, "out of mem");
                 throw;
             }
 
@@ -2865,7 +2868,7 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
                         else
                         {
                             //tODO
-                            pre_seterror_with_token(ctx, input_list->head, "too few arguments provided to function-like macro invocation\n");                            
+                            pre_seterror_with_token(ctx, input_list->head, "too few arguments provided to function-like macro invocation\n");
                             throw;
                         }
                     }
@@ -3533,7 +3536,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro);
             struct token_list r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level);
-            if (ctx->n_errors >0) throw;
+            if (ctx->n_errors > 0) throw;
 
             token_list_append_list(&r, &r3);
         }
@@ -4086,7 +4089,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD__STATIC_ASSERT: return "TK_KEYWORD__STATIC_ASSERT";
     case TK_KEYWORD__THREAD_LOCAL: return "TK_KEYWORD__THREAD_LOCAL";
     case TK_KEYWORD_TYPEOF: return "TK_KEYWORD_TYPEOF";
-    
+
 
     case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE";
     case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE";
@@ -4153,11 +4156,11 @@ const char* get_code_as_we_see_plusmacros(struct token_list* list)
         }
         current = current->next;
     }
-    
+
     const char* cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
-    ss_close(&ss);    
+    ss_close(&ss);
 
     return cstr;
 }
@@ -4196,7 +4199,7 @@ const char* get_code_as_we_see(struct token_list* list, bool remove_comments)
         }
         current = current->next;
     }
-    
+
     const char* cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
@@ -4598,7 +4601,7 @@ static int printf_nothing(char const* const _Format, ...) { return 0; }
 int test_preprocessor_in_out(const char* input, const char* output)
 {
     int res = 0;
-    
+
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
@@ -4627,7 +4630,7 @@ int test_preprocessor_in_out(const char* input, const char* output)
         res = 1;
     }
 
-    
+
 
     return res;
 }
@@ -4675,7 +4678,7 @@ void test_lexeme_cmp()
 
 void token_list_pop_front_test()
 {
-    
+
     struct token_list list = { 0 };
     token_list_pop_front(&list);
     struct tokenizer_ctx tctx = { 0 };
@@ -4691,7 +4694,7 @@ void token_list_pop_front_test()
 
 void token_list_pop_back_test()
 {
-    
+
     struct token_list list = { 0 };
     token_list_pop_back(&list);
 
@@ -4706,7 +4709,7 @@ void token_list_pop_back_test()
     /*
     * pop bacl com 2
     */
-    
+
     token_list_clear(&list);
     list = tokenizer(&tctx, "a,", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
@@ -4723,7 +4726,7 @@ void token_list_pop_back_test()
     /*
     * pop back com 3
     */
-    
+
     list = tokenizer(&tctx, "a,b", NULL, 0, TK_FLAG_NONE);
     token_list_pop_back(&list);
     assert(strcmp(list.head->lexeme, "a") == 0);
@@ -4736,7 +4739,7 @@ void token_list_pop_back_test()
 
 int token_list_append_list_test()
 {
-    
+
     struct tokenizer_ctx tctx = { 0 };
     struct token_list source = { 0 };
     struct token_list dest = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
@@ -4746,7 +4749,7 @@ int token_list_append_list_test()
 
     token_list_clear(&source);
     token_list_clear(&dest);
-    
+
 
     dest = tokenizer(&tctx, "a", NULL, 0, TK_FLAG_NONE);
     token_list_append_list(&dest, &source);
@@ -4777,7 +4780,7 @@ void test_collect()
         "ab"
         ;
 
-    
+
     assert(test_preprocessor_in_out(input, output) == 0);
 
 }
@@ -5140,7 +5143,7 @@ void test4()
         "1 23 4"
         ;
 
-    
+
     int code = test_preprocessor_in_out(input, output);
 
     //esperado um erro (falta mensagem)
@@ -5159,8 +5162,8 @@ void test_string()
         "A \"\\\"B\\\"\""
         ;
 
-    
-    return test_preprocessor_in_out(input, output);    
+
+    return test_preprocessor_in_out(input, output);
 }
 
 void test6()
@@ -5193,7 +5196,7 @@ void testerror()
 
 int test_preprocessor_expression(const char* expr, long long expected)
 {
-    
+
     struct preprocessor_ctx ctx = { 0 };
     ctx.printf = printf;
     struct token_list r = { 0 };
@@ -5248,7 +5251,7 @@ int test_concatenation_o()
         "*i_A_j k"
         ;
 
-    
+
     return test_preprocessor_in_out(input, output);
 }
 
@@ -5262,7 +5265,7 @@ int test_concatenation()
         "ijk"
         ;
 
-    
+
     return test_preprocessor_in_out(input, output);
 
 
@@ -5299,8 +5302,8 @@ int test_spaces()
         "A B"
         ;
 
-    
-    return test_preprocessor_in_out(input, output);    
+
+    return test_preprocessor_in_out(input, output);
 }
 
 int test_stringfy()
@@ -5313,9 +5316,9 @@ int test_stringfy()
         "\"unsigned int\""
         ;
 
-    
+
     return test_preprocessor_in_out(input, output);
-    
+
 }
 
 
@@ -5324,7 +5327,7 @@ int test_tokens()
     const char* input =
         "L\"s1\" u8\"s2\""
         ;
-    
+
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "", 0, TK_FLAG_NONE);
 
@@ -5374,10 +5377,10 @@ int test_predefined_macros()
 
 int test_utf8()
 {
-    
+
     const char* input =
         "u8\"maçã\"";
-    
+
     struct tokenizer_ctx tctx = { 0 };
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
     if (strcmp(list.head->next->lexeme, u8"u8\"maçã\"") != 0)
@@ -5389,7 +5392,7 @@ int test_utf8()
 
 int test_line_continuation()
 {
-    
+
 
     const char* input =
         "#define A B \\\n"
