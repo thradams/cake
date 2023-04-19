@@ -1090,8 +1090,6 @@ struct type get_function_return_type(struct type* p_type)
 
     if (r.declarator_type)
     {
-        struct function_declarator_type* removed = r.declarator_type->direct_declarator_type->function_declarator_type;
-
         r.declarator_type->direct_declarator_type =
             r.declarator_type->direct_declarator_type->function_declarator_type->direct_declarator_type;
     }

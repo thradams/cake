@@ -14557,8 +14557,6 @@ struct type get_function_return_type(struct type* p_type)
 
     if (r.declarator_type)
     {
-        struct function_declarator_type* removed = r.declarator_type->direct_declarator_type->function_declarator_type;
-
         r.declarator_type->direct_declarator_type =
             r.declarator_type->direct_declarator_type->function_declarator_type->direct_declarator_type;
     }
@@ -23832,7 +23830,7 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator)
 {
 
-    bool bNeedsTransformation = false;
+    bool need_transformation = false;
 
     if (ctx->target < LANGUAGE_C2X) 
     {
@@ -23840,11 +23838,11 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
         {
             if (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
             {
-                bNeedsTransformation = true;
+                need_transformation = true;
             }
             if (p_declarator->declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
             {
-                bNeedsTransformation = true;
+                need_transformation = true;
             }
         }
         
@@ -23853,13 +23851,13 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
         if (p_declarator->specifier_qualifier_list &&
             p_declarator->specifier_qualifier_list->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
         {
-            bNeedsTransformation = true;
+            need_transformation = true;
         }
     }
 
 
     //we may have a diference type from the current syntax 
-    if (bNeedsTransformation)
+    if (need_transformation)
     {
         
         struct osstream ss = { 0 };
@@ -24316,8 +24314,6 @@ static bool is_last_item_return(struct compound_statement* p_compound_statement)
 
 static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration)
 {
-    struct preprocessor_ctx prectx = { 0 };
-
     if (p_declaration->static_assert_declaration)
     {
         visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
