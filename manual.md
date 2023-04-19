@@ -631,23 +631,26 @@ int main()
 ### C23 Introduce the nullptr constant
 
 ```c
-#include <stdlib.h>
 
 int main()
 {
   void * p = nullptr;
-  void * p2 = NULL;
+  auto p2 = nullptr;
+  typeof(nullptr) p3 = nullptr;
 }
 
 ```
 
-Becomes in C11, C99 C89
+Becomes in < C23
 
 ```
 int main()
 {
   void * p = ((void*)0);
+  void  * p2 = ((void*)0);
+  void  * p3 = ((void*)0);
 }
+
 ```
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm

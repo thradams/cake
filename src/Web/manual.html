@@ -829,22 +829,25 @@ code is transformed.</p>
 
 <h3 id="toc_36">C23 Introduce the nullptr constant</h3>
 
-<pre><code class="language-c">#include &lt;stdlib.h&gt;
-
+<pre><code class="language-c">
 int main()
 {
   void * p = nullptr;
-  void * p2 = NULL;
+  auto p2 = nullptr;
+  typeof(nullptr) p3 = nullptr;
 }
 
 </code></pre>
 
-<p>Becomes in C11, C99 C89</p>
+<p>Becomes in &lt; C23</p>
 
 <pre><code>int main()
 {
   void * p = ((void*)0);
+  void  * p2 = ((void*)0);
+  void  * p3 = ((void*)0);
 }
+
 </code></pre>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm</a></p>
