@@ -3,6 +3,7 @@
 
 #include "osstream.h"
 #include "error.h"
+#include "options.h"
 
 struct parser_ctx;
 

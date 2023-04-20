@@ -1736,9 +1736,6 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
         naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name_opt);
 
 
-        struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
-
-
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
@@ -1951,9 +1948,6 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     struct declarator* current = p_init_declarator->declarator;
 
                     const bool current_is_function = type_is_function(&current->type);
-                    const bool current_is_typedef_or_extern =
-                        current->declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_TYPEDEF);
-
 
                     /*
                       TODO compare if the declaration is identical
@@ -2498,8 +2492,6 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx)
 
 struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
-    struct struct_or_union_specifier* p = NULL;
-
 
     if (p_struct_or_union_specifier->member_declaration_list.head)
     {
@@ -5350,7 +5342,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
 
 
-        n = strlen(env);
+        n = (int)strlen(env);
 #endif
     }
 
@@ -5464,6 +5456,7 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx);
 
+    //print_all_macros(&prectx);
 
     //int no_files = 0;
     struct ast ast = { 0 };

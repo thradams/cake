@@ -4419,6 +4419,43 @@ static bool is_screaming_case(const char* text)
 
 }
 
+void print_all_macros(struct preprocessor_ctx* prectx)
+{
+    for (int i = 0; i < prectx->macros.capacity; i++) 
+    {
+        struct map_entry* entry = prectx->macros.table[i];
+        if (entry == NULL) continue;            
+        struct macro* macro = container_of(entry->p, struct macro, type_id);
+        printf("#define %s", macro->name);
+        if (macro->is_function)
+        {
+            printf("(");
+            
+            struct macro_parameter* parameter = macro->parameters;
+            while (parameter)
+            {
+                printf("%s", parameter->name);
+                if (parameter->next)
+                    printf(",");
+                parameter = parameter->next;
+            }
+            printf(")");
+        }
+        printf(" ");
+        
+        struct token* token = macro->replacement_list.head;
+        while (token)
+        {
+            printf("%s", token->lexeme);
+            
+            if (token == macro->replacement_list.tail)
+                break;
+
+            token = token->next;            
+        }
+        printf("\n");
+    }
+}
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
     if (!ctx->options.check_naming_conventions || token->level != 0)
