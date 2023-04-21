@@ -1,2 +1,5 @@
-int a[2];
-static_assert(a == (int[2]));
+#if defined(A)
+#if defined(B)
+#elif defined(C)
+#endif
+#endif

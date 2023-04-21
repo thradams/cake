@@ -2178,7 +2178,8 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
         }
         else
         {
-            ignore_preprocessor_line(input_list);
+            struct token_list r0 = ignore_preprocessor_line(input_list);
+            token_list_append_list(&r, &r0);
         }
     }
     else if (strcmp(input_list->head->lexeme, "elifdef") == 0)
