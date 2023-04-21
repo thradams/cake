@@ -609,7 +609,7 @@ void check_unused_macros(struct hash_map* map);
 
 char* readfile(const char* path);
 const char* get_token_name(enum token_type tk);
-
+void print_all_macros(struct preprocessor_ctx* prectx);
 
 #ifdef _WIN32
 
@@ -3687,7 +3687,8 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
         }
         else
         {
-            ignore_preprocessor_line(input_list);
+            struct token_list r0 = ignore_preprocessor_line(input_list);
+            token_list_append_list(&r, &r0);
         }
     }
     else if (strcmp(input_list->head->lexeme, "elifdef") == 0)
@@ -5928,6 +5929,43 @@ static bool is_screaming_case(const char* text)
 
 }
 
+void print_all_macros(struct preprocessor_ctx* prectx)
+{
+    for (int i = 0; i < prectx->macros.capacity; i++) 
+    {
+        struct map_entry* entry = prectx->macros.table[i];
+        if (entry == NULL) continue;            
+        struct macro* macro = container_of(entry->p, struct macro, type_id);
+        printf("#define %s", macro->name);
+        if (macro->is_function)
+        {
+            printf("(");
+            
+            struct macro_parameter* parameter = macro->parameters;
+            while (parameter)
+            {
+                printf("%s", parameter->name);
+                if (parameter->next)
+                    printf(",");
+                parameter = parameter->next;
+            }
+            printf(")");
+        }
+        printf(" ");
+        
+        struct token* token = macro->replacement_list.head;
+        while (token)
+        {
+            printf("%s", token->lexeme);
+            
+            if (token == macro->replacement_list.tail)
+                break;
+
+            token = token->next;            
+        }
+        printf("\n");
+    }
+}
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
     if (!ctx->options.check_naming_conventions || token->level != 0)
@@ -17821,9 +17859,6 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
         naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name_opt);
 
 
-        struct declarator* function_declarator = p_declaration->init_declarator_list.head->declarator;
-
-
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
@@ -18036,9 +18071,6 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     struct declarator* current = p_init_declarator->declarator;
 
                     const bool current_is_function = type_is_function(&current->type);
-                    const bool current_is_typedef_or_extern =
-                        current->declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_TYPEDEF);
-
 
                     /*
                       TODO compare if the declaration is identical
@@ -18583,8 +18615,6 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx)
 
 struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
-    struct struct_or_union_specifier* p = NULL;
-
 
     if (p_struct_or_union_specifier->member_declaration_list.head)
     {
@@ -21435,7 +21465,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
 
 
-        n = strlen(env);
+        n = (int)strlen(env);
 #endif
     }
 
@@ -21549,6 +21579,7 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx);
 
+    //print_all_macros(&prectx);
 
     //int no_files = 0;
     struct ast ast = { 0 };
