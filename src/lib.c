@@ -4938,7 +4938,7 @@ struct token_list  copy_replacement_list(struct token_list* list)
         current = current->next;
     }
     //remover flag de espaco antes se tiver
-    bool bIsFirst = true;
+    bool is_first = true;
     bool previous_is_blank = false;
     for (; current;)
     {
@@ -4956,11 +4956,11 @@ struct token_list  copy_replacement_list(struct token_list* list)
             token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
             token_added->flags |= TK_FLAG_HAS_SPACE_BEFORE;
         }
-        if (bIsFirst)
+        if (is_first)
         {
             token_added->flags = token_added->flags & ~TK_FLAG_HAS_SPACE_BEFORE;
             token_added->flags = token_added->flags & ~TK_FLAG_HAS_NEWLINE_BEFORE;
-            bIsFirst = false;
+            is_first = false;
         }
         remove_line_continuation(token_added->lexeme);
         previous_is_blank = false;
