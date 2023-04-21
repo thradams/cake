@@ -22,7 +22,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 static void visit_expression(struct visit_ctx* ctx, struct expression* p_expression);
 static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement);
 static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
-static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier);
+static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p_type_specifier);
 
 void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
@@ -509,16 +509,16 @@ static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p
     }
 }
 
-static void visit_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_specifier_qualifier)
+static void visit_specifier_qualifier(struct visit_ctx* ctx, struct type_specifier_qualifier* p_specifier_qualifier)
 {
     if (p_specifier_qualifier->type_specifier)
-        visit_type_specifier(is_declaration, ctx, p_specifier_qualifier->type_specifier);
+        visit_type_specifier(ctx, p_specifier_qualifier->type_specifier);
 
     if (p_specifier_qualifier->type_qualifier)
         visit_type_qualifier(ctx, p_specifier_qualifier->type_qualifier);
 }
 
-static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt)
+static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt)
 {
     if (p_specifier_qualifier_list_opt == NULL)
         return;
@@ -544,7 +544,7 @@ static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx
         struct type_specifier_qualifier* p_specifier_qualifier = p_specifier_qualifier_list_opt->head;
         while (p_specifier_qualifier)
         {
-            visit_specifier_qualifier(is_declaration, ctx, p_specifier_qualifier);
+            visit_specifier_qualifier(ctx, p_specifier_qualifier);
             p_specifier_qualifier = p_specifier_qualifier->next;
         }
     }
@@ -552,7 +552,7 @@ static void visit_specifier_qualifier_list(bool is_declaration, struct visit_ctx
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator);
 static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name)
 {  
-    visit_specifier_qualifier_list(false, ctx, p_type_name->specifier_qualifier_list);
+    visit_specifier_qualifier_list(ctx, p_type_name->specifier_qualifier_list);
     visit_declarator(ctx, p_type_name->declarator);
 }
 
@@ -1406,7 +1406,7 @@ static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_de
 }
 static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration)
 {
-    visit_specifier_qualifier_list(true, ctx, p_member_declaration->specifier_qualifier_list);
+    visit_specifier_qualifier_list(ctx, p_member_declaration->specifier_qualifier_list);
 
     if (p_member_declaration->member_declarator_list_opt)
     {
@@ -1529,7 +1529,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 
 }
 
-static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, struct typeof_specifier* p_typeof_specifier)
+static void visit_typeof_specifier(struct visit_ctx* ctx, struct typeof_specifier* p_typeof_specifier)
 {
 
     if (!ctx->is_second_pass)
@@ -1581,11 +1581,11 @@ static void visit_typeof_specifier(bool is_declaration, struct visit_ctx* ctx, s
     }
 }
 
-static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier* p_type_specifier)
+static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p_type_specifier)
 {
     if (p_type_specifier->typeof_specifier)
     {
-        visit_typeof_specifier(is_declaration, ctx, p_type_specifier->typeof_specifier);
+        visit_typeof_specifier(ctx, p_type_specifier->typeof_specifier);
     }
 
     if (p_type_specifier->struct_or_union_specifier)
@@ -1630,14 +1630,14 @@ static void visit_type_specifier(bool is_declaration, struct visit_ctx* ctx, str
     }
 }
 
-static void visit_type_specifier_qualifier(bool is_declaration, struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier)
+static void visit_type_specifier_qualifier(struct visit_ctx* ctx, struct type_specifier_qualifier* p_type_specifier_qualifier)
 {
     if (p_type_specifier_qualifier->type_qualifier)
     {
     }
     else if (p_type_specifier_qualifier->type_specifier)
     {
-        visit_type_specifier(is_declaration, ctx, p_type_specifier_qualifier->type_specifier);
+        visit_type_specifier(ctx, p_type_specifier_qualifier->type_specifier);
     }
     else if (p_type_specifier_qualifier->alignment_specifier)
     {
@@ -1656,7 +1656,7 @@ static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_
     }
 }
 
-static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier)
+static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaration_specifier* p_declaration_specifier)
 {
 
     if (p_declaration_specifier->function_specifier)
@@ -1689,7 +1689,7 @@ static void visit_declaration_specifier(bool is_declaration, struct visit_ctx* c
 
     if (p_declaration_specifier->type_specifier_qualifier)
     {
-        visit_type_specifier_qualifier(is_declaration, ctx, p_declaration_specifier->type_specifier_qualifier);
+        visit_type_specifier_qualifier(ctx, p_declaration_specifier->type_specifier_qualifier);
 
     }
 
@@ -1700,7 +1700,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx, struct declarati
     struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
     while (p_declaration_specifier)
     {
-        visit_declaration_specifier(true, ctx, p_declaration_specifier);
+        visit_declaration_specifier(ctx, p_declaration_specifier);
         p_declaration_specifier = p_declaration_specifier->next;
     }
 }
