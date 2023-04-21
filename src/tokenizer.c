@@ -502,10 +502,10 @@ void delete_macro(struct macro* macro)
 
 struct macro* find_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct type_tag_id* pNode = hashmap_find(&ctx->macros, name);
-    if (pNode == NULL)
+    struct type_tag_id* p_node = hashmap_find(&ctx->macros, name);
+    if (p_node == NULL)
         return NULL;
-    struct macro* macro = container_of(pNode, struct macro, type_id);
+    struct macro* macro = container_of(p_node, struct macro, type_id);
     return macro;
 }
 
@@ -1804,16 +1804,16 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
 
-                bool bAlreadyIncluded = false;
-                const char* s = find_and_read_include_file(ctx, path, fullpath, &bAlreadyIncluded);
+                bool already_included = false;
+                const char* s = find_and_read_include_file(ctx, path, fullpath, &already_included);
 
-                bool bHasInclude = s != NULL;
+                bool has_include = s != NULL;
                 free((void*)s);
 
                 struct token* p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
-                p_new_token->lexeme = strdup(bHasInclude ? "1" : "0");
+                p_new_token->lexeme = strdup(has_include ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
                 token_list_add(&r, p_new_token);
@@ -2212,7 +2212,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
     return r;
 }
 
-struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* pbelifResult)
+struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* pelif_result)
 {
     struct token_list r = { 0 };
     /*
@@ -2220,29 +2220,29 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
       elif-group
       elif-groups elif-group
     */
-    bool bAlreadyFoundElifTrue = false;
-    bool bElifResult = false;
-    struct token_list r2 = elif_group(ctx, input_list, is_active, level, &bElifResult);
+    bool already_found_elif_true = false;
+    bool elif_result = false;
+    struct token_list r2 = elif_group(ctx, input_list, is_active, level, &elif_result);
     token_list_append_list(&r, &r2);
-    if (bElifResult)
-        bAlreadyFoundElifTrue = true;
+    if (elif_result)
+        already_found_elif_true = true;
     if (input_list->head->type == TK_PREPROCESSOR_LINE &&
         preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
         preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
         preprocessor_token_ahead_is_identifier(input_list->head, "elifndef"))
     {
         /*
-          Depois que acha 1 true bAlreadyFoundElifTrue os outros sao false.
+          Depois que acha 1 true already_found_elif_true os outros sao false.
         */
-        struct token_list r3 = elif_groups(ctx, input_list, is_active && !bAlreadyFoundElifTrue, level, &bElifResult);
+        struct token_list r3 = elif_groups(ctx, input_list, is_active && !already_found_elif_true, level, &elif_result);
         token_list_append_list(&r, &r3);
-        if (bElifResult)
-            bAlreadyFoundElifTrue = true;
+        if (elif_result)
+            already_found_elif_true = true;
     }
     /*
        Se algum dos elifs foi true retorna true
     */
-    *pbelifResult = bAlreadyFoundElifTrue;
+    *pelif_result = already_found_elif_true;
     return r;
 }
 
@@ -2296,24 +2296,24 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
 
     try
     {
-        bool bIfResult = false;
-        struct token_list r2 = if_group(ctx, input_list, is_active, level, &bIfResult);
+        bool if_result = false;
+        struct token_list r2 = if_group(ctx, input_list, is_active, level, &if_result);
         if (ctx->n_errors > 0) throw;
 
         token_list_append_list(&r, &r2);
-        bool bElifResult = false;
+        bool elif_result = false;
         if (input_list->head->type == TK_PREPROCESSOR_LINE &&
             preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "elifndef"))
         {
-            struct token_list r3 = elif_groups(ctx, input_list, is_active && !bIfResult, level, &bElifResult);
+            struct token_list r3 = elif_groups(ctx, input_list, is_active && !if_result, level, &elif_result);
             token_list_append_list(&r, &r3);
         }
         if (input_list->head->type == TK_PREPROCESSOR_LINE &&
             preprocessor_token_ahead_is_identifier(input_list->head, "else"))
         {
-            struct token_list r4 = else_group(ctx, input_list, is_active && !bIfResult && !bElifResult, level);
+            struct token_list r4 = else_group(ctx, input_list, is_active && !if_result && !elif_result, level);
             token_list_append_list(&r, &r4);
         }
 
@@ -2338,9 +2338,9 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
       identifier-list , identifier
     */
     skip_blanks(&r, input_list);
-    struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
-    pMacroParameter->name = strdup(input_list->head->lexeme);
-    macro->parameters = pMacroParameter;
+    struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+    p_macro_parameter->name = strdup(input_list->head->lexeme);
+    macro->parameters = p_macro_parameter;
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
     skip_blanks(&r, input_list);
     while (input_list->head->type == ',')
@@ -2351,9 +2351,9 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
         {
             break;
         }
-        pMacroParameter->next = calloc(1, sizeof * pMacroParameter);
-        pMacroParameter = pMacroParameter->next;
-        pMacroParameter->name = strdup(input_list->head->lexeme);
+        p_macro_parameter->next = calloc(1, sizeof * p_macro_parameter);
+        p_macro_parameter = p_macro_parameter->next;
+        p_macro_parameter->name = strdup(input_list->head->lexeme);
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
         skip_blanks(&r, input_list);
     }
@@ -2467,8 +2467,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             path[strlen(path) - 1] = '\0';
 
-            bool bAlreadyIncluded = false;
-            const char* content = find_and_read_include_file(ctx, path + 1, fullpath, &bAlreadyIncluded);
+            bool already_included = false;
+            const char* content = find_and_read_include_file(ctx, path + 1, fullpath, &already_included);
             if (content != NULL)
             {
                 struct tokenizer_ctx tctx = { 0 };
@@ -2480,7 +2480,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             else
             {
-                if (!bAlreadyIncluded)
+                if (!already_included)
                 {
                     pre_seterror_with_token(ctx, r.tail, "file %s not found", path + 1);
 
@@ -2635,9 +2635,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 skip_blanks_level(&r, input_list, level);
                 if (input_list->head->type == '...')
                 {
-                    struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
-                    pMacroParameter->name = strdup("__VA_ARGS__");
-                    macro->parameters = pMacroParameter;
+                    struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                    p_macro_parameter->name = strdup("__VA_ARGS__");
+                    macro->parameters = p_macro_parameter;
 
                     // assert(false);
                     match_token_level(&r, input_list, '...', level, ctx); //nome da macro
@@ -2656,15 +2656,15 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     skip_blanks_level(&r, input_list, level);
                     if (input_list->head->type == '...')
                     {
-                        struct macro_parameter* pMacroParameter = calloc(1, sizeof * pMacroParameter);
-                        pMacroParameter->name = strdup("__VA_ARGS__");
-                        struct macro_parameter* pLast = macro->parameters;
-                        assert(pLast != NULL);
-                        while (pLast->next)
+                        struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                        p_macro_parameter->name = strdup("__VA_ARGS__");
+                        struct macro_parameter* p_last = macro->parameters;
+                        assert(p_last != NULL);
+                        while (p_last->next)
                         {
-                            pLast = pLast->next;
+                            p_last = p_last->next;
                         }
-                        pLast->next = pMacroParameter;
+                        p_last->next = p_macro_parameter;
 
 
                         match_token_level(&r, input_list, '...', level, ctx);
@@ -2691,11 +2691,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             skip_blanks_level(&r, input_list, level);
-            struct type_tag_id* pNode = hashmap_remove(&ctx->macros, input_list->head->lexeme);
+            struct type_tag_id* p_node = hashmap_remove(&ctx->macros, input_list->head->lexeme);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
-            if (pNode)
+            if (p_node)
             {
-                struct macro* macro = container_of(pNode, struct macro, type_id);
+                struct macro* macro = container_of(p_node, struct macro, type_id);
                 delete_macro(macro);
                 match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             }
