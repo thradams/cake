@@ -4432,8 +4432,8 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
     return macroArgumentList;
 }
 
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct macro* macro, struct macro_argument_list* arguments, int level);
-struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct token_list* oldlist, int level);
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct macro* macro, struct macro_argument_list* arguments, int level);
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* oldlist, int level);
 
 
 struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro);
@@ -4604,7 +4604,7 @@ struct token_list replace_vaopt(struct preprocessor_ctx* ctx, struct token_list*
     }
     return r;
 }
-struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct token_list* input_list, struct macro_argument_list* arguments)
+struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments)
 {
     struct token_list r = { 0 };
     bool bVarArgsWasEmpty = false;
@@ -4717,7 +4717,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                         argumentlist.head->flags = flags;
                     }
                     /*depois reescan vai corrigir level*/
-                    struct token_list r4 = replacement_list_reexamination(ctx, pList, &argumentlist, 0);
+                    struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
                     if (ctx->n_errors > 0) throw;
 
                     if (check)
@@ -4748,9 +4748,9 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 
 struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* input_list);
 
-bool macro_already_expanded(struct macro_expanded* pList, const char* name)
+bool macro_already_expanded(struct macro_expanded* p_list, const char* name)
 {
-    struct macro_expanded* p_item = pList;
+    struct macro_expanded* p_item = p_list;
     while (p_item)
     {
         if (strcmp(name, p_item->name) == 0)
@@ -4762,7 +4762,7 @@ bool macro_already_expanded(struct macro_expanded* pList, const char* name)
     return false;
 }
 
-struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct token_list* oldlist, int level)
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* oldlist, int level)
 {
     struct token_list r = { 0 };
     try
@@ -4774,25 +4774,25 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
         (not from an argument) is deleted and the preceding preprocessing token is concatenated with the
         following preprocessing token.
         */
-        struct token_list newList = concatenate(ctx, oldlist);
-        while (newList.head != NULL)
+        struct token_list new_list = concatenate(ctx, oldlist);
+        while (new_list.head != NULL)
         {
-            assert(!(newList.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-            assert(!token_is_blank(newList.head));
+            assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+            assert(!token_is_blank(new_list.head));
             struct macro* macro = NULL;
-            if (newList.head->type == TK_IDENTIFIER)
+            if (new_list.head->type == TK_IDENTIFIER)
             {
-                macro = find_macro(ctx, newList.head->lexeme);
+                macro = find_macro(ctx, new_list.head->lexeme);
                 if (macro &&
                     macro->is_function &&
-                    !preprocessor_token_ahead_is(newList.head, '('))
+                    !preprocessor_token_ahead_is(new_list.head, '('))
                 {
                     macro = NULL;
                 }
 
-                if (macro && macro_already_expanded(pList, newList.head->lexeme))
+                if (macro && macro_already_expanded(p_list, new_list.head->lexeme))
                 {
-                    newList.head->type = TK_IDENTIFIER_RECURSIVE_MACRO;
+                    new_list.head->type = TK_IDENTIFIER_RECURSIVE_MACRO;
                     macro = NULL;
                 }
 
@@ -4825,19 +4825,19 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
             }
             if (macro)
             {
-                int flags = newList.head->flags;
-                struct macro_argument_list arguments = collect_macro_arguments(ctx, macro, &newList, level);
+                int flags = new_list.head->flags;
+                struct macro_argument_list arguments = collect_macro_arguments(ctx, macro, &new_list, level);
                 if (ctx->n_errors > 0) throw;
 
 
-                struct token_list r3 = expand_macro(ctx, pList, macro, &arguments, level);
+                struct token_list r3 = expand_macro(ctx, p_list, macro, &arguments, level);
                 if (ctx->n_errors > 0) throw;
 
                 if (r3.head)
                 {
                     r3.head->flags = flags;
                 }
-                token_list_append_list_at_beginning(&newList, &r3);
+                token_list_append_list_at_beginning(&new_list, &r3);
             }
             else
             {
@@ -4845,10 +4845,10 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
                 aqui eh um bom lugar para setar o level e macro flags
                 poq sempre tem a re scann da macro no fim
                 */
-                newList.head->level = level;
-                newList.head->flags |= TK_FLAG_MACRO_EXPANDED;
-                assert(!(newList.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
-                prematch(&r, &newList); //nao era macro
+                new_list.head->level = level;
+                new_list.head->flags |= TK_FLAG_MACRO_EXPANDED;
+                assert(!(new_list.head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
+                prematch(&r, &new_list); //nao era macro
             }
         }
     }
