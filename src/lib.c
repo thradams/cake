@@ -3579,9 +3579,9 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
 }
 
 
-struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* pbIfResult)
+struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* p_result)
 {
-    *pbIfResult = 0; //out
+    *p_result = 0; //out
 
     struct token_list r = { 0 };
     try
@@ -3602,8 +3602,8 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             if (is_active)
             {
                 struct macro* macro = find_macro(ctx, input_list->head->lexeme);
-                *pbIfResult = (macro != NULL) ? 1 : 0;
-                //printf("#ifdef %s (%s)\n", input_list->head->lexeme, *pbIfResult ? "true" : "false");
+                *p_result = (macro != NULL) ? 1 : 0;
+                //printf("#ifdef %s (%s)\n", input_list->head->lexeme, *p_result ? "true" : "false");
             }
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
             skip_blanks_level(&r, input_list, level);
@@ -3616,7 +3616,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             if (is_active)
             {
                 struct macro* macro = find_macro(ctx, input_list->head->lexeme);
-                *pbIfResult = (macro == NULL) ? 1 : 0;
+                *p_result = (macro == NULL) ? 1 : 0;
             }
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
             skip_blanks_level(&r, input_list, level);
@@ -3629,7 +3629,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             if (is_active)
             {
                 struct token_list r0 = { 0 };
-                *pbIfResult = preprocessor_constant_expression(ctx, &r0, input_list, level);
+                *p_result = preprocessor_constant_expression(ctx, &r0, input_list, level);
                 token_list_append_list(&r, &r0);
             }
             else
@@ -3645,7 +3645,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             pre_seterror_with_token(ctx, input_list->head, "unexpected");
             throw;
         }
-        struct token_list r2 = group_opt(ctx, input_list, is_active && *pbIfResult, level);
+        struct token_list r2 = group_opt(ctx, input_list, is_active && *p_result, level);
         token_list_append_list(&r, &r2);
     }
     catch
