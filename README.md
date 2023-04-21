@@ -159,7 +159,7 @@ The other difference is that C++ is a second branch of evolution making C++ more
 compatible with C89 than C99.
 
 The idea of Cake is to keep the main line of evolution of C and be always 100% 
-compatible. 
+compatible. Cake ♥ C.
 
 The added extensions aims to keep the spirit of the language and implement proposed 
 features in a way they can be experimented even before standarization.
