@@ -1939,12 +1939,12 @@ struct macro_argument_list
 
 void print_macro_arguments(struct macro_argument_list* arguments)
 {
-    struct macro_argument* pArgument = arguments->head;
-    while (pArgument)
+    struct macro_argument* p_argument = arguments->head;
+    while (p_argument)
     {
-        printf("%s:", pArgument->name);
-        print_list(&pArgument->tokens);
-        pArgument = pArgument->next;
+        printf("%s:", p_argument->name);
+        print_list(&p_argument->tokens);
+        p_argument = p_argument->next;
     }
 }
 
@@ -4319,61 +4319,61 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
     struct macro* macro,
     struct token_list* input_list, int level)
 {
-    struct macro_argument_list macroArgumentList = { 0 };
+    struct macro_argument_list macro_argument_list = { 0 };
     try
     {
         assert(input_list->head->type == TK_IDENTIFIER); //nome da macro
 
-        match_token_level(&macroArgumentList.tokens, input_list, TK_IDENTIFIER, level, ctx); //NOME DA MACRO
+        match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //NOME DA MACRO
         if (!macro->is_function)
         {
             //se nao eh funcao so faz isso e retorna o nome da macro
-            return macroArgumentList;
+            return macro_argument_list;
         }
 
-        struct macro_parameter* pCurrentParameter = macro->parameters;
+        struct macro_parameter* p_current_parameter = macro->parameters;
         int count = 1;
-        skip_blanks(&macroArgumentList.tokens, input_list);
-        match_token_level(&macroArgumentList.tokens, input_list, '(', level, ctx);
-        skip_blanks(&macroArgumentList.tokens, input_list);
+        skip_blanks(&macro_argument_list.tokens, input_list);
+        match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
+        skip_blanks(&macro_argument_list.tokens, input_list);
         if (input_list->head->type == ')')
         {
             if (macro->parameters != NULL)
             {
-                struct macro_argument* pArgument = calloc(1, sizeof(struct macro_argument));
-                pArgument->name = strdup(pCurrentParameter->name);
-                argument_list_add(&macroArgumentList, pArgument);
+                struct macro_argument* p_argument = calloc(1, sizeof(struct macro_argument));
+                p_argument->name = strdup(p_current_parameter->name);
+                argument_list_add(&macro_argument_list, p_argument);
             }
-            match_token_level(&macroArgumentList.tokens, input_list, ')', level, ctx);
-            return macroArgumentList;
+            match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
+            return macro_argument_list;
         }
-        struct macro_argument* pCurrentArgument = calloc(1, sizeof(struct macro_argument));
-        pCurrentArgument->name = strdup(pCurrentParameter->name);
+        struct macro_argument* p_argument = calloc(1, sizeof(struct macro_argument));
+        p_argument->name = strdup(p_current_parameter->name);
         while (input_list->head != NULL)
         {
             if (input_list->head->type == '(')
             {
                 count++;
-                token_list_clone_and_add(&pCurrentArgument->tokens, input_list->head);
-                match_token_level(&macroArgumentList.tokens, input_list, '(', level, ctx);
+                token_list_clone_and_add(&p_argument->tokens, input_list->head);
+                match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
             }
             else if (input_list->head->type == ')')
             {
                 count--;
                 if (count == 0)
                 {
-                    match_token_level(&macroArgumentList.tokens, input_list, ')', level, ctx);
-                    argument_list_add(&macroArgumentList, pCurrentArgument);
-                    pCurrentParameter = pCurrentParameter->next;
+                    match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
+                    argument_list_add(&macro_argument_list, p_argument);
+                    p_current_parameter = p_current_parameter->next;
 
-                    if (pCurrentParameter != NULL)
+                    if (p_current_parameter != NULL)
                     {
-                        if (strcmp(pCurrentParameter->name, "__VA_ARGS__") == 0)
+                        if (strcmp(p_current_parameter->name, "__VA_ARGS__") == 0)
                         {
                             //adicionamos este argumento como sendo vazio
-                            pCurrentArgument = calloc(1, sizeof(struct macro_argument));
-                            pCurrentArgument->name = strdup(pCurrentParameter->name);
-                            argument_list_add(&macroArgumentList, pCurrentArgument);
+                            p_argument = calloc(1, sizeof(struct macro_argument));
+                            p_argument->name = strdup(p_current_parameter->name);
+                            argument_list_add(&macro_argument_list, p_argument);
                         }
                         else
                         {
@@ -4388,30 +4388,30 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
                 }
                 else
                 {
-                    token_list_clone_and_add(&pCurrentArgument->tokens, input_list->head);
-                    match_token_level(&macroArgumentList.tokens, input_list, ')', level, ctx);
+                    token_list_clone_and_add(&p_argument->tokens, input_list->head);
+                    match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
                 }
             }
             else if (count == 1 && input_list->head->type == ',')
             {
-                if (strcmp(pCurrentParameter->name, "__VA_ARGS__") == 0)
+                if (strcmp(p_current_parameter->name, "__VA_ARGS__") == 0)
                 {
-                    token_list_clone_and_add(&pCurrentArgument->tokens, input_list->head);
-                    match_token_level(&macroArgumentList.tokens, input_list, ',', level, ctx);
+                    token_list_clone_and_add(&p_argument->tokens, input_list->head);
+                    match_token_level(&macro_argument_list.tokens, input_list, ',', level, ctx);
                 }
                 else //if (count == 1)
                 {
-                    match_token_level(&macroArgumentList.tokens, input_list, ',', level, ctx);
-                    argument_list_add(&macroArgumentList, pCurrentArgument);
-                    pCurrentArgument = NULL; /*tem mais?*/
-                    pCurrentArgument = calloc(1, sizeof(struct macro_argument));
-                    pCurrentParameter = pCurrentParameter->next;
-                    if (pCurrentParameter == NULL)
+                    match_token_level(&macro_argument_list.tokens, input_list, ',', level, ctx);
+                    argument_list_add(&macro_argument_list, p_argument);
+                    p_argument = NULL; /*tem mais?*/
+                    p_argument = calloc(1, sizeof(struct macro_argument));
+                    p_current_parameter = p_current_parameter->next;
+                    if (p_current_parameter == NULL)
                     {
                         pre_seterror_with_token(ctx, input_list->head, "invalid args");
                         throw;
                     }
-                    pCurrentArgument->name = strdup(pCurrentParameter->name);
+                    p_argument->name = strdup(p_current_parameter->name);
                 }
 
 
@@ -4419,8 +4419,8 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
             }
             else
             {
-                token_list_clone_and_add(&pCurrentArgument->tokens, input_list->head);
-                prematch_level(&macroArgumentList.tokens, input_list, level);
+                token_list_clone_and_add(&p_argument->tokens, input_list->head);
+                prematch_level(&macro_argument_list.tokens, input_list, level);
                 //token_list_add(&list, token_list_pop_front(input_list));
             }
         }
@@ -4429,7 +4429,7 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
     {
     }
 
-    return macroArgumentList;
+    return macro_argument_list;
 }
 
 struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct macro* macro, struct macro_argument_list* arguments, int level);
@@ -4607,7 +4607,7 @@ struct token_list replace_vaopt(struct preprocessor_ctx* ctx, struct token_list*
 struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments)
 {
     struct token_list r = { 0 };
-    bool bVarArgsWasEmpty = false;
+    bool var_args_was_empty = false;
     bool is_var_args = false;
     try
     {
@@ -4616,12 +4616,12 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
             assert(!(input_list->head->flags & TK_FLAG_HAS_NEWLINE_BEFORE));
             assert(!token_is_blank(input_list->head));
             assert(r.tail == NULL || !token_is_blank(r.tail));
-            struct macro_argument* pArgument = NULL;
+            struct macro_argument* p_argument = NULL;
             if (input_list->head->type == TK_IDENTIFIER)
             {
-                pArgument = find_macro_argument_by_name(arguments, input_list->head->lexeme);
+                p_argument = find_macro_argument_by_name(arguments, input_list->head->lexeme);
             }
-            if (pArgument)
+            if (p_argument)
             {
                 bool check = false;
                 if (strcmp(input_list->head->lexeme, "__VA_ARGS__") == 0)
@@ -4649,11 +4649,11 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 
                     ///----------------------------
                     //transforma tudo em string e coloca no resultado
-                    struct token_list argumentlist = copy_argument_list(pArgument);
+                    struct token_list argumentlist = copy_argument_list(p_argument);
                     if (check)
                     {
                         is_var_args = true;
-                        bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
+                        var_args_was_empty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
 
                     char* s = token_list_join_tokens(&argumentlist, true);
@@ -4673,11 +4673,11 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                 {
                     //estou parametro e anterior era ##
                     token_list_pop_front(input_list);
-                    struct token_list argumentlist = copy_argument_list(pArgument);
+                    struct token_list argumentlist = copy_argument_list(p_argument);
                     if (check)
                     {
                         is_var_args = true;
-                        bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
+                        var_args_was_empty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
                     token_list_append_list(&r, &argumentlist);
                 }
@@ -4688,7 +4688,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     //tira nome parametro a lista
                     token_list_pop_front(input_list);
                     //passa tudo p resultado
-                    struct token_list argumentlist = copy_argument_list(pArgument);
+                    struct token_list argumentlist = copy_argument_list(p_argument);
                     if (argumentlist.head != NULL)
                     {
                         argumentlist.head->flags = flags;
@@ -4696,7 +4696,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     if (check)
                     {
                         is_var_args = true;
-                        bVarArgsWasEmpty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
+                        var_args_was_empty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
                     }
 
                     token_list_append_list(&r, &argumentlist);
@@ -4710,7 +4710,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     //remove nome parametro do input
                     token_list_pop_front(input_list);
                     //coloca a expansao no resultado
-                    struct token_list argumentlist = copy_argument_list(pArgument);
+                    struct token_list argumentlist = copy_argument_list(p_argument);
                     if (argumentlist.head)
                     {
                         //copia os flags do identificador
@@ -4723,7 +4723,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     if (check)
                     {
                         is_var_args = true;
-                        bVarArgsWasEmpty = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
+                        var_args_was_empty = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
                     }
                     token_list_append_list(&r, &r4);
                 }
@@ -4740,7 +4740,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 
     if (is_var_args)
     {
-        struct token_list r2 = replace_vaopt(ctx, &r, bVarArgsWasEmpty);
+        struct token_list r2 = replace_vaopt(ctx, &r, var_args_was_empty);
         return r2;
     }
     return r;
