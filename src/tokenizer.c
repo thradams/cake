@@ -63,9 +63,9 @@
 #endif
 
 
-//declaração da macro container_of
-#ifndef container_of
-#define container_of(ptr , type , member) (type *)( (char *) ptr - offsetof(type , member) )
+//declaração da macro CONTAINER_OF
+#ifndef CONTAINER_OF
+#define CONTAINER_OF(ptr , type , member) (type *)( (char *) ptr - offsetof(type , member) )
 #endif
 
 /*
@@ -330,7 +330,7 @@ struct macro
 struct macro_expanded
 {
     const char* name;
-    struct macro_expanded* pPrevious;
+    struct macro_expanded* p_previous;
 };
 
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
@@ -505,7 +505,7 @@ struct macro* find_macro(struct preprocessor_ctx* ctx, const char* name)
     struct type_tag_id* p_node = hashmap_find(&ctx->macros, name);
     if (p_node == NULL)
         return NULL;
-    struct macro* macro = container_of(p_node, struct macro, type_id);
+    struct macro* macro = CONTAINER_OF(p_node, struct macro, type_id);
     return macro;
 }
 
@@ -1167,12 +1167,12 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
                 {
                     /*new line*/
                     char newline[] = "\n";
-                    struct token* pNew3 = new_token(newline, &newline[1], TK_NEWLINE);
-                    pNew3->level = level;
-                    pNew3->token_origin = NULL;
-                    pNew3->line = line;
-                    pNew3->col = col;
-                    token_list_add(&list, pNew3);
+                    struct token* p_new3 = new_token(newline, &newline[1], TK_NEWLINE);
+                    p_new3->level = level;
+                    p_new3->token_origin = NULL;
+                    p_new3->line = line;
+                    p_new3->col = col;
+                    token_list_add(&list, p_new3);
                 }
             }
 
@@ -2695,7 +2695,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
             if (p_node)
             {
-                struct macro* macro = container_of(p_node, struct macro, type_id);
+                struct macro* macro = CONTAINER_OF(p_node, struct macro, type_id);
                 delete_macro(macro);
                 match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             }
@@ -2944,7 +2944,7 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
 
     struct token_list  r = { 0 };
     //todo juntar tokens mesmo objet macro
-    //struct token* pPreviousNonBlank = 0;
+    //struct token* p_previousNonBlank = 0;
     while (input_list->head)
     {
         //printf("r="); print_list(&r);
@@ -3248,7 +3248,7 @@ bool macro_already_expanded(struct macro_expanded* p_list, const char* name)
         {
             return true;
         }
-        p_item = p_item->pPrevious;
+        p_item = p_item->p_previous;
     }
     return false;
 }
@@ -3521,7 +3521,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
         assert(!macro_already_expanded(list, macro->name));
         struct macro_expanded macro_expanded = { 0 };
         macro_expanded.name = macro->name;
-        macro_expanded.pPrevious = list;
+        macro_expanded.p_previous = list;
         if (macro->is_function)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro);
@@ -3869,7 +3869,7 @@ void mark_macros_as_used(struct hash_map* map)
 
             while (pentry != NULL)
             {
-                struct macro* macro = container_of(pentry->p, struct macro, type_id);
+                struct macro* macro = CONTAINER_OF(pentry->p, struct macro, type_id);
                 macro->usage = 1;
                 pentry = pentry->next;
             }
@@ -3891,7 +3891,7 @@ void check_unused_macros(struct hash_map* map)
 
             while (pentry != NULL)
             {
-                struct macro* macro = container_of(pentry->p, struct macro, type_id);
+                struct macro* macro = CONTAINER_OF(pentry->p, struct macro, type_id);
                 if (macro->usage == 0)
                 {
                     //TODO adicionar conceito meu codigo , codigo de outros nao vou colocar erro
@@ -4426,7 +4426,7 @@ void print_all_macros(struct preprocessor_ctx* prectx)
     {
         struct map_entry* entry = prectx->macros.table[i];
         if (entry == NULL) continue;            
-        struct macro* macro = container_of(entry->p, struct macro, type_id);
+        struct macro* macro = CONTAINER_OF(entry->p, struct macro, type_id);
         printf("#define %s", macro->name);
         if (macro->is_function)
         {

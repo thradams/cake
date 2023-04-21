@@ -470,9 +470,9 @@ bool first_of_type_qualifier(struct parser_ctx* ctx)
 }
 
 
-//declaração da macro container_of
-#ifndef container_of
-#define container_of(ptr , type , member) (type *)( (char *) ptr - offsetof(type , member) )
+//declaração da macro CONTAINER_OF
+#ifndef CONTAINER_OF
+#define CONTAINER_OF(ptr , type , member) (type *)( (char *) ptr - offsetof(type , member) )
 #endif
 
 
@@ -528,7 +528,7 @@ struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* l
             type_id->type == TAG_TYPE_ENUN_SPECIFIER)
         {
 
-            best = container_of(type_id, struct enum_specifier, type_id);
+            best = CONTAINER_OF(type_id, struct enum_specifier, type_id);
             if (best->enumerator_list.head != NULL)
                 return best; //OK bem completo
             else
@@ -552,7 +552,7 @@ struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_c
         if (type_id &&
             type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
         {
-            p = container_of(type_id, struct struct_or_union_specifier, type_id);
+            p = CONTAINER_OF(type_id, struct struct_or_union_specifier, type_id);
             break;
         }
         scope = scope->previous;
@@ -566,7 +566,7 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
     struct type_tag_id* type_id = find_variables(ctx, lexeme, ppscope_opt);
 
     if (type_id && type_id->type == TAG_TYPE_DECLARATOR)
-        return container_of(type_id, struct declarator, type_id);
+        return CONTAINER_OF(type_id, struct declarator, type_id);
 
     return NULL;
 }
@@ -576,7 +576,7 @@ struct enumerator* find_enumerator(struct parser_ctx* ctx, const char* lexeme, s
     struct type_tag_id* type_id = find_variables(ctx, lexeme, ppscope_opt);
 
     if (type_id && type_id->type == TAG_TYPE_ENUMERATOR)
-        return container_of(type_id, struct enumerator, type_id);
+        return CONTAINER_OF(type_id, struct enumerator, type_id);
 
     return NULL;
 }
@@ -2558,7 +2558,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             /*this tag already exist in this scope*/
             if (tag_type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
             {
-                p_first_tag_in_this_scope = container_of(tag_type_id, struct struct_or_union_specifier, type_id);
+                p_first_tag_in_this_scope = CONTAINER_OF(tag_type_id, struct struct_or_union_specifier, type_id);
                 p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
             }
             else
@@ -3022,7 +3022,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
             */
             if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
             {
-                p_previous_tag_in_this_scope = container_of(tag_type_id, struct enum_specifier, type_id);
+                p_previous_tag_in_this_scope = CONTAINER_OF(tag_type_id, struct enum_specifier, type_id);
 
                 if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
                     p_enum_specifier->enumerator_list.head != NULL)
@@ -4523,7 +4523,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
             }
 
             struct declarator* p_declarator =
-                p_declarator = container_of(entry->p, struct declarator, type_id);
+                p_declarator = CONTAINER_OF(entry->p, struct declarator, type_id);
 
             if (p_declarator)
             {
@@ -5083,7 +5083,7 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
             }
 
             struct declarator* p_declarator =
-                p_declarator = container_of(entry->p, struct declarator, type_id);
+                p_declarator = CONTAINER_OF(entry->p, struct declarator, type_id);
 
             if (p_declarator &&
                 p_declarator->first_token &&

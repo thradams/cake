@@ -76,11 +76,11 @@ bool enable_vt_mode(void)
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
 #endif
 
-    DWORD dwMode = 0;
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    if ((hOut = GetStdHandle(STD_OUTPUT_HANDLE)) != INVALID_HANDLE_VALUE &&
-            GetConsoleMode(hOut, &dwMode) != 0 &&
-            SetConsoleMode(hOut, dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0 &&
+    DWORD mode = 0;
+    HANDLE h_out = GetStdHandle(STD_OUTPUT_HANDLE);
+    if ((h_out = GetStdHandle(STD_OUTPUT_HANDLE)) != INVALID_HANDLE_VALUE &&
+            GetConsoleMode(h_out, &mode) != 0 &&
+            SetConsoleMode(h_out, mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0 &&
             SetConsoleOutputCP(CP_UTF8) != 0)
     {
         return true;//ok
