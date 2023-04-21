@@ -336,7 +336,7 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
         parser_match_tk(ctx, '(');
         struct token_list l = { 0 };
         l.head = ctx->current;
-        
+
         if (first_of_type_name(ctx))
         {
             /*extension*/
@@ -350,14 +350,14 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
         l.tail = ctx->current->prev;
 
         parser_match_tk(ctx, ',');
-        
+
         p_generic_selection->generic_assoc_list = generic_association_list(ctx);
-        
+
 
         struct type lvalue_type = { 0 };
-        
+
         struct type* p_type = NULL;
-        
+
         if (p_generic_selection->expression)
         {
             p_type = &p_generic_selection->expression->type;
@@ -368,11 +368,11 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
                 p_type = &lvalue_type;
             }
         }
-        else 
+        else
         {
             p_type = &p_generic_selection->type_name->declarator->type;
         }
-                
+
 
         struct generic_association* current = p_generic_selection->generic_assoc_list.head;
         while (current)
@@ -597,8 +597,8 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            /* 
-              In C literal strings are not pointer to const 
+            /*
+              In C literal strings are not pointer to const
             */
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
@@ -712,7 +712,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             if (p_expression_node->generic_selection->p_view_selected_expression)
             {
                 p_expression_node->type = type_copy(&p_expression_node->generic_selection->p_view_selected_expression->type);
-                
+
                 p_expression_node->constant_value = p_expression_node->generic_selection->p_view_selected_expression->constant_value;
                 p_expression_node->is_constant = p_expression_node->generic_selection->p_view_selected_expression->is_constant;
             }
@@ -1306,7 +1306,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
     {
         attr = string_to_static_analisys_flags(ctx->current->lexeme);
 
-        
+
 
         if (attr != 0)
         {
@@ -1742,7 +1742,7 @@ struct expression* cast_expression(struct parser_ctx* ctx)
 
                 free(p_expression_node);
                 p_expression_node = new_expression;
-            }            
+            }
             else if (is_first_of_unary_expression(ctx))
             {
                 p_expression_node->left = cast_expression(ctx);
@@ -1758,7 +1758,7 @@ struct expression* cast_expression(struct parser_ctx* ctx)
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
             }
             else
-            {                
+            {
                 p_expression_node->is_void_type_expression = true;
             }
             //token_list_destroy(&ctx->type);
@@ -1831,9 +1831,20 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                     new_expression->is_constant = true;
                 }
 
+                if (!type_is_arithmetic(&new_expression->left->type))
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "left is not arithmetic");
+
+                }
+                if (!type_is_arithmetic(&new_expression->right->type))
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "right is not arithmetic");
+                }
+
             }
             else if (op == '/')
             {
+
                 new_expression->expression_type = MULTIPLICATIVE_EXPRESSION_DIV;
 
                 if (new_expression->left->is_constant && new_expression->right->is_constant)
@@ -1848,6 +1859,15 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                     }
 
                     new_expression->is_constant = true;
+                }
+                if (!type_is_arithmetic(&new_expression->left->type))
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "left is not arithmetic");
+
+                }
+                if (!type_is_arithmetic(&new_expression->right->type))
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "right is not arithmetic");
                 }
             }
             else if (op == '%')
@@ -1865,6 +1885,16 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                     {
                         parser_seterror_with_token(ctx, ctx->current, "divizion by zero");
                     }
+                }
+
+                if (!type_is_integer(&new_expression->left->type))
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "left is not integer");
+
+                }
+                if (!type_is_integer(&new_expression->right->type))
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "right is not integer");
                 }
             }
 
@@ -1968,10 +1998,10 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                         if (type_is_integer(&new_expression->right->type))
                         {
                             if (left_category == TYPE_CATEGORY_ARRAY)
-                            {                                
+                            {
                                 struct type t = get_array_item_type(&new_expression->left->type);
                                 new_expression->type = type_add_pointer(&t);
-                                type_destroy(&t);                                
+                                type_destroy(&t);
                             }
                             else
                             {
@@ -2328,7 +2358,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
 
                 if (new_expression->left->is_void_type_expression || new_expression->right->is_void_type_expression)
                 {
-                    new_expression->constant_value = type_is_same( & new_expression->left->type, & new_expression->right->type, true);
+                    new_expression->constant_value = type_is_same(&new_expression->left->type, &new_expression->right->type, true);
                     new_expression->is_constant = true;
                 }
             }
@@ -2341,7 +2371,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     new_expression->constant_value = (new_expression->left->constant_value != new_expression->right->constant_value);
                     new_expression->is_constant = true;
                 }
-                
+
                 if (new_expression->left->is_void_type_expression || new_expression->right->is_void_type_expression)
                 {
                     new_expression->constant_value = !type_is_same(&new_expression->left->type, &new_expression->right->type, true);
@@ -2452,7 +2482,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = (new_expression->left->constant_value ^ new_expression->right->constant_value);
                 new_expression->is_constant = true;
             }
-            
+
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
@@ -2606,7 +2636,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
                 parser_seterror_with_token(ctx, ctx->current, "left type is not scalar for or expression");
                 throw;
             }
-            
+
             if (!type_is_scalar(&new_expression->right->type)) {
                 parser_seterror_with_token(ctx, ctx->current, "right type is not scalar for or expression");
                 throw;

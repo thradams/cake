@@ -787,7 +787,8 @@ bool type_is_integer(struct type* p_type)
             TYPE_SPECIFIER_INT8 |
             TYPE_SPECIFIER_INT16 |
             TYPE_SPECIFIER_INT64 |
-            TYPE_SPECIFIER_LONG_LONG);
+            TYPE_SPECIFIER_LONG_LONG |
+            TYPE_SPECIFIER_BOOL);
 }
 
 /*
