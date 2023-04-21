@@ -3241,14 +3241,14 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
 
 bool macro_already_expanded(struct macro_expanded* pList, const char* name)
 {
-    struct macro_expanded* pItem = pList;
-    while (pItem)
+    struct macro_expanded* p_item = pList;
+    while (p_item)
     {
-        if (strcmp(name, pItem->name) == 0)
+        if (strcmp(name, p_item->name) == 0)
         {
             return true;
         }
-        pItem = pItem->pPrevious;
+        p_item = p_item->pPrevious;
     }
     return false;
 }
