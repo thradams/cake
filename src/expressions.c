@@ -268,7 +268,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
 
         if (p_generic_association == NULL) throw;
 
-        list_add(&list, p_generic_association);
+        LIST_ADD(&list, p_generic_association);
 
         while (ctx->current->type == ',')
         {
@@ -277,7 +277,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
             struct generic_association* p_generic_association2 = generic_association(ctx);
             if (p_generic_association2 == NULL) throw;
 
-            list_add(&list, p_generic_association2);
+            LIST_ADD(&list, p_generic_association2);
         }
     }
     catch
@@ -765,7 +765,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
         if (p_argument_expression == NULL) throw;
 
         p_argument_expression->expression = assignment_expression(ctx);
-        list_add(&list, p_argument_expression);
+        LIST_ADD(&list, p_argument_expression);
 
         while (ctx->current->type == ',')
         {
@@ -777,7 +777,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
             p_argument_expression_2->expression = assignment_expression(ctx);
             if (p_argument_expression_2->expression == NULL) throw;
 
-            list_add(&list, p_argument_expression_2);
+            LIST_ADD(&list, p_argument_expression_2);
         }
     }
     catch

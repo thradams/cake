@@ -1676,10 +1676,10 @@ bool preprocessor_token_previous_is(struct token* p, enum token_type t)
 bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
 {
     assert(p != NULL);
-    struct token* pA = preprocessor_look_ahead_core(p);
-    if (pA != NULL && pA->type == TK_IDENTIFIER)
+    struct token* p_token = preprocessor_look_ahead_core(p);
+    if (p_token != NULL && p_token->type == TK_IDENTIFIER)
     {
-        return strcmp(pA->lexeme, lexeme) == 0;
+        return strcmp(p_token->lexeme, lexeme) == 0;
     }
     return false;
 }

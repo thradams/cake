@@ -1594,7 +1594,7 @@ struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx)
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
 
-            list_add(p_declaration_specifiers, p_declaration_specifier);
+            LIST_ADD(p_declaration_specifiers, p_declaration_specifier);
             attribute_specifier_sequence_opt(ctx);
 
             if (ctx->current->type == TK_IDENTIFIER &&
@@ -2137,7 +2137,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
             p_declaration_specifiers,
             p_attribute_specifier_sequence_opt);
         if (p_init_declarator == NULL) throw;
-        list_add(&init_declarator_list, p_init_declarator);
+        LIST_ADD(&init_declarator_list, p_init_declarator);
         p_init_declarator = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -2145,7 +2145,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
             parser_match(ctx);
             p_init_declarator = init_declarator(ctx, p_declaration_specifiers, p_attribute_specifier_sequence_opt);
             if (p_init_declarator == NULL) throw;
-            list_add(&init_declarator_list, p_init_declarator);
+            LIST_ADD(&init_declarator_list, p_init_declarator);
             p_init_declarator = NULL; /*MOVED*/
         }
     }
@@ -2685,11 +2685,11 @@ struct member_declarator_list* member_declarator_list(struct parser_ctx* ctx,
     struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
-    list_add(p_member_declarator_list, member_declarator(ctx, p_specifier_qualifier_list));
+    LIST_ADD(p_member_declarator_list, member_declarator(ctx, p_specifier_qualifier_list));
     while (ctx->current->type == ',')
     {
         parser_match(ctx);
-        list_add(p_member_declarator_list, member_declarator(ctx, p_specifier_qualifier_list));
+        LIST_ADD(p_member_declarator_list, member_declarator(ctx, p_specifier_qualifier_list));
     }
     return p_member_declarator_list;
 }
@@ -2707,14 +2707,14 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx)
     {
         p_member_declaration = member_declaration(ctx);
         if (p_member_declaration == NULL) throw;
-        list_add(&list, p_member_declaration);
+        LIST_ADD(&list, p_member_declaration);
         p_member_declaration = NULL; /*MOVED*/
 
         while (ctx->current && ctx->current->type != '}')
         {
             p_member_declaration = member_declaration(ctx);
             if (p_member_declaration == NULL) throw;
-            list_add(&list, p_member_declaration);
+            LIST_ADD(&list, p_member_declaration);
             p_member_declaration = NULL; /*MOVED*/
         }
     }
@@ -2896,7 +2896,7 @@ struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx
                 p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->type_qualifier->flags;
             }
 
-            list_add(p_specifier_qualifier_list, p_type_specifier_qualifier);
+            LIST_ADD(p_specifier_qualifier_list, p_type_specifier_qualifier);
             attribute_specifier_sequence_opt(ctx);
         }
     }
@@ -3113,7 +3113,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
 
         p_enumerator = enumerator(ctx, p_enum_specifier);
         if (p_enumerator == NULL) throw;
-        list_add(&enumeratorlist, p_enumerator);
+        LIST_ADD(&enumeratorlist, p_enumerator);
 
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -3124,7 +3124,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
             {
                 p_enumerator = enumerator(ctx, p_enum_specifier);
                 if (p_enumerator == NULL) throw;
-                list_add(&enumeratorlist, p_enumerator);
+                LIST_ADD(&enumeratorlist, p_enumerator);
             }
         }
     }
@@ -3592,7 +3592,7 @@ struct type_qualifier_list* type_qualifier_list(struct parser_ctx* ctx)
         if (p_type_qualifier == NULL) throw;
 
         p_type_qualifier_list->flags |= p_type_qualifier->flags;
-        list_add(p_type_qualifier_list, p_type_qualifier);
+        LIST_ADD(p_type_qualifier_list, p_type_qualifier);
         p_type_qualifier = NULL; /*MOVED*/
 
         while (ctx->current != NULL && first_of_type_qualifier(ctx))
@@ -3601,7 +3601,7 @@ struct type_qualifier_list* type_qualifier_list(struct parser_ctx* ctx)
             if (p_type_qualifier == NULL) throw;
 
             p_type_qualifier_list->flags |= p_type_qualifier->flags;
-            list_add(p_type_qualifier_list, p_type_qualifier);
+            LIST_ADD(p_type_qualifier_list, p_type_qualifier);
             p_type_qualifier = NULL; /*MOVED*/
         }
     }
@@ -3647,7 +3647,7 @@ struct parameter_list* parameter_list(struct parser_ctx* ctx)
         p_parameter_declaration = parameter_declaration(ctx);
         if (p_parameter_declaration == NULL) throw;
 
-        list_add(p_parameter_list, p_parameter_declaration);
+        LIST_ADD(p_parameter_list, p_parameter_declaration);
         p_parameter_declaration = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -3662,7 +3662,7 @@ struct parameter_list* parameter_list(struct parser_ctx* ctx)
             p_parameter_declaration = parameter_declaration(ctx);
             if (p_parameter_declaration == NULL) throw;
 
-            list_add(p_parameter_list, p_parameter_declaration);
+            LIST_ADD(p_parameter_list, p_parameter_declaration);
             p_parameter_declaration = NULL; /*MOVED*/
         }
     }
@@ -3775,7 +3775,7 @@ struct specifier_qualifier_list* copy(struct declaration_specifiers* p_declarati
                 p_specifier_qualifier->type_specifier = p_type_specifier;
             }
 
-            list_add(p_specifier_qualifier_list, p_specifier_qualifier);
+            LIST_ADD(p_specifier_qualifier_list, p_specifier_qualifier);
         }
         p_declaration_specifier = p_declaration_specifier->next;
     }
@@ -3955,7 +3955,7 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx)
     }
     struct initializer* p_initializer = initializer(ctx);
     p_initializer->designation = p_designation;
-    list_add(p_initializer_list, p_initializer);
+    LIST_ADD(p_initializer_list, p_initializer);
     p_initializer_list->size++;
 
     while (ctx->current != NULL && ctx->current->type == ',')
@@ -3971,7 +3971,7 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx)
         }
         struct initializer* p_initializer2 = initializer(ctx);
         p_initializer2->designation = p_designation;
-        list_add(p_initializer_list, p_initializer2);
+        LIST_ADD(p_initializer_list, p_initializer2);
         p_initializer_list->size++;
     }
 
@@ -4001,14 +4001,14 @@ struct designator_list* designator_list(struct parser_ctx* ctx)
 
         p_designator = designator(ctx);
         if (p_designator == NULL) throw;
-        list_add(p_designator_list, p_designator);
+        LIST_ADD(p_designator_list, p_designator);
         p_designator = NULL; /*MOVED*/
 
         while (ctx->current != NULL && first_of_designator(ctx))
         {
             p_designator = designator(ctx);
             if (p_designator == NULL) throw;
-            list_add(p_designator_list, p_designator);
+            LIST_ADD(p_designator_list, p_designator);
             p_designator = NULL; /*MOVED*/
         }
     }
@@ -4126,7 +4126,7 @@ struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct par
             p_attribute_specifier_sequence->attributes_flags |=
                 p_attribute_specifier->attribute_list->attributes_flags;
 
-            list_add(p_attribute_specifier_sequence, p_attribute_specifier);
+            LIST_ADD(p_attribute_specifier_sequence, p_attribute_specifier);
         }
         p_attribute_specifier_sequence->last_token = ctx->previous;
     }
@@ -4142,7 +4142,7 @@ struct attribute_specifier_sequence* attribute_specifier_sequence(struct parser_
     struct attribute_specifier_sequence* p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
     while (ctx->current != NULL && first_of_attribute_specifier(ctx))
     {
-        list_add(p_attribute_specifier_sequence, attribute_specifier(ctx));
+        LIST_ADD(p_attribute_specifier_sequence, attribute_specifier(ctx));
     }
     return p_attribute_specifier_sequence;
 }
@@ -4179,7 +4179,7 @@ struct attribute_list* attribute_list(struct parser_ctx* ctx)
         {
             struct attribute* p_attribute = attribute(ctx);
             p_attribute_list->attributes_flags |= p_attribute->attributes_flags;
-            list_add(p_attribute_list, p_attribute);
+            LIST_ADD(p_attribute_list, p_attribute);
         }
         if (ctx->current->type == ',')
         {
@@ -4592,14 +4592,14 @@ struct block_item_list block_item_list(struct parser_ctx* ctx)
     {
         p_block_item = block_item(ctx);
         if (p_block_item == NULL) throw;
-        list_add(&block_item_list, p_block_item);
+        LIST_ADD(&block_item_list, p_block_item);
         p_block_item = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type != '}') //follow
         {
             p_block_item = block_item(ctx);
             if (p_block_item == NULL) throw;
-            list_add(&block_item_list, p_block_item);
+            LIST_ADD(&block_item_list, p_block_item);
             p_block_item = NULL; /*MOVED*/
         }
     }
@@ -5039,7 +5039,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx)
     */
     while (ctx->current != NULL)
     {
-        list_add(&declaration_list, external_declaration(ctx));
+        LIST_ADD(&declaration_list, external_declaration(ctx));
     }
     return declaration_list;
 }

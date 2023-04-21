@@ -362,7 +362,7 @@ struct type type_convert_to(struct type* p_type, enum language_version target)
                 t.declarator_type->direct_declarator_type->name_opt = strdup(p_type->declarator_type->direct_declarator_type->name_opt);
             }
 
-            list_add(&t.declarator_type->pointers, p_pointer);
+            LIST_ADD(&t.declarator_type->pointers, p_pointer);
         }
     }
     else if (t.type_specifier_flags & TYPE_SPECIFIER_BOOL)
@@ -416,7 +416,7 @@ struct pointer_type_list pointer_type_list_copy(struct pointer_type_list* p_poin
     {
         struct pointer_type* p_pointer_type = calloc(1, sizeof * p_pointer_type);
         p_pointer_type->type_qualifier_flags = p->type_qualifier_flags;
-        list_add(&list, p_pointer_type);
+        LIST_ADD(&list, p_pointer_type);
         p = p->next;
     }
     return list;
@@ -431,7 +431,7 @@ struct params params_copy(struct params* input)
     {
         struct type* par = calloc(1, sizeof * par);
         *par = type_copy(p_param_type);
-        list_add(&r, par);
+        LIST_ADD(&r, par);
         p_param_type = p_param_type->next;
     }
     return r;
@@ -946,7 +946,7 @@ struct type type_add_pointer(struct type* p_type)
         struct direct_declarator_type* pdirect_declarator_type = calloc(1, sizeof * pdirect_declarator_type);
         struct declarator_type* p2 = calloc(1, sizeof * p);
         struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
-        list_add(&p2->pointers, p_pointer_type);
+        LIST_ADD(&p2->pointers, p_pointer_type);
         pdirect_declarator_type->declarator_opt = p2;
 
         p->direct_declarator_type->function_declarator_type->direct_declarator_type = pdirect_declarator_type;
@@ -956,7 +956,7 @@ struct type type_add_pointer(struct type* p_type)
         struct direct_declarator_type* pdirect_declarator_type = calloc(1, sizeof * pdirect_declarator_type);
         struct declarator_type* p2 = calloc(1, sizeof * p);
         struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
-        list_add(&p2->pointers, p_pointer_type);
+        LIST_ADD(&p2->pointers, p_pointer_type);
 
         pdirect_declarator_type->declarator_opt = p2;
 
@@ -965,7 +965,7 @@ struct type type_add_pointer(struct type* p_type)
     else
     {
         struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
-        list_add(&p->pointers, p_pointer_type);
+        LIST_ADD(&p->pointers, p_pointer_type);
     }
 
     //type_print(&r);
@@ -1855,7 +1855,7 @@ struct pointer_type_list clone_pointer_to_pointer_type_list(struct pointer* p_po
         struct pointer_type* p_pointer_type = calloc(1, sizeof(struct pointer_type));
         if (p->type_qualifier_list_opt)
             p_pointer_type->type_qualifier_flags = p->type_qualifier_list_opt->flags;
-        list_add(&r, p_pointer_type);
+        LIST_ADD(&r, p_pointer_type);
         p = p->pointer;
     }
     return r;
@@ -1912,7 +1912,7 @@ struct function_declarator_type* clone_function_declarator_to_function_declarato
         //if (p_parameter_declaration->name)
           //  p_type->declarator_name_opt = strdup(p_parameter_declaration->name->lexeme);
 
-        list_add(&p_function_declarator_type->params, p_type);
+        LIST_ADD(&p_function_declarator_type->params, p_type);
         p_parameter_declaration = p_parameter_declaration->next;
     }
 
@@ -2072,7 +2072,7 @@ void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct d
             while (p)
             {
                 struct pointer_type* next = p->next;
-                list_add(&p_typedef_decl->pointers, p);
+                LIST_ADD(&p_typedef_decl->pointers, p);
                 p = next;
             }
 

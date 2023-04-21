@@ -235,7 +235,7 @@ int is_digit(struct stream* p);
 int is_nondigit(struct stream* p);
 void stream_match(struct stream* stream);
 
-#define list_add(list, pnew)\
+#define LIST_ADD(list, pnew)\
 do {\
     void* pitem = (pnew);\
     if ((list)->head == NULL)\
