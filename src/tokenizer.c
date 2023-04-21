@@ -3507,7 +3507,7 @@ void print_literal2(const char* s);
     para o primeiro item da expansao
     caso contrario, se p nao for macro, retorna null.
 */
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* pList, struct macro* macro, struct macro_argument_list* arguments, int level)
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* list, struct macro* macro, struct macro_argument_list* arguments, int level)
 {
     macro->usage++;
 
@@ -3518,10 +3518,10 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
     struct token_list r = { 0 };
     try
     {
-        assert(!macro_already_expanded(pList, macro->name));
+        assert(!macro_already_expanded(list, macro->name));
         struct macro_expanded macro_expanded = { 0 };
         macro_expanded.name = macro->name;
-        macro_expanded.pPrevious = pList;
+        macro_expanded.pPrevious = list;
         if (macro->is_function)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro);
