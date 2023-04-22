@@ -870,6 +870,7 @@ int wasm_visit_literal_string(struct wasm_visit_ctx* ctx, struct token* current)
 
 void wasm_visit(struct wasm_visit_ctx* ctx)
 {
+    //https://developer.mozilla.org/en-US/docs/WebAssembly
     //https://wasdk.github.io/WasmFiddle/    
     //https://webassembly.github.io/wabt/demo/wat2wasm/
     //https://webassembly.github.io/wabt/demo/wasm2wat/index.html
