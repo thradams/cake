@@ -10,7 +10,7 @@
 #include "console.h"
 #include "fs.h"
 #include <ctype.h>
-#include "formatvisit.h"
+#include "format_visit.h"
 #include "wasm_visit.h"
 
 #ifdef _WIN32

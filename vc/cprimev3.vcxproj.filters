@@ -52,7 +52,7 @@
     <ClCompile Include="..\src\visit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\formatvisit.c">
+    <ClCompile Include="..\src\format_visit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\wasm_visit.c">
@@ -102,7 +102,7 @@
     <ClInclude Include="..\src\visit.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\src\formatvisit.h">
+    <ClInclude Include="..\src\format_visit.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\wasm_visit.h">
