@@ -25,6 +25,8 @@ improving the code security. Then adding a extra step in your build you can dist
 a readable C99 source code that compiles everywhere.
 Cake also can be used in some files of your project it is not all or nothing solution.
 
+In the future I want to use cake because it has a good static analiser.
+
 
 
 # Features
@@ -98,8 +100,9 @@ See [Manual](manual.html)
 # Road map
 
 * Complete semantic analisys + static analysis
-* Backend ?
-  
+* WASM Backend (eliminate emscripten dependency)
+* WASM runtime (cake -run main.c)
+*
  
 # References
 
@@ -111,7 +114,13 @@ See [Manual](manual.html)
  * https://en.cppreference.com/w/c/compiler_support/23
  * https://en.cppreference.com/w/c/compiler_support/99
 
-
+ * https://developer.mozilla.org/en-US/docs/WebAssembly
+ * https://developer.mozilla.org/en-US/docs/WebAssembly/Reference
+ * https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Control_flow/br
+ * https://github.com/WebAssembly/binaryen
+ * https://webassembly.github.io/spec/core/
+ * https://webassembly.github.io/spec/core/binary/values.html#binary-name
+	
 A very nice introduction was written by Al Williams
 
 C23 Programming For Everyone
