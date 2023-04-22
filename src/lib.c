@@ -16127,6 +16127,18 @@ struct format_visit_ctx
 void format_visit(struct format_visit_ctx* ctx);
 
 
+
+//#pragma once
+
+struct wasm_visit_ctx
+{
+    struct ast ast;
+};
+
+void wasm_visit(struct wasm_visit_ctx* ctx);
+
+
+
 #ifdef _WIN32
 #endif
 
@@ -21590,6 +21602,25 @@ const char* format_code(struct options* options, const char* content)
 }
 
 
+void ast_format_visit(struct ast* ast)
+{
+    /*format input source before transformation*/
+    struct format_visit_ctx visit_ctx = { 0 };
+    visit_ctx.ast = *ast;
+    format_visit(&visit_ctx);
+}
+
+void c_visit(struct ast* ast)
+{
+
+}
+
+void ast_wasm_visit(struct ast* ast)
+{
+    struct wasm_visit_ctx ctx = {0};
+    ctx.ast = *ast;
+    wasm_visit(&ctx);
+}
 
 int compile_one_file(const char* file_name,
     int argc,
@@ -21665,11 +21696,11 @@ int compile_one_file(const char* file_name,
 
             if (options.format_input)
             {
-                /*format input source before transformation*/
-                struct format_visit_ctx visit_ctx = { 0 };
-                visit_ctx.ast = ast;
-                format_visit(&visit_ctx);
+                format_visit(&ast);
+                
             }
+
+            ast_wasm_visit(&ast);
 
             struct visit_ctx visit_ctx = { 0 };
             visit_ctx.target = options.target;
@@ -25489,3 +25520,9 @@ void format_visit(struct format_visit_ctx* ctx)
     }
 }
 
+
+
+
+void wasm_visit(struct wasm_visit_ctx* ctx)
+{
+}

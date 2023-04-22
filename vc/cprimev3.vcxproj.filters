@@ -55,6 +55,9 @@
     <ClCompile Include="..\src\formatvisit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\wasm_visit.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h">
@@ -100,6 +103,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\formatvisit.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\wasm_visit.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
