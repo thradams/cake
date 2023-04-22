@@ -1,5 +1,6 @@
-#if defined(A)
-#if defined(B)
-#elif defined(C)
-#endif
-#endif
+#include <stdio.h>
+
+int main() {
+    printf("hello, world!\n");
+    return 0;
+}
