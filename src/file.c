@@ -1,6 +1,7 @@
-#include <stdio.h>
-
+int f(int a) {
+    return a + 1;
+}
 int main() {
-    printf("hello, world!\n");
+    f(1);
     return 0;
 }

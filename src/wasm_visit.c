@@ -559,6 +559,8 @@ static void wasm_visit_direct_declarator(struct wasm_visit_ctx* ctx, struct dire
 {
     if (p_direct_declarator->function_declarator)
     {
+
+        
         struct parameter_declaration* parameter = NULL;
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt)
@@ -568,6 +570,15 @@ static void wasm_visit_direct_declarator(struct wasm_visit_ctx* ctx, struct dire
 
         while (parameter)
         {
+            ss_fprintf(&ctx->ss, "(param ");
+
+            ss_fprintf(&ctx->ss, " i32"); //todo type
+
+
+            if (parameter->name)
+              ss_fprintf(&ctx->ss, " %%%s", parameter->name->lexeme);
+
+
             if (parameter->attribute_specifier_sequence_opt)
             {
                 wasm_visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt);
@@ -576,6 +587,7 @@ static void wasm_visit_direct_declarator(struct wasm_visit_ctx* ctx, struct dire
             wasm_visit_declaration_specifiers(ctx, parameter->declaration_specifiers);
             wasm_visit_declarator(ctx, parameter->declarator);
             parameter = parameter->next;
+            ss_fprintf(&ctx->ss, ")");
         }
 
     }
@@ -839,6 +851,13 @@ static void wasm_visit_declaration(struct wasm_visit_ctx* ctx, struct declaratio
         wasm_visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt);
     }
 
+
+    if (type_is_function(&p_declaration->init_declarator_list.head->declarator->type))
+    {
+        ss_fprintf(&ctx->ss, "(func\n");
+    }
+    
+
     if (p_declaration->declaration_specifiers)
     {
         wasm_visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers);
@@ -854,10 +873,17 @@ static void wasm_visit_declaration(struct wasm_visit_ctx* ctx, struct declaratio
         wasm_visit_init_declarator_list(ctx, &p_declaration->init_declarator_list);
     }
 
+    if (type_is_function(&p_declaration->init_declarator_list.head->declarator->type))
+    {
+        //TODO result
+        ss_fprintf(&ctx->ss, " (result i23)\n");
+    }
+
     if (p_declaration->function_body)
     {
         wasm_visit_compound_statement(ctx, p_declaration->function_body);
     }
+    ss_fprintf(&ctx->ss, ")\n");
 }
 
 int wasm_visit_literal_string(struct wasm_visit_ctx* ctx, struct token* current)
@@ -875,6 +901,7 @@ void wasm_visit(struct wasm_visit_ctx* ctx)
     //https://webassembly.github.io/wabt/demo/wat2wasm/
     //https://webassembly.github.io/wabt/demo/wasm2wat/index.html
 
+    ss_fprintf(&ctx->ss, "(module\n");
     struct declaration* p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)
     {
@@ -883,5 +910,6 @@ void wasm_visit(struct wasm_visit_ctx* ctx)
 
         p_declaration = p_declaration->next;
     }
+    ss_fprintf(&ctx->ss, "\n)");
 
 }
