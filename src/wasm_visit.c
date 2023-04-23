@@ -851,12 +851,15 @@ static void wasm_visit_declaration(struct wasm_visit_ctx* ctx, struct declaratio
         wasm_visit_attribute_specifier_sequence(ctx, p_declaration->p_attribute_specifier_sequence_opt);
     }
 
-
-    if (type_is_function(&p_declaration->init_declarator_list.head->declarator->type))
+    if (p_declaration &&
+        p_declaration->init_declarator_list.head &&
+        p_declaration->init_declarator_list.head->declarator)
     {
-        ss_fprintf(&ctx->ss, "(func\n");
+        if (type_is_function(&p_declaration->init_declarator_list.head->declarator->type))
+        {
+            ss_fprintf(&ctx->ss, "(func\n");
+        }
     }
-    
 
     if (p_declaration->declaration_specifiers)
     {
@@ -873,11 +876,11 @@ static void wasm_visit_declaration(struct wasm_visit_ctx* ctx, struct declaratio
         wasm_visit_init_declarator_list(ctx, &p_declaration->init_declarator_list);
     }
 
-    if (type_is_function(&p_declaration->init_declarator_list.head->declarator->type))
-    {
+    //if (type_is_function(&p_declaration->init_declarator_list.head->declarator->type))
+    //{
         //TODO result
-        ss_fprintf(&ctx->ss, " (result i23)\n");
-    }
+      //  ss_fprintf(&ctx->ss, " (result i23)\n");
+    //}
 
     if (p_declaration->function_body)
     {

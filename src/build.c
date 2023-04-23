@@ -31,7 +31,7 @@
  " pre_expressions.h " \
  " expressions.h " \
  " visit.h " \
- " formatvisit.h "\
+ " format_visit.h "\
  " wasm_visit.h "
 
 #define SOURCE_FILES \
@@ -49,7 +49,7 @@
 " parser.c " \
 " visit.c " \
 " error.c " \
-" formatvisit.c "\
+" format_visit.c "\
 " wasm_visit.c "
 
 void compile_cake()
