@@ -3670,7 +3670,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
     */
     match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
     skip_blanks(&r, input_list);
-    int result = 0;
+    unsigned long long result = 0;
     if (strcmp(input_list->head->lexeme, "elif") == 0)
     {
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -22760,7 +22760,7 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
             token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
         ss_fprintf(ss, "%s", s);
-        free(s);
+        free((void*)s);
         deferchild = deferchild->previous;
     }
 }
@@ -23283,6 +23283,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 {
     switch (p_expression->expression_type)
     {
+    case PRIMARY_EXPRESSION__FUNC__:
+        break;
     case PRIMARY_IDENTIFIER:
         break;
     case PRIMARY_EXPRESSION_ENUMERATOR:
@@ -23555,6 +23557,12 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         }
     }
     break;
+
+    case UNARY_EXPRESSION_IS_SAME:
+        break;
+
+    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
+        break;
 
     default:
         break;
@@ -24543,7 +24551,7 @@ int visit_literal_string(struct visit_ctx* ctx, struct token* current)
     if (has_u8_prefix && ctx->target < LANGUAGE_C11)
     {
         struct osstream ss = { 0 };
-        unsigned char* psz = current->lexeme + 2;
+        unsigned char* psz = (unsigned char* )(current->lexeme + 2);
 
         while (*psz)
         {
@@ -25547,31 +25555,31 @@ static void wasm_visit_defer_statement(struct wasm_visit_ctx* ctx, struct defer_
 
 
 
-        if (p_defer_statement->secondary_block)
-        {
-            wasm_visit_secondary_block(ctx, p_defer_statement->secondary_block);
-        }
-    
-    
-    
+    if (p_defer_statement->secondary_block)
+    {
+        wasm_visit_secondary_block(ctx, p_defer_statement->secondary_block);
+    }
+
+
+
 }
 
 static void wasm_visit_try_statement(struct wasm_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
-    
 
 
-        if (p_try_statement->secondary_block)
-            wasm_visit_secondary_block(ctx, p_try_statement->secondary_block);
+
+    if (p_try_statement->secondary_block)
+        wasm_visit_secondary_block(ctx, p_try_statement->secondary_block);
 
 
-     
-    
+
+
 }
 
 static void wasm_visit_selection_statement(struct wasm_visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
-  
+
     if (p_selection_statement->else_secondary_block_opt)
         wasm_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
 
@@ -25588,7 +25596,7 @@ static void wasm_visit_bracket_initializer_list(struct wasm_visit_ctx* ctx, stru
 {
     if (p_bracket_initializer_list->initializer_list == NULL)
     {
-       
+
     }
     else
     {
@@ -25632,7 +25640,7 @@ static void wasm_visit_type_qualifier(struct wasm_visit_ctx* ctx, struct type_qu
     if (p_type_qualifier->token &&
         p_type_qualifier->token->type == TK_KEYWORD_RESTRICT)
     {
-      
+
     }
 }
 
@@ -25708,7 +25716,7 @@ static void wasm_visit_generic_selection(struct wasm_visit_ctx* ctx, struct gene
         wasm_visit_type_name(ctx, p_generic_selection->type_name);
     }
 
-  
+
 
 }
 
@@ -25717,6 +25725,8 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
 {
     switch (p_expression->expression_type)
     {
+    case PRIMARY_EXPRESSION__FUNC__:
+        break;
     case PRIMARY_IDENTIFIER:
         break;
     case PRIMARY_EXPRESSION_ENUMERATOR:
@@ -25735,17 +25745,17 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
         if (p_expression->first_token &&
             p_expression->first_token->type == TK_KEYWORD_NULLPTR)
         {
-            
+
         }
         else if (p_expression->first_token &&
             p_expression->first_token->type == TK_KEYWORD_TRUE)
         {
-           
+
         }
         else if (p_expression->first_token &&
             p_expression->first_token->type == TK_KEYWORD_FALSE)
         {
-            
+
         }
         break;
 
@@ -25773,8 +25783,8 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
 
         wasm_visit_type_name(ctx, p_expression->type_name);
         wasm_visit_compound_statement(ctx, p_expression->compound_statement);
-     
-       
+
+
     }
     break;
 
@@ -25797,7 +25807,7 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
 
     case UNARY_EXPRESSION_ALIGNOF:
 
-      
+
         if (p_expression->right)
         {
             wasm_visit_expression(ctx, p_expression->right);
@@ -25833,10 +25843,13 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
         }
 
         break;
+    
+    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
+        break;
 
     case UNARY_EXPRESSION_HASHOF_TYPE:
 
-      
+
         break;
 
 
@@ -25877,9 +25890,12 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
 
     case UNARY_EXPRESSION_TRAITS:
     {
-       
+
     }
     break;
+
+    case UNARY_EXPRESSION_IS_SAME:
+        break;
 
     default:
         break;
@@ -25924,7 +25940,7 @@ static void wasm_visit_iteration_statement(struct wasm_visit_ctx* ctx, struct it
 
         wasm_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
-     
+
 
     }
 }
@@ -25936,20 +25952,20 @@ static void wasm_visit_jump_statement(struct wasm_visit_ctx* ctx, struct jump_st
 
     if (p_jump_statement->token->type == TK_KEYWORD_THROW)
     {
-       
+
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_RETURN)
     {
-       
+
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
         p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
     {
-       
+
     }
     else if (p_jump_statement->token->type == TK_KEYWORD_GOTO)
     {
-      
+
     }
     else
     {
@@ -26050,7 +26066,7 @@ static void wasm_visit_block_item(struct wasm_visit_ctx* ctx, struct block_item*
     {
         wasm_visit_label(ctx, p_block_item->label);
     }
-   
+
 }
 
 static void wasm_visit_block_item_list(struct wasm_visit_ctx* ctx, struct block_item_list* p_block_item_list)
@@ -26067,7 +26083,7 @@ static void wasm_visit_static_assert_declaration(struct wasm_visit_ctx* ctx, str
 {
     wasm_visit_expression(ctx, p_static_assert_declaration->constant_expression);
 
-   
+
 }
 static void wasm_visit_declaration_specifiers(struct wasm_visit_ctx* ctx, struct declaration_specifiers* p_declaration_specifiers);
 
@@ -26077,7 +26093,7 @@ static void wasm_visit_direct_declarator(struct wasm_visit_ctx* ctx, struct dire
     if (p_direct_declarator->function_declarator)
     {
 
-        
+
         struct parameter_declaration* parameter = NULL;
 
         if (p_direct_declarator->function_declarator->parameter_type_list_opt)
@@ -26093,7 +26109,7 @@ static void wasm_visit_direct_declarator(struct wasm_visit_ctx* ctx, struct dire
 
 
             if (parameter->name)
-              ss_fprintf(&ctx->ss, " %%%s", parameter->name->lexeme);
+                ss_fprintf(&ctx->ss, " %%%s", parameter->name->lexeme);
 
 
             if (parameter->attribute_specifier_sequence_opt)
@@ -26110,7 +26126,7 @@ static void wasm_visit_direct_declarator(struct wasm_visit_ctx* ctx, struct dire
     }
     else if (p_direct_declarator->array_declarator)
     {
-       
+
     }
 }
 
@@ -26126,7 +26142,7 @@ static void wasm_visit_init_declarator_list(struct wasm_visit_ctx* ctx, struct i
 {
     struct init_declarator* p_init_declarator = p_init_declarator_list->head;
 
-  
+
 
     while (p_init_declarator)
     {
@@ -26199,7 +26215,7 @@ static void wasm_visit_member_declaration_list(struct wasm_visit_ctx* ctx, struc
 
 static void wasm_visit_attribute_specifier(struct wasm_visit_ctx* ctx, struct attribute_specifier* p_attribute_specifier)
 {
-   
+
 }
 
 static void wasm_visit_attribute_specifier_sequence(struct wasm_visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence)
@@ -26218,7 +26234,7 @@ static void wasm_visit_struct_or_union_specifier(struct wasm_visit_ctx* ctx, str
     if (p_struct_or_union_specifier->attribute_specifier_sequence_opt)
         wasm_visit_attribute_specifier_sequence(ctx, p_struct_or_union_specifier->attribute_specifier_sequence_opt);
 
- 
+
     wasm_visit_member_declaration_list(ctx, &p_struct_or_union_specifier->member_declaration_list);
 
 }
@@ -26264,9 +26280,9 @@ static void wasm_visit_enum_specifier(struct wasm_visit_ctx* ctx, struct enum_sp
 static void wasm_visit_typeof_specifier(struct wasm_visit_ctx* ctx, struct typeof_specifier* p_typeof_specifier)
 {
 
-   
 
-    
+
+
 }
 
 static void wasm_visit_type_specifier(struct wasm_visit_ctx* ctx, struct type_specifier* p_type_specifier)
@@ -26313,7 +26329,7 @@ static void wasm_visit_storage_class_specifier(struct wasm_visit_ctx* ctx, struc
 {
     if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_CONSTEXPR)
     {
-       
+
 
     }
 }
@@ -26325,7 +26341,7 @@ static void wasm_visit_declaration_specifier(struct wasm_visit_ctx* ctx, struct 
     {
         if (p_declaration_specifier->function_specifier->token->type == TK_KEYWORD__NORETURN)
         {
-           
+
 
         }
     }
@@ -26386,7 +26402,7 @@ static void wasm_visit_declaration(struct wasm_visit_ctx* ctx, struct declaratio
     if (p_declaration->p_attribute_specifier_sequence_opt)
     {
     }
-   
+
 
     if (p_declaration->init_declarator_list.head)
     {
@@ -26408,7 +26424,7 @@ static void wasm_visit_declaration(struct wasm_visit_ctx* ctx, struct declaratio
 
 int wasm_visit_literal_string(struct wasm_visit_ctx* ctx, struct token* current)
 {
-   
+
 
     return 0;
 }
