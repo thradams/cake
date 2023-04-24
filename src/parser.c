@@ -6517,7 +6517,7 @@ void auto_test()
         "int main()"
         "{"
         "  auto s = \"test\";\n"
-        "  static_assert(_is_same(typeof(s), char (*)));\n"
+        "  static_assert(_is_same(typeof(s), char *));\n"
         "}"
         ;
 

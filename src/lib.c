@@ -14086,7 +14086,8 @@ enum type_category type_get_category_core(const struct type* p_type)
 enum type_category type_get_category(const struct type* p_type)
 {
 
-#if 0
+/*better performance*/
+#if 0 
     /*
     * Initialy category was always computed, searched.
     * then I decided to keep it calculated on p_type->category
@@ -22794,7 +22795,7 @@ void auto_test()
         "int main()"
         "{"
         "  auto s = \"test\";\n"
-        "  static_assert(_is_same(typeof(s), char (*)));\n"
+        "  static_assert(_is_same(typeof(s), char *));\n"
         "}"
         ;
 
