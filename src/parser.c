@@ -2102,6 +2102,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         t.declarator_type->direct_declarator_type->name_opt = strdup(p_init_declarator->declarator->name->lexeme);
                     }
 
+                    t.category = type_get_category_core(&t);
                     type_swap(&p_init_declarator->declarator->type, &t);
 
                     type_destroy(&t);
@@ -3285,7 +3286,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
-
+    
     if (ctx->current != p_declarator->first_token)
     {
         p_declarator->last_token = previous_parser_token(ctx->current);
@@ -4780,6 +4781,11 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
 
         p_selection_statement->expression = expression(ctx);
 
+        if (p_selection_statement->expression->is_constant)
+        {
+            //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
+        }
+
         parser_match_tk(ctx, ')');
         p_selection_statement->secondary_block = secondary_block(ctx);
 
@@ -5531,8 +5537,8 @@ int compile_one_file(const char* file_name,
 
             if (options.format_input)
             {
-                format_visit(&ast);
-                
+                struct format_visit_ctx f = {.ast = &ast, .identation = 4};
+                format_visit(&f);                
             }
 
             ast_wasm_visit(&ast);

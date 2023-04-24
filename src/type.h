@@ -158,6 +158,8 @@ struct _destroy type
     
     struct declarator_type* declarator_type;
 
+    enum type_category category;
+
     /*for linked list*/
     struct type* next;
 };
@@ -178,6 +180,7 @@ struct type type_remove_pointer(struct type* p_type);
 int get_array_size(struct type* p_type);
 int set_array_size(struct type* p_type, int size);
 
+bool type_is_enum(struct type* p_type);
 bool type_is_array(struct type* p_type);
 bool type_is_const(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
@@ -204,12 +207,17 @@ struct  function_declarator_type* get_function_declarator_type(struct type* p_ty
 struct type type_remove_pointer(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
+struct type type_make_literal_string(int size);
+struct type type_make_int();
+struct type type_make_size_t();
+struct type type_make_enumerator(struct enum_specifier* enum_specifier);
+
 
 void print_declarator_description(struct osstream* ss, struct declarator_type* declarator);
 struct type get_function_return_type(struct type* p_type);
 bool type_is_pointer_or_array(struct type* p_type);
 int type_get_rank(struct type* p_type1);
-void type_set_int(struct type* p_type);
+
 int type_get_sizeof(struct type* p_type);
 int type_get_alignof(struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
@@ -225,3 +233,5 @@ void declarator_type_clear_name(struct declarator_type* p_declarator_type);
 
 struct declarator;
 struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);
+enum type_category type_get_category_core(const struct type* p_type);
+void type_print_data(const struct type* p_type);

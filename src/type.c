@@ -13,6 +13,11 @@ struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type
 
 struct direct_declarator_type* direct_declarator_type_copy(struct direct_declarator_type* p_direct_declarator_type_opt);
 
+void direct_declarator_type_destroy(struct direct_declarator_type* p_direct_declarator_type_opt)
+{
+
+}
+
 void print_item(struct osstream* ss, bool* first, const char* item)
 {
     if (!(*first))
@@ -288,18 +293,19 @@ void type_remove_qualifiers(struct type* p_type)
 
 struct type type_lvalue_conversion(struct type* p_type)
 {
- 
+
     enum type_category category = type_get_category(p_type);
     switch (category)
     {
     case TYPE_CATEGORY_FUNCTION:
     {
         /*
-           "function returning type" is converted to an expression that has type 
+           "function returning type" is converted to an expression that has type
            "pointer to function returning type".
         */
         struct type t = type_add_pointer(p_type);
         t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+        t.category = type_get_category_core(&t);
         return t;
     }
 
@@ -307,13 +313,13 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
         /*
           An expression that has type "array of type" is converted
-          to an expression with type "pointer to type" that points to the initial element 
-          of the array object and s not an lvalue. 
+          to an expression with type "pointer to type" that points to the initial element
+          of the array object and s not an lvalue.
           If the array object has register storage class, the behavior is undefined.
         */
         struct type t = get_array_item_type(p_type);
         struct type t2 = type_add_pointer(&t);
-        
+
         type_remove_qualifiers(&t2);
         /*
         int g(const int a[const 20]) {
@@ -332,8 +338,11 @@ struct type type_lvalue_conversion(struct type* p_type)
     }
 
     struct type t = type_copy(p_type);
-    type_remove_qualifiers(&t);    
+    type_remove_qualifiers(&t);
     t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+
+    t.category = type_get_category(&t);
+
     return t;
 }
 
@@ -548,11 +557,33 @@ void visit_declarator_get(enum type_category* type_category, struct declarator_t
     }
 }
 
-enum type_category type_get_category(const struct type* p_type)
+enum type_category type_get_category_core(const struct type* p_type)
 {
     enum type_category type_category = TYPE_CATEGORY_ITSELF;
     visit_declarator_get(&type_category, p_type->declarator_type);
     return type_category;
+}
+
+enum type_category type_get_category(const struct type* p_type)
+{
+
+/*better performance*/
+#if 0 
+    /*
+    * Initialy category was always computed, searched.
+    * then I decided to keep it calculated on p_type->category
+    * but in case some place is not doing this we have this print
+    */
+    enum type_category c = type_get_category_core(p_type);
+    if (c != p_type->category)
+    {
+        static int ops = 0;
+        printf("******************************** ops %d\n", ops++);
+        ((struct type*)p_type)->category = c;
+    }
+#endif
+
+    return p_type->category;
 }
 
 void type_destroy(struct type* p_type)
@@ -697,7 +728,7 @@ bool type_is_pointer(struct type* p_type)
     {
         return true;
     }
-    return category  == TYPE_CATEGORY_POINTER;
+    return category == TYPE_CATEGORY_POINTER;
 }
 
 
@@ -816,7 +847,7 @@ bool type_is_scalar(struct type* p_type)
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
-    
+
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         return true;
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
@@ -970,7 +1001,7 @@ struct type type_add_pointer(struct type* p_type)
     }
 
     //type_print(&r);
-
+    r.category = type_get_category_core(&r);
     return r;
 }
 
@@ -986,6 +1017,7 @@ struct type type_remove_pointer(struct type* p_type)
     {
         //parser_seterror_with_token(ctx, ctx->current, "indirection requires pointer operand");
     }
+    r.category = type_get_category_core(&r);
     return r;
 }
 
@@ -1046,6 +1078,7 @@ struct type get_array_item_type(struct type* p_type)
     int removed = false;
     visit_declarator_to_remove_array(&removed, r.declarator_type);
     assert(removed);
+    r.category = type_get_category_core(&r);
     return r;
 }
 
@@ -1095,6 +1128,7 @@ struct type get_function_return_type(struct type* p_type)
             r.declarator_type->direct_declarator_type->function_declarator_type->direct_declarator_type;
     }
 
+    r.category = type_get_category_core(&r);
     return r;
 }
 
@@ -1106,7 +1140,7 @@ bool type_is_pointer_or_array(struct type* p_type)
     if (category == TYPE_CATEGORY_POINTER ||
         category == TYPE_CATEGORY_ARRAY)
         return true;
-    
+
     if (category == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
         return true;
@@ -1212,6 +1246,8 @@ struct type type_copy(struct type* p_type)
     r.type_specifier_flags = p_type->type_specifier_flags;
     r.struct_or_union_specifier = p_type->struct_or_union_specifier;
     r.enum_specifier = p_type->enum_specifier;
+    r.category = p_type->category;
+
     //if (p_type->declarator_name_opt)
       //r.declarator_name_opt = strdup(p_type->declarator_name_opt);
 
@@ -1249,7 +1285,7 @@ static void visit_direct_declarator_to_get_array_size(int* array_size, struct di
         if (*array_size == 0)
         {
             //TODO maybe array does not have size?
-            *array_size = p_direct_declarator_type->array_declarator_type->constant_size;
+            *array_size = (int)p_direct_declarator_type->array_declarator_type->constant_size;
         }
     }
 }
@@ -2052,7 +2088,7 @@ void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct d
               was repeating "func"
               int  (* f) func(void) = func;
             */
-            free(p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt);
+            free((void*)p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt);
             p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt = NULL;
         }
 
@@ -2228,7 +2264,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     }
 
 
+    t.category = type_get_category_core(&t);
 
+    // type_print_data(&t);
     return t;
 }
 
@@ -2240,6 +2278,7 @@ struct type make_type_using_declarator_do_not_expand(struct parser_ctx* ctx, str
     type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
     type_set_attributes(&t, pdeclarator);
     t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
+    t.category = type_get_category_core(&t);
     return t;
 }
 
@@ -2294,8 +2333,61 @@ void type_set_int(struct type* p_type)
     p_type->type_specifier_flags = TYPE_SPECIFIER_INT;
     p_type->type_qualifier_flags = 0;
     p_type->declarator_type = NULL;
+    p_type->category = TYPE_CATEGORY_ITSELF;
 }
 
+struct type type_make_enumerator(struct enum_specifier* enum_specifier)
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_ENUM;
+    t.enum_specifier = enum_specifier;
+    t.category = TYPE_CATEGORY_ITSELF;
+
+    return t;
+}
+
+struct type type_make_size_t()
+{
+    struct type t = { 0 };
+
+#ifdef _WIN64
+    t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
+#else
+    t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+#endif
+
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type type_make_int()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_INT;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type type_make_literal_string(int size)
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_CHAR;
+
+    struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
+    struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
+    struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
+    struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
+
+    p_declarator_type->direct_declarator_type = p_direct_declarator_type;
+
+    array_declarator_type->constant_size = size;
+    array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
+    p_direct_declarator_type->array_declarator_type = array_declarator_type;
+
+    t.declarator_type = p_declarator_type;
+    t.category = TYPE_CATEGORY_ARRAY;
+    return t;
+}
 
 bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b, bool compare_qualifiers)
 {
@@ -2573,4 +2665,42 @@ void type_swap(struct type* a, struct type* b)
     *a = *b;
     *b = temp;
     _del_attr(temp, MUST_DESTROY);
+}
+
+void declarator_type_print_data(int n, struct declarator_type* p_declarator_type);
+
+void direct_declarator_type_print_data(int n, struct direct_declarator_type* p)
+{
+    if (p->declarator_opt)
+        declarator_type_print_data(n + 1, p->declarator_opt);
+
+    if (p->name_opt)
+        printf("%s", p->name_opt);
+}
+
+void declarator_type_print_data(int n, struct declarator_type* p_declarator_type)
+{
+    if (p_declarator_type->pointers.head)
+    {
+    }
+
+    if (p_declarator_type->direct_declarator_type)
+    {
+        direct_declarator_type_print_data(n + 1, p_declarator_type->direct_declarator_type);
+    }
+
+    
+}
+
+void type_print_data(const struct type* p_type)
+{
+    int n = 0;
+    if (p_type->struct_or_union_specifier)
+        printf("struct_or_union_specifier: %p\n", p_type->struct_or_union_specifier);
+    if (p_type->enum_specifier)
+        printf("enum_specifier %p\n", p_type->enum_specifier);
+
+    if ("declarator_type:")
+        declarator_type_print_data(n + 1, p_type->declarator_type);
+
 }

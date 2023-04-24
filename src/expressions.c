@@ -123,7 +123,6 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 }
 
 
-
 bool is_enumeration_constant(struct parser_ctx* ctx)
 {
     if (ctx->current->type != TK_IDENTIFIER)
@@ -521,13 +520,11 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             struct enumerator* p_enumerator = find_enumerator(ctx, ctx->current->lexeme, NULL);
             if (p_enumerator)
             {
-
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = p_enumerator->value;
                 p_expression_node->is_constant = true;
+                p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
 
-                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_ENUM;
-                p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;
             }
             else if (ctx->p_current_function_opt &&
                 strcmp(ctx->current->lexeme, "__func__") == 0)
@@ -546,21 +543,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
-                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
-
-                struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
-                struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
-                struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
-                struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
-
-                p_declarator_type->direct_declarator_type = p_direct_declarator_type;
-
-                array_declarator_type->constant_size = strlen(funcname) + 1;
-                array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
-                p_direct_declarator_type->array_declarator_type = array_declarator_type;
-
-                p_expression_node->type.declarator_type = p_declarator_type;
+                p_expression_node->type = type_make_literal_string(strlen(funcname) + 1);
             }
             else
             {
@@ -601,20 +584,8 @@ struct expression* primary_expression(struct parser_ctx* ctx)
               In C literal strings are not pointer to const
             */
 
-            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
+            p_expression_node->type = type_make_literal_string(strlen(ctx->current->lexeme) - 2);
 
-            struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
-            struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
-            struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
-            struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
-
-            p_declarator_type->direct_declarator_type = p_direct_declarator_type;
-
-            array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
-            array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
-            p_direct_declarator_type->array_declarator_type = array_declarator_type;
-
-            p_expression_node->type.declarator_type = p_declarator_type;
 
 
             parser_match(ctx);
@@ -641,7 +612,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            type_set_int(&p_expression_node->type);
+            p_expression_node->type = type_make_int();
 
             parser_match(ctx);
         }
@@ -867,8 +838,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 }
 
                 p_expression_node_new->type = get_function_return_type(&p_expression_node->type);
-
-
+                
                 parser_match(ctx);
                 if (ctx->current->type != ')')
                 {
@@ -1432,7 +1402,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 }
 
                 //same as v == 0
-                type_set_int(&new_expression->type);
+
+                new_expression->type = type_make_int();
             }
             else if (op == '~')
             {
@@ -1502,11 +1473,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 parser_match_tk(ctx, '(');
                 new_expression->type_name = type_name(ctx);
 
-
-                new_expression->type.type_specifier_flags = TYPE_SPECIFIER_INT;
-
-                /*no name in*/
-                //declarator_type_clear_name(new_expression->type.declarator_type);
+                new_expression->type = type_make_int();
 
                 parser_match_tk(ctx, ')');
                 new_expression->constant_value = type_get_sizeof(&new_expression->type_name->declarator->type);
@@ -1522,7 +1489,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = type_get_sizeof(&new_expression->right->type);
                 new_expression->is_constant = true;
             }
-            type_set_int(&new_expression->type); //resultado sizeof
+
+            new_expression->type = type_make_size_t();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_ATTR_ADD ||
@@ -1610,7 +1578,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
 
             }
 
-            type_set_int(&new_expression->type); //resultado sizeof
+
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_IS_SAME)
@@ -1629,7 +1598,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 &new_expression->type_name2->declarator->type, true);
             new_expression->is_constant = true;
 
-            type_set_int(&new_expression->type);
+
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
@@ -1661,7 +1631,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 new_expression->last_token = ctx->previous;
             }
 
-            type_set_int(&new_expression->type); //resultado sizeof
+
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
@@ -1681,7 +1652,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             new_expression->is_constant = true;
 
 
-            type_set_int(&new_expression->type); //resultado sizeof
+
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
             new_expression->last_token = ctx->previous;
         }
@@ -1833,12 +1805,12 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
 
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "left is not arithmetic");
+                    parser_seterror_with_token(ctx, ctx->current, "left * is not arithmetic");
 
                 }
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "right is not arithmetic");
+                    parser_seterror_with_token(ctx, ctx->current, "right * is not arithmetic");
                 }
 
             }
@@ -1862,12 +1834,12 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                 }
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "left is not arithmetic");
+                    parser_seterror_with_token(ctx, ctx->current, "left / is not arithmetic");
 
                 }
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "right is not arithmetic");
+                    parser_seterror_with_token(ctx, ctx->current, "right / is not arithmetic");
                 }
             }
             else if (op == '%')
@@ -2079,7 +2051,8 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                             {
                                 parser_seterror_with_token(ctx, ctx->current, "incompatible pointer types");
                             }
-                            type_set_int(&new_expression->type);
+
+                            new_expression->type = type_make_int();
                             type_destroy(&t1);
                             type_destroy(&t2);
                         }
@@ -2265,7 +2238,8 @@ struct expression* relational_expression(struct parser_ctx* ctx)
                 }
             }
 
-            type_set_int(&new_expression->type);
+
+            new_expression->type = type_make_int();
 
             p_expression_node = new_expression;
             new_expression = NULL;/*MOVED*/
@@ -2382,7 +2356,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
             {
                 assert(false);
             }
-            type_set_int(&new_expression->type);
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
         }
@@ -2642,7 +2616,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            type_set_int(&new_expression->type);
+            new_expression->type = type_make_int();
 
             p_expression_node = new_expression;
         }

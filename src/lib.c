@@ -8431,6 +8431,8 @@ struct _destroy type
     
     struct declarator_type* declarator_type;
 
+    enum type_category category;
+
     /*for linked list*/
     struct type* next;
 };
@@ -8451,6 +8453,7 @@ struct type type_remove_pointer(struct type* p_type);
 int get_array_size(struct type* p_type);
 int set_array_size(struct type* p_type, int size);
 
+bool type_is_enum(struct type* p_type);
 bool type_is_array(struct type* p_type);
 bool type_is_const(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
@@ -8477,12 +8480,17 @@ struct  function_declarator_type* get_function_declarator_type(struct type* p_ty
 struct type type_remove_pointer(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
+struct type type_make_literal_string(int size);
+struct type type_make_int();
+struct type type_make_size_t();
+struct type type_make_enumerator(struct enum_specifier* enum_specifier);
+
 
 void print_declarator_description(struct osstream* ss, struct declarator_type* declarator);
 struct type get_function_return_type(struct type* p_type);
 bool type_is_pointer_or_array(struct type* p_type);
 int type_get_rank(struct type* p_type1);
-void type_set_int(struct type* p_type);
+
 int type_get_sizeof(struct type* p_type);
 int type_get_alignof(struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
@@ -8498,6 +8506,8 @@ void declarator_type_clear_name(struct declarator_type* p_declarator_type);
 
 struct declarator;
 struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);
+enum type_category type_get_category_core(const struct type* p_type);
+void type_print_data(const struct type* p_type);
 
 
 struct parser_ctx;
@@ -10030,7 +10040,6 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 }
 
 
-
 bool is_enumeration_constant(struct parser_ctx* ctx)
 {
     if (ctx->current->type != TK_IDENTIFIER)
@@ -10428,13 +10437,11 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             struct enumerator* p_enumerator = find_enumerator(ctx, ctx->current->lexeme, NULL);
             if (p_enumerator)
             {
-
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = p_enumerator->value;
                 p_expression_node->is_constant = true;
+                p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
 
-                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_ENUM;
-                p_expression_node->type.enum_specifier = p_enumerator->enum_specifier;
             }
             else if (ctx->p_current_function_opt &&
                 strcmp(ctx->current->lexeme, "__func__") == 0)
@@ -10453,21 +10460,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type.type_qualifier_flags = TYPE_QUALIFIER_CONST;
-                p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
-
-                struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
-                struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
-                struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
-                struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
-
-                p_declarator_type->direct_declarator_type = p_direct_declarator_type;
-
-                array_declarator_type->constant_size = strlen(funcname) + 1;
-                array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
-                p_direct_declarator_type->array_declarator_type = array_declarator_type;
-
-                p_expression_node->type.declarator_type = p_declarator_type;
+                p_expression_node->type = type_make_literal_string(strlen(funcname) + 1);
             }
             else
             {
@@ -10508,20 +10501,8 @@ struct expression* primary_expression(struct parser_ctx* ctx)
               In C literal strings are not pointer to const
             */
 
-            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_CHAR;
+            p_expression_node->type = type_make_literal_string(strlen(ctx->current->lexeme) - 2);
 
-            struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
-            struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
-            struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
-            struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
-
-            p_declarator_type->direct_declarator_type = p_direct_declarator_type;
-
-            array_declarator_type->constant_size = strlen(ctx->current->lexeme) - 2 /*2 quotes*/ + 1 /*\0*/;
-            array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
-            p_direct_declarator_type->array_declarator_type = array_declarator_type;
-
-            p_expression_node->type.declarator_type = p_declarator_type;
 
 
             parser_match(ctx);
@@ -10548,7 +10529,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            type_set_int(&p_expression_node->type);
+            p_expression_node->type = type_make_int();
 
             parser_match(ctx);
         }
@@ -10774,8 +10755,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 }
 
                 p_expression_node_new->type = get_function_return_type(&p_expression_node->type);
-
-
+                
                 parser_match(ctx);
                 if (ctx->current->type != ')')
                 {
@@ -11339,7 +11319,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 }
 
                 //same as v == 0
-                type_set_int(&new_expression->type);
+
+                new_expression->type = type_make_int();
             }
             else if (op == '~')
             {
@@ -11409,11 +11390,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 parser_match_tk(ctx, '(');
                 new_expression->type_name = type_name(ctx);
 
-
-                new_expression->type.type_specifier_flags = TYPE_SPECIFIER_INT;
-
-                /*no name in*/
-                //declarator_type_clear_name(new_expression->type.declarator_type);
+                new_expression->type = type_make_int();
 
                 parser_match_tk(ctx, ')');
                 new_expression->constant_value = type_get_sizeof(&new_expression->type_name->declarator->type);
@@ -11429,7 +11406,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = type_get_sizeof(&new_expression->right->type);
                 new_expression->is_constant = true;
             }
-            type_set_int(&new_expression->type); //resultado sizeof
+
+            new_expression->type = type_make_size_t();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_ATTR_ADD ||
@@ -11517,7 +11495,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
 
             }
 
-            type_set_int(&new_expression->type); //resultado sizeof
+
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_IS_SAME)
@@ -11536,7 +11515,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 &new_expression->type_name2->declarator->type, true);
             new_expression->is_constant = true;
 
-            type_set_int(&new_expression->type);
+
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
@@ -11568,7 +11548,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 new_expression->last_token = ctx->previous;
             }
 
-            type_set_int(&new_expression->type); //resultado sizeof
+
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
@@ -11588,7 +11569,8 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             new_expression->is_constant = true;
 
 
-            type_set_int(&new_expression->type); //resultado sizeof
+
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
             new_expression->last_token = ctx->previous;
         }
@@ -11740,12 +11722,12 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
 
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "left is not arithmetic");
+                    parser_seterror_with_token(ctx, ctx->current, "left * is not arithmetic");
 
                 }
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "right is not arithmetic");
+                    parser_seterror_with_token(ctx, ctx->current, "right * is not arithmetic");
                 }
 
             }
@@ -11769,12 +11751,12 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                 }
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "left is not arithmetic");
+                    parser_seterror_with_token(ctx, ctx->current, "left / is not arithmetic");
 
                 }
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "right is not arithmetic");
+                    parser_seterror_with_token(ctx, ctx->current, "right / is not arithmetic");
                 }
             }
             else if (op == '%')
@@ -11986,7 +11968,8 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                             {
                                 parser_seterror_with_token(ctx, ctx->current, "incompatible pointer types");
                             }
-                            type_set_int(&new_expression->type);
+
+                            new_expression->type = type_make_int();
                             type_destroy(&t1);
                             type_destroy(&t2);
                         }
@@ -12172,7 +12155,8 @@ struct expression* relational_expression(struct parser_ctx* ctx)
                 }
             }
 
-            type_set_int(&new_expression->type);
+
+            new_expression->type = type_make_int();
 
             p_expression_node = new_expression;
             new_expression = NULL;/*MOVED*/
@@ -12289,7 +12273,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
             {
                 assert(false);
             }
-            type_set_int(&new_expression->type);
+            new_expression->type = type_make_int();
             p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
         }
@@ -12549,7 +12533,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            type_set_int(&new_expression->type);
+            new_expression->type = type_make_int();
 
             p_expression_node = new_expression;
         }
@@ -13548,6 +13532,11 @@ struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type
 
 struct direct_declarator_type* direct_declarator_type_copy(struct direct_declarator_type* p_direct_declarator_type_opt);
 
+void direct_declarator_type_destroy(struct direct_declarator_type* p_direct_declarator_type_opt)
+{
+
+}
+
 void print_item(struct osstream* ss, bool* first, const char* item)
 {
     if (!(*first))
@@ -13823,18 +13812,19 @@ void type_remove_qualifiers(struct type* p_type)
 
 struct type type_lvalue_conversion(struct type* p_type)
 {
- 
+
     enum type_category category = type_get_category(p_type);
     switch (category)
     {
     case TYPE_CATEGORY_FUNCTION:
     {
         /*
-           "function returning type" is converted to an expression that has type 
+           "function returning type" is converted to an expression that has type
            "pointer to function returning type".
         */
         struct type t = type_add_pointer(p_type);
         t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+        t.category = type_get_category_core(&t);
         return t;
     }
 
@@ -13842,13 +13832,13 @@ struct type type_lvalue_conversion(struct type* p_type)
     {
         /*
           An expression that has type "array of type" is converted
-          to an expression with type "pointer to type" that points to the initial element 
-          of the array object and s not an lvalue. 
+          to an expression with type "pointer to type" that points to the initial element
+          of the array object and s not an lvalue.
           If the array object has register storage class, the behavior is undefined.
         */
         struct type t = get_array_item_type(p_type);
         struct type t2 = type_add_pointer(&t);
-        
+
         type_remove_qualifiers(&t2);
         /*
         int g(const int a[const 20]) {
@@ -13867,8 +13857,11 @@ struct type type_lvalue_conversion(struct type* p_type)
     }
 
     struct type t = type_copy(p_type);
-    type_remove_qualifiers(&t);    
+    type_remove_qualifiers(&t);
     t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+
+    t.category = type_get_category(&t);
+
     return t;
 }
 
@@ -14083,11 +14076,32 @@ void visit_declarator_get(enum type_category* type_category, struct declarator_t
     }
 }
 
-enum type_category type_get_category(const struct type* p_type)
+enum type_category type_get_category_core(const struct type* p_type)
 {
     enum type_category type_category = TYPE_CATEGORY_ITSELF;
     visit_declarator_get(&type_category, p_type->declarator_type);
     return type_category;
+}
+
+enum type_category type_get_category(const struct type* p_type)
+{
+
+#if 0
+    /*
+    * Initialy category was always computed, searched.
+    * then I decided to keep it calculated on p_type->category
+    * but in case some place is not doing this we have this print
+    */
+    enum type_category c = type_get_category_core(p_type);
+    if (c != p_type->category)
+    {
+        static int ops = 0;
+        printf("******************************** ops %d\n", ops++);
+        ((struct type*)p_type)->category = c;
+    }
+#endif
+
+    return p_type->category;
 }
 
 void type_destroy(struct type* p_type)
@@ -14232,7 +14246,7 @@ bool type_is_pointer(struct type* p_type)
     {
         return true;
     }
-    return category  == TYPE_CATEGORY_POINTER;
+    return category == TYPE_CATEGORY_POINTER;
 }
 
 
@@ -14351,7 +14365,7 @@ bool type_is_scalar(struct type* p_type)
     if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
         return false;
 
-    
+
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         return true;
     if (p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
@@ -14505,7 +14519,7 @@ struct type type_add_pointer(struct type* p_type)
     }
 
     //type_print(&r);
-
+    r.category = type_get_category_core(&r);
     return r;
 }
 
@@ -14521,6 +14535,7 @@ struct type type_remove_pointer(struct type* p_type)
     {
         //parser_seterror_with_token(ctx, ctx->current, "indirection requires pointer operand");
     }
+    r.category = type_get_category_core(&r);
     return r;
 }
 
@@ -14581,6 +14596,7 @@ struct type get_array_item_type(struct type* p_type)
     int removed = false;
     visit_declarator_to_remove_array(&removed, r.declarator_type);
     assert(removed);
+    r.category = type_get_category_core(&r);
     return r;
 }
 
@@ -14630,6 +14646,7 @@ struct type get_function_return_type(struct type* p_type)
             r.declarator_type->direct_declarator_type->function_declarator_type->direct_declarator_type;
     }
 
+    r.category = type_get_category_core(&r);
     return r;
 }
 
@@ -14641,7 +14658,7 @@ bool type_is_pointer_or_array(struct type* p_type)
     if (category == TYPE_CATEGORY_POINTER ||
         category == TYPE_CATEGORY_ARRAY)
         return true;
-    
+
     if (category == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
         return true;
@@ -14747,6 +14764,8 @@ struct type type_copy(struct type* p_type)
     r.type_specifier_flags = p_type->type_specifier_flags;
     r.struct_or_union_specifier = p_type->struct_or_union_specifier;
     r.enum_specifier = p_type->enum_specifier;
+    r.category = p_type->category;
+
     //if (p_type->declarator_name_opt)
       //r.declarator_name_opt = strdup(p_type->declarator_name_opt);
 
@@ -14784,7 +14803,7 @@ static void visit_direct_declarator_to_get_array_size(int* array_size, struct di
         if (*array_size == 0)
         {
             //TODO maybe array does not have size?
-            *array_size = p_direct_declarator_type->array_declarator_type->constant_size;
+            *array_size = (int)p_direct_declarator_type->array_declarator_type->constant_size;
         }
     }
 }
@@ -15587,7 +15606,7 @@ void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct d
               was repeating "func"
               int  (* f) func(void) = func;
             */
-            free(p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt);
+            free((void*)p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt);
             p_typedef_decl0->direct_declarator_type->function_declarator_type->direct_declarator_type->name_opt = NULL;
         }
 
@@ -15766,7 +15785,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     }
 
 
+    t.category = type_get_category_core(&t);
 
+    // type_print_data(&t);
     return t;
 }
 
@@ -15778,6 +15799,7 @@ struct type make_type_using_declarator_do_not_expand(struct parser_ctx* ctx, str
     type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
     type_set_attributes(&t, pdeclarator);
     t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
+    t.category = type_get_category_core(&t);
     return t;
 }
 
@@ -15832,8 +15854,61 @@ void type_set_int(struct type* p_type)
     p_type->type_specifier_flags = TYPE_SPECIFIER_INT;
     p_type->type_qualifier_flags = 0;
     p_type->declarator_type = NULL;
+    p_type->category = TYPE_CATEGORY_ITSELF;
 }
 
+struct type type_make_enumerator(struct enum_specifier* enum_specifier)
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_ENUM;
+    t.enum_specifier = enum_specifier;
+    t.category = TYPE_CATEGORY_ITSELF;
+
+    return t;
+}
+
+struct type type_make_size_t()
+{
+    struct type t = { 0 };
+
+#ifdef _WIN64
+    t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64;
+#else
+    t.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+#endif
+
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type type_make_int()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_INT;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type type_make_literal_string(int size)
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_CHAR;
+
+    struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
+    struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
+    struct direct_declarator_type* p_direct_declarator_type = calloc(1, sizeof * p_direct_declarator_type);
+    struct direct_declarator_type* p_direct_declarator_type2 = calloc(1, sizeof * p_direct_declarator_type);
+
+    p_declarator_type->direct_declarator_type = p_direct_declarator_type;
+
+    array_declarator_type->constant_size = size;
+    array_declarator_type->direct_declarator_type = p_direct_declarator_type2; /*abstract*/
+    p_direct_declarator_type->array_declarator_type = array_declarator_type;
+
+    t.declarator_type = p_declarator_type;
+    t.category = TYPE_CATEGORY_ARRAY;
+    return t;
+}
 
 bool pointer_type_is_same(struct pointer_type* a, struct pointer_type* b, bool compare_qualifiers)
 {
@@ -16113,6 +16188,43 @@ void type_swap(struct type* a, struct type* b)
     _del_attr(temp, MUST_DESTROY);
 }
 
+void declarator_type_print_data(int n, struct declarator_type* p_declarator_type);
+
+void direct_declarator_type_print_data(int n, struct direct_declarator_type* p)
+{
+    if (p->declarator_opt)
+        declarator_type_print_data(n + 1, p->declarator_opt);
+
+    if (p->name_opt)
+        printf("%s", p->name_opt);
+}
+
+void declarator_type_print_data(int n, struct declarator_type* p_declarator_type)
+{
+    if (p_declarator_type->pointers.head)
+    {
+    }
+
+    if (p_declarator_type->direct_declarator_type)
+    {
+        direct_declarator_type_print_data(n + 1, p_declarator_type->direct_declarator_type);
+    }
+
+    
+}
+
+void type_print_data(const struct type* p_type)
+{
+    int n = 0;
+    if (p_type->struct_or_union_specifier)
+        printf("struct_or_union_specifier: %p\n", p_type->struct_or_union_specifier);
+    if (p_type->enum_specifier)
+        printf("enum_specifier %p\n", p_type->enum_specifier);
+
+    if ("declarator_type:")
+        declarator_type_print_data(n + 1, p_type->declarator_type);
+
+}
 
 
 
@@ -18268,6 +18380,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         t.declarator_type->direct_declarator_type->name_opt = strdup(p_init_declarator->declarator->name->lexeme);
                     }
 
+                    t.category = type_get_category_core(&t);
                     type_swap(&p_init_declarator->declarator->type, &t);
 
                     type_destroy(&t);
@@ -19451,7 +19564,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
-
+    
     if (ctx->current != p_declarator->first_token)
     {
         p_declarator->last_token = previous_parser_token(ctx->current);
@@ -20946,6 +21059,11 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
 
         p_selection_statement->expression = expression(ctx);
 
+        if (p_selection_statement->expression->is_constant)
+        {
+            //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
+        }
+
         parser_match_tk(ctx, ')');
         p_selection_statement->secondary_block = secondary_block(ctx);
 
@@ -21697,8 +21815,8 @@ int compile_one_file(const char* file_name,
 
             if (options.format_input)
             {
-                format_visit(&ast);
-                
+                struct format_visit_ctx f = {.ast = &ast, .identation = 4};
+                format_visit(&f);                
             }
 
             ast_wasm_visit(&ast);
