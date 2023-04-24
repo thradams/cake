@@ -76,7 +76,7 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
             token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
         ss_fprintf(ss, "%s", s);
-        free(s);
+        free((void*)s);
         deferchild = deferchild->previous;
     }
 }
@@ -599,6 +599,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 {
     switch (p_expression->expression_type)
     {
+    case PRIMARY_EXPRESSION__FUNC__:
+        break;
     case PRIMARY_IDENTIFIER:
         break;
     case PRIMARY_EXPRESSION_ENUMERATOR:
@@ -871,6 +873,12 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         }
     }
     break;
+
+    case UNARY_EXPRESSION_IS_SAME:
+        break;
+
+    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
+        break;
 
     default:
         break;
@@ -1859,7 +1867,7 @@ int visit_literal_string(struct visit_ctx* ctx, struct token* current)
     if (has_u8_prefix && ctx->target < LANGUAGE_C11)
     {
         struct osstream ss = { 0 };
-        unsigned char* psz = current->lexeme + 2;
+        unsigned char* psz = (unsigned char* )(current->lexeme + 2);
 
         while (*psz)
         {

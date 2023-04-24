@@ -2161,7 +2161,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
     */
     match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
     skip_blanks(&r, input_list);
-    int result = 0;
+    unsigned long long result = 0;
     if (strcmp(input_list->head->lexeme, "elif") == 0)
     {
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
