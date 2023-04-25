@@ -17,6 +17,14 @@ enum type_category
     TYPE_CATEGORY_POINTER,
 };
 
+enum static_analisys_flags
+{
+    ISVALID = 1 << 1,
+    UNINITIALIZED = 1 << 2,
+    MUST_DESTROY = 1 << 3,
+    MUST_FREE = 1 << 4
+};
+
 
 enum attribute_flags
 {
@@ -201,13 +209,14 @@ struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
-
+struct direct_declarator_type* find_inner_function(struct type* p_type);
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
 struct type type_remove_pointer(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
-struct type type_make_literal_string(int size);
+
+struct type type_make_literal_string(int size, enum type_specifier_flags chartype);
 struct type type_make_int();
 struct type type_make_size_t();
 struct type type_make_enumerator(struct enum_specifier* enum_specifier);

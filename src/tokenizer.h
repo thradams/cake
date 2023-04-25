@@ -86,3 +86,6 @@ void check_unused_macros(struct hash_map* map);
 char* readfile(const char* path);
 const char* get_token_name(enum token_type tk);
 void print_all_macros(struct preprocessor_ctx* prectx);
+
+int string_literal_byte_size(const char* s);
+int get_char_type(const char* s);

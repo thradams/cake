@@ -18,6 +18,11 @@ void direct_declarator_type_destroy(struct direct_declarator_type* p_direct_decl
 
 }
 
+void function_declarator_type_destroy(struct function_declarator_type* p) 
+{
+}
+
+
 void print_item(struct osstream* ss, bool* first, const char* item)
 {
     if (!(*first))
@@ -49,6 +54,15 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
+    
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT16)
+        print_item(ss, first, "__int16");
+    
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT32)
+        print_item(ss, first, "__int32");
+
+    if (e_type_specifier_flags & TYPE_SPECIFIER_INT64)
+        print_item(ss, first, "__int64");
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
         print_item(ss, first, "char");
@@ -118,6 +132,25 @@ void debug_print_declarator_type(struct declarator_type* p_declarator_type)
     ss_close(&ss);
 }
 
+
+void print_params(struct osstream* ss,
+    struct params* params, bool is_var_args)
+{
+
+    ss_fprintf(ss, "(");
+    struct type* param = params->head;
+    while (param)
+    {
+        if (param != params->head)
+            ss_fprintf(ss, ",");
+        print_type(ss, param);
+        param = param->next;
+    }
+    if (is_var_args)
+        ss_fprintf(ss, ",...");
+
+    ss_fprintf(ss, ")");
+}
 void print_direct_declarator_type(struct osstream* ss,
     struct direct_declarator_type* p_direct_declarator_type)
 {
@@ -151,20 +184,9 @@ void print_direct_declarator_type(struct osstream* ss,
     {
         print_direct_declarator_type(ss,
             p_direct_declarator_type->function_declarator_type->direct_declarator_type);
-
-        ss_fprintf(ss, "(");
-        struct type* param = p_direct_declarator_type->function_declarator_type->params.head;
-        while (param)
-        {
-            if (param != p_direct_declarator_type->function_declarator_type->params.head)
-                ss_fprintf(ss, ",");
-            print_type(ss, param);
-            param = param->next;
-        }
-        if (p_direct_declarator_type->function_declarator_type->is_var_args)
-            ss_fprintf(ss, ",...");
-
-        ss_fprintf(ss, ")");
+        print_params(ss,
+            &p_direct_declarator_type->function_declarator_type->params,
+            p_direct_declarator_type->function_declarator_type->is_var_args);
     }
 
     if (p_direct_declarator_type->array_declarator_type)
@@ -498,6 +520,7 @@ struct declarator_type* declarator_type_copy(struct declarator_type* p_declarato
     if (p_declarator_type_opt == NULL)
         return NULL;
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
+
     p_declarator_type->pointers = pointer_type_list_copy(&p_declarator_type_opt->pointers);
     p_declarator_type->direct_declarator_type = direct_declarator_type_copy(p_declarator_type_opt->direct_declarator_type);
 
@@ -567,7 +590,7 @@ enum type_category type_get_category_core(const struct type* p_type)
 enum type_category type_get_category(const struct type* p_type)
 {
 
-/*better performance*/
+    /*better performance*/
 #if 0 
     /*
     * Initialy category was always computed, searched.
@@ -639,23 +662,17 @@ bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
     return false;
 }
 
+/*used to get arguments from function or function pointer*/
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type)
-{
-    assert(type_is_function_or_function_pointer(p_type));
-    struct declarator_type* inner = p_type->declarator_type;
-    for (;;)
+{ 
+    struct direct_declarator_type* p_direct_declarator_type =
+        find_inner_function(p_type);
+    if (p_direct_declarator_type)
     {
-        if (inner->direct_declarator_type &&
-            inner->direct_declarator_type->function_declarator_type &&
-            inner->direct_declarator_type->function_declarator_type->direct_declarator_type &&
-            inner->direct_declarator_type->function_declarator_type->direct_declarator_type->declarator_opt)
-        {
-            inner = inner->direct_declarator_type->function_declarator_type->direct_declarator_type->declarator_opt;
-        }
-        else
-            break;
+        assert(p_direct_declarator_type->function_declarator_type);
+        return p_direct_declarator_type->function_declarator_type;
     }
-    return inner->direct_declarator_type->function_declarator_type;
+    return NULL;
 }
 
 bool type_is_maybe_unused(struct type* p_type)
@@ -949,15 +966,17 @@ bool type_is_function(struct type* p_type)
 
 bool type_is_function_or_function_pointer(struct type* p_type)
 {
-    if (p_type->declarator_type == NULL)
-        return false;
 
-
-    if (
-        p_type->declarator_type->direct_declarator_type &&
-        p_type->declarator_type->direct_declarator_type->function_declarator_type)
-    {
+    if (type_is_function(p_type))
         return true;
+
+    if (type_is_pointer(p_type))
+    {
+        //TODO not optimized
+        struct type t = type_remove_pointer(p_type);
+        bool r = type_is_function(&t);
+        type_destroy(&t);
+        return r;
     }
 
     return false;
@@ -1115,24 +1134,6 @@ void print_declarator_description(struct osstream* ss, struct declarator_type* d
 }
 
 
-
-struct type get_function_return_type(struct type* p_type)
-{
-    //assert(type_is_function(p_type));
-
-    struct type r = type_copy(p_type);
-
-    if (r.declarator_type)
-    {
-        r.declarator_type->direct_declarator_type =
-            r.declarator_type->direct_declarator_type->function_declarator_type->direct_declarator_type;
-    }
-
-    r.category = type_get_category_core(&r);
-    return r;
-}
-
-
 bool type_is_pointer_or_array(struct type* p_type)
 {
     const enum type_category category = type_get_category(p_type);
@@ -1143,7 +1144,9 @@ bool type_is_pointer_or_array(struct type* p_type)
 
     if (category == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
+    {
         return true;
+    }
 
     return false;
 }
@@ -2266,7 +2269,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
     t.category = type_get_category_core(&t);
 
-    // type_print_data(&t);
+
     return t;
 }
 
@@ -2328,6 +2331,68 @@ struct declarator_type* find_inner_declarator(struct declarator_type* p_declarat
     return p_declarator_type;
 }
 
+struct direct_declarator_type* direct_declarator_type_find_inner_function(struct direct_declarator_type* p_direct_declarator_type);
+
+struct direct_declarator_type* declarator_type_find_inner_function(struct declarator_type* p_declarator_type)
+{
+    struct direct_declarator_type* p = NULL;
+    if (p_declarator_type->direct_declarator_type)
+    {
+        p = direct_declarator_type_find_inner_function(p_declarator_type->direct_declarator_type);
+    }
+    return p;
+}
+
+
+struct direct_declarator_type* direct_declarator_type_find_inner_function(struct direct_declarator_type* p_direct_declarator_type)
+{
+    if (p_direct_declarator_type->declarator_opt == NULL)
+    {
+        if (p_direct_declarator_type->function_declarator_type)
+        {
+            if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
+            {
+                struct direct_declarator_type* p = direct_declarator_type_find_inner_function(p_direct_declarator_type->function_declarator_type->direct_declarator_type);
+                if (p == NULL)
+                {
+                    return p_direct_declarator_type;
+                }
+                return p;
+            }
+            
+            return p_direct_declarator_type;
+        }
+        return NULL;
+    }
+
+    return  declarator_type_find_inner_function(p_direct_declarator_type->declarator_opt);
+}
+
+/*works for function and pointer to function*/
+struct direct_declarator_type* find_inner_function(struct type* p_type)
+{
+    return direct_declarator_type_find_inner_function(p_type->declarator_type->direct_declarator_type);
+}
+
+struct type get_function_return_type(struct type* p_type)
+{
+    struct type r = type_copy(p_type);
+
+    struct direct_declarator_type* p_direct_declarator_type =
+        find_inner_function(&r);
+    
+    if (p_direct_declarator_type)
+    {
+        /*lets delete the function part*/
+        function_declarator_type_destroy(p_direct_declarator_type->function_declarator_type);
+        p_direct_declarator_type->function_declarator_type = NULL;
+    }
+
+    r.category = type_get_category_core(&r);
+    return r;
+}
+
+
 void type_set_int(struct type* p_type)
 {
     p_type->type_specifier_flags = TYPE_SPECIFIER_INT;
@@ -2368,10 +2433,10 @@ struct type type_make_int()
     return t;
 }
 
-struct type type_make_literal_string(int size)
+struct type type_make_literal_string(int size, enum type_specifier_flags chartype)
 {
     struct type t = { 0 };
-    t.type_specifier_flags = TYPE_SPECIFIER_CHAR;
+    t.type_specifier_flags = chartype;// TYPE_SPECIFIER_CHAR;
 
     struct declarator_type* p_declarator_type = calloc(1, sizeof * p_declarator_type);
     struct array_declarator_type* array_declarator_type = calloc(1, sizeof * array_declarator_type);
@@ -2669,38 +2734,93 @@ void type_swap(struct type* a, struct type* b)
 
 void declarator_type_print_data(int n, struct declarator_type* p_declarator_type);
 
+void printdots(int n) {
+    for (int i = 0; i < n * 2; i++) printf(" ");
+    printf("|");
+}
 void direct_declarator_type_print_data(int n, struct direct_declarator_type* p)
 {
-    if (p->declarator_opt)
-        declarator_type_print_data(n + 1, p->declarator_opt);
+    if (p == NULL) return;
 
     if (p->name_opt)
-        printf("%s", p->name_opt);
+    {
+        printdots(n);
+        printf("name '%s'", p->name_opt);
+    }
+
+    if (p->array_declarator_type)
+    {
+        printdots(n);
+        printf("array_declarator_type\n");
+        direct_declarator_type_print_data(n + 1, p->array_declarator_type->direct_declarator_type);
+
+        //printf("[]\n");
+    }
+    else if (p->function_declarator_type)
+    {
+        printdots(n);
+
+        printf("function_declarator_type %p", p->function_declarator_type);
+        struct osstream ss = { 0 };
+        print_params(&ss, &p->function_declarator_type->params,
+            p->function_declarator_type->is_var_args);
+        printf("%s\n", ss.c_str);
+        ss_close(&ss);
+
+
+        direct_declarator_type_print_data(n + 1, p->function_declarator_type->direct_declarator_type);
+
+        //printf("()");
+    }
+    if (p->declarator_opt)
+    {
+        printdots(n);
+        printf("declarator %p\n", p->declarator_opt);
+        declarator_type_print_data(n + 1, p->declarator_opt);
+    }
 }
 
 void declarator_type_print_data(int n, struct declarator_type* p_declarator_type)
 {
-    if (p_declarator_type->pointers.head)
-    {
+
+    struct pointer_type* p = p_declarator_type->pointers.head;
+    if (p) {
+        printdots(n);
+
+        while (p)
+        {
+            printf("*");
+            p = p->next;
+        }
+        printf("\n");
     }
 
     if (p_declarator_type->direct_declarator_type)
     {
+        printdots(n);
+        printf("direct-declarator %p\n", p_declarator_type->direct_declarator_type);
         direct_declarator_type_print_data(n + 1, p_declarator_type->direct_declarator_type);
     }
 
-    
+
 }
 
 void type_print_data(const struct type* p_type)
 {
+    type_print(p_type);
+
+
     int n = 0;
     if (p_type->struct_or_union_specifier)
         printf("struct_or_union_specifier: %p\n", p_type->struct_or_union_specifier);
+
     if (p_type->enum_specifier)
         printf("enum_specifier %p\n", p_type->enum_specifier);
 
-    if ("declarator_type:")
+    if (p_type->declarator_type)
+    {
+        printf("declarator %p\n", p_type->declarator_type);
         declarator_type_print_data(n + 1, p_type->declarator_type);
-
+    }
+    printf("\n");
 }

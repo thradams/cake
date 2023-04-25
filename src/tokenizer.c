@@ -1017,6 +1017,81 @@ struct token* string_literal(struct tokenizer_ctx* ctx, struct stream* stream)
     return p_new_token;
 }
 
+int get_char_type(const char* s)
+{
+    if (s[1] == 'L')
+        return 2; /*wchar*/
+    
+    return 1;
+}
+
+int string_literal_byte_size(const char* s)
+{
+
+    struct stream stream;
+    stream.source = s;
+    stream.current = s;
+    stream.line = 1;
+    stream.col = 1;
+
+    const char* start = stream.current;
+    int start_line = stream.line;
+    int start_col = stream.col;
+
+    int size = 0;
+    int charsize = sizeof(char);
+
+    try
+    {
+        /*encoding_prefix_opt*/
+        if (stream.current[0] == 'u')
+        {
+            stream_match(&stream);
+            if (stream.current[0] == '8')
+                stream_match(&stream);
+        }
+        else if (stream.current[0] == 'U' ||
+            stream.current[0] == 'L')
+        {
+            charsize = sizeof(wchar_t);
+            stream_match(&stream);
+        }
+
+
+        stream_match(&stream); //"
+
+
+        while (stream.current[0] != '"')
+        {
+            if (stream.current[0] == '\0' ||
+                stream.current[0] == '\n')
+            {
+                throw;
+            }
+
+            if (stream.current[0] == '\\')
+            {
+                stream_match(&stream);
+                stream_match(&stream);
+                size++;
+            }
+            else
+            {
+                stream_match(&stream);
+                size++;
+            }
+        }
+        stream_match(&stream);
+    }
+    catch
+    {
+    }
+
+    size++; /* /0 included */
+
+    return size * charsize;
+}
+
 struct token* ppnumber(struct stream* stream)
 {
     /*

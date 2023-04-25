@@ -691,11 +691,6 @@ void print_type_name(struct osstream* ss, struct type_name* p);
 
 struct argument_expression
 {
-    /*
-    * we associate the name of the argument with
-    * the expression
-    */
-    const char* argname; /*owner must free*/
     struct expression* expression;
     struct argument_expression* next;
 };

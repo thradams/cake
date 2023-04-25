@@ -56,13 +56,13 @@ void compile_cake()
 {
 
 #ifdef BUILD_WINDOWS_MSC
-    if (system("cl "
+    if (system("cl  "
         SOURCE_FILES  " main.c "
 #if defined DEBUG
         " /Od /MDd /RTC1 "
         " /Dstrdup=_strdup" /*nao linka em release*/
 #else //RELEASE
-        " /GL /Gy /O2 /MD /Ot"
+        " /GL /Gy /O2 /MT /Ot"
         " /DNDEBUG "
         " /Dstrdup=_strdup" /*nao linka em release*/
 #endif
@@ -258,6 +258,11 @@ void generate_doc(const char* mdfilename, const char* outfile)
 int main()
 {
     printf(CC_DESCRIPTION "\n");
+#if RELEASE
+    printf("RELEASE\n");
+#else defined DEBUG
+    printf("DEBUG\n");
+#endif
 
     printf("Building tools-------------------------------------------\n");
     chdir("./tools");
@@ -298,8 +303,7 @@ int main()
     " ./web_include/math.h " \
     " ./web_include/errno.h " \
     " ./web_include/string.h " \
-    " ./web_include/assert.h " \
-    " ./web_include/annotations.h "
+    " ./web_include/assert.h "
     
     if (system(RUN "embed.exe " EMBED_SRC) != 0) exit(1);
     remove("embed.exe");

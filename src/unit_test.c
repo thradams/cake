@@ -94,6 +94,7 @@ void is_pointer_test(void);
 void params_test(void);
 void test_compiler_constant_expression(void);
 void auto_test(void);
+void function_result_test(void);
 
 /*end of forward declarations*/
 
@@ -181,6 +182,7 @@ g_unit_test_success_count = 0;
     params_test();
     test_compiler_constant_expression();
     auto_test();
+    function_result_test();
 return g_unit_test_error_count;
 
 }

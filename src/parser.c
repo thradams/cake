@@ -5336,17 +5336,12 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * to generate this string
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
+#define STR \
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt"
+
         snprintf(env, sizeof env,
             "%s",
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.34.31933/include;"
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.34.31933/ATLMFC/include;"
-            "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/ucrt;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/um;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/shared;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/winrt;"
-            "C:/Program Files (x86)/Windows Kits/10/include/10.0.19041.0/cppwinrt;"
-            "C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um");
+            STR);
 
 
         n = (int)strlen(env);
@@ -5537,7 +5532,7 @@ int compile_one_file(const char* file_name,
 
             if (options.format_input)
             {
-                struct format_visit_ctx f = {.ast = &ast, .identation = 4};
+                struct format_visit_ctx f = {.ast = ast, .identation = 4};
                 format_visit(&f);                
             }
 
@@ -6524,6 +6519,17 @@ void auto_test()
     assert(compile_without_errors(source));
 }
 
+void function_result_test()
+{
+    const char* source =
+        "int (*(*F1)(void))(int, int*);\n"
+        "int (* F2(void) )(int, int*);\n"
+        "static_assert(_Generic(F1(), int (*)(int, int*) : 1));\n"
+        "static_assert(_Generic(F2(), int (*)(int, int*) : 1));\n"
+        ;
+
+    assert(compile_without_errors(source));
+}
 
 #endif
 

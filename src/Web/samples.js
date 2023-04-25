@@ -1120,6 +1120,7 @@ int main()
     static_assert(_has_attr(p2, "must free"));
 
     //free(p2);
+    static_assert(_has_attr(p2, "uninitialized"));
 }
 
 `;

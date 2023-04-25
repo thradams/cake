@@ -75,15 +75,41 @@ int  compare_function_arguments(struct parser_ctx* ctx,
                     " incompatible types at argument %d", param_num);
             }
 
-            if (current_parameter_type->declarator_type->direct_declarator_type->name_opt)
+            struct declarator* arg_declarator = NULL;
+            if (current_argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
             {
-                /*
-                * let's associate the name of the argument with the expression
-                */
-                //TODO better copy or reference??
-                current_argument->argname = strdup(current_parameter_type->declarator_type->direct_declarator_type->name_opt);
+                arg_declarator = current_argument->expression->declarator;
             }
-            //compare
+            else if (current_argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+            {
+                struct expression* right = current_argument->expression->right;
+                if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                {
+                    arg_declarator = right->declarator;
+                }
+            }
+            else
+            {
+                arg_declarator = NULL;
+            }
+
+            if (arg_declarator &&
+                !arg_declarator->is_parameter_declarator)
+            {
+                if (current_parameter_type->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+                {
+                    arg_declarator->static_analisys_flags &= ~MUST_DESTROY;
+                    arg_declarator->static_analisys_flags |= UNINITIALIZED;
+                }
+
+                if (current_parameter_type->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+                {
+                    arg_declarator->static_analisys_flags &= ~MUST_FREE;
+                    arg_declarator->static_analisys_flags |= UNINITIALIZED;
+                }
+            }
+
+     
             current_argument = current_argument->next;
             current_parameter_type = current_parameter_type->next;
             param_num++;
@@ -543,7 +569,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = type_make_literal_string(strlen(funcname) + 1);
+                p_expression_node->type = type_make_literal_string(strlen(funcname) + 1,  TYPE_SPECIFIER_CHAR);
             }
             else
             {
@@ -579,14 +605,18 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
+    
+            enum type_specifier_flags char_type = TYPE_SPECIFIER_CHAR;
+            
+            if (get_char_type(ctx->current->lexeme) == 2)
+            {
+                if (sizeof(wchar_t) == 2)
+                  char_type = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
+                else if (sizeof(wchar_t) == 4)
+                    char_type = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+            }
 
-            /*
-              In C literal strings are not pointer to const
-            */
-
-            p_expression_node->type = type_make_literal_string(strlen(ctx->current->lexeme) - 2);
-
-
+            p_expression_node->type = type_make_literal_string(string_literal_byte_size(ctx->current->lexeme), char_type);
 
             parser_match(ctx);
 
@@ -757,23 +787,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
     return list;
 }
 
-/*
-* returns the expression used by argument named name
-*/
-static struct argument_expression* find_argument_expression(struct argument_expression_list* argument_expression_list, const char* name)
-{
-    struct argument_expression* p = argument_expression_list->head;
-    while (p)
-    {
-        if (strcmp(p->argname, name) == 0)
-        {
-            return p;
-        }
-        p = p->next;
-    }
 
-    return NULL;
-}
 
 bool first_of_postfix_expression(struct parser_ctx* ctx)
 {
@@ -845,76 +859,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                     p_expression_node_new->argument_expression_list = argument_expression_list(ctx);
                 }
                 parser_match_tk(ctx, ')');
-
-                //Agora vamos comparar os argumentos...
-
-                if (compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list) != 0)
-                {
-                    throw;
-                }
-
-
-                if (p_expression_node_new->type.declarator_type &&
-                    p_expression_node_new->type.declarator_type->direct_declarator_type &&
-                    p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt)
-                {
-                    struct declarator* func = find_declarator(ctx,
-                        p_expression_node_new->type.declarator_type->direct_declarator_type->name_opt, NULL);
-
-
-                    if (func)
-                    {
-
-                        if (func->direct_declarator->function_declarator->parameter_type_list_opt &&
-                            func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
-                        {
-                            struct argument_expression* argument = p_expression_node_new->argument_expression_list.head;
-                            struct parameter_declaration* par = func->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
-
-                            while (par && argument)
-                            {
-                                struct declarator* arg_declarator = NULL;
-                                if (argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-                                {
-                                    arg_declarator = argument->expression->declarator;
-
-                                    //argument->expression->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
-                                }
-                                else if (argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
-                                {
-                                    struct expression* right = argument->expression->right;
-                                    if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-                                    {
-                                        arg_declarator = right->declarator;
-                                        //right->declarator->static_analisys_flags = par->declarator->static_analisys_flags;
-
-                                    }
-                                }
-                                else
-                                {
-                                    arg_declarator = NULL;
-                                }
-
-                                if (arg_declarator &&
-                                    !arg_declarator->is_parameter_declarator)
-                                {
-                                    if (par->declarator->static_analisys_flags & MUST_DESTROY)
-                                    {
-                                        arg_declarator->static_analisys_flags &= ~MUST_DESTROY;
-                                    }
-
-                                    if (par->declarator->static_analisys_flags & MUST_FREE)
-                                    {
-                                        arg_declarator->static_analisys_flags &= ~MUST_FREE;
-                                    }
-                                }
-                                argument = argument->next;
-                                par = par->next;
-                            }
-                        }
-                    }
-                }
-
+                compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list);
                 p_expression_node_new->last_token = ctx->previous;
                 p_expression_node = p_expression_node_new;
             }
@@ -2465,6 +2410,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx)
             }
 
             p_expression_node = new_expression;
+            new_expression = NULL;
         }
     }
     catch
