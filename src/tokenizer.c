@@ -1019,7 +1019,7 @@ struct token* string_literal(struct tokenizer_ctx* ctx, struct stream* stream)
 
 int get_char_type(const char* s)
 {
-    if (s[1] == 'L')
+    if (s[0] == 'L')
         return 2; /*wchar*/
     
     return 1;

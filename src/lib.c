@@ -2524,7 +2524,7 @@ struct token* string_literal(struct tokenizer_ctx* ctx, struct stream* stream)
 
 int get_char_type(const char* s)
 {
-    if (s[1] == 'L')
+    if (s[0] == 'L')
         return 2; /*wchar*/
     
     return 1;
@@ -8535,7 +8535,7 @@ bool type_is_floating_point(struct type* p_type);
 bool type_is_void(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
-bool type_is_compatible_type_function_call(struct type* a, struct type* b);
+bool check_function_argument_and_parameter(struct argument_expression*, struct type* b, int param_num);
 bool type_is_function_or_function_pointer(struct type* p_type);
 bool type_is_function(struct type* p_type);
 bool type_is_nodiscard(struct type* p_type);
@@ -10051,15 +10051,12 @@ int  compare_function_arguments(struct parser_ctx* ctx,
         int param_num = 1;
         struct argument_expression* current_argument =
             p_argument_expression_list->head;
+
         while (current_argument && current_parameter_type)
         {
 
-            if (!type_is_compatible_type_function_call(&current_argument->expression->type, current_parameter_type) != 0)
-            {
-                parser_seterror_with_token(ctx,
-                    current_argument->expression->first_token,
-                    " incompatible types at argument %d", param_num);
-            }
+            check_function_argument_and_parameter(ctx, current_argument, current_parameter_type, param_num);
+            
 
             struct declarator* arg_declarator = NULL;
             if (current_argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
@@ -14363,6 +14360,12 @@ bool type_is_integer(struct type* p_type)
         (TYPE_SPECIFIER_CHAR |
             TYPE_SPECIFIER_SHORT |
             TYPE_SPECIFIER_INT |
+
+            TYPE_SPECIFIER_INT16 |
+            TYPE_SPECIFIER_INT32 |
+            TYPE_SPECIFIER_INT64 |
+
+            TYPE_SPECIFIER_INT |
             TYPE_SPECIFIER_LONG |
             TYPE_SPECIFIER_SIGNED |
             TYPE_SPECIFIER_UNSIGNED |
@@ -14420,77 +14423,97 @@ bool type_is_compatible(struct type* expression_type, struct type* return_type)
     return true;
 }
 
-bool type_is_compatible_type_function_call(struct type* argument_type, struct type* paramer_type)
+void check_function_argument_and_parameter(struct parser_ctx* ctx, 
+    struct argument_expression* current_argument,
+    struct type* paramer_type,
+    int param_num)
 {
-    if (type_is_arithmetic(argument_type) && type_is_arithmetic(paramer_type))
+    struct type* argument_type = &current_argument->expression->type;
+    bool bIsZero = false;
+    if (current_argument->expression->is_constant &&
+        current_argument->expression->constant_value == 0)
     {
-        return true;
+        bIsZero = true;
     }
-
-    if (type_is_arithmetic(argument_type) && type_is_bool(paramer_type))
-    {
-        /*passar 0 or 1 to bool*/
-        return true;
-    }
-
-
-    if (type_is_bool(argument_type) && type_is_bool(paramer_type))
-    {
-        return true;
-    }
-
-    if (type_is_pointer(argument_type) && type_is_pointer(paramer_type))
-    {
-        if (argument_type->type_specifier_flags & TYPE_SPECIFIER_VOID)
-        {
-            /*void pointer can be converted to any type*/
-            return true;
-        }
-
-        if (!type_is_same(argument_type, paramer_type, false))
-        {
-            //disabled for now util it works correctly
-            //return false;
-        }
-        return true;
-    }
-
-    if (type_is_array(argument_type) && type_is_pointer(paramer_type))
-    {
-        //TODO
-        return true;
-    }
-
-    if (type_is_pointer(argument_type) && type_is_array(paramer_type))
-    {
-        //TODO
-        return true;
-    }
-
+    struct type t1 = { 0 };
+    struct type t2 = { 0 };
+    /*
+       less generic tests are first
+    */
     if (type_is_enum(argument_type) && type_is_enum(paramer_type))
     {
         if (!type_is_same(argument_type, paramer_type, false))
         {
+            parser_seterror_with_token(ctx,
+                current_argument->expression->first_token,
+                " incompatible types at argument %d", param_num);
+        }
+        goto continuation;        
+    }
+
+    if (type_is_arithmetic(argument_type) && type_is_arithmetic(paramer_type))
+    {
+        goto continuation;
+    }
+
+    if (bIsZero && type_is_pointer_or_array(paramer_type))
+    {
+        goto continuation;
+    }
+
+    if (type_is_pointer_or_array(argument_type) && type_is_pointer_or_array(paramer_type))
+    {
+        if (argument_type->type_specifier_flags & TYPE_SPECIFIER_VOID)
+        {
+            /*void pointer can be converted to any type*/
+            goto continuation;
+        }
+
+        if (paramer_type->type_specifier_flags & TYPE_SPECIFIER_VOID)
+        {
+            /*void pointer can be converted to any type*/
+            goto continuation;
+        }
+
+        
+        //TODO  lvalue
+        
+        if (type_is_array(paramer_type))
+        {
+            t2 = type_lvalue_conversion(paramer_type);
+        }
+        else
+        {
+            t2 = type_copy(paramer_type);
+        }
+
+        if (expression_is_subjected_to_lvalue_conversion(current_argument->expression))
+        {
+            t1 = type_lvalue_conversion(argument_type);
+        }
+        else
+        {
+            t1 = type_copy(argument_type);
+        }
+
+
+        if (!type_is_same(&t1, &t2, false))
+        {
+            //type_print(&t1);
+            //type_print(&t2);
+
+            parser_seterror_with_token(ctx,
+                current_argument->expression->first_token,
+                " incompatible types at argument %d", param_num);
             //disabled for now util it works correctly
             //return false;
         }
-        return true;
+        //return true;
     }
 
-    if (type_is_arithmetic(argument_type) && type_is_enum(paramer_type))
-    {
-        return true;
-    }
-
-    if (type_is_enum(argument_type) && type_is_arithmetic(paramer_type))
-    {
-        return true;
-    }
-
-
-    //disabled for now util it works correctly
-    //return false;
-    return true;
+continuation:
+    type_destroy(&t1);
+    type_destroy(&t2);
 }
 
 bool type_is_function(struct type* p_type)
@@ -14666,6 +14689,7 @@ void print_declarator_description(struct osstream* ss, struct declarator_type* d
         p = p->next;
     }
 }
+
 
 
 bool type_is_pointer_or_array(struct type* p_type)

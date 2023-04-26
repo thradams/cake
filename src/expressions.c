@@ -65,15 +65,12 @@ int  compare_function_arguments(struct parser_ctx* ctx,
         int param_num = 1;
         struct argument_expression* current_argument =
             p_argument_expression_list->head;
+
         while (current_argument && current_parameter_type)
         {
 
-            if (!type_is_compatible_type_function_call(&current_argument->expression->type, current_parameter_type) != 0)
-            {
-                parser_seterror_with_token(ctx,
-                    current_argument->expression->first_token,
-                    " incompatible types at argument %d", param_num);
-            }
+            check_function_argument_and_parameter(ctx, current_argument, current_parameter_type, param_num);
+            
 
             struct declarator* arg_declarator = NULL;
             if (current_argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
