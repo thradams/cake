@@ -172,13 +172,13 @@ struct _destroy type
     struct type* next;
 };
 
-void print_type(struct osstream* ss, struct type* type);
+void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_copy(struct type* p_type);
 void type_destroy(_destroy struct type* p_type);
 struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type);
 void debug_print_declarator_type(struct declarator_type* p_declarator_type);
-void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type);
+void print_declarator_type(struct osstream* ss, const struct declarator_type* p_declarator_type);
 
 struct type get_function_return_type(struct type* p_type);
 
@@ -192,11 +192,15 @@ bool type_is_enum(struct type* p_type);
 bool type_is_array(struct type* p_type);
 bool type_is_const(struct type* p_type);
 bool type_is_pointer(struct type* p_type);
+bool type_is_nullptr_t(const struct type* p_type);
+bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(struct type* p_type);
 bool type_is_floating_point(struct type* p_type);
-bool type_is_void(struct type* p_type);
+
 bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
+bool type_is_struct_or_union(struct type* p_type);
+bool type_is_void(const struct type* p_type);
 
 struct argument_expression;
 void check_function_argument_and_parameter(struct parser_ctx* ctx,
@@ -225,7 +229,7 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
 struct type type_make_int();
 struct type type_make_size_t();
 struct type type_make_enumerator(struct enum_specifier* enum_specifier);
-
+struct type make_void_type();
 
 void print_declarator_description(struct osstream* ss, struct declarator_type* declarator);
 struct type get_function_return_type(struct type* p_type);
@@ -238,10 +242,10 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
 bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
 struct type type_add_pointer(struct type* p_type);
-void type_print(struct type* a);
+void type_print(const struct type* a);
 bool type_is_scalar(struct type* p_type);
 enum type_category type_get_category(const struct type* p_type);
-void print_type_qualifier_specifiers(struct osstream* ss, struct type* type);
+void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
 void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);
 void declarator_type_clear_name(struct declarator_type* p_declarator_type);
 

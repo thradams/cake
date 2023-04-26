@@ -363,6 +363,20 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
         }
         break;
 
+    case CONDITIONAL_EXPRESSION:
+        if (p_expression->left)
+        {
+            wasm_visit_expression(ctx, p_expression->left);
+        }
+        if (p_expression->right)
+        {
+            wasm_visit_expression(ctx, p_expression->right);
+        }
+        if (p_expression->condition_expr)
+        {
+            wasm_visit_expression(ctx, p_expression->condition_expr);
+        }
+        break;
     case UNARY_EXPRESSION_TRAITS:
     {
 

@@ -18,7 +18,7 @@ void direct_declarator_type_destroy(struct direct_declarator_type* p_direct_decl
 
 }
 
-void function_declarator_type_destroy(struct function_declarator_type* p) 
+void function_declarator_type_destroy(struct function_declarator_type* p)
 {
 }
 
@@ -54,10 +54,10 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
     if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         print_item(ss, first, "long long");
-    
+
     if (e_type_specifier_flags & TYPE_SPECIFIER_INT16)
         print_item(ss, first, "__int16");
-    
+
     if (e_type_specifier_flags & TYPE_SPECIFIER_INT32)
         print_item(ss, first, "__int32");
 
@@ -98,7 +98,7 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 
 void print_direct_declarator_type(struct osstream* ss, struct direct_declarator_type* type);
 
-void print_declarator_type(struct osstream* ss, struct declarator_type* p_declarator_type)
+void print_declarator_type(struct osstream* ss, const struct declarator_type* p_declarator_type)
 {
     if (p_declarator_type == NULL)
     {
@@ -221,7 +221,7 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
 
 }
 
-void print_type_qualifier_specifiers(struct osstream* ss, struct type* type)
+void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type)
 {
     bool first = true;
     print_type_qualifier_flags(ss, &first, type->type_qualifier_flags);
@@ -408,13 +408,13 @@ struct type type_convert_to(struct type* p_type, enum language_version target)
     return t;
 }
 
-void print_type(struct osstream* ss, struct type* type)
+void print_type(struct osstream* ss, const struct type* type)
 {
     print_type_qualifier_specifiers(ss, type);
     print_declarator_type(ss, type->declarator_type);// type->declarator_name_opt);
 }
 
-void type_print(struct type* a) {
+void type_print(const struct type* a) {
     struct osstream ss = { 0 };
     print_type(&ss, a);
     puts(ss.c_str);
@@ -664,7 +664,7 @@ bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
 
 /*used to get arguments from function or function pointer*/
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type)
-{ 
+{
     struct direct_declarator_type* p_direct_declarator_type =
         find_inner_function(p_type);
     if (p_direct_declarator_type)
@@ -737,6 +737,53 @@ bool type_is_const(struct type* p_type)
     return false;
 }
 
+bool direct_declarator_type_is_empty(struct direct_declarator_type* p_direct_declarator_type_opt)
+{
+    if (p_direct_declarator_type_opt == NULL)
+        return true;
+
+    return
+        p_direct_declarator_type_opt->array_declarator_type == NULL &&
+        p_direct_declarator_type_opt->declarator_opt == NULL &&
+        p_direct_declarator_type_opt->function_declarator_type == NULL;
+}
+
+bool type_is_void_ptr(const struct type* p_type)
+{
+    if (p_type->declarator_type &&
+        p_type->declarator_type->pointers.head &&
+        p_type->declarator_type->pointers.head->next == NULL)
+    {
+        if (direct_declarator_type_is_empty(p_type->declarator_type->direct_declarator_type))
+        {
+            return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
+        }
+    }
+
+    return false;
+}
+
+bool type_is_void(const struct type* p_type)
+{
+    if (p_type->declarator_type == NULL)
+    {
+        return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
+    }
+
+    return false;
+}
+
+bool type_is_nullptr_t(const struct type* p_type)
+{
+    if (p_type->declarator_type == NULL)
+    {
+        return p_type->type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T;
+    }
+
+    return false;
+}
+
+
 bool type_is_pointer(struct type* p_type)
 {
     enum type_category category = type_get_category(p_type);
@@ -778,13 +825,6 @@ bool type_is_bool(struct type* p_type)
         p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL;
 }
 
-bool type_is_void(struct type* p_type)
-{
-    if (type_get_category(p_type) != TYPE_CATEGORY_ITSELF)
-        return false;
-
-    return p_type->type_specifier_flags & TYPE_SPECIFIER_VOID;
-}
 
 /*
  There are three standard floating types, designated as
@@ -892,18 +932,20 @@ bool type_is_compatible(struct type* expression_type, struct type* return_type)
     return true;
 }
 
-void check_function_argument_and_parameter(struct parser_ctx* ctx, 
+void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct argument_expression* current_argument,
     struct type* paramer_type,
     int param_num)
 {
     struct type* argument_type = &current_argument->expression->type;
     bool is_zero = false;
-    if (current_argument->expression->is_constant &&
-        current_argument->expression->constant_value == 0)
+    
+    if (constant_value_is_valid(&current_argument->expression->constant_value) &&
+        constant_value_to_ull(&current_argument->expression->constant_value) == 0)
     {
         is_zero = true;
     }
+
     struct type t1 = { 0 };
     struct type t2 = { 0 };
     /*
@@ -917,7 +959,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 current_argument->expression->first_token,
                 " incompatible types at argument %d", param_num);
         }
-        goto continuation;        
+        goto continuation;
     }
 
     if (type_is_arithmetic(argument_type) && type_is_arithmetic(paramer_type))
@@ -944,9 +986,9 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             goto continuation;
         }
 
-        
+
         //TODO  lvalue
-        
+
         if (type_is_array(paramer_type))
         {
             t2 = type_lvalue_conversion(paramer_type);
@@ -2386,7 +2428,7 @@ struct direct_declarator_type* direct_declarator_type_find_inner_function(struct
                 }
                 return p;
             }
-            
+
             return p_direct_declarator_type;
         }
         return NULL;
@@ -2407,7 +2449,7 @@ struct type get_function_return_type(struct type* p_type)
 
     struct direct_declarator_type* p_direct_declarator_type =
         find_inner_function(&r);
-    
+
     if (p_direct_declarator_type)
     {
         /*lets delete the function part*/
@@ -2452,6 +2494,13 @@ struct type type_make_size_t()
     return t;
 }
 
+struct type make_void_type()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_VOID;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
 struct type type_make_int()
 {
     struct type t = { 0 };
@@ -2548,30 +2597,6 @@ bool type_list_is_same(struct params* a, struct params* b)
 
 
 bool declarator_type_is_same(struct declarator_type* a, struct declarator_type* b, bool compare_qualifiers);
-
-bool direct_declarator_type_is_empty(struct direct_declarator_type* a)
-{
-    if (a == NULL)
-        return true;
-
-    if (a->declarator_opt != NULL)
-    {
-        return false;
-    }
-
-    if (a->array_declarator_type != NULL)
-    {
-        return false;
-    }
-
-    if (a->function_declarator_type != NULL)
-    {
-        return false;
-    }
-
-    return true;
-}
-
 
 
 bool array_declarator_type_is_same(struct array_declarator_type* a, struct array_declarator_type* b)

@@ -73,6 +73,8 @@ enum expression_type
     INCLUSIVE_AND_EXPRESSION,
     LOGICAL_OR_EXPRESSION,
     ASSIGNMENT_EXPRESSION,
+
+    CONDITIONAL_EXPRESSION,
 };
 
 struct argument_expression_list
@@ -143,15 +145,37 @@ struct generic_selection
     struct token* last_token;
 };
 
+struct constant_value {
+    enum {
+        type_not_constant,
+        type_long_long,
+        type_double,
+        type_unsigned_long_long
+    } type;
+    union {
+        unsigned long long ullvalue;
+        long long llvalue;
+        double dvalue;
+    };
+};
+
+struct constant_value make_constant_value_double(double d);
+struct constant_value make_constant_value_ull(unsigned long long d);
+struct constant_value make_constant_value_ll(long long d);
+struct constant_value constant_value_op(const struct constant_value* a, const  struct constant_value* b, int op);
+unsigned long long constant_value_to_ull(const struct constant_value* a);
+long long constant_value_to_ll(const struct constant_value* a);
+long long constant_value_to_ll(const struct constant_value* a);
+bool constant_value_to_bool(const struct constant_value* a);
+bool constant_value_is_valid(const struct constant_value* a);
+
 struct expression
 {
     enum expression_type expression_type;
     struct type type;
 
+    struct constant_value constant_value;
 
-    bool is_constant; /*if true we can read*/
-    long long constant_value;
-    unsigned long long constant_ull_value;
     bool is_void_type_expression;
 
     struct type_name* type_name; 
@@ -172,7 +196,7 @@ struct expression
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
-    
+    struct expression* condition_expr;
     struct expression* left;
     struct expression* right;
 };

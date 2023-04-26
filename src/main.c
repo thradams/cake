@@ -85,7 +85,7 @@ int main(int argc, char** argv)
 	compile(argc, argv, &report);
 
 
-	return report.error_count > 0;
+ 	return report.error_count > 0;
 }
 #else
 #include "unit_test.c"

@@ -3160,7 +3160,7 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
     {
         parser_match(ctx);
         p_enumerator->constant_expression_opt = constant_expression(ctx);
-        p_enumerator->value = p_enumerator->constant_expression_opt->constant_value;
+        p_enumerator->value = constant_value_to_ll(&p_enumerator->constant_expression_opt->constant_value);
     }
 
     return p_enumerator;
@@ -3459,7 +3459,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             p_array_declarator->assignment_expression = assignment_expression(ctx);
             if (p_array_declarator->assignment_expression == NULL) throw;
 
-            p_array_declarator->constant_size = p_array_declarator->assignment_expression->constant_value;
+            p_array_declarator->constant_size = constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
         }
         else
         {
@@ -3474,7 +3474,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
                 p_array_declarator->assignment_expression = assignment_expression(ctx);
                 if (p_array_declarator->assignment_expression == NULL) throw;
 
-                p_array_declarator->constant_size = p_array_declarator->assignment_expression->constant_value;
+                p_array_declarator->constant_size = constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
             }
             else
             {
@@ -4089,7 +4089,7 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         */
         if (!p_static_assert_declaration->evaluated_at_caller)
         {
-            if (p_static_assert_declaration->constant_expression->constant_value == 0)
+            if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
             {
                 if (p_static_assert_declaration->string_literal_opt)
                 {
@@ -4781,7 +4781,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
 
         p_selection_statement->expression = expression(ctx);
 
-        if (p_selection_statement->expression->is_constant)
+        if (constant_value_is_valid(&p_selection_statement->expression->constant_value))
         {
             //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
         }

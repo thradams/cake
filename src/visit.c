@@ -757,7 +757,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
             char buffer[30] = { 0 };
-            snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
+            snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
             token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l3);
@@ -806,7 +806,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
 
             char buffer[30] = { 0 };
-            snprintf(buffer, sizeof buffer, "%lld", p_expression->constant_value);
+            snprintf(buffer, sizeof buffer, "%llu", constant_value_to_ull(&p_expression->constant_value));
 
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
@@ -857,7 +857,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l2 = { 0 };
 
-            if (p_expression->constant_value)
+            if (constant_value_to_bool(&p_expression->constant_value))
                 l2 = tokenizer(&tctx, "1", NULL, 0, TK_FLAG_NONE);
             else
                 l2 = tokenizer(&tctx, "0", NULL, 0, TK_FLAG_NONE);
@@ -878,6 +878,23 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
     case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
+        break;
+
+    case CONDITIONAL_EXPRESSION:
+        if (p_expression->condition_expr)
+        {
+            visit_expression(ctx, p_expression->condition_expr);
+        }
+
+        if (p_expression->left)
+        {
+            visit_expression(ctx, p_expression->left);
+        }
+        if (p_expression->right)
+        {
+            visit_expression(ctx, p_expression->right);
+        }
+        
         break;
 
     default:

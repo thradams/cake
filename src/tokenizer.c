@@ -1021,7 +1021,7 @@ int get_char_type(const char* s)
 {
     if (s[0] == 'L')
         return 2; /*wchar*/
-    
+
     return 1;
 }
 
@@ -1034,9 +1034,6 @@ int string_literal_byte_size(const char* s)
     stream.line = 1;
     stream.col = 1;
 
-    const char* start = stream.current;
-    int start_line = stream.line;
-    int start_col = stream.col;
 
     int size = 0;
     int charsize = sizeof(char);
@@ -3100,74 +3097,70 @@ struct token_list replace_vaopt(struct preprocessor_ctx* ctx, struct token_list*
     behaves as if defined as:
     */
     struct token_list r = { 0 };
-    try
+
+    while (input_list->head)
     {
-        while (input_list->head)
+        if (input_list->head->type == TK_IDENTIFIER &&
+            strcmp(input_list->head->lexeme, "__VA_OPT__") == 0)
         {
-            if (input_list->head->type == TK_IDENTIFIER &&
-                strcmp(input_list->head->lexeme, "__VA_OPT__") == 0)
+            //int flags = input_list->head->flags;
+            token_list_pop_front(input_list);
+            token_list_pop_front(input_list);
+
+            if (bvaargs_was_empty)
             {
-                //int flags = input_list->head->flags;
-                token_list_pop_front(input_list);
-                token_list_pop_front(input_list);
-
-                if (bvaargs_was_empty)
+                //remove tudo
+                int count = 1;
+                for (; input_list->head;)
                 {
-                    //remove tudo
-                    int count = 1;
-                    for (; input_list->head;)
+                    if (input_list->head->type == '(')
                     {
-                        if (input_list->head->type == '(')
-                        {
-                            token_list_pop_front(input_list);
-                            count++;
-                        }
-                        else if (input_list->head->type == ')')
-                        {
-                            count--;
-                            token_list_pop_front(input_list);
-                            if (count == 0)
-                                break;
-                        }
-                        else
-                            token_list_pop_front(input_list);
+                        token_list_pop_front(input_list);
+                        count++;
                     }
-                }
-                else
-                {
-                    int count = 1;
-                    for (; input_list->head;)
+                    else if (input_list->head->type == ')')
                     {
-                        if (input_list->head->type == '(')
-                        {
-                            prematch(&r, input_list);
-                            count++;
-                        }
-                        else if (input_list->head->type == ')')
-                        {
-                            count--;
-
-                            if (count == 0)
-                            {
-                                token_list_pop_front(input_list);
-                                break;
-                            }
-                            prematch(&r, input_list);
-                        }
-                        else
-                            prematch(&r, input_list);
+                        count--;
+                        token_list_pop_front(input_list);
+                        if (count == 0)
+                            break;
                     }
+                    else
+                        token_list_pop_front(input_list);
                 }
             }
             else
             {
-                prematch(&r, input_list);
+                int count = 1;
+                for (; input_list->head;)
+                {
+                    if (input_list->head->type == '(')
+                    {
+                        prematch(&r, input_list);
+                        count++;
+                    }
+                    else if (input_list->head->type == ')')
+                    {
+                        count--;
+
+                        if (count == 0)
+                        {
+                            token_list_pop_front(input_list);
+                            break;
+                        }
+                        prematch(&r, input_list);
+                    }
+                    else
+                        prematch(&r, input_list);
+                }
             }
         }
+        else
+        {
+            prematch(&r, input_list);
+        }
     }
-    catch
-    {
-    }
+
     return r;
 }
 struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments)
@@ -4497,16 +4490,16 @@ static bool is_screaming_case(const char* text)
 
 void print_all_macros(struct preprocessor_ctx* prectx)
 {
-    for (int i = 0; i < prectx->macros.capacity; i++) 
+    for (int i = 0; i < prectx->macros.capacity; i++)
     {
         struct map_entry* entry = prectx->macros.table[i];
-        if (entry == NULL) continue;            
+        if (entry == NULL) continue;
         struct macro* macro = CONTAINER_OF(entry->p, struct macro, type_id);
         printf("#define %s", macro->name);
         if (macro->is_function)
         {
             printf("(");
-            
+
             struct macro_parameter* parameter = macro->parameters;
             while (parameter)
             {
@@ -4518,16 +4511,16 @@ void print_all_macros(struct preprocessor_ctx* prectx)
             printf(")");
         }
         printf(" ");
-        
+
         struct token* token = macro->replacement_list.head;
         while (token)
         {
             printf("%s", token->lexeme);
-            
+
             if (token == macro->replacement_list.tail)
                 break;
 
-            token = token->next;            
+            token = token->next;
         }
         printf("\n");
     }
