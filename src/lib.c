@@ -8535,7 +8535,12 @@ bool type_is_floating_point(struct type* p_type);
 bool type_is_void(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
-bool check_function_argument_and_parameter(struct argument_expression*, struct type* b, int param_num);
+
+struct argument_expression;
+void check_function_argument_and_parameter(struct parser_ctx* ctx,
+    struct argument_expression* current_argument,
+    struct type* paramer_type,
+    int param_num);
 bool type_is_function_or_function_pointer(struct type* p_type);
 bool type_is_function(struct type* p_type);
 bool type_is_nodiscard(struct type* p_type);
@@ -14429,11 +14434,11 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     int param_num)
 {
     struct type* argument_type = &current_argument->expression->type;
-    bool bIsZero = false;
+    bool is_zero = false;
     if (current_argument->expression->is_constant &&
         current_argument->expression->constant_value == 0)
     {
-        bIsZero = true;
+        is_zero = true;
     }
     struct type t1 = { 0 };
     struct type t2 = { 0 };
@@ -14456,7 +14461,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         goto continuation;
     }
 
-    if (bIsZero && type_is_pointer_or_array(paramer_type))
+    if (is_zero && type_is_pointer_or_array(paramer_type))
     {
         goto continuation;
     }

@@ -197,7 +197,12 @@ bool type_is_floating_point(struct type* p_type);
 bool type_is_void(struct type* p_type);
 bool type_is_arithmetic(struct type* p_type);
 bool type_is_compatible(struct type* a, struct type* b);
-bool check_function_argument_and_parameter(struct argument_expression*, struct type* b, int param_num);
+
+struct argument_expression;
+void check_function_argument_and_parameter(struct parser_ctx* ctx,
+    struct argument_expression* current_argument,
+    struct type* paramer_type,
+    int param_num);
 bool type_is_function_or_function_pointer(struct type* p_type);
 bool type_is_function(struct type* p_type);
 bool type_is_nodiscard(struct type* p_type);
