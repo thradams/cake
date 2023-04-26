@@ -608,6 +608,9 @@ sample["C23 constexpr"] =
   Just parsed and constexpr is removed.  
 */
 constexpr int i = 1;
+
+/*floating point now works in constant expressions*/
+static_assert(2.0 == 2.0);
 `;
 
 sample["C23 enum"] =
