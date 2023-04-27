@@ -80,8 +80,6 @@ enum type_specifier_flags
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
     TYPE_SPECIFIER_NULLPTR_T = 1 << 24,    
-
-    TYPE_SPECIFIER_TYPE = 1 << 25 /*extension type-name like (typeof(a)) */
 };
 
 enum type_qualifier_flags
@@ -195,7 +193,6 @@ bool type_is_array(const struct type * p_type);
 bool type_is_const(const struct type * p_type);
 bool type_is_pointer(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
-bool type_is_type(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);

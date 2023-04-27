@@ -146,8 +146,9 @@ struct generic_selection
 };
 
 struct constant_value {
-    enum {
+    enum {        
         type_not_constant,
+        type_empty,
         type_long_long,
         type_double,
         type_unsigned_long_long

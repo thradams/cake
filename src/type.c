@@ -773,15 +773,7 @@ bool type_is_void(const struct type* p_type)
     return false;
 }
 
-bool type_is_type(const struct type* p_type)
-{
-    /*
-      extension, especial type of expression type-name without value 
-      like (int) or (typeof(a))
-    */
-    
-    return p_type->type_specifier_flags & TYPE_SPECIFIER_TYPE;    
-}
+
 
 bool type_is_nullptr_t(const struct type* p_type)
 {

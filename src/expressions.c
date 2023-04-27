@@ -54,7 +54,8 @@ double constant_value_to_double(const struct constant_value* a)
 
 bool constant_value_is_valid(const struct constant_value* a)
 {
-    return a->type != type_not_constant;
+    return a->type != type_not_constant &&
+           a->type != type_empty;
 }
 
 unsigned long long constant_value_to_ull(const struct constant_value* a)
@@ -94,7 +95,7 @@ bool constant_value_to_bool(const struct constant_value* a)
 struct constant_value constant_value_unary_op(const struct constant_value* a, int op)
 {
     struct constant_value r = { 0 };
-    if (a->type == type_not_constant)
+    if (!constant_value_is_valid(&a))
     {
         return r;
     }
@@ -153,7 +154,7 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
 {
     //TODO https://github.com/thradams/checkedints
     struct constant_value r = { 0 };
-    if (a->type == type_not_constant || b->type == type_not_constant)
+    if (!constant_value_is_valid(&a) || !constant_value_is_valid(&b))
     {
         return r;
     }
@@ -1927,7 +1928,7 @@ struct expression* cast_expression(struct parser_ctx* ctx)
             else
             {
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);                
-                p_expression_node->type.type_specifier_flags |= TYPE_SPECIFIER_TYPE;
+                p_expression_node->constant_value.type = type_empty;
             }
         }
         else if (is_first_of_unary_expression(ctx))
@@ -2475,7 +2476,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                 new_expression->constant_value =
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '==');
 
-                if (type_is_type(&new_expression->left->type) || type_is_type(&new_expression->right->type))
+                if (&new_expression->left->constant_value.type == type_empty ||
+                    &new_expression->right->constant_value.type == type_empty)
                 {
                     new_expression->constant_value =
                         make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
@@ -2489,7 +2491,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
 
 
-                if (type_is_type(&new_expression->left->type) || type_is_type(&new_expression->right->type))
+                if (&new_expression->left->constant_value.type == type_empty ||
+                    &new_expression->right->constant_value.type == type_empty) 
                 {
                     new_expression->constant_value = make_constant_value_ll
                     (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));
