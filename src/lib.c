@@ -10181,7 +10181,13 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         case '+':r.dvalue = va + vb;  break;
         case '-':r.dvalue = va - vb;  break;
         case '*':r.dvalue = va * vb;  break;
-        case '/':r.dvalue = va / vb;  break;
+        case '/':
+            if (vb != 0)
+                r.dvalue = va / vb;
+            else
+                r.type = type_not_constant;
+            break;
+
             //case '%':r.dvalue = va % vb;  break;
 
                 //Relational Operators
@@ -10223,8 +10229,19 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         case '+':r.ullvalue = va + vb;  break;
         case '-':r.ullvalue = va - vb;  break;
         case '*':r.ullvalue = va * vb;  break;
-        case '/':r.ullvalue = va / vb;  break;
-        case '%':r.ullvalue = va % vb;  break;
+        case '/':
+            if (vb != 0)
+                r.ullvalue = va / vb;
+            else
+                r.type = type_not_constant;
+            break;
+
+        case '%':
+            if (vb != 0)
+                r.ullvalue = va % vb;
+            else
+                r.type = type_not_constant;
+            break;
 
             //Relational Operators
         case '==':r.ullvalue = va == vb;  break;
@@ -10262,8 +10279,20 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
     case '+':r.llvalue = va + vb;  break;
     case '-':r.llvalue = va - vb;  break;
     case '*':r.llvalue = va * vb;  break;
-    case '/':r.llvalue = va / vb;  break;
-    case '%':r.llvalue = va % vb;  break;
+
+    case '/':
+        if (vb != 0)
+            r.llvalue = va / vb;
+        else
+            r.type = type_not_constant;
+        break;
+
+    case '%':
+        if (vb != 0)
+            r.llvalue = va % vb;
+        else
+            r.type = type_not_constant;
+        break;
 
         //Relational Operators
     case '==':r.llvalue = va == vb;  break;
@@ -11994,9 +12023,11 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                 new_expression->constant_value =
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '/');
 
-                //TODO
-                //parser_seterror_with_token(ctx, ctx->current, "divizion by zero");
-
+                if (constant_value_is_valid(&new_expression->right->constant_value) &&
+                    constant_value_to_ll(&new_expression->right->constant_value) == 0)
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "divizion by zero");
+                }
 
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
@@ -12022,11 +12053,17 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                 {
                     parser_seterror_with_token(ctx, ctx->current, "right is not integer");
                 }
+
+                if (constant_value_is_valid(&new_expression->right->constant_value) &&
+                    constant_value_to_ll(&new_expression->right->constant_value) == 0)
+                {
+                    parser_seterror_with_token(ctx, ctx->current, "divizion by zero");
+                }
             }
 
             new_expression->constant_value =
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
-            //TODO division 0
+
 
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
@@ -23304,6 +23341,20 @@ void test_compiler_constant_expression()
 
     assert(compile_without_errors(source));
 }
+
+
+void zerodiv()
+{
+    const char* source =
+        "int main()"
+        "{"
+        "  int a = 2/0;\n"
+        "}"
+        ;
+
+    assert(compile_with_errors(source));
+}
+
 
 void auto_test()
 {

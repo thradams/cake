@@ -1143,6 +1143,7 @@ Parsed but not implemented.
 
 ```
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
 ### C23 Compound Literals with storage specifier
 

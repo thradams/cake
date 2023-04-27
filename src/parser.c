@@ -6505,6 +6505,20 @@ void test_compiler_constant_expression()
     assert(compile_without_errors(source));
 }
 
+
+void zerodiv()
+{
+    const char* source =
+        "int main()"
+        "{"
+        "  int a = 2/0;\n"
+        "}"
+        ;
+
+    assert(compile_with_errors(source));
+}
+
+
 void auto_test()
 {
     //_is_same has a bug and does not ignore extra ( ) 
