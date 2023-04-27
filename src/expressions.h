@@ -176,8 +176,6 @@ struct expression
 
     struct constant_value constant_value;
 
-    bool is_void_type_expression;
-
     struct type_name* type_name; 
     struct type_name* type_name2; /*is_same*/
     struct braced_initializer* braced_initializer;

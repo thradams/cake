@@ -1509,6 +1509,9 @@ int main()
     
     int t2 = 
        _Generic(a, int: 1, double: 2, default: 0);
+
+    //allowing typeof on this type of value we can create a way to select types in runtim!
+    typeof( 1 ? (int) : (double)) a;
 }
 ```
 

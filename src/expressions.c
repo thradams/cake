@@ -151,6 +151,7 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
 
 struct constant_value constant_value_op(const struct constant_value* a, const struct constant_value* b, int op)
 {
+    //TODO https://github.com/thradams/checkedints
     struct constant_value r = { 0 };
     if (a->type == type_not_constant || b->type == type_not_constant)
     {
@@ -1925,11 +1926,9 @@ struct expression* cast_expression(struct parser_ctx* ctx)
             }
             else
             {
-                p_expression_node->is_void_type_expression = true;
+                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);                
+                p_expression_node->type.type_specifier_flags |= TYPE_SPECIFIER_TYPE;
             }
-            //token_list_destroy(&ctx->type);
-            //ctx->type = r;
-            //print_list(&ctx->type);
         }
         else if (is_first_of_unary_expression(ctx))
         {
@@ -2476,11 +2475,10 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                 new_expression->constant_value =
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '==');
 
-
-
-                if (new_expression->left->is_void_type_expression || new_expression->right->is_void_type_expression)
+                if (type_is_type(&new_expression->left->type) || type_is_type(&new_expression->right->type))
                 {
-                    new_expression->constant_value = make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
+                    new_expression->constant_value =
+                        make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
                 }
             }
             else if (operator_token->type == '!=')
@@ -2491,7 +2489,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
 
 
-                if (new_expression->left->is_void_type_expression || new_expression->right->is_void_type_expression)
+                if (type_is_type(&new_expression->left->type) || type_is_type(&new_expression->right->type))
                 {
                     new_expression->constant_value = make_constant_value_ll
                     (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));
@@ -2968,11 +2966,17 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
             {
                 if (constant_value_to_bool(&p_conditional_expression->condition_expr->constant_value))
                 {
+                    /*this is an extensions.. in constant expression we can mix types!*/
+                    p_conditional_expression->type = type_dup(& p_conditional_expression->left->type);
                     p_conditional_expression->constant_value = p_conditional_expression->left->constant_value;
+                    goto continuation;
                 }
                 else
                 {
+                    /*this is an extensions.. in constant expression we can mix types!*/
+                    p_conditional_expression->type = type_dup(&p_conditional_expression->right->type);
                     p_conditional_expression->constant_value = p_conditional_expression->right->constant_value;
+                    goto continuation;
                 }
             }
 

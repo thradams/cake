@@ -8410,7 +8410,9 @@ enum type_specifier_flags
     
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
-    TYPE_SPECIFIER_NULLPTR_T = 1 << 24    
+    TYPE_SPECIFIER_NULLPTR_T = 1 << 24,    
+
+    TYPE_SPECIFIER_TYPE = 1 << 25 /*extension type-name like (typeof(a)) */
 };
 
 enum type_qualifier_flags
@@ -8524,6 +8526,7 @@ bool type_is_array(const struct type * p_type);
 bool type_is_const(const struct type * p_type);
 bool type_is_pointer(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
+bool type_is_type(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
@@ -8760,8 +8763,6 @@ struct expression
     struct type type;
 
     struct constant_value constant_value;
-
-    bool is_void_type_expression;
 
     struct type_name* type_name; 
     struct type_name* type_name2; /*is_same*/
@@ -10164,6 +10165,7 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
 
 struct constant_value constant_value_op(const struct constant_value* a, const struct constant_value* b, int op)
 {
+    //TODO https://github.com/thradams/checkedints
     struct constant_value r = { 0 };
     if (a->type == type_not_constant || b->type == type_not_constant)
     {
@@ -11938,11 +11940,9 @@ struct expression* cast_expression(struct parser_ctx* ctx)
             }
             else
             {
-                p_expression_node->is_void_type_expression = true;
+                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);                
+                p_expression_node->type.type_specifier_flags |= TYPE_SPECIFIER_TYPE;
             }
-            //token_list_destroy(&ctx->type);
-            //ctx->type = r;
-            //print_list(&ctx->type);
         }
         else if (is_first_of_unary_expression(ctx))
         {
@@ -12489,11 +12489,10 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                 new_expression->constant_value =
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '==');
 
-
-
-                if (new_expression->left->is_void_type_expression || new_expression->right->is_void_type_expression)
+                if (type_is_type(&new_expression->left->type) || type_is_type(&new_expression->right->type))
                 {
-                    new_expression->constant_value = make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
+                    new_expression->constant_value =
+                        make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
                 }
             }
             else if (operator_token->type == '!=')
@@ -12504,7 +12503,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
 
 
-                if (new_expression->left->is_void_type_expression || new_expression->right->is_void_type_expression)
+                if (type_is_type(&new_expression->left->type) || type_is_type(&new_expression->right->type))
                 {
                     new_expression->constant_value = make_constant_value_ll
                     (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));
@@ -12981,11 +12980,17 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
             {
                 if (constant_value_to_bool(&p_conditional_expression->condition_expr->constant_value))
                 {
+                    /*this is an extensions.. in constant expression we can mix types!*/
+                    p_conditional_expression->type = type_dup(& p_conditional_expression->left->type);
                     p_conditional_expression->constant_value = p_conditional_expression->left->constant_value;
+                    goto continuation;
                 }
                 else
                 {
+                    /*this is an extensions.. in constant expression we can mix types!*/
+                    p_conditional_expression->type = type_dup(&p_conditional_expression->right->type);
                     p_conditional_expression->constant_value = p_conditional_expression->right->constant_value;
+                    goto continuation;
                 }
             }
 
@@ -14597,7 +14602,7 @@ bool type_is_nodiscard(const struct type* p_type)
     return type_has_attribute(p_type, STD_ATTRIBUTE_NODISCARD);
 }
 
-bool type_is_destroy(struct type* p_type)
+bool type_is_destroy(const struct type* p_type)
 {
     return type_has_attribute(p_type, CUSTOM_ATTRIBUTE_DESTROY);
 }
@@ -14678,6 +14683,16 @@ bool type_is_void(const struct type* p_type)
     }
 
     return false;
+}
+
+bool type_is_type(const struct type* p_type)
+{
+    /*
+      extension, especial type of expression type-name without value 
+      like (int) or (typeof(a))
+    */
+    
+    return p_type->type_specifier_flags & TYPE_SPECIFIER_TYPE;    
 }
 
 bool type_is_nullptr_t(const struct type* p_type)
@@ -15977,13 +15992,35 @@ struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* c
     {
         return NULL;
     }
+
+    struct direct_declarator_type* p_direct_declarator_type =
+        clone_direct_declarator_to_direct_declarator_type(ctx, p_declarator->direct_declarator);
+
+    if (p_direct_declarator_type->declarator_opt != NULL &&
+        p_declarator->pointer == NULL)
+    {        
+        /*
+          We normalize type removing direct-declarators that are only
+          declarators like
+          (This can be optimized avoid alloc and free)
+          int(((a)));
+        */
+        struct declarator_type* declarator_opt = p_direct_declarator_type->declarator_opt;
+        p_direct_declarator_type->declarator_opt = NULL; /*MOVED*/
+        direct_declarator_type_destroy(p_direct_declarator_type);
+        free(p_direct_declarator_type);
+
+        return declarator_opt;
+    }
+
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
 
     p_declarator_type->pointers = clone_pointer_to_pointer_type_list(p_declarator->pointer);
-    p_declarator_type->direct_declarator_type = clone_direct_declarator_to_direct_declarator_type(ctx, p_declarator->direct_declarator);
+    p_declarator_type->direct_declarator_type = p_direct_declarator_type;
 
     return p_declarator_type;
 }
+
 bool is_empty_declarator_type(struct declarator_type* p_declarator_type)
 {
     return
@@ -23379,6 +23416,26 @@ void function_result_test()
         "static_assert(_Generic(F1(), int (*)(int, int*) : 1));\n"
         "static_assert(_Generic(F2(), int (*)(int, int*) : 1));\n"
         ;
+
+    assert(compile_without_errors(source));
+}
+
+void type_normalization()
+{
+    const char* source =
+        "char ((a1));\n"
+        "char b1;\n"
+        "static_assert((typeof(a1)) == (typeof(b1)));\n"
+        "\n"
+        "char ((a2))[2];\n"
+        "char b2[2];\n"
+        "static_assert((typeof(a2)) == (typeof(b2)));\n"
+        "\n"
+        "char ((a3))(int (a));\n"
+        "char (b3)(int a);\n"
+        "static_assert((typeof(a3)) == (typeof(b3)));\n"
+        ;
+    
 
     assert(compile_without_errors(source));
 }

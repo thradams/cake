@@ -690,7 +690,7 @@ bool type_is_nodiscard(const struct type* p_type)
     return type_has_attribute(p_type, STD_ATTRIBUTE_NODISCARD);
 }
 
-bool type_is_destroy(struct type* p_type)
+bool type_is_destroy(const struct type* p_type)
 {
     return type_has_attribute(p_type, CUSTOM_ATTRIBUTE_DESTROY);
 }
@@ -771,6 +771,16 @@ bool type_is_void(const struct type* p_type)
     }
 
     return false;
+}
+
+bool type_is_type(const struct type* p_type)
+{
+    /*
+      extension, especial type of expression type-name without value 
+      like (int) or (typeof(a))
+    */
+    
+    return p_type->type_specifier_flags & TYPE_SPECIFIER_TYPE;    
 }
 
 bool type_is_nullptr_t(const struct type* p_type)
@@ -2070,13 +2080,35 @@ struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* c
     {
         return NULL;
     }
+
+    struct direct_declarator_type* p_direct_declarator_type =
+        clone_direct_declarator_to_direct_declarator_type(ctx, p_declarator->direct_declarator);
+
+    if (p_direct_declarator_type->declarator_opt != NULL &&
+        p_declarator->pointer == NULL)
+    {        
+        /*
+          We normalize type removing direct-declarators that are only
+          declarators like
+          (This can be optimized avoid alloc and free)
+          int(((a)));
+        */
+        struct declarator_type* declarator_opt = p_direct_declarator_type->declarator_opt;
+        p_direct_declarator_type->declarator_opt = NULL; /*MOVED*/
+        direct_declarator_type_destroy(p_direct_declarator_type);
+        free(p_direct_declarator_type);
+
+        return declarator_opt;
+    }
+
     struct declarator_type* p_declarator_type = calloc(1, sizeof(struct declarator_type));
 
     p_declarator_type->pointers = clone_pointer_to_pointer_type_list(p_declarator->pointer);
-    p_declarator_type->direct_declarator_type = clone_direct_declarator_to_direct_declarator_type(ctx, p_declarator->direct_declarator);
+    p_declarator_type->direct_declarator_type = p_direct_declarator_type;
 
     return p_declarator_type;
 }
+
 bool is_empty_declarator_type(struct declarator_type* p_declarator_type)
 {
     return

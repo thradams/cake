@@ -6545,6 +6545,26 @@ void function_result_test()
     assert(compile_without_errors(source));
 }
 
+void type_normalization()
+{
+    const char* source =
+        "char ((a1));\n"
+        "char b1;\n"
+        "static_assert((typeof(a1)) == (typeof(b1)));\n"
+        "\n"
+        "char ((a2))[2];\n"
+        "char b2[2];\n"
+        "static_assert((typeof(a2)) == (typeof(b2)));\n"
+        "\n"
+        "char ((a3))(int (a));\n"
+        "char (b3)(int a);\n"
+        "static_assert((typeof(a3)) == (typeof(b3)));\n"
+        ;
+    
+
+    assert(compile_without_errors(source));
+}
+
 #endif
 
 
