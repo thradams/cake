@@ -188,31 +188,35 @@ struct type type_remove_pointer(struct type* p_type);
 int get_array_size(struct type* p_type);
 int set_array_size(struct type* p_type, int size);
 
-bool type_is_enum(struct type* p_type);
-bool type_is_array(struct type* p_type);
-bool type_is_const(struct type* p_type);
-bool type_is_pointer(struct type* p_type);
+bool type_is_enum(const struct type * p_type);
+bool type_is_array(const struct type * p_type);
+bool type_is_const(const struct type * p_type);
+bool type_is_pointer(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
-bool type_is_integer(struct type* p_type);
-bool type_is_floating_point(struct type* p_type);
+bool type_is_integer(const struct type* p_type);
+bool type_is_floating_point(const struct type* p_type);
 
-bool type_is_arithmetic(struct type* p_type);
-bool type_is_compatible(struct type* a, struct type* b);
-bool type_is_struct_or_union(struct type* p_type);
+bool type_is_arithmetic(const struct type* p_type);
+bool type_is_compatible(const struct type* a, struct type* b);
+bool type_is_struct_or_union(const struct type* p_type);
 bool type_is_void(const struct type* p_type);
+bool type_is_function_or_function_pointer(const struct type* p_type);
+bool type_is_function(const struct type* p_type);
+bool type_is_nodiscard(const struct type* p_type);
+bool type_is_destroy(const struct type* p_type);
+bool type_is_deprecated(const struct type* p_type);
+bool type_is_maybe_unused(const struct type* p_type);
+bool type_is_pointer_or_array(const struct type* p_type);
+bool type_is_same(const struct type* a, const struct type* b, bool compare_qualifiers);
+bool type_is_scalar(const struct type* p_type);
 
 struct argument_expression;
 void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct argument_expression* current_argument,
     struct type* paramer_type,
     int param_num);
-bool type_is_function_or_function_pointer(struct type* p_type);
-bool type_is_function(struct type* p_type);
-bool type_is_nodiscard(struct type* p_type);
-bool type_is_destroy(struct type* p_type);
-bool type_is_deprecated(struct type* p_type);
-bool type_is_maybe_unused(struct type* p_type);
+
 struct type type_convert_to(struct type* p_type, enum language_version target);
 struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
@@ -233,17 +237,14 @@ struct type make_void_type();
 
 void print_declarator_description(struct osstream* ss, struct declarator_type* declarator);
 struct type get_function_return_type(struct type* p_type);
-bool type_is_pointer_or_array(struct type* p_type);
 int type_get_rank(struct type* p_type1);
 
 int type_get_sizeof(struct type* p_type);
 int type_get_alignof(struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
-bool type_is_same(struct type* a, struct type* b, bool compare_qualifiers);
 struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
 struct type type_add_pointer(struct type* p_type);
 void type_print(const struct type* a);
-bool type_is_scalar(struct type* p_type);
 enum type_category type_get_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
 void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);
