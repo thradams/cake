@@ -2048,7 +2048,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                     if (p_init_declarator->initializer->assignment_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
                     {
-                        t = type_copy(&p_init_declarator->initializer->assignment_expression->type);
+                        t = type_dup(&p_init_declarator->initializer->assignment_expression->type);
                     }
                     else
                     {
@@ -2259,11 +2259,11 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
 
         if (p_typeof_specifier->typeof_specifier_argument->expression)
         {
-            p_typeof_specifier->type = type_copy(&p_typeof_specifier->typeof_specifier_argument->expression->type);
+            p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->expression->type);
         }
         else if (p_typeof_specifier->typeof_specifier_argument->type_name)
         {
-            p_typeof_specifier->type = type_copy(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+            p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
         }
 
         if (p_typeof_specifier->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)

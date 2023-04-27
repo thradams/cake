@@ -174,7 +174,7 @@ struct _destroy type
 
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
-struct type type_copy(struct type* p_type);
+struct type type_dup(const struct type* p_type);
 void type_destroy(_destroy struct type* p_type);
 struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type);
 void debug_print_declarator_type(struct declarator_type* p_declarator_type);

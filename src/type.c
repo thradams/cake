@@ -359,7 +359,7 @@ struct type type_lvalue_conversion(struct type* p_type)
         break;
     }
 
-    struct type t = type_copy(p_type);
+    struct type t = type_dup(p_type);
     type_remove_qualifiers(&t);
     t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
 
@@ -373,7 +373,7 @@ struct type type_convert_to(struct type* p_type, enum language_version target)
     /*
     * Convert types to previous standard format
     */
-    struct type t = type_copy(p_type);
+    struct type t = type_dup(p_type);
     if (t.type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
     {
         if (target < LANGUAGE_C2X)
@@ -461,7 +461,7 @@ struct params params_copy(struct params* input)
     while (p_param_type)
     {
         struct type* par = calloc(1, sizeof * par);
-        *par = type_copy(p_param_type);
+        *par = type_dup(p_param_type);
         LIST_ADD(&r, par);
         p_param_type = p_param_type->next;
     }
@@ -995,7 +995,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         }
         else
         {
-            t2 = type_copy(paramer_type);
+            t2 = type_dup(paramer_type);
         }
 
         if (expression_is_subjected_to_lvalue_conversion(current_argument->expression))
@@ -1004,7 +1004,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         }
         else
         {
-            t1 = type_copy(argument_type);
+            t1 = type_dup(argument_type);
         }
 
 
@@ -1053,7 +1053,7 @@ bool type_is_function_or_function_pointer(struct type* p_type)
 struct type type_add_pointer(struct type* p_type)
 {
     //type_print(p_type);
-    struct type r = type_copy(p_type);
+    struct type r = type_dup(p_type);
     struct declarator_type* p = find_inner_declarator(r.declarator_type);
     if (p == NULL)
     {
@@ -1094,7 +1094,7 @@ struct type type_add_pointer(struct type* p_type)
 
 struct type type_remove_pointer(struct type* p_type)
 {
-    struct type r = type_copy(p_type);
+    struct type r = type_dup(p_type);
     struct declarator_type* p_inner_declarator = find_inner_declarator(r.declarator_type);
     if (p_inner_declarator && p_inner_declarator->pointers.head != NULL)
     {
@@ -1161,7 +1161,7 @@ static void visit_declarator_to_remove_array(int* removed, struct declarator_typ
 struct type get_array_item_type(struct type* p_type)
 {
     assert(type_is_array(p_type));
-    struct type r = type_copy(p_type);
+    struct type r = type_dup(p_type);
     int removed = false;
     visit_declarator_to_remove_array(&removed, r.declarator_type);
     assert(removed);
@@ -1297,9 +1297,9 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
         if (rank_right < 0) throw;
 
         if (rank_left >= rank_right)
-            *out = type_copy(p_type1);
+            *out = type_dup(p_type1);
         else
-            *out = type_copy(p_type2);
+            *out = type_dup(p_type2);
     }
     catch
     {
@@ -1310,7 +1310,7 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
 }
 
 /*retorna uma cópia do tipo*/
-struct type type_copy(struct type* p_type)
+struct type type_dup(const struct type* p_type)
 {
     struct type r = { 0 };
     r.attributes_flags = p_type->attributes_flags;
@@ -2267,13 +2267,13 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         if (pdeclarator->specifier_qualifier_list->typeof_specifier)
         {
-            t = type_copy(&pdeclarator->specifier_qualifier_list->typeof_specifier->type);
+            t = type_dup(&pdeclarator->specifier_qualifier_list->typeof_specifier->type);
             struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
             declarator_type_merge(dectype, t.declarator_type);
         }
         else  if (pdeclarator->specifier_qualifier_list->typedef_declarator)
         {
-            t = type_copy(&pdeclarator->specifier_qualifier_list->typedef_declarator->type);
+            t = type_dup(&pdeclarator->specifier_qualifier_list->typedef_declarator->type);
             struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
             declarator_type_merge(dectype, t.declarator_type);
 
@@ -2291,7 +2291,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         if (pdeclarator->declaration_specifiers->typeof_specifier)
         {
 
-            t = type_copy(&pdeclarator->declaration_specifiers->typeof_specifier->type);
+            t = type_dup(&pdeclarator->declaration_specifiers->typeof_specifier->type);
 
             declarator_type_clear_name(t.declarator_type);
 
@@ -2311,7 +2311,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else if (pdeclarator->declaration_specifiers->typedef_declarator)
         {
-            t = type_copy(&pdeclarator->declaration_specifiers->typedef_declarator->type);
+            t = type_dup(&pdeclarator->declaration_specifiers->typedef_declarator->type);
 
             //t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator);
             struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
@@ -2445,7 +2445,7 @@ struct direct_declarator_type* find_inner_function(struct type* p_type)
 
 struct type get_function_return_type(struct type* p_type)
 {
-    struct type r = type_copy(p_type);
+    struct type r = type_dup(p_type);
 
     struct direct_declarator_type* p_direct_declarator_type =
         find_inner_function(&r);

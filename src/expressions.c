@@ -873,7 +873,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                     p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
                     assert(p_declarator->type.type_specifier_flags != 0);
-                    p_expression_node->type = type_copy(&p_declarator->type);
+                    p_expression_node->type = type_dup(&p_declarator->type);
                 }
             }
             parser_match(ctx);
@@ -990,7 +990,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
 
             if (p_expression_node->generic_selection->p_view_selected_expression)
             {
-                p_expression_node->type = type_copy(&p_expression_node->generic_selection->p_view_selected_expression->type);
+                p_expression_node->type = type_dup(&p_expression_node->generic_selection->p_view_selected_expression->type);
 
                 p_expression_node->constant_value = p_expression_node->generic_selection->p_view_selected_expression->constant_value;
             }
@@ -1229,7 +1229,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
                 p_expression_node_new->left = p_expression_node;
-                p_expression_node_new->type = type_copy(&p_expression_node->type);
+                p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
                 p_expression_node = p_expression_node_new;
             }
@@ -1238,7 +1238,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
                 p_expression_node_new->left = p_expression_node;
-                p_expression_node_new->type = type_copy(&p_expression_node->type);
+                p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
                 p_expression_node = p_expression_node_new;
             }
@@ -1589,7 +1589,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             new_expression->right = unary_expression(ctx);
             if (new_expression->right == NULL) throw;
 
-            new_expression->type = type_copy(&new_expression->right->type);
+            new_expression->type = type_dup(&new_expression->right->type);
             p_expression_node = new_expression;
         }
         else if (ctx->current != NULL &&
@@ -1625,7 +1625,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 new_expression->expression_type = UNARY_EXPRESSION_BITNOT;
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
-                new_expression->type = type_copy(&new_expression->right->type);
+                new_expression->type = type_dup(&new_expression->right->type);
             }
             else if (op == '-')
             {
@@ -1633,7 +1633,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
 
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
-                new_expression->type = type_copy(&new_expression->right->type);
+                new_expression->type = type_dup(&new_expression->right->type);
             }
             else if (op == '+')
             {
@@ -1641,7 +1641,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
 
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
-                new_expression->type = type_copy(&new_expression->right->type);
+                new_expression->type = type_dup(&new_expression->right->type);
             }
             else if (op == '*')
             {
@@ -1899,7 +1899,7 @@ struct expression* cast_expression(struct parser_ctx* ctx)
                 throw;
 
 
-            p_expression_node->type = type_copy(&p_expression_node->type_name->type);
+            p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
             //type_set_int(&ctx->result_type);
             //print_type_name(p_cast_expression->type_name);
@@ -2153,7 +2153,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                             }
                             else
                             {
-                                new_expression->type = type_copy(&new_expression->left->type);
+                                new_expression->type = type_dup(&new_expression->left->type);
                             }
                         }
                         else
@@ -2171,7 +2171,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                             }
                             else
                             {
-                                new_expression->type = type_copy(&new_expression->right->type);
+                                new_expression->type = type_dup(&new_expression->right->type);
                             }
                         }
                         else
@@ -2233,7 +2233,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                             if (type_is_integer(&new_expression->right->type))
                             {
                                 //- the left operand is a pointer to a complete object typeand the right operand has integer type.
-                                new_expression->type = type_copy(&new_expression->left->type);
+                                new_expression->type = type_dup(&new_expression->left->type);
                             }
                             else
                             {
@@ -2863,7 +2863,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
 
 
 
-            new_expression->type = type_copy(&new_expression->right->type);
+            new_expression->type = type_dup(&new_expression->right->type);
 
             p_expression_node = new_expression;
         }
@@ -2906,7 +2906,7 @@ struct expression* expression(struct parser_ctx* ctx)
             if (p_expression_node->right == NULL) throw;
 
             /*same type of the last expression*/
-            p_expression_node->type = type_copy(&p_expression_node->right->type);
+            p_expression_node->type = type_dup(&p_expression_node->right->type);
         }
     }
     catch
@@ -2982,7 +2982,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
             }
             else
             {
-                left_type = type_copy(&p_conditional_expression->left->type);
+                left_type = type_dup(&p_conditional_expression->left->type);
             }
 
             if (expression_is_subjected_to_lvalue_conversion(p_conditional_expression->right))
@@ -2991,7 +2991,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
             }
             else
             {
-                right_type = type_copy(&p_conditional_expression->right->type);
+                right_type = type_dup(&p_conditional_expression->right->type);
             }
 
             /*The first operand shall have scalar type*/
