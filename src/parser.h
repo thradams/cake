@@ -1,4 +1,5 @@
 #pragma once
+
 #include "hashmap.h"
 #include "tokenizer.h"
 #include "expressions.h"
@@ -7,6 +8,8 @@
 #include "type.h"
 #include "options.h"
 #include "annotations.h"
+
+#define CAKE_VERSION "0.5.1"
 
 
 struct _destroy scope

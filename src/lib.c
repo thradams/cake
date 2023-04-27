@@ -8796,6 +8796,9 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 //#pragma once
 
 
+#define CAKE_VERSION "0.5.1"
+
+
 struct _destroy scope
 {
     int scope_level;
@@ -22641,6 +22644,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 /*Função exportada para web*/
 char* CompileText(const char* pszoptions, const char* content)
 {
+    printf(WHITE "Cake " CAKE_VERSION RESET "\n");
     struct report report = { 0 };
     return  (char*)compile_source(pszoptions, content, &report);
 }

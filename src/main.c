@@ -60,17 +60,7 @@ int main(int argc, char** argv)
 {
 	enable_vt_mode();
 	
-	printf("Cake " __DATE__ "\n");
-	
-#ifdef _WIN32
-	printf("Windows ");
-#endif
-#ifdef _MSC_VER
-	printf("MSCVER ");
-#endif
-#ifdef __GNUC__
-	printf("GNUC ");
-#endif
+	printf(WHITE "Cake " CAKE_VERSION RESET "\n");	
 	printf("\n\n");
 	
 

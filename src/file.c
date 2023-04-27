@@ -1,1 +1,1 @@
-static_assert((-1));
+static_assert((int()) == (int));
