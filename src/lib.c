@@ -8516,8 +8516,8 @@ void print_declarator_type(struct osstream* ss, const struct declarator_type* p_
 struct type get_function_return_type(struct type* p_type);
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
-struct type get_array_item_type(struct type* p_type);
-struct type type_remove_pointer(struct type* p_type);
+struct type get_array_item_type(const struct type* p_type);
+struct type type_remove_pointer(const struct type* p_type);
 int type_get_array_size(const struct type* p_type);
 int type_set_array_size(struct type* p_type, int size);
 
@@ -8558,8 +8558,8 @@ void type_swap(struct type* a, struct type* b);
 struct direct_declarator_type* find_inner_function(struct type* p_type);
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
-struct type type_remove_pointer(struct type* p_type);
-struct type get_array_item_type(struct type* p_type);
+struct type type_remove_pointer(const struct type* p_type);
+struct type get_array_item_type(const struct type* p_type);
 
 struct type type_param_array_to_pointer(const struct type* p_type);
 
@@ -12512,8 +12512,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
 
 
-                if (&new_expression->left->constant_value.type == type_empty ||
-                    &new_expression->right->constant_value.type == type_empty) 
+                if (new_expression->left->constant_value.type == type_empty ||
+                    new_expression->right->constant_value.type == type_empty) 
                 {
                     new_expression->constant_value = make_constant_value_ll
                     (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));
@@ -14539,7 +14539,7 @@ void type_destroy(struct type* p_type)
     //TODO
 }
 
-bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
+bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes)
 {
     if (p_type->attributes_flags & attributes)
     {
@@ -15048,7 +15048,7 @@ struct type type_add_pointer(struct type* p_type)
     return r;
 }
 
-struct type type_remove_pointer(struct type* p_type)
+struct type type_remove_pointer(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
     struct declarator_type* p_inner_declarator = find_inner_declarator(r.declarator_type);
@@ -15114,7 +15114,7 @@ static void visit_declarator_to_remove_array(int* removed, struct declarator_typ
 }
 
 
-struct type get_array_item_type(struct type* p_type)
+struct type get_array_item_type(const struct type* p_type)
 {
     assert(type_is_array(p_type));
     struct type r = type_dup(p_type);
@@ -15138,7 +15138,7 @@ struct type type_param_array_to_pointer(const struct type* p_type)
         p_type->declarator_type->direct_declarator_type->array_declarator_type->flags & TYPE_QUALIFIER_CONST)
     {
         //f(int a[const 2])
-        type_add_const(&t2);
+        type_add_const(&t2); 
     }
     t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
     //TODO add [const]

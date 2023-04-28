@@ -2491,8 +2491,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
 
 
-                if (&new_expression->left->constant_value.type == type_empty ||
-                    &new_expression->right->constant_value.type == type_empty) 
+                if (new_expression->left->constant_value.type == type_empty ||
+                    new_expression->right->constant_value.type == type_empty) 
                 {
                     new_expression->constant_value = make_constant_value_ll
                     (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));

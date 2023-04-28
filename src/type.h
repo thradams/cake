@@ -185,8 +185,8 @@ void print_declarator_type(struct osstream* ss, const struct declarator_type* p_
 struct type get_function_return_type(struct type* p_type);
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
-struct type get_array_item_type(struct type* p_type);
-struct type type_remove_pointer(struct type* p_type);
+struct type get_array_item_type(const struct type* p_type);
+struct type type_remove_pointer(const struct type* p_type);
 int type_get_array_size(const struct type* p_type);
 int type_set_array_size(struct type* p_type, int size);
 
@@ -227,8 +227,8 @@ void type_swap(struct type* a, struct type* b);
 struct direct_declarator_type* find_inner_function(struct type* p_type);
 struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
 
-struct type type_remove_pointer(struct type* p_type);
-struct type get_array_item_type(struct type* p_type);
+struct type type_remove_pointer(const struct type* p_type);
+struct type get_array_item_type(const struct type* p_type);
 
 struct type type_param_array_to_pointer(const struct type* p_type);
 

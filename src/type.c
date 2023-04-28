@@ -617,7 +617,7 @@ void type_destroy(struct type* p_type)
     //TODO
 }
 
-bool type_has_attribute(struct type* p_type, enum attribute_flags attributes)
+bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes)
 {
     if (p_type->attributes_flags & attributes)
     {
@@ -1126,7 +1126,7 @@ struct type type_add_pointer(struct type* p_type)
     return r;
 }
 
-struct type type_remove_pointer(struct type* p_type)
+struct type type_remove_pointer(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
     struct declarator_type* p_inner_declarator = find_inner_declarator(r.declarator_type);
@@ -1192,7 +1192,7 @@ static void visit_declarator_to_remove_array(int* removed, struct declarator_typ
 }
 
 
-struct type get_array_item_type(struct type* p_type)
+struct type get_array_item_type(const struct type* p_type)
 {
     assert(type_is_array(p_type));
     struct type r = type_dup(p_type);
