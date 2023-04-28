@@ -10802,10 +10802,10 @@ int convert_to_number(struct token* token, struct expression* p_expression_node)
         p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 2));
         break;
     case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0));
+        p_expression_node->constant_value = make_constant_value_double(strtod(buffer, 0));
         break;
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0));
+        p_expression_node->constant_value = make_constant_value_double(strtod(buffer+2, 0));
         break;
     default:
         assert(false);
@@ -18752,12 +18752,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                     if (!previous_is_function && !previous_is_typedef_or_extern)
                     {
-                        if (!current_is_function && !current_is_function)
-                        {
-                            //See TODO
-                            //parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
-                            //parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
-                        }
+                     
                     }
                 }
                 else

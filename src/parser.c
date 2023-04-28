@@ -1878,12 +1878,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                     if (!previous_is_function && !previous_is_typedef_or_extern)
                     {
-                        if (!current_is_function && !current_is_function)
-                        {
-                            //See TODO
-                            //parser_seterror_with_token(ctx, p_init_declarator->declarator->first_token, "redeclaration of '%s'", name);
-                            //parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
-                        }
+                     
                     }
                 }
                 else

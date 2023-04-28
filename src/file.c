@@ -1,5 +1,1 @@
-
-void F(int a[static const 5])
-{
-    typeof(a) bb;
-}
+int i = 1 / 1000.0;

@@ -781,10 +781,10 @@ int convert_to_number(struct token* token, struct expression* p_expression_node)
         p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 2));
         break;
     case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0));
+        p_expression_node->constant_value = make_constant_value_double(strtod(buffer, 0));
         break;
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0));
+        p_expression_node->constant_value = make_constant_value_double(strtod(buffer+2, 0));
         break;
     default:
         assert(false);
