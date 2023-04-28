@@ -14978,16 +14978,18 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
         if (type_is_pointer(&t1) && type_is_pointer(&t2))
         {
-            struct type t3 = type_remove_pointer(&t1);
-            struct type t4 = type_remove_pointer(&t2);
-            if (type_is_const(&t3) && !type_is_const(&t4))
+            //parameter pointer do non const
+            //argument const.
+            struct type argument_pointer_to = type_remove_pointer(&t1);
+            struct type parameter_pointer_to = type_remove_pointer(&t2);
+            if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
             {
                 parser_seterror_with_token(ctx,
                     current_argument->expression->first_token,
-                    " incompatible types at argument %d", param_num);
+                    " discarding const at argument %d", param_num);
             }
-            type_destroy(&t3);
-            type_destroy(&t4);
+            type_destroy(&argument_pointer_to);
+            type_destroy(&parameter_pointer_to);
         }
         //return true;
     }
@@ -16207,8 +16209,6 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     if (pdeclarator->specifier_qualifier_list)
     {
 
-
-
         if (pdeclarator->specifier_qualifier_list->typeof_specifier)
         {
             t = type_dup(&pdeclarator->specifier_qualifier_list->typeof_specifier->type);
@@ -16243,7 +16243,6 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             if (t.declarator_type != NULL) /*expression it may be null*/
             {
-
                 declarator_type_merge(dectype, t.declarator_type);
             }
             else
@@ -16255,11 +16254,17 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else if (pdeclarator->declaration_specifiers->typedef_declarator)
         {
+            
+            bool is_const = pdeclarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+
             t = type_dup(&pdeclarator->declaration_specifiers->typedef_declarator->type);
 
             //t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator);
             struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
             declarator_type_merge(dectype, t.declarator_type);
+
+           if (is_const)
+               type_add_const(&t);
 
             //type_set_qualifiers_using_declarator(&t, pdeclarator->declaration_specifiers->typedef_declarator);
             //type_set_specifiers_using_declarator(ctx, &t, pdeclarator->declaration_specifiers->typedef_declarator);

@@ -1,6 +1,8 @@
-struct X { int i; };
-void f(struct X* p) {}
-int main() {
-    const struct X* p;
-    f(p);
+
+typedef unsigned char u8;
+
+int main()
+{
+    const u8 p;
+    static_assert((typeof(p)) == (const unsigned char));
 }

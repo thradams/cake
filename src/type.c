@@ -2284,8 +2284,6 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     if (pdeclarator->specifier_qualifier_list)
     {
 
-
-
         if (pdeclarator->specifier_qualifier_list->typeof_specifier)
         {
             t = type_dup(&pdeclarator->specifier_qualifier_list->typeof_specifier->type);
@@ -2320,7 +2318,6 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
             if (t.declarator_type != NULL) /*expression it may be null*/
             {
-
                 declarator_type_merge(dectype, t.declarator_type);
             }
             else
@@ -2332,11 +2329,17 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         }
         else if (pdeclarator->declaration_specifiers->typedef_declarator)
         {
+            
+            bool is_const = pdeclarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+
             t = type_dup(&pdeclarator->declaration_specifiers->typedef_declarator->type);
 
             //t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator->declaration_specifiers->typeof_specifier->typeof_specifier_argument->type_name->declarator);
             struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, pdeclarator);
             declarator_type_merge(dectype, t.declarator_type);
+
+           if (is_const)
+               type_add_const(&t);
 
             //type_set_qualifiers_using_declarator(&t, pdeclarator->declaration_specifiers->typedef_declarator);
             //type_set_specifiers_using_declarator(ctx, &t, pdeclarator->declaration_specifiers->typedef_declarator);
