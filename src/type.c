@@ -1041,7 +1041,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             t1 = type_dup(argument_type);
         }
 
-
+        
         if (!type_is_same(&t1, &t2, false))
         {
             //type_print(&t1);
@@ -1052,6 +1052,22 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 " incompatible types at argument %d", param_num);
             //disabled for now util it works correctly
             //return false;
+        }
+
+        if (type_is_pointer(&t1) && type_is_pointer(&t2))
+        {
+            //parameter pointer do non const
+            //argument const.
+            struct type argument_pointer_to = type_remove_pointer(&t1);
+            struct type parameter_pointer_to = type_remove_pointer(&t2);
+            if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
+            {
+                parser_seterror_with_token(ctx,
+                    current_argument->expression->first_token,
+                    " discarding const at argument %d", param_num);
+            }
+            type_destroy(&argument_pointer_to);
+            type_destroy(&parameter_pointer_to);
         }
         //return true;
     }
