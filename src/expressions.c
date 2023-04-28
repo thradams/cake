@@ -95,7 +95,7 @@ bool constant_value_to_bool(const struct constant_value* a)
 struct constant_value constant_value_unary_op(const struct constant_value* a, int op)
 {
     struct constant_value r = { 0 };
-    if (!constant_value_is_valid(&a))
+    if (!constant_value_is_valid(a))
     {
         return r;
     }
@@ -154,7 +154,7 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
 {
     //TODO https://github.com/thradams/checkedints
     struct constant_value r = { 0 };
-    if (!constant_value_is_valid(&a) || !constant_value_is_valid(&b))
+    if (!constant_value_is_valid(a) || !constant_value_is_valid(b))
     {
         return r;
     }
@@ -2476,8 +2476,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                 new_expression->constant_value =
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '==');
 
-                if (&new_expression->left->constant_value.type == type_empty ||
-                    &new_expression->right->constant_value.type == type_empty)
+                if (new_expression->left->constant_value.type == type_empty ||
+                    new_expression->right->constant_value.type == type_empty)
                 {
                     new_expression->constant_value =
                         make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
