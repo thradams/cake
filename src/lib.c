@@ -15829,7 +15829,7 @@ void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator
     }
 }
 
-void type_set_specifiers_using_declarator(struct parser_ctx* ctx, struct type* p_type, struct declarator* pdeclarator)
+void type_set_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -16212,7 +16212,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         {
             type_set_attributes(&t, pdeclarator);
             type_set_qualifiers_using_declarator(&t, pdeclarator);
-            type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
+            type_set_specifiers_using_declarator(&t, pdeclarator);
             t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
         }
     }
@@ -16260,7 +16260,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         {
             type_set_attributes(&t, pdeclarator);
             type_set_qualifiers_using_declarator(&t, pdeclarator);
-            type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
+            type_set_specifiers_using_declarator(&t, pdeclarator);
             t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
         }
     }
@@ -16277,7 +16277,7 @@ struct type make_type_using_declarator_do_not_expand(struct parser_ctx* ctx, str
     struct type t = { 0 };
     memset(&t, 0, sizeof t);
     type_set_qualifiers_using_declarator(&t, pdeclarator);
-    type_set_specifiers_using_declarator(ctx, &t, pdeclarator);
+    type_set_specifiers_using_declarator(&t, pdeclarator);
     type_set_attributes(&t, pdeclarator);
     t.declarator_type = clone_declarator_to_declarator_type(ctx, pdeclarator);
     t.category = type_get_category_core(&t);
