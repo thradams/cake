@@ -121,6 +121,8 @@ struct array_declarator_type
     */
     struct direct_declarator_type* direct_declarator_type;
     unsigned long long constant_size;
+    enum type_qualifier_flags flags;
+    bool has_static;
 };
 
 void array_declarator_type_delete(struct array_declarator_type* p);
@@ -185,8 +187,8 @@ struct type get_function_return_type(struct type* p_type);
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
 struct type get_array_item_type(struct type* p_type);
 struct type type_remove_pointer(struct type* p_type);
-int get_array_size(struct type* p_type);
-int set_array_size(struct type* p_type, int size);
+int type_get_array_size(const struct type* p_type);
+int type_set_array_size(struct type* p_type, int size);
 
 bool type_is_enum(const struct type * p_type);
 bool type_is_array(const struct type * p_type);

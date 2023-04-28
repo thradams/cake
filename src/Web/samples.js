@@ -23,6 +23,31 @@ const double dmin = 0x1p-1022;
 */
 `;
 
+sample["C99 (int a[static])"] =
+`
+#include <stdlib.h>
+
+void F(int a[static 5]) 
+{
+}
+
+int main() {
+    
+    F(0);
+    F(NULL);
+    F(nullptr);
+
+    int a[] = {1, 2, 3};    
+    F(a);
+    
+    int b[] = { 1, 2, 3 , 4, 5};
+    F(b);
+
+    int c[] = { 1, 2, 3 , 4, 5, 6};
+    F(c);
+}
+
+`;
 
 
 sample["C11 _Generic"] =

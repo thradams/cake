@@ -154,14 +154,34 @@ struct s {
 ### C99 static and type qualifiers in parameter array declarators
 
 ```c
-void F1(int a[static 5]){}
-```
+#include <stdlib.h>
 
-Becomes in C89
+void F(int a[static 5]) 
+{
+}
 
-```c
-void F1(int a[5]){}
+int main() {
+    
+    F(0);
+    F(NULL);
+    F(nullptr);
+
+    int a[] = {1, 2, 3};    
+    F(a);//error
+    
+    int b[] = { 1, 2, 3 , 4, 5};
+    F(b); 
+
+    int c[] = { 1, 2, 3 , 4, 5, 6};
+    F(c);
+}
+
+
 ```
+'static' is removed when target is < c99.
+
+Cakes verifies that the argument is an array of with equal or more elements.
+Cakes extend this check for arrays without static as well.
 
 ### C99 Complex and imaginary support
 TODO

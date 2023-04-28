@@ -376,13 +376,35 @@ int main() {
 
 <h3 id="toc_6">C99 static and type qualifiers in parameter array declarators</h3>
 
-<pre><code class="language-c">void F1(int a[static 5]){}
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
+
+void F(int a[static 5]) 
+{
+}
+
+int main() {
+    
+    F(0);
+    F(NULL);
+    F(nullptr);
+
+    int a[] = {1, 2, 3};    
+    F(a);//error
+    
+    int b[] = { 1, 2, 3 , 4, 5};
+    F(b); 
+
+    int c[] = { 1, 2, 3 , 4, 5, 6};
+    F(c);
+}
+
+
 </code></pre>
 
-<p>Becomes in C89</p>
+<p>&#39;static&#39; is removed when target is &lt; c99.</p>
 
-<pre><code class="language-c">void F1(int a[5]){}
-</code></pre>
+<p>Cakes verifies that the argument is an array of with equal or more elements.
+Cakes extend this check for arrays without static as well.</p>
 
 <h3 id="toc_7">C99 Complex and imaginary support</h3>
 

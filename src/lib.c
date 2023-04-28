@@ -8452,6 +8452,8 @@ struct array_declarator_type
     */
     struct direct_declarator_type* direct_declarator_type;
     unsigned long long constant_size;
+    enum type_qualifier_flags flags;
+    bool has_static;
 };
 
 void array_declarator_type_delete(struct array_declarator_type* p);
@@ -8516,8 +8518,8 @@ struct type get_function_return_type(struct type* p_type);
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
 struct type get_array_item_type(struct type* p_type);
 struct type type_remove_pointer(struct type* p_type);
-int get_array_size(struct type* p_type);
-int set_array_size(struct type* p_type, int size);
+int type_get_array_size(const struct type* p_type);
+int type_set_array_size(struct type* p_type, int size);
 
 bool type_is_enum(const struct type * p_type);
 bool type_is_array(const struct type * p_type);
@@ -14614,13 +14616,13 @@ bool type_is_destroy(const struct type* p_type)
     return type_has_attribute(p_type, CUSTOM_ATTRIBUTE_DESTROY);
 }
 
-bool type_is_array(const struct type * p_type)
+bool type_is_array(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
 
-bool type_is_const(const struct type * p_type)
+bool type_is_const(const struct type* p_type)
 {
     enum type_category category = type_get_category(p_type);
     switch (category)
@@ -14717,7 +14719,7 @@ bool type_is_pointer(const struct type* p_type)
 }
 
 
-bool type_is_enum(const struct type * p_type)
+bool type_is_enum(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
         p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM;
@@ -14859,12 +14861,13 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     int param_num)
 {
     struct type* argument_type = &current_argument->expression->type;
-    bool is_zero = false;
-    
-    if (constant_value_is_valid(&current_argument->expression->constant_value) &&
-        constant_value_to_ull(&current_argument->expression->constant_value) == 0)
+    bool is_null_pointer_constant = false;
+
+    if (type_is_nullptr_t(&current_argument->expression->type) ||
+        (constant_value_is_valid(&current_argument->expression->constant_value) &&
+            constant_value_to_ull(&current_argument->expression->constant_value) == 0))
     {
-        is_zero = true;
+        is_null_pointer_constant = true;
     }
 
     struct type t1 = { 0 };
@@ -14888,8 +14891,18 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         goto continuation;
     }
 
-    if (is_zero && type_is_pointer_or_array(paramer_type))
+    if (is_null_pointer_constant && type_is_pointer(paramer_type))
     {
+        /*can be converted to any type*/
+        goto continuation;
+    }
+
+    if (is_null_pointer_constant && type_is_array(paramer_type))
+    {
+        parser_setwarning_with_token(ctx,
+            current_argument->expression->first_token,
+            " passing null as array");
+
         goto continuation;
     }
 
@@ -14912,6 +14925,24 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
         if (type_is_array(paramer_type))
         {
+            int parameter_array_size = type_get_array_size(paramer_type);
+            if (type_is_array(argument_type))
+            {
+                int argument_array_size = type_get_array_size(argument_type);
+                if (parameter_array_size != 0 &&
+                    argument_array_size < parameter_array_size)
+                {
+                    parser_seterror_with_token(ctx,
+                        current_argument->expression->first_token,
+                        " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
+                }
+            }
+            else if (is_null_pointer_constant || type_is_nullptr_t(argument_type))
+            {
+                parser_seterror_with_token(ctx,
+                    current_argument->expression->first_token,
+                    " passing null as array");
+            }
             t2 = type_lvalue_conversion(paramer_type);
         }
         else
@@ -15252,113 +15283,38 @@ struct type type_dup(const struct type* p_type)
 }
 
 
-static void visit_declarator_to_get_array_size(int* array_size, struct declarator_type* declarator);
-static void visit_direct_declarator_to_get_array_size(int* array_size, struct direct_declarator_type* p_direct_declarator_type)
+int type_get_array_size(const struct type* p_type)
 {
-    if (p_direct_declarator_type->declarator_opt)
+    assert(type_is_array(p_type));
+
+    int sz = 0;
+
+    struct declarator_type* p_declarator_type = find_inner_declarator(p_type->declarator_type);
+    if (p_declarator_type &&
+        p_declarator_type->direct_declarator_type &&
+        p_declarator_type->direct_declarator_type->array_declarator_type)
     {
-        visit_declarator_to_get_array_size(array_size, p_direct_declarator_type->declarator_opt);
+        sz = (int)p_declarator_type->direct_declarator_type->array_declarator_type->constant_size;
     }
 
-    if (p_direct_declarator_type->function_declarator_type)
-    {
-        if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
-        {
-            visit_direct_declarator_to_get_array_size(array_size, p_direct_declarator_type->function_declarator_type->direct_declarator_type);
-        }
-    }
-
-    if (p_direct_declarator_type->array_declarator_type)
-    {
-        if (p_direct_declarator_type->array_declarator_type->direct_declarator_type)
-        {
-            visit_direct_declarator_to_get_array_size(array_size, p_direct_declarator_type->array_declarator_type->direct_declarator_type);
-        }
-
-        if (*array_size == 0)
-        {
-            //TODO maybe array does not have size?
-            *array_size = (int)p_direct_declarator_type->array_declarator_type->constant_size;
-        }
-    }
-}
-static void visit_declarator_to_get_array_size(int* array_size, struct declarator_type* declarator)
-{
-    if (declarator == NULL)
-        return;
-
-    if (declarator->direct_declarator_type)
-        visit_direct_declarator_to_get_array_size(array_size, declarator->direct_declarator_type);
-}
-int get_array_size(struct type* p_type)
-{
-    if (type_is_array(p_type))
-    {
-        int sz = 0;
-        visit_declarator_to_get_array_size(&sz, p_type->declarator_type);
-
-        return sz;
-    }
-    else
-    {
-        assert(false);
-    }
-    return 0;
+    return sz;
 }
 
 
-static void visit_declarator_to_set_array_size(int* array_size, struct declarator_type* declarator, int size);
-static void visit_direct_declarator_to_set_array_size(int* array_size, struct direct_declarator_type* p_direct_declarator_type, int size)
+int type_set_array_size(struct type* p_type, int size)
 {
-    if (p_direct_declarator_type->declarator_opt)
+    assert(type_is_array(p_type));
+    struct declarator_type* p_declarator_type = find_inner_declarator(p_type->declarator_type);
+    if (p_declarator_type)
     {
-        visit_declarator_to_set_array_size(array_size, p_direct_declarator_type->declarator_opt, size);
-    }
-
-    if (p_direct_declarator_type->function_declarator_type)
-    {
-        if (p_direct_declarator_type->function_declarator_type->direct_declarator_type)
+        if (p_declarator_type->direct_declarator_type &&
+            p_declarator_type->direct_declarator_type->array_declarator_type)
         {
-            visit_direct_declarator_to_set_array_size(array_size, p_direct_declarator_type->function_declarator_type->direct_declarator_type, size);
+            p_declarator_type->direct_declarator_type->array_declarator_type->constant_size = size;
+            return 0;
         }
     }
 
-    if (p_direct_declarator_type->array_declarator_type)
-    {
-        if (p_direct_declarator_type->array_declarator_type->direct_declarator_type)
-        {
-            visit_direct_declarator_to_set_array_size(array_size, p_direct_declarator_type->array_declarator_type->direct_declarator_type, size);
-        }
-
-        if (*array_size == 0)
-        {
-            *array_size = 1;
-            p_direct_declarator_type->array_declarator_type->constant_size = size;
-        }
-    }
-}
-static void visit_declarator_to_set_array_size(int* array_size, struct declarator_type* declarator, int size)
-{
-    if (declarator == NULL)
-        return;
-
-    if (declarator->direct_declarator_type)
-        visit_direct_declarator_to_set_array_size(array_size, declarator->direct_declarator_type, size);
-}
-
-int set_array_size(struct type* p_type, int size)
-{
-    if (type_is_array(p_type))
-    {
-        int sz = 0;
-        visit_declarator_to_set_array_size(&sz, p_type->declarator_type, size);
-
-        return sz;
-    }
-    else
-    {
-        assert(false);
-    }
     return 0;
 }
 
@@ -15691,7 +15647,7 @@ int type_get_sizeof(struct type* p_type)
     }
     else if (category == TYPE_CATEGORY_ARRAY)
     {
-        int arraysize = get_array_size(p_type);
+        int arraysize = type_get_array_size(p_type);
         struct type type = get_array_item_type(p_type);
         int sz = type_get_sizeof(&type);
         size = sz * arraysize;
@@ -15902,8 +15858,13 @@ struct array_declarator_type* clone_array_declarator_to_array_declarator_type(st
     p_array_declarator_type->direct_declarator_type =
         clone_direct_declarator_to_direct_declarator_type(ctx, p_array_declarator->direct_declarator);
 
-    //struct parameter_declaration* p_parameter_declaration = NULL;
+    if (p_array_declarator->type_qualifier_list_opt)
+    {
+        p_array_declarator_type->flags =
+            p_array_declarator->type_qualifier_list_opt->flags;
+    }
 
+    p_array_declarator_type->has_static = p_array_declarator->static_token_opt != NULL;
 
     p_array_declarator_type->constant_size = p_array_declarator->constant_size;
 
@@ -15997,7 +15958,7 @@ struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* c
 
     if (p_direct_declarator_type->declarator_opt != NULL &&
         p_declarator->pointer == NULL)
-    {        
+    {
         /*
           We normalize type removing direct-declarators that are only
           declarators like
@@ -18808,14 +18769,14 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             {
                 if (type_is_array(&p_init_declarator->declarator->type))
                 {
-                    const int sz = get_array_size(&p_init_declarator->declarator->type);
+                    const int sz = type_get_array_size(&p_init_declarator->declarator->type);
                     if (sz == 0)
                     {
                         /*int a[] = {1, 2, 3}*/
                         const int braced_initializer_size =
                             p_init_declarator->initializer->braced_initializer->initializer_list->size;
 
-                        set_array_size(&p_init_declarator->declarator->type, braced_initializer_size);
+                        type_set_array_size(&p_init_declarator->declarator->type, braced_initializer_size);
                     }
                 }
             }
