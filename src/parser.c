@@ -2024,8 +2024,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     }
 
                     t.category = type_get_category_core(&t);
-                    type_swap(&p_init_declarator->declarator->type, &t);
+                    type_visit_to_mark_anonymous(&t);
 
+                    type_swap(&p_init_declarator->declarator->type, &t);
+                   
                     type_destroy(&t);
                 }
             }
@@ -2202,6 +2204,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
 
         }
 
+        type_visit_to_mark_anonymous(&p_typeof_specifier->type);
 
         p_typeof_specifier->last_token = ctx->current;
         parser_match_tk(ctx, ')');

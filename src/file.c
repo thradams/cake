@@ -1,2 +1,2 @@
-#define M static_assert((int()) == );
-M
+struct { int i; } x;
+typeof(x) y;

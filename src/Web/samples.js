@@ -407,7 +407,7 @@ void f()
 auto literal_string = "hello auto";
 
 struct {int i;} x;
-auto x2 = x; /*not working yet*/
+auto x2 = x;
 
 auto bb = true;
 auto pnull = nullptr;

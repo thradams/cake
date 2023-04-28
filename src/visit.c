@@ -1476,6 +1476,17 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 
     struct struct_or_union_specifier* p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
 
+    if (p_struct_or_union_specifier->show_anonymous_tag && !ctx->is_second_pass)
+    {
+        struct token* first = p_struct_or_union_specifier->first_token;
+
+        const char* tag = p_struct_or_union_specifier->tag_name;
+        char buffer[200] = { 0 };
+        snprintf(buffer, sizeof buffer, " %s", tag);
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
+        token_list_insert_after(&ctx->ast.token_list, first, &l2);
+    }
 
     if (p_complete)
     {
@@ -1561,36 +1572,12 @@ static void visit_typeof_specifier(struct visit_ctx* ctx, struct typeof_specifie
     {
         if (ctx->target < LANGUAGE_C2X)
         {
-
-
             struct osstream ss = { 0 };
             struct type new_type = type_convert_to(&p_typeof_specifier->type, ctx->target);
 
             print_type_qualifier_specifiers(&ss, &new_type);            
 
-            /*
-            * typeof of anonymous struct?
-            */
-            if (p_typeof_specifier->type.struct_or_union_specifier &&
-                p_typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag)
-            {
-
-                p_typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag = false;
-
-                struct token* first = p_typeof_specifier->type.struct_or_union_specifier->first_token;
-
-                const char* tag = p_typeof_specifier->type.struct_or_union_specifier->tag_name;
-                char buffer[200] = { 0 };
-                snprintf(buffer, sizeof buffer, " %s", tag);
-                struct tokenizer_ctx tctx = { 0 };
-                struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, first, &l2);
-
-            }
-
-
-
-            struct tokenizer_ctx tctx = { 0 };
+               struct tokenizer_ctx tctx = { 0 };
             struct token_list list = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
             ss_close(&ss);
             token_list_insert_after(&ctx->ast.token_list, p_typeof_specifier->last_token, &list);

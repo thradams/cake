@@ -466,10 +466,12 @@ struct struct_or_union_specifier
     char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
     bool has_anonymous_tag;
+    /*it was asked to show struct tag created for anonymous*/
+    bool show_anonymous_tag;
 
     int scope_level; /*nivel escopo 0 global*/
     int visit_moved; /*nivel escopo 0 global*/
-
+        
     /*
     * This points to the first struct_or_union_specifier that will have it´s
     * complete_struct_or_union_specifier_indirection pointing to the complete

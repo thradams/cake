@@ -8585,6 +8585,7 @@ struct declarator;
 struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);
 enum type_category type_get_category_core(const struct type* p_type);
 void type_print_data(const struct type* p_type);
+void type_visit_to_mark_anonymous(struct type* p_type);
 
 
 struct parser_ctx;
@@ -9251,10 +9252,12 @@ struct struct_or_union_specifier
     char tag_name[200];
     /*geramos um tag name para anomimas, mas colocamos banonymousTag para true*/
     bool has_anonymous_tag;
+    /*it was asked to show struct tag created for anonymous*/
+    bool show_anonymous_tag;
 
     int scope_level; /*nivel escopo 0 global*/
     int visit_moved; /*nivel escopo 0 global*/
-
+        
     /*
     * This points to the first struct_or_union_specifier that will have it´s
     * complete_struct_or_union_specifier_indirection pointing to the complete
@@ -16820,6 +16823,21 @@ void type_print_data(const struct type* p_type)
     printf("\n");
 }
 
+void type_visit_to_mark_anonymous(struct type* p_type)
+{
+    //TODO better visit?
+    if (p_type->struct_or_union_specifier != NULL &&
+        p_type->struct_or_union_specifier->has_anonymous_tag)
+    {
+        if (p_type->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
+        {
+            p_type->struct_or_union_specifier->complete_struct_or_union_specifier_indirection->show_anonymous_tag = true;
+        }
+        p_type->struct_or_union_specifier->show_anonymous_tag = true;
+    }
+
+}
+
 
 
 //#pragma once
@@ -16996,31 +17014,31 @@ void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
     while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
     {
         prev = prev->prev;
-    }
+    }   
     struct token* next = prev;
     while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
     {
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
-            /*
-            tokens expandidos da macro nao tem espaco entre
-            vamos adicionar para ver melhor
-            */
             if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
             {
                 ctx->printf(" ");
             }
         }
-        ctx->printf("%s", next->lexeme);
+        if (next->flags & TK_FLAG_MACRO_EXPANDED) {            
+            ctx->printf(DARKGRAY "%s" RESET, next->lexeme);
+        }
+        else
+          ctx->printf("%s", next->lexeme);
+
         next = next->next;
-    }
+    }    
     ctx->printf("\n");
     ctx->printf(LIGHTGRAY);
     ctx->printf(" %*s |", n, " ");
     if (p_token)
     {
-        for (int i = 1; i <= (p_token->col - 1); i++)
-        {
+        for (int i = 1; i <= (p_token->col - 1); i++) {
             ctx->printf(" ");
         }
     }
@@ -18896,8 +18914,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     }
 
                     t.category = type_get_category_core(&t);
-                    type_swap(&p_init_declarator->declarator->type, &t);
+                    type_visit_to_mark_anonymous(&t);
 
+                    type_swap(&p_init_declarator->declarator->type, &t);
+                   
                     type_destroy(&t);
                 }
             }
@@ -19074,6 +19094,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
 
         }
 
+        type_visit_to_mark_anonymous(&p_typeof_specifier->type);
 
         p_typeof_specifier->last_token = ctx->current;
         parser_match_tk(ctx, ')');
@@ -24834,6 +24855,17 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 
     struct struct_or_union_specifier* p_complete = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
 
+    if (p_struct_or_union_specifier->show_anonymous_tag && !ctx->is_second_pass)
+    {
+        struct token* first = p_struct_or_union_specifier->first_token;
+
+        const char* tag = p_struct_or_union_specifier->tag_name;
+        char buffer[200] = { 0 };
+        snprintf(buffer, sizeof buffer, " %s", tag);
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
+        token_list_insert_after(&ctx->ast.token_list, first, &l2);
+    }
 
     if (p_complete)
     {
@@ -24919,36 +24951,12 @@ static void visit_typeof_specifier(struct visit_ctx* ctx, struct typeof_specifie
     {
         if (ctx->target < LANGUAGE_C2X)
         {
-
-
             struct osstream ss = { 0 };
             struct type new_type = type_convert_to(&p_typeof_specifier->type, ctx->target);
 
             print_type_qualifier_specifiers(&ss, &new_type);            
 
-            /*
-            * typeof of anonymous struct?
-            */
-            if (p_typeof_specifier->type.struct_or_union_specifier &&
-                p_typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag)
-            {
-
-                p_typeof_specifier->type.struct_or_union_specifier->has_anonymous_tag = false;
-
-                struct token* first = p_typeof_specifier->type.struct_or_union_specifier->first_token;
-
-                const char* tag = p_typeof_specifier->type.struct_or_union_specifier->tag_name;
-                char buffer[200] = { 0 };
-                snprintf(buffer, sizeof buffer, " %s", tag);
-                struct tokenizer_ctx tctx = { 0 };
-                struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, first, &l2);
-
-            }
-
-
-
-            struct tokenizer_ctx tctx = { 0 };
+               struct tokenizer_ctx tctx = { 0 };
             struct token_list list = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
             ss_close(&ss);
             token_list_insert_after(&ctx->ast.token_list, p_typeof_specifier->last_token, &list);

@@ -2900,3 +2900,18 @@ void type_print_data(const struct type* p_type)
     }
     printf("\n");
 }
+
+void type_visit_to_mark_anonymous(struct type* p_type)
+{
+    //TODO better visit?
+    if (p_type->struct_or_union_specifier != NULL &&
+        p_type->struct_or_union_specifier->has_anonymous_tag)
+    {
+        if (p_type->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
+        {
+            p_type->struct_or_union_specifier->complete_struct_or_union_specifier_indirection->show_anonymous_tag = true;
+        }
+        p_type->struct_or_union_specifier->show_anonymous_tag = true;
+    }
+
+}

@@ -254,3 +254,4 @@ struct declarator;
 struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);
 enum type_category type_get_category_core(const struct type* p_type);
 void type_print_data(const struct type* p_type);
+void type_visit_to_mark_anonymous(struct type* p_type);
