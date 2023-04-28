@@ -1216,7 +1216,7 @@ struct type type_param_array_to_pointer(const struct type* p_type)
         p_type->declarator_type->direct_declarator_type->array_declarator_type->flags & TYPE_QUALIFIER_CONST)
     {
         //f(int a[const 2])
-        type_add_const(&t2);
+        type_add_const(&t2); 
     }
     t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
     //TODO add [const]
