@@ -8561,6 +8561,7 @@ struct  function_declarator_type* get_function_declarator_type(struct type* p_ty
 struct type type_remove_pointer(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
+struct type type_param_array_to_pointer(const struct type* p_type);
 
 struct type type_make_literal_string(int size, enum type_specifier_flags chartype);
 struct type type_make_int();
@@ -14178,8 +14179,11 @@ void type_add_const(struct type* p_type)
         assert(false);
         break;
     case TYPE_CATEGORY_ARRAY:
+    {
         assert(false);
-        break;
+    }
+    break;
+
     case TYPE_CATEGORY_POINTER:
     {
         struct declarator_type* p = find_inner_declarator(p_type->declarator_type);
@@ -14524,7 +14528,7 @@ enum type_category type_get_category(const struct type* p_type)
         static int ops = 0;
         printf("******************************** ops %d\n", ops++);
         ((struct type*)p_type)->category = c;
-    }
+}
 #endif
 
     return p_type->category;
@@ -15121,6 +15125,25 @@ struct type get_array_item_type(struct type* p_type)
     return r;
 }
 
+struct type type_param_array_to_pointer(const struct type* p_type)
+{
+    assert(type_is_array(p_type));
+    struct type t = get_array_item_type(p_type);
+    struct type t2 = type_add_pointer(&t);
+    type_destroy(&t);
+
+    if (p_type->declarator_type &&
+        p_type->declarator_type->direct_declarator_type && 
+        p_type->declarator_type->direct_declarator_type->array_declarator_type &&
+        p_type->declarator_type->direct_declarator_type->array_declarator_type->flags & TYPE_QUALIFIER_CONST)
+    {
+        //f(int a[const 2])
+        type_add_const(&t2);
+    }
+    t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+    //TODO add [const]
+    return t2;
+}
 
 void print_declarator_description(struct osstream* ss, struct declarator_type* declarator);
 void print_direct_declarator_description(struct osstream* ss, struct direct_declarator_type* p_direct_declarator_type)
@@ -19044,9 +19067,13 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
         {
             parser_setwarning_with_token(ctx, ctx->current, "typeof used in array arguments");
 
-            struct type t = type_lvalue_conversion(&p_typeof_specifier->type);
-            type_swap(&t, &p_typeof_specifier->type);
-            type_destroy(&t);
+            if(type_is_array(&p_typeof_specifier->type))
+            {
+                struct type t = type_param_array_to_pointer(&p_typeof_specifier->type);
+                type_swap(&t, &p_typeof_specifier->type);
+                type_destroy(&t);
+            }
+            
         }
 
         if (is_typeof_unqual)
