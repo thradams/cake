@@ -230,6 +230,7 @@ struct  function_declarator_type* get_function_declarator_type(struct type* p_ty
 struct type type_remove_pointer(struct type* p_type);
 struct type get_array_item_type(struct type* p_type);
 
+struct type type_param_array_to_pointer(const struct type* p_type);
 
 struct type type_make_literal_string(int size, enum type_specifier_flags chartype);
 struct type type_make_int();

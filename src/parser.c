@@ -2193,9 +2193,13 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
         {
             parser_setwarning_with_token(ctx, ctx->current, "typeof used in array arguments");
 
-            struct type t = type_lvalue_conversion(&p_typeof_specifier->type);
-            type_swap(&t, &p_typeof_specifier->type);
-            type_destroy(&t);
+            if(type_is_array(&p_typeof_specifier->type))
+            {
+                struct type t = type_param_array_to_pointer(&p_typeof_specifier->type);
+                type_swap(&t, &p_typeof_specifier->type);
+                type_destroy(&t);
+            }
+            
         }
 
         if (is_typeof_unqual)
