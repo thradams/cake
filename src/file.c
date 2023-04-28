@@ -1,1 +1,2 @@
-static_assert((int()) == (int));
+#define M static_assert((int()) == );
+M

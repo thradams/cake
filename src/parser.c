@@ -108,6 +108,54 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
     ctx;
 }
 
+void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
+{
+    if (p_token == NULL)
+        return;
+
+    int line = p_token->line;
+    ctx->printf(LIGHTGRAY);
+
+    char nbuffer[20] = { 0 };
+    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
+    ctx->printf(" %s |", nbuffer);
+
+    struct token* prev = p_token;
+    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
+    {
+        prev = prev->prev;
+    }   
+    struct token* next = prev;
+    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
+    {
+        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+        {
+            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            {
+                ctx->printf(" ");
+            }
+        }
+        if (next->flags & TK_FLAG_MACRO_EXPANDED) {            
+            ctx->printf(DARKGRAY "%s" RESET, next->lexeme);
+        }
+        else
+          ctx->printf("%s", next->lexeme);
+
+        next = next->next;
+    }    
+    ctx->printf("\n");
+    ctx->printf(LIGHTGRAY);
+    ctx->printf(" %*s |", n, " ");
+    if (p_token)
+    {
+        for (int i = 1; i <= (p_token->col - 1); i++) {
+            ctx->printf(" ");
+        }
+    }
+    ctx->printf(LIGHTGREEN "^\n" RESET);
+
+}
+
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
     ctx->n_errors++;
@@ -131,53 +179,13 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
-    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
     ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 
 
-
-
-    ctx->printf(LIGHTGRAY);
-
-    char nbuffer[20] = { 0 };
-    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
-    ctx->printf(" %s |", nbuffer);
-
-    struct token* prev = p_token;
-    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
-    {
-        prev = prev->prev;
-    }
-    struct token* next = prev;
-    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
-    {
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
-        {
-            /*
-            tokens expandidos da macro nao tem espaco entre
-            vamos adicionar para ver melhor
-            */
-            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
-            {
-                ctx->printf(" ");
-            }
-        }
-        ctx->printf("%s", next->lexeme);
-        next = next->next;
-    }
-    ctx->printf("\n");
-    ctx->printf(LIGHTGRAY);
-    ctx->printf(" %*s |", n, " ");
-    if (p_token)
-    {
-        for (int i = 1; i < (p_token->col - 1); i++)
-        {
-            ctx->printf(" ");
-        }
-    }
-    ctx->printf(LIGHTGREEN "^\n" RESET);
+    print_line_and_token(ctx, p_token);
 }
 
 
@@ -209,49 +217,7 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
 
     ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
 
-
-
-
-    ctx->printf(LIGHTGRAY);
-
-    char nbuffer[20] = { 0 };
-    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
-    ctx->printf(" %s |", nbuffer);
-
-    struct token* prev = p_token;
-    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
-    {
-        prev = prev->prev;
-    }
-    struct token* next = prev;
-    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
-    {
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
-        {
-            /*
-            tokens expandidos da macro nao tem espaco entre
-            vamos adicionar para ver melhor
-            */
-            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
-            {
-                ctx->printf(" ");
-            }
-        }
-        ctx->printf("%s", next->lexeme);
-        next = next->next;
-    }
-    ctx->printf("\n");
-    ctx->printf(LIGHTGRAY);
-    ctx->printf(" %*s |", n, " ");
-    if (p_token)
-    {
-        for (int i = 1; i < (p_token->col - 1); i++)
-        {
-            ctx->printf(" ");
-        }
-    }
-    ctx->printf(LIGHTGREEN "^\n" RESET);
-
+    print_line_and_token(ctx, p_token);
 }
 
 
@@ -283,52 +249,7 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
 
     ctx->printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 
-
-
-
-    ctx->printf(LIGHTGRAY);
-
-    char nbuffer[20] = { 0 };
-    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
-    ctx->printf(" %s |", nbuffer);
-
-    struct token* prev = p_token;
-    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
-    {
-        prev = prev->prev;
-    }
-    struct token* next = prev;
-    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
-    {
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
-        {
-            /*
-            tokens expandidos da macro nao tem espaco entre
-            vamos adicionar para ver melhor
-            */
-            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
-            {
-                ctx->printf(" ");
-            }
-        }
-        else
-        {
-            ctx->printf("%s", next->lexeme);
-        }
-
-        next = next->next;
-    }
-    ctx->printf("\n");
-    ctx->printf(LIGHTGRAY);
-    ctx->printf(" %*s |", n, " ");
-    if (p_token)
-    {
-        for (int i = 1; i < (p_token->col - 1); i++)
-        {
-            ctx->printf(" ");
-        }
-    }
-    ctx->printf(LIGHTGREEN "^\n" RESET);
+    print_line_and_token(ctx, p_token);
 }
 
 
