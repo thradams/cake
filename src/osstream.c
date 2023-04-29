@@ -5,6 +5,14 @@
 #include <stdlib.h>
 #include <assert.h>
 
+
+void ss_swap(struct osstream* a, struct osstream* b)
+{
+    struct osstream r = *a;
+    *a = *b;
+    *b = r;
+}
+
 void ss_clear(struct osstream* stream)
 {
     stream->size = 0;
