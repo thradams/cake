@@ -1,5 +1,5 @@
 
-# Description
+# 🍰 Cake Description
 
 Cake is a C23 compiler front end written from scratch in C.
 
