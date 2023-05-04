@@ -337,22 +337,19 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 {
     try
     {
-        struct  function_declarator_type* p_function_declarator_type =
-            get_function_declarator_type(p_type);
 
-        if (p_function_declarator_type == NULL)
-            throw;
+        
+        
 
-        const bool is_var_args = p_function_declarator_type->is_var_args;
-        const bool is_void =
-            /*detectar que o parametro é (void)*/
-            p_function_declarator_type->params.head &&
-            p_function_declarator_type->params.head->type_specifier_flags == TYPE_SPECIFIER_VOID &&
-            p_function_declarator_type->params.head->declarator_type->pointers.head == NULL;
+        struct param*  current_parameter_type = NULL;
 
+        const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
+        if (p_param_list)
+        {
+            current_parameter_type = p_param_list->head;
+        }
 
-        struct type* current_parameter_type = p_function_declarator_type->params.head;
 
         int param_num = 1;
         struct argument_expression* current_argument =
@@ -360,9 +357,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 
         while (current_argument && current_parameter_type)
         {
-
-            check_function_argument_and_parameter(ctx, current_argument, current_parameter_type, param_num);
-
+            check_function_argument_and_parameter(ctx, current_argument, current_parameter_type->type, param_num);
 
             struct declarator* arg_declarator = NULL;
             if (current_argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
@@ -385,17 +380,21 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             if (arg_declarator &&
                 !arg_declarator->is_parameter_declarator)
             {
-                if (current_parameter_type->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+                if (type_is_pointer(current_parameter_type->type) && 
+                     type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_DESTROY))
                 {
                     arg_declarator->static_analisys_flags &= ~MUST_DESTROY;
                     arg_declarator->static_analisys_flags |= UNINITIALIZED;
                 }
 
-                if (current_parameter_type->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+
+                if (type_is_pointer(current_parameter_type->type) &&
+                    type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_FREE))
                 {
                     arg_declarator->static_analisys_flags &= ~MUST_FREE;
                     arg_declarator->static_analisys_flags |= UNINITIALIZED;
                 }
+
             }
 
 
@@ -404,7 +403,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             param_num++;
         }
 
-        if (current_argument != NULL && !is_var_args)
+        if (current_argument != NULL && !p_param_list->is_var_args)
         {
             parser_seterror_with_token(ctx,
                 p_argument_expression_list->tail->expression->first_token,
@@ -412,7 +411,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             throw;
         }
 
-        if (current_parameter_type != NULL && !is_void)
+        if (current_parameter_type != NULL && !p_param_list->is_void)
         {
             if (p_argument_expression_list->tail)
             {
@@ -874,7 +873,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                     p_expression_node->declarator = p_declarator;
                     p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
-                    assert(p_declarator->type.type_specifier_flags != 0);
+                    
                     p_expression_node->type = type_dup(&p_declarator->type);
                 }
             }
@@ -944,7 +943,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
-            p_expression_node->type.declarator_type = NULL;
+            
 
 
             parser_match(ctx);
@@ -963,7 +962,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
             p_expression_node->type.type_qualifier_flags = 0;
-            p_expression_node->type.declarator_type = NULL;
+            
 
 
             parser_match(ctx);
@@ -1188,11 +1187,13 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
                 p_expression_node_new->left = p_expression_node;
 
+                
                 parser_match(ctx);
-                if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+                if (type_is_pointer(&p_expression_node->type) && 
+                    type_is_struct_or_union(p_expression_node->type.next))
                 {
                     struct struct_or_union_specifier* p_complete =
-                        get_complete_struct_or_union_specifier(p_expression_node->type.struct_or_union_specifier);
+                        get_complete_struct_or_union_specifier(p_expression_node->type.next->struct_or_union_specifier);
 
                     if (p_complete)
                     {
@@ -1351,18 +1352,8 @@ struct expression* postfix_expression(struct parser_ctx* ctx)
             parser_match_tk(ctx, ')');
             //printf("\n");
             //print_type(&p_expression_node->type);
-            bool is_function_type = false;
-            if (p_expression_node->type.declarator_type->direct_declarator_type->function_declarator_type)
-            {
-                if (p_expression_node->type.declarator_type->direct_declarator_type->declarator_opt == NULL)
-                {
-                    is_function_type = true;
-                }
-                else
-                {
-                    /*funtion pointer*/
-                }
-            }
+            bool is_function_type = type_is_function(&p_expression_node->type);
+            
             if (is_function_type)
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
@@ -2698,6 +2689,8 @@ struct expression* logical_and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
+                type_print(&new_expression->left->type);
+                type_print(&new_expression->right->type);
                 parser_seterror_with_token(ctx, ctx->current, "invalid types logicl and expression");
                 throw;
             }

@@ -1845,6 +1845,8 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             p_init_declarator->declarator->type =
                 make_type_using_declarator(ctx, p_init_declarator->declarator);
 
+            //type_print(&p_init_declarator->declarator->type);
+
             if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
                 type_is_destroy(&p_init_declarator->declarator->type) &&
                 !type_is_pointer(&p_init_declarator->declarator->type))
@@ -1869,7 +1871,8 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
                     struct declarator* current = p_init_declarator->declarator;
 
-                    const bool current_is_function = type_is_function(&current->type);
+                    //const bool current_is_function = type_is_function(&current->old_type);
+                    //const bool current_is_function = new_type_is_function(&current->new_type);
 
                     /*
                       TODO compare if the declaration is identical
@@ -1937,11 +1940,6 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         p_init_declarator->initializer->assignment_expression->left->declarator->static_analisys_flags;
                 }
 
-                /*let's apply the compile time flags*/
-               // p_init_declarator->declarator->static_analisys_flags =
-                   // p_init_declarator->initializer->assignment_expression->returnflag | ISVALID;
-
-                //TODO function with MUST_DESTROY
 
                 if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
                     (p_init_declarator->declarator->static_analisys_flags & MUST_FREE) &&
@@ -1975,54 +1973,12 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         type_destroy(&t2);
                     }
 
-                    const bool is_const_auto =
-                        p_init_declarator->declarator->declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+                    type_remove_names(&t);
+                    t.name_opt = strdup(p_init_declarator->declarator->name->lexeme);
 
-                    if (is_const_auto)
-                    {
-                        type_add_const(&t);
-                    }
-
-
-                    if (p_init_declarator->declarator->pointer != NULL)
-                    {
-                        //declarator with pointer is UB
-                        //https://open-std.org/jtc1/sc22/wg14/www/docs/n3007.htm
-                        parser_setwarning_with_token(ctx,
-                            p_init_declarator->declarator->first_token,
-                            "auto with pointer is UB in C23");
-
-                        /*
-                           int x;
-                           auto* p[2] = &x;
-
-                           I will remove the pointer from &x. Then the result is
-
-                           int* p[2] = &x;
-
-                           instead of
-
-                           int** p[2] = &x;
-
-                        */
-                        pointer_type_list_pop_front(&t.declarator_type->pointers);
-                    }
-
-                    struct declarator_type* dectype = clone_declarator_to_declarator_type(ctx, p_init_declarator->declarator);
-
-                    declarator_type_merge(dectype, t.declarator_type);
-                    if (t.declarator_type == NULL)
-                    {
-                        t.declarator_type = calloc(1, sizeof(struct declarator_type));
-                        t.declarator_type->direct_declarator_type = calloc(1, sizeof(struct direct_declarator_type));
-                        t.declarator_type->direct_declarator_type->name_opt = strdup(p_init_declarator->declarator->name->lexeme);
-                    }
-
-                    t.category = type_get_category_core(&t);
+                    type_flat_set_qualifiers_using_declarator(&t, p_init_declarator->declarator);
                     type_visit_to_mark_anonymous(&t);
-
                     type_swap(&p_init_declarator->declarator->type, &t);
-                   
                     type_destroy(&t);
                 }
             }
@@ -2140,7 +2096,7 @@ struct typeof_specifier_argument* typeof_specifier_argument(struct parser_ctx* c
             new_typeof_specifier_argument->expression = expression(ctx);
             if (new_typeof_specifier_argument->expression == NULL) throw;
 
-            declarator_type_clear_name(new_typeof_specifier_argument->expression->type.declarator_type);
+            //declarator_type_clear_name(new_typeof_specifier_argument->expression->type.declarator_type);
         }
     }
     catch
@@ -2200,7 +2156,6 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
         if (is_typeof_unqual)
         {
             type_remove_qualifiers(&p_typeof_specifier->type);
-
         }
 
         type_visit_to_mark_anonymous(&p_typeof_specifier->type);
@@ -2767,6 +2722,8 @@ struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx
     */
     try
     {
+        p_specifier_qualifier_list->first_token = ctx->current;
+
         while (ctx->current != NULL &&
             (first_of_type_specifier(ctx) ||
                 first_of_type_qualifier(ctx)))
@@ -2830,6 +2787,7 @@ struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx
     }
 
     final_specifier(ctx, &p_specifier_qualifier_list->type_specifier_flags);
+    p_specifier_qualifier_list->last_token = previous_parser_token(ctx->current);
     return p_specifier_qualifier_list;
 }
 
@@ -3006,7 +2964,8 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
 
                 if (p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    /*it is a new definition*/
+                    /*it is a new definition - itself*/
+                    //p_enum_specifier->complete_enum_specifier = p_enum_specifier;
                 }
                 else if (p_other->enumerator_list.head != NULL)
                 {
@@ -3544,6 +3503,17 @@ struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx)
     //parameter_list
     //parameter_list ',' '...'
     p_parameter_type_list->parameter_list = parameter_list(ctx);
+
+    if (p_parameter_type_list->parameter_list->head ==
+        p_parameter_type_list->parameter_list->tail)
+    {
+        if (p_parameter_type_list->parameter_list->head->declaration_specifiers->type_specifier_flags == TYPE_SPECIFIER_VOID &&
+            p_parameter_type_list->parameter_list->head->declarator->pointer == NULL)
+        {
+            //pattern f(void)
+            p_parameter_type_list->is_void = true; 
+        }
+    }
     /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
     if (ctx->current->type == '...')
     {
@@ -3758,7 +3728,14 @@ void print_direct_declarator(struct osstream* ss, struct direct_declarator* p_di
 }
 
 
-
+enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p)
+{
+    if (p->declaration_specifiers)
+        return p->declaration_specifiers->type_specifier_flags;
+    if (p->specifier_qualifier_list)
+        return p->specifier_qualifier_list->type_specifier_flags;
+    return 0;
+}
 void print_declarator(struct osstream* ss, struct declarator* p_declarator, bool is_abstract)
 {
     bool first = true;
@@ -3801,15 +3778,14 @@ struct type_name* type_name(struct parser_ctx* ctx)
         /*declaration_specifiers*/ NULL,
         true /*DEVE SER TODO*/,
         NULL);
+    p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
+    p_type_name->declarator->type =
+        make_type_using_declarator(ctx, p_type_name->declarator);
 
 
     p_type_name->last_token = ctx->current->prev;
-
-
-    p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
-
-    p_type_name->declarator->type = make_type_using_declarator(ctx, p_type_name->declarator);
-
+    p_type_name->type = type_dup(&p_type_name->declarator->type);
+    //p_type_name->type = make_type_using_declarator(ctx, p_type_name->declarator);
 
     return p_type_name;
 }
@@ -6259,8 +6235,8 @@ void bigtest()
 void literal_string_type()
 {
     const char* source =
-        "    static_assert(_is_same(typeof(\"A\"), const char [2]));\n"
-        "    static_assert(_is_same(typeof(\"AB\"), const char [3]));\n"
+        "    static_assert(_is_same(typeof(\"A\"),  char [2]));\n"
+        "    static_assert(_is_same(typeof(\"AB\"),  char [3]));\n"
         ;
 
     assert(compile_without_errors(source));
@@ -6443,20 +6419,6 @@ void zerodiv()
 }
 
 
-void auto_test()
-{
-    //_is_same has a bug and does not ignore extra ( ) 
-    const char* source =
-        "int main()"
-        "{"
-        "  auto s = \"test\";\n"
-        "  static_assert(_is_same(typeof(s), char *));\n"
-        "}"
-        ;
-
-    assert(compile_without_errors(source));
-}
-
 void function_result_test()
 {
     const char* source =
@@ -6487,6 +6449,28 @@ void type_normalization()
     
 
     assert(compile_without_errors(source));
+}
+
+void auto_test()
+{
+    const char* source =
+        "    int main()\n"
+        "    {\n"
+        "        double const x = 78.9;\n"
+        "        double y = 78.9;\n"
+        "        auto q = x;\n"
+        "        static_assert( (typeof(q)) == (double));\n"
+        "        auto const p = &x;\n"
+        "        static_assert( (typeof(p)) == (const double  * const));\n"
+        "        auto const r = &y;\n"
+        "        static_assert( (typeof(r)) == (double  * const));\n"
+        "        auto s = \"test\";\n"
+        "        static_assert(_is_same(typeof(s), char *));\n"
+        "    }\n"
+        ;
+    
+    assert(compile_without_errors(source));
+    
 }
 
 #endif

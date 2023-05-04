@@ -4,13 +4,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-
+#include "annotations.h"
 
 void ss_swap(struct osstream* a, struct osstream* b)
 {
     struct osstream r = *a;
     *a = *b;
     *b = r;
+    _del_attr(r, "must destroy");
 }
 
 void ss_clear(struct osstream* stream)

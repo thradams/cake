@@ -9,7 +9,7 @@
 #include "options.h"
 #include "annotations.h"
 
-#define CAKE_VERSION "0.5.1"
+#define CAKE_VERSION "0.5.2"
 
 
 struct _destroy scope
@@ -197,7 +197,7 @@ struct static_assert_declaration
     */
     
     /*
-    * suport for experimental declarator compile time flag
+    * support for experimental declarator compile time flag
     * true means this static_assert is evaluated at second 
     * pass at the caller
     */
@@ -291,7 +291,7 @@ struct typeof_specifier
     struct token* first_token;
     struct token* last_token;
     struct typeof_specifier_argument* typeof_specifier_argument;
-    struct type type;
+    struct type type;    
 };
 
 struct type_specifier
@@ -555,8 +555,10 @@ struct declarator
     enum static_analisys_flags static_analisys_flags;    
 
     /*Já mastiga o tipo dele*/
-    struct type type;
+    struct type type;    
 };
+
+enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
 
 struct declarator;
 void print_declarator(struct osstream* ss, struct declarator* declarator, bool is_abstract);
@@ -750,6 +752,9 @@ struct specifier_qualifier_list
     
     struct type_specifier_qualifier* head;
     struct type_specifier_qualifier* tail;
+    struct token* first_token;
+    struct token* last_token;
+
 };
 
 struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx);
