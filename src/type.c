@@ -7,14 +7,6 @@
 #include "hash.h"
 #include <string.h>
 #include <stdio.h>
-//struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
-
-//struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type(struct parser_ctx* ctx, struct direct_declarator* p_direct_declarator);
-//struct direct_declarator_type* find_inner_function(struct type* p_type);
-//struct direct_declarator_type* direct_declarator_type_copy(struct direct_declarator_type* p_direct_declarator_type_opt);
-//struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type_opt);
-//struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
-//struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);
 
 void print_item(struct osstream* ss, bool* first, const char* item)
 {
