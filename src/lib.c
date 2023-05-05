@@ -5516,6 +5516,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #ifdef WIN32
         "#define _WINDOWS\n"
         "#define _WIN32\n"
+        "#define _INTEGRAL_MAX_BITS 64\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
 #endif
 
 #ifdef __linux__
@@ -9434,7 +9435,7 @@ struct parameter_declaration
       attribute-specifier-sequence opt declaration-specifiers abstract-declarator opt
     */
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
-    struct token* name;
+    
     struct declaration_specifiers* declaration_specifiers;
     struct declarator* declarator;
 
@@ -9581,7 +9582,7 @@ struct member_declarator
         declarator
         declarator opt : constant-expression
     */
-    struct token* name;
+    
     struct declarator* declarator;
     struct expression* constant_expression;
     struct member_declarator* next;
@@ -13901,14 +13902,6 @@ int pre_constant_expression(struct preprocessor_ctx* ctx,long long* pvalue)
 
 
 
-//struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
-
-//struct direct_declarator_type* clone_direct_declarator_to_direct_declarator_type(struct parser_ctx* ctx, struct direct_declarator* p_direct_declarator);
-//struct direct_declarator_type* find_inner_function(struct type* p_type);
-//struct direct_declarator_type* direct_declarator_type_copy(struct direct_declarator_type* p_direct_declarator_type_opt);
-//struct declarator_type* declarator_type_copy(struct declarator_type* p_declarator_type_opt);
-//struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
-//struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);
 
 void print_item(struct osstream* ss, bool* first, const char* item)
 {
@@ -14293,7 +14286,7 @@ void print_type(struct osstream* ss, const struct type* p_type)
 
 void print_type_declarator(struct osstream* ss, const struct type* p_type)
 {
-    print_type_core(ss, p_type, true); 
+    print_type_core(ss, p_type, true);
 }
 
 
@@ -15868,22 +15861,17 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
     else if (pdirectdeclarator->function_declarator)
     {
-        const char* func_name = NULL;
         if (pdirectdeclarator->function_declarator->direct_declarator)
         {
             make_type_using_direct_declarator(ctx,
                 pdirectdeclarator->function_declarator->direct_declarator,
-                &func_name,
+                ppname,
                 list);
         }
 
         struct type* p_func = calloc(1, sizeof(struct type));
         p_func->category = TYPE_CATEGORY_FUNCTION;
 
-        if (func_name)
-            p_func->name_opt = strdup(func_name);
-
-        //ppname = func_name;
 
         if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
             pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list)
@@ -15918,19 +15906,17 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
     }
     else if (pdirectdeclarator->array_declarator)
     {
-        const char* array_name = NULL;
+
         if (pdirectdeclarator->array_declarator->direct_declarator)
         {
             make_type_using_direct_declarator(ctx,
                 pdirectdeclarator->array_declarator->direct_declarator,
-                &array_name,
+                ppname,
                 list);
         }
 
         struct type* p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ARRAY;
-        if (array_name)
-            p->name_opt = strdup(array_name);
 
         p->array_size = pdirectdeclarator->array_declarator->constant_size;
 
@@ -16065,7 +16051,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     //type_print(list.head);
 
     if (declarator_get_typeof_specifier(pdeclarator))
-    {        
+    {
         struct type nt =
             type_dup(&declarator_get_typeof_specifier(pdeclarator)->type);
 
@@ -16077,7 +16063,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         bool head = list.head != NULL;
 
         if (head)
-         type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
+            type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
 
         if (list.tail)
             list.tail->next = p_nt;
@@ -16106,9 +16092,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         bool head = list.head != NULL;
 
-        //if (head)
-          //  type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
-
+        type_flat_set_qualifiers_using_declarator(p_nt, pdeclarator);
 
         if (list.tail)
             list.tail->next = p_nt;
@@ -16116,10 +16100,6 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         {
             type_list_push_back(&list, p_nt);
         }
-        
-        //if (!head)
-         type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
-
     }
     else
     {
@@ -16131,20 +16111,24 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         type_list_push_back(&list, p);
 
-        if (name)
-        {
-            if (list.head->name_opt == NULL)
-            {
-                list.head->name_opt = strdup(name);
-            }
-        }
-                type_flat_set_qualifiers_using_declarator(list.tail, pdeclarator);
-
+        //if (name)
+        //{
+          //  if (list.head->name_opt == NULL)
+            //{
+              //  list.head->name_opt = strdup(name);
+            //}
+        //}
+        type_flat_set_qualifiers_using_declarator(list.tail, pdeclarator);
     }
 
 
     //type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
 
+    if (pdeclarator->name)
+    {
+        free(list.head->name_opt);
+        list.head->name_opt = pdeclarator->name->lexeme;
+    }
     return *list.head;
 }
 
@@ -17939,14 +17923,14 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
             if (!type_is_maybe_unused(&parameter->declarator->type) &&
                 parameter->declarator->num_uses == 0)
             {
-                if (parameter->name &&
-                    parameter->name->level == 0 /*direct source*/
+                if (parameter->declarator->name &&
+                    parameter->declarator->name->level == 0 /*direct source*/
                     )
                 {
                     parser_setwarning_with_token(ctx,
                         parameter->declarator->first_token,
                         "'%s': unreferenced formal parameter\n",
-                        parameter->name->lexeme);
+                        parameter->declarator->name->lexeme);
                 }
             }
             parameter = parameter->next;
@@ -18038,6 +18022,8 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             &tkname);
 
         if (p_init_declarator->declarator == NULL) throw;
+
+        p_init_declarator->declarator->name = tkname;
 
         if (tkname == NULL)
         {
@@ -18771,15 +18757,18 @@ struct member_declarator* member_declarator(struct parser_ctx* ctx,
      declaratoropt : constant-expression
     */
     struct member_declarator* p_member_declarator = calloc(1, sizeof(struct member_declarator));
-    //struct declarator* pdeclarator = calloc(1, sizeof * pdeclarator);
-    p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/NULL, false, &p_member_declarator->name);
+    
+    struct token* p_token_name = NULL;
+
+    p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/NULL, false, &p_token_name);
+    p_member_declarator->declarator->name = p_token_name;
     p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
     p_member_declarator->declarator->type =
         make_type_using_declarator(ctx, p_member_declarator->declarator);
 
-    if (p_member_declarator->name)
-        naming_convention_struct_member(ctx, p_member_declarator->name, &p_member_declarator->declarator->type);
+    if (p_member_declarator->declarator->name)
+        naming_convention_struct_member(ctx, p_member_declarator->declarator->name, &p_member_declarator->declarator->type);
 
     if (ctx->current->type == ':')
     {
@@ -18868,7 +18857,7 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
 
             while (p_member_declarator)
             {
-                if (strcmp(p_member_declarator->name->lexeme, name) == 0)
+                if (strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
                 {
                     return p_member_declarator;
                 }
@@ -19814,12 +19803,14 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
     //talvez no ctx colocar um flag que esta em argumentos
     //TODO se tiver uma struct tag novo...
     //warning: declaration of 'struct X' will not be visible outside of this function [-Wvisibility]
-
+    struct token* p_token_name = 0;
     p_parameter_declaration->declarator = declarator(ctx,
         /*specifier_qualifier_list*/NULL,
         p_parameter_declaration->declaration_specifiers,
         true/*can be abstract*/,
-        &p_parameter_declaration->name);
+        &p_token_name);
+    p_parameter_declaration->declarator->name = p_token_name;
+    
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
@@ -19838,20 +19829,21 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
     p_parameter_declaration->declarator->type =
         make_type_using_declarator(ctx, p_parameter_declaration->declarator);
 
+
     p_parameter_declaration->declarator->type.attributes_flags |= CUSTOM_ATTRIBUTE_PARAM;
 
-    if (p_parameter_declaration->name)
-        naming_convention_parameter(ctx, p_parameter_declaration->name, &p_parameter_declaration->declarator->type);
+    if (p_parameter_declaration->declarator->name)
+        naming_convention_parameter(ctx, p_parameter_declaration->declarator->name, &p_parameter_declaration->declarator->type);
 
     //coloca o pametro no escpo atual que deve apontar para escopo paramtros
     // da funcao .
     // 
     //assert ctx->current_scope->variables parametrosd
-    if (p_parameter_declaration->name)
+    if (p_parameter_declaration->declarator->name)
     {
         //parametro void nao te name 
         hashmap_set(&ctx->scopes.tail->variables,
-            p_parameter_declaration->name->lexeme,
+            p_parameter_declaration->declarator->name->lexeme,
             &p_parameter_declaration->declarator->type_id);
         //print_scope(ctx->current_scope);
     }
@@ -20681,17 +20673,11 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
-                    //setwarning_with_token(ctx, p_declarator->name, )
-                    ctx->n_warnings++;
-                    if (p_declarator->name &&
-                        p_declarator->name->token_origin)
+                    if (p_declarator->name->token_origin->level == 0)
                     {
-                        ctx->printf(WHITE "%s:%d:%d: ",
-                            p_declarator->name->token_origin->lexeme,
-                            p_declarator->name->line,
-                            p_declarator->name->col);
-
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "'%s': unreferenced declarator\n",
+                        parser_setwarning_with_token(ctx,
+                            p_declarator->name,
+                            "'%s': unreferenced declarator\n",
                             p_declarator->name->lexeme);
                     }
                 }
@@ -21463,9 +21449,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * to generate this string
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
-#define STR \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt"
 
+#define STR \
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
+
+        //http://thradams.com/app/litapp.html
         snprintf(env, sizeof env,
             "%s",
             STR);
@@ -22700,6 +22688,15 @@ void auto_test()
     
 }
 
+void visit_test_auto_typeof()
+{
+    const char * source = "auto p2 = (typeof(int[2])*) 0;";
+
+    struct report report = { 0 };
+    char* result = compile_source("-std=C99", source, &report);
+    assert(strcmp(result, "int  (* p2)[2] = (int  (*)[2]) 0;") == 0);
+    free(result);
+}
 #endif
 
 
@@ -23234,7 +23231,8 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
         struct osstream ss = { 0 };
         print_type(&ss, type_get_specifer_part(p_type));
     
-        struct token_list l2 = tokenizer(&ctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
         token_list_insert_after(&ctx->ast.token_list, p_specifier_qualifier_list_opt->last_token, &l2);
      
          ss_close(&ss);
@@ -24119,7 +24117,7 @@ static void visit_member_declarator(struct visit_ctx* ctx, struct member_declara
 {
     if (p_member_declarator->declarator)
     {
-
+        visit_declarator(ctx, p_member_declarator->declarator);
     }
 }
 
@@ -24134,9 +24132,12 @@ static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_de
 }
 static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration)
 {
-    visit_specifier_qualifier_list(ctx, 
-        p_member_declaration->specifier_qualifier_list, 
-        &p_member_declaration->member_declarator_list_opt->head->declarator->type);
+    if (p_member_declaration->member_declarator_list_opt)
+    {
+        visit_specifier_qualifier_list(ctx,
+            p_member_declaration->specifier_qualifier_list,
+            &p_member_declaration->member_declarator_list_opt->head->declarator->type); /*se nao tem?*/
+    }
 
     if (p_member_declaration->member_declarator_list_opt)
     {
@@ -24396,7 +24397,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
 
 static void visit_declaration_specifiers(struct visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type)
+    struct type* p_type_opt)
 {
     /*
         * Se tiver typeof ou auto vamos apagar todos type specifiers.
@@ -24448,7 +24449,10 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
 
         /*now we print new especifiers then convert to tokens*/
         struct osstream ss0 = { 0 };
-        struct type new_type = type_convert_to(p_type, ctx->target);
+        struct type new_type = { 0 };
+        
+        if (p_type_opt)
+        new_type = type_convert_to(p_type_opt, ctx->target);
 
         struct type* p = type_get_specifer_part(&new_type);
         print_type_qualifier_specifiers(&ss0, p);
@@ -24504,10 +24508,15 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
     if (p_declaration->declaration_specifiers)
     {
+        
         if (p_declaration->init_declarator_list.head)
         {
             visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers,
                 &p_declaration->init_declarator_list.head->declarator->type);
+        }
+        else
+        {
+            visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, NULL);
         }
 
     }
@@ -26202,8 +26211,8 @@ static void wasm_visit_direct_declarator(struct wasm_visit_ctx* ctx, struct dire
             ss_fprintf(&ctx->ss, " i32"); //todo type
 
 
-            if (parameter->name)
-                ss_fprintf(&ctx->ss, " %%%s", parameter->name->lexeme);
+            if (parameter->declarator->name)
+                ss_fprintf(&ctx->ss, " %%%s", parameter->declarator->name->lexeme);
 
 
             if (parameter->attribute_specifier_sequence_opt)

@@ -97,6 +97,7 @@ void zerodiv(void);
 void function_result_test(void);
 void type_normalization(void);
 void auto_test(void);
+void visit_test_auto_typeof(void);
 
 /*end of forward declarations*/
 
@@ -187,6 +188,7 @@ g_unit_test_success_count = 0;
     function_result_test();
     type_normalization();
     auto_test();
+    visit_test_auto_typeof();
 return g_unit_test_error_count;
 
 }

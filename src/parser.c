@@ -1711,14 +1711,14 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
             if (!type_is_maybe_unused(&parameter->declarator->type) &&
                 parameter->declarator->num_uses == 0)
             {
-                if (parameter->name &&
-                    parameter->name->level == 0 /*direct source*/
+                if (parameter->declarator->name &&
+                    parameter->declarator->name->level == 0 /*direct source*/
                     )
                 {
                     parser_setwarning_with_token(ctx,
                         parameter->declarator->first_token,
                         "'%s': unreferenced formal parameter\n",
-                        parameter->name->lexeme);
+                        parameter->declarator->name->lexeme);
                 }
             }
             parameter = parameter->next;
@@ -1810,6 +1810,8 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             &tkname);
 
         if (p_init_declarator->declarator == NULL) throw;
+
+        p_init_declarator->declarator->name = tkname;
 
         if (tkname == NULL)
         {
@@ -2543,15 +2545,18 @@ struct member_declarator* member_declarator(struct parser_ctx* ctx,
      declaratoropt : constant-expression
     */
     struct member_declarator* p_member_declarator = calloc(1, sizeof(struct member_declarator));
-    //struct declarator* pdeclarator = calloc(1, sizeof * pdeclarator);
-    p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/NULL, false, &p_member_declarator->name);
+    
+    struct token* p_token_name = NULL;
+
+    p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/NULL, false, &p_token_name);
+    p_member_declarator->declarator->name = p_token_name;
     p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
     p_member_declarator->declarator->type =
         make_type_using_declarator(ctx, p_member_declarator->declarator);
 
-    if (p_member_declarator->name)
-        naming_convention_struct_member(ctx, p_member_declarator->name, &p_member_declarator->declarator->type);
+    if (p_member_declarator->declarator->name)
+        naming_convention_struct_member(ctx, p_member_declarator->declarator->name, &p_member_declarator->declarator->type);
 
     if (ctx->current->type == ':')
     {
@@ -2640,7 +2645,7 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
 
             while (p_member_declarator)
             {
-                if (strcmp(p_member_declarator->name->lexeme, name) == 0)
+                if (strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
                 {
                     return p_member_declarator;
                 }
@@ -3586,12 +3591,14 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
     //talvez no ctx colocar um flag que esta em argumentos
     //TODO se tiver uma struct tag novo...
     //warning: declaration of 'struct X' will not be visible outside of this function [-Wvisibility]
-
+    struct token* p_token_name = 0;
     p_parameter_declaration->declarator = declarator(ctx,
         /*specifier_qualifier_list*/NULL,
         p_parameter_declaration->declaration_specifiers,
         true/*can be abstract*/,
-        &p_parameter_declaration->name);
+        &p_token_name);
+    p_parameter_declaration->declarator->name = p_token_name;
+    
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
@@ -3610,20 +3617,21 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
     p_parameter_declaration->declarator->type =
         make_type_using_declarator(ctx, p_parameter_declaration->declarator);
 
+
     p_parameter_declaration->declarator->type.attributes_flags |= CUSTOM_ATTRIBUTE_PARAM;
 
-    if (p_parameter_declaration->name)
-        naming_convention_parameter(ctx, p_parameter_declaration->name, &p_parameter_declaration->declarator->type);
+    if (p_parameter_declaration->declarator->name)
+        naming_convention_parameter(ctx, p_parameter_declaration->declarator->name, &p_parameter_declaration->declarator->type);
 
     //coloca o pametro no escpo atual que deve apontar para escopo paramtros
     // da funcao .
     // 
     //assert ctx->current_scope->variables parametrosd
-    if (p_parameter_declaration->name)
+    if (p_parameter_declaration->declarator->name)
     {
         //parametro void nao te name 
         hashmap_set(&ctx->scopes.tail->variables,
-            p_parameter_declaration->name->lexeme,
+            p_parameter_declaration->declarator->name->lexeme,
             &p_parameter_declaration->declarator->type_id);
         //print_scope(ctx->current_scope);
     }
@@ -4453,17 +4461,11 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
-                    //setwarning_with_token(ctx, p_declarator->name, )
-                    ctx->n_warnings++;
-                    if (p_declarator->name &&
-                        p_declarator->name->token_origin)
+                    if (p_declarator->name->token_origin->level == 0)
                     {
-                        ctx->printf(WHITE "%s:%d:%d: ",
-                            p_declarator->name->token_origin->lexeme,
-                            p_declarator->name->line,
-                            p_declarator->name->col);
-
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "'%s': unreferenced declarator\n",
+                        parser_setwarning_with_token(ctx,
+                            p_declarator->name,
+                            "'%s': unreferenced declarator\n",
                             p_declarator->name->lexeme);
                     }
                 }
@@ -5235,9 +5237,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
          * to generate this string
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
-#define STR \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt"
 
+#define STR \
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
+
+        //http://thradams.com/app/litapp.html
         snprintf(env, sizeof env,
             "%s",
             STR);
@@ -6473,6 +6477,15 @@ void auto_test()
     
 }
 
+void visit_test_auto_typeof()
+{
+    const char * source = "auto p2 = (typeof(int[2])*) 0;";
+
+    struct report report = { 0 };
+    char* result = compile_source("-std=C99", source, &report);
+    assert(strcmp(result, "int  (* p2)[2] = (int  (*)[2]) 0;") == 0);
+    free(result);
+}
 #endif
 
 

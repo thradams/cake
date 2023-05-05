@@ -534,7 +534,8 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
         struct osstream ss = { 0 };
         print_type(&ss, type_get_specifer_part(p_type));
     
-        struct token_list l2 = tokenizer(&ctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
+        struct tokenizer_ctx tctx = { 0 };
+        struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
         token_list_insert_after(&ctx->ast.token_list, p_specifier_qualifier_list_opt->last_token, &l2);
      
          ss_close(&ss);
@@ -1419,7 +1420,7 @@ static void visit_member_declarator(struct visit_ctx* ctx, struct member_declara
 {
     if (p_member_declarator->declarator)
     {
-
+        visit_declarator(ctx, p_member_declarator->declarator);
     }
 }
 
@@ -1434,9 +1435,12 @@ static void visit_member_declarator_list(struct visit_ctx* ctx, struct member_de
 }
 static void visit_member_declaration(struct visit_ctx* ctx, struct member_declaration* p_member_declaration)
 {
-    visit_specifier_qualifier_list(ctx, 
-        p_member_declaration->specifier_qualifier_list, 
-        &p_member_declaration->member_declarator_list_opt->head->declarator->type);
+    if (p_member_declaration->member_declarator_list_opt)
+    {
+        visit_specifier_qualifier_list(ctx,
+            p_member_declaration->specifier_qualifier_list,
+            &p_member_declaration->member_declarator_list_opt->head->declarator->type); /*se nao tem?*/
+    }
 
     if (p_member_declaration->member_declarator_list_opt)
     {
@@ -1696,7 +1700,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
 
 static void visit_declaration_specifiers(struct visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type)
+    struct type* p_type_opt)
 {
     /*
         * Se tiver typeof ou auto vamos apagar todos type specifiers.
@@ -1748,7 +1752,10 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
 
         /*now we print new especifiers then convert to tokens*/
         struct osstream ss0 = { 0 };
-        struct type new_type = type_convert_to(p_type, ctx->target);
+        struct type new_type = { 0 };
+        
+        if (p_type_opt)
+        new_type = type_convert_to(p_type_opt, ctx->target);
 
         struct type* p = type_get_specifer_part(&new_type);
         print_type_qualifier_specifiers(&ss0, p);
@@ -1804,10 +1811,15 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
     if (p_declaration->declaration_specifiers)
     {
+        
         if (p_declaration->init_declarator_list.head)
         {
             visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers,
                 &p_declaration->init_declarator_list.head->declarator->type);
+        }
+        else
+        {
+            visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers, NULL);
         }
 
     }

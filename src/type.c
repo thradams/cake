@@ -391,7 +391,7 @@ void print_type(struct osstream* ss, const struct type* p_type)
 
 void print_type_declarator(struct osstream* ss, const struct type* p_type)
 {
-    print_type_core(ss, p_type, true); 
+    print_type_core(ss, p_type, true);
 }
 
 
@@ -1963,22 +1963,17 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
     else if (pdirectdeclarator->function_declarator)
     {
-        const char* func_name = NULL;
         if (pdirectdeclarator->function_declarator->direct_declarator)
         {
             make_type_using_direct_declarator(ctx,
                 pdirectdeclarator->function_declarator->direct_declarator,
-                &func_name,
+                ppname,
                 list);
         }
 
         struct type* p_func = calloc(1, sizeof(struct type));
         p_func->category = TYPE_CATEGORY_FUNCTION;
 
-        if (func_name)
-            p_func->name_opt = strdup(func_name);
-
-        //ppname = func_name;
 
         if (pdirectdeclarator->function_declarator->parameter_type_list_opt &&
             pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list)
@@ -2013,19 +2008,17 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
     }
     else if (pdirectdeclarator->array_declarator)
     {
-        const char* array_name = NULL;
+
         if (pdirectdeclarator->array_declarator->direct_declarator)
         {
             make_type_using_direct_declarator(ctx,
                 pdirectdeclarator->array_declarator->direct_declarator,
-                &array_name,
+                ppname,
                 list);
         }
 
         struct type* p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ARRAY;
-        if (array_name)
-            p->name_opt = strdup(array_name);
 
         p->array_size = pdirectdeclarator->array_declarator->constant_size;
 
@@ -2160,7 +2153,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     //type_print(list.head);
 
     if (declarator_get_typeof_specifier(pdeclarator))
-    {        
+    {
         struct type nt =
             type_dup(&declarator_get_typeof_specifier(pdeclarator)->type);
 
@@ -2172,7 +2165,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         bool head = list.head != NULL;
 
         if (head)
-         type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
+            type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
 
         if (list.tail)
             list.tail->next = p_nt;
@@ -2201,9 +2194,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         bool head = list.head != NULL;
 
-        //if (head)
-          //  type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
-
+        type_flat_set_qualifiers_using_declarator(p_nt, pdeclarator);
 
         if (list.tail)
             list.tail->next = p_nt;
@@ -2211,10 +2202,6 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         {
             type_list_push_back(&list, p_nt);
         }
-        
-        //if (!head)
-         type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
-
     }
     else
     {
@@ -2226,20 +2213,24 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         type_list_push_back(&list, p);
 
-        if (name)
-        {
-            if (list.head->name_opt == NULL)
-            {
-                list.head->name_opt = strdup(name);
-            }
-        }
-                type_flat_set_qualifiers_using_declarator(list.tail, pdeclarator);
-
+        //if (name)
+        //{
+          //  if (list.head->name_opt == NULL)
+            //{
+              //  list.head->name_opt = strdup(name);
+            //}
+        //}
+        type_flat_set_qualifiers_using_declarator(list.tail, pdeclarator);
     }
 
 
     //type_flat_set_qualifiers_using_declarator(list.head, pdeclarator);
 
+    if (pdeclarator->name)
+    {
+        free(list.head->name_opt);
+        list.head->name_opt = pdeclarator->name->lexeme;
+    }
     return *list.head;
 }
 

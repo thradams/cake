@@ -597,8 +597,8 @@ static void wasm_visit_direct_declarator(struct wasm_visit_ctx* ctx, struct dire
             ss_fprintf(&ctx->ss, " i32"); //todo type
 
 
-            if (parameter->name)
-                ss_fprintf(&ctx->ss, " %%%s", parameter->name->lexeme);
+            if (parameter->declarator->name)
+                ss_fprintf(&ctx->ss, " %%%s", parameter->declarator->name->lexeme);
 
 
             if (parameter->attribute_specifier_sequence_opt)

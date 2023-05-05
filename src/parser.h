@@ -671,7 +671,7 @@ struct parameter_declaration
       attribute-specifier-sequence opt declaration-specifiers abstract-declarator opt
     */
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
-    struct token* name;
+    
     struct declaration_specifiers* declaration_specifiers;
     struct declarator* declarator;
 
@@ -818,7 +818,7 @@ struct member_declarator
         declarator
         declarator opt : constant-expression
     */
-    struct token* name;
+    
     struct declarator* declarator;
     struct expression* constant_expression;
     struct member_declarator* next;

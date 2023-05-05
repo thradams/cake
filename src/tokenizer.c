@@ -4011,6 +4011,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #ifdef WIN32
         "#define _WINDOWS\n"
         "#define _WIN32\n"
+        "#define _INTEGRAL_MAX_BITS 64\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
 #endif
 
 #ifdef __linux__
