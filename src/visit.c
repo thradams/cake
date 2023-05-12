@@ -1286,9 +1286,22 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
     {
         if (ctx->target < LANGUAGE_C99)
         {
+            /*static and type qualifiers in parameter array declarators where added in C99*/
             if (p_direct_declarator->array_declarator->static_token_opt)
             {
                 p_direct_declarator->array_declarator->static_token_opt->flags |= TK_FLAG_HIDE;
+                
+                if (p_direct_declarator->array_declarator->type_qualifier_list_opt)
+                {
+                  struct type_qualifier* p_type_qualifier =
+                    p_direct_declarator->array_declarator->type_qualifier_list_opt->head;
+
+                  while (p_type_qualifier)
+                  {
+                    p_type_qualifier->token->flags |= TK_FLAG_HIDE;
+                    p_type_qualifier = p_type_qualifier->next;
+                  }
+                }
             }
         }
     }
@@ -1296,8 +1309,16 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator)
 {
-
     bool need_transformation = false;
+
+    if (p_declarator->pointer)
+    {
+      struct pointer* p = p_declarator->pointer;
+      while (p)
+      {
+        p = p->pointer;
+      }
+    }
 
     if (ctx->target < LANGUAGE_C2X)
     {

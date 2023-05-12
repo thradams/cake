@@ -124,7 +124,7 @@ void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
     while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
     {
         prev = prev->prev;
-    }   
+    }
     struct token* next = prev;
     while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
     {
@@ -135,14 +135,14 @@ void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
                 ctx->printf(" ");
             }
         }
-        if (next->flags & TK_FLAG_MACRO_EXPANDED) {            
+        if (next->flags & TK_FLAG_MACRO_EXPANDED) {
             ctx->printf(DARKGRAY "%s" RESET, next->lexeme);
         }
         else
-          ctx->printf("%s", next->lexeme);
+            ctx->printf("%s", next->lexeme);
 
         next = next->next;
-    }    
+    }
     ctx->printf("\n");
     ctx->printf(LIGHTGRAY);
     ctx->printf(" %*s |", n, " ");
@@ -1558,7 +1558,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
      attribute-specifier-sequence declaration-specifiers init-declarator-list ;
      static_assert-declaration
      attribute-declaration
- */
+  */
 
 
     struct declaration* p_declaration = calloc(1, sizeof(struct declaration));
@@ -1813,6 +1813,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
         p_init_declarator->declarator->name = tkname;
 
+    
         if (tkname == NULL)
         {
             parser_seterror_with_token(ctx, ctx->current, "empty declarator name?? unexpected");
@@ -1847,7 +1848,16 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             p_init_declarator->declarator->type =
                 make_type_using_declarator(ctx, p_init_declarator->declarator);
 
-            //type_print(&p_init_declarator->declarator->type);
+            if (type_is_array(&p_init_declarator->declarator->type))
+            {
+                if (p_init_declarator->declarator->type.type_qualifier_flags != 0 ||
+                    p_init_declarator->declarator->type.static_array)
+                {
+                    parser_seterror_with_token(ctx,
+                        p_init_declarator->declarator->first_token,
+                        "static or type qualifiers are not allowed in non-parameter array declarator");
+                }
+            }
 
             if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
                 type_is_destroy(&p_init_declarator->declarator->type) &&
@@ -1866,24 +1876,20 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             {
                 if (out->scope_level == ctx->scopes.tail->scope_level)
                 {
-                    const bool previous_is_function = type_is_function(&previous->type);
-                    const bool previous_is_typedef_or_extern =
-                        previous->declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_TYPEDEF);
-
-
-                    struct declarator* current = p_init_declarator->declarator;
-
-                    //const bool current_is_function = type_is_function(&current->old_type);
-                    //const bool current_is_function = new_type_is_function(&current->new_type);
-
-                    /*
-                      TODO compare if the declaration is identical
-                      Rules for file scope are diferent see #12
-                    */
-
-                    if (!previous_is_function && !previous_is_typedef_or_extern)
+                    if (out->scope_level == 0)
                     {
-                     
+                       /*file scope*/
+                        if (!type_is_same(&previous->type, &p_init_declarator->declarator->type, true))
+                        {
+                            //TODO failing on windows headers
+                            //parser_seterror_with_token(ctx, p_init_declarator->declarator->name, "redeclaration of  '%s' with diferent types", previous->name->lexeme);
+                            //parser_set_info_with_token(ctx, previous->name, "previous declaration");
+                        }
+                    }
+                    else
+                    {
+                        parser_seterror_with_token(ctx, ctx->current, "redeclaration");
+                        parser_set_info_with_token(ctx, previous->name, "previous declaration");
                     }
                 }
                 else
@@ -2146,13 +2152,13 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
         {
             parser_setwarning_with_token(ctx, ctx->current, "typeof used in array arguments");
 
-            if(type_is_array(&p_typeof_specifier->type))
+            if (type_is_array(&p_typeof_specifier->type))
             {
                 struct type t = type_param_array_to_pointer(&p_typeof_specifier->type);
                 type_swap(&t, &p_typeof_specifier->type);
                 type_destroy(&t);
             }
-            
+
         }
 
         if (is_typeof_unqual)
@@ -2545,7 +2551,7 @@ struct member_declarator* member_declarator(struct parser_ctx* ctx,
      declaratoropt : constant-expression
     */
     struct member_declarator* p_member_declarator = calloc(1, sizeof(struct member_declarator));
-    
+
     struct token* p_token_name = NULL;
 
     p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/NULL, false, &p_token_name);
@@ -3173,7 +3179,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
-    
+
     if (ctx->current != p_declarator->first_token)
     {
         p_declarator->last_token = previous_parser_token(ctx->current);
@@ -3181,9 +3187,9 @@ struct declarator* declarator(struct parser_ctx* ctx,
     else
     {
         /*empty declarator*/
-        
+
         p_declarator->last_token = p_declarator->first_token;
-        p_declarator->first_token= NULL; /*this is the way we can know...first is null*/
+        p_declarator->first_token = NULL; /*this is the way we can know...first is null*/
     }
 
 
@@ -3516,7 +3522,7 @@ struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx)
             p_parameter_type_list->parameter_list->head->declarator->pointer == NULL)
         {
             //pattern f(void)
-            p_parameter_type_list->is_void = true; 
+            p_parameter_type_list->is_void = true;
         }
     }
     /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
@@ -3598,7 +3604,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         true/*can be abstract*/,
         &p_token_name);
     p_parameter_declaration->declarator->name = p_token_name;
-    
+
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
@@ -4342,7 +4348,6 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
             if (p_unlabeled_statement->expression_statement->expression_opt &&
                 p_unlabeled_statement->expression_statement->expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
             {
-
                 if (!type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type))
                 {
                     if (ctx->options.nodiscard_is_default ||
@@ -4354,6 +4359,32 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                                 p_unlabeled_statement->expression_statement->expression_opt->first_token,
                                 "ignoring return value of function declared with 'nodiscard' attribute");
                         }
+                    }
+                }
+            }
+            else {
+                /*
+                *  The objective here is to detect expression with not effect
+                *  a == b; etc
+                */
+                if (p_unlabeled_statement != NULL &&
+                    p_unlabeled_statement->jump_statement == NULL &&
+                    p_unlabeled_statement->expression_statement != NULL &&
+                    p_unlabeled_statement->expression_statement->expression_opt &&
+                    !type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type) &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != ASSIGNMENT_EXPRESSION &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_FUNCTION_CALL &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_INCREMENT &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_DECREMENT &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_INCREMENT &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_DECREMENT &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_DECLARATOR_ATTRIBUTE_EXPR)
+                {
+                    if (ctx->current->level == 0)
+                    {
+                        parser_setwarning_with_token(ctx,
+                            ctx->current,
+                            "expression not used");
                     }
                 }
             }
@@ -5328,7 +5359,7 @@ const char* format_code(struct options* options, const char* content)
         else
             s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
-}
+    }
     catch
     {
 
@@ -5356,7 +5387,7 @@ void c_visit(struct ast* ast)
 
 void ast_wasm_visit(struct ast* ast)
 {
-    struct wasm_visit_ctx ctx = {0};
+    struct wasm_visit_ctx ctx = { 0 };
     ctx.ast = *ast;
     wasm_visit(&ctx);
 }
@@ -5435,8 +5466,8 @@ int compile_one_file(const char* file_name,
 
             if (options.format_input)
             {
-                struct format_visit_ctx f = {.ast = ast, .identation = 4};
-                format_visit(&f);                
+                struct format_visit_ctx f = { .ast = ast, .identation = 4 };
+                format_visit(&f);
             }
 
             ast_wasm_visit(&ast);
@@ -5654,7 +5685,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             }
             ast_destroy(&ast);
         }
-        }
+    }
     catch
     {
     }
@@ -5662,7 +5693,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
 
     return s;
-    }
+}
 
 
 /*Função exportada para web*/
@@ -6450,7 +6481,7 @@ void type_normalization()
         "char (b3)(int a);\n"
         "static_assert((typeof(a3)) == (typeof(b3)));\n"
         ;
-    
+
 
     assert(compile_without_errors(source));
 }
@@ -6472,19 +6503,30 @@ void auto_test()
         "        static_assert(_is_same(typeof(s), char *));\n"
         "    }\n"
         ;
-    
+
     assert(compile_without_errors(source));
-    
+
 }
 
 void visit_test_auto_typeof()
 {
-    const char * source = "auto p2 = (typeof(int[2])*) 0;";
+    const char* source = "auto p2 = (typeof(int[2])*) 0;";
 
     struct report report = { 0 };
     char* result = compile_source("-std=C99", source, &report);
-    assert(strcmp(result, "int  (* p2)[2] = (int  (*)[2]) 0;") == 0);
+    assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);                          
     free(result);
+}
+
+void enum_scope() {
+    const char * source = 
+        "enum E { A = 1 };\n"
+        "int main()\n"
+        "{\n"
+        "  enum E { B } e2; \n"
+        "  static_assert( (typeof(e2)), (enum E) ); \n"
+        "}\n";
+    assert(compile_without_errors(source));
 }
 #endif
 

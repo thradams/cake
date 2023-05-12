@@ -8380,7 +8380,7 @@ enum attribute_flags
 
     CUSTOM_ATTRIBUTE_FREE = 1 << 7,
     CUSTOM_ATTRIBUTE_DESTROY = 1 << 8,
-
+    
     /*
      Used to detect argument type
     */
@@ -8429,7 +8429,7 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_CONST = 1 << 0,
     TYPE_QUALIFIER_RESTRICT = 1 << 1,
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
-    TYPE_QUALIFIER__ATOMIC = 1 << 3,
+    TYPE_QUALIFIER__ATOMIC = 1 << 3    
 };
 
 
@@ -8547,19 +8547,15 @@ struct type get_function_return_type(struct type* p_type);
 int type_get_sizeof(struct type* p_type);
 int type_get_alignof(struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
-struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
+
 struct type type_add_pointer(struct type* p_type);
 void type_print(const struct type* a);
 enum type_category type_get_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
-void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);
-void declarator_type_clear_name(struct declarator_type* p_declarator_type);
+
 
 void type_visit_to_mark_anonymous(struct type* p_type);
 
-struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);;
-
-struct type make_new_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 void type_flat_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);
@@ -8711,11 +8707,11 @@ struct generic_selection
 
 struct constant_value {
     enum {        
-        type_not_constant,
-        type_empty,
-        type_long_long,
-        type_double,
-        type_unsigned_long_long
+        TYPE_NOT_CONSTANT, 
+        TYPE_EMPTY, 
+        TYPE_LONG_LONG, 
+        TYPE_DOUBLE, 
+        TYPE_UNSIGNED_LONG_LONG 
     } type;
     union {
         unsigned long long ullvalue;
@@ -8773,7 +8769,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 //#pragma once
 
 
-#define CAKE_VERSION "0.5.2"
+#define CAKE_VERSION "0.5.3"
 
 
 struct _destroy scope
@@ -9406,7 +9402,7 @@ struct pointer
     /*
      pointer:
         * attribute-specifier-sequence opt type-qualifier-list opt
-        * attribute-specifier-sequence opt type-qualifier-list opt pointer
+        * attribute-specifier-sequence opt type-qualifier-list opt pointer    
     */
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct type_qualifier_list* type_qualifier_list_opt;
@@ -10023,21 +10019,21 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 struct constant_value make_constant_value_double(double d) {
     struct constant_value r;
     r.dvalue = d;
-    r.type = type_double;
+    r.type = TYPE_DOUBLE;
     return r;
 }
 
 struct constant_value make_constant_value_ull(unsigned long long d) {
     struct constant_value r;
     r.ullvalue = d;
-    r.type = type_unsigned_long_long;
+    r.type = TYPE_UNSIGNED_LONG_LONG;
     return r;
 }
 
 struct constant_value make_constant_value_ll(long long d) {
     struct constant_value r;
     r.llvalue = d;
-    r.type = type_long_long;
+    r.type = TYPE_LONG_LONG;
     return r;
 }
 
@@ -10045,9 +10041,9 @@ double constant_value_to_double(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case type_long_long: return (double)a->llvalue;
-    case type_double: return  a->dvalue;
-    case type_unsigned_long_long: return (double)a->ullvalue;
+    case TYPE_LONG_LONG: return (double)a->llvalue;
+    case TYPE_DOUBLE: return  a->dvalue;
+    case TYPE_UNSIGNED_LONG_LONG: return (double)a->ullvalue;
     }
 
     return 0;
@@ -10055,17 +10051,17 @@ double constant_value_to_double(const struct constant_value* a)
 
 bool constant_value_is_valid(const struct constant_value* a)
 {
-    return a->type != type_not_constant &&
-           a->type != type_empty;
+    return a->type != TYPE_NOT_CONSTANT &&
+        a->type != TYPE_EMPTY;
 }
 
 unsigned long long constant_value_to_ull(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case type_long_long: return (unsigned long long)a->llvalue;
-    case type_double: return  (unsigned long long)a->dvalue;
-    case type_unsigned_long_long: return (unsigned long long) a->ullvalue;
+    case TYPE_LONG_LONG: return (unsigned long long)a->llvalue;
+    case TYPE_DOUBLE: return  (unsigned long long)a->dvalue;
+    case TYPE_UNSIGNED_LONG_LONG: return (unsigned long long) a->ullvalue;
     }
 
     return 0;
@@ -10074,9 +10070,9 @@ long long constant_value_to_ll(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case type_long_long: return (long long)a->llvalue;
-    case type_double: return  (long long)a->dvalue;
-    case type_unsigned_long_long: return (long long)a->ullvalue;
+    case TYPE_LONG_LONG: return (long long)a->llvalue;
+    case TYPE_DOUBLE: return  (long long)a->dvalue;
+    case TYPE_UNSIGNED_LONG_LONG: return (long long)a->ullvalue;
     }
 
     return 0;
@@ -10085,9 +10081,9 @@ bool constant_value_to_bool(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case type_long_long: return a->llvalue != 0;
-    case type_double: return  a->dvalue != 0;
-    case type_unsigned_long_long: return a->ullvalue != 0;
+    case TYPE_LONG_LONG: return a->llvalue != 0;
+    case TYPE_DOUBLE: return  a->dvalue != 0;
+    case TYPE_UNSIGNED_LONG_LONG: return a->ullvalue != 0;
     }
 
     return 0;
@@ -10101,9 +10097,9 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         return r;
     }
 
-    if (a->type == type_double)
+    if (a->type == TYPE_DOUBLE)
     {
-        r.type = type_double;
+        r.type = TYPE_DOUBLE;
         switch (op)
         {
         case '!':r.dvalue = !(unsigned int)a->dvalue;  break;
@@ -10116,9 +10112,9 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         }
         return r;
     }
-    else if (a->type == type_unsigned_long_long)
+    else if (a->type == TYPE_UNSIGNED_LONG_LONG)
     {
-        r.type = type_unsigned_long_long;
+        r.type = TYPE_UNSIGNED_LONG_LONG;
         switch (op)
         {
         case '!':r.ullvalue = !a->ullvalue;  break;
@@ -10131,9 +10127,9 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         }
         return r;
     }
-    else if (a->type == type_long_long)
+    else if (a->type == TYPE_LONG_LONG)
     {
-        r.type = type_unsigned_long_long;
+        r.type = TYPE_UNSIGNED_LONG_LONG;
         switch (op)
         {
         case '!':r.llvalue = !((long long)a->llvalue);  break;
@@ -10160,11 +10156,11 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         return r;
     }
 
-    if (a->type == type_double || b->type == type_double)
+    if (a->type == TYPE_DOUBLE || b->type == TYPE_DOUBLE)
     {
         double va = constant_value_to_double(a);
         double vb = constant_value_to_double(b);
-        r.type = type_double;
+        r.type = TYPE_DOUBLE;
 
         switch (op)
         {
@@ -10176,7 +10172,7 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
             if (vb != 0)
                 r.dvalue = va / vb;
             else
-                r.type = type_not_constant;
+                r.type = TYPE_NOT_CONSTANT;
             break;
 
             //case '%':r.dvalue = va % vb;  break;
@@ -10208,11 +10204,11 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         return r;
     }
 
-    if (a->type == type_unsigned_long_long || b->type == type_unsigned_long_long)
+    if (a->type == TYPE_UNSIGNED_LONG_LONG || b->type == TYPE_UNSIGNED_LONG_LONG)
     {
         unsigned long long va = constant_value_to_ull(a);
         unsigned long long vb = constant_value_to_ull(b);
-        r.type = type_unsigned_long_long;
+        r.type = TYPE_UNSIGNED_LONG_LONG;
 
         switch (op)
         {
@@ -10224,14 +10220,14 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
             if (vb != 0)
                 r.ullvalue = va / vb;
             else
-                r.type = type_not_constant;
+                r.type = TYPE_NOT_CONSTANT;
             break;
 
         case '%':
             if (vb != 0)
                 r.ullvalue = va % vb;
             else
-                r.type = type_not_constant;
+                r.type = TYPE_NOT_CONSTANT;
             break;
 
             //Relational Operators
@@ -10263,7 +10259,7 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
 
     unsigned long long va = a->llvalue;
     unsigned long long vb = b->llvalue;
-    r.type = type_long_long;
+    r.type = TYPE_LONG_LONG;
     switch (op)
     {
         //Arithmetic Operators
@@ -10275,14 +10271,14 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         if (vb != 0)
             r.llvalue = va / vb;
         else
-            r.type = type_not_constant;
+            r.type = TYPE_NOT_CONSTANT;
         break;
 
     case '%':
         if (vb != 0)
             r.llvalue = va % vb;
         else
-            r.type = type_not_constant;
+            r.type = TYPE_NOT_CONSTANT;
         break;
 
         //Relational Operators
@@ -10339,10 +10335,10 @@ int  compare_function_arguments(struct parser_ctx* ctx,
     try
     {
 
-        
-        
 
-        struct param*  current_parameter_type = NULL;
+
+
+        struct param* current_parameter_type = NULL;
 
         const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
@@ -10381,8 +10377,8 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             if (arg_declarator &&
                 !arg_declarator->is_parameter_declarator)
             {
-                if (type_is_pointer(current_parameter_type->type) && 
-                     type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_DESTROY))
+                if (type_is_pointer(current_parameter_type->type) &&
+                    type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_DESTROY))
                 {
                     arg_declarator->static_analisys_flags &= ~MUST_DESTROY;
                     arg_declarator->static_analisys_flags |= UNINITIALIZED;
@@ -10784,7 +10780,7 @@ int convert_to_number(struct token* token, struct expression* p_expression_node)
         p_expression_node->constant_value = make_constant_value_double(strtod(buffer, 0));
         break;
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer+2, 0));
+        p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0));
         break;
     default:
         assert(false);
@@ -10874,7 +10870,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                     p_expression_node->declarator = p_declarator;
                     p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
-                    
+
                     p_expression_node->type = type_dup(&p_declarator->type);
                 }
             }
@@ -10944,7 +10940,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
-            
+
 
 
             parser_match(ctx);
@@ -10963,7 +10959,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
             p_expression_node->type.type_qualifier_flags = 0;
-            
+
 
 
             parser_match(ctx);
@@ -11188,9 +11184,9 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
                 p_expression_node_new->left = p_expression_node;
 
-                
+
                 parser_match(ctx);
-                if (type_is_pointer(&p_expression_node->type) && 
+                if (type_is_pointer(&p_expression_node->type) &&
                     type_is_struct_or_union(p_expression_node->type.next))
                 {
                     struct struct_or_union_specifier* p_complete =
@@ -11354,7 +11350,7 @@ struct expression* postfix_expression(struct parser_ctx* ctx)
             //printf("\n");
             //print_type(&p_expression_node->type);
             bool is_function_type = type_is_function(&p_expression_node->type);
-            
+
             if (is_function_type)
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
@@ -11919,8 +11915,8 @@ struct expression* cast_expression(struct parser_ctx* ctx)
             }
             else
             {
-                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);                
-                p_expression_node->constant_value.type = type_empty;
+                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+                p_expression_node->constant_value.type = TYPE_EMPTY;
             }
         }
         else if (is_first_of_unary_expression(ctx))
@@ -12461,15 +12457,16 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                 }
             }
 
+            new_expression->first_token = operator_token;
+
             if (operator_token->type == '==')
             {
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
-
                 new_expression->constant_value =
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '==');
 
-                if (new_expression->left->constant_value.type == type_empty ||
-                    new_expression->right->constant_value.type == type_empty)
+                if (new_expression->left->constant_value.type == TYPE_EMPTY ||
+                    new_expression->right->constant_value.type == TYPE_EMPTY)
                 {
                     new_expression->constant_value =
                         make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
@@ -12483,8 +12480,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
 
 
-                if (new_expression->left->constant_value.type == type_empty ||
-                    new_expression->right->constant_value.type == type_empty) 
+                if (new_expression->left->constant_value.type == TYPE_EMPTY ||
+                    new_expression->right->constant_value.type == TYPE_EMPTY)
                 {
                     new_expression->constant_value = make_constant_value_ll
                     (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));
@@ -12964,7 +12961,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
                 if (constant_value_to_bool(&p_conditional_expression->condition_expr->constant_value))
                 {
                     /*this is an extensions.. in constant expression we can mix types!*/
-                    p_conditional_expression->type = type_dup(& p_conditional_expression->left->type);
+                    p_conditional_expression->type = type_dup(&p_conditional_expression->left->type);
                     p_conditional_expression->constant_value = p_conditional_expression->left->constant_value;
                     goto continuation;
                 }
@@ -14622,6 +14619,10 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_pointer(paramer_type))
     {
+        //TODO void F(int * [[opt]] p)
+        // F(0) when passing null we will check if the parameter 
+        //have the anotation [[opt]]
+
         /*can be converted to any type*/
         goto continuation;
     }
@@ -14791,6 +14792,18 @@ struct type type_param_array_to_pointer(const struct type* p_type)
     assert(type_is_array(p_type));
     struct type t = get_array_item_type(p_type);
     struct type t2 = type_add_pointer(&t);
+
+    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST)
+    {
+      /*
+       void F(int a[static const 5]) {
+        static_assert((typeof(a)) == (int* const));
+      }
+      */
+
+      t2.type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+    }
+
     type_destroy(&t);
 
     //if (p_type->declarator_type &&
@@ -15957,11 +15970,12 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
 
         if (pointer->type_qualifier_list_opt)
         {
-            p_flat->type_qualifier_flags = pointer->type_qualifier_list_opt->flags;
+          p_flat->type_qualifier_flags = pointer->type_qualifier_list_opt->flags;
         }
+        
         if (pointer->attribute_specifier_sequence_opt)
         {
-            p_flat->attributes_flags = pointer->pointer->attribute_specifier_sequence_opt->attributes_flags;
+            p_flat->attributes_flags |= pointer->pointer->attribute_specifier_sequence_opt->attributes_flags;
         }
         p_flat->category = TYPE_CATEGORY_POINTER;
         type_list_push_front(&pointers, p_flat); /*invertido*/
@@ -16336,7 +16350,7 @@ void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
     while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
     {
         prev = prev->prev;
-    }   
+    }
     struct token* next = prev;
     while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
     {
@@ -16347,14 +16361,14 @@ void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
                 ctx->printf(" ");
             }
         }
-        if (next->flags & TK_FLAG_MACRO_EXPANDED) {            
+        if (next->flags & TK_FLAG_MACRO_EXPANDED) {
             ctx->printf(DARKGRAY "%s" RESET, next->lexeme);
         }
         else
-          ctx->printf("%s", next->lexeme);
+            ctx->printf("%s", next->lexeme);
 
         next = next->next;
-    }    
+    }
     ctx->printf("\n");
     ctx->printf(LIGHTGRAY);
     ctx->printf(" %*s |", n, " ");
@@ -17770,7 +17784,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
      attribute-specifier-sequence declaration-specifiers init-declarator-list ;
      static_assert-declaration
      attribute-declaration
- */
+  */
 
 
     struct declaration* p_declaration = calloc(1, sizeof(struct declaration));
@@ -18025,6 +18039,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
         p_init_declarator->declarator->name = tkname;
 
+    
         if (tkname == NULL)
         {
             parser_seterror_with_token(ctx, ctx->current, "empty declarator name?? unexpected");
@@ -18059,7 +18074,16 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             p_init_declarator->declarator->type =
                 make_type_using_declarator(ctx, p_init_declarator->declarator);
 
-            //type_print(&p_init_declarator->declarator->type);
+            if (type_is_array(&p_init_declarator->declarator->type))
+            {
+                if (p_init_declarator->declarator->type.type_qualifier_flags != 0 ||
+                    p_init_declarator->declarator->type.static_array)
+                {
+                    parser_seterror_with_token(ctx,
+                        p_init_declarator->declarator->first_token,
+                        "static or type qualifiers are not allowed in non-parameter array declarator");
+                }
+            }
 
             if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
                 type_is_destroy(&p_init_declarator->declarator->type) &&
@@ -18078,24 +18102,20 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             {
                 if (out->scope_level == ctx->scopes.tail->scope_level)
                 {
-                    const bool previous_is_function = type_is_function(&previous->type);
-                    const bool previous_is_typedef_or_extern =
-                        previous->declaration_specifiers->storage_class_specifier_flags & (STORAGE_SPECIFIER_EXTERN | STORAGE_SPECIFIER_TYPEDEF);
-
-
-                    struct declarator* current = p_init_declarator->declarator;
-
-                    //const bool current_is_function = type_is_function(&current->old_type);
-                    //const bool current_is_function = new_type_is_function(&current->new_type);
-
-                    /*
-                      TODO compare if the declaration is identical
-                      Rules for file scope are diferent see #12
-                    */
-
-                    if (!previous_is_function && !previous_is_typedef_or_extern)
+                    if (out->scope_level == 0)
                     {
-                     
+                       /*file scope*/
+                        if (!type_is_same(&previous->type, &p_init_declarator->declarator->type, true))
+                        {
+                            //TODO failing on windows headers
+                            //parser_seterror_with_token(ctx, p_init_declarator->declarator->name, "redeclaration of  '%s' with diferent types", previous->name->lexeme);
+                            //parser_set_info_with_token(ctx, previous->name, "previous declaration");
+                        }
+                    }
+                    else
+                    {
+                        parser_seterror_with_token(ctx, ctx->current, "redeclaration");
+                        parser_set_info_with_token(ctx, previous->name, "previous declaration");
                     }
                 }
                 else
@@ -18358,13 +18378,13 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
         {
             parser_setwarning_with_token(ctx, ctx->current, "typeof used in array arguments");
 
-            if(type_is_array(&p_typeof_specifier->type))
+            if (type_is_array(&p_typeof_specifier->type))
             {
                 struct type t = type_param_array_to_pointer(&p_typeof_specifier->type);
                 type_swap(&t, &p_typeof_specifier->type);
                 type_destroy(&t);
             }
-            
+
         }
 
         if (is_typeof_unqual)
@@ -18757,7 +18777,7 @@ struct member_declarator* member_declarator(struct parser_ctx* ctx,
      declaratoropt : constant-expression
     */
     struct member_declarator* p_member_declarator = calloc(1, sizeof(struct member_declarator));
-    
+
     struct token* p_token_name = NULL;
 
     p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/NULL, false, &p_token_name);
@@ -19385,7 +19405,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
     p_declarator->pointer = pointer_opt(ctx);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
-    
+
     if (ctx->current != p_declarator->first_token)
     {
         p_declarator->last_token = previous_parser_token(ctx->current);
@@ -19393,9 +19413,9 @@ struct declarator* declarator(struct parser_ctx* ctx,
     else
     {
         /*empty declarator*/
-        
+
         p_declarator->last_token = p_declarator->first_token;
-        p_declarator->first_token= NULL; /*this is the way we can know...first is null*/
+        p_declarator->first_token = NULL; /*this is the way we can know...first is null*/
     }
 
 
@@ -19728,7 +19748,7 @@ struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx)
             p_parameter_type_list->parameter_list->head->declarator->pointer == NULL)
         {
             //pattern f(void)
-            p_parameter_type_list->is_void = true; 
+            p_parameter_type_list->is_void = true;
         }
     }
     /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
@@ -19810,7 +19830,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         true/*can be abstract*/,
         &p_token_name);
     p_parameter_declaration->declarator->name = p_token_name;
-    
+
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
@@ -20554,7 +20574,6 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
             if (p_unlabeled_statement->expression_statement->expression_opt &&
                 p_unlabeled_statement->expression_statement->expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
             {
-
                 if (!type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type))
                 {
                     if (ctx->options.nodiscard_is_default ||
@@ -20566,6 +20585,32 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                                 p_unlabeled_statement->expression_statement->expression_opt->first_token,
                                 "ignoring return value of function declared with 'nodiscard' attribute");
                         }
+                    }
+                }
+            }
+            else {
+                /*
+                *  The objective here is to detect expression with not effect
+                *  a == b; etc
+                */
+                if (p_unlabeled_statement != NULL &&
+                    p_unlabeled_statement->jump_statement == NULL &&
+                    p_unlabeled_statement->expression_statement != NULL &&
+                    p_unlabeled_statement->expression_statement->expression_opt &&
+                    !type_is_void(&p_unlabeled_statement->expression_statement->expression_opt->type) &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != ASSIGNMENT_EXPRESSION &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_FUNCTION_CALL &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_INCREMENT &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_DECREMENT &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_INCREMENT &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_DECREMENT &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_DECLARATOR_ATTRIBUTE_EXPR)
+                {
+                    if (ctx->current->level == 0)
+                    {
+                        parser_setwarning_with_token(ctx,
+                            ctx->current,
+                            "expression not used");
                     }
                 }
             }
@@ -21540,7 +21585,7 @@ const char* format_code(struct options* options, const char* content)
         else
             s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
-}
+    }
     catch
     {
 
@@ -21568,7 +21613,7 @@ void c_visit(struct ast* ast)
 
 void ast_wasm_visit(struct ast* ast)
 {
-    struct wasm_visit_ctx ctx = {0};
+    struct wasm_visit_ctx ctx = { 0 };
     ctx.ast = *ast;
     wasm_visit(&ctx);
 }
@@ -21647,8 +21692,8 @@ int compile_one_file(const char* file_name,
 
             if (options.format_input)
             {
-                struct format_visit_ctx f = {.ast = ast, .identation = 4};
-                format_visit(&f);                
+                struct format_visit_ctx f = { .ast = ast, .identation = 4 };
+                format_visit(&f);
             }
 
             ast_wasm_visit(&ast);
@@ -21866,7 +21911,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             }
             ast_destroy(&ast);
         }
-        }
+    }
     catch
     {
     }
@@ -21874,7 +21919,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
 
     return s;
-    }
+}
 
 
 /*Função exportada para web*/
@@ -22661,7 +22706,7 @@ void type_normalization()
         "char (b3)(int a);\n"
         "static_assert((typeof(a3)) == (typeof(b3)));\n"
         ;
-    
+
 
     assert(compile_without_errors(source));
 }
@@ -22683,19 +22728,30 @@ void auto_test()
         "        static_assert(_is_same(typeof(s), char *));\n"
         "    }\n"
         ;
-    
+
     assert(compile_without_errors(source));
-    
+
 }
 
 void visit_test_auto_typeof()
 {
-    const char * source = "auto p2 = (typeof(int[2])*) 0;";
+    const char* source = "auto p2 = (typeof(int[2])*) 0;";
 
     struct report report = { 0 };
     char* result = compile_source("-std=C99", source, &report);
-    assert(strcmp(result, "int  (* p2)[2] = (int  (*)[2]) 0;") == 0);
+    assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);                          
     free(result);
+}
+
+void enum_scope() {
+    const char * source = 
+        "enum E { A = 1 };\n"
+        "int main()\n"
+        "{\n"
+        "  enum E { B } e2; \n"
+        "  static_assert( (typeof(e2)), (enum E) ); \n"
+        "}\n";
+    assert(compile_without_errors(source));
 }
 #endif
 
@@ -23983,9 +24039,22 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
     {
         if (ctx->target < LANGUAGE_C99)
         {
+            /*static and type qualifiers in parameter array declarators where added in C99*/
             if (p_direct_declarator->array_declarator->static_token_opt)
             {
                 p_direct_declarator->array_declarator->static_token_opt->flags |= TK_FLAG_HIDE;
+                
+                if (p_direct_declarator->array_declarator->type_qualifier_list_opt)
+                {
+                  struct type_qualifier* p_type_qualifier =
+                    p_direct_declarator->array_declarator->type_qualifier_list_opt->head;
+
+                  while (p_type_qualifier)
+                  {
+                    p_type_qualifier->token->flags |= TK_FLAG_HIDE;
+                    p_type_qualifier = p_type_qualifier->next;
+                  }
+                }
             }
         }
     }
@@ -23993,8 +24062,16 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator)
 {
-
     bool need_transformation = false;
+
+    if (p_declarator->pointer)
+    {
+      struct pointer* p = p_declarator->pointer;
+      while (p)
+      {
+        p = p->pointer;
+      }
+    }
 
     if (ctx->target < LANGUAGE_C2X)
     {

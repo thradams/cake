@@ -9,7 +9,7 @@
 #include "options.h"
 #include "annotations.h"
 
-#define CAKE_VERSION "0.5.2"
+#define CAKE_VERSION "0.5.3"
 
 
 struct _destroy scope
@@ -642,7 +642,7 @@ struct pointer
     /*
      pointer:
         * attribute-specifier-sequence opt type-qualifier-list opt
-        * attribute-specifier-sequence opt type-qualifier-list opt pointer
+        * attribute-specifier-sequence opt type-qualifier-list opt pointer    
     */
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct type_qualifier_list* type_qualifier_list_opt;

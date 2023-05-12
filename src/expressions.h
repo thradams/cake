@@ -147,11 +147,11 @@ struct generic_selection
 
 struct constant_value {
     enum {        
-        type_not_constant,
-        type_empty,
-        type_long_long,
-        type_double,
-        type_unsigned_long_long
+        TYPE_NOT_CONSTANT, 
+        TYPE_EMPTY, 
+        TYPE_LONG_LONG, 
+        TYPE_DOUBLE, 
+        TYPE_UNSIGNED_LONG_LONG 
     } type;
     union {
         unsigned long long ullvalue;

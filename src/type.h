@@ -40,7 +40,7 @@ enum attribute_flags
 
     CUSTOM_ATTRIBUTE_FREE = 1 << 7,
     CUSTOM_ATTRIBUTE_DESTROY = 1 << 8,
-
+    
     /*
      Used to detect argument type
     */
@@ -89,7 +89,7 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_CONST = 1 << 0,
     TYPE_QUALIFIER_RESTRICT = 1 << 1,
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
-    TYPE_QUALIFIER__ATOMIC = 1 << 3,
+    TYPE_QUALIFIER__ATOMIC = 1 << 3    
 };
 
 
@@ -207,19 +207,15 @@ struct type get_function_return_type(struct type* p_type);
 int type_get_sizeof(struct type* p_type);
 int type_get_alignof(struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
-struct declarator_type* find_inner_declarator(struct declarator_type* p_declarator_type);
+
 struct type type_add_pointer(struct type* p_type);
 void type_print(const struct type* a);
 enum type_category type_get_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
-void declarator_type_merge(struct declarator_type* p_declarator_typet1, struct declarator_type* p_typedef_decl);
-void declarator_type_clear_name(struct declarator_type* p_declarator_type);
+
 
 void type_visit_to_mark_anonymous(struct type* p_type);
 
-struct declarator_type* clone_declarator_to_declarator_type(struct parser_ctx* ctx, struct declarator* p_declarator);;
-
-struct type make_new_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 void type_flat_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);

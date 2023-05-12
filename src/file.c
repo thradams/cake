@@ -1,4 +1,9 @@
-struct X
-{
-    typeof(int[2]) a;
-};
+
+int i;
+int i;
+
+int main() 
+{  
+     char i;
+     int i;
+}

@@ -727,6 +727,10 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_pointer(paramer_type))
     {
+        //TODO void F(int * [[opt]] p)
+        // F(0) when passing null we will check if the parameter 
+        //have the anotation [[opt]]
+
         /*can be converted to any type*/
         goto continuation;
     }
@@ -896,6 +900,18 @@ struct type type_param_array_to_pointer(const struct type* p_type)
     assert(type_is_array(p_type));
     struct type t = get_array_item_type(p_type);
     struct type t2 = type_add_pointer(&t);
+
+    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST)
+    {
+      /*
+       void F(int a[static const 5]) {
+        static_assert((typeof(a)) == (int* const));
+      }
+      */
+
+      t2.type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+    }
+
     type_destroy(&t);
 
     //if (p_type->declarator_type &&
@@ -2059,11 +2075,12 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
 
         if (pointer->type_qualifier_list_opt)
         {
-            p_flat->type_qualifier_flags = pointer->type_qualifier_list_opt->flags;
+          p_flat->type_qualifier_flags = pointer->type_qualifier_list_opt->flags;
         }
+        
         if (pointer->attribute_specifier_sequence_opt)
         {
-            p_flat->attributes_flags = pointer->pointer->attribute_specifier_sequence_opt->attributes_flags;
+            p_flat->attributes_flags |= pointer->pointer->attribute_specifier_sequence_opt->attributes_flags;
         }
         p_flat->category = TYPE_CATEGORY_POINTER;
         type_list_push_front(&pointers, p_flat); /*invertido*/

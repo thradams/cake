@@ -22,21 +22,21 @@
 struct constant_value make_constant_value_double(double d) {
     struct constant_value r;
     r.dvalue = d;
-    r.type = type_double;
+    r.type = TYPE_DOUBLE;
     return r;
 }
 
 struct constant_value make_constant_value_ull(unsigned long long d) {
     struct constant_value r;
     r.ullvalue = d;
-    r.type = type_unsigned_long_long;
+    r.type = TYPE_UNSIGNED_LONG_LONG;
     return r;
 }
 
 struct constant_value make_constant_value_ll(long long d) {
     struct constant_value r;
     r.llvalue = d;
-    r.type = type_long_long;
+    r.type = TYPE_LONG_LONG;
     return r;
 }
 
@@ -44,9 +44,9 @@ double constant_value_to_double(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case type_long_long: return (double)a->llvalue;
-    case type_double: return  a->dvalue;
-    case type_unsigned_long_long: return (double)a->ullvalue;
+    case TYPE_LONG_LONG: return (double)a->llvalue;
+    case TYPE_DOUBLE: return  a->dvalue;
+    case TYPE_UNSIGNED_LONG_LONG: return (double)a->ullvalue;
     }
 
     return 0;
@@ -54,17 +54,17 @@ double constant_value_to_double(const struct constant_value* a)
 
 bool constant_value_is_valid(const struct constant_value* a)
 {
-    return a->type != type_not_constant &&
-           a->type != type_empty;
+    return a->type != TYPE_NOT_CONSTANT &&
+        a->type != TYPE_EMPTY;
 }
 
 unsigned long long constant_value_to_ull(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case type_long_long: return (unsigned long long)a->llvalue;
-    case type_double: return  (unsigned long long)a->dvalue;
-    case type_unsigned_long_long: return (unsigned long long) a->ullvalue;
+    case TYPE_LONG_LONG: return (unsigned long long)a->llvalue;
+    case TYPE_DOUBLE: return  (unsigned long long)a->dvalue;
+    case TYPE_UNSIGNED_LONG_LONG: return (unsigned long long) a->ullvalue;
     }
 
     return 0;
@@ -73,9 +73,9 @@ long long constant_value_to_ll(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case type_long_long: return (long long)a->llvalue;
-    case type_double: return  (long long)a->dvalue;
-    case type_unsigned_long_long: return (long long)a->ullvalue;
+    case TYPE_LONG_LONG: return (long long)a->llvalue;
+    case TYPE_DOUBLE: return  (long long)a->dvalue;
+    case TYPE_UNSIGNED_LONG_LONG: return (long long)a->ullvalue;
     }
 
     return 0;
@@ -84,9 +84,9 @@ bool constant_value_to_bool(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case type_long_long: return a->llvalue != 0;
-    case type_double: return  a->dvalue != 0;
-    case type_unsigned_long_long: return a->ullvalue != 0;
+    case TYPE_LONG_LONG: return a->llvalue != 0;
+    case TYPE_DOUBLE: return  a->dvalue != 0;
+    case TYPE_UNSIGNED_LONG_LONG: return a->ullvalue != 0;
     }
 
     return 0;
@@ -100,9 +100,9 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         return r;
     }
 
-    if (a->type == type_double)
+    if (a->type == TYPE_DOUBLE)
     {
-        r.type = type_double;
+        r.type = TYPE_DOUBLE;
         switch (op)
         {
         case '!':r.dvalue = !(unsigned int)a->dvalue;  break;
@@ -115,9 +115,9 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         }
         return r;
     }
-    else if (a->type == type_unsigned_long_long)
+    else if (a->type == TYPE_UNSIGNED_LONG_LONG)
     {
-        r.type = type_unsigned_long_long;
+        r.type = TYPE_UNSIGNED_LONG_LONG;
         switch (op)
         {
         case '!':r.ullvalue = !a->ullvalue;  break;
@@ -130,9 +130,9 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         }
         return r;
     }
-    else if (a->type == type_long_long)
+    else if (a->type == TYPE_LONG_LONG)
     {
-        r.type = type_unsigned_long_long;
+        r.type = TYPE_UNSIGNED_LONG_LONG;
         switch (op)
         {
         case '!':r.llvalue = !((long long)a->llvalue);  break;
@@ -159,11 +159,11 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         return r;
     }
 
-    if (a->type == type_double || b->type == type_double)
+    if (a->type == TYPE_DOUBLE || b->type == TYPE_DOUBLE)
     {
         double va = constant_value_to_double(a);
         double vb = constant_value_to_double(b);
-        r.type = type_double;
+        r.type = TYPE_DOUBLE;
 
         switch (op)
         {
@@ -175,7 +175,7 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
             if (vb != 0)
                 r.dvalue = va / vb;
             else
-                r.type = type_not_constant;
+                r.type = TYPE_NOT_CONSTANT;
             break;
 
             //case '%':r.dvalue = va % vb;  break;
@@ -207,11 +207,11 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         return r;
     }
 
-    if (a->type == type_unsigned_long_long || b->type == type_unsigned_long_long)
+    if (a->type == TYPE_UNSIGNED_LONG_LONG || b->type == TYPE_UNSIGNED_LONG_LONG)
     {
         unsigned long long va = constant_value_to_ull(a);
         unsigned long long vb = constant_value_to_ull(b);
-        r.type = type_unsigned_long_long;
+        r.type = TYPE_UNSIGNED_LONG_LONG;
 
         switch (op)
         {
@@ -223,14 +223,14 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
             if (vb != 0)
                 r.ullvalue = va / vb;
             else
-                r.type = type_not_constant;
+                r.type = TYPE_NOT_CONSTANT;
             break;
 
         case '%':
             if (vb != 0)
                 r.ullvalue = va % vb;
             else
-                r.type = type_not_constant;
+                r.type = TYPE_NOT_CONSTANT;
             break;
 
             //Relational Operators
@@ -262,7 +262,7 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
 
     unsigned long long va = a->llvalue;
     unsigned long long vb = b->llvalue;
-    r.type = type_long_long;
+    r.type = TYPE_LONG_LONG;
     switch (op)
     {
         //Arithmetic Operators
@@ -274,14 +274,14 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         if (vb != 0)
             r.llvalue = va / vb;
         else
-            r.type = type_not_constant;
+            r.type = TYPE_NOT_CONSTANT;
         break;
 
     case '%':
         if (vb != 0)
             r.llvalue = va % vb;
         else
-            r.type = type_not_constant;
+            r.type = TYPE_NOT_CONSTANT;
         break;
 
         //Relational Operators
@@ -338,10 +338,10 @@ int  compare_function_arguments(struct parser_ctx* ctx,
     try
     {
 
-        
-        
 
-        struct param*  current_parameter_type = NULL;
+
+
+        struct param* current_parameter_type = NULL;
 
         const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
@@ -380,8 +380,8 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             if (arg_declarator &&
                 !arg_declarator->is_parameter_declarator)
             {
-                if (type_is_pointer(current_parameter_type->type) && 
-                     type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_DESTROY))
+                if (type_is_pointer(current_parameter_type->type) &&
+                    type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_DESTROY))
                 {
                     arg_declarator->static_analisys_flags &= ~MUST_DESTROY;
                     arg_declarator->static_analisys_flags |= UNINITIALIZED;
@@ -783,7 +783,7 @@ int convert_to_number(struct token* token, struct expression* p_expression_node)
         p_expression_node->constant_value = make_constant_value_double(strtod(buffer, 0));
         break;
     case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer+2, 0));
+        p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0));
         break;
     default:
         assert(false);
@@ -873,7 +873,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                     p_expression_node->declarator = p_declarator;
                     p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
-                    
+
                     p_expression_node->type = type_dup(&p_declarator->type);
                 }
             }
@@ -943,7 +943,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
-            
+
 
 
             parser_match(ctx);
@@ -962,7 +962,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
             p_expression_node->type.type_qualifier_flags = 0;
-            
+
 
 
             parser_match(ctx);
@@ -1187,9 +1187,9 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
                 p_expression_node_new->left = p_expression_node;
 
-                
+
                 parser_match(ctx);
-                if (type_is_pointer(&p_expression_node->type) && 
+                if (type_is_pointer(&p_expression_node->type) &&
                     type_is_struct_or_union(p_expression_node->type.next))
                 {
                     struct struct_or_union_specifier* p_complete =
@@ -1353,7 +1353,7 @@ struct expression* postfix_expression(struct parser_ctx* ctx)
             //printf("\n");
             //print_type(&p_expression_node->type);
             bool is_function_type = type_is_function(&p_expression_node->type);
-            
+
             if (is_function_type)
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
@@ -1918,8 +1918,8 @@ struct expression* cast_expression(struct parser_ctx* ctx)
             }
             else
             {
-                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);                
-                p_expression_node->constant_value.type = type_empty;
+                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+                p_expression_node->constant_value.type = TYPE_EMPTY;
             }
         }
         else if (is_first_of_unary_expression(ctx))
@@ -2460,15 +2460,16 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                 }
             }
 
+            new_expression->first_token = operator_token;
+
             if (operator_token->type == '==')
             {
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
-
                 new_expression->constant_value =
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '==');
 
-                if (new_expression->left->constant_value.type == type_empty ||
-                    new_expression->right->constant_value.type == type_empty)
+                if (new_expression->left->constant_value.type == TYPE_EMPTY ||
+                    new_expression->right->constant_value.type == TYPE_EMPTY)
                 {
                     new_expression->constant_value =
                         make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
@@ -2482,8 +2483,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                     constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
 
 
-                if (new_expression->left->constant_value.type == type_empty ||
-                    new_expression->right->constant_value.type == type_empty) 
+                if (new_expression->left->constant_value.type == TYPE_EMPTY ||
+                    new_expression->right->constant_value.type == TYPE_EMPTY)
                 {
                     new_expression->constant_value = make_constant_value_ll
                     (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));
@@ -2963,7 +2964,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
                 if (constant_value_to_bool(&p_conditional_expression->condition_expr->constant_value))
                 {
                     /*this is an extensions.. in constant expression we can mix types!*/
-                    p_conditional_expression->type = type_dup(& p_conditional_expression->left->type);
+                    p_conditional_expression->type = type_dup(&p_conditional_expression->left->type);
                     p_conditional_expression->constant_value = p_conditional_expression->left->constant_value;
                     goto continuation;
                 }

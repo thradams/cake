@@ -98,6 +98,7 @@ void function_result_test(void);
 void type_normalization(void);
 void auto_test(void);
 void visit_test_auto_typeof(void);
+void enum_scope(void);
 
 /*end of forward declarations*/
 
@@ -189,6 +190,7 @@ g_unit_test_success_count = 0;
     type_normalization();
     auto_test();
     visit_test_auto_typeof();
+    enum_scope();
 return g_unit_test_error_count;
 
 }
