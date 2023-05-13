@@ -544,7 +544,7 @@ void stream_match(struct stream* stream)
 
     stream->current++;
 
-    if (stream->current[0] == '\\' && stream->current[1] == '\n')
+    while (stream->current[0] == '\\' && stream->current[1] == '\n')
     {
         /*
             2. Each instance of a backslash character (\) immediately followed by a new-line character is
@@ -613,6 +613,7 @@ enum token_type is_punctuator(struct stream* stream)
     case '\\':
         type = '\\';
         stream_match(stream);
+        assert(false);//?
         break;
     case '[':
         type = '[';
