@@ -647,11 +647,6 @@ static_assert(2.0 == 2.0);
 
 sample["C23 enum"] =
     `
-/*
-  NOT IMPLEMENTED YET
-  Just parsed
-*/
-
 
 enum X : short {
     A

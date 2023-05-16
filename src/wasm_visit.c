@@ -748,15 +748,7 @@ static void wasm_visit_enumerator_list(struct wasm_visit_ctx* ctx, struct enumer
 
 static void wasm_visit_enum_specifier(struct wasm_visit_ctx* ctx, struct enum_specifier* p_enum_specifier)
 {
-
-    if (p_enum_specifier->type_specifier_qualifier == NULL)
-    {
-        if (p_enum_specifier->complete_enum_specifier != NULL &&
-            p_enum_specifier->complete_enum_specifier->type_specifier_qualifier)
-        {
-            //todo enum with diferent type
-        }
-    }
+    
 
     if (p_enum_specifier->attribute_specifier_sequence_opt)
     {

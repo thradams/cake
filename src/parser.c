@@ -2851,7 +2851,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
         p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
         p_enum_specifier->type_id.type = TAG_TYPE_ENUN_SPECIFIER;
 
-
+        p_enum_specifier->first_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_ENUM);
 
         p_enum_specifier->attribute_specifier_sequence_opt =
@@ -2871,7 +2871,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
         {
             /*C23*/
             parser_match(ctx);
-            p_enum_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx);
+            p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
         }
 
         if (ctx->current->type == '{')

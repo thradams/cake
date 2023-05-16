@@ -1675,6 +1675,23 @@ struct type type_make_enumerator(struct enum_specifier* enum_specifier)
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
+struct type type_get_enum_type(const struct type* p_type) 
+{
+    assert(p_type->enum_specifier != NULL);
+    
+    if (p_type->enum_specifier->complete_enum_specifier &&
+        p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list)
+    {
+        struct type t = { 0 };
+        t.type_qualifier_flags = p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_qualifier_flags;
+        t.type_specifier_flags= p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
+        return t;
+    }
+        
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_INT;
+    return t;
+}
 
 struct type type_make_size_t()
 {
@@ -1800,6 +1817,21 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             return false;
         }
 
+        
+        if (pa->enum_specifier && !pb->enum_specifier)
+        {            
+            //TODO enum with types
+            //enum  x int
+           //return false;
+        }
+        
+        if (!pa->enum_specifier && pb->enum_specifier)
+        {
+            //TODO enum with types
+            //int x enum
+            //return false;
+        }
+        
         //if (pa->name_opt != pb->name_opt) return false;
         if (pa->static_array != pb->static_array) return false;
 

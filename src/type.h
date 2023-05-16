@@ -177,6 +177,8 @@ bool type_is_scalar(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);
 
+struct type type_get_enum_type(const struct type* p_type);
+
 struct argument_expression;
 void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct argument_expression* current_argument,

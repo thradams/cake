@@ -9,7 +9,7 @@
 #include "options.h"
 #include "annotations.h"
 
-#define CAKE_VERSION "0.5.3"
+#define CAKE_VERSION "0.5.4"
 
 
 struct _destroy scope
@@ -417,11 +417,13 @@ struct enum_specifier
         "enum" identifier enum-type-specifier opt
     */
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
-    struct type_specifier_qualifier* type_specifier_qualifier;
+    struct specifier_qualifier_list* specifier_qualifier_list;
+    
+
     struct enumerator_list enumerator_list;
     struct type_tag_id type_id;
     struct token* tag_token;
-
+    struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
     struct enum_specifier* complete_enum_specifier;
 };

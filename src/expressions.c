@@ -675,11 +675,13 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
         {
             p_type = &p_generic_selection->expression->type;
 
+
             if (expression_is_subjected_to_lvalue_conversion(p_generic_selection->expression))
             {
                 lvalue_type = type_lvalue_conversion(&p_generic_selection->expression->type);
                 p_type = &lvalue_type;
             }
+
         }
         else
         {

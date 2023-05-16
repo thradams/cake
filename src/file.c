@@ -1,9 +1,8 @@
+enum E : short {
+    A
+};
 
-int i;
-int i;
-
-int main() 
-{  
-     char i;
-     int i;
+int main() {
+    enum E e;
+    e = A;
 }
