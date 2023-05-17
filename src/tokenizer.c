@@ -4913,6 +4913,27 @@ void test_va_opt_1()
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
+
+void test_va_opt_2()
+{
+    const char* input =
+        "#define empty(...) (__VA_OPT__(!)1)\n"
+        "empty()";
+    const char* output =
+        "(1)";
+    assert(test_preprocessor_in_out(input, output) == 0);
+}
+
+void test_va_opt_3()
+{
+    const char* input =
+        "#define empty(...) (__VA_OPT__(!)1)\n"
+        "empty(1)";
+    const char* output =
+        "(!1)";
+    assert(test_preprocessor_in_out(input, output) == 0);
+}
+
 void test_va_opt()
 {
     //TODO esta falando um  monte de casos ainda ...
