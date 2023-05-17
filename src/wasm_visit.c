@@ -439,20 +439,20 @@ static void wasm_visit_iteration_statement(struct wasm_visit_ctx* ctx, struct it
 static void wasm_visit_jump_statement(struct wasm_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
 
-    if (p_jump_statement->token->type == TK_KEYWORD_THROW)
+    if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
 
     }
-    else if (p_jump_statement->token->type == TK_KEYWORD_RETURN)
+    else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
 
     }
-    else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
-        p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
+    else if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+        p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
     {
 
     }
-    else if (p_jump_statement->token->type == TK_KEYWORD_GOTO)
+    else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
     {
 
     }

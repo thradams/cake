@@ -745,7 +745,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             print_type_specifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_specifier_flags);
 
 
-            free(p_expression->type_name->declarator->type.name_opt);
+            free((void*)p_expression->type_name->declarator->type.name_opt);
             p_expression->type_name->declarator->type.name_opt = strdup(name);
             
             struct osstream ss0 = { 0 };
@@ -1011,7 +1011,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
 
-    if (p_jump_statement->token->type == TK_KEYWORD_THROW)
+    if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
         struct osstream ss0 = { 0 };
         print_all_defer_until_try(ctx->tail_block, &ss0);
@@ -1022,8 +1022,8 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "goto _catch_label_%d;", p_jump_statement->try_catch_block_index);
             ss_fprintf(&ss, "}");
-            free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;
+            free(p_jump_statement->first_token->lexeme);
+            p_jump_statement->first_token->lexeme = ss.c_str;
             _del_attr(ss, MUST_DESTROY); /*MOVED*/
 
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
@@ -1033,14 +1033,14 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
         {
             struct osstream ss = { 0 };
             ss_fprintf(&ss, "goto _catch_label_%d", p_jump_statement->try_catch_block_index);
-            free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            free(p_jump_statement->first_token->lexeme);
+            p_jump_statement->first_token->lexeme = ss.c_str; /*MOVED*/
             _del_attr(ss, MUST_DESTROY); /*MOVED*/
         }
 
         ss_close(&ss0);
     }
-    else if (p_jump_statement->token->type == TK_KEYWORD_RETURN)
+    else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
         struct osstream ss0 = { 0 };
         print_all_defer_until_end(ctx->tail_block, &ss0);
@@ -1050,9 +1050,9 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             struct osstream ss = { 0 };
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "return");
-            free(p_jump_statement->token->lexeme);
+            free(p_jump_statement->first_token->lexeme);
 
-            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            p_jump_statement->first_token->lexeme = ss.c_str; /*MOVED*/
             ss.c_str = NULL; /*MOVED*/
 
             free(p_jump_statement->last_token->lexeme);
@@ -1061,8 +1061,8 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
         }
         ss_close(&ss0);
     }
-    else if (p_jump_statement->token->type == TK_KEYWORD_BREAK ||
-        p_jump_statement->token->type == TK_KEYWORD_CONTINUE)
+    else if (p_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+        p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE)
     {
         struct osstream ss0 = { 0 };
 
@@ -1073,8 +1073,8 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "break;");
             ss_fprintf(&ss, "}");
-            free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str;  /*MOVED*/
+            free(p_jump_statement->first_token->lexeme);
+            p_jump_statement->first_token->lexeme = ss.c_str;  /*MOVED*/
             ss.c_str = NULL;
 
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
@@ -1083,7 +1083,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
 
         ss_close(&ss0);
     }
-    else if (p_jump_statement->token->type == TK_KEYWORD_GOTO)
+    else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
     {
         struct osstream ss0 = { 0 };
         print_all_defer_until_label(ctx->tail_block, p_jump_statement->label->lexeme, &ss0);
@@ -1093,8 +1093,8 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             struct osstream ss = { 0 };
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "goto");
-            free(p_jump_statement->token->lexeme);
-            p_jump_statement->token->lexeme = ss.c_str; /*MOVED*/
+            free(p_jump_statement->first_token->lexeme);
+            p_jump_statement->first_token->lexeme = ss.c_str; /*MOVED*/
             ss.c_str = NULL; /*MOVED*/
             free(p_jump_statement->last_token->lexeme);
             p_jump_statement->last_token->lexeme = strdup(";}");
@@ -1860,8 +1860,8 @@ static bool is_last_item_return(struct compound_statement* p_compound_statement)
         p_compound_statement->block_item_list.tail &&
         p_compound_statement->block_item_list.tail->unlabeled_statement &&
         p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement &&
-        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->token &&
-        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->token->type == TK_KEYWORD_RETURN)
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token &&
+        p_compound_statement->block_item_list.tail->unlabeled_statement->jump_statement->first_token->type == TK_KEYWORD_RETURN)
     {
         return true;
     }

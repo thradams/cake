@@ -94,7 +94,6 @@ enum type_qualifier_flags
 
 
 struct declarator;
-
 struct type;
 
 
@@ -102,6 +101,7 @@ struct type_list {
     struct type* head;
     struct type* tail;
 };
+
 void type_list_push_back(struct type_list* books, struct type* new_book);
 void type_list_push_front(struct type_list* books, struct type* new_book);
 
@@ -117,8 +117,8 @@ struct param_list {
     struct param* tail;
 };
 
-//https://cdecl.org/
-struct _destroy type {
+struct _destroy type 
+{
     enum type_category category;
     enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;

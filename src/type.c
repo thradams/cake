@@ -489,12 +489,10 @@ bool type_is_array(const struct type* p_type)
     return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
-
 bool type_is_const(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
 }
-
 
 bool type_is_void_ptr(const struct type* p_type)
 {
@@ -518,8 +516,6 @@ bool type_is_void(const struct type* p_type)
     return false;
 }
 
-
-
 bool type_is_nullptr_t(const struct type* p_type)
 {
     if (p_type->category == TYPE_CATEGORY_ITSELF)
@@ -530,12 +526,10 @@ bool type_is_nullptr_t(const struct type* p_type)
     return false;
 }
 
-
 bool type_is_pointer(const struct type* p_type)
 {
     return p_type->category == TYPE_CATEGORY_POINTER;
 }
-
 
 bool type_is_enum(const struct type* p_type)
 {
@@ -566,7 +560,6 @@ bool type_is_bool(const struct type* p_type)
         p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL;
 }
 
-
 /*
  There are three standard floating types, designated as
  float, double, and long double.
@@ -582,7 +575,6 @@ bool type_is_floating_point(const struct type* p_type)
         (TYPE_SPECIFIER_DOUBLE |
             TYPE_SPECIFIER_FLOAT);
 }
-
 
 /*
   The type char, the signed and unsigned integer types,
@@ -689,6 +681,7 @@ const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_t
     }
     return NULL;
 }
+
 void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct argument_expression* current_argument,
     struct type* paramer_type,
@@ -843,7 +836,6 @@ bool type_is_function(const struct type* p_type)
 
 bool type_is_function_or_function_pointer(const struct type* p_type)
 {
-
     if (type_is_function(p_type))
         return true;
 
@@ -877,21 +869,14 @@ struct type type_add_pointer(struct type* p_type)
 struct type type_remove_pointer(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
-
     r = *r.next;
-
     return r;
-
 }
-
 
 struct type get_array_item_type(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
-
     r = *r.next;
-
-
     return r;
 }
 
@@ -908,22 +893,12 @@ struct type type_param_array_to_pointer(const struct type* p_type)
         static_assert((typeof(a)) == (int* const));
       }
       */
-
       t2.type_qualifier_flags |= TYPE_QUALIFIER_CONST;
     }
 
     type_destroy(&t);
-
-    //if (p_type->declarator_type &&
-        //p_type->declarator_type->direct_declarator_type &&
-       // p_type->declarator_type->direct_declarator_type->array_declarator_type &&
-      //  p_type->declarator_type->direct_declarator_type->array_declarator_type->flags & TYPE_QUALIFIER_CONST)
-    //{
-        //f(int a[const 2])
-      //  type_add_const(&t2);
-    //}
     t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
-    //TODO add [const]
+
     return t2;
 }
 
@@ -1036,7 +1011,7 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
 struct type type_dup(const struct type* p_type)
 {
     struct type_list l = { 0 };
-    struct type* p = p_type;
+    const struct type* p = p_type;
     while (p)
     {
         struct type* p_new = calloc(1, sizeof(struct type));
@@ -2241,7 +2216,6 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         _del_attr(nt, "must destroy"); /*MOVED*/
 
-        bool head = list.head != NULL;
 
         type_flat_set_qualifiers_using_declarator(p_nt, pdeclarator);
 
@@ -2277,7 +2251,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
     if (pdeclarator->name)
     {
-        free(list.head->name_opt);
+        free((void*)list.head->name_opt);
         list.head->name_opt = pdeclarator->name->lexeme;
     }
     return *list.head;
@@ -2294,7 +2268,7 @@ void type_remove_names(struct type* p_type)
     {
         if (p->name_opt)
         {
-            free(p->name_opt);
+            free((void*)p->name_opt);
             p->name_opt = NULL;
         }
         p = p->next;

@@ -316,9 +316,9 @@ void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_
 {
     /*
      additive-expression:
-    multiplicative-expression
-    additive-expression + multiplicative-expression
-    additive-expression - multiplicative-expression
+       multiplicative-expression
+       additive-expression + multiplicative-expression
+       additive-expression - multiplicative-expression
     */
     try
     {
@@ -397,11 +397,11 @@ void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expressio
 {
     /*
     relational-expression:
-    shift-expression
-    relational-expression < shift-expression
-    relational-expression > shift-expression
-    relational-expression <= shift-expression
-    relational-expression >= shift-expression
+      shift-expression
+      relational-expression < shift-expression
+      relational-expression > shift-expression
+      relational-expression <= shift-expression
+      relational-expression >= shift-expression
     */
     try
     {
@@ -447,10 +447,11 @@ void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_
 {
     /*
       equality-expression:
-       relational-expression
-       equality-expression == relational-expression
-       equality-expression != relational-expression
+        relational-expression
+        equality-expression == relational-expression
+        equality-expression != relational-expression
     */
+
     /*
     * Equality operators
     One of the following shall hold:

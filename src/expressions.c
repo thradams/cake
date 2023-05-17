@@ -1515,9 +1515,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 
     if (new_expression->declarator == NULL ||
         new_expression->declarator->is_parameter_declarator)
-    {
-        /*we need second pass*/
-        ctx->evaluated_at_caller = true;
+    {        
     }
     else
     {

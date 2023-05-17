@@ -1813,7 +1813,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
         p_init_declarator->declarator->name = tkname;
 
-    
+
         if (tkname == NULL)
         {
             parser_seterror_with_token(ctx, ctx->current, "empty declarator name?? unexpected");
@@ -1878,7 +1878,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 {
                     if (out->scope_level == 0)
                     {
-                       /*file scope*/
+                        /*file scope*/
                         if (!type_is_same(&previous->type, &p_init_declarator->declarator->type, true))
                         {
                             //TODO failing on windows headers
@@ -3235,10 +3235,7 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
     struct direct_declarator* p_direct_declarator = calloc(1, sizeof(struct direct_declarator));
     try
     {
-        if (ctx->current == NULL)
-        {
-            return p_direct_declarator;
-        }
+        if (ctx->current == NULL) throw;
 
         struct token* p_token_ahead = parser_look_ahead(ctx);
         if (ctx->current->type == TK_IDENTIFIER)
@@ -3294,10 +3291,6 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
             }
             p_direct_declarator = p_direct_declarator2;
         }
-
-
-
-
     }
     catch
     {
@@ -3402,8 +3395,7 @@ struct function_declarator* function_declarator(struct direct_declarator* p_dire
 
 
     p_function_declarator->direct_declarator = p_direct_declarator;
-    p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
-    p_function_declarator->parameters_scope.is_parameters_scope = true;
+    p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;    
     p_function_declarator->parameters_scope.variables.capacity = 5;
     p_function_declarator->parameters_scope.tags.capacity = 1;
 
@@ -3977,14 +3969,9 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         struct token* position = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT);
         parser_match_tk(ctx, '(');
-        ctx->evaluated_at_caller = false;
 
         p_static_assert_declaration->constant_expression = constant_expression(ctx);
         if (p_static_assert_declaration->constant_expression == NULL) throw;
-
-        p_static_assert_declaration->evaluated_at_caller = ctx->evaluated_at_caller;
-        ctx->evaluated_at_caller = false;
-
 
         if (ctx->current->type == ',')
         {
@@ -3997,22 +3984,16 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         p_static_assert_declaration->last_token = ctx->current;
         parser_match_tk(ctx, ';');
 
-        /*
-          if evaluated_at_caller is true we cannot evaluate now
-        */
-        if (!p_static_assert_declaration->evaluated_at_caller)
+        if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
         {
-            if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
+            if (p_static_assert_declaration->string_literal_opt)
             {
-                if (p_static_assert_declaration->string_literal_opt)
-                {
-                    parser_seterror_with_token(ctx, position, "_Static_assert failed %s\n",
-                        p_static_assert_declaration->string_literal_opt->lexeme);
-                }
-                else
-                {
-                    parser_seterror_with_token(ctx, position, "_Static_assert failed");
-                }
+                parser_seterror_with_token(ctx, position, "_Static_assert failed %s\n",
+                    p_static_assert_declaration->string_literal_opt->lexeme);
+            }
+            else
+            {
+                parser_seterror_with_token(ctx, position, "_Static_assert failed");
             }
         }
     }
@@ -4872,7 +4853,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
 
     struct jump_statement* p_jump_statement = calloc(1, sizeof(struct jump_statement));
 
-    p_jump_statement->token = ctx->current;
+    p_jump_statement->first_token = ctx->current;
 
     if (ctx->current->type == TK_KEYWORD_GOTO)
     {
@@ -6514,12 +6495,12 @@ void visit_test_auto_typeof()
 
     struct report report = { 0 };
     char* result = compile_source("-std=C99", source, &report);
-    assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);                          
+    assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);
     free(result);
 }
 
 void enum_scope() {
-    const char * source = 
+    const char* source =
         "enum E { A = 1 };\n"
         "int main()\n"
         "{\n"

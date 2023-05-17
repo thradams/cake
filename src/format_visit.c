@@ -152,13 +152,13 @@ static void format_visit_jump_statement(struct format_visit_ctx* ctx, struct jum
 
 
 
-    if (p_jump_statement->token->type == TK_KEYWORD_THROW ||
-        p_jump_statement->token->type == TK_KEYWORD_RETURN ||
-        p_jump_statement->token->type == TK_KEYWORD_BREAK ||
-        p_jump_statement->token->type == TK_KEYWORD_CONTINUE ||
-        p_jump_statement->token->type == TK_KEYWORD_GOTO)
+    if (p_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+        p_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+        p_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+        p_jump_statement->first_token->type == TK_KEYWORD_CONTINUE ||
+        p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
     {
-        ajust_line_and_identation(p_jump_statement->token, ctx);
+        ajust_line_and_identation(p_jump_statement->first_token, ctx);
     }
     else
     {
