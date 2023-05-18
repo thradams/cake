@@ -30,36 +30,33 @@
 <a href="#toc_5">MSVC build instructions</a>
 </li>
 <li>
-<a href="#toc_6">GCC (linux) build instructions</a>
-</li>
-<li>
-<a href="#toc_7">Emscripten build instructions (web)</a>
+<a href="#toc_6">Emscripten build instructions (web)</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_8">Running cake at command line</a>
+<a href="#toc_7">Running cake at command line</a>
 </li>
 <li>
-<a href="#toc_9">Road map</a>
+<a href="#toc_8">Road map</a>
 </li>
 <li>
-<a href="#toc_10">References</a>
+<a href="#toc_9">References</a>
 </li>
 <li>
-<a href="#toc_11">Influenced by</a>
+<a href="#toc_10">Influenced by</a>
 </li>
 <li>
-<a href="#toc_12">Participating</a>
+<a href="#toc_11">Participating</a>
 </li>
 <li>
-<a href="#toc_13">Status?</a>
+<a href="#toc_12">Status?</a>
 </li>
 <li>
-<a href="#toc_14">How cake is tested?</a>
+<a href="#toc_13">How cake is tested?</a>
 </li>
 <li>
-<a href="#toc_15">Differences  from CFront</a>
+<a href="#toc_14">Differences  from CFront</a>
 </li>
 </ul>
 <h1 id="toc_0">🍰 Cake</h1>
@@ -112,21 +109,28 @@ Cake also can be used in some files of your project it is not all or nothing sol
 <pre><code>cl build.c &amp;&amp; build
 </code></pre>
 
-<p>This will build <em>cake.exe</em>, then run cake on its own source code.</p>
+<p>or (Windows &lt; 10)</p>
 
-<h2 id="toc_6">GCC (linux) build instructions</h2>
+<pre><code>cl -DDISABLE_COLORS build.c &amp;&amp; build
+````
 
-<p>Got to the <em>src</em> directory and type:</p>
+This will build *cake.exe*, then run cake on its own source code.
 
-<pre><code>gcc build.c -o build &amp;&amp; ./build
+
+## GCC (linux) build instructions
+Got to the *src* directory and type:
+
 </code></pre>
+
+<p>gcc build.c -o build &amp;&amp; ./build
+```</p>
 
 <p>To run unit tests windows/linux add <em>-DTEST</em> for instance:</p>
 
 <pre><code>gcc -DTEST build.c -o build &amp;&amp; ./build
 </code></pre>
 
-<h2 id="toc_7">Emscripten build instructions (web)</h2>
+<h2 id="toc_6">Emscripten build instructions (web)</h2>
 
 <p>Emscripten <a href="https://emscripten.org/">https://emscripten.org/</a>  is required. </p>
 
@@ -141,7 +145,7 @@ Cake also can be used in some files of your project it is not all or nothing sol
 
 <p>This will generate the <em>\src\Web\cake.js</em></p>
 
-<h1 id="toc_8">Running cake at command line</h1>
+<h1 id="toc_7">Running cake at command line</h1>
 
 <p>Make sure cake is on your system path.</p>
 
@@ -154,7 +158,7 @@ Cake also can be used in some files of your project it is not all or nothing sol
 
 <p>See <a href="manual.html">Manual</a></p>
 
-<h1 id="toc_9">Road map</h1>
+<h1 id="toc_8">Road map</h1>
 
 <ul>
 <li>Complete semantic analisys + static analysis</li>
@@ -163,7 +167,7 @@ Cake also can be used in some files of your project it is not all or nothing sol
 *</li>
 </ul>
 
-<h1 id="toc_10">References</h1>
+<h1 id="toc_9">References</h1>
 
 <p>A copy of each C standard draft in included in <em>docs</em> folder. The parser is based on C23.</p>
 
@@ -187,26 +191,26 @@ Cake also can be used in some files of your project it is not all or nothing sol
 
 <p><a href="https://hackaday.com/2022/09/13/c23-programming-for-everyone/">https://hackaday.com/2022/09/13/c23-programming-for-everyone/</a></p>
 
-<h1 id="toc_11">Influenced by</h1>
+<h1 id="toc_10">Influenced by</h1>
 
 <ul>
 <li>Typescript</li>
 <li>Small C compilers</li>
 </ul>
 
-<h1 id="toc_12">Participating</h1>
+<h1 id="toc_11">Participating</h1>
 
 <p>You can contribute by trying out cake, reporting bugs, and giving feedback.</p>
 
 <p>Have a sugestion for C?</p>
 
-<h1 id="toc_13">Status?</h1>
+<h1 id="toc_12">Status?</h1>
 
 <p>Even if not necessary for most features, I want Cake to make a full semantic analysis.</p>
 
 <p>It is necessary more work it is not complete yet.</p>
 
-<h1 id="toc_14">How cake is tested?</h1>
+<h1 id="toc_13">How cake is tested?</h1>
 
 <p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
 the includes of MSVC and it generates the <em>out</em> dir after build. I use WSL for testing
@@ -217,7 +221,7 @@ This compilation is usefull for tracking errors.</p>
 
 <p>Cake uses unit tests that are called automatically.</p>
 
-<h1 id="toc_15">Differences  from CFront</h1>
+<h1 id="toc_14">Differences  from CFront</h1>
 
 <p>Cfront was the original compiler for C++ which converted C++ to C. 
 CFront generated code was used only for direct compilation because it

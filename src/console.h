@@ -8,14 +8,17 @@
 //#include <curses.h>
 #endif
 
-#define ESC "\x1b"
-#define CSI "\x1b["
+
 
 bool enable_vt_mode(void);
 
 //#define DISABLE_COLORS 1
 
 #ifdef DISABLE_COLORS
+
+#define ESC ""
+#define CSI ""
+
 #define BLACK      ""
 #define BLUE      ""
 #define GREEN     ""
@@ -56,6 +59,9 @@ bool enable_vt_mode(void);
 #define RESET ESC ""
 #else
 /*change foreground color*/
+
+#define ESC "\x1b"
+#define CSI "\x1b["
 
 #define BLACK     "\x1b[30m"
 #define BLUE     "\x1b[34m"

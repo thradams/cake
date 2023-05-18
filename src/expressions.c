@@ -860,7 +860,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 struct declarator* p_declarator = find_declarator(ctx, ctx->current->lexeme, NULL);
                 if (p_declarator == NULL)
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "not found '%s'\n", ctx->current->lexeme);
+                    parser_seterror_with_token(ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
                     throw;
                 }
                 else
@@ -868,7 +868,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
 
                     if (type_is_deprecated(&p_declarator->type))
                     {
-                        parser_setwarning_with_token(ctx, ctx->current, "'%s' is deprecated\n", ctx->current->lexeme);
+                        parser_setwarning_with_token(ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
                     }
 
                     p_declarator->num_uses++;

@@ -1717,7 +1717,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
                 {
                     parser_setwarning_with_token(ctx,
                         parameter->declarator->first_token,
-                        "'%s': unreferenced formal parameter\n",
+                        "'%s': unreferenced formal parameter",
                         parameter->declarator->name->lexeme);
                 }
             }
@@ -4165,7 +4165,7 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         */
         if (!is_standard_attribute)
         {
-            parser_setwarning_with_token(ctx, attr_token, "warning '%s' is not an standard attribute\n", attr_token->lexeme);
+            parser_setwarning_with_token(ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
         }
     }
     return p_attribute_token;
@@ -4477,7 +4477,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                     {
                         parser_setwarning_with_token(ctx,
                             p_declarator->name,
-                            "'%s': unreferenced declarator\n",
+                            "'%s': unreferenced declarator",
                             p_declarator->name->lexeme);
                     }
                 }

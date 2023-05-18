@@ -49,6 +49,12 @@ Open the Developer Command Prompt of visual studio. Go to the *src* directory an
 cl build.c && build
 ```
 
+or (Windows < 10)
+
+```
+cl -DDISABLE_COLORS build.c && build
+````
+
 This will build *cake.exe*, then run cake on its own source code.
 
 

@@ -4,5 +4,5 @@ enum E : short {
 
 int main() {
     enum E e;
-    e = A;
+    //e = A;
 }
