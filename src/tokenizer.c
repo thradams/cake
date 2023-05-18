@@ -1,4 +1,4 @@
-//#include <corecrt.h>
+
 /*
    "string com codigo" se transforma em uma lista ligada de tokens
 
@@ -1266,7 +1266,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 #ifdef MOCKFILES   
         free(textfile);
 #endif
-    }
+        }
     catch
     {
     }
@@ -1286,7 +1286,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
     assert(list.head != NULL);
     return list;
-}
+    }
 
 struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* filename_opt, int level, enum token_flags addflags)
 {
@@ -3089,86 +3089,41 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
     return r;
 }
 
-struct token_list replace_vaopt(struct preprocessor_ctx* ctx, struct token_list* input_list, bool bvaargs_was_empty)
+/*
+  check if the argument list that corresponds to a trailing ...
+  of the parameter list is present and has a non-empty substitution.
+*/
+bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
+    struct macro_expanded* p_list,
+    struct macro_argument_list* p_macro_argument_list)
 {
-    /*
-    4  If the pp-token sequence that is attributed to the variable arguments is
-    the empty pp-token sequence, after argument substitution for the following
-    rescan of the replacement list (see 6.10.3.4), the identifier __VA_OPT__
-    behaves as if defined as:
-    */
-    struct token_list r = { 0 };
+    if (p_macro_argument_list->head == NULL)
+        return true;
 
-    while (input_list->head)
+    struct macro_argument* p_va_args_argument =
+        find_macro_argument_by_name(p_macro_argument_list, "__VA_ARGS__");
+
+    if (p_va_args_argument)
     {
-        if (input_list->head->type == TK_IDENTIFIER &&
-            strcmp(input_list->head->lexeme, "__VA_OPT__") == 0)
-        {
-            //int flags = input_list->head->flags;
-            token_list_pop_front(input_list);
-            token_list_pop_front(input_list);
+        if (p_va_args_argument->tokens.head == NULL)
+            return true;
 
-            if (bvaargs_was_empty)
-            {
-                //remove tudo
-                int count = 1;
-                for (; input_list->head;)
-                {
-                    if (input_list->head->type == '(')
-                    {
-                        token_list_pop_front(input_list);
-                        count++;
-                    }
-                    else if (input_list->head->type == ')')
-                    {
-                        count--;
-                        token_list_pop_front(input_list);
-                        if (count == 0)
-                            break;
-                    }
-                    else
-                        token_list_pop_front(input_list);
-                }
-            }
-            else
-            {
-                int count = 1;
-                for (; input_list->head;)
-                {
-                    if (input_list->head->type == '(')
-                    {
-                        prematch(&r, input_list);
-                        count++;
-                    }
-                    else if (input_list->head->type == ')')
-                    {
-                        count--;
+        struct token_list argumentlist = copy_argument_list(p_va_args_argument);
+        
+        struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
+        const bool results_in_empty_substituition = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
+        token_list_destroy(&r4);
 
-                        if (count == 0)
-                        {
-                            token_list_pop_front(input_list);
-                            break;
-                        }
-                        prematch(&r, input_list);
-                    }
-                    else
-                        prematch(&r, input_list);
-                }
-            }
-        }
-        else
-        {
-            prematch(&r, input_list);
-        }
+        return results_in_empty_substituition;
     }
 
-    return r;
+    return false;
 }
+
 struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments)
 {
     struct token_list r = { 0 };
-    bool var_args_was_empty = false;
-    bool is_var_args = false;
+
     try
     {
         while (input_list->head)
@@ -3179,6 +3134,86 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
             struct macro_argument* p_argument = NULL;
             if (input_list->head->type == TK_IDENTIFIER)
             {
+
+                if (strcmp(input_list->head->lexeme, "__VA_OPT__") == 0)
+                {
+
+                    /*
+                      __VA_OPT__ is an especial because we dont have
+                      the macro argument
+                    */
+
+                    int flags = input_list->head->flags;
+
+                    token_list_pop_front(input_list);
+
+                    struct token_list argumentlist = { 0 };// copy_argument_list(p_argument);
+
+                    const bool discard_va_opt =
+                        has_argument_list_empty_substitution(ctx, p_list, arguments);
+
+                    int count = 0;
+                    for (; input_list->head;)
+                    {
+                        if (input_list->head->type == '(')
+                        {
+                            struct token* p_token = token_list_pop_front(input_list);
+
+                            if (count != 0)
+                            {
+                                if (!discard_va_opt)
+                                    token_list_add(&argumentlist, p_token);
+                            }
+                            else
+                            {
+                                //free
+                            }
+                            count++;
+                        }
+                        else if (input_list->head->type == ')')
+                        {
+                            count--;
+
+                            struct token* p_token = token_list_pop_front(input_list);
+                            if (count == 0)
+                            {
+                                //discard
+                                break;
+                            }
+                            else
+                            {
+                                if (!discard_va_opt) {
+                                    token_list_add(&argumentlist, p_token);
+                                }
+                                else
+                                {
+                                    //discard
+                                }
+                            }
+                        }
+                        else
+                        {
+                            struct token* p_token = token_list_pop_front(input_list);
+                            if (!discard_va_opt) {
+                                token_list_add(&argumentlist, p_token);
+                            }
+                        }
+                    }
+
+
+                    if (argumentlist.head)
+                    {
+                        //copia os flags do identificador
+                        argumentlist.head->flags = flags;
+                    }
+                    /*depois reescan vai corrigir level*/
+                    struct token_list r5 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
+                    if (ctx->n_errors > 0) throw;
+
+                    token_list_append_list(&r, &r5);
+                    continue;
+                }
+
                 p_argument = find_macro_argument_by_name(arguments, input_list->head->lexeme);
             }
             if (p_argument)
@@ -3210,12 +3245,6 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     ///----------------------------
                     //transforma tudo em string e coloca no resultado
                     struct token_list argumentlist = copy_argument_list(p_argument);
-                    if (check)
-                    {
-                        is_var_args = true;
-                        var_args_was_empty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
-                    }
-
                     char* s = token_list_join_tokens(&argumentlist, true);
                     if (s == NULL)
                     {
@@ -3234,11 +3263,6 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     //estou parametro e anterior era ##
                     token_list_pop_front(input_list);
                     struct token_list argumentlist = copy_argument_list(p_argument);
-                    if (check)
-                    {
-                        is_var_args = true;
-                        var_args_was_empty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
-                    }
                     token_list_append_list(&r, &argumentlist);
                 }
                 else if (input_list->head->next && input_list->head->next->type == '##')
@@ -3253,19 +3277,12 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     {
                         argumentlist.head->flags = flags;
                     }
-                    if (check)
-                    {
-                        is_var_args = true;
-                        var_args_was_empty = (argumentlist.head == NULL || argumentlist.head->type == TK_PLACEMARKER);
-                    }
-
                     token_list_append_list(&r, &argumentlist);
                     // ja passa o ## tambem
                     prematch(&r, input_list);
                 }
                 else
                 {
-
                     int flags = input_list->head->flags;
                     //remove nome parametro do input
                     token_list_pop_front(input_list);
@@ -3279,12 +3296,6 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     /*depois reescan vai corrigir level*/
                     struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
                     if (ctx->n_errors > 0) throw;
-
-                    if (check)
-                    {
-                        is_var_args = true;
-                        var_args_was_empty = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
-                    }
                     token_list_append_list(&r, &r4);
                 }
             }
@@ -3298,11 +3309,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
     {
     }
 
-    if (is_var_args)
-    {
-        struct token_list r2 = replace_vaopt(ctx, &r, var_args_was_empty);
-        return r2;
-    }
+
     return r;
 }
 
@@ -4722,6 +4729,7 @@ int test_preprocessor_in_out(const char* input, const char* output)
     {
         result = strdup("");
     }
+
     if (strcmp(result, output) != 0)
     {
         /*
@@ -4893,13 +4901,14 @@ void test_collect()
 
 }
 
+
 void test_va_opt_0()
 {
     const char* input =
         "#define F(...)  f(0 __VA_OPT__(,) __VA_ARGS__)\n"
         "F(a, b, c)";
     const char* output =
-        "f(0, a, b, c)";
+        "f(0 , a, b, c)";
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
@@ -4934,6 +4943,58 @@ void test_va_opt_3()
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
+void test_va_opt_4()
+{
+    const char* input =
+        "#define LPAREN() (\n"
+        "#define G(Q) 42\n"
+        "#define F(R, X, ...) __VA_OPT__(G R X) )\n"
+        "int x = F(LPAREN(), 0, <:-);\n"
+        ;
+    const char* output =
+        "int x = 42;";
+    assert(test_preprocessor_in_out(input, output) == 0);
+}
+
+void test_va_opt_5()
+{
+    const char* input =
+        "#define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)\n"
+        "#define EMPTY\n"
+        "F(EMPTY)"
+        ;
+    const char* output =
+        "f(0)";
+    assert(test_preprocessor_in_out(input, output) == 0);
+}
+
+void test_va_opt_6()
+{
+    const char* input =
+        "#define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)\n"
+        "G(a)"
+        ;
+
+    const char* output =
+        "f(0, a)";
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+}
+
+void test_va_opt_G2()
+{
+    const char* input =
+        "#define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)\n"
+        "G(a, )"
+        ;
+
+    const char* output =
+        "f(0, a)";
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+}
+
+
 void test_va_opt()
 {
     //TODO esta falando um  monte de casos ainda ...
@@ -4951,8 +5012,6 @@ void test_va_opt()
         "f(0)";
     assert(test_preprocessor_in_out(input, output) == 0);
 }
-
-
 void test_empty_va_args()
 {
     const char* input = "#define M(a, ...) a, __VA_ARGS__\n"
