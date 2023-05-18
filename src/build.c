@@ -58,6 +58,11 @@ void compile_cake()
 #ifdef BUILD_WINDOWS_MSC
     if (system("cl  "
         SOURCE_FILES  " main.c "
+
+#ifdef DISABLE_COLORS
+        " /DDISABLE_COLORS "
+#endif
+
 #if defined DEBUG
         " /Od /MDd /RTC1 "
         " /Dstrdup=_strdup" /*nao linka em release*/
