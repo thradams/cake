@@ -1108,7 +1108,7 @@ int main()
 ```
 
 
-Becomes in C11, C99, C89
+Becomes in < C23
 
 ```c
 
@@ -1142,6 +1142,7 @@ int main()
 }
 ```
 
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm
 
 ###  C23 BitInt(N))
 
