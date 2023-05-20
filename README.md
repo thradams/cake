@@ -23,9 +23,6 @@ the project development at the lower supported language version.  For instance,
 you can use attributes like *nodiscard* during the development or *defer*, both features 
 improving the code security. Then adding a extra step in your build you can distribute
 a readable C99 source code that compiles everywhere.
-Cake also can be used in some files of your project it is not all or nothing solution.
-
-In the future I want to use cake because it has a good static analiser.
 
 
 
@@ -39,7 +36,7 @@ In the future I want to use cake because it has a good static analiser.
 
 # Build
 
-Github 
+GitHub 
 https://github.com/thradams/cake
 
 ## MSVC build instructions
@@ -49,16 +46,10 @@ Open the Developer Command Prompt of visual studio. Go to the *src* directory an
 cl build.c && build
 ```
 
-or (Windows < 10)
-
-```
-cl -DDISABLE_COLORS build.c && build
-````
-
 This will build *cake.exe*, then run cake on its own source code.
 
 
-## GCC (linux) build instructions
+## GCC (Linux) build instructions
 Got to the *src* directory and type:
 
 ```
@@ -97,7 +88,7 @@ Samples
 cake source.c
 ```
 
-this will ouput *./out/source.c*
+this will output *./out/source.c*
 
 See [Manual](manual.html)
 
@@ -105,7 +96,7 @@ See [Manual](manual.html)
 
 # Road map
 
-* Complete semantic analisys + static analysis
+* Complete semantic analysis + static analysis
 * WASM Backend (eliminate emscripten dependency)
 * WASM runtime (cake -run main.c)
 *
@@ -119,13 +110,6 @@ See [Manual](manual.html)
  * https://www.ibm.com/docs/en/xl-c-aix/13.1.0?topic=extensions-c99-features
  * https://en.cppreference.com/w/c/compiler_support/23
  * https://en.cppreference.com/w/c/compiler_support/99
-
- * https://developer.mozilla.org/en-US/docs/WebAssembly
- * https://developer.mozilla.org/en-US/docs/WebAssembly/Reference
- * https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/Control_flow/br
- * https://github.com/WebAssembly/binaryen
- * https://webassembly.github.io/spec/core/
- * https://webassembly.github.io/spec/core/binary/values.html#binary-name
 	
 A very nice introduction was written by Al Williams
 
@@ -142,32 +126,34 @@ https://hackaday.com/2022/09/13/c23-programming-for-everyone/
 
 You can contribute by trying out cake, reporting bugs, and giving feedback.
 
-Have a sugestion for C?
+Have a suggestion for C?
 
 # Status?
-Even if not necessary for most features, I want Cake to make a full semantic analysis.
 
-It is necessary more work it is not complete yet.
+Even if not necessary for most features, I want Cake to make a full 
+semantic analysis to catch errors and show warnings. At this point
+the number of errors/warning is small compared wit gcc/clang/msvc.
 
 
 # How cake is tested?
 
 I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
-the includes of MSVC and it generates the *out* dir after build. I use WSL for testing
-and compiling the code for linux.
+the includes of MSVC and it generates the *out* dir after build. 
+
+I use Visual Studio code with WSL for testing and compiling the code for Linux.
 
 Cake source code is not using any extension so the output is the same of input. 
-This compilation is usefull for tracking errors.
-
-Cake uses unit tests that are called automatically.
+This compilation is useful for tracking errors together with the unit tests.
 
 # Differences  from CFront
 
-Cfront was the original compiler for C++ which converted C++ to C. 
-CFront generated code was used only for direct compilation because it
-had all macros expanded making it useless in other plataforms.
+CFront was the original compiler for C++ which converted C++ to C. 
 
-Cake have two modes. One is for direct compilation (like cfront) and the other
+CFront generated code was used only for direct compilation because it
+had all macros expanded making it useless to reuse the generated code in 
+other platforms.
+
+Cake have two modes. One is for direct compilation (like CFront) and the other
 preserves macros includes etc.. making it suitable for distribution.
 
 The other difference is that C++ is a second branch of evolution making C++ more
@@ -177,7 +163,7 @@ The idea of Cake is to keep the main line of evolution of C and be always 100%
 compatible. Cake ♥ C.
 
 The added extensions aims to keep the spirit of the language and implement proposed 
-features in a way they can be experimented even before standarization.
+features in a way they can be experimented even before standardization.
 
 
 
