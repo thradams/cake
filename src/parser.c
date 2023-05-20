@@ -5431,7 +5431,7 @@ int compile_one_file(const char* file_name,
 
         mkdir(path, 0777);
 
-        char* p = file_name;
+        const char* p = file_name;
         p = file_name + strlen(file_name);
 
         while (p != file_name)
