@@ -26,7 +26,7 @@ struct options
     bool nodiscard_is_default;
     bool do_static_analisys;
     /*
-    * true - to info about name convensions violations
+    * true - to info about name conventions violations
     */
     bool check_naming_conventions;
 };

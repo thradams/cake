@@ -267,6 +267,29 @@ int main()
 */
 #endif
 
+
+/*
+* realpath
+   If there is no error, realpath() returns a pointer to the
+       resolved_path.
+
+       Otherwise, it returns NULL, the contents of the array
+       resolved_path are undefined, and errno is set to indicate the
+       error.
+*/
+char* realpath(const char* restrict path, char* restrict resolved_path)
+{
+    /*
+    * _fullpath
+    * Each of these functions returns a pointer to a buffer 
+      containing the absolute path name (absPath). If there's an 
+      error (for example, if the value passed in relPath includes a drive 
+      letter that isn't valid or can't be found, or if the length of the 
+      created absolute path name (absPath) is greater than maxLength), the function returns NULL.
+    */
+    return _fullpath(resolved_path, path, MAX_PATH);
+}
+
 #if !defined __EMSCRIPTEN__
 char* dirname(char* path)
 {

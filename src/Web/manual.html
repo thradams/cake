@@ -271,7 +271,38 @@ Options
   -default_nodiscard  Makes [[nodiscard]] default implicity.
 </code></pre>
 
-<p>The ouput dir is <strong>./out</strong></p>
+<p>One directory called <strong>out</strong> is created keeping the same directory structure 
+of the input files.</p>
+
+<p>For instance:</p>
+
+<pre><code class="language-c">cake c:\project\file1.c
+</code></pre>
+
+<p>output:</p>
+
+<pre><code>  c:\project
+  ├── file1.c
+  ├── out
+      ├── file1.c
+</code></pre>
+
+<p>More files..</p>
+
+<pre><code class="language-c">cake c:\project\file1.c c:\project\other\file2.c
+</code></pre>
+
+<p>output</p>
+
+<pre><code>  c:\project
+  ├── file1.c
+  ├── other
+  │   ├── file2.c
+  ├── out
+      ├── file1.c
+      ├── other
+          ├── file2.c
+</code></pre>
 
 <h2 id="toc_1">Pre-defined macros</h2>
 

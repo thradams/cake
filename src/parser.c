@@ -5235,7 +5235,10 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"
+
+//#define STR \
+//"/C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
 
         //http://thradams.com/app/litapp.html
         snprintf(env, sizeof env,
@@ -5358,6 +5361,7 @@ void ast_wasm_visit(struct ast* ast)
 }
 
 int compile_one_file(const char* file_name,
+    const char* out_file_name,
     int argc,
     const char** argv,
     struct report* report)
@@ -5411,29 +5415,6 @@ int compile_one_file(const char* file_name,
         if (prectx.n_errors > 0) throw;
 
 
-        char path[200] = { 0 };
-        snprintf(path, sizeof path, "%s", file_name);
-        dirname(path);
-        strcat(path, "/out");
-
-        mkdir(path, 0777);
-
-        const char* p = file_name;
-        p = file_name + strlen(file_name);
-
-        while (p != file_name)
-        {
-            if (*p == '/') {                
-                break;
-            }
-            p--;            
-        } 
-        if (p == file_name)
-            strcat(path, "/");
-        strcat(path, p);
-
-
-
         if (options.preprocess_only)
         {
             const char* s2 = print_preprocessed_to_string2(ast.token_list.head);
@@ -5472,7 +5453,7 @@ int compile_one_file(const char* file_name,
                 s = s2;
             }
 
-            FILE* out = fopen(path, "w");
+            FILE* out = fopen(out_file_name, "w");
             if (out)
             {
                 fprintf(out, "%s", s);
@@ -5482,7 +5463,7 @@ int compile_one_file(const char* file_name,
             else
             {
                 report->error_count++;
-                printf("cannot open output file");
+                printf("cannot open output file '%s'", out_file_name);
                 throw;
             }
         }
@@ -5505,6 +5486,25 @@ int compile(int argc, const char** argv, struct report* report)
     clock_t begin_clock = clock();
     int no_files = 0;
 
+    char root_dir[MAX_PATH] = { 0 };
+    for (int i = 1; i < argc; i++)
+    {
+        if (argv[i][0] == '-')
+            continue;
+
+        char fullpath[MAX_PATH];
+        char* p = realpath(argv[i], fullpath);
+        
+        if (root_dir[0] == 0 ||
+            (strlen(fullpath) < strlen(root_dir)))
+        {
+            strcpy(root_dir, fullpath);
+        }
+    }
+    dirname(root_dir);
+    
+    const int root_dir_len = strlen(root_dir);
+
     /*second loop to compile each file*/
     for (int i = 1; i < argc; i++)
     {
@@ -5512,8 +5512,25 @@ int compile(int argc, const char** argv, struct report* report)
             continue;
         no_files++;
 
+        
+        char fullpath[MAX_PATH];
+        char* p = realpath(argv[i], fullpath);
+        
+        char output_file[MAX_PATH];
+        strcpy(output_file, root_dir);
+        strcat(output_file, "/out");
+              
+        strcat(output_file, fullpath + root_dir_len);
+
+        char outdir[MAX_PATH];
+        strcpy(outdir, output_file);
+        dirname(outdir);
+
+        /*let´s create output dir in case it does not exist*/        
+        mkdir(outdir, 0777);
+        
         struct report local_report = { 0 };
-        compile_one_file(argv[i], argc, argv, &local_report);
+        compile_one_file(argv[i], output_file, argc, argv, &local_report);
 
 
         report->error_count += local_report.error_count;

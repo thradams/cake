@@ -33,7 +33,44 @@ Options
   -default_nodiscard  Makes [[nodiscard]] default implicity.
 ```
 
-The ouput dir is **./out**
+One directory called **out** is created keeping the same directory structure 
+of the input files.
+
+For instance:
+
+```c
+cake c:\project\file1.c
+```
+
+output:
+
+```
+  c:\project
+  ├── file1.c
+  ├── out
+      ├── file1.c
+```
+
+More files..
+
+```c
+cake c:\project\file1.c c:\project\other\file2.c
+```
+
+output
+
+```
+  c:\project
+  ├── file1.c
+  ├── other
+  │   ├── file2.c
+  ├── out
+      ├── file1.c
+      ├── other
+          ├── file2.c
+```
+
+
 
 ## Pre-defined macros
 

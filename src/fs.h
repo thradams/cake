@@ -66,6 +66,8 @@ struct dirent* readdir(DIR* dirp);
 
 
 
+char* realpath(const char* restrict path, char* restrict resolved_path);
+
 int get_self_path(char* buffer, int maxsize);
 
 char* readfile(const char* path);
