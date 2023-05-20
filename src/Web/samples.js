@@ -2,6 +2,13 @@
 
 sample["C99 _Bool"] =
 `
+ /*
+    _Bool type was introduced in C99 as built-in type used 
+    to represent boolean values and the header <stdbool.h>
+    with macros bool true and false.
+    C23 introduced keywords (see C23 bool sample). 
+ */
+
 int main(void)
 {
     // _Bool is converted to unsigned char. 
@@ -111,6 +118,15 @@ int main(void)
 
 sample["C11 _Static_assert"] =
 `
+/*
+   _Static_assert provides a mechanism for compile-time assertion 
+   checking.
+
+   Cake removed this statement when compiling to C99/C89.
+
+   See also C23 static_assert
+*/
+
 int main()
 {
     _Static_assert(1 == 1, "error");    
@@ -216,6 +232,15 @@ int main()
 
 sample["C23 static_assert"] =
 `
+/*
+   C23 added the alternative keyword static_assert for 
+   _Static_assert.
+
+   The error message also become optional in C23.
+
+   Cake transpile static_assert to _Static_assert if the target 
+   is C11 and removes static_assert if the target is C99/C89.
+*/
 int main()
 {    
     static_assert(1 == 1, "error");
@@ -250,8 +275,16 @@ _Static_assert(VERSION == 2, "");
 
 sample["C23 __VA_OPT__"] =
 `
+/*
+  __VA_OPT__ lets you optionally insert tokens depending on
+  if a variadic macro is invoked with additional arguments. 
+  
+  (Select: Compile To Preprocess only)
+*/
 
-//https://en.cppreference.com/w/c/preprocessor/replace
+#define M(X, ...) X __VA_OPT__(,) __VA_ARGS__
+M(1)    // expands to 1
+M(1, 2) // expands to 1, 2
 
 #define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
 #define G(X, ...) f(0, X __VA_OPT__(,) __VA_ARGS__)
@@ -516,6 +549,14 @@ int main()
 
 sample["C23 bool true false"] =
  `
+/*
+  C23 introduced keyword bool as alternative to _Bool and 
+  true and false as constants.
+  
+  Cake translate bool to _Bool when compiling to C99/C11
+  and to unsigned char when compiling to C89.
+*/
+
 #include <stdio.h>
 
 
@@ -533,10 +574,7 @@ int main()
 
   auto b2 = true;
   printf("%s", _Generic(b2, bool : "bool"));
-
 }
-
-
 `;
 
 sample["C23 nullptr"] =
