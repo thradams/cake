@@ -1,7 +1,7 @@
 #pragma once
 
-/*coisas que vao em hash map possuim um id
-assim é possivel usar o mesmo mapa para achar tipos diferentes
+/*
+* tag allow more than one type of object be inserted at the same map
 */
 enum tag
 {
