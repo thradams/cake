@@ -281,6 +281,10 @@ char* dirname(char* path)
     {
         path[last] = 0;
     }
+    else
+    {
+        path[0] = 0;
+    }
     return path;
 }
 #endif
