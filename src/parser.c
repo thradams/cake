@@ -159,7 +159,7 @@ void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
     ctx->n_errors++;
-    
+
     if (p_token)
     {
         if (p_token->token_origin)
@@ -222,12 +222,12 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
 void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
     ctx->n_info++;
-    
+
     if (p_token)
     {
         if (p_token->token_origin)
         {
-            
+
             ctx->printf(WHITE "%s:%d:%d: ",
                 p_token->token_origin->lexeme,
                 p_token->line,
@@ -1376,7 +1376,7 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
 }
 
 int final_specifier(struct parser_ctx* ctx, enum type_specifier_flags* flags)
-{    
+{
     if (((*flags) & TYPE_SPECIFIER_UNSIGNED) ||
         ((*flags) & TYPE_SPECIFIER_SIGNED))
     {
@@ -3392,7 +3392,7 @@ struct function_declarator* function_declarator(struct direct_declarator* p_dire
 
 
     p_function_declarator->direct_declarator = p_direct_declarator;
-    p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;    
+    p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
     p_function_declarator->parameters_scope.variables.capacity = 5;
     p_function_declarator->parameters_scope.tags.capacity = 1;
 
@@ -5425,9 +5425,26 @@ int compile_one_file(const char* file_name,
 
 
         char path[200] = { 0 };
-        snprintf(path, sizeof path, "./out/%s", file_name);
+        snprintf(path, sizeof path, "%s", file_name);
+        dirname(path);
+        strcat(path, "/out");
 
-        mkdir("./out", 0777);
+        mkdir(path, 0777);
+
+        char* p = file_name;
+        p = file_name + strlen(file_name);
+
+        while (p != file_name)
+        {
+            if (*p == '/') {                
+                break;
+            }
+            p--;            
+        } 
+        if (p == file_name)
+            strcat(path, "/");
+        strcat(path, p);
+
 
 
         if (options.preprocess_only)
