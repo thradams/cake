@@ -425,6 +425,8 @@ struct token
     struct token* prev;
 };
 
+void token_delete(struct token* p);
+
 struct token_list
 {
     struct token* head;
@@ -2770,7 +2772,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 #ifdef MOCKFILES   
         free(textfile);
 #endif
-        }
+    }
     catch
     {
     }
@@ -2790,7 +2792,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
     assert(list.head != NULL);
     return list;
-    }
+}
 
 struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* filename_opt, int level, enum token_flags addflags)
 {
@@ -4565,13 +4567,18 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
             struct tokenizer_ctx tctx = { 0 };
             struct token_list newlist = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_NONE);
 
-
             if (newlist.head)
             {
-                //flags ficam sendo o mesmo do anterior
                 newlist.head->flags = r.tail->flags;
             }
-
+            else
+            {
+                struct token* p_new_token = calloc(1, sizeof * p_new_token);
+                p_new_token->lexeme = strdup("");
+                p_new_token->type = TK_PLACEMARKER;
+                token_list_add(&newlist, p_new_token);
+                newlist.head->flags = r.tail->flags;
+            }
             /*
             * Arranca o anterior do r que foi usado para formar string
             */
@@ -4613,7 +4620,7 @@ bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
             return true;
 
         struct token_list argumentlist = copy_argument_list(p_va_args_argument);
-        
+
         struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
         const bool results_in_empty_substituition = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
         token_list_destroy(&r4);
@@ -4638,88 +4645,49 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
             struct macro_argument* p_argument = NULL;
             if (input_list->head->type == TK_IDENTIFIER)
             {
-
                 if (strcmp(input_list->head->lexeme, "__VA_OPT__") == 0)
                 {
+                    const int flags = input_list->head->flags;
 
-                    /*
-                      __VA_OPT__ is an especial because we dont have
-                      the macro argument
-                    */
-
-                    int flags = input_list->head->flags;
-
-                    token_list_pop_front(input_list);
-
-                    struct token_list argumentlist = { 0 };// copy_argument_list(p_argument);
+                    token_list_pop_front(input_list); //pop __VA_OPT__
+                    token_list_pop_front(input_list); //pop (
+                    int parenteses_count = 1;         //we already have one
 
                     const bool discard_va_opt =
                         has_argument_list_empty_substitution(ctx, p_list, arguments);
 
-                    int count = 0;
-                    for (; input_list->head;)
-                    {
-                        if (input_list->head->type == '(')
+                    if (discard_va_opt)
+                    {  
+                        //discard all tokens __VA_OPT__(...)
+                        while(input_list->head)
                         {
-                            struct token* p_token = token_list_pop_front(input_list);
-
-                            if (count != 0)
-                            {
-                                if (!discard_va_opt)
-                                    token_list_add(&argumentlist, p_token);
-                            }
-                            else
-                            {
-                                //free
-                            }
-                            count++;
-                        }
-                        else if (input_list->head->type == ')')
-                        {
-                            count--;
-
-                            struct token* p_token = token_list_pop_front(input_list);
-                            if (count == 0)
-                            {
-                                //discard
+                            if (input_list->head->type == '(') parenteses_count++;
+                            else if (input_list->head->type == ')') parenteses_count--;
+                            token_delete(token_list_pop_front(input_list));
+                            if (parenteses_count == 0)
                                 break;
-                            }
-                            else
-                            {
-                                if (!discard_va_opt) {
-                                    token_list_add(&argumentlist, p_token);
-                                }
-                                else
-                                {
-                                    //discard
-                                }
-                            }
-                        }
-                        else
-                        {
-                            struct token* p_token = token_list_pop_front(input_list);
-                            if (!discard_va_opt) {
-                                token_list_add(&argumentlist, p_token);
-                            }
                         }
                     }
-
-
-                    if (argumentlist.head)
+                    else
                     {
-                        //copia os flags do identificador
-                        argumentlist.head->flags = flags;
-                    }
-                    /*depois reescan vai corrigir level*/
-                    struct token_list r5 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
-                    if (ctx->n_errors > 0) throw;
-
-                    token_list_append_list(&r, &r5);
+                        // Search and remove the last balanced ')'
+                        struct token* p_token = input_list->head;
+                        for (; p_token; p_token = p_token->next)
+                        {
+                            if (p_token->type == '(') parenteses_count++;
+                            else if (p_token->type == ')') parenteses_count--;
+                            
+                            if (parenteses_count == 0)                                
+                                break;                                                        
+                        }
+                        token_list_remove(input_list, p_token, p_token);
+                    }                    
                     continue;
                 }
 
                 p_argument = find_macro_argument_by_name(arguments, input_list->head->lexeme);
             }
+
             if (p_argument)
             {
                 bool check = false;
@@ -6453,7 +6421,7 @@ void test_va_opt_0()
         "#define F(...)  f(0 __VA_OPT__(,) __VA_ARGS__)\n"
         "F(a, b, c)";
     const char* output =
-        "f(0 , a, b, c)";
+        "f(0, a, b, c)";
     assert(test_preprocessor_in_out(input, output) == 0);
 }
 
@@ -6525,6 +6493,32 @@ void test_va_opt_6()
 
     assert(test_preprocessor_in_out(input, output) == 0);
 }
+void test_va_opt_7()
+{
+    const char* input =
+        "#define H4(X, ...) __VA_OPT__(a X ## X) ## b\n"
+        "H4(, 1)"
+        ;
+
+    const char* output =
+        "a b";
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+}
+
+void concatenation_problem()
+{
+    const char* input =
+        "#define H4(X, ...) a X ## X ## b\n"
+        "H4()"
+        ;
+
+    const char* output =
+        "a b";
+
+    assert(test_preprocessor_in_out(input, output) == 0);
+}
+
 
 void test_va_opt_G2()
 {
@@ -6542,13 +6536,6 @@ void test_va_opt_G2()
 
 void test_va_opt()
 {
-    //TODO esta falando um  monte de casos ainda ...
-    // //http://www.open-std.org/jtc1/sc22/wg14/www/docs/n2856.htm
-    // 
-    //demstra que primerio
-    //tem que expandir varargs
-    //para depois concluir se era vazio ou nao
-    //
     const char* input =
         "#define F(...)  f(0 __VA_OPT__(,) __VA_ARGS__)\n"
         "#define EMPTY\n"
@@ -6557,6 +6544,7 @@ void test_va_opt()
         "f(0)";
     assert(test_preprocessor_in_out(input, output) == 0);
 }
+
 void test_empty_va_args()
 {
     const char* input = "#define M(a, ...) a, __VA_ARGS__\n"

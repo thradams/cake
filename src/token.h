@@ -201,6 +201,8 @@ struct token
     struct token* prev;
 };
 
+void token_delete(struct token* p);
+
 struct token_list
 {
     struct token* head;
