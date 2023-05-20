@@ -6,23 +6,21 @@ assim é possivel usar o mesmo mapa para achar tipos diferentes
 enum tag
 {
     TAG_TYPE_NONE,
+    
     TAG_TYPE_ENUN_SPECIFIER,
     TAG_TYPE_STRUCT_OR_UNION_SPECIFIER,
+
     TAG_TYPE_ENUMERATOR,
     TAG_TYPE_DECLARATOR,
 };
 
 
-struct type_tag_id
-{
-    enum tag type;
-};
-
 struct map_entry {
     struct map_entry* next;
     unsigned int hash;
     char* key;
-    struct type_tag_id* p;
+    void* p;
+    enum tag type; /*type of the object pointed by p*/
 };
 
 struct hash_map {
@@ -33,6 +31,6 @@ struct hash_map {
 
 void hashmap_remove_all(struct hash_map* map);
 void hashmap_destroy(struct hash_map* map);
-struct type_tag_id* hashmap_find(struct hash_map* map, const char* key);
-struct type_tag_id* hashmap_remove(struct hash_map* map, const char* key);
-int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* pnew);
+struct map_entry* hashmap_find(struct hash_map* map, const char* key);
+void* hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt);
+int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type);

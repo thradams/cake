@@ -390,21 +390,17 @@ bool first_of_type_qualifier(struct parser_ctx* ctx)
 }
 
 
-//declaração da macro CONTAINER_OF
-#ifndef CONTAINER_OF
-#define CONTAINER_OF(ptr , type , member) (type *)( (char *) ptr - offsetof(type , member) )
-#endif
 
 
-struct type_tag_id* find_tag(struct parser_ctx* ctx, const char* lexeme)
+struct map_entry* find_tag(struct parser_ctx* ctx, const char* lexeme)
 {
     struct scope* scope = ctx->scopes.tail;
     while (scope)
     {
-        struct type_tag_id* type_id = hashmap_find(&scope->tags, lexeme);
-        if (type_id)
+        struct map_entry* p_entry = hashmap_find(&scope->tags, lexeme);
+        if (p_entry)
         {
-            return type_id;
+            return p_entry;
         }
         scope = scope->previous;
     }
@@ -412,9 +408,7 @@ struct type_tag_id* find_tag(struct parser_ctx* ctx, const char* lexeme)
 }
 
 
-
-
-struct type_tag_id* find_variables(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt)
+struct map_entry* find_variables(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt)
 {
     if (ppscope_opt != NULL)
         *ppscope_opt = NULL; //out
@@ -422,12 +416,12 @@ struct type_tag_id* find_variables(struct parser_ctx* ctx, const char* lexeme, s
     struct scope* scope = ctx->scopes.tail;
     while (scope)
     {
-        struct type_tag_id* type_id = hashmap_find(&scope->variables, lexeme);
-        if (type_id)
+        struct map_entry* p_entry = hashmap_find(&scope->variables, lexeme);
+        if (p_entry)
         {
             if (ppscope_opt)
                 *ppscope_opt = scope;
-            return type_id;
+            return p_entry;
         }
         scope = scope->previous;
     }
@@ -438,17 +432,15 @@ struct type_tag_id* find_variables(struct parser_ctx* ctx, const char* lexeme, s
 
 struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* lexeme)
 {
-
     struct enum_specifier* best = NULL;
     struct scope* scope = ctx->scopes.tail;
     while (scope)
     {
-        struct type_tag_id* type_id = hashmap_find(&scope->tags, lexeme);
-        if (type_id &&
-            type_id->type == TAG_TYPE_ENUN_SPECIFIER)
+        struct map_entry* p_entry = hashmap_find(&scope->tags, lexeme);
+        if (p_entry &&
+            p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
         {
-
-            best = CONTAINER_OF(type_id, struct enum_specifier, type_id);
+            best = p_entry->p;
             if (best->enumerator_list.head != NULL)
                 return best; //OK bem completo
             else
@@ -468,11 +460,11 @@ struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_c
     struct scope* scope = ctx->scopes.tail;
     while (scope)
     {
-        struct type_tag_id* type_id = hashmap_find(&scope->tags, lexeme);
-        if (type_id &&
-            type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
+        struct map_entry* p_entry = hashmap_find(&scope->tags, lexeme);
+        if (p_entry &&
+            p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
         {
-            p = CONTAINER_OF(type_id, struct struct_or_union_specifier, type_id);
+            p = p_entry->p;
             break;
         }
         scope = scope->previous;
@@ -483,20 +475,20 @@ struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_c
 
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt)
 {
-    struct type_tag_id* type_id = find_variables(ctx, lexeme, ppscope_opt);
+    struct map_entry* p_entry = find_variables(ctx, lexeme, ppscope_opt);
 
-    if (type_id && type_id->type == TAG_TYPE_DECLARATOR)
-        return CONTAINER_OF(type_id, struct declarator, type_id);
+    if (p_entry && p_entry->type == TAG_TYPE_DECLARATOR)
+        return p_entry->p;
 
     return NULL;
 }
 
 struct enumerator* find_enumerator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt)
 {
-    struct type_tag_id* type_id = find_variables(ctx, lexeme, ppscope_opt);
+    struct map_entry* p_entry = find_variables(ctx, lexeme, ppscope_opt);
 
-    if (type_id && type_id->type == TAG_TYPE_ENUMERATOR)
-        return CONTAINER_OF(type_id, struct enumerator, type_id);
+    if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
+        return p_entry->p;
 
     return NULL;
 }
@@ -1891,7 +1883,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
+                    hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator->declarator, TAG_TYPE_DECLARATOR);
 
                     /*global scope no warning...*/
                     if (out->scope_level != 0)
@@ -1905,7 +1897,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             else
             {
                 /*first time we see this declarator*/
-                hashmap_set(&ctx->scopes.tail->variables, name, &p_init_declarator->declarator->type_id);
+                hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator->declarator, TAG_TYPE_DECLARATOR);
             }
         }
         else
@@ -2409,7 +2401,6 @@ bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_s
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx)
 {
     struct struct_or_union_specifier* p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
-    p_struct_or_union_specifier->type_id.type = TAG_TYPE_STRUCT_OR_UNION_SPECIFIER;
 
     if (ctx->current->type == TK_KEYWORD_STRUCT ||
         ctx->current->type == TK_KEYWORD_UNION)
@@ -2437,13 +2428,13 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
 
         snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "%s", ctx->current->lexeme);
 
-        struct type_tag_id* tag_type_id = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
-        if (tag_type_id)
+        struct map_entry* p_entry = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
+        if (p_entry)
         {
             /*this tag already exist in this scope*/
-            if (tag_type_id->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
+            if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
             {
-                p_first_tag_in_this_scope = CONTAINER_OF(tag_type_id, struct struct_or_union_specifier, type_id);
+                p_first_tag_in_this_scope = p_entry->p;
                 p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
             }
             else
@@ -2460,7 +2451,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
                 /*tag not found, so it is the first appearence*/
                 p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
 
-                hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, &p_struct_or_union_specifier->type_id);
+                hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
             }
             else
             {
@@ -2478,7 +2469,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
         s_anonymous_struct_count++;
         p_struct_or_union_specifier->has_anonymous_tag = true;
         p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-        hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, &p_struct_or_union_specifier->type_id);
+        hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
     }
 
 
@@ -2846,8 +2837,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
     try
     {
         p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
-        p_enum_specifier->type_id.type = TAG_TYPE_ENUN_SPECIFIER;
-
+        
         p_enum_specifier->first_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_ENUM);
 
@@ -2899,21 +2889,21 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
         /*
         * Let's search for this tag at current scope only
         */
-        struct type_tag_id* tag_type_id = NULL;
+        struct map_entry* p_entry = NULL;
 
         if (p_enum_specifier->tag_token &&
             p_enum_specifier->tag_token->lexeme)
         {
-            tag_type_id = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
+            p_entry = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
         }
-        if (tag_type_id)
+        if (p_entry)
         {
             /*
                ok.. we have this tag at this scope
             */
-            if (tag_type_id->type == TAG_TYPE_ENUN_SPECIFIER)
+            if (p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
             {
-                p_previous_tag_in_this_scope = CONTAINER_OF(tag_type_id, struct enum_specifier, type_id);
+                p_previous_tag_in_this_scope = p_entry->p;
 
                 if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
                     p_enum_specifier->enumerator_list.head != NULL)
@@ -2955,7 +2945,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
                 */
                 if (p_enum_specifier->tag_token)
                 {
-                    hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, &p_enum_specifier->type_id);
+                    hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
                 }
                 else
                 {
@@ -3031,8 +3021,7 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
     struct enum_specifier* p_enum_specifier)
 {
     //TODO VALUE
-    struct enumerator* p_enumerator = calloc(1, sizeof(struct enumerator));
-    p_enumerator->type_id.type = TAG_TYPE_ENUMERATOR;
+    struct enumerator* p_enumerator = calloc(1, sizeof(struct enumerator));    
     p_enumerator->enum_specifier = p_enum_specifier;
     struct token* name = ctx->current;
 
@@ -3044,7 +3033,7 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
         attribute_specifier_sequence_opt(ctx);
 
     p_enumerator->token = name;
-    hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, &p_enumerator->type_id);
+    hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, p_enumerator, TAG_TYPE_ENUMERATOR);
 
     if (ctx->current->type == '=')
     {
@@ -3171,8 +3160,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
       pointer_opt direct-declarator
     */
     struct declarator* p_declarator = calloc(1, sizeof(struct declarator));
-    p_declarator->first_token = ctx->current;
-    p_declarator->type_id.type = TAG_TYPE_DECLARATOR;
+    p_declarator->first_token = ctx->current;    
     p_declarator->pointer = pointer_opt(ctx);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
@@ -3627,7 +3615,8 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         //parametro void nao te name 
         hashmap_set(&ctx->scopes.tail->variables,
             p_parameter_declaration->declarator->name->lexeme,
-            &p_parameter_declaration->declarator->type_id);
+            p_parameter_declaration->declarator,
+            TAG_TYPE_DECLARATOR);
         //print_scope(ctx->current_scope);
     }
     return p_parameter_declaration;
@@ -4434,14 +4423,13 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
         while (entry)
         {
 
-            if (entry->p->type != TAG_TYPE_DECLARATOR)
+            if (entry->type != TAG_TYPE_DECLARATOR)
             {
                 entry = entry->next;
                 continue;
             }
 
-            struct declarator* p_declarator =
-                p_declarator = CONTAINER_OF(entry->p, struct declarator, type_id);
+            struct declarator* p_declarator = entry->p;
 
             if (p_declarator)
             {
@@ -4993,14 +4981,13 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
         while (entry)
         {
 
-            if (entry->p->type != TAG_TYPE_DECLARATOR)
+            if (entry->type != TAG_TYPE_DECLARATOR)
             {
                 entry = entry->next;
                 continue;
             }
 
-            struct declarator* p_declarator =
-                p_declarator = CONTAINER_OF(entry->p, struct declarator, type_id);
+            struct declarator* p_declarator = entry->p;
 
             if (p_declarator &&
                 p_declarator->first_token &&

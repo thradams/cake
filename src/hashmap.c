@@ -41,37 +41,32 @@ void hashmap_destroy(struct hash_map* map)
     hashmap_remove_all(map);
 }
 
-struct type_tag_id* hashmap_find(struct hash_map* map, const char* key)
+struct map_entry* hashmap_find(struct hash_map* map, const char* key)
 {
     if (map->table == NULL)
       return NULL;
 
-    struct type_tag_id* p = NULL;
-
-    unsigned int hash = stringhash(key);
-    int index = hash % map->capacity;
+    const unsigned int hash = stringhash(key);
+    const int index = hash % map->capacity;
 
     struct map_entry* pentry = map->table[index];
 
     for (; pentry != NULL; pentry = pentry->next)
     {
         if (pentry->hash == hash && strcmp(pentry->key, key) == 0) {
-            p = pentry->p;
-            break;
+            return pentry;
         }
     }
 
-    return p;
+    return NULL;
 }
 
 
-struct type_tag_id* hashmap_remove(struct hash_map* map, const char* key)
+void * hashmap_remove(struct hash_map* map, const char* key, enum tag * p_type_opt)
 {
-    struct type_tag_id* p = 0;
-
     if (map->table != NULL)
     {
-        unsigned int hash = stringhash(key);
+        const unsigned int hash = stringhash(key);
         struct map_entry** preventry = &map->table[hash % map->capacity];
         struct map_entry* pentry = *preventry;
 
@@ -80,19 +75,25 @@ struct type_tag_id* hashmap_remove(struct hash_map* map, const char* key)
             if ((pentry->hash == hash) && (strcmp(pentry->key, key) == 0))
             {
                 *preventry = pentry->next;
-                p = pentry->p;
+
+                if (p_type_opt)
+                    *p_type_opt = pentry->type;
+
+                void* p = pentry->p;
                 free(pentry->key);
                 free(pentry);
-                break;
+                
+                return p;
             }
             preventry = &pentry->next;
         }
     }
 
-    return p;
+    return NULL;
 }
 
-int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* p_new)
+
+int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type)
 {
     int result = 0;
 
@@ -122,7 +123,8 @@ int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* p_new
         {
             pentry = calloc(1, sizeof(*pentry));
             pentry->hash = hash;
-            pentry->p = p_new;
+            pentry->p = p;
+            pentry->type = type;
             pentry->key = strdup(key);
             pentry->next = map->table[index];
             map->table[index] = pentry;
@@ -132,7 +134,8 @@ int hashmap_set(struct hash_map* map, const char* key, struct type_tag_id* p_new
         else
         {
             result = 1;
-            pentry->p = p_new;
+            pentry->p = p;
+            pentry->type = type;
         }
     }
 

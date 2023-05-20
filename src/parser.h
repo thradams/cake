@@ -392,7 +392,7 @@ struct enum_specifier
     
 
     struct enumerator_list enumerator_list;
-    struct type_tag_id type_id;
+    
     struct token* tag_token;
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
@@ -427,7 +427,7 @@ struct struct_or_union_specifier
     */
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
     struct member_declaration_list member_declaration_list;
-    struct type_tag_id type_id;
+    
     struct token* first_token;
     struct token* last_token;
 
@@ -502,7 +502,6 @@ struct declarator
     struct token* first_token;
     struct token* last_token;
 
-    struct type_tag_id type_id;
 
     struct pointer* pointer;
     struct direct_declarator* direct_declarator;
@@ -1118,7 +1117,7 @@ struct enumerator
         enumeration-constant attribute-specifier-sequence opt
         enumeration-constant attribute-specifier-sequence opt = constant-expression
     */
-    struct type_tag_id type_id;
+    
     struct token* token;
     struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
 

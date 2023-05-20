@@ -315,8 +315,7 @@ struct macro_parameter
 
 
 struct macro
-{
-    struct type_tag_id type_id;
+{    
     const char* name;
     struct token_list replacement_list; /*copia*/
     struct macro_parameter* parameters;
@@ -340,7 +339,7 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
     {
     }
     macro->name = strdup(name);
-    hashmap_set(&ctx->macros, name, &macro->type_id);
+    hashmap_set(&ctx->macros, name, macro, 0);
 }
 
 
@@ -501,11 +500,11 @@ void delete_macro(struct macro* macro)
 
 struct macro* find_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct type_tag_id* p_node = hashmap_find(&ctx->macros, name);
-    if (p_node == NULL)
+    struct map_entry* p_entry = hashmap_find(&ctx->macros, name);
+    if (p_entry == NULL)
         return NULL;
-    struct macro* macro = CONTAINER_OF(p_node, struct macro, type_id);
-    return macro;
+
+    return p_entry->p;    
 }
 
 
@@ -2690,7 +2689,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
 
-            hashmap_set(&ctx->macros, input_list->head->lexeme, &macro->type_id);
+            hashmap_set(&ctx->macros, input_list->head->lexeme, macro, 0);
             macro->name = strdup(input_list->head->lexeme);
 
 
@@ -2763,11 +2762,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             skip_blanks_level(&r, input_list, level);
-            struct type_tag_id* p_node = hashmap_remove(&ctx->macros, input_list->head->lexeme);
+            
+            struct macro* macro = hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
-            if (p_node)
-            {
-                struct macro* macro = CONTAINER_OF(p_node, struct macro, type_id);
+            if (macro)
+            {                
                 delete_macro(macro);
                 match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             }
@@ -2834,7 +2833,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1);
+                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1, 0);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                 }
                 else if (strcmp(input_list->head->lexeme, "expand") == 0)
@@ -3901,7 +3900,7 @@ void mark_macros_as_used(struct hash_map* map)
 
             while (pentry != NULL)
             {
-                struct macro* macro = CONTAINER_OF(pentry->p, struct macro, type_id);
+                struct macro* macro = pentry->p;
                 macro->usage = 1;
                 pentry = pentry->next;
             }
@@ -3923,7 +3922,7 @@ void check_unused_macros(struct hash_map* map)
 
             while (pentry != NULL)
             {
-                struct macro* macro = CONTAINER_OF(pentry->p, struct macro, type_id);
+                struct macro* macro = pentry->p;
                 if (macro->usage == 0)
                 {
                     //TODO adicionar conceito meu codigo , codigo de outros nao vou colocar erro
@@ -4464,7 +4463,7 @@ void print_all_macros(struct preprocessor_ctx* prectx)
     {
         struct map_entry* entry = prectx->macros.table[i];
         if (entry == NULL) continue;
-        struct macro* macro = CONTAINER_OF(entry->p, struct macro, type_id);
+        struct macro* macro = entry->p;
         printf("#define %s", macro->name);
         if (macro->is_function)
         {
