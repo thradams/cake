@@ -5479,9 +5479,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #endif
 
 #ifdef __linux__
+        /*some gcc stuff need to parse linux headers*/
         "#define __linux__\n"
+        "#define __builtin_va_list\n"
+        "#define __builtin_va_start(a, b)\n"
+        "#define __builtin_va_end(a)\n"
+        "#define __builtin_va_arg(a, b)\n"
+        "#define __builtin_va_copy(a, b)\n"
 #endif
-
         "#define _M_IX86\n"
         "#define _X86_\n"
         "#define __fastcall\n"
@@ -15170,7 +15175,9 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 struct type* pt = calloc(1, sizeof(struct type));
                 struct type nt =
                     make_type_using_declarator(ctx, p->declarator);
-                *pt = nt;
+                *pt = nt; /*MOVED*/
+                _del_attr(nt,"must destroy");
+                
                 p_new_param->type = pt;
 
                 LIST_ADD(&p_func->params, p_new_param);
