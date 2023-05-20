@@ -9,7 +9,14 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/src/cake",
-            "args": ["${workspaceFolder}/src/file.c"],
+            "args": [
+            "-D__x86_64__",
+            "-I/usr/include/",
+            "-I/usr/include/x86_64-linux-gnu/bits/",
+            "-I/usr/lib/gcc/x86_64-linux-gnu/9/include/",
+            "-I/usr/include/x86_64-linux-gnu/",
+            "${workspaceFolder}/src/file.c"
+        ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],
