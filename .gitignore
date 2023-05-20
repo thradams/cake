@@ -1,5 +1,6 @@
 # Prerequisites
 *.d
+*.include
 
 # Object files
 *.o
@@ -67,3 +68,4 @@ dkms.conf
 /vc/.vs/cake/config/applicationhost.config
 /src/sqlite3ext.h
 /src/shell.c
+src/cake

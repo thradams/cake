@@ -369,7 +369,7 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
     }
     //remover flag de espaco antes se tiver
     bool is_first = true;
-    bool previous_is_blank = false;
+
     for (; current;)
     {
         if (current && (token_is_blank(current) ||
@@ -394,7 +394,6 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
             is_first = false;
         }
         remove_line_continuation(token->lexeme);
-        previous_is_blank = false;
 
         if (current == list->tail)
             break;
@@ -3472,7 +3471,7 @@ struct token_list  copy_replacement_list(struct token_list* list)
     }
     //remover flag de espaco antes se tiver
     bool is_first = true;
-    bool previous_is_blank = false;
+
     for (; current;)
     {
         if (current && token_is_blank(current))
@@ -3496,7 +3495,6 @@ struct token_list  copy_replacement_list(struct token_list* list)
             is_first = false;
         }
         remove_line_continuation(token_added->lexeme);
-        previous_is_blank = false;
 
         if (current == list->tail)
             break;

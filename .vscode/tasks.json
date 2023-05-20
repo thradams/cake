@@ -1,0 +1,52 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+        {
+            "label": "prepare",
+            "command": "/usr/bin/gcc",
+            "args": [
+                "build.c",
+                "-o",
+                "./build"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "label": "runbuild",
+            "command": "./build",
+            "args": [],
+            "options": {
+                "cwd": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "label": "Build",
+            "dependsOn": [
+                "prepare",
+                "runbuild"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "cake",
+            "command": "${workspaceFolder}/src/cake",
+            "args": [
+                "-I/usr/include/",
+                "-I/usr/include/x86_64-linux-gnu/bits/",
+                "${file}"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        }
+    ]
+}
