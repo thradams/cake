@@ -599,24 +599,6 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
     return list;
 }
 
-static void print_clean_list(struct token_list* list)
-{
-    struct token* current = list->head;
-    while (current)
-    {
-        if (current != list->head &&
-            (current->flags & TK_FLAG_HAS_SPACE_BEFORE ||
-                current->flags & TK_FLAG_HAS_NEWLINE_BEFORE))
-        {
-            printf(" ");
-        }
-        printf("%s", current->lexeme);
-        if (current == list->tail)
-            break;
-        current = current->next;
-    }
-}
-
 struct generic_selection* generic_selection(struct parser_ctx* ctx)
 {
     /*C23
@@ -647,8 +629,6 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
 
         parser_match_tk(ctx, TK_KEYWORD__GENERIC);
         parser_match_tk(ctx, '(');
-        struct token_list l = { 0 };
-        l.head = ctx->current;
 
         if (first_of_type_name(ctx))
         {
@@ -659,8 +639,6 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
         {
             p_generic_selection->expression = assignment_expression(ctx);
         }
-
-        l.tail = ctx->current->prev;
 
         parser_match_tk(ctx, ',');
 

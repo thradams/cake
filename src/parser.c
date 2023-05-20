@@ -159,12 +159,11 @@ void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
     ctx->n_errors++;
-    int line = 0;
+    
     if (p_token)
     {
         if (p_token->token_origin)
         {
-            line = p_token->line;
             ctx->printf(WHITE "%s:%d:%d: ",
                 p_token->token_origin->lexeme,
                 p_token->line,
@@ -192,12 +191,11 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
 void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
     ctx->n_warnings++;
-    int line = 0;
+
     if (p_token)
     {
         if (p_token->token_origin)
         {
-            line = p_token->line;
             ctx->printf(WHITE "%s:%d:%d: ",
                 p_token->token_origin->lexeme,
                 p_token->line,
@@ -224,12 +222,12 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
 void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
     ctx->n_info++;
-    int line = 0;
+    
     if (p_token)
     {
         if (p_token->token_origin)
         {
-            line = p_token->line;
+            
             ctx->printf(WHITE "%s:%d:%d: ",
                 p_token->token_origin->lexeme,
                 p_token->line,
@@ -1378,8 +1376,7 @@ bool type_specifier_is_integer(enum type_specifier_flags flags)
 }
 
 int final_specifier(struct parser_ctx* ctx, enum type_specifier_flags* flags)
-{
-    ctx;
+{    
     if (((*flags) & TYPE_SPECIFIER_UNSIGNED) ||
         ((*flags) & TYPE_SPECIFIER_SIGNED))
     {

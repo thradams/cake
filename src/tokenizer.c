@@ -3140,8 +3140,6 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
             {
                 if (strcmp(input_list->head->lexeme, "__VA_OPT__") == 0)
                 {
-                    const int flags = input_list->head->flags;
-
                     token_list_pop_front(input_list); //pop __VA_OPT__
                     token_list_pop_front(input_list); //pop (
                     int parenteses_count = 1;         //we already have one
@@ -3183,12 +3181,6 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 
             if (p_argument)
             {
-                bool check = false;
-                if (strcmp(input_list->head->lexeme, "__VA_ARGS__") == 0)
-                {
-                    check = true;
-                }
-
                 if (r.tail != NULL && r.tail->type == '#')
                 {
 

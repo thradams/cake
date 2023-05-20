@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 	
 
 	struct report report = { 0 };
-	compile(argc, argv, &report);
+	compile(argc, (const char**) argv, &report);
 
 
  	return report.error_count > 0;
