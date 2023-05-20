@@ -2018,7 +2018,9 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 struct type* pt = calloc(1, sizeof(struct type));
                 struct type nt =
                     make_type_using_declarator(ctx, p->declarator);
-                *pt = nt;
+                *pt = nt; /*MOVED*/
+                _del_attr(nt,"must destroy");
+                
                 p_new_param->type = pt;
 
                 LIST_ADD(&p_func->params, p_new_param);

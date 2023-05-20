@@ -3979,9 +3979,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #endif
 
 #ifdef __linux__
+        /*some gcc stuff need to parse linux headers*/
         "#define __linux__\n"
+        "#define __builtin_va_list\n"
+        "#define __builtin_va_start(a, b)\n"
+        "#define __builtin_va_end(a)\n"
+        "#define __builtin_va_arg(a, b)\n"
+        "#define __builtin_va_copy(a, b)\n"
 #endif
-
         "#define _M_IX86\n"
         "#define _X86_\n"
         "#define __fastcall\n"
