@@ -166,8 +166,6 @@ static void wasm_visit_type_name(struct wasm_visit_ctx* ctx, struct type_name* p
     wasm_visit_declarator(ctx, p_type_name->declarator);
 }
 
-#pragma warning(default : 4061)
-
 
 static void wasm_visit_argument_expression_list(struct wasm_visit_ctx* ctx, struct argument_expression_list* p_argument_expression_list)
 {

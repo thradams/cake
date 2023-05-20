@@ -341,9 +341,9 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
         case TYPE_CATEGORY_POINTER:
         {
             struct osstream local = { 0 };
-            if (p->next &&
-                p->next->category == TYPE_CATEGORY_FUNCTION ||
-                p->next->category == TYPE_CATEGORY_ARRAY)
+            if (p->next &&(
+                (p->next->category == TYPE_CATEGORY_FUNCTION ||
+                p->next->category == TYPE_CATEGORY_ARRAY)))
             {
                 ss_fprintf(&local, "(");
             }
@@ -366,8 +366,8 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
                 ss_fprintf(&local, "%s", ss->c_str);
 
             if (p->next &&
-                p->next->category == TYPE_CATEGORY_FUNCTION ||
-                p->next->category == TYPE_CATEGORY_ARRAY)
+                (p->next->category == TYPE_CATEGORY_FUNCTION ||
+                p->next->category == TYPE_CATEGORY_ARRAY))
             {
                 ss_fprintf(&local, ")", ss->c_str);
             }
@@ -2277,12 +2277,12 @@ void type_remove_names(struct type* p_type)
     }
 }
 
-struct type* type_get_specifer_part(const struct type* p_type)
+const struct type* type_get_specifer_part(const struct type* p_type)
 {
     /*
      last part is the specifier
     */
-    struct type* p = p_type;
+    const struct type* p = p_type;
     while (p->next) p = p->next;
     return p;
 }

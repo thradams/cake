@@ -251,7 +251,7 @@ int main()
     printf(CC_DESCRIPTION "\n");
 #if RELEASE
     printf("RELEASE\n");
-#else defined DEBUG
+#elif defined DEBUG
     printf("DEBUG\n");
 #endif
 

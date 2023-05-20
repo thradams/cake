@@ -585,7 +585,6 @@ static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name
     */
 }
 
-#pragma warning(default : 4061)
 
 
 static void visit_argument_expression_list(struct visit_ctx* ctx, struct argument_expression_list* p_argument_expression_list)
@@ -1543,7 +1542,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 p_struct_or_union_specifier->scope_level &&
                 p_complete->visit_moved == 0)
             {
-                char newtag[200];
+                char newtag[212];
                 snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tag_name, ctx->capture_index);
                 ctx->capture_index++;
 
@@ -1788,8 +1787,8 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         //
     if (!ctx->is_second_pass &&
         ctx->target < LANGUAGE_C2X &&
-        p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO ||
-        p_declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
+        (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO ||
+        p_declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF))
     {
 
         struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
@@ -1829,7 +1828,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         if (p_type_opt)
             new_type = type_convert_to(p_type_opt, ctx->target);
 
-        struct type* p = type_get_specifer_part(&new_type);
+        const struct type* p = type_get_specifer_part(&new_type);
         print_type_qualifier_specifiers(&ss0, p);
 
         struct tokenizer_ctx tctx = { 0 };

@@ -2298,9 +2298,12 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
     if (elif_result)
         already_found_elif_true = true;
     if (input_list->head->type == TK_PREPROCESSOR_LINE &&
-        preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
-        preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
-        preprocessor_token_ahead_is_identifier(input_list->head, "elifndef"))
+        (
+            preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
+            preprocessor_token_ahead_is_identifier(input_list->head, "elifndef")
+        )
+        )
     {
         /*
           Depois que acha 1 true already_found_elif_true os outros sao false.
@@ -2373,10 +2376,10 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
 
         token_list_append_list(&r, &r2);
         bool elif_result = false;
-        if (input_list->head->type == TK_PREPROCESSOR_LINE &&
+        if (input_list->head->type == TK_PREPROCESSOR_LINE && (
             preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
-            preprocessor_token_ahead_is_identifier(input_list->head, "elifndef"))
+            preprocessor_token_ahead_is_identifier(input_list->head, "elifndef")))
         {
             struct token_list r3 = elif_groups(ctx, input_list, is_active && !if_result, level, &elif_result);
             token_list_append_list(&r, &r3);

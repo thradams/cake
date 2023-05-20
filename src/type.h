@@ -221,4 +221,4 @@ void type_visit_to_mark_anonymous(struct type* p_type);
 void type_flat_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);
-struct type* type_get_specifer_part(const struct type* p_type);
+const struct type* type_get_specifer_part(const struct type* p_type);

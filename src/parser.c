@@ -105,7 +105,7 @@ void scope_list_pop(struct scope_list* list)
 
 void parser_ctx_destroy(struct parser_ctx* ctx)
 {
-    ctx;
+    
 }
 
 void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
