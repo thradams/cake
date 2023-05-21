@@ -1,5 +1,5 @@
 #include "options.h"
-
+#include <string.h>
 
 int fill_options(struct options* options, 
                  int argc, 

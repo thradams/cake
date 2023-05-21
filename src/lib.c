@@ -7717,7 +7717,6 @@ char* readfile(const char* path)
 
 
 
-
 int fill_options(struct options* options, 
                  int argc, 
                  const char** argv)
