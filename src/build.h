@@ -25,29 +25,12 @@
         #define OUT_OPT " -o "
         #define CC_DESCRIPTION "clang windows"
 
-    #elif defined __POCC__ /*pelles C*/
-
-        /*use cc -Ze build.c */
-        #define BUILD_WINDOWS_POCC
-        #define CC "cc "
-        #define OUT_OPT " /OUT:"
-        #define CC_DESCRIPTION "pelles c"
-
     #elif defined __GNUC__
 
         #define BUILD_WINDOWS_GCC
         #define CC "gcc "
         #define OUT_OPT " -o "
         #define CC_DESCRIPTION "mingw"
-
-    #elif defined __ORANGEC__
-
-        /*https://github.com/LADSoft/OrangeC*/
-
-        #define BUILD_WINDOWS_OCC
-        #define CC "occ "
-        #define OUT_OPT " /o"
-        #define CC_DESCRIPTION "orange c"
 
     #elif defined __TINYC__
 

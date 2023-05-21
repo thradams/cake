@@ -156,40 +156,6 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#if defined BUILD_WINDOWS_OCC
-
-    system(CC
-           " /w+ "
-           " /g " SOURCE_FILES " main.c "
-
-#if defined DEBUG
-           " /D_DEBUG"
-#else
-           " /D_NDEBUG"
-#endif
-
-#ifdef TEST
-           " /DTEST"
-#endif
-           " /oname " OUTPUT);
-#endif
-
-#ifdef BUILD_WINDOWS_POCC
-    system(CC
-           " -Ze " SOURCE_FILES " main.c "
-
-#if defined DEBUG
-           " /D_DEBUG"
-#else
-           " /D_NDEBUG"
-#endif
-
-#ifdef TEST
-           " /DTEST"
-#endif
-           " /OUT:" OUTPUT);
-#endif
-
 #ifdef BUILD_WINDOWS_TCC
     system(CC
                SOURCE_FILES " main.c "
