@@ -33,6 +33,8 @@ void help()
 		      "                        (On windows, if you run cake at the visual studio command prompt cake \n"
 		      "                        uses the same include files used by msvc )\n"
 		      "\n"
+		WHITE "  -no-output            " RESET "Cake will not generate ouput\n"
+		      "\n"
 		WHITE "  -D                    " RESET "Defines a preprocessing symbol for a source file \n"
 		      "\n"
 		WHITE "  -E                    " RESET "Copies preprocessor output to standard output \n"

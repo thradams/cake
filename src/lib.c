@@ -513,11 +513,21 @@ struct options
     bool format_ouput;
     bool nodiscard_is_default;
     bool do_static_analisys;
+
+    /*
+      if true cake does not generate ouput
+    */
+    bool no_output;
+    
     /*
     * true - to info about name conventions violations
     */
     bool check_naming_conventions;
 };
+
+int fill_options(struct options* options,
+                 int argc,
+                 const char** argv);
 
 
 
@@ -8430,6 +8440,124 @@ char* readfile(const char* path)
 
 
 
+
+
+int fill_options(struct options* options, 
+                 int argc, 
+                 const char** argv)
+{
+    /*first loop used to collect options*/
+    for (int i = 1; i < argc; i++)
+    {
+        if (argv[i][0] != '-')
+            continue;
+
+        if (strcmp(argv[i], "-no-output") == 0)
+        {
+            options->no_output = true;
+            continue;
+        }
+        if (strcmp(argv[i], "-E") == 0)
+        {
+            options->preprocess_only = true;
+            continue;
+        }
+        if (strcmp(argv[i], "-r") == 0)
+        {
+            options->remove_comments = true;
+            continue;
+        }
+        if (strcmp(argv[i], "-rm") == 0)
+        {
+            options->remove_macros = true;
+            continue;
+        }
+        if (strcmp(argv[i], "-n") == 0)
+        {
+            options->check_naming_conventions = true;
+            continue;
+        }
+        if (strcmp(argv[i], "-fi") == 0)
+        {
+            options->format_input = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-st") == 0)
+        {
+            options->do_static_analisys = true;
+            continue;
+        }
+
+
+        if (strcmp(argv[i], "-fo") == 0)
+        {
+            options->format_ouput = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-default_nodiscard") == 0)
+        {
+            options->nodiscard_is_default = true;
+            continue;
+        }
+
+
+        //
+        if (strcmp(argv[i], "-target=c89") == 0)
+        {
+            options->target = LANGUAGE_C89;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-target=c99") == 0)
+        {
+            options->target = LANGUAGE_C99;
+            continue;
+        }
+        if (strcmp(argv[i], "-target=c11") == 0)
+        {
+            options->target = LANGUAGE_C11;
+            continue;
+        }
+        if (strcmp(argv[i], "-target=c2x") == 0)
+        {
+            options->target = LANGUAGE_C2X;
+            continue;
+        }
+        if (strcmp(argv[i], "-target=cxx") == 0)
+        {
+            options->target = LANGUAGE_CXX;
+            continue;
+        }
+
+
+
+        //
+        if (strcmp(argv[i], "-std=c99") == 0)
+        {
+            options->input = LANGUAGE_C99;
+            continue;
+        }
+        if (strcmp(argv[i], "-std=c11") == 0)
+        {
+            options->input = LANGUAGE_C11;
+            continue;
+        }
+        if (strcmp(argv[i], "-std=c2x") == 0)
+        {
+            options->input = LANGUAGE_C2X;
+            continue;
+        }
+        if (strcmp(argv[i], "-std=cxx") == 0)
+        {
+            options->input = LANGUAGE_CXX;
+            continue;
+        }
+       
+    }
+    return 0;
+}
 
 
 
@@ -16358,7 +16486,7 @@ void scope_list_pop(struct scope_list* list)
 
 void parser_ctx_destroy(struct parser_ctx* ctx)
 {
-    
+
 }
 
 void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
@@ -19090,7 +19218,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
     try
     {
         p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
-        
+
         p_enum_specifier->first_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_ENUM);
 
@@ -19274,7 +19402,7 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
     struct enum_specifier* p_enum_specifier)
 {
     //TODO VALUE
-    struct enumerator* p_enumerator = calloc(1, sizeof(struct enumerator));    
+    struct enumerator* p_enumerator = calloc(1, sizeof(struct enumerator));
     p_enumerator->enum_specifier = p_enum_specifier;
     struct token* name = ctx->current;
 
@@ -19413,7 +19541,7 @@ struct declarator* declarator(struct parser_ctx* ctx,
       pointer_opt direct-declarator
     */
     struct declarator* p_declarator = calloc(1, sizeof(struct declarator));
-    p_declarator->first_token = ctx->current;    
+    p_declarator->first_token = ctx->current;
     p_declarator->pointer = pointer_opt(ctx);
     p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
@@ -21337,7 +21465,7 @@ struct declaration_list parse(struct options* options,
 
 
 
-int fill_options(struct options* options, int argc, const char** argv, struct preprocessor_ctx* prectx)
+int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_ctx* prectx)
 {
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
@@ -21345,101 +21473,7 @@ int fill_options(struct options* options, int argc, const char** argv, struct pr
         if (argv[i][0] != '-')
             continue;
 
-        if (strcmp(argv[i], "-E") == 0)
-        {
-            options->preprocess_only = true;
-            continue;
-        }
-        if (strcmp(argv[i], "-r") == 0)
-        {
-            options->remove_comments = true;
-            continue;
-        }
-        if (strcmp(argv[i], "-rm") == 0)
-        {
-            options->remove_macros = true;
-            continue;
-        }
-        if (strcmp(argv[i], "-n") == 0)
-        {
-            options->check_naming_conventions = true;
-            continue;
-        }
-        if (strcmp(argv[i], "-fi") == 0)
-        {
-            options->format_input = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-st") == 0)
-        {
-            options->do_static_analisys = true;
-            continue;
-        }
-
-
-        if (strcmp(argv[i], "-fo") == 0)
-        {
-            options->format_ouput = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-default_nodiscard") == 0)
-        {
-            options->nodiscard_is_default = true;
-            continue;
-        }
-
-
-        //
-        if (strcmp(argv[i], "-target=c89") == 0)
-        {
-            options->target = LANGUAGE_C89;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-target=c99") == 0)
-        {
-            options->target = LANGUAGE_C99;
-            continue;
-        }
-        if (strcmp(argv[i], "-target=c11") == 0)
-        {
-            options->target = LANGUAGE_C11;
-            continue;
-        }
-        if (strcmp(argv[i], "-target=c2x") == 0)
-        {
-            options->target = LANGUAGE_C2X;
-            continue;
-        }
-        if (strcmp(argv[i], "-target=cxx") == 0)
-        {
-            options->target = LANGUAGE_CXX;
-            continue;
-        }
-        //
-        if (strcmp(argv[i], "-std=c99") == 0)
-        {
-            options->input = LANGUAGE_C99;
-            continue;
-        }
-        if (strcmp(argv[i], "-std=c11") == 0)
-        {
-            options->input = LANGUAGE_C11;
-            continue;
-        }
-        if (strcmp(argv[i], "-std=c2x") == 0)
-        {
-            options->input = LANGUAGE_C2X;
-            continue;
-        }
-        if (strcmp(argv[i], "-std=cxx") == 0)
-        {
-            options->input = LANGUAGE_CXX;
-            continue;
-        }
-        //
+        
         if (argv[i][1] == 'I')
         {
             include_dir_add(&prectx->include_dir, argv[i] + 2);
@@ -21490,10 +21524,10 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #define STR \
 "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"
 
-//#define STR \
-//"/C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
+        //#define STR \
+        //"/C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
 
-        //http://thradams.com/app/litapp.html
+                //http://thradams.com/app/litapp.html
         snprintf(env, sizeof env,
             "%s",
             STR);
@@ -21614,6 +21648,7 @@ void ast_wasm_visit(struct ast* ast)
 }
 
 int compile_one_file(const char* file_name,
+    struct options* options,
     const char* out_file_name,
     int argc,
     const char** argv,
@@ -21635,20 +21670,20 @@ int compile_one_file(const char* file_name,
 
     //print_all_macros(&prectx);
 
-    //int no_files = 0;
     struct ast ast = { 0 };
-
-    struct options options = { .input = LANGUAGE_CXX };
 
     const char* s = NULL;
 
     try
     {
-        if (fill_options(&options, argc, argv, &prectx) != 0)
+
+
+        if (fill_preprocessor_options(argc, argv, &prectx) != 0)
         {
             throw;
         }
-        prectx.options = options;
+
+        prectx.options = *options;
         append_msvc_include_dir(&prectx);
 
 
@@ -21668,7 +21703,7 @@ int compile_one_file(const char* file_name,
         if (prectx.n_errors > 0) throw;
 
 
-        if (options.preprocess_only)
+        if (options->preprocess_only)
         {
             const char* s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
@@ -21676,48 +21711,49 @@ int compile_one_file(const char* file_name,
         }
         else
         {
-            ast.declaration_list = parse(&options, &ast.token_list, report);
+            ast.declaration_list = parse(options, &ast.token_list, report);
             if (report->error_count > 0) throw;
 
+            //ast_wasm_visit(&ast);
 
-            if (options.format_input)
+            if (!options->no_output)
             {
-                struct format_visit_ctx f = { .ast = ast, .identation = 4 };
-                format_visit(&f);
-            }
+                if (options->format_input)
+                {
+                    struct format_visit_ctx f = { .ast = ast, .identation = 4 };
+                    format_visit(&f);
+                }
+                struct visit_ctx visit_ctx = { 0 };
+                visit_ctx.target = options->target;
+                visit_ctx.ast = ast;
+                visit(&visit_ctx);
 
-            ast_wasm_visit(&ast);
+                if (options->remove_macros)
+                    s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
+                else
+                    s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
-            struct visit_ctx visit_ctx = { 0 };
-            visit_ctx.target = options.target;
-            visit_ctx.ast = ast;
-            visit(&visit_ctx);
+                if (options->format_ouput)
+                {
+                    /*re-parser ouput and format*/
+                    const char* s2 = format_code(options, s);
+                    free((void*)s);
+                    s = s2;
+                }
 
-            if (options.remove_macros)
-                s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
-            else
-                s = get_code_as_we_see(&visit_ctx.ast.token_list, options.remove_comments);
-
-            if (options.format_ouput)
-            {
-                /*re-parser ouput and format*/
-                const char* s2 = format_code(&options, s);
-                free((void*)s);
-                s = s2;
-            }
-
-            FILE* out = fopen(out_file_name, "w");
-            if (out)
-            {
-                fprintf(out, "%s", s);
-                fclose(out);
-                //printf("%-30s ", path);
-            }
-            else
-            {
-                report->error_count++;
-                printf("cannot open output file '%s'", out_file_name);
-                throw;
+                FILE* out = fopen(out_file_name, "w");
+                if (out)
+                {
+                    fprintf(out, "%s", s);
+                    fclose(out);
+                    //printf("%-30s ", path);
+                }
+                else
+                {
+                    report->error_count++;
+                    printf("cannot open output file '%s'", out_file_name);
+                    throw;
+                }
             }
         }
     }
@@ -21736,26 +21772,36 @@ int compile_one_file(const char* file_name,
 
 int compile(int argc, const char** argv, struct report* report)
 {
+    struct options options = { 0 };
+    if (fill_options(&options, argc, argv) != 0)
+    {
+        return 1;
+    }
+
     clock_t begin_clock = clock();
     int no_files = 0;
 
     char root_dir[MAX_PATH] = { 0 };
-    for (int i = 1; i < argc; i++)
-    {
-        if (argv[i][0] == '-')
-            continue;
 
-        char fullpath[MAX_PATH];
-        char* p = realpath(argv[i], fullpath);
-        
-        if (root_dir[0] == 0 ||
-            (strlen(fullpath) < strlen(root_dir)))
+    if (!options.no_output)
+    {
+        for (int i = 1; i < argc; i++)
         {
-            strcpy(root_dir, fullpath);
+            if (argv[i][0] == '-')
+                continue;
+
+            char fullpath[MAX_PATH];
+            char* p = realpath(argv[i], fullpath);
+
+            if (root_dir[0] == 0 ||
+                (strlen(fullpath) < strlen(root_dir)))
+            {
+                strcpy(root_dir, fullpath);
+            }
         }
+        dirname(root_dir);
     }
-    dirname(root_dir);
-    
+
     const int root_dir_len = strlen(root_dir);
 
     /*second loop to compile each file*/
@@ -21764,26 +21810,30 @@ int compile(int argc, const char** argv, struct report* report)
         if (argv[i][0] == '-')
             continue;
         no_files++;
+        char output_file[MAX_PATH] = {0};
 
-        
-        char fullpath[MAX_PATH];
-        char* p = realpath(argv[i], fullpath);
-        
-        char output_file[MAX_PATH];
-        strcpy(output_file, root_dir);
-        strcat(output_file, "/out");
-              
-        strcat(output_file, fullpath + root_dir_len);
+        if (!options.no_output)
+        {
 
-        char outdir[MAX_PATH];
-        strcpy(outdir, output_file);
-        dirname(outdir);
+            char fullpath[MAX_PATH];
+            char* p = realpath(argv[i], fullpath);
 
-        /*let´s create output dir in case it does not exist*/        
-        mkdir(outdir, 0777);
-        
+          
+            strcpy(output_file, root_dir);
+            strcat(output_file, "/out");
+
+            strcat(output_file, fullpath + root_dir_len);
+
+            char outdir[MAX_PATH];
+            strcpy(outdir, output_file);
+            dirname(outdir);
+
+            /*let´s create output dir in case it does not exist*/
+            mkdir(outdir, 0777);
+        }
+
         struct report local_report = { 0 };
-        compile_one_file(argv[i], output_file, argc, argv, &local_report);
+        compile_one_file(argv[i], &options, output_file, argc, argv, &local_report);
 
 
         report->error_count += local_report.error_count;
@@ -21884,7 +21934,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
     //printf("options '%s'\n", pszoptions);
     try
     {
-        if (fill_options(&options, argc, argv, &prectx) != 0)
+        if (fill_options(&options, argc, argv) != 0)
         {
             throw;
         }

@@ -25,8 +25,18 @@ struct options
     bool format_ouput;
     bool nodiscard_is_default;
     bool do_static_analisys;
+
+    /*
+      if true cake does not generate ouput
+    */
+    bool no_output;
+    
     /*
     * true - to info about name conventions violations
     */
     bool check_naming_conventions;
 };
+
+int fill_options(struct options* options,
+                 int argc,
+                 const char** argv);
