@@ -21063,8 +21063,8 @@ int compile(int argc, const char** argv, struct report* report)
             if (argv[i][0] == '-')
                 continue;
 
-            char fullpath[MAX_PATH];
-            char* p = realpath(argv[i], fullpath);
+            char fullpath[MAX_PATH] = {0};
+            realpath(argv[i], fullpath);
 
             if (root_dir[0] == 0 ||
                 (strlen(fullpath) < strlen(root_dir)))
@@ -21087,11 +21087,9 @@ int compile(int argc, const char** argv, struct report* report)
 
         if (!options.no_output)
         {
-
-            char fullpath[MAX_PATH];
-            char* p = realpath(argv[i], fullpath);
-
-          
+            char fullpath[MAX_PATH] = {0};
+            realpath(argv[i], fullpath);
+ 
             strcpy(output_file, root_dir);
             strcat(output_file, "/out");
 
