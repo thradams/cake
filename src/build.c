@@ -20,7 +20,6 @@
     " parser.h "          \
     " error.h "           \
     " fs.h "              \
-    " grammar.h "         \
     " hash.h "            \
     " hashmap.h "         \
     " osstream.h "        \
