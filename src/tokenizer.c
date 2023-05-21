@@ -593,26 +593,19 @@ int is_nondigit(struct stream* p)
 
 enum token_type is_punctuator(struct stream* stream)
 {
-    //TODO peprformance range?
-
     enum token_type type = TK_NONE;
     /*
      punctuator: one of
-     [ ] ( ) { } . ->
-     ++ -- & * + - ~ !
-     / % << >> < > <= >= == != ^ | && ||
-     ? : :: ; ...
-     = *= /= %= += -= <<= >>= &= ^= |=
-     , # ##
-     <: :> <% %> %: %:%:
+      [ ] ( ) { } . ->
+      ++ -- & * + - ~ !
+      / % << >> < > <= >= == != ^ | && ||
+      ? : :: ; ...
+      = *= /= %= += -= <<= >>= &= ^= |=
+      , # ##
+      <: :> <% %> %: %:%:
     */
     switch (stream->current[0])
     {
-    case '\\':
-        type = '\\';
-        stream_match(stream);
-        assert(false);//?
-        break;
     case '[':
         type = '[';
         stream_match(stream);
