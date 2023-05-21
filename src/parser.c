@@ -3857,10 +3857,9 @@ struct initializer_list* initializer_list(struct parser_ctx* ctx)
         if (ctx->current->type == '}')
             break; //follow
 
-        struct designation* p_designation2 = NULL;
         if (first_of_designator(ctx))
         {
-            p_designation2 = designation(ctx);
+            p_initializer->designation = designation(ctx);
         }
         struct initializer* p_initializer2 = initializer(ctx);
         p_initializer2->designation = p_designation;
