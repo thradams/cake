@@ -271,10 +271,26 @@ int main()
 
     compile_cake();
 
-#if !defined TEST && defined BUILD_WINDOWS_MSC
-    /*run cake on it�s own source*/
+#if !defined TEST
+/*run cake on it�s own source*/
+#ifdef BUILD_WINDOWS_MSC
+
     if (system(RUN OUTPUT " -n " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
+#endif
+
+#ifdef BUILD_LINUX_GCC
+    if (system(RUN OUTPUT " -n "
+                          " -D__x86_64__ "
+                          " -I/usr/include/ "
+                          " -I/usr/include/x86_64-linux-gnu/bits/ "
+                          " -I/usr/lib/gcc/x86_64-linux-gnu/9/include/ "
+                          " -I/usr/include/x86_64-linux-gnu/ " 
+                          HEADER_FILES
+                         SOURCE_FILES) != 0)
+        exit(1);
+#endif
+
 #endif
 
 #ifdef TEST
