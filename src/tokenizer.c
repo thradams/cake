@@ -63,10 +63,9 @@
 #endif
 
 
-//declaração da macro CONTAINER_OF
-#ifndef CONTAINER_OF
-#define CONTAINER_OF(ptr , type , member) (type *)( (char *) ptr - offsetof(type , member) )
-#endif
+
+static int printf_nothing(char const* const _Format, ...) { return 0; }
+
 
 /*
  Se for 1 inclui todos os ignorados de dentro dos includes
@@ -315,7 +314,7 @@ struct macro_parameter
 
 
 struct macro
-{    
+{
     const char* name;
     struct token_list replacement_list; /*copia*/
     struct macro_parameter* parameters;
@@ -504,7 +503,7 @@ struct macro* find_macro(struct preprocessor_ctx* ctx, const char* name)
     if (p_entry == NULL)
         return NULL;
 
-    return p_entry->p;    
+    return p_entry->p;
 }
 
 
@@ -1748,7 +1747,7 @@ bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
     return false;
 }
 
-void skip_blanks_level(struct token_list* dest, struct token_list* input_list, int level)
+static void skip_blanks_level(struct token_list* dest, struct token_list* input_list, int level)
 {
     while (input_list->head &&
         token_is_blank(input_list->head))
@@ -1760,9 +1759,9 @@ void skip_blanks_level(struct token_list* dest, struct token_list* input_list, i
     }
 }
 
-void skip_blanks(struct token_list* dest, struct token_list* input_list)
+static void skip_blanks(struct token_list* dest, struct token_list* input_list)
 {
-    while (token_is_blank(input_list->head))
+    while (input_list->head && token_is_blank(input_list->head))
     {
         token_list_add(dest, token_list_pop_front(input_list));
     }
@@ -2071,6 +2070,12 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     assert(list4.head != NULL);
 
     struct preprocessor_ctx pre_ctx = { 0 };
+#ifdef TEST
+    pre_ctx.printf = printf_nothing;
+#else
+    pre_ctx.printf = printf;
+#endif
+
     //struct parser_ctx parser_ctx = { 0 };
     pre_ctx.input_list = list4;
     pre_ctx.current = list4.head;
@@ -2079,8 +2084,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     long long value = 0;
     if (pre_constant_expression(&pre_ctx, &value) != 0)
     {
-        assert(false);
-        //TODO error
+
     }
 
     ctx->conditional_inclusion = false;
@@ -2295,7 +2299,7 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
             preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "elifdef") ||
             preprocessor_token_ahead_is_identifier(input_list->head, "elifndef")
-        )
+            )
         )
     {
         /*
@@ -2690,6 +2694,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //nome da macro
+
+
             /*sem skip*/
             //p = preprocessor_match_token(p, is_active, level, false, IDENTIFIER); /*name*/
             if (input_list->head->type == '(')
@@ -2758,11 +2764,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             skip_blanks_level(&r, input_list, level);
-            
+
             struct macro* macro = hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
             if (macro)
-            {                
+            {
                 delete_macro(macro);
                 match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             }
@@ -3143,9 +3149,9 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                         has_argument_list_empty_substitution(ctx, p_list, arguments);
 
                     if (discard_va_opt)
-                    {  
+                    {
                         //discard all tokens __VA_OPT__(...)
-                        while(input_list->head)
+                        while (input_list->head)
                         {
                             if (input_list->head->type == '(') parenteses_count++;
                             else if (input_list->head->type == ')') parenteses_count--;
@@ -3162,12 +3168,12 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                         {
                             if (p_token->type == '(') parenteses_count++;
                             else if (p_token->type == ')') parenteses_count--;
-                            
-                            if (parenteses_count == 0)                                
-                                break;                                                        
+
+                            if (parenteses_count == 0)
+                                break;
                         }
                         token_list_remove(input_list, p_token, p_token);
-                    }                    
+                    }
                     continue;
                 }
 
@@ -4667,7 +4673,6 @@ char* normalize_line_end(char* input)
     return input;
 }
 
-static int printf_nothing(char const* const _Format, ...) { return 0; }
 
 int test_preprocessor_in_out(const char* input, const char* output)
 {

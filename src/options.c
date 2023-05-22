@@ -1,5 +1,7 @@
 #include "options.h"
 #include <string.h>
+#include "console.h"
+#include <stdio.h>
 
 int fill_options(struct options* options, 
                  int argc, 
@@ -16,19 +18,35 @@ int fill_options(struct options* options,
             options->no_output = true;
             continue;
         }
+
+        if (strcmp(argv[i], "-o") == 0)
+        {
+            if (i + 1 < argc)
+            {
+                strcpy(options->output, argv[i+1]);
+                i++;
+            }
+            else
+            {
+                //ops
+            }
+            continue;
+        }
+
         if (strcmp(argv[i], "-E") == 0)
         {
             options->preprocess_only = true;
             continue;
         }
-        if (strcmp(argv[i], "-r") == 0)
+        if (strcmp(argv[i], "-remove-comments") == 0)
         {
             options->remove_comments = true;
             continue;
         }
-        if (strcmp(argv[i], "-rm") == 0)
+        if (strcmp(argv[i], "-direct-compilation") == 0 ||
+            strcmp(argv[i], "-rm") == 0)
         {
-            options->remove_macros = true;
+            options->direct_compilation = true;
             continue;
         }
         if (strcmp(argv[i], "-n") == 0)
@@ -55,7 +73,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-default_nodiscard") == 0)
+        if (strcmp(argv[i], "-no-discard") == 0)
         {
             options->nodiscard_is_default = true;
             continue;
@@ -116,4 +134,57 @@ int fill_options(struct options* options,
        
     }
     return 0;
+}
+
+
+void print_help()
+{
+    const char* options =
+        "cake [options] source1.c source2.c ...\n"
+        "\n"
+        WHITE "SAMPLES\n" RESET
+        "\n"
+        WHITE "    cake source.c\n" RESET
+        "    Compiles source.c and ouputs /out/source.c\n"
+        "\n"
+        WHITE "    cake -target=C11 source.c\n" RESET
+        "    Compiles source.c and ouputs C11 code at /out/source.c\n"
+        "\n"
+        WHITE "OPTIONS\n" RESET
+        "\n"
+        WHITE "  -I                   " RESET " Adds a directory to the list of directories searched for include files \n"
+        "                        (On windows, if you run cake at the visual studio command prompt cake \n"
+        "                        uses the same include files used by msvc )\n"
+        "\n"
+        WHITE "  -no-output            " RESET "Cake will not generate ouput\n"
+        "\n"
+        WHITE "  -D                    " RESET "Defines a preprocessing symbol for a source file \n"
+        "\n"
+        WHITE "  -E                    " RESET "Copies preprocessor output to standard output \n"
+        "\n"
+        WHITE "  -o name.c             " RESET "Defines the ouput name. used when we compile one file\n"
+        "\n"
+        WHITE "  -remove-comments      " RESET "Remove all comments from the ouput file \n"
+        "\n"
+        WHITE "  -direct-compilation   " RESET "output without macros/preprocessor parts\n"
+        "\n"
+        WHITE "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c2x, cxx) \n"
+        "                        C99 is the default and C89 (ANSI C) is the minimum target \n"
+        "\n"
+        WHITE "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
+        "                        (not implented yet, input is considered C23)                    \n"
+        "\n"
+        WHITE "  -n                    " RESET "Check naming conventions (it is hardcoded for its own naming convention)\n"
+        "\n"
+        WHITE "  -fi                   " RESET "Format input (format before language convertion)\n"
+        "\n"
+        WHITE "  -fo                   " RESET "Format output (format after language convertion, result parsed again)\n"
+        "\n"
+        WHITE "  --no-discard          " RESET "Makes [[nodiscard]] default implicitly \n"
+        "\n"
+        "\n"
+        "More details at http://thradams.com/cake/manual.html\n"
+        ;
+
+    printf("%s", options);
 }

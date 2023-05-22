@@ -16,27 +16,64 @@ enum language_version
 
 struct options
 {
+    /*
+       -std=c99
+    */
     enum language_version input;
+
+    /*
+       -target=c99
+    */
     enum language_version target;
-    bool remove_comments;
+    
+    /*
+       -remove-comments  
+    */
+    bool remove_comments;    
+
+    /*
+      -E 
+    */
     bool preprocess_only;
-    bool remove_macros;
+
+    /*
+      -rm
+      -direct-compilation
+    */
+    bool direct_compilation;
+
     bool format_input;
     bool format_ouput;
+    
+    /*
+      -no-discard 
+    */
     bool nodiscard_is_default;
+
+
     bool do_static_analisys;
 
     /*
+      -no-output
       if true cake does not generate ouput
     */
     bool no_output;
     
     /*
-    * true - to info about name conventions violations
+      -n
+      true - to info about name conventions violations
     */
     bool check_naming_conventions;
+
+    /*
+      -o filename
+      defines the ouputfile when 1 file is used
+    */
+    char output[200];
 };
 
 int fill_options(struct options* options,
                  int argc,
                  const char** argv);
+
+void print_help();

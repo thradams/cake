@@ -5140,10 +5140,10 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
 
 
-                //http://thradams.com/app/litapp.html
+        //http://thradams.com/app/litapp.html
         snprintf(env, sizeof env,
             "%s",
             STR);
@@ -5225,7 +5225,7 @@ const char* format_code(struct options* options, const char* content)
         visit_ctx.ast = ast;
         format_visit(&visit_ctx);
 
-        if (options->remove_macros)
+        if (options->direct_compilation)
             s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
         else
             s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
@@ -5344,7 +5344,7 @@ int compile_one_file(const char* file_name,
                 visit_ctx.ast = ast;
                 visit(&visit_ctx);
 
-                if (options->remove_macros)
+                if (options->direct_compilation)
                     s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
                 else
                     s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
@@ -5430,20 +5430,31 @@ int compile(int argc, const char** argv, struct report* report)
 
         if (!options.no_output)
         {
-            char fullpath[MAX_PATH] = {0};
-            realpath(argv[i], fullpath);
- 
-            strcpy(output_file, root_dir);
-            strcat(output_file, "/out");
+            if (no_files == 1 && options.output[0] != '\0')
+            {
+                /*
+                   -o outputname
+                   works when we compile just one file
+                */
+                strcat(output_file, options.output);
+            }
+            else
+            {
+                char fullpath[MAX_PATH] = { 0 };
+                realpath(argv[i], fullpath);
 
-            strcat(output_file, fullpath + root_dir_len);
+                strcpy(output_file, root_dir);
+                strcat(output_file, "/out");
 
-            char outdir[MAX_PATH];
-            strcpy(outdir, output_file);
-            dirname(outdir);
+                strcat(output_file, fullpath + root_dir_len);
 
-            /*let´s create output dir in case it does not exist*/
-            mkdir(outdir, 0777);
+                char outdir[MAX_PATH];
+                strcpy(outdir, output_file);
+                dirname(outdir);
+
+                /*let´s create output dir in case it does not exist*/
+                mkdir(outdir, 0777);
+            }
         }
 
         struct report local_report = { 0 };
@@ -5583,7 +5594,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             visit_ctx.ast = ast;
             visit(&visit_ctx);
 
-            if (options.remove_macros)
+            if (options.direct_compilation)
             {
                 s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
             }

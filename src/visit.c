@@ -797,12 +797,16 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
         if (ctx->target < LANGUAGE_C11)
         {
-            token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
-            char buffer[30] = { 0 };
-            snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
-            struct tokenizer_ctx tctx = { 0 };
-            struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-            token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l3);
+            if (p_expression->first_token->level == 0)
+            {
+                token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
+                char buffer[30] = { 0 };
+                snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
+                struct tokenizer_ctx tctx = { 0 };
+                struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
+                l3.head->flags = p_expression->last_token->flags;                
+                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l3);
+            }
         }
 
         if (p_expression->right)
