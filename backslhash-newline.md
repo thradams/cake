@@ -34,7 +34,8 @@ Removing backlash-newline is a simplification and modernization of the language 
  
 ## Proposal
 
-Create backlash-newline-token that works as space (blanks) in preprocessor but not in compiler phases.
+Create backlash-newline-token that works as space inside preprocessor directives.
+
 ## Breaking changes
 
 This sample would not compile anymore because the compiler would see the backlash-newline-token
