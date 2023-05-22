@@ -32,17 +32,34 @@ Imagine refactoring tool that does rename having to deal with the identifier ab.
 
 Removing backlash-newline is a simplification and modernization of the language and makes the language safer and tools simpler. 
  
-Proposal  
+## Proposal
 
-Allow backlash-newline only at the end of preprocessor line.
-
+Create backlash-newline-token that works as space (blanks) in preprocessor but not in compiler phases.
 ## Breaking changes
 
+This sample would not compile anymore because the compiler would see the backlash-newline-token
+that is not allowed. So it not a quiet change.
+
 ```
+int a\
+b;
+```
+
+Here the backlash-newline-token words as space. 
+
+```c
 #define A B\
 C
 ```
-A expands to BC. With this change it would expand to B C
+So A expands to B C instead of BC.
+This is a quiet change and compilers could have a warning add more spaces around the 
+backlash-newline-token or refactor to
+```c
+#define A BC
+```
+if this is the intention.
+
+## Doc changes
 
 ```
 "2. Each instance of a backslash character (\) immediately followed by a new-line character is 
@@ -55,4 +72,9 @@ backslash character before any such splicing takes place.
 "(2) A nonempty source file does not end in a new-line character which is not immediately preceded 
 by a backslash character or ends in a partial preprocessing token or comment (5.1.1.2) 
 "
+```
+
+```
+ Some note.
+ In preprocessor backlash-newline-token works as blank.
 ```
