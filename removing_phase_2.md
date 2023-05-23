@@ -48,7 +48,8 @@ int main() {
 int b = 2;
 ```
 
-None of these line continuations are necessary. (GCC issues a warning for line continuation in line comments.)
+None of these line continuations are necessary. Line continuation in line comments can be unintentional.
+and GCC issues a warning.
 
 Another issue is that since backslash-newline occurs during phase 2, it allows breaking identifers, as shown in this example:
 
