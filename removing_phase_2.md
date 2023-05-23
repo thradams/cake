@@ -75,8 +75,7 @@ that making the new line token as `\ spaces new-line`
 
 ## Proposal
 
-Our proposal is to remove phase 2 and handle line continuation within preprocessor directives as if they were spaces, 
-with the difference that they would be ignored.
+Our proposal is to remove phase 2 and handle line continuation within preprocessor directives as if they were blanks.
 
 ## Breaking Changes
 
