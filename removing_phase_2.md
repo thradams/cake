@@ -56,6 +56,7 @@ such cases, it reinforces the idea that line continuation within line comments i
 But maybe some code is using this style and it will be a breaking change. Then this proposal sugest a error if line-continuation 
 is used inside comments.
 
+Other alternative is to keep line continuation in comments but it happens at token level not phase 2.
 
 
 Another issue is that since backslash-newline occurs during phase 2, it allows breaking identifers, as shown in this example:
