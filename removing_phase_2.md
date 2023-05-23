@@ -80,10 +80,7 @@ Identifiers that were joined in phase 2 will now be treated as two separate iden
 C
 ```
 
-After this change, `A` will expand to `B C` instead of `BC`.
-However, I don't believe intentional examples like this can be found easily.
-But for safety, to address this problem, we suggest issuing an error if the line continuation splits two tokens that, when combined, would result 
-in an identifier. In such cases, the programmer would need to refactor the code and choose one of the following options:
+After this change, A will expand to B C instead of BC. While intentional examples like this may not be common, it's important to ensure code safety. To address this potential problem, we recommend implementing an error mechanism that detects when the line continuation splits two tokens that, when combined, would result in an identifier. In such cases, the programmer would be required to refactor the code and choose one of the following options:
 
 ```c
 #define A BC
