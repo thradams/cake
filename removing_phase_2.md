@@ -43,9 +43,8 @@ b = 1;
 int main() { 
  ab = 1;
 }
-```
 
-//comment \\
+//comment \
 int b = 2;
 
 ```
