@@ -118,7 +118,19 @@ C
 //A will expand to B C instead of BC
 ```
 But I don't think we can find intentional samples like this.
-Maybe the preprocessor can have a warning for this.
+Maybe the preprocessor can have a error/warning for this and the programmer will 
+have to refactor the code in one of these two options
+```c
+#define A BC
+//A will expand to BC
+```
+or 
+```c
+#define A B \
+C
+//A will expand to B C
+```
+
 
 >I have implemented this in cake as an experiment inside ifdefs REMOVE_PHASE2
 
