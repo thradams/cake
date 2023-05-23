@@ -64,7 +64,7 @@ with the difference that they would be ignored.
 
 ## Breaking Changes
 
-Code that relies on line continuation surviving the preprocessor will result in an error. For example:
+1 - Code that relies on line continuation surviving the preprocessor will result in an error. For example:
 
 ```c
 int a\
@@ -73,7 +73,7 @@ b;
 
 In this case, the line continuation needs to be deleted.
 
-Identifiers that were joined in phase 2 will now be treated as two separate identifiers instead of one. For example:
+2 - Identifiers that were joined in phase 2 will now be treated as two separate identifiers instead of one. For example:
 
 ```c
 #define A B\
@@ -93,13 +93,15 @@ C
 // A will expand to B C
 ```
 
-The following code will no longer compile:
+3 - The following code will no longer compile:
 
 ```c
 #de\
 fine A B\
 C
 ```
+
+## Samples
 
 Inside a constant expression, line continuation will also be ignored. For example:
 
@@ -108,6 +110,8 @@ Inside a constant expression, line continuation will also be ignored. For exampl
     defined B 
 #endif
 ```
+## Implementation
 
 This proposal has been implemented in Cake and is active in the current version. You can try it out at http://thradams.com/cake/playground.html.
+
 
