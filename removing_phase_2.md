@@ -11,7 +11,7 @@ We propose modifying the language by eliminating phase 2 and handling line conti
 
 ## Problem Description
 
-There are instances of unnecessary line continuation in C code that can be removed. For example:
+There are instances of unnecessary line continuation in C code that can be removed. For example.
 
 ```c
 void F(int a, \
@@ -119,7 +119,8 @@ Inside a constant expression, line continuation will also be ignored. For exampl
 #endif
 ```
 ## Design consideration
-We could be more restritive about were line continuation can happen. For instance.
+We could be more restritive about were line continuation can happen. For instance, it could not be allowed
+after undef.
 
 ```c
 #undef \
