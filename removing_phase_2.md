@@ -141,6 +141,21 @@ It will have to be refactored to
 ```
 The objective is be explicty about the change.
 
+Breaking changes is preprocessor are not something new. They did happen before.
+Microsoft for instance rewrote the preprocessor causing breaking changes
+https://learn.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview?source=recommendations&view=msvc-170
+
+Breaking changes described here are so far just a matter of clarification. 
+
+- Do you really want to create a new identifier? If so please refactoring.
+- Do you really want a line continuation inside comments? If so please refactoring.
+
+
+## C and C++
+
+It is expected C++ to implement the same proposal. 
+If not the C version that works is the common subset.
+
 ## Samples
 
 Inside a constant expression, line continuation will also be ignored. For example:
