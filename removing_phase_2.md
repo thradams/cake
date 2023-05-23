@@ -64,6 +64,10 @@ MACRO
 ```
 As a sample the syntax color of github is not prepared to handle this.
 
+Something a little annoying is to have to remove spaces between \ and new-line. We can also fix
+that making the new line token as `\ spaces new-line`
+
+
 ## Proposal
 
 Our proposal is to remove phase 2 and handle line continuation within preprocessor directives as if they were spaces, 
@@ -87,7 +91,7 @@ In this case, the line continuation needs to be deleted.
 C
 ```
 
-After this change, A will expand to B C instead of BC. While intentional examples like this may not be common, it's important to ensure code safety. To address this potential problem, we recommend implementing an error mechanism that detects when the line continuation splits two tokens that, when combined, would result in an identifier. In such cases, the programmer would be required to refactor the code and choose one of the following options:
+After this change, A will expand to `B C` instead of `BC`. While intentional examples like this may not be common, it's important to ensure code safety. To address this potential problem, we recommend implementing an error mechanism that detects when the line continuation splits two tokens that, when combined, would result in an identifier. In such cases, the programmer would be required to refactor the code and choose one of the following options:
 
 ```c
 #define A BC
