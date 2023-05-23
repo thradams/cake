@@ -108,53 +108,6 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
 
 }
 
-void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
-{
-    if (p_token == NULL)
-        return;
-
-    int line = p_token->line;
-    ctx->printf(LIGHTGRAY);
-
-    char nbuffer[20] = { 0 };
-    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
-    ctx->printf(" %s |", nbuffer);
-
-    struct token* prev = p_token;
-    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
-    {
-        prev = prev->prev;
-    }
-    struct token* next = prev;
-    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
-    {
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
-        {
-            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
-            {
-                ctx->printf(" ");
-            }
-        }
-        if (next->flags & TK_FLAG_MACRO_EXPANDED) {
-            ctx->printf(DARKGRAY "%s" RESET, next->lexeme);
-        }
-        else
-            ctx->printf("%s", next->lexeme);
-
-        next = next->next;
-    }
-    ctx->printf("\n");
-    ctx->printf(LIGHTGRAY);
-    ctx->printf(" %*s |", n, " ");
-    if (p_token)
-    {
-        for (int i = 1; i <= (p_token->col - 1); i++) {
-            ctx->printf(" ");
-        }
-    }
-    ctx->printf(LIGHTGREEN "^\n" RESET);
-
-}
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
@@ -184,7 +137,7 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
     ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 
 
-    print_line_and_token(ctx, p_token);
+    print_line_and_token(ctx->printf, p_token);
 }
 
 
@@ -215,7 +168,7 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
 
     ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
 
-    print_line_and_token(ctx, p_token);
+    print_line_and_token(ctx->printf, p_token);
 }
 
 
@@ -247,7 +200,7 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
 
     ctx->printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 
-    print_line_and_token(ctx, p_token);
+    print_line_and_token(ctx->printf, p_token);
 }
 
 
@@ -5102,6 +5055,11 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
             char buffer[200];
             snprintf(buffer, sizeof buffer, "#define %s \n", argv[i] + 2);
             struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+            tctx.printf = printf_nothing;
+#else
+            tctx.printf = printf;
+#endif
             struct token_list l1 = tokenizer(&tctx, buffer, "", 0, TK_FLAG_NONE);
             preprocessor(prectx, &l1, 0);
             token_list_clear(&l1);
@@ -5140,6 +5098,9 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR \
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
+
+#define STR0 \
 "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"
 
         //http://thradams.com/app/litapp.html
@@ -5212,6 +5173,12 @@ const char* format_code(struct options* options, const char* content)
         append_msvc_include_dir(&prectx);
 
         struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+        tctx.printf = printf_nothing;
+#else
+        tctx.printf = printf;
+#endif
+
         struct token_list tokens = tokenizer(&tctx, content, "", 0, TK_FLAG_NONE);
         ast.token_list = preprocessor(&prectx, &tokens, 0);
         if (prectx.n_errors != 0) throw;
@@ -5311,6 +5278,12 @@ int compile_one_file(const char* file_name,
         }
 
         struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+        tctx.printf = printf_nothing;
+#else
+        tctx.printf = printf;
+#endif
+
         struct token_list tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
 
 
@@ -5484,6 +5457,12 @@ struct ast get_ast(struct options* options,
 {
     struct ast ast = { 0 };
     struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+    tctx.printf = printf_nothing;
+#else
+    tctx.printf = printf;
+#endif
+
     struct token_list list = tokenizer(&tctx, source, filename, 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx prectx = { 0 };
@@ -5570,6 +5549,12 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
         if (options.preprocess_only)
         {
             struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+            tctx.printf = printf_nothing;
+#else
+            tctx.printf = printf;
+#endif
+
             struct token_list tokens = tokenizer(&tctx, content, "source", 0, TK_FLAG_NONE);
 
 

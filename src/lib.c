@@ -223,19 +223,9 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type);
 
 //#pragma once
 
-/*
-  When REMOVE_PHASE2 is defined
-  we remove phase 2 and handle 
-  backlash-newline at preprocessor directives
-*/
-#define REMOVE_PHASE2
-
 enum token_type
 {
     TK_NONE = 0,
-#ifdef REMOVE_PHASE2
-    TK_LINE_CONTINUATION,
-#endif
     TK_NEWLINE = '\n',
     TK_WHITE_SPACE = ' ',
     TK_EXCLAMATION_MARK = '!',
@@ -409,7 +399,7 @@ enum token_flags
     TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF = 1 << 5,
     TK_FLAG_HIDE = 1 << 6, /*alguem pediu p esconder*/
     TK_FLAG_IDENTIFIER_IS_ENUMERATOR = 1 << 7, /*indica que eh identificador enumerator separar?*/
-    TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8 /*indica que eh identificador enumerator separar?*/
+    TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8 /*indica que eh identificador enumerator separar?*/    
 };
 
 struct token
@@ -456,6 +446,7 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
+void print_line_and_token(int (*printf)(const char* fmt, ...), struct token* p_token);
 
 struct stream
 {
@@ -463,6 +454,7 @@ struct stream
     const char* current;
     int line;
     int col;
+    bool line_continuation_found;
 };
 
 int is_digit(struct stream* p);
@@ -1205,6 +1197,52 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");    
 }
 
+void print_line_and_token(int (*printf)(const char* fmt, ...), struct token* p_token)
+{
+    if (p_token == NULL)
+        return;
+
+    int line = p_token->line;
+    printf(LIGHTGRAY);
+
+    char nbuffer[20] = { 0 };
+    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
+    printf(" %s |", nbuffer);
+
+    struct token* prev = p_token;
+    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
+    {
+        prev = prev->prev;
+    }
+    struct token* next = prev;
+    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
+    {
+        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+        {
+            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            {
+                printf(" ");
+            }
+        }
+        if (next->flags & TK_FLAG_MACRO_EXPANDED) {
+            printf(DARKGRAY "%s" RESET, next->lexeme);
+        }
+        else
+            printf("%s", next->lexeme);
+
+        next = next->next;
+    }
+    printf("\n");
+    printf(LIGHTGRAY);
+    printf(" %*s |", n, " ");
+    if (p_token)
+    {
+        for (int i = 1; i <= (p_token->col - 1); i++) {
+            printf(" ");
+        }
+    }
+    printf(LIGHTGREEN "^\n" RESET);
+}
 
 
 
@@ -2106,7 +2144,7 @@ void stream_match(struct stream* stream)
     }
 
     stream->current++;
-#ifndef REMOVE_PHASE2
+
     while (stream->current[0] == '\\' && stream->current[1] == '\n')
     {
         /*
@@ -2120,8 +2158,12 @@ void stream_match(struct stream* stream)
         stream->current++;
         stream->line++;
         stream->col = 1;
+
+        /*
+          must be controled by the caller see line comment token
+        */
+        stream->line_continuation_found = true;
     }
-#endif
 
 }
 
@@ -2912,6 +2954,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             */
             if (first_of_string_literal(&stream))
             {
+                stream.line_continuation_found = false;
                 struct token* p_new_token = string_literal(ctx, &stream);
                 if (p_new_token == NULL) throw;
 
@@ -2928,6 +2971,17 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);;
                 new_line = false;
                 has_space = false;
+
+                if (stream.line_continuation_found)
+                {
+                    if (filename_opt)
+                        printf("%s", filename_opt);
+                    printf(" %d:%d:", stream.line, stream.col);
+                    ctx->printf(LIGHTMAGENTA "warning: " WHITE "line continuation found inside string literal\n");
+                    print_line_and_token(ctx->printf, p_new_token);
+                    stream.line_continuation_found = false;
+                }
+
                 continue;
             }
 
@@ -2966,29 +3020,6 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 continue;
             }
 
-#ifdef REMOVE_PHASE2
-            if (stream.current[0] == '\\' && stream.current[1] == '\n')
-            {
-                
-                struct token* p_new_token = new_token(stream.current, stream.current, TK_LINE_CONTINUATION);
-                p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                p_new_token->flags |= addflags;
-
-                stream_match(&stream);
-                stream_match(&stream);
-
-                p_new_token->level = level;
-                p_new_token->token_origin = p_first;
-                p_new_token->line = line;
-                p_new_token->col = col;
-                token_list_add(&list, p_new_token);
-                /*bNewLine = false;*/ //deixa assim
-                has_space = true;
-                continue;
-            }
-#endif
-
             if (stream.current[0] == ' ' ||
                 stream.current[0] == '\t' ||
                 stream.current[0] == '\f')
@@ -3018,6 +3049,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             if (stream.current[0] == '/' &&
                 stream.current[1] == '/')
             {
+                stream.line_continuation_found = false;
+
                 const char* start = stream.current;
                 stream_match(&stream);
                 stream_match(&stream);
@@ -3028,7 +3061,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 }
                 struct token* p_new_token = new_token(start, stream.current, TK_LINE_COMMENT);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;                
                 p_new_token->flags |= addflags;
 
                 p_new_token->level = level;
@@ -3038,6 +3071,18 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
+
+
+                if (stream.line_continuation_found)
+                {
+                    if (filename_opt)
+                        printf("%s", filename_opt);
+                    printf(" %d:%d:", stream.line, stream.col);
+                    ctx->printf(LIGHTMAGENTA "warning: " WHITE "line continuation found inside line comment\n");
+                    print_line_and_token(ctx->printf, p_new_token);
+                    stream.line_continuation_found = false;
+                }
+
                 continue;
             }
             if (stream.current[0] == '/' &&
@@ -3056,7 +3101,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         break;
                     }
                     else if (stream.current[0] == '\0')
-                    {
+                    {                        
                         tk_seterror_with_token(ctx, "missing end of comment");
                         break;
                     }
@@ -3338,37 +3383,11 @@ bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
     return false;
 }
 
-#ifdef REMOVE_PHASE2
-static int drop_line_continuation(struct preprocessor_ctx* ctx, struct token_list* input_list)
-{
-    if (input_list->head->type == TK_LINE_CONTINUATION)
-    {
-        if (input_list->head->prev &&
-            input_list->head->next &&
-            input_list->head->next->type == TK_IDENTIFIER &&
-            input_list->head->prev->type == TK_IDENTIFIER)
-        {
-            pre_seterror_with_token(ctx,
-                input_list->head->prev,
-                "line continuation is not allowed between two identifiers, use space or remove the line continuation");
-        }
-        token_list_pop_front(input_list); //deletar
-        return 1;
-    }
-    return 0;
-}
-#endif
-
 
 static void skip_blanks_level(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list, int level)
 {
     while (input_list->head)
     {
-
-#ifdef REMOVE_PHASE2
-        if (drop_line_continuation(ctx, input_list)) continue;
-#endif
-
         if (!token_is_blank(input_list->head))
             break;
 
@@ -3383,10 +3402,6 @@ static void skip_blanks(struct preprocessor_ctx* ctx, struct token_list* dest, s
 {
     while (input_list->head)
     {
-#ifdef REMOVE_PHASE2
-        if (drop_line_continuation(ctx, input_list)) continue;
-#endif
-
         if (!token_is_blank(input_list->head))
             break;
         token_list_add(dest, token_list_pop_front(input_list));
@@ -3659,9 +3674,6 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-#ifdef REMOVE_PHASE2
-        if (drop_line_continuation(ctx, input_list)) continue;
-#endif
         token_list_add(&r, token_list_pop_front(input_list));
     }
     *output_list = r;
@@ -4069,10 +4081,6 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
     
     while (input_list->head->type != TK_NEWLINE)
     {
-#ifdef REMOVE_PHASE2
-        if (drop_line_continuation(ctx, input_list)) continue;
-#endif
-
         match_level(&r, input_list, level);
         if (input_list->head == NULL)
         {
@@ -4180,6 +4188,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (content != NULL)
             {
                 struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+                tctx.printf = printf_nothing;
+#else
+                tctx.printf = printf;
+#endif
+
                 struct token_list list = tokenizer(&tctx, content, fullpath, level + 1, TK_FLAG_NONE);
                 free((void*)content);
 
@@ -4697,6 +4711,12 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
             * Faz um novo token com a string montada
             */
             struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+            tctx.printf = printf_nothing;
+#else
+            tctx.printf = printf;
+#endif
+
             struct token_list newlist = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_NONE);
 
             if (newlist.head)
@@ -5143,6 +5163,11 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     if (strcmp(macro->name, "__LINE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+        tctx.printf = printf_nothing;
+#else
+        tctx.printf = printf;
+#endif
         struct token_list r = tokenizer(&tctx, "1", "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
@@ -5151,6 +5176,12 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     else if (strcmp(macro->name, "__FILE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+        tctx.printf = printf_nothing;
+#else
+        tctx.printf = printf;
+#endif
+
         struct token_list r = tokenizer(&tctx, "\"file\"", "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
@@ -5586,6 +5617,11 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     struct tm* tm = localtime(&now);
 
     struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+    tctx.printf = printf_nothing;
+#else
+    tctx.printf = printf;
+#endif
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
@@ -5780,9 +5816,6 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
     case TK_KEYWORD_REPEAT: return "TK_KEYWORD_REPEAT";
     case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
-#ifdef REMOVE_PHASE2
-    case TK_LINE_CONTINUATION: return "TK_LINE_CONTINUATION";
-#endif
     }
     assert(false);
     return "";
@@ -9182,7 +9215,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 //#pragma once
 
 
-#define CAKE_VERSION "0.5.6"
+#define CAKE_VERSION "0.5.7"
 
 
 struct _destroy scope
@@ -16677,53 +16710,6 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
 
 }
 
-void print_line_and_token(struct parser_ctx* ctx, struct token* p_token)
-{
-    if (p_token == NULL)
-        return;
-
-    int line = p_token->line;
-    ctx->printf(LIGHTGRAY);
-
-    char nbuffer[20] = { 0 };
-    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
-    ctx->printf(" %s |", nbuffer);
-
-    struct token* prev = p_token;
-    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
-    {
-        prev = prev->prev;
-    }
-    struct token* next = prev;
-    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
-    {
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
-        {
-            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
-            {
-                ctx->printf(" ");
-            }
-        }
-        if (next->flags & TK_FLAG_MACRO_EXPANDED) {
-            ctx->printf(DARKGRAY "%s" RESET, next->lexeme);
-        }
-        else
-            ctx->printf("%s", next->lexeme);
-
-        next = next->next;
-    }
-    ctx->printf("\n");
-    ctx->printf(LIGHTGRAY);
-    ctx->printf(" %*s |", n, " ");
-    if (p_token)
-    {
-        for (int i = 1; i <= (p_token->col - 1); i++) {
-            ctx->printf(" ");
-        }
-    }
-    ctx->printf(LIGHTGREEN "^\n" RESET);
-
-}
 
 void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
@@ -16753,7 +16739,7 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
     ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 
 
-    print_line_and_token(ctx, p_token);
+    print_line_and_token(ctx->printf, p_token);
 }
 
 
@@ -16784,7 +16770,7 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
 
     ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
 
-    print_line_and_token(ctx, p_token);
+    print_line_and_token(ctx->printf, p_token);
 }
 
 
@@ -16816,7 +16802,7 @@ void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, c
 
     ctx->printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 
-    print_line_and_token(ctx, p_token);
+    print_line_and_token(ctx->printf, p_token);
 }
 
 
@@ -21671,6 +21657,11 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
             char buffer[200];
             snprintf(buffer, sizeof buffer, "#define %s \n", argv[i] + 2);
             struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+            tctx.printf = printf_nothing;
+#else
+            tctx.printf = printf;
+#endif
             struct token_list l1 = tokenizer(&tctx, buffer, "", 0, TK_FLAG_NONE);
             preprocessor(prectx, &l1, 0);
             token_list_clear(&l1);
@@ -21709,6 +21700,9 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR \
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
+
+#define STR0 \
 "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"
 
         //http://thradams.com/app/litapp.html
@@ -21781,6 +21775,12 @@ const char* format_code(struct options* options, const char* content)
         append_msvc_include_dir(&prectx);
 
         struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+        tctx.printf = printf_nothing;
+#else
+        tctx.printf = printf;
+#endif
+
         struct token_list tokens = tokenizer(&tctx, content, "", 0, TK_FLAG_NONE);
         ast.token_list = preprocessor(&prectx, &tokens, 0);
         if (prectx.n_errors != 0) throw;
@@ -21880,6 +21880,12 @@ int compile_one_file(const char* file_name,
         }
 
         struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+        tctx.printf = printf_nothing;
+#else
+        tctx.printf = printf;
+#endif
+
         struct token_list tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
 
 
@@ -22053,6 +22059,12 @@ struct ast get_ast(struct options* options,
 {
     struct ast ast = { 0 };
     struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+    tctx.printf = printf_nothing;
+#else
+    tctx.printf = printf;
+#endif
+
     struct token_list list = tokenizer(&tctx, source, filename, 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx prectx = { 0 };
@@ -22139,6 +22151,12 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
         if (options.preprocess_only)
         {
             struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+            tctx.printf = printf_nothing;
+#else
+            tctx.printf = printf;
+#endif
+
             struct token_list tokens = tokenizer(&tctx, content, "source", 0, TK_FLAG_NONE);
 
 

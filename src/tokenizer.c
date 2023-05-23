@@ -540,7 +540,7 @@ void stream_match(struct stream* stream)
     }
 
     stream->current++;
-#ifndef REMOVE_PHASE2
+
     while (stream->current[0] == '\\' && stream->current[1] == '\n')
     {
         /*
@@ -554,8 +554,12 @@ void stream_match(struct stream* stream)
         stream->current++;
         stream->line++;
         stream->col = 1;
+
+        /*
+          must be controlled by the caller see line comment token
+        */
+        stream->line_continuation_found = true;
     }
-#endif
 
 }
 
@@ -1346,6 +1350,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             */
             if (first_of_string_literal(&stream))
             {
+                stream.line_continuation_found = false;
                 struct token* p_new_token = string_literal(ctx, &stream);
                 if (p_new_token == NULL) throw;
 
@@ -1362,6 +1367,17 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);;
                 new_line = false;
                 has_space = false;
+
+                if (stream.line_continuation_found)
+                {
+                    if (filename_opt)
+                        printf("%s", filename_opt);
+                    printf(" %d:%d:", stream.line, stream.col);
+                    ctx->printf(LIGHTMAGENTA "warning: " WHITE "line continuation found inside string literal\n");
+                    print_line_and_token(ctx->printf, p_new_token);
+                    stream.line_continuation_found = false;
+                }
+
                 continue;
             }
 
@@ -1400,29 +1416,6 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 continue;
             }
 
-#ifdef REMOVE_PHASE2
-            if (stream.current[0] == '\\' && stream.current[1] == '\n')
-            {
-                
-                struct token* p_new_token = new_token(stream.current, stream.current, TK_LINE_CONTINUATION);
-                p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-                p_new_token->flags |= addflags;
-
-                stream_match(&stream);
-                stream_match(&stream);
-
-                p_new_token->level = level;
-                p_new_token->token_origin = p_first;
-                p_new_token->line = line;
-                p_new_token->col = col;
-                token_list_add(&list, p_new_token);
-                /*bNewLine = false;*/ //deixa assim
-                has_space = true;
-                continue;
-            }
-#endif
-
             if (stream.current[0] == ' ' ||
                 stream.current[0] == '\t' ||
                 stream.current[0] == '\f')
@@ -1452,6 +1445,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             if (stream.current[0] == '/' &&
                 stream.current[1] == '/')
             {
+                stream.line_continuation_found = false;
+
                 const char* start = stream.current;
                 stream_match(&stream);
                 stream_match(&stream);
@@ -1462,7 +1457,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 }
                 struct token* p_new_token = new_token(start, stream.current, TK_LINE_COMMENT);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;                
                 p_new_token->flags |= addflags;
 
                 p_new_token->level = level;
@@ -1472,6 +1467,18 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
+
+
+                if (stream.line_continuation_found)
+                {
+                    if (filename_opt)
+                        printf("%s", filename_opt);
+                    printf(" %d:%d:", stream.line, stream.col);
+                    ctx->printf(LIGHTMAGENTA "warning: " WHITE "line continuation found inside line comment\n");
+                    print_line_and_token(ctx->printf, p_new_token);
+                    stream.line_continuation_found = false;
+                }
+
                 continue;
             }
             if (stream.current[0] == '/' &&
@@ -1490,7 +1497,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         break;
                     }
                     else if (stream.current[0] == '\0')
-                    {
+                    {                        
                         tk_seterror_with_token(ctx, "missing end of comment");
                         break;
                     }
@@ -1772,37 +1779,11 @@ bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
     return false;
 }
 
-#ifdef REMOVE_PHASE2
-static int drop_line_continuation(struct preprocessor_ctx* ctx, struct token_list* input_list)
-{
-    if (input_list->head->type == TK_LINE_CONTINUATION)
-    {
-        if (input_list->head->prev &&
-            input_list->head->next &&
-            input_list->head->next->type == TK_IDENTIFIER &&
-            input_list->head->prev->type == TK_IDENTIFIER)
-        {
-            pre_seterror_with_token(ctx,
-                input_list->head->prev,
-                "line continuation is not allowed between two identifiers, use space or remove the line continuation");
-        }
-        token_list_pop_front(input_list); //deletar
-        return 1;
-    }
-    return 0;
-}
-#endif
-
 
 static void skip_blanks_level(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list, int level)
 {
     while (input_list->head)
     {
-
-#ifdef REMOVE_PHASE2
-        if (drop_line_continuation(ctx, input_list)) continue;
-#endif
-
         if (!token_is_blank(input_list->head))
             break;
 
@@ -1817,10 +1798,6 @@ static void skip_blanks(struct preprocessor_ctx* ctx, struct token_list* dest, s
 {
     while (input_list->head)
     {
-#ifdef REMOVE_PHASE2
-        if (drop_line_continuation(ctx, input_list)) continue;
-#endif
-
         if (!token_is_blank(input_list->head))
             break;
         token_list_add(dest, token_list_pop_front(input_list));
@@ -2093,9 +2070,6 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-#ifdef REMOVE_PHASE2
-        if (drop_line_continuation(ctx, input_list)) continue;
-#endif
         token_list_add(&r, token_list_pop_front(input_list));
     }
     *output_list = r;
@@ -2503,10 +2477,6 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
     
     while (input_list->head->type != TK_NEWLINE)
     {
-#ifdef REMOVE_PHASE2
-        if (drop_line_continuation(ctx, input_list)) continue;
-#endif
-
         match_level(&r, input_list, level);
         if (input_list->head == NULL)
         {
@@ -2614,6 +2584,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (content != NULL)
             {
                 struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+                tctx.printf = printf_nothing;
+#else
+                tctx.printf = printf;
+#endif
+
                 struct token_list list = tokenizer(&tctx, content, fullpath, level + 1, TK_FLAG_NONE);
                 free((void*)content);
 
@@ -3131,6 +3107,12 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
             * Faz um novo token com a string montada
             */
             struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+            tctx.printf = printf_nothing;
+#else
+            tctx.printf = printf;
+#endif
+
             struct token_list newlist = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_NONE);
 
             if (newlist.head)
@@ -3577,6 +3559,11 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     if (strcmp(macro->name, "__LINE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+        tctx.printf = printf_nothing;
+#else
+        tctx.printf = printf;
+#endif
         struct token_list r = tokenizer(&tctx, "1", "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
@@ -3585,6 +3572,12 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     else if (strcmp(macro->name, "__FILE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+        tctx.printf = printf_nothing;
+#else
+        tctx.printf = printf;
+#endif
+
         struct token_list r = tokenizer(&tctx, "\"file\"", "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
@@ -4020,6 +4013,11 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     struct tm* tm = localtime(&now);
 
     struct tokenizer_ctx tctx = { 0 };
+#ifdef TEST
+    tctx.printf = printf_nothing;
+#else
+    tctx.printf = printf;
+#endif
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
@@ -4214,9 +4212,6 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
     case TK_KEYWORD_REPEAT: return "TK_KEYWORD_REPEAT";
     case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
-#ifdef REMOVE_PHASE2
-    case TK_LINE_CONTINUATION: return "TK_LINE_CONTINUATION";
-#endif
     }
     assert(false);
     return "";

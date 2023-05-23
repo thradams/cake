@@ -1,19 +1,9 @@
 #pragma once
 #include <stdbool.h>
 
-/*
-  When REMOVE_PHASE2 is defined
-  we remove phase 2 and handle 
-  backlash-newline at preprocessor directives
-*/
-#define REMOVE_PHASE2
-
 enum token_type
 {
     TK_NONE = 0,
-#ifdef REMOVE_PHASE2
-    TK_LINE_CONTINUATION,
-#endif
     TK_NEWLINE = '\n',
     TK_WHITE_SPACE = ' ',
     TK_EXCLAMATION_MARK = '!',
@@ -187,7 +177,7 @@ enum token_flags
     TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF = 1 << 5,
     TK_FLAG_HIDE = 1 << 6, /*alguem pediu p esconder*/
     TK_FLAG_IDENTIFIER_IS_ENUMERATOR = 1 << 7, /*indica que eh identificador enumerator separar?*/
-    TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8 /*indica que eh identificador enumerator separar?*/
+    TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8 /*indica que eh identificador enumerator separar?*/    
 };
 
 struct token
@@ -234,6 +224,7 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
+void print_line_and_token(int (*printf)(const char* fmt, ...), struct token* p_token);
 
 struct stream
 {
@@ -241,6 +232,7 @@ struct stream
     const char* current;
     int line;
     int col;
+    bool line_continuation_found;
 };
 
 int is_digit(struct stream* p);

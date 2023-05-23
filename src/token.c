@@ -543,3 +543,49 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");    
 }
 
+void print_line_and_token(int (*printf)(const char* fmt, ...), struct token* p_token)
+{
+    if (p_token == NULL)
+        return;
+
+    int line = p_token->line;
+    printf(LIGHTGRAY);
+
+    char nbuffer[20] = { 0 };
+    int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
+    printf(" %s |", nbuffer);
+
+    struct token* prev = p_token;
+    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
+    {
+        prev = prev->prev;
+    }
+    struct token* next = prev;
+    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
+    {
+        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+        {
+            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
+            {
+                printf(" ");
+            }
+        }
+        if (next->flags & TK_FLAG_MACRO_EXPANDED) {
+            printf(DARKGRAY "%s" RESET, next->lexeme);
+        }
+        else
+            printf("%s", next->lexeme);
+
+        next = next->next;
+    }
+    printf("\n");
+    printf(LIGHTGRAY);
+    printf(" %*s |", n, " ");
+    if (p_token)
+    {
+        for (int i = 1; i <= (p_token->col - 1); i++) {
+            printf(" ");
+        }
+    }
+    printf(LIGHTGREEN "^\n" RESET);
+}
