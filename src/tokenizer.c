@@ -2492,11 +2492,6 @@ struct token_list replacement_list(struct macro* macro, struct token_list* input
     
     while (input_list->head->type != TK_NEWLINE)
     {
-        match_level(&r, input_list, level);
-        if (input_list->head == NULL)
-        {
-            //terminou define sem quebra de linha
-        }
 #ifdef REMOVE_PHASE2
         if (input_list->head->type == TK_LINE_CONTINUATION)
         {
@@ -2504,6 +2499,12 @@ struct token_list replacement_list(struct macro* macro, struct token_list* input
             continue;
         }
 #endif
+
+        match_level(&r, input_list, level);
+        if (input_list->head == NULL)
+        {
+            //terminou define sem quebra de linha
+        }
     }
 
     assert(macro->replacement_list.head == NULL);

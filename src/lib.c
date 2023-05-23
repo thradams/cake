@@ -223,10 +223,17 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type);
 
 //#pragma once
 
+/*
+  When REMOVE_PHASE2 is defined
+  we remove phase 2 and handle 
+  backlash-newline at preprocessor directives
+*/
+#define REMOVE_PHASE2
+
 enum token_type
 {
     TK_NONE = 0,
-#if REMOVE_PHASE2
+#ifdef REMOVE_PHASE2
     TK_LINE_CONTINUATION,
 #endif
     TK_NEWLINE = '\n',
@@ -2959,7 +2966,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 continue;
             }
 
-#if REMOVE_PHASE2
+#ifdef REMOVE_PHASE2
             if (stream.current[0] == '\\' && stream.current[1] == '\n')
             {
                 
@@ -3335,7 +3342,7 @@ static void skip_blanks_level(struct token_list* dest, struct token_list* input_
 {
     while (input_list->head)
     {
-#if REMOVE_PHASE2
+#ifdef REMOVE_PHASE2
         if (input_list->head->type == TK_LINE_CONTINUATION)
         {
             token_list_pop_front(input_list); //deletar
@@ -3357,7 +3364,7 @@ static void skip_blanks(struct token_list* dest, struct token_list* input_list)
 {
     while (input_list->head)
     {
-#if REMOVE_PHASE2
+#ifdef REMOVE_PHASE2
         if (input_list->head->type == TK_LINE_CONTINUATION)
         {
             token_list_pop_front(input_list); //deletar
@@ -3636,7 +3643,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-#if REMOVE_PHASE2
+#ifdef REMOVE_PHASE2
         if (input_list->head->type == TK_LINE_CONTINUATION)
         {
             token_list_pop_front(input_list); //deletar
@@ -4051,18 +4058,19 @@ struct token_list replacement_list(struct macro* macro, struct token_list* input
     
     while (input_list->head->type != TK_NEWLINE)
     {
-        match_level(&r, input_list, level);
-        if (input_list->head == NULL)
-        {
-            //terminou define sem quebra de linha
-        }
-#if REMOVE_PHASE2
+#ifdef REMOVE_PHASE2
         if (input_list->head->type == TK_LINE_CONTINUATION)
         {
             token_list_pop_front(input_list); //deletar
             continue;
         }
 #endif
+
+        match_level(&r, input_list, level);
+        if (input_list->head == NULL)
+        {
+            //terminou define sem quebra de linha
+        }
     }
 
     assert(macro->replacement_list.head == NULL);
@@ -5765,7 +5773,7 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
     case TK_KEYWORD_REPEAT: return "TK_KEYWORD_REPEAT";
     case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
-#if REMOVE_PHASE2
+#ifdef REMOVE_PHASE2
     case TK_LINE_CONTINUATION: return "TK_LINE_CONTINUATION";
 #endif
     }
