@@ -82,7 +82,7 @@ b;
 
 line-continuation needs to be deleted in this case.
 
-Preprocessor that joins identifiers will break in two identifiers
+identifiers that were join in phase two now will be two identifiers instead of one
 
 Sample
 
@@ -90,11 +90,9 @@ Sample
 #define A B\
 C
 ```
-
 After this change A will expand to B C instead of BC.
 
-
-This silly sample will not compile anymore.
+This will not compile
 
 ```c
 #de\
@@ -120,6 +118,8 @@ C
 //A will expand to B C instead of BC
 ```
 But I don't think we can find intentional samples like this.
+Maybe the preprocessor can have a warning for this.
+
 
 
 
