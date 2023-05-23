@@ -118,8 +118,11 @@ C
 //A will expand to B C instead of BC
 ```
 But I don't think we can find intentional samples like this.
-Maybe the preprocessor can have a error/warning for this and the programmer will 
-have to refactor the code in one of these two options
+
+To avoid this problem we sugest an error if the line-continuation 
+splits two tokens that tokegether would result in an identifier.
+Then the programmer has to refactoring the code having two options
+
 ```c
 #define A BC
 //A will expand to BC
