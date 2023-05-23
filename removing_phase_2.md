@@ -82,7 +82,7 @@ C
 
 After this change, `A` will expand to `B C` instead of `BC`.
 However, I don't believe intentional examples like this can be found easily.
-In any case, to address this problem, we suggest issuing an error if the line continuation splits two tokens that, when combined, would result 
+But for safety, to address this problem, we suggest issuing an error if the line continuation splits two tokens that, when combined, would result 
 in an identifier. In such cases, the programmer would need to refactor the code and choose one of the following options:
 
 ```c
