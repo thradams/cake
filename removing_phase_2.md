@@ -123,6 +123,7 @@ The only quiet change is
 ```c
 #define A B\
 C
+//A will expand to B C instead of BC
 ```
 I don't think we will find code like that is intentional.
 
