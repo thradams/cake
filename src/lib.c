@@ -3338,16 +3338,35 @@ bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
     return false;
 }
 
-static void skip_blanks_level(struct token_list* dest, struct token_list* input_list, int level)
+#ifdef REMOVE_PHASE2
+static int drop_line_continuation(struct preprocessor_ctx* ctx, struct token_list* input_list)
+{
+    if (input_list->head->type == TK_LINE_CONTINUATION)
+    {
+        if (input_list->head->prev &&
+            input_list->head->next &&
+            input_list->head->next->type == TK_IDENTIFIER &&
+            input_list->head->prev->type == TK_IDENTIFIER)
+        {
+            pre_seterror_with_token(ctx,
+                input_list->head->prev,
+                "line continuation is not allowed between two identifiers, use space or remove the line continuation");
+        }
+        token_list_pop_front(input_list); //deletar
+        return 1;
+    }
+    return 0;
+}
+#endif
+
+
+static void skip_blanks_level(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list, int level)
 {
     while (input_list->head)
     {
+
 #ifdef REMOVE_PHASE2
-        if (input_list->head->type == TK_LINE_CONTINUATION)
-        {
-            token_list_pop_front(input_list); //deletar
-            continue;
-        }
+        if (drop_line_continuation(ctx, input_list)) continue;
 #endif
 
         if (!token_is_blank(input_list->head))
@@ -3360,17 +3379,14 @@ static void skip_blanks_level(struct token_list* dest, struct token_list* input_
     }
 }
 
-static void skip_blanks(struct token_list* dest, struct token_list* input_list)
+static void skip_blanks(struct preprocessor_ctx* ctx, struct token_list* dest, struct token_list* input_list)
 {
     while (input_list->head)
     {
 #ifdef REMOVE_PHASE2
-        if (input_list->head->type == TK_LINE_CONTINUATION)
-        {
-            token_list_pop_front(input_list); //deletar
-            continue;
-        }
+        if (drop_line_continuation(ctx, input_list)) continue;
 #endif
+
         if (!token_is_blank(input_list->head))
             break;
         token_list_add(dest, token_list_pop_front(input_list));
@@ -3403,7 +3419,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 strcmp(input_list->head->lexeme, "defined") == 0)
             {
                 token_list_pop_front(input_list);
-                skip_blanks(&r, input_list);
+                skip_blanks(ctx, &r, input_list);
 
                 bool has_parentesis = false;
                 if (input_list->head->type == '(')
@@ -3412,7 +3428,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     has_parentesis = true;
                 }
 
-                skip_blanks(&r, input_list);
+                skip_blanks(ctx, &r, input_list);
 
 
 
@@ -3449,9 +3465,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 )
             {
                 token_list_pop_front(input_list); //pop __has_include
-                skip_blanks(&r, input_list);
+                skip_blanks(ctx, &r, input_list);
                 token_list_pop_front(input_list); //pop (
-                skip_blanks(&r, input_list);
+                skip_blanks(ctx, &r, input_list);
 
 
                 char path[100] = { 0 };
@@ -3496,9 +3512,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 strcmp(input_list->head->lexeme, "__has_c_attribute") == 0)
             {
                 token_list_pop_front(input_list); //pop __has_include
-                skip_blanks(&r, input_list);
+                skip_blanks(ctx, &r, input_list);
                 token_list_pop_front(input_list); //pop (
-                skip_blanks(&r, input_list);
+                skip_blanks(ctx, &r, input_list);
 
 
                 char path[100] = { 0 };
@@ -3644,13 +3660,8 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
 #ifdef REMOVE_PHASE2
-        if (input_list->head->type == TK_LINE_CONTINUATION)
-        {
-            token_list_pop_front(input_list); //deletar
-            continue;
-        }
+        if (drop_line_continuation(ctx, input_list)) continue;
 #endif
-
         token_list_add(&r, token_list_pop_front(input_list));
     }
     *output_list = r;
@@ -3772,12 +3783,12 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
            # ifndef identifier new-line group_opt
         */
         match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
-        skip_blanks_level(&r, input_list, level);
+        skip_blanks_level(ctx, &r, input_list, level);
         assert(input_list->head->type == TK_IDENTIFIER);
         if (strcmp(input_list->head->lexeme, "ifdef") == 0)
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //ifdef
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
             if (is_active)
             {
                 struct macro* macro = find_macro(ctx, input_list->head->lexeme);
@@ -3785,26 +3796,26 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
                 //printf("#ifdef %s (%s)\n", input_list->head->lexeme, *p_result ? "true" : "false");
             }
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
         else if (strcmp(input_list->head->lexeme, "ifndef") == 0)
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //ifndef
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
             if (is_active)
             {
                 struct macro* macro = find_macro(ctx, input_list->head->lexeme);
                 *p_result = (macro == NULL) ? 1 : 0;
             }
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
         else if (strcmp(input_list->head->lexeme, "if") == 0)
         {
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //if
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
             if (is_active)
             {
                 struct token_list r0 = { 0 };
@@ -3848,12 +3859,12 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
       # elifndef identifier new-line group_opt
     */
     match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
-    skip_blanks(&r, input_list);
+    skip_blanks(ctx, &r, input_list);
     unsigned long long result = 0;
     if (strcmp(input_list->head->lexeme, "elif") == 0)
     {
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-        skip_blanks(&r, input_list);
+        skip_blanks(ctx, &r, input_list);
 
         if (is_active)
         {
@@ -3873,7 +3884,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
     else if (strcmp(input_list->head->lexeme, "elifdef") == 0)
     {
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-        skip_blanks(&r, input_list);
+        skip_blanks(ctx, &r, input_list);
 
         if (is_active)
         {
@@ -3884,7 +3895,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
     else if (strcmp(input_list->head->lexeme, "elifndef") == 0)
     {
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-        skip_blanks(&r, input_list);
+        skip_blanks(ctx, &r, input_list);
 
         if (is_active)
         {
@@ -3893,7 +3904,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
     }
     *p_elif_result = (result != 0);
-    skip_blanks(&r, input_list);
+    skip_blanks(ctx, &r, input_list);
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
     struct token_list r2 = group_opt(ctx, input_list, is_active && *p_elif_result, level);
     token_list_append_list(&r, &r2);
@@ -3946,10 +3957,10 @@ struct token_list else_group(struct preprocessor_ctx* ctx, struct token_list* in
 
     struct token_list r = { 0 };
     match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
-    skip_blanks_level(&r, input_list, level);
+    skip_blanks_level(ctx, &r, input_list, level);
 
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //else
-    skip_blanks_level(&r, input_list, level);
+    skip_blanks_level(ctx, &r, input_list, level);
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
     struct token_list r2 = group_opt(ctx, input_list, is_active, level);
@@ -3968,9 +3979,9 @@ struct token_list endif_line(struct preprocessor_ctx* ctx, struct token_list* in
     struct token_list r = { 0 };
 
     match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx); //#
-    skip_blanks_level(&r, input_list, level);
+    skip_blanks_level(ctx, &r, input_list, level);
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //endif
-    skip_blanks_level(&r, input_list, level);
+    skip_blanks_level(ctx, &r, input_list, level);
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
     return r;
@@ -4028,16 +4039,16 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
       identifier
       identifier-list , identifier
     */
-    skip_blanks(&r, input_list);
+    skip_blanks(ctx, &r, input_list);
     struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
     p_macro_parameter->name = strdup(input_list->head->lexeme);
     macro->parameters = p_macro_parameter;
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-    skip_blanks(&r, input_list);
+    skip_blanks(ctx, &r, input_list);
     while (input_list->head->type == ',')
     {
         match_token_level(&r, input_list, ',', level, ctx);
-        skip_blanks(&r, input_list);
+        skip_blanks(ctx, &r, input_list);
         if (input_list->head->type == '...')
         {
             break;
@@ -4046,24 +4057,20 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
         p_macro_parameter = p_macro_parameter->next;
         p_macro_parameter->name = strdup(input_list->head->lexeme);
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
-        skip_blanks(&r, input_list);
+        skip_blanks(ctx, &r, input_list);
     }
     return r;
 }
 
 
-struct token_list replacement_list(struct macro* macro, struct token_list* input_list, int level)
+struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level)
 {
     struct token_list r = { 0 };
     
     while (input_list->head->type != TK_NEWLINE)
     {
 #ifdef REMOVE_PHASE2
-        if (input_list->head->type == TK_LINE_CONTINUATION)
-        {
-            token_list_pop_front(input_list); //deletar
-            continue;
-        }
+        if (drop_line_continuation(ctx, input_list)) continue;
 #endif
 
         match_level(&r, input_list, level);
@@ -4128,14 +4135,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 #endif
         struct token* const ptoken = input_list->head;
         match_token_level(&r, input_list, TK_PREPROCESSOR_LINE, level, ctx);
-        skip_blanks_level(&r, input_list, level);
+        skip_blanks_level(ctx, &r, input_list, level);
         if (strcmp(input_list->head->lexeme, "include") == 0)
         {
             /*
               # include pp-tokens new-line
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //include
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
             char path[100] = { 0 };
 
             if (input_list->head->type == TK_STRING_LITERAL)
@@ -4216,7 +4223,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
               # embed pp-tokens new-line
             */
             match_token_level(p_list, input_list, TK_IDENTIFIER, level, ctx); //embed
-            skip_blanks_level(p_list, input_list, level);
+            skip_blanks_level(ctx, p_list, input_list, level);
             char path[100] = { 0 };
 
             if (input_list->head->type == TK_STRING_LITERAL)
@@ -4303,7 +4310,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             //p = preprocessor_match_identifier(p, is_active, level, false, "define");
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //define
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
 
             // printf("define %s\n%s : %d\n", input_list->head->lexeme, input_list->head->token_origin->lexeme, input_list->head->line);
 
@@ -4335,7 +4342,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
 
                 match_token_level(&r, input_list, '(', level, ctx);
-                skip_blanks_level(&r, input_list, level);
+                skip_blanks_level(ctx, &r, input_list, level);
                 if (input_list->head->type == '...')
                 {
                     struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
@@ -4344,19 +4351,19 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     // assert(false);
                     match_token_level(&r, input_list, '...', level, ctx); //nome da macro
-                    skip_blanks_level(&r, input_list, level);
+                    skip_blanks_level(ctx, &r, input_list, level);
                     match_token_level(&r, input_list, ')', level, ctx); //nome da macro
                 }
                 else if (input_list->head->type == ')')
                 {
                     match_token_level(&r, input_list, ')', level, ctx);
-                    skip_blanks_level(&r, input_list, level);
+                    skip_blanks_level(ctx, &r, input_list, level);
                 }
                 else
                 {
                     struct token_list r3 = identifier_list(ctx, macro, input_list, level);
                     token_list_append_list(&r, &r3);
-                    skip_blanks_level(&r, input_list, level);
+                    skip_blanks_level(ctx, &r, input_list, level);
                     if (input_list->head->type == '...')
                     {
                         struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
@@ -4372,7 +4379,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                         match_token_level(&r, input_list, '...', level, ctx);
                     }
-                    skip_blanks_level(&r, input_list, level);
+                    skip_blanks_level(ctx, &r, input_list, level);
                     match_token_level(&r, input_list, ')', level, ctx);
                 }
             }
@@ -4380,8 +4387,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 macro->is_function = false;
             }
-            skip_blanks_level(&r, input_list, level);
-            struct token_list r4 = replacement_list(macro, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
+            struct token_list r4 = replacement_list(ctx, macro, input_list, level);
             token_list_append_list(&r, &r4);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
@@ -4394,7 +4401,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
              # undef identifier new-line
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
 
             struct macro* macro = hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
@@ -4408,7 +4415,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
                 /*no warnings*/
             }
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
         else if (strcmp(input_list->head->lexeme, "line") == 0)
@@ -4460,7 +4467,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
               # pragma pp-tokensopt new-line
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-            skip_blanks_level(&r, input_list, level);
+            skip_blanks_level(ctx, &r, input_list, level);
 
             if (input_list->head->type == TK_IDENTIFIER)
             {
@@ -4472,7 +4479,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 else if (strcmp(input_list->head->lexeme, "expand") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-                    skip_blanks_level(&r, input_list, level);
+                    skip_blanks_level(ctx, &r, input_list, level);
 
                     struct macro* macro = find_macro(ctx, input_list->head->lexeme);
                     if (macro)
@@ -4505,7 +4512,7 @@ struct token_list non_directive(struct preprocessor_ctx* ctx, struct token_list*
       pp-tokens new-line
      */
     struct token_list r = pp_tokens_opt(ctx, input_list, level);
-    skip_blanks_level(&r, input_list, level);
+    skip_blanks_level(ctx, &r, input_list, level);
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
     return r;
 }
@@ -4528,9 +4535,9 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
 
         struct macro_parameter* p_current_parameter = macro->parameters;
         int count = 1;
-        skip_blanks(&macro_argument_list.tokens, input_list);
+        skip_blanks(ctx, &macro_argument_list.tokens, input_list);
         match_token_level(&macro_argument_list.tokens, input_list, '(', level, ctx);
-        skip_blanks(&macro_argument_list.tokens, input_list);
+        skip_blanks(ctx, &macro_argument_list.tokens, input_list);
         if (input_list->head->type == ')')
         {
             if (macro->parameters != NULL)
