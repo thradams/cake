@@ -49,7 +49,7 @@ int b = 2;
 
 ```
 
-None of these usages are necessary.
+None of these usages are necessary. (gcc has a warning for line-continuation in line comments)
 
 Becuse backslash-newline happens at phase 2 we also can make silly things
 in preprocessor phase like this.
