@@ -44,27 +44,32 @@ b;
 etc.
 
 
-Where it can be found in real programs?
+## Where it can be found in real programs?
 
- 1 - mostly in #defines
- 2 - preprocessor #if
- 3 - line comments
- 4 - literal strings
+ 1 - Preprocessor directives
+ 
+ ```c
+ #define X \
+  { \
+    1, \
+    2 \
+  }
+ ```
+ 
+ 2 - Line comments
+ 
+ ```c
+            //line comment \
+              continuation of line comment
+ ```
+  
+ 3 - big literal Strings
  
 Inside comments
 ```c
-//comment \
-int b = 2;
+const char *s = "this is a big \
+literal string";
 ```
-Line continuation in line comments is often unintentional and can lead to confusion.
-Considering that GCC already issues a warning for such cases, it reinforces the idea that 
-line continuation within line comments is likely an error or oversight.
-
-Inside literals
-```c
-
-```
-normal usage inside preprocessor directives.
 
 ## Proposal
 
