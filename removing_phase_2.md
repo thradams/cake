@@ -134,9 +134,8 @@ C
 //A will expand to B C
 ```
 
-
->I have implemented this in cake as an experiment inside ifdefs REMOVE_PHASE2
-
+This proposal have been implemented in cake and is active at current version.
+http://thradams.com/cake/playground.html
 
 
 
