@@ -94,6 +94,7 @@ After this change, A will expand to B C instead of BC. While intentional example
 // A will expand to BC
 ```
 or 
+
 ```c
 #define A B \
 C
@@ -120,7 +121,7 @@ Inside a constant expression, line continuation will also be ignored. For exampl
 ## Design consideration
 We could be more restritive about were line continuation can happen. For instance.
 
-```
+```c
 #undef \
   M
 ```
