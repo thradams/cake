@@ -16,18 +16,34 @@ After preprocessor line continuation is not necessary.
 For instance
 
 ```c
-
    void F(int a, \
 int b);
-  
+```
+can be replaced by
+
+```c
+   void F(int a,
+          int b);
+```
+
+```c
 const char S = "a \
   b";
+```
+Can be replaced by
 
+```c
+const char S = "a"
+               "b";
+```
+and worst cases
+```c
  int a\
 b = 1;
 int main() { 
  ab = 1;
 }
+```
 
 //comment \
 int b = 2;
@@ -46,12 +62,11 @@ ACRO 1
 MACRO 
 ```
 
-
 ## Proposal
 
 Remove phase 2.
 The usage of line-continuation will be handled at preprocessor directives just
-ignoring complety the token.
+ignoring completely the token.
 
 ## Breaking changes
 
@@ -65,7 +80,7 @@ b;
 
 line-continuation needs to be deleted in this case.
 
-Preprocessor that joins identifiers will break in two
+Preprocessor that joins identifiers will break in two identifiers
 
 Sample
 
@@ -73,7 +88,6 @@ Sample
 #define A B\
 C
 ```
-
 
 After this change A will expand to B C instead of BC.
 
@@ -88,6 +102,7 @@ C
 
 At preprocessor directes like # if , # define line continuation tokens will be handled at same
 position as blanks, but diferently of blanks the line-continuation token will be deleted/ignored.
+
 ```c
 #define M \
     {     \    
@@ -95,8 +110,8 @@ position as blanks, but diferently of blanks the line-continuation token will be
 
 ```
 
-
 Inside contant expression it also will be ignored.
+
 Sample
 ```c
 #if defined A || \
@@ -104,6 +119,11 @@ Sample
 #endif
 ```
 
-
+The only quiet change is 
+```c
+#define A B\
+C
+```
+I don't think we will find code like that is intentional.
 
 
