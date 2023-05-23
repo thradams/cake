@@ -48,8 +48,10 @@ int main() {
 int b = 2;
 ```
 
-None of these line continuations are necessary. Line continuation in line comments can be unintentional.
-and GCC issues a warning.
+None of these line continuations are necessary. 
+
+Line continuation in line comments is often unintentional and can lead to confusion. Considering that GCC already issues a warning for 
+such cases, it reinforces the idea that line continuation within line comments is likely an error or oversight.
 
 Another issue is that since backslash-newline occurs during phase 2, it allows breaking identifers, as shown in this example:
 
@@ -60,6 +62,7 @@ ACRO 1
 
 MACRO 
 ```
+As a sample the syntax color of github is not prepared to handle this.
 
 ## Proposal
 
