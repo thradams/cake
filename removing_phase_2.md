@@ -34,6 +34,7 @@ can be replaced with
 const char S = "a"
                "b";
 ```
+Another alternative is also handle this inside string token.
 
 In more complex cases:
 
