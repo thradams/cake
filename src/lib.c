@@ -226,6 +226,9 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type);
 enum token_type
 {
     TK_NONE = 0,
+#if REMOVE_PHASE2
+    TK_LINE_CONTINUATION,
+#endif
     TK_NEWLINE = '\n',
     TK_WHITE_SPACE = ' ',
     TK_EXCLAMATION_MARK = '!',
@@ -2096,7 +2099,7 @@ void stream_match(struct stream* stream)
     }
 
     stream->current++;
-
+#ifndef REMOVE_PHASE2
     while (stream->current[0] == '\\' && stream->current[1] == '\n')
     {
         /*
@@ -2106,12 +2109,13 @@ void stream_match(struct stream* stream)
             not empty shall end in a new-line character, which shall not be immediately preceded by a
             backslash character before any such splicing takes place.
         */
-
         stream->current++;
         stream->current++;
         stream->line++;
         stream->col = 1;
     }
+#endif
+
 }
 
 void print_line(struct token* p)
@@ -2954,6 +2958,30 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 has_space = false;
                 continue;
             }
+
+#if REMOVE_PHASE2
+            if (stream.current[0] == '\\' && stream.current[1] == '\n')
+            {
+                
+                struct token* p_new_token = new_token(stream.current, stream.current, TK_LINE_CONTINUATION);
+                p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
+                p_new_token->flags |= addflags;
+
+                stream_match(&stream);
+                stream_match(&stream);
+
+                p_new_token->level = level;
+                p_new_token->token_origin = p_first;
+                p_new_token->line = line;
+                p_new_token->col = col;
+                token_list_add(&list, p_new_token);
+                /*bNewLine = false;*/ //deixa assim
+                has_space = true;
+                continue;
+            }
+#endif
+
             if (stream.current[0] == ' ' ||
                 stream.current[0] == '\t' ||
                 stream.current[0] == '\f')
@@ -3305,9 +3333,19 @@ bool preprocessor_token_ahead_is_identifier(struct token* p, const char* lexeme)
 
 static void skip_blanks_level(struct token_list* dest, struct token_list* input_list, int level)
 {
-    while (input_list->head &&
-        token_is_blank(input_list->head))
+    while (input_list->head)
     {
+#if REMOVE_PHASE2
+        if (input_list->head->type == TK_LINE_CONTINUATION)
+        {
+            token_list_pop_front(input_list); //deletar
+            continue;
+        }
+#endif
+
+        if (!token_is_blank(input_list->head))
+            break;
+
         if (INCLUDE_ALL || level == 0)
             token_list_add(dest, token_list_pop_front(input_list));
         else
@@ -3317,8 +3355,17 @@ static void skip_blanks_level(struct token_list* dest, struct token_list* input_
 
 static void skip_blanks(struct token_list* dest, struct token_list* input_list)
 {
-    while (input_list->head && token_is_blank(input_list->head))
+    while (input_list->head)
     {
+#if REMOVE_PHASE2
+        if (input_list->head->type == TK_LINE_CONTINUATION)
+        {
+            token_list_pop_front(input_list); //deletar
+            continue;
+        }
+#endif
+        if (!token_is_blank(input_list->head))
+            break;
         token_list_add(dest, token_list_pop_front(input_list));
     }
 }
@@ -3583,10 +3630,20 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     int level
 )
 {
+    struct token * first = input_list->head;
+
     ctx->conditional_inclusion = true;
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
+#if REMOVE_PHASE2
+        if (input_list->head->type == TK_LINE_CONTINUATION)
+        {
+            token_list_pop_front(input_list); //deletar
+            continue;
+        }
+#endif
+
         token_list_add(&r, token_list_pop_front(input_list));
     }
     *output_list = r;
@@ -3640,7 +3697,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     long long value = 0;
     if (pre_constant_expression(&pre_ctx, &value) != 0)
     {
-
+        pre_seterror_with_token(ctx, first, "expression error");
     }
 
     ctx->conditional_inclusion = false;
@@ -3991,6 +4048,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
 struct token_list replacement_list(struct macro* macro, struct token_list* input_list, int level)
 {
     struct token_list r = { 0 };
+    
     while (input_list->head->type != TK_NEWLINE)
     {
         match_level(&r, input_list, level);
@@ -3998,7 +4056,15 @@ struct token_list replacement_list(struct macro* macro, struct token_list* input
         {
             //terminou define sem quebra de linha
         }
+#if REMOVE_PHASE2
+        if (input_list->head->type == TK_LINE_CONTINUATION)
+        {
+            token_list_pop_front(input_list); //deletar
+            continue;
+        }
+#endif
     }
+
     assert(macro->replacement_list.head == NULL);
     struct token_list copy = copy_replacement_list(&r);
     token_list_append_list(&macro->replacement_list, &copy);
@@ -4260,7 +4326,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 macro->is_function = true;
 
 
-                match_token_level(&r, input_list, '(', level, ctx); //nome da macro
+                match_token_level(&r, input_list, '(', level, ctx);
                 skip_blanks_level(&r, input_list, level);
                 if (input_list->head->type == '...')
                 {
@@ -4306,6 +4372,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 macro->is_function = false;
             }
+            skip_blanks_level(&r, input_list, level);
             struct token_list r4 = replacement_list(macro, input_list, level);
             token_list_append_list(&r, &r4);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
@@ -5698,8 +5765,9 @@ const char* get_token_name(enum token_type tk)
     case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
     case TK_KEYWORD_REPEAT: return "TK_KEYWORD_REPEAT";
     case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
-
-
+#if REMOVE_PHASE2
+    case TK_LINE_CONTINUATION: return "TK_LINE_CONTINUATION";
+#endif
     }
     assert(false);
     return "";
@@ -21626,8 +21694,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
-
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"
 
         //http://thradams.com/app/litapp.html
         snprintf(env, sizeof env,

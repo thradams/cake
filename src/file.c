@@ -1,8 +1,9 @@
+#include <windows.h>
+
 #define M \
 1
 
-int main(void)
-{   
+int main()
+{
     int a = M;
-    return 0;
 }

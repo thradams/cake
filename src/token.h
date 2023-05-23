@@ -1,9 +1,19 @@
 #pragma once
 #include <stdbool.h>
 
+/*
+  When REMOVE_PHASE2 is defined
+  we remove phase 2 and handle 
+  backlash-newline at preprocessor directives
+*/
+#define REMOVE_PHASE2
+
 enum token_type
 {
     TK_NONE = 0,
+#ifdef REMOVE_PHASE2
+    TK_LINE_CONTINUATION,
+#endif
     TK_NEWLINE = '\n',
     TK_WHITE_SPACE = ' ',
     TK_EXCLAMATION_MARK = '!',
