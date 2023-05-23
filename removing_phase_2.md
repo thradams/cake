@@ -2,18 +2,18 @@
 
 ## Abstract 
  
-Except in preprocessor, new-line does not have any syntax influence in C. 
-In preprocessor however, the only way of writing multi line directives is using backslash-newline
-that is processsed at phase 2. 
-We sugest the modification of the language to remove phase 2 and handle line continuation
-at preprocessor directives.
+Except in preprocessor, new-line does not have any syntax influence in C.
 
+In preprocessor however, the only way of writing multi line directives is 
+using backslash-newline that is processed at phase 2. 
+
+We suggest the modification of the language to remove phase 2 and handle line 
+continuation at preprocessor directives - where it is used.
 
 
 ## PROBLEM DESCRIPTION 
 
-After preprocessor line continuation is not necessary.
-For instance
+Samples of unnecessary line continuation
 
 ```c
    void F(int a, \
@@ -37,6 +37,7 @@ const char S = "a"
                "b";
 ```
 and worst cases
+
 ```c
  int a\
 b = 1;
@@ -49,9 +50,10 @@ int b = 2;
 
 ```
 
-None of these usages are necessary. (gcc has a warning for line-continuation in line comments)
+None of these usages are necessary.
+(gcc has a warning for line-continuation in line comments)
 
-Becuse backslash-newline happens at phase 2 we also can make silly things
+Because backslash-newline happens at phase 2 we also can make silly things
 in preprocessor phase like this.
 
 ```c
@@ -64,15 +66,15 @@ MACRO
 
 ## Proposal
 
-Remove phase 2.
-The usage of line-continuation will be handled at preprocessor directives just
-ignoring completely the token.
+Remove phase 2 and handle line continuation at preprocessor directives 
+as if they were spaces with the diference they are ignored/deleted.
 
 ## Breaking changes
 
 Code using line continuation that survives preprocessor will result in error.
 
 Sample:
+
 ```c
 int a\
 b;
@@ -92,7 +94,7 @@ C
 After this change A will expand to B C instead of BC.
 
 
-Or split macro directives 
+This silly sample will not compile anymore.
 
 ```c
 #de\
@@ -100,17 +102,7 @@ fine A B\
 C
 ```
 
-At preprocessor directes like # if , # define line continuation tokens will be handled at same
-position as blanks, but diferently of blanks the line-continuation token will be deleted/ignored.
-
-```c
-#define M \
-    {     \    
-    }  
-
-```
-
-Inside contant expression it also will be ignored.
+Inside constant expression it also will be ignored.
 
 Sample
 ```c
@@ -119,12 +111,15 @@ Sample
 #endif
 ```
 
-The only quiet change is 
+
+The change worries me more is:
+
 ```c
 #define A B\
 C
 //A will expand to B C instead of BC
 ```
-I don't think we will find code like that is intentional.
+But I don't think we can find intentional samples like this.
+
 
 
