@@ -58,7 +58,7 @@ ignoring complety the token.
 Code using line continuation that survives preprocessor will result in error.
 
 Sample:
-```
+```c
 int a\
 b;
 ```
@@ -68,15 +68,19 @@ line-continuation needs to be deleted in this case.
 Preprocessor that joins identifiers will break in two
 
 Sample
+
 ```c
 #define A B\
 C
-´´´
+```
+
+
 After this change A will expand to B C instead of BC.
 
 
 Or split macro directives 
-´´´c
+
+```c
 #de\
 fine A B\
 C
@@ -84,7 +88,7 @@ C
 
 At preprocessor directes like # if , # define line continuation tokens will be handled at same
 position as blanks, but diferently of blanks the line-continuation token will be deleted/ignored.
-´´´c
+```c
 #define M \
     {     \    
     }  
@@ -94,7 +98,7 @@ position as blanks, but diferently of blanks the line-continuation token will be
 
 Inside contant expression it also will be ignored.
 Sample
-´´´c
+```c
 #if defined A || \
     defined B 
 #endif
