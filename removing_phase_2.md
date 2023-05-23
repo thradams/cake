@@ -53,6 +53,11 @@ None of these line continuations are necessary.
 Line continuation in line comments is often unintentional and can lead to confusion. Considering that GCC already issues a warning for 
 such cases, it reinforces the idea that line continuation within line comments is likely an error or oversight.
 
+But maybe some code is using this style and it will be a breaking change. Then this proposal sugest a error if line-continuation 
+is used inside comments.
+
+
+
 Another issue is that since backslash-newline occurs during phase 2, it allows breaking identifers, as shown in this example:
 
 ```c
@@ -120,6 +125,21 @@ C
 C
 ```
 Error before and now it works.
+
+5 - line continuation inside comments
+
+```c  
+  // this is my \
+     comment      
+```
+`error line-continuation cannot be used in line-comments`
+It will have to be refactored to
+
+```c  
+  /* this is my
+     comment   */
+```
+The objective is be explicty about the change.
 
 ## Samples
 
