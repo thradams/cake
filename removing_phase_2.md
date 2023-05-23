@@ -1,3 +1,6 @@
+### Proposal Category: Language simplification / modernization
+
+
 # Removing Compiler Phase 2
 
 ## Abstract
