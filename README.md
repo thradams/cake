@@ -1,14 +1,7 @@
 
 # 🍰 Cake
 
-Cake is a C23 compiler front end written from scratch in C.
-
-The compiler can be used to translate new versions of C (like C23)
-to C99.
-
-It also can be used to try out new features for the C language. 
-
-Extensions like lambdas, defer and more were implemented.
+Cake is a compiler front end written from scratch in C, specifically designed for C23. It allows you to translate newer versions of C, such as C23, to C99. Additionally, Cake provides a platform for experimenting with new features for the C language, including extensions like lambdas and defer.
 
 # Web Playground
 
