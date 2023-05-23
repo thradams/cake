@@ -7,8 +7,7 @@
 
 In C, new-lines have no syntax influence except within the preprocessor.
 Within the preprocessor, multi-line directives are currently written using the backslash-newline combination,
-which is processed during phase 2.
-
+which is processed during phase 2. 
 We propose modifying the language by eliminating phase 2 and handling line continuation at the grammar level.
 
 Does it make sense use line continuation between punctuators? This proposal will define these rules.
