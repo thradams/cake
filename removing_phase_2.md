@@ -7,7 +7,8 @@
 
 In C, new-lines have no syntax influence except within the preprocessor. Within the preprocessor, multi-line directives are currently written using the backslash-newline combination, which is processed during phase 2.
 
-We propose modifying the language by eliminating phase 2 and handling line continuation specifically within preprocessor directives where it is utilized.
+We propose modifying the language by eliminating phase 2 and handling line continuation specifically within preprocessor 
+directives where it is utilized and inside tokens to keep compatibility.
 
 ## Problem Description
 
@@ -15,18 +16,21 @@ There are instances of unnecessary line continuation in C code that can be remov
 
 ```c
 void F(int a, \
-int b);
+       int b);
 ```
 can be replaced with
 
 ```c
 void F(int a,
-         int b);
+       int b);
 ```
 
+Inside literal strings
+
 ```c
-const char S = "a \
-  b";
+const char S =
+"a \
+b";
 ```
 can be replaced with
 
@@ -34,8 +38,6 @@ can be replaced with
 const char S = "a"
                "b";
 ```
-Another alternative is also handle this inside string token.
-
 In more complex cases:
 
 ```c
@@ -44,21 +46,28 @@ b = 1;
 int main() { 
   ab = 1;
 }
+```
+Inside comments
 
+```c
 //comment \
 int b = 2;
 ```
-
-None of these line continuations are necessary. 
-
 Line continuation in line comments is often unintentional and can lead to confusion. Considering that GCC already issues a warning for 
 such cases, it reinforces the idea that line continuation within line comments is likely an error or oversight.
 
-But maybe some code is using this style and it will be a breaking change. Then this proposal sugest a error if line-continuation 
-is used inside comments.
 
-Other alternative is to keep line continuation in comments but it happens at token level not phase 2.
+All of these line-continuation can be refactored.
 
+To maximum compatibility we can handle new-line continuation inside selected tokens.
+
+* line comment
+* literal strings
+
+Where it should not be allowed?
+ * identifiers
+ * punctuators
+  
 
 Another issue is that since backslash-newline occurs during phase 2, it allows breaking identifers, as shown in this example:
 
@@ -77,7 +86,8 @@ that making the new line token as `\ spaces new-line`
 
 ## Proposal
 
-Our proposal is to remove phase 2 and handle line continuation within preprocessor directives as if they were blanks.
+Our proposal is to remove phase 2 and handle line continuation within preprocessor directives as if they were blanks
+and inside tokens like literal strings and line comments for maximum compatibility.
 
 ## Breaking Changes
 
@@ -97,7 +107,12 @@ In this case, the line continuation needs to be deleted.
 C
 ```
 
-After this change, A will expand to `B C` instead of `BC`. While intentional examples like this may not be common, it's important to ensure code safety. To address this potential problem, we recommend implementing an error mechanism that detects when the line continuation splits two tokens that, when combined, would result in an identifier. In such cases, the programmer would be required to refactor the code and choose one of the following options:
+After this change, A will expand to `B C` instead of `BC`.
+
+While intentional examples like this may not be common, it's important to ensure code safety.
+To address this potential problem, we recommend implementing an error mechanism that detects when the line continuation splits two tokens that, when combined, would result in an identifier. In such cases, the programmer would be required to refactor the code and choose one of the following options:
+
+Maybe a simpler solution is just emmit an error if line continuation is used in identifers.
 
 ```c
 #define A BC
