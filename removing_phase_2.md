@@ -45,8 +45,9 @@ int main() {
 }
 ```
 
-//comment \
+//comment \\
 int b = 2;
+
 ```
 
 None of these usages are necessary.
