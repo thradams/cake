@@ -74,9 +74,31 @@ C
 ```
 After this change A will expand to B C instead of BC.
 
+!This section is incomplete!
 
 ```c
 
+ # if constant-expression new-line groupopt
+ etc..
+ 
+ /*
+ constant-expression can have line-continuation_opt  
+ */
+
+identifier-list:
+  line-continuation_opt identifier 
+  identifier-list line-continuation_opt , line-continuation_opt identifier
+
+replacement-list:
+  pp-tokens-opt
+  line-continuation replacement-list
+  
+# define identifier                                replacement-list new-line
+# define identifier lparen identifier-list_opt )    replacement-list new-line
+# define identifier lparen ... )                   replacement-list new-line
+# define identifier lparen identifier-list , ... ) replacement-list new-line
+
 ```
+
 
 
