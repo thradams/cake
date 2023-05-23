@@ -113,6 +113,14 @@ fine A B\
 C
 ```
 
+4 - spaces after backslash and before new-line (this is optional in this proposal)
+
+```c
+#define A \ spaces
+C
+```
+Error before and now it works.
+
 ## Samples
 
 Inside a constant expression, line continuation will also be ignored. For example:
