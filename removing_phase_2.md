@@ -2,13 +2,12 @@
 
 ## Abstract 
  
-Except in preprocessor, new-line does not have any syntax influence in C.
+In C, new-lines do not have any syntax influence except within the preprocessor. 
+In the preprocessor, the only way to write multi-line directives is by using the 
+backslash-newline combination, which is processed during phase 2.
 
-In preprocessor however, the only way of writing multi line directives is 
-using backslash-newline that is processed at phase 2. 
-
-We suggest the modification of the language to remove phase 2 and handle line 
-continuation at preprocessor directives - where it is used.
+We propose modifying the language by eliminating phase 2 and instead handling line continuation
+specifically within preprocessor directives where it is utilized.
 
 
 ## PROBLEM DESCRIPTION 
