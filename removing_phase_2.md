@@ -110,6 +110,17 @@ Inside a constant expression, line continuation will also be ignored. For exampl
     defined B 
 #endif
 ```
+## Design consideration
+We could be more restritive about were line continatuin can happen. For instance.
+
+```
+#undef \
+  M
+```
+But in this case we weed specify the grammer in each preprocessor directive making the proposal more complicated.
+
+
+
 ## Implementation
 
 This proposal has been implemented in Cake and is active in the current version. You can try it out at http://thradams.com/cake/playground.html.
