@@ -120,6 +120,10 @@ C
 But I don't think we can find intentional samples like this.
 Maybe the preprocessor can have a warning for this.
 
+>I have implemented this in cake as an experiment inside ifdefs REMOVE_PHASE2
+
+
+
 
 
 
