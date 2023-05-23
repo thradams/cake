@@ -111,14 +111,13 @@ Inside a constant expression, line continuation will also be ignored. For exampl
 #endif
 ```
 ## Design consideration
-We could be more restritive about were line continatuin can happen. For instance.
+We could be more restritive about were line continuation can happen. For instance.
 
 ```
 #undef \
   M
 ```
-But in this case we weed specify the grammer in each preprocessor directive making the proposal more complicated.
-
+But in this case we weed specify the grammar in each preprocessor directive making the proposal more complicated.
 
 
 ## Implementation
