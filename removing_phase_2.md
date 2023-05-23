@@ -5,89 +5,73 @@
 
 ## Abstract
 
-In C, new-lines have no syntax influence except within the preprocessor. Within the preprocessor, multi-line directives are currently written using the backslash-newline combination, which is processed during phase 2.
+In C, new-lines have no syntax influence except within the preprocessor.
+Within the preprocessor, multi-line directives are currently written using the backslash-newline combination,
+which is processed during phase 2.
 
-We propose modifying the language by eliminating phase 2 and handling line continuation specifically within preprocessor 
-directives where it is utilized and inside tokens to keep compatibility.
+We propose modifying the language by eliminating phase 2 and handling line continuation at the grammar
+where it makes sense. For instance, does it make sense use line continuation between punctuators?
+This proposal will define these rules.
+
 
 ## Problem Description
 
-There are instances of unnecessary line continuation in C code that can be removed. For example.
+Phase two is a lawless land. We can insert line-continuation in **ANY** place.
 
-```c
-void F(int a, \
-       int b);
+Beetwen punctuators
+
 ```
-can be replaced with
-
-```c
-void F(int a,
-       int b);
-```
-
-Inside literal strings
-
-```c
-const char S =
-"a \
-b";
-```
-can be replaced with
-
-```c
-const char S = "a"
-               "b";
-```
-In more complex cases:
-
-```c
-int a\
-b = 1;
-int main() { 
-  ab = 1;
+int main() {
+  int a;
+  a+\
++;
 }
 ```
-Inside comments
 
+```
+int main() {
+  /\
+/  line comments
+}
+```
+In the middle of identifiers
+
+```
+int main() {
+   int a\
+b;
+   ab = 1;
+}
+```
+etc.
+
+
+Where it can be found in real programs?
+
+ - mostly in #defines
+ - preprocessor #if
+ - line comments
+ - literal strings
+ 
+
+Inside comments
 ```c
 //comment \
 int b = 2;
 ```
-Line continuation in line comments is often unintentional and can lead to confusion. Considering that GCC already issues a warning for 
-such cases, it reinforces the idea that line continuation within line comments is likely an error or oversight.
+Line continuation in line comments is often unintentional and can lead to confusion.
+Considering that GCC already issues a warning for such cases, it reinforces the idea that 
+line continuation within line comments is likely an error or oversight.
 
-
-All of these line-continuation can be refactored.
-
-To maximum compatibility we can handle new-line continuation inside selected tokens.
-
-* line comment
-* literal strings
-
-Where it should not be allowed?
- * identifiers
- * punctuators
-  
-
-Another issue is that since backslash-newline occurs during phase 2, it allows breaking identifers, as shown in this example:
-
+Inside literals
 ```c
-#de\ 
-fine M\ 
-ACRO 1 
 
-MACRO 
 ```
-As a sample the syntax color of github is not prepared to handle this.
-
-Something a little annoying is to have to remove spaces between \ and new-line. We can also fix
-that making the new line token as `\ spaces new-line`
-
+normal usage inside preprocessor directives.
 
 ## Proposal
 
-Our proposal is to remove phase 2 and handle line continuation within preprocessor directives as if they were blanks
-and inside tokens like literal strings and line comments for maximum compatibility.
+Our proposal is to remove phase 2 and handle line continuation at grammar level.
 
 ## Breaking Changes
 
