@@ -153,8 +153,9 @@ Breaking changes described here are so far just a matter of clarification.
 
 ## C and C++
 
-It is expected C++ to implement the same proposal. 
-If not the C version that works is the common subset.
+It is expected C++ to implement the same proposal.
+
+If it is implemented only in C then C is the common subset that works in both (after refactoring some usages).
 
 ## Samples
 
