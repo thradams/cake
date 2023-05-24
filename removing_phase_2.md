@@ -1,48 +1,32 @@
-
 # Removing Phase 2
 
 ## Abstract
 
-This proposal ains to remove phase 2 from the C standard
-creating grammar rules to describe where line continuation (backlash + new-line)
-ocours in real programs.
+This proposal aims to remove phase 2 from the C standard by creating grammar rules that describe the specific positions
+where line continuation (backslash + new-line) occurs in real programs.
 
-The way phase 2 is described, line continuation can be at ANY
-position. ANY position must be emphatised.
+The current description of phase 2 allows line continuation to be used at ANY position, and it is important to emphasize this fact.
+The objective of this proposal is to gather usage patterns of line continuation in the field and translate them into precise grammar rules.
 
-The objetive of this proposal is collect field usage of line-continuation
-and translate to grammar rules.
-
-
-## Current usage research.
+## Current Usage Research
 
 ### 1 - Preprocessor
-This is the most obvious usage because the preprocessor directives is the only place 
-where new-line have a syntax usage. So programmers uses line-continuation to
-be able to write multi line preprocessor directives.
+The most common usage of line continuation is within preprocessor directives, where new-line has a syntax significance.
+Programmers use line continuation to write multi-line preprocessor directives.
 
 ```c
 #define M(a)   (a && \
                1 )
-
 ```
 
-```c
-#define M(a)   (a && \
-               1 )
-
-```
-
-
-### 2 - Line comments
-
+### 2 - Line Comments
 
 ```c
  // line \
     comment
 ```
 
-### 3 - comments
+### 3 - Comments
 
 ```c
   /*								\
@@ -57,40 +41,37 @@ be able to write multi line preprocessor directives.
 }		
 ```
 
-
-
-### 4 - Literal strings
-
+### 4 - Literal Strings
 
 ```c
    s = "\
 Even if you've mastered the art of the cover letter and the resume, \
 another part of the job search process can trip up an otherwise \
 qualified candidate: the writing sample.\n\
-\n\";
+\n";
 
 ```
 
+Based on these cases, we can incorporate the following rules into the grammar:
 
-Considering these case we have, to incorporate this into grammar we can:
+- Backslash + new-line can occur inside literal strings, line comments, and comments.
+- For preprocessor directives, line continuation is considered a blank token.
 
-define backlash+newline can ocorrus inside literal strings, line commments, commments.
-For preprocessor directives line continuation is considered a blank token.
-
-## Breaking changes
+## Breaking Changes
 
 ```c
 #define A B\
 C
 ```
 
-Instead of generating BC it will generate B C.
-I searched for this and found 0 cases.
-https://sourcegraph.com/search?q=context:global+%5Cw%5C%5C%5Cr%3F%5Cn%5Cw+lang:C+lang:C%2B%2B+count:2000&patternType=regexp&sm=0&groupBy=repo
+Instead of generating "BC," it will generate "B C." 
 
-To protect this case we can define that line continuation inside identifier tokens is an error.
+I conducted a search and found 0 cases of this usage. 
+[Here is the search result](https://sourcegraph.com/search?q=context:global+%5Cw%5C%5C%5Cr%3F%5Cn%5Cw+lang:C+lang:C%2B%2B+count:2000&patternType=regexp&sm=0&groupBy=repo).
 
+To prevent potential issues with this case, we can define that line continuation inside identifier tokens
+is an error. 
 
-
+So far all changes affect only tokens.
 
 
