@@ -71,6 +71,8 @@ labels
 keywords
 ```c
   INLINE
+  typedef BOOL (WINAPI* __scrt_dllmain_type)(HINSTANCE, DWORD, LPVOID);
+  extern "C" int __CRTDECL _get_startup_thread_locale_mode();
 ```
 
 declarations
