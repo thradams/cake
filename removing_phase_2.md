@@ -97,6 +97,6 @@ I conducted a search and found 0 cases of this usage.
 To prevent potential issues with this case, we can define that line continuation inside identifier tokens
 is an error. 
 
-So far all changes affect only tokens.
+So far all grammar changes affect only tokens.
 
 
