@@ -76,8 +76,10 @@ qualified candidate: the writing sample.\n\
 Based on these cases, we can incorporate the following rules into the grammar:
 
 - Backslash + new-line can occur inside literal strings, line comments, and comments.
-- For preprocessor directives, line continuation is considered a blank token.
-
+- For preprocessor directives, line continuation is considered a token that is blank.
+- C++ 23 allow spaces after backslash and before newline. This token that is blank only in
+  preprocessor directives can be defined  in the same way.
+  
 ## Breaking Changes
 
 ```c
