@@ -3,9 +3,10 @@
 ## Abstract
 
 This proposal aims to remove phase 2 from the C standard by creating grammar rules that describe the specific positions
-where line continuation (backslash + new-line) occurs in real programs.
+where line continuation (backslash + new-line) can occurs following the convention already used in real programs.
 
 The current description of phase 2 allows line continuation to be used at ANY position, and it is important to emphasize this fact.
+
 The objective of this proposal is to gather usage patterns of line continuation in the field and translate them into precise grammar rules.
 
 ## Current Usage Research
