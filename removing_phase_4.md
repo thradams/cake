@@ -80,6 +80,7 @@ declarations
   _CRT_BEGIN_C_HEADER
   
 ```
+declarations inside structs, enum
 
 attributes
 ```c
