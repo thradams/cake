@@ -13,30 +13,55 @@ at compiler phases.
 
 Macro invocations also will happen at compiler phase allowing checks.
 
-## Current Usage Research
+## Current Usage Research, preprocessor directives and macro expansion
 
-### 1 - preprocessor directives - file scope
+### 1 -  #define/#undef
 The most common usage of preprocessor directives is file scope.
+- file scope
+- function scope
+- inside structs?
+- 
+### 2 -  #error # warning
+- file scope
+- function scope
+- inside structs
 
-```c
-#define M(a)   (a && \
-               1 )
-```
-  
-### 2 - macro expansion
+### pragma 
+- file scope
+- function scope
+
+### if groups
+- file scope
+- function scope
+- inside structs 
+
+the usage of preprocessor directives are similar os where static_assert can be used.
+
+### 3 - macro expansion
 
 statements
 
 ```c
  IF_ERROR_RETURN;
+ FOR_EACH( )
 ```
 
-expressions
+Expressions
+
+constants and function like macros
 
 ```c
- MAX(a, b);
- int x = CONSTANT;
+  int x = C;
 ```
+
+labels
+
+```c
+
+  ONERROR
+
+```
+
 
 keywords
 ```c
