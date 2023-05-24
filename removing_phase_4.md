@@ -8,7 +8,8 @@ where preprocessor directives can occurs following the convention already used i
 The current description of phase 4 allows line continuation to be used at  ANY line position, and it is important to emphasize this fact.
 Because the phases are diferents preprocessor directives dont have access of compiler information. This can be useful.
 
-The objective of this proposal is to gather usage patterns of preprocessor directives in the field and translate them into precise grammar rules.
+The objective of this proposal is to gather usage patterns of preprocessor directives in the field and translate them into precise grammar rules
+at compiler phases.
 
 Macro invocations also will happen at compiler phase allowing checks.
 
