@@ -3,7 +3,7 @@
 ## Abstract
 
 This proposal aims to remove phase 4 from the C standard by creating grammar rules that describe the specific positions
-where preprocessor directives can occurs following the convention already used in real programs.
+where preprocessor directives and macro expansion can occurs following the convention already used in real programs.
 
 The current description of phase 4 allows line continuation to be used at  ANY line position, and it is important to emphasize this fact.
 Because the phases are diferents preprocessor directives dont have access of compiler information. This can be useful.
