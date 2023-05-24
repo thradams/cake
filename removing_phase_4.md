@@ -15,7 +15,7 @@ Macro invocations also will happen at compiler phase allowing checks.
 
 ## Current Usage Research
 
-### 1 - file scope
+### 1 - preprocessor directives - file scope
 The most common usage of preprocessor directives is file scope.
 
 ```c
@@ -23,5 +23,32 @@ The most common usage of preprocessor directives is file scope.
                1 )
 ```
   
+### 2 - macro expansion
+
+statements
+
+```c
+ IF_ERROR_RETURN;
+```
+
+expressions
+
+```c
+ MAX(a, b);
+ int x = CONSTANT;
+```
+
+keywords
+```c
+  INLINE
+```
+
+declarations
+```c
+  DECLARE(X)
+```
+
+
+
 ## Breaking Changes
 
