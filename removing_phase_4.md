@@ -48,6 +48,11 @@ declarations
   DECLARE(X)
 ```
 
+attributes
+```c
+  NO_DISCARD
+```
+
 
 
 ## Breaking Changes
