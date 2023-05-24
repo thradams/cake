@@ -42,6 +42,19 @@ Programmers use line continuation to write multi-line preprocessor directives.
 }		
 
 
+
+```
+
+### 4 - Literal Strings
+
+```c
+   s = "\
+Even if you've mastered the art of the cover letter and the resume, \
+another part of the job search process can trip up an otherwise \
+qualified candidate: the writing sample.\n\
+\n";
+
+
 const char* paymentrequest1_cert1_BASE64 =
 "\
 Egt4NTA5K3NoYTI1NhrxAwruAzCCAeowggFToAMCAQICAQEwDQYJKoZIhvcNAQEL\
@@ -60,18 +73,6 @@ Uc9MdIfwsO1BskIET0eJSGNZ7eXb9N62u+qf831PMpEHkmlGpk8rHy92nPcgua/U\
 Yt8oZMn3QaTZ5A6HjJbc3A73eLylp1a0SwCl+KDMEvDQhqMn1jAVu2v92AH3uB7n\
 SiWVbw0tX/68iSQEGGfh9n6ee/8Myb3ICdw=\
 ";
-
-```
-
-### 4 - Literal Strings
-
-```c
-   s = "\
-Even if you've mastered the art of the cover letter and the resume, \
-another part of the job search process can trip up an otherwise \
-qualified candidate: the writing sample.\n\
-\n";
-
 ```
 
 Based on these cases, we can incorporate the following rules into the grammar:
