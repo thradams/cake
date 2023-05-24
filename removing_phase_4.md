@@ -76,6 +76,9 @@ keywords
 declarations
 ```c
   DECLARE(X)
+  
+  _CRT_BEGIN_C_HEADER
+  
 ```
 
 attributes
