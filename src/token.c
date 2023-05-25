@@ -220,6 +220,7 @@ struct token* token_list_add(struct token_list* list, struct token* pnew)
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
+    //assert(pnew->token_origin);
 
     if (list->head == NULL)
     {
@@ -311,9 +312,10 @@ struct token* clone_token(struct token* p)
     struct token* token = calloc(1, sizeof * token);
     if (token)
     {
-        token->flags = p->flags;
+        *token = *p;        
         token->lexeme = strdup(p->lexeme);
-        token->type = p->type;        
+        token->next = NULL;
+        token->prev = NULL;
     }
     return token;
 }

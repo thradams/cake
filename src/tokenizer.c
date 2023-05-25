@@ -161,8 +161,8 @@ void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token
 
 void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token, const char* fmt, ...)
 {
-    if (p_token)
-    {
+    if (p_token && p_token->token_origin)
+    {        
         ctx->printf(WHITE "%s:%d:%d: ",
             p_token->token_origin->lexeme,
             p_token->line,
@@ -555,10 +555,7 @@ void stream_match(struct stream* stream)
         stream->line++;
         stream->col = 1;
 
-        /*
-          must be controlled by the caller see line comment token
-        */
-        stream->line_continuation_found = true;
+        stream->line_continuation_count++;
     }
 
 }
@@ -1283,6 +1280,30 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
     return list;
 }
 
+static bool set_sliced_flag(struct stream * stream ,struct token * p_new_token)
+{ 
+    if (stream->line_continuation_count > 0) {
+        p_new_token->flags |= TK_FLAG_LINE_CONTINUATION;
+        if (stream->line_continuation_count == 1)
+        {
+            int l = strlen(p_new_token->lexeme);
+            if (p_new_token->lexeme[l - 1] == '\n')
+            {
+                /*not sliced, line continuation is at end of token*/
+            }
+            else
+            {
+                p_new_token->flags |= TK_FLAG_SLICED;
+            }
+        }
+        else {
+            p_new_token->flags |= TK_FLAG_SLICED;
+        }
+    }
+
+    return p_new_token->flags & TK_FLAG_SLICED;
+}
+
 struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* filename_opt, int level, enum token_flags addflags)
 {
     struct token_list list = { 0 };
@@ -1305,7 +1326,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         if (filename_opt != NULL)
         {
             const char* bof = "";
-            p_first = new_token(bof, bof + 1, TK_BEGIN_OF_FILE);
+            p_first = new_token(bof, bof + 1, TK_BEGIN_OF_FILE);            
             p_first->level = level;
             p_first->lexeme = strdup(filename_opt);
             token_list_add(&list, p_first);
@@ -1319,6 +1340,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         {
             const int line = stream.line;
             const int col = stream.col;
+            stream.line_continuation_count = 0;
 
             if (stream.current[0] == '\0')
             {
@@ -1342,6 +1364,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
+
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
 
@@ -1349,8 +1373,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
              Tem que vir antes identifier
             */
             if (first_of_string_literal(&stream))
-            {
-                stream.line_continuation_found = false;
+            {                
                 struct token* p_new_token = string_literal(ctx, &stream);
                 if (p_new_token == NULL) throw;
 
@@ -1366,18 +1389,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->col = col;
                 token_list_add(&list, p_new_token);;
                 new_line = false;
-                has_space = false;
-
-                if (stream.line_continuation_found)
-                {
-                    if (filename_opt)
-                        printf("%s", filename_opt);
-                    printf(" %d:%d:", stream.line, stream.col);
-                    ctx->printf(LIGHTMAGENTA "warning: " WHITE "line continuation found inside string literal\n");
-                    print_line_and_token(ctx->printf, p_new_token);
-                    stream.line_continuation_found = false;
-                }
-
+                has_space = false;                            
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
 
@@ -1396,6 +1409,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
 
@@ -1413,6 +1427,13 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
+                if (set_sliced_flag(&stream, p_new_token))
+                {                    
+                    tk_seterror_with_token(ctx, "%s:%d:%d: token sliced",
+                        filename_opt ? filename_opt : "",
+                        stream.line,
+                        stream.col);                    
+                }
                 continue;
             }
 
@@ -1440,13 +1461,12 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 /*bNewLine = false;*/ //deixa assim
                 has_space = true;
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
             if (stream.current[0] == '/' &&
                 stream.current[1] == '/')
             {
-                stream.line_continuation_found = false;
-
                 const char* start = stream.current;
                 stream_match(&stream);
                 stream_match(&stream);
@@ -1467,18 +1487,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
-
-
-                if (stream.line_continuation_found)
-                {
-                    if (filename_opt)
-                        printf("%s", filename_opt);
-                    printf(" %d:%d:", stream.line, stream.col);
-                    ctx->printf(LIGHTMAGENTA "warning: " WHITE "line continuation found inside line comment\n");
-                    print_line_and_token(ctx->printf, p_new_token);
-                    stream.line_continuation_found = false;
-                }
-
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
             if (stream.current[0] == '/' &&
@@ -1518,6 +1527,13 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
+                
+                /*
+                * Ignore line splicing inside comments.
+                * if you are curious to see when it happens just add
+                * set_sliced_flag
+                */
+
                 continue;
             }
             if (new_line && stream.current[0] == '#')
@@ -1537,6 +1553,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
 
@@ -1565,6 +1582,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
             const char* start = stream.current;
@@ -1584,6 +1602,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
             else
@@ -1602,14 +1621,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 new_line = false;
                 has_space = false;
 
-                //            stream_print_line(&stream);
-                            //printf("%s (%d, %d) invalid token ? '%c' %d\n",
-                              //     filename,
-                                //   line,
-                                  // col,
-                                   //stream.current[0],
-                                   //(int)stream.current[0]);
 
+                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
 
@@ -1813,9 +1826,10 @@ void prematch_level(struct token_list* dest, struct token_list* input_list, int 
 }
 
 void prematch(struct token_list* dest, struct token_list* input_list)
-{
+{    
     token_list_add(dest, token_list_pop_front(input_list));
 }
+
 struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 
 struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* input_list)
@@ -2071,6 +2085,14 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
         token_list_add(&r, token_list_pop_front(input_list));
+        
+        /*
+          We call preprocessor that emmit warnings if line continuation
+          is used outside macro directives.
+          Let's remove TK_FLAG_LINE_CONTINUATION from the original token
+          to avoid warning inside constant expressions
+        */
+        r.tail->flags &= ~TK_FLAG_LINE_CONTINUATION;
     }
     *output_list = r;
 
@@ -3227,7 +3249,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                                 break;
                         }
                         token_list_remove(input_list, p_token, p_token);
-                    }
+                    }                    
                     continue;
                 }
 
@@ -3267,7 +3289,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     p_new_token->lexeme = s;
                     p_new_token->type = TK_STRING_LITERAL;
                     p_new_token->flags = flags;
-                    token_list_add(&r, p_new_token);
+                    token_list_add(&r, p_new_token);                    
                     continue;
                 }
                 else if (r.tail != NULL && r.tail->type == '##')
@@ -3655,7 +3677,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
     /*
           text-line:
           pp-tokens_opt new-line
-        */
+    */
     struct token_list r = { 0 };
     try
     {
@@ -3664,12 +3686,9 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
         {
             struct macro* macro = NULL;
             struct token* start_token = input_list->head;
-            //assert(start_token->token_origin != NULL);
 
             if (is_active && input_list->head->type == TK_IDENTIFIER)
             {
-
-
                 macro = find_macro(ctx, input_list->head->lexeme);
                 if (macro &&
                     macro->is_function &&
@@ -3819,6 +3838,24 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
             }
             else
             {
+                if ( input_list->head->flags & TK_FLAG_LINE_CONTINUATION &&
+                     !(input_list->head->flags & TK_FLAG_MACRO_EXPANDED)
+                    )
+                {
+                    /*
+                       The only place were line-continuation are really necessary is
+                       inside preprocessor directives. 
+                       Here we are inside text-line so we can send a info that
+                       here is optional.                       
+                    */
+                    if (input_list->head->type == TK_STRING_LITERAL)
+                      pre_setinfo_with_token(ctx, input_list->head, "unnecessary line-slicing because you can use \"adjacent\" \"strings\"");
+                    else if (input_list->head->type == TK_LINE_COMMENT)
+                        pre_setinfo_with_token(ctx, input_list->head, "unnecessary line-slicing because you can use /*comments*/");
+                    else 
+                        pre_setinfo_with_token(ctx, input_list->head, "unnecessary line-slicing");
+                }
+
                 bool blanks = token_is_blank(input_list->head) || input_list->head->type == TK_NEWLINE;
                 bool is_final = is_active && !is_never_final(input_list->head->type);
 

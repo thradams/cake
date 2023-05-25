@@ -177,7 +177,9 @@ enum token_flags
     TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF = 1 << 5,
     TK_FLAG_HIDE = 1 << 6, /*alguem pediu p esconder*/
     TK_FLAG_IDENTIFIER_IS_ENUMERATOR = 1 << 7, /*indica que eh identificador enumerator separar?*/
-    TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8 /*indica que eh identificador enumerator separar?*/    
+    TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8, /*indica que eh identificador enumerator separar?*/    
+    TK_FLAG_SLICED = 1 << 9, /*line-slicing in the middle*/
+    TK_FLAG_LINE_CONTINUATION = 1 << 10 /*token has one or more line-slicing*/
 };
 
 struct token
@@ -232,7 +234,7 @@ struct stream
     const char* current;
     int line;
     int col;
-    bool line_continuation_found;
+    bool line_continuation_count;
 };
 
 int is_digit(struct stream* p);

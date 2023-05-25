@@ -1,9 +1,12 @@
-#include <windows.h>
 
-#define M \
-1
+#if 1 ||\
+    2
+
+#endif 
+
+
 
 int main()
 {
-    int a = M;
+    
 }
