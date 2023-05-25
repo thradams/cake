@@ -1704,6 +1704,18 @@ void tk_seterror_with_token(struct tokenizer_ctx* ctx, const char* fmt, ...)
 }
 
 
+void tk_setwarning_with_token(struct tokenizer_ctx* ctx, const char* fmt, ...)
+{
+    ctx->n_warnings++;
+    char buffer[200] = { 0 };
+    va_list args;
+    va_start(args, fmt);
+    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+    ctx->printf(MAGENTA "warning: " WHITE "%s\n", buffer);
+}
+
+
 
 
 void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token, const char* fmt, ...)
@@ -3037,7 +3049,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 has_space = false;
                 if (set_sliced_flag(&stream, p_new_token))
                 {                    
-                    tk_seterror_with_token(ctx, "%s:%d:%d: token sliced",
+                    tk_setwarning_with_token(ctx, "%s:%d:%d: token sliced",
                         filename_opt ? filename_opt : "",
                         stream.line,
                         stream.col);                    

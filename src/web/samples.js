@@ -1082,7 +1082,7 @@ int main()
 sample["line slicing checks"] =
 `
 
-#define M\
+#define M\\
 ACRO 1
 
 int main()
@@ -1090,11 +1090,16 @@ int main()
     const char* s = " asdas \\
     asdas";
 
-    int a = \
+    int a = \\
     1;
     
     //comment \\
     a = 2;
+
+    /*
+      ok
+      path = c:\\path\\
+   */
 }
 
 `;
