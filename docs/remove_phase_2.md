@@ -32,7 +32,8 @@ Line-slicing inside comments is treated as normal.
 Line-slicing inside literal strings are almost normal.
 
 ```c
-const char* s = "abcd";
+const char* s = "ab\
+cd";
 ```
 
 ```
