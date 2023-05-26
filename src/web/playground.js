@@ -2,8 +2,8 @@
 
 
 const defaults = {
-    fg: '#FFF',
-    bg: '#000',
+    fg: '#007bfd',
+    bg: '#f5f5f5',
     newline: false,
     escapeXML: false,
     stream: false,
@@ -20,15 +20,15 @@ function getDefaultColors()
         4: '#00A',
         5: '#A0A',
         6: '#0AA',
-        7: '#AAA',
+        7: '#000',
         8: '#555',
-        9: '#F55',
-        10: '#5F5',
+        9: '#A00',
+        10:     '#0AA',
         11: '#FF5',
         12: '#55F',
-        13: '#F5F',
+        13: '#A0A',
         14: '#5FF',
-        15: '#FFF'
+        15: '#007bfd'
     };
 
     range(0, 5).forEach(red =>
