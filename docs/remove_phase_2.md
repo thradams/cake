@@ -24,6 +24,18 @@ warning: token-slicing
 Line-slicing inside comments is treated as normal.
 
 ```c
+
+/*
+**             -----------
+**             | Parent  |
+**             -----------
+**            /     |     \
+**           /      |      \
+**  ---------   ---------   ---------
+**  |Child-A|   |Child-B|   |Child-C|
+**  ---------   ---------   ---------
+*/
+
 /****************************\
 *                            *
 *                            *
