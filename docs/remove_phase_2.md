@@ -1,78 +1,92 @@
-## Line-slicing rules
+## Line-Slicing Rules
 
 ## Proposal
 
- Except for literal-string, comment, and line comment, line-slicing in the middle
- of any token is an warning.
- 
-  ```c
- #define M\
- ACRO 1
-  
- int a\
- b;
- ```
- 
- ```
- warning token-sliced
- ```
- 
- line-slicing inside comments are handled as normal
- 
- ```c
-   /*
-      path = C:\path\
-   */
- ```
- 
-line-slice inside literal string are almost normal
- ```c
-    const char* s = "ab\
- cd";
- ```
- ```
- note: you can use adjacents strings
- ```
- 
-warning line-slicing inside line-comments - deprecated
+With the exception of literal strings, comments, and line comments, line-slicing in the middle of any
+token is considered a warning.
 
 ```c
+#define M\
+ACRO 1
+
+int a\
+b;
+
+#def\
+ine X
+
+```
+
+```
+warning: token-slicing
+```
+
+Line-slicing inside comments is treated as normal.
+
+```c
+/*
+   path = C:\path\
+*/
+```
+
+Line-slicing inside literal strings are almost normal.
+
+```c
+const char* s = "abcd";
+```
+
+```
+note: you can use adjacent strings
+```
+
+Warning: Line-slicing inside line comments is deprecated.
+
+```c
+int main(){
     int a;
-    \\path= c:\Program Files\
-    a = 1
- ```
- 
- ```
- warning: line slicing inside line-comments are deprecated. use /*comments*/
- ```
+   //path= c:\Program Files\
+   a = 1;
+}
+```
 
-warning about line-slicing other than inside comments, literal string, line comments
-if used in preprocessor text-line diretive.
+```
+warning: line slicing inside line-comments is deprecated. use /*comments*/
+```
+gcc already have a warning:
+
+```
+warning: multi-line comment [-Wcomment]
+    3 |    //path= c:\Program Files\
+      |    ^
+```
+
+Warning: Line-slicing is unnecessary when used outside of comments,
+literal strings, or line comments, in preprocessor text-line directives
+we have a warning if we find it.
 
 ```c
-    int a / 
-    =  1;
- ```
- 
- ```
- warning: unnecessary line-slicing
- ```
+int a / 
+=  1;
+```
 
-It is expected and normal find line-slicing in # directives.
+```
+warning: unnecessary line-slicing
+```
+
+It is expected and normal to encounter line-slicing in # directives.
+
 ```c
-    #define X { \
-    1, \
-    2  \
-    }
-    #if 1 || \
-        2
-    #endif
-    
-    #undef \
-           X
- ```
- 
- As an option to accept spaces after backslash and new-line. (check C++)
- Not implemented yet in cake
- 
- 
+#define X { \
+1, \
+2  \
+}
+#if 1 || \
+   2
+#endif
+
+#undef \
+       X
+```
+
+As an option, consider accepting spaces after the backslash and new-line (as in C++).
+Except for this last part the other rules are already implemented in cake.
