@@ -37,7 +37,7 @@ void token_range_add_show(struct token* first, struct token* last)
         current != last->next;
         current = current->next)
     {
-        current->flags = current->flags & ~TK_FLAG_HIDE;        
+        current->flags = current->flags & ~TK_FLAG_HIDE;
     }
 }
 
@@ -47,7 +47,7 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
         current != last->next;
         current = current->next)
     {
-        current->flags = current->flags & ~flag;        
+        current->flags = current->flags & ~flag;
     }
 }
 
@@ -83,7 +83,7 @@ struct token* token_list_pop_back(struct token_list* list)
     p->next = NULL;
     p->prev = NULL;
     return p;
- }
+}
 
 struct token* token_list_pop_front(struct token_list* list)
 {
@@ -118,7 +118,7 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     //assert(filetoken != NULL);
     struct token* p = list->head;
     while (p)
-    {     
+    {
         p->token_origin = filetoken;
         p->line = line;
         p->col = col;
@@ -144,7 +144,7 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
     struct token* current = list->head;
-    
+
     while (current)
     {
         if (token_is_blank(current))
@@ -161,16 +161,16 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
         while (*p)
         {
             if (*p == '"')
-              ss_fprintf(&ss, "\\\"");
+                ss_fprintf(&ss, "\\\"");
             else
-              ss_fprintf(&ss, "%c", *p);
+                ss_fprintf(&ss, "%c", *p);
             p++;
         }
-        
+
 
         current = current->next;
         if (current)
-          has_space = current->flags & TK_FLAG_HAS_SPACE_BEFORE;
+            has_space = current->flags & TK_FLAG_HAS_SPACE_BEFORE;
     }
 
     if (bliteral)
@@ -181,7 +181,7 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
 
     ss_close(&ss);
 
-    return (char*) cstr;
+    return (char*)cstr;
 }
 
 void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
@@ -254,7 +254,7 @@ bool token_is_blank(struct token* p)
     return p->type == TK_BEGIN_OF_FILE ||
         p->type == TK_BLANKS ||
         p->type == TK_LINE_COMMENT ||
-        p->type == TK_COMENT;
+        p->type == TK_COMMENT;
 }
 
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
@@ -312,7 +312,7 @@ struct token* clone_token(struct token* p)
     struct token* token = calloc(1, sizeof * token);
     if (token)
     {
-        *token = *p;        
+        *token = *p;
         token->lexeme = strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
@@ -343,7 +343,7 @@ struct token_list token_list_remove(struct token_list* list, struct token* first
 bool token_list_is_empty(struct token_list* p)
 {
     assert((p->head == NULL && p->tail == NULL) ||
-           (p->head != NULL && p->tail != NULL));
+        (p->head != NULL && p->tail != NULL));
 
     return p->head == NULL;
 }
@@ -384,11 +384,11 @@ void print_literal2(const char* s)
     {
         switch (*s)
         {
-            case '\n':
-                printf("\\n");
-                break;
-            default:
-                printf("%c", *s);
+        case '\n':
+            printf("\\n");
+            break;
+        default:
+            printf("%c", *s);
         }
         s++;
     }
@@ -512,7 +512,7 @@ void print_token_html(struct token* p_token)
         .notfinal {
           color:gray;
         }
-        
+
         .hide {
           text-decoration: line-through;
           color:red;
@@ -541,11 +541,16 @@ void print_tokens_html(struct token* p_token)
     {
         print_token_html(current);
         current = current->next;
-    }    
-    printf("\n</pre>");    
+    }
+    printf("\n</pre>");
 }
 
-void print_line_and_token(int (*printf)(const char* fmt, ...), struct token* p_token)
+void print_position(int (*printf)(const char* fmt, ...), const char* path, int line, int col)
+{
+    printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+}
+
+void print_line_and_token(int (*printf)(const char* fmt, ...), const struct token* p_token)
 {
     if (p_token == NULL)
         return;

@@ -145,14 +145,16 @@ struct generic_selection
     struct token* last_token;
 };
 
+enum constant_value_type {
+    TYPE_NOT_CONSTANT,
+    TYPE_EMPTY,
+    TYPE_LONG_LONG,
+    TYPE_DOUBLE,
+    TYPE_UNSIGNED_LONG_LONG
+};
+
 struct constant_value {
-    enum {        
-        TYPE_NOT_CONSTANT, 
-        TYPE_EMPTY, 
-        TYPE_LONG_LONG, 
-        TYPE_DOUBLE, 
-        TYPE_UNSIGNED_LONG_LONG 
-    } type;
+    enum constant_value_type type;
     union {
         unsigned long long ullvalue;
         long long llvalue;

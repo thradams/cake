@@ -8,7 +8,6 @@
 #include "tokenizer.h"
 #include "pre_expressions.h"
 #include <string.h>
-
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -45,7 +44,6 @@ void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx
 void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
 
 
-void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
 /*
 * preprocessor uses long long
@@ -144,14 +142,14 @@ void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expression_c
             if (ctx->n_errors > 0) throw;
             if (ctx->current && ctx->current->type != ')')
             {
-                pre_seterror_with_token(ctx, ctx->current, "expected )");
+                preprocessor_set_error_with_token(ctx, ctx->current, "expected )");
                 throw;
             }
             pre_match(ctx);
         }
         else
         {
-            pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+            preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             throw;
 
         }
@@ -211,7 +209,7 @@ void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx
     {
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
-            pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+            preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             throw;
         }
         else if (ctx->current != NULL &&
@@ -237,15 +235,15 @@ void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx
                 ectx->value = +ectx->value;
             else if (op == '*')
             {
-                pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
             else if (op == '&')
             {
-                pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
             else
             {
-                pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
         }
         else 
@@ -333,7 +331,7 @@ void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_
             pre_match(ctx);
             if (ctx->current == NULL)
             {
-                pre_seterror_with_token(ctx, ctx->current, "unexpected end of file");
+                preprocessor_set_error_with_token(ctx, ctx->current, "unexpected end of file");
                 throw;
             }
             long long left_value = ectx->value;
@@ -664,7 +662,7 @@ void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_expressio
                 ctx->current->type == '^=' ||
                 ctx->current->type == '|='))
         {
-            pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+            preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             throw;
         }
     }

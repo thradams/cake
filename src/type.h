@@ -137,6 +137,11 @@ struct _destroy type
 
 const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
 
+struct expression;
+
+void check_assigment(struct parser_ctx* ctx,
+    struct type* left_type,
+    struct expression* right);
 
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
@@ -159,10 +164,11 @@ bool type_is_pointer(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
+bool type_is_unsigned_integer(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
 
 bool type_is_arithmetic(const struct type* p_type);
-bool type_is_compatible(const struct type* a, struct type* b);
+
 bool type_is_struct_or_union(const struct type* p_type);
 bool type_is_void(const struct type* p_type);
 bool type_is_function_or_function_pointer(const struct type* p_type);
@@ -190,7 +196,7 @@ struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
-struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
+
 
 struct type type_remove_pointer(const struct type* p_type);
 struct type get_array_item_type(const struct type* p_type);

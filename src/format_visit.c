@@ -318,7 +318,7 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
     while (tk)
     {
         if (tk->type == TK_LINE_COMMENT ||
-            tk->type == TK_COMENT)
+            tk->type == TK_COMMENT)
         {
             ajust_if_begin(tk, ctx);
         }

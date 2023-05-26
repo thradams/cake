@@ -76,7 +76,7 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         print_item(ss, first, "nullptr_t");
 
-    return first;
+    return *first;
 }
 
 
@@ -576,6 +576,16 @@ bool type_is_floating_point(const struct type* p_type)
             TYPE_SPECIFIER_FLOAT);
 }
 
+bool type_is_unsigned_integer(const struct type* p_type)
+{
+    if (type_is_integer(p_type) &&
+        (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED))
+    {
+        return true;
+    }
+
+    return false;
+}
 /*
   The type char, the signed and unsigned integer types,
   and the enumerated types
@@ -655,15 +665,6 @@ bool type_is_scalar(const struct type* p_type)
     return false;
 }
 
-bool type_is_compatible(const struct type* expression_type, struct type* return_type)
-{
-    //TODO
-
-    //if (!type_is_same(a, b))
-      //  return false;
-
-    return true;
-}
 
 const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type)
 {
@@ -687,6 +688,8 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct type* paramer_type,
     int param_num)
 {
+    //see also check_assigment
+
     struct type* argument_type = &current_argument->expression->type;
     bool is_null_pointer_constant = false;
 
@@ -706,7 +709,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     {
         if (!type_is_same(argument_type, paramer_type, false))
         {
-            parser_seterror_with_token(ctx,
+            compiler_set_error_with_token(ctx,
                 current_argument->expression->first_token,
                 " incompatible types at argument %d", param_num);
         }
@@ -730,7 +733,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(paramer_type))
     {
-        parser_setwarning_with_token(ctx,
+        compiler_set_warning_with_token(ctx,
             current_argument->expression->first_token,
             " passing null as array");
 
@@ -766,14 +769,14 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 if (parameter_array_size != 0 &&
                     argument_array_size < parameter_array_size)
                 {
-                    parser_seterror_with_token(ctx,
+                    compiler_set_error_with_token(ctx,
                         current_argument->expression->first_token,
                         " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
                 }
             }
             else if (is_null_pointer_constant || type_is_nullptr_t(argument_type))
             {
-                parser_seterror_with_token(ctx,
+                compiler_set_error_with_token(ctx,
                     current_argument->expression->first_token,
                     " passing null as array");
             }
@@ -799,7 +802,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             type_print(&t1);
             type_print(&t2);
 
-            parser_seterror_with_token(ctx,
+            compiler_set_error_with_token(ctx,
                 current_argument->expression->first_token,
                 " incompatible types at argument %d", param_num);
             //disabled for now util it works correctly
@@ -814,7 +817,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             struct type parameter_pointer_to = type_remove_pointer(&t2);
             if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
             {
-                parser_seterror_with_token(ctx,
+                compiler_set_error_with_token(ctx,
                     current_argument->expression->first_token,
                     " discarding const at argument %d", param_num);
             }
@@ -824,9 +827,179 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         //return true;
     }
 
+    //TODO
+    //if (!type_is_same(paramer_type, &current_argument->expression->type, false))
+    //{
+    //    compiler_set_error_with_token(ctx,
+    //        current_argument->expression->first_token,
+    //        " incompatible types at argument %d ", param_num);
+    //}
+
 continuation:
     type_destroy(&t1);
     type_destroy(&t2);
+}
+
+void check_assigment(struct parser_ctx* ctx,
+                     struct type* left_type,
+                     struct expression* right)
+{
+
+    //see also check_function_argument_and_parameter
+
+    struct type* p_right_type = &right->type;
+    bool is_null_pointer_constant = false;
+
+    if (type_is_nullptr_t(& right->type) ||
+        (constant_value_is_valid(&right->constant_value) &&
+            constant_value_to_ull(&right->constant_value) == 0))
+    {
+        is_null_pointer_constant = true;
+    }
+
+    struct type lvalue_right_type = { 0 };
+    struct type t2 = { 0 };
+
+    if (expression_is_subjected_to_lvalue_conversion(right))
+    {
+        lvalue_right_type = type_lvalue_conversion(p_right_type);
+    }
+    else
+    {
+        lvalue_right_type = type_dup(p_right_type);
+    }
+
+
+    /*
+       less generic tests are first
+    */
+    if (type_is_enum(p_right_type) && type_is_enum(left_type))
+    {
+        if (!type_is_same(p_right_type, left_type, false))
+        {
+            compiler_set_error_with_token(ctx,
+                right->first_token,
+                " incompatible types ");
+        }
+        goto continuation;
+    }
+
+    if (type_is_arithmetic(p_right_type) && type_is_arithmetic(left_type))
+    {
+        goto continuation;
+    }
+
+    if (is_null_pointer_constant && type_is_pointer(left_type))
+    {
+        //TODO void F(int * [[opt]] p)
+        // F(0) when passing null we will check if the parameter 
+        //have the anotation [[opt]]
+
+        /*can be converted to any type*/
+        goto continuation;
+    }
+
+    if (is_null_pointer_constant && type_is_array(left_type))
+    {
+        compiler_set_warning_with_token(ctx,
+            right->first_token,
+            " passing null as array");
+
+        goto continuation;
+    }
+
+    /*
+       We have two pointers or pointer/array combination
+    */
+    if (type_is_pointer_or_array(p_right_type) && type_is_pointer_or_array(left_type))
+    {
+        if (type_is_void_ptr(p_right_type))
+        {
+            /*void pointer can be converted to any type*/
+            goto continuation;
+        }
+
+        if (type_is_void_ptr(left_type))
+        {
+            /*any pointer can be converted to void* */
+            goto continuation;
+        }
+
+
+        //TODO  lvalue
+
+        if (type_is_array(left_type))
+        {
+            int parameter_array_size = type_get_array_size(left_type);
+            if (type_is_array(p_right_type))
+            {
+                int argument_array_size = type_get_array_size(p_right_type);
+                if (parameter_array_size != 0 &&
+                    argument_array_size < parameter_array_size)
+                {
+                    compiler_set_error_with_token(ctx,
+                        right->first_token,
+                        " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
+                }
+            }
+            else if (is_null_pointer_constant || type_is_nullptr_t(p_right_type))
+            {
+                compiler_set_error_with_token(ctx,
+                    right->first_token,
+                    " passing null as array");
+            }
+            t2 = type_lvalue_conversion(left_type);
+        }
+        else
+        {
+            t2 = type_dup(left_type);
+        }
+
+
+
+        if (!type_is_same(&lvalue_right_type, &t2, false))
+        {
+            type_print(&lvalue_right_type);
+            type_print(&t2);
+
+            compiler_set_error_with_token(ctx,
+                right->first_token,
+                " incompatible types at argument " );
+            //disabled for now util it works correctly
+            //return false;
+        }
+
+        if (type_is_pointer(&lvalue_right_type) && type_is_pointer(&t2))
+        {
+            //parameter pointer do non const
+            //argument const.
+            struct type argument_pointer_to = type_remove_pointer(&lvalue_right_type);
+            struct type parameter_pointer_to = type_remove_pointer(&t2);
+            if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
+            {
+                compiler_set_error_with_token(ctx,
+                    right->first_token,
+                    " discarding const at argument ");
+            }
+            type_destroy(&argument_pointer_to);
+            type_destroy(&parameter_pointer_to);
+        }
+        //return true;
+    }
+
+    if (!type_is_same(left_type, &lvalue_right_type, false))
+    {
+      //TODO more rules..but it is good to check worst case!
+      // 
+      //  compiler_set_error_with_token(ctx,
+      //      right->first_token,
+      //      " incompatible types ");
+    }
+
+continuation:
+    type_destroy(&lvalue_right_type);
+    type_destroy(&t2);
+    
 }
 
 bool type_is_function(const struct type* p_type)
@@ -1479,7 +1652,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            parser_set_info_with_token(ctx, ctx->current, "type information is missing");
+            compiler_set_info_with_token(ctx, ctx->current, "type information is missing");
             throw;
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
@@ -1493,7 +1666,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
         {
             if (type_is_void(p_type))
             {
-                parser_seterror_with_token(ctx,
+                compiler_set_error_with_token(ctx,
                     ctx->current,
                     "invalid application of 'sizeof' to a void type");
                 throw;
@@ -1628,6 +1801,7 @@ struct type get_function_return_type(struct type* p_type)
         struct type r = type_dup(p_type->next->next);
         return r;
     }
+    
 
     /*function returning ... */
     struct type r = type_dup(p_type->next);
@@ -2045,7 +2219,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
         struct type* p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ARRAY;
 
-        p->array_size = pdirectdeclarator->array_declarator->constant_size;
+        p->array_size = (int) pdirectdeclarator->array_declarator->constant_size;
 
         if (pdirectdeclarator->array_declarator->static_token_opt)
         {

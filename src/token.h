@@ -42,7 +42,7 @@ enum token_type
     TK_STRING_LITERAL,
     TK_CHAR_CONSTANT,
     TK_LINE_COMMENT,
-    TK_COMENT,
+    TK_COMMENT,
     TK_PPNUMBER,
 
     ANY_OTHER_PP_TOKEN, //@ por ex
@@ -226,8 +226,8 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
-void print_line_and_token(int (*printf)(const char* fmt, ...), struct token* p_token);
-
+void print_line_and_token(int (*printf)(const char* fmt, ...), const struct token* p_token);
+void print_position(int (*printf)(const char* fmt, ...), const char* path, int line, int col);
 struct stream
 {
     const char* source;
@@ -235,6 +235,7 @@ struct stream
     int line;
     int col;
     bool line_continuation_count;
+    const char* path; /*non owner*/
 };
 
 int is_digit(struct stream* p);

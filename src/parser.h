@@ -86,13 +86,12 @@ struct enumerator* find_enumerator(struct parser_ctx* ctx, const char* lexeme, s
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
 bool first_is(struct parser_ctx* ctx, enum token_type type);
 void print_scope(struct scope_list* e);
-void parser_seterror_with_token(struct parser_ctx* er, struct token* p_token, const char* fmt, ...);
 
 char* CompileText(const char* options, const char* content);
 
-void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
-void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
-void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
+void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void compiler_set_info_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
 struct declaration_list parse(struct options* options, struct token_list* list, struct report* report);

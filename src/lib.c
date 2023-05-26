@@ -264,7 +264,7 @@ enum token_type
     TK_STRING_LITERAL,
     TK_CHAR_CONSTANT,
     TK_LINE_COMMENT,
-    TK_COMENT,
+    TK_COMMENT,
     TK_PPNUMBER,
 
     ANY_OTHER_PP_TOKEN, //@ por ex
@@ -448,8 +448,8 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
-void print_line_and_token(int (*printf)(const char* fmt, ...), struct token* p_token);
-
+void print_line_and_token(int (*printf)(const char* fmt, ...), const struct token* p_token);
+void print_position(int (*printf)(const char* fmt, ...), const char* path, int line, int col);
 struct stream
 {
     const char* source;
@@ -457,6 +457,7 @@ struct stream
     int line;
     int col;
     bool line_continuation_count;
+    const char* path; /*non owner*/
 };
 
 int is_digit(struct stream* p);
@@ -611,6 +612,11 @@ struct preprocessor_ctx
 };
 void preprocessor_ctx_destroy(struct preprocessor_ctx* p);
 
+void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void preprocessor_set_warning_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void preprocessor_set_error_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+
+
 struct tokenizer_ctx
 {
     struct options options;
@@ -693,7 +699,7 @@ void token_range_add_show(struct token* first, struct token* last)
         current != last->next;
         current = current->next)
     {
-        current->flags = current->flags & ~TK_FLAG_HIDE;        
+        current->flags = current->flags & ~TK_FLAG_HIDE;
     }
 }
 
@@ -703,7 +709,7 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
         current != last->next;
         current = current->next)
     {
-        current->flags = current->flags & ~flag;        
+        current->flags = current->flags & ~flag;
     }
 }
 
@@ -739,7 +745,7 @@ struct token* token_list_pop_back(struct token_list* list)
     p->next = NULL;
     p->prev = NULL;
     return p;
- }
+}
 
 struct token* token_list_pop_front(struct token_list* list)
 {
@@ -774,7 +780,7 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     //assert(filetoken != NULL);
     struct token* p = list->head;
     while (p)
-    {     
+    {
         p->token_origin = filetoken;
         p->line = line;
         p->col = col;
@@ -800,7 +806,7 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
     struct token* current = list->head;
-    
+
     while (current)
     {
         if (token_is_blank(current))
@@ -817,16 +823,16 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
         while (*p)
         {
             if (*p == '"')
-              ss_fprintf(&ss, "\\\"");
+                ss_fprintf(&ss, "\\\"");
             else
-              ss_fprintf(&ss, "%c", *p);
+                ss_fprintf(&ss, "%c", *p);
             p++;
         }
-        
+
 
         current = current->next;
         if (current)
-          has_space = current->flags & TK_FLAG_HAS_SPACE_BEFORE;
+            has_space = current->flags & TK_FLAG_HAS_SPACE_BEFORE;
     }
 
     if (bliteral)
@@ -837,7 +843,7 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
 
     ss_close(&ss);
 
-    return (char*) cstr;
+    return (char*)cstr;
 }
 
 void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
@@ -910,7 +916,7 @@ bool token_is_blank(struct token* p)
     return p->type == TK_BEGIN_OF_FILE ||
         p->type == TK_BLANKS ||
         p->type == TK_LINE_COMMENT ||
-        p->type == TK_COMENT;
+        p->type == TK_COMMENT;
 }
 
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
@@ -968,7 +974,7 @@ struct token* clone_token(struct token* p)
     struct token* token = calloc(1, sizeof * token);
     if (token)
     {
-        *token = *p;        
+        *token = *p;
         token->lexeme = strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
@@ -999,7 +1005,7 @@ struct token_list token_list_remove(struct token_list* list, struct token* first
 bool token_list_is_empty(struct token_list* p)
 {
     assert((p->head == NULL && p->tail == NULL) ||
-           (p->head != NULL && p->tail != NULL));
+        (p->head != NULL && p->tail != NULL));
 
     return p->head == NULL;
 }
@@ -1040,11 +1046,11 @@ void print_literal2(const char* s)
     {
         switch (*s)
         {
-            case '\n':
-                printf("\\n");
-                break;
-            default:
-                printf("%c", *s);
+        case '\n':
+            printf("\\n");
+            break;
+        default:
+            printf("%c", *s);
         }
         s++;
     }
@@ -1168,7 +1174,7 @@ void print_token_html(struct token* p_token)
         .notfinal {
           color:gray;
         }
-        
+
         .hide {
           text-decoration: line-through;
           color:red;
@@ -1197,11 +1203,16 @@ void print_tokens_html(struct token* p_token)
     {
         print_token_html(current);
         current = current->next;
-    }    
-    printf("\n</pre>");    
+    }
+    printf("\n</pre>");
 }
 
-void print_line_and_token(int (*printf)(const char* fmt, ...), struct token* p_token)
+void print_position(int (*printf)(const char* fmt, ...), const char* path, int line, int col)
+{
+    printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+}
+
+void print_line_and_token(int (*printf)(const char* fmt, ...), const struct token* p_token)
 {
     if (p_token == NULL)
         return;
@@ -1672,7 +1683,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 
 
 
-static int printf_nothing(char const* const _Format, ...) { return 0; }
+static int printf_nothing(char const* const format, ...) { return 0; }
 
 
 /*
@@ -1692,7 +1703,7 @@ void preprocessor_ctx_destroy(struct preprocessor_ctx* p)
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 
-void tk_seterror_with_token(struct tokenizer_ctx* ctx, const char* fmt, ...)
+static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
     ctx->n_errors++;
     char buffer[200] = { 0 };
@@ -1700,98 +1711,30 @@ void tk_seterror_with_token(struct tokenizer_ctx* ctx, const char* fmt, ...)
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
+    
+    print_position(ctx->printf, stream->path, stream->line, stream->col);
     ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 }
 
 
-void tk_setwarning_with_token(struct tokenizer_ctx* ctx, const char* fmt, ...)
+static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
-    ctx->n_warnings++;
+    ctx->n_warnings++;    
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-    ctx->printf(MAGENTA "warning: " WHITE "%s\n", buffer);
+    print_position(ctx->printf, stream->path, stream->line, stream->col);
+    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);    
 }
 
-
-
-
-void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token, const char* fmt, ...)
+void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
-    ctx->n_errors++;
-    //er->code = 1;
+    
 
-    if (p_token && p_token->token_origin)
-    {
-        ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->token_origin->lexeme,
-            p_token->line,
-            p_token->col);
-    }
-    else
-    {
-        ctx->printf(WHITE "<>");
-    }
-
-    char buffer[200] = { 0 };
-    va_list args;
-    va_start(args, fmt);
-    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-
-    ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
-
-
-    struct token* prev = p_token;
-    while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
-    {
-        prev = prev->prev;
-    }
-    struct token* next = prev;
-    while (next && next->type != TK_NEWLINE)
-    {
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
-        {
-            /*
-            tokens expandidos da macro nao tem espaco entre
-            vamos adicionar para ver melhor
-            */
-            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
-            {
-                ctx->printf(" ");
-            }
-        }
-        ctx->printf("%s", next->lexeme);
-        next = next->next;
-    }
-    ctx->printf("\n");
     if (p_token)
-    {
-        for (int i = 1; i < p_token->col - 1; i++)
-        {
-            ctx->printf(" ");
-        }
-        ctx->printf(LIGHTGREEN "^\n" RESET);
-    }
-}
-
-
-
-void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token, const char* fmt, ...)
-{
-    if (p_token && p_token->token_origin)
-    {        
-        ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->token_origin->lexeme,
-            p_token->line,
-            p_token->col);
-    }
-    else
-    {
-        ctx->printf(WHITE "<>");
-    }
+      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
 
     char buffer[200] = { 0 };
     va_list args;
@@ -1801,40 +1744,47 @@ void pre_setinfo_with_token(struct preprocessor_ctx* ctx, struct token* p_token,
 
     ctx->printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 
-    struct token* prev = p_token;
-    while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
-    {
-        prev = prev->prev;
-    }
-    struct token* next = prev;
-    while (next && next->type != TK_NEWLINE)
-    {
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
-        {
-            /*
-            tokens expandidos da macro nao tem espaco entre
-            vamos adicionar para ver melhor
-            */
-            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
-            {
-                ctx->printf(" ");
-            }
-        }
-        ctx->printf("%s", next->lexeme);
-        next = next->next;
-    }
-    ctx->printf("\n");
-    if (p_token)
-    {
-        for (int i = 1; i < p_token->col - 1; i++)
-        {
-            ctx->printf(" ");
-        }
-        ctx->printf(LIGHTGREEN "^\n" RESET);
-    }
+    print_line_and_token(ctx->printf, p_token);
 }
 
-void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_token, bool is_error)
+void preprocessor_set_warning_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+{
+    ctx->n_warnings++;
+    if (p_token)
+      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+
+    char buffer[200] = { 0 };
+    va_list args;
+    va_start(args, fmt);
+    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+
+    print_line_and_token(ctx->printf, p_token);
+}
+
+void preprocessor_set_error_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+{
+    ctx->n_errors++;
+
+    if (p_token)
+      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+
+    char buffer[200] = { 0 };
+    va_list args;
+    va_start(args, fmt);
+    /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
+    va_end(args);
+
+    ctx->printf(LIGHTRED"error: " WHITE "%s\n", buffer);
+
+    print_line_and_token(ctx->printf, p_token);
+}
+
+
+
+void pre_error_warning_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, bool is_error)
 {
     ctx->n_warnings++;
     //er->code = 1;
@@ -1856,21 +1806,9 @@ void pre_error_warning_with_token(struct preprocessor_ctx* ctx, struct token* p_
     else
         ctx->printf(LIGHTMAGENTA "warning: " WHITE);
 
-
-    struct token* prev = p_token;
-    while (prev && prev->prev && prev->prev->type != TK_NEWLINE)
-    {
-        prev = prev->prev;
-    }
-    struct token* next = prev;
-    while (next && next->type != TK_NEWLINE)
-    {
-        ctx->printf("%s", next->lexeme);
-        next = next->next;
-    }
-    ctx->printf("\n");
-
+    print_line_and_token(ctx->printf, p_token);
 }
+
 
 
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path)
@@ -2576,10 +2514,7 @@ bool first_of_string_literal(struct stream* stream)
 struct token* string_literal(struct tokenizer_ctx* ctx, struct stream* stream)
 {
     struct token* p_new_token = NULL;
-
     const char* start = stream->current;
-    int start_line = stream->line;
-    int start_col = stream->col;
 
     try
     {
@@ -2605,10 +2540,7 @@ struct token* string_literal(struct tokenizer_ctx* ctx, struct stream* stream)
             if (stream->current[0] == '\0' ||
                 stream->current[0] == '\n')
             {
-                tk_seterror_with_token(ctx, "%s(%d:%d) missing terminating \" character",
-                    stream->source,
-                    start_line,
-                    start_col);
+                tokenizer_set_error(ctx, stream, "missing terminating \" character");
                 throw;
             }
 
@@ -2808,7 +2740,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         file = fopen(filename_opt, "rb");
         if (file == NULL)
         {
-            pre_seterror_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
+            preprocessor_set_error_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
             throw;
         }
 #else
@@ -2816,7 +2748,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         const char* textfile = readfile(filename_opt);
         if (textfile == NULL)
         {
-            pre_seterror_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
+            preprocessor_set_error_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
             throw;
         }
 
@@ -2900,8 +2832,8 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
     return list;
 }
 
-static bool set_sliced_flag(struct stream * stream ,struct token * p_new_token)
-{ 
+static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
+{
     if (stream->line_continuation_count > 0) {
         p_new_token->flags |= TK_FLAG_LINE_CONTINUATION;
         if (stream->line_continuation_count == 1)
@@ -2937,7 +2869,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         .col = 1,
         .line = 1,
         .source = text,
-        .current = text
+        .current = text,
+        .path = filename_opt ? filename_opt : ""
     };
 
     try
@@ -2946,7 +2879,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         if (filename_opt != NULL)
         {
             const char* bof = "";
-            p_first = new_token(bof, bof + 1, TK_BEGIN_OF_FILE);            
+            p_first = new_token(bof, bof + 1, TK_BEGIN_OF_FILE);
             p_first->level = level;
             p_first->lexeme = strdup(filename_opt);
             token_list_add(&list, p_first);
@@ -2993,7 +2926,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
              Tem que vir antes identifier
             */
             if (first_of_string_literal(&stream))
-            {                
+            {
                 struct token* p_new_token = string_literal(ctx, &stream);
                 if (p_new_token == NULL) throw;
 
@@ -3009,7 +2942,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->col = col;
                 token_list_add(&list, p_new_token);;
                 new_line = false;
-                has_space = false;                            
+                has_space = false;
                 set_sliced_flag(&stream, p_new_token);
                 continue;
             }
@@ -3048,11 +2981,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 new_line = false;
                 has_space = false;
                 if (set_sliced_flag(&stream, p_new_token))
-                {                    
-                    tk_setwarning_with_token(ctx, "%s:%d:%d: token sliced",
-                        filename_opt ? filename_opt : "",
-                        stream.line,
-                        stream.col);                    
+                {
+                    tokenizer_set_warning(ctx, &stream, "token sliced");
                 }
                 continue;
             }
@@ -3094,10 +3024,13 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 while (stream.current[0] != '\n')
                 {
                     stream_match(&stream);
+
+                    if (stream.current[0] == '\0')
+                        break;
                 }
                 struct token* p_new_token = new_token(start, stream.current, TK_LINE_COMMENT);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;                
+                p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
 
                 p_new_token->level = level;
@@ -3108,6 +3041,10 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 new_line = true;
                 has_space = false;
                 set_sliced_flag(&stream, p_new_token);
+
+                if (stream.current[0] == '\0')
+                    break;
+
                 continue;
             }
             if (stream.current[0] == '/' &&
@@ -3126,8 +3063,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         break;
                     }
                     else if (stream.current[0] == '\0')
-                    {                        
-                        tk_seterror_with_token(ctx, "missing end of comment");
+                    {
+                        tokenizer_set_error(ctx, &stream, "missing end of comment");
                         break;
                     }
                     else
@@ -3135,7 +3072,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         stream_match(&stream);
                     }
                 }
-                struct token* p_new_token = new_token(start, stream.current, TK_COMENT);
+                struct token* p_new_token = new_token(start, stream.current, TK_COMMENT);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -3147,7 +3084,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                
+
                 /*
                 * Ignore line splicing inside comments.
                 * if you are curious to see when it happens just add
@@ -3328,7 +3265,7 @@ struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* inp
 
 bool is_parser_token(struct token* p)
 {
-    return p->type != TK_COMENT &&
+    return p->type != TK_COMMENT &&
         p->type != TK_BLANKS &&
         p->type != TK_LINE_COMMENT &&
         p->type != TK_NEWLINE;
@@ -3339,7 +3276,7 @@ bool is_never_final(enum token_type type)
     return type == TK_BEGIN_OF_FILE ||
         type == TK_BLANKS ||
         type == TK_LINE_COMMENT ||
-        type == TK_COMENT ||
+        type == TK_COMMENT ||
         type == TK_PLACEMARKER ||
         type == TK_NEWLINE;
 }
@@ -3366,7 +3303,7 @@ struct token* preprocessor_look_ahead_core(struct token* p)
         (current->type == TK_BLANKS ||
             current->type == TK_PLACEMARKER ||
             current->type == TK_LINE_COMMENT ||
-            current->type == TK_COMENT))
+            current->type == TK_COMMENT))
     {
         current = current->next;
     }
@@ -3394,7 +3331,7 @@ bool preprocessor_token_previous_is(struct token* p, enum token_type t)
         (current->type == TK_BLANKS ||
             current->type == TK_LINE_COMMENT ||
             current->type == TK_PLACEMARKER ||
-            current->type == TK_COMENT))
+            current->type == TK_COMMENT))
     {
         current = current->prev;
     }
@@ -3446,7 +3383,7 @@ void prematch_level(struct token_list* dest, struct token_list* input_list, int 
 }
 
 void prematch(struct token_list* dest, struct token_list* input_list)
-{    
+{
     token_list_add(dest, token_list_pop_front(input_list));
 }
 
@@ -3496,7 +3433,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 {
                     if (input_list->head->type != ')')
                     {
-                        pre_seterror_with_token(ctx, input_list->head, "missing )");
+                        preprocessor_set_error_with_token(ctx, input_list->head, "missing )");
                         throw;
                     }
                     token_list_pop_front(input_list);
@@ -3698,14 +3635,14 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     int level
 )
 {
-    struct token * first = input_list->head;
+    struct token* first = input_list->head;
 
     ctx->conditional_inclusion = true;
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
         token_list_add(&r, token_list_pop_front(input_list));
-        
+
         /*
           We call preprocessor that emmit warnings if line continuation
           is used outside macro directives.
@@ -3765,7 +3702,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     long long value = 0;
     if (pre_constant_expression(&pre_ctx, &value) != 0)
     {
-        pre_seterror_with_token(ctx, first, "expression error");
+        preprocessor_set_error_with_token(ctx, first, "expression error");
     }
 
     ctx->conditional_inclusion = false;
@@ -3797,9 +3734,9 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
             else
             {
                 if (input_list->head)
-                    pre_seterror_with_token(ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
+                    preprocessor_set_error_with_token(ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
                 else
-                    pre_seterror_with_token(ctx, dest->tail, "expected EOF \n");
+                    preprocessor_set_error_with_token(ctx, dest->tail, "expected EOF \n");
 
                 throw;
             }
@@ -3882,7 +3819,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         else
         {
 
-            pre_seterror_with_token(ctx, input_list->head, "unexpected");
+            preprocessor_set_error_with_token(ctx, input_list->head, "unexpected");
             throw;
         }
         struct token_list r2 = group_opt(ctx, input_list, is_active && *p_result, level);
@@ -4116,7 +4053,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
 struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, struct token_list* input_list, int level)
 {
     struct token_list r = { 0 };
-    
+
     while (input_list->head->type != TK_NEWLINE)
     {
         match_level(&r, input_list, level);
@@ -4242,7 +4179,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (!already_included)
                 {
-                    pre_seterror_with_token(ctx, r.tail, "file %s not found", path + 1);
+                    preprocessor_set_error_with_token(ctx, r.tail, "file %s not found", path + 1);
 
                     for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
                     {
@@ -4349,7 +4286,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct macro* macro = calloc(1, sizeof * macro);
             if (macro == NULL)
             {
-                pre_seterror_with_token(ctx, ctx->current, "out of mem");
+                preprocessor_set_error_with_token(ctx, ctx->current, "out of mem");
                 throw;
             }
 
@@ -4577,6 +4514,7 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
     try
     {
         assert(input_list->head->type == TK_IDENTIFIER); //nome da macro
+        const struct token* const macro_name_token = input_list->head;
 
         match_token_level(&macro_argument_list.tokens, input_list, TK_IDENTIFIER, level, ctx); //NOME DA MACRO
         if (!macro->is_function)
@@ -4631,8 +4569,7 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
                         }
                         else
                         {
-                            //tODO
-                            pre_seterror_with_token(ctx, input_list->head, "too few arguments provided to function-like macro invocation\n");
+                            preprocessor_set_error_with_token(ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
                             throw;
                         }
                     }
@@ -4662,7 +4599,7 @@ struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
                     p_current_parameter = p_current_parameter->next;
                     if (p_current_parameter == NULL)
                     {
-                        pre_seterror_with_token(ctx, input_list->head, "invalid args");
+                        preprocessor_set_error_with_token(ctx, macro_name_token, "invalid args");
                         throw;
                     }
                     p_argument->name = strdup(p_current_parameter->name);
@@ -4718,7 +4655,7 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
         {
             if (r.tail == NULL)
             {
-                pre_seterror_with_token(ctx, input_list->head, "missing macro argument (should be checked before)");
+                preprocessor_set_error_with_token(ctx, input_list->head, "missing macro argument (should be checked before)");
                 break;
             }
             /*
@@ -4869,7 +4806,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                                 break;
                         }
                         token_list_remove(input_list, p_token, p_token);
-                    }                    
+                    }
                     continue;
                 }
 
@@ -4902,14 +4839,14 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
                     char* s = token_list_join_tokens(&argumentlist, true);
                     if (s == NULL)
                     {
-                        pre_seterror_with_token(ctx, input_list->head, "unexpected");
+                        preprocessor_set_error_with_token(ctx, input_list->head, "unexpected");
                         throw;
                     }
                     struct token* p_new_token = calloc(1, sizeof * p_new_token);
                     p_new_token->lexeme = s;
                     p_new_token->type = TK_STRING_LITERAL;
                     p_new_token->flags = flags;
-                    token_list_add(&r, p_new_token);                    
+                    token_list_add(&r, p_new_token);
                     continue;
                 }
                 else if (r.tail != NULL && r.tail->type == '##')
@@ -5458,22 +5395,22 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
             }
             else
             {
-                if ( input_list->head->flags & TK_FLAG_LINE_CONTINUATION &&
-                     !(input_list->head->flags & TK_FLAG_MACRO_EXPANDED)
+                if (input_list->head->flags & TK_FLAG_LINE_CONTINUATION &&
+                    !(input_list->head->flags & TK_FLAG_MACRO_EXPANDED)
                     )
                 {
                     /*
                        The only place were line-continuation are really necessary is
-                       inside preprocessor directives. 
+                       inside preprocessor directives.
                        Here we are inside text-line so we can send a info that
-                       here is optional.                       
+                       here is optional.
                     */
                     if (input_list->head->type == TK_STRING_LITERAL)
-                      pre_setinfo_with_token(ctx, input_list->head, "unnecessary line-slicing because you can use \"adjacent\" \"strings\"");
+                        preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
                     else if (input_list->head->type == TK_LINE_COMMENT)
-                        pre_setinfo_with_token(ctx, input_list->head, "unnecessary line-slicing because you can use /*comments*/");
-                    else 
-                        pre_setinfo_with_token(ctx, input_list->head, "unnecessary line-slicing");
+                        preprocessor_set_warning_with_token(ctx, input_list->head, "multi-line //comment");
+                    else
+                        preprocessor_set_warning_with_token(ctx, input_list->head, "unnecessary line-slicing");
                 }
 
                 bool blanks = token_is_blank(input_list->head) || input_list->head->type == TK_NEWLINE;
@@ -5779,7 +5716,7 @@ const char* get_token_name(enum token_type tk)
     case TK_PREPROCESSOR_LINE: return "TK_PREPROCESSOR_LINE";
     case TK_STRING_LITERAL: return "TK_STRING_LITERAL";
     case TK_LINE_COMMENT: return "TK_LINE_COMMENT";
-    case TK_COMENT: return "TK_COMENT";
+    case TK_COMMENT: return "TK_COMENT";
     case TK_PPNUMBER: return "TK_PPNUMBER";
     case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN";
     case TK_COMPILER_DECIMAL_CONSTANT: return "TK_COMPILER_DECIMAL_CONSTANT";
@@ -5952,7 +5889,7 @@ const char* get_code_as_we_see(struct token_list* list, bool remove_comments)
             {
                 if (current->type == TK_LINE_COMMENT)
                     ss_fprintf(&ss, "\n");
-                else if (current->type == TK_COMENT)
+                else if (current->type == TK_COMMENT)
                     ss_fprintf(&ss, " ");
                 else
                     ss_fprintf(&ss, "%s", current->lexeme);
@@ -5992,7 +5929,7 @@ const char* get_code_as_compiler_see(struct token_list* list)
 
             if (current->type == TK_LINE_COMMENT)
                 ss_fprintf(&ss, "\n");
-            else if (current->type == TK_COMENT)
+            else if (current->type == TK_COMMENT)
                 ss_fprintf(&ss, " ");
             else
                 ss_fprintf(&ss, "%s", current->lexeme);
@@ -6107,7 +6044,7 @@ const char* print_preprocessed_to_string(struct token* p_token)
     */
     while (!(current->flags & TK_FLAG_FINAL) ||
         current->type == TK_BLANKS ||
-        current->type == TK_COMENT ||
+        current->type == TK_COMMENT ||
         current->type == TK_LINE_COMMENT ||
         current->type == TK_NEWLINE ||
         current->type == TK_PREPROCESSOR_LINE)
@@ -6227,7 +6164,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
         return;
 
     if (!is_screaming_case(token->lexeme)) {
-        pre_setinfo_with_token(ctx, token, "use SCREAMING_CASE for macros");
+        preprocessor_set_info_with_token(ctx, token, "use SCREAMING_CASE for macros");
     }
 
 }
@@ -7098,7 +7035,7 @@ void test_string()
         ;
 
 
-    return test_preprocessor_in_out(input, output);
+    test_preprocessor_in_out(input, output);
 }
 
 void test6()
@@ -7217,8 +7154,7 @@ void bad_test()
         "0xfe-BAD(3);"
         ;
 
-    return test_preprocessor_in_out(input, output);
-
+    test_preprocessor_in_out(input, output);
 }
 /*
 #define A0
@@ -8974,6 +8910,11 @@ struct _destroy type
 
 const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
 
+struct expression;
+
+void check_assigment(struct parser_ctx* ctx,
+    struct type* left_type,
+    struct expression* right);
 
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
@@ -8996,10 +8937,11 @@ bool type_is_pointer(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
+bool type_is_unsigned_integer(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
 
 bool type_is_arithmetic(const struct type* p_type);
-bool type_is_compatible(const struct type* a, struct type* b);
+
 bool type_is_struct_or_union(const struct type* p_type);
 bool type_is_void(const struct type* p_type);
 bool type_is_function_or_function_pointer(const struct type* p_type);
@@ -9027,7 +8969,7 @@ struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
-struct  function_declarator_type* get_function_declarator_type(struct type* p_type);
+
 
 struct type type_remove_pointer(const struct type* p_type);
 struct type get_array_item_type(const struct type* p_type);
@@ -9204,14 +9146,16 @@ struct generic_selection
     struct token* last_token;
 };
 
+enum constant_value_type {
+    TYPE_NOT_CONSTANT,
+    TYPE_EMPTY,
+    TYPE_LONG_LONG,
+    TYPE_DOUBLE,
+    TYPE_UNSIGNED_LONG_LONG
+};
+
 struct constant_value {
-    enum {        
-        TYPE_NOT_CONSTANT, 
-        TYPE_EMPTY, 
-        TYPE_LONG_LONG, 
-        TYPE_DOUBLE, 
-        TYPE_UNSIGNED_LONG_LONG 
-    } type;
+    enum constant_value_type type;
     union {
         unsigned long long ullvalue;
         long long llvalue;
@@ -9345,13 +9289,12 @@ struct enumerator* find_enumerator(struct parser_ctx* ctx, const char* lexeme, s
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
 bool first_is(struct parser_ctx* ctx, enum token_type type);
 void print_scope(struct scope_list* e);
-void parser_seterror_with_token(struct parser_ctx* er, struct token* p_token, const char* fmt, ...);
 
 char* CompileText(const char* options, const char* content);
 
-void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
-void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
-void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...);
+void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void compiler_set_info_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
 struct declaration_list parse(struct options* options, struct token_list* list, struct report* report);
@@ -10531,6 +10474,38 @@ bool constant_value_to_bool(const struct constant_value* a)
     return 0;
 }
 
+struct constant_value constant_value_cast(const struct constant_value* a, enum constant_value_type type)
+{
+    struct constant_value r = *a;
+
+    if (a->type == TYPE_EMPTY || a->type == TYPE_NOT_CONSTANT)
+    {
+        return r;
+    }
+
+    switch (type)
+    {
+    case TYPE_NOT_CONSTANT:
+    case TYPE_EMPTY:
+        assert(false);
+        break;
+
+    case TYPE_LONG_LONG:
+        r.type = TYPE_LONG_LONG;
+        r.llvalue = constant_value_to_ll(a);
+        break;
+    case TYPE_DOUBLE:
+        r.type = TYPE_DOUBLE;
+        r.dvalue = constant_value_to_double(a);
+        break;
+    case TYPE_UNSIGNED_LONG_LONG:
+        r.type = TYPE_UNSIGNED_LONG_LONG;
+        r.ullvalue = constant_value_to_ull(a);
+        break;
+    }
+    return r;
+}
+
 struct constant_value constant_value_unary_op(const struct constant_value* a, int op)
 {
     struct constant_value r = { 0 };
@@ -10544,10 +10519,10 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         r.type = TYPE_DOUBLE;
         switch (op)
         {
-        case '!':r.dvalue = !(unsigned int)a->dvalue;  break;
-        case '~':r.dvalue = ~(unsigned int)a->dvalue;  break;
-        case '+':r.dvalue = +(unsigned int)a->dvalue;  break;
-            //case '-':r.dvalue = -(unsigned int)a->dvalue;  break;
+        case '!':r.dvalue = !a->dvalue;  break;
+            //case '~':r.dvalue = ~ a->dvalue;  break;
+        case '+':r.dvalue = +a->dvalue;  break;
+        case '-':r.dvalue = -a->dvalue;  break;
         default:
             assert(false);
             break;
@@ -10563,6 +10538,9 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         case '~':r.ullvalue = ~a->ullvalue;  break;
         case '+':r.ullvalue = a->ullvalue;  break;
             //case '-':r.dvalue = -a->ullvalue;  break;
+        case '-':
+            r.dvalue = 0;// -a->ullvalue;
+            break;
         default:
             assert(false);
             break;
@@ -10844,7 +10822,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 
         if (current_argument != NULL && !p_param_list->is_var_args)
         {
-            parser_seterror_with_token(ctx,
+            compiler_set_error_with_token(ctx,
                 p_argument_expression_list->tail->expression->first_token,
                 "too many arguments");
             throw;
@@ -10854,13 +10832,13 @@ int  compare_function_arguments(struct parser_ctx* ctx,
         {
             if (p_argument_expression_list->tail)
             {
-                parser_seterror_with_token(ctx,
+                compiler_set_error_with_token(ctx,
                     p_argument_expression_list->tail->expression->first_token,
                     "too few arguments");
             }
             else
             {
-                parser_seterror_with_token(ctx,
+                compiler_set_error_with_token(ctx,
                     ctx->current,
                     "too few arguments");
             }
@@ -10999,7 +10977,7 @@ struct generic_association* generic_association(struct parser_ctx* ctx)
         }
         else
         {
-            parser_seterror_with_token(ctx, ctx->current, "unexpected");
+            compiler_set_error_with_token(ctx, ctx->current, "unexpected");
         }
         parser_match_tk(ctx, ':');
         p_generic_association->expression = assignment_expression(ctx);
@@ -11277,7 +11255,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 struct declarator* p_declarator = find_declarator(ctx, ctx->current->lexeme, NULL);
                 if (p_declarator == NULL)
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
+                    compiler_set_error_with_token(ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
                     throw;
                 }
                 else
@@ -11285,7 +11263,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
 
                     if (type_is_deprecated(&p_declarator->type))
                     {
-                        parser_setwarning_with_token(ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
+                        compiler_set_warning_with_token(ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
                     }
 
                     p_declarator->num_uses++;
@@ -11416,7 +11394,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                parser_seterror_with_token(ctx, ctx->current, "no match for generic");
+                compiler_set_error_with_token(ctx, ctx->current, "no match for generic");
             }
         }
         else if (ctx->current->type == '(')
@@ -11428,7 +11406,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
         }
         else
         {
-            parser_seterror_with_token(ctx, ctx->current, "unexpected");
+            compiler_set_error_with_token(ctx, ctx->current, "unexpected");
         }
     }
     catch
@@ -11543,7 +11521,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
 
                 if (!type_is_function_or_function_pointer(&p_expression_node->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current,
+                    compiler_set_error_with_token(ctx, ctx->current,
                         "called object is not attr function or function pointer");
                     throw;
                 }
@@ -11582,7 +11560,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                         }
                         else
                         {
-                            parser_seterror_with_token(ctx, ctx->current, "struct member '%s' not found in '%s'",
+                            compiler_set_error_with_token(ctx, ctx->current, "struct member '%s' not found in '%s'",
                                 ctx->current->lexeme,
                                 p_expression_node->type.struct_or_union_specifier->tag_name);
                         }
@@ -11595,7 +11573,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 }
                 else
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "structure or union required");
+                    compiler_set_error_with_token(ctx, ctx->current, "structure or union required");
                 }
                 //todo apontar pro nome?
                 p_expression_node = p_expression_node_new;
@@ -11624,7 +11602,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                         }
                         else
                         {
-                            parser_seterror_with_token(ctx,
+                            compiler_set_error_with_token(ctx,
                                 ctx->current,
                                 "struct member '%s' not found in '%s'",
                                 ctx->current->lexeme, p_expression_node->type.struct_or_union_specifier->tag_name);
@@ -11632,7 +11610,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                     }
                     else
                     {
-                        parser_seterror_with_token(ctx,
+                        compiler_set_error_with_token(ctx,
                             ctx->current,
                             "struct '%s' is incomplete.",
                             p_expression_node->type.struct_or_union_specifier->tag_name);
@@ -11641,7 +11619,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 }
                 else
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "structure or union required");
+                    compiler_set_error_with_token(ctx, ctx->current, "structure or union required");
                 }
                 //todo apontar pro nome?
                 p_expression_node = p_expression_node_new;
@@ -11884,7 +11862,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 
         if (new_expression->declarator == NULL)
         {
-            parser_seterror_with_token(ctx,
+            compiler_set_error_with_token(ctx,
                 new_expression->contract_arg_token,
                 "declarator not found");
         }
@@ -11900,7 +11878,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
     }
     else
     {
-        parser_seterror_with_token(ctx, new_expression->contract_arg_token, "expected declarator name or return");
+        compiler_set_error_with_token(ctx, new_expression->contract_arg_token, "expected declarator name or return");
     }
 
     parser_match_tk(ctx, ',');
@@ -11918,7 +11896,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
         }
         else
         {
-            parser_seterror_with_token(ctx, ctx->current, "unknown attribute name");
+            compiler_set_error_with_token(ctx, ctx->current, "unknown attribute name");
         }
         parser_match(ctx);
     }
@@ -11932,7 +11910,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 
     if (new_expression->declarator == NULL ||
         new_expression->declarator->is_parameter_declarator)
-    {        
+    {
     }
     else
     {
@@ -12058,7 +12036,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 new_expression->expression_type = UNARY_EXPRESSION_CONTENT;
                 if (!type_is_pointer(&new_expression->right->type))
                 {
-                    parser_seterror_with_token(ctx, op_position, "indirection requires pointer operand");
+                    compiler_set_error_with_token(ctx, op_position, "indirection requires pointer operand");
                 }
                 new_expression->type = type_remove_pointer(&new_expression->right->type);
             }
@@ -12070,7 +12048,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid token");
+                compiler_set_error_with_token(ctx, ctx->current, "invalid token");
                 throw;
             }
             p_expression_node = new_expression;
@@ -12332,6 +12310,24 @@ struct expression* cast_expression(struct parser_ctx* ctx)
                 if (p_expression_node->left == NULL) throw;
                 p_expression_node->constant_value = p_expression_node->left->constant_value;
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+                if (type_is_floating_point(&p_expression_node->type))
+                {
+                    p_expression_node->constant_value =
+                        constant_value_cast(&p_expression_node->constant_value, TYPE_DOUBLE);
+                }
+                else if (type_is_integer(&p_expression_node->type))
+                {
+                    if (type_is_unsigned_integer(&p_expression_node->type))
+                    {
+                        p_expression_node->constant_value =
+                            constant_value_cast(&p_expression_node->constant_value, TYPE_UNSIGNED_LONG_LONG);
+                    }
+                    else
+                    {
+                        p_expression_node->constant_value =
+                            constant_value_cast(&p_expression_node->constant_value, TYPE_LONG_LONG);
+                    }
+                }
             }
             else
             {
@@ -12346,7 +12342,7 @@ struct expression* cast_expression(struct parser_ctx* ctx)
         }
         else
         {
-            parser_seterror_with_token(ctx, ctx->current, "unexpected");
+            compiler_set_error_with_token(ctx, ctx->current, "unexpected");
         }
     }
     catch
@@ -12402,12 +12398,12 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
 
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "left * is not arithmetic");
+                    compiler_set_error_with_token(ctx, ctx->current, "left * is not arithmetic");
 
                 }
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "right * is not arithmetic");
+                    compiler_set_error_with_token(ctx, ctx->current, "right * is not arithmetic");
                 }
 
             }
@@ -12422,17 +12418,17 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                 if (constant_value_is_valid(&new_expression->right->constant_value) &&
                     constant_value_to_ll(&new_expression->right->constant_value) == 0)
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "divizion by zero");
+                    compiler_set_error_with_token(ctx, ctx->current, "divizion by zero");
                 }
 
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "left / is not arithmetic");
+                    compiler_set_error_with_token(ctx, ctx->current, "left / is not arithmetic");
 
                 }
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "right / is not arithmetic");
+                    compiler_set_error_with_token(ctx, ctx->current, "right / is not arithmetic");
                 }
             }
             else if (op == '%')
@@ -12442,18 +12438,18 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
 
                 if (!type_is_integer(&new_expression->left->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "left is not integer");
+                    compiler_set_error_with_token(ctx, ctx->current, "left is not integer");
 
                 }
                 if (!type_is_integer(&new_expression->right->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "right is not integer");
+                    compiler_set_error_with_token(ctx, ctx->current, "right is not integer");
                 }
 
                 if (constant_value_is_valid(&new_expression->right->constant_value) &&
                     constant_value_to_ll(&new_expression->right->constant_value) == 0)
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "divizion by zero");
+                    compiler_set_error_with_token(ctx, ctx->current, "divizion by zero");
                 }
             }
 
@@ -12464,7 +12460,7 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid type multiplicative expression");
+                compiler_set_error_with_token(ctx, ctx->current, "invalid type multiplicative expression");
                 throw;
             }
 
@@ -12514,11 +12510,11 @@ struct expression* additive_expression(struct parser_ctx* ctx)
 
             if (!type_is_scalar(&new_expression->left->type))
             {
-                parser_seterror_with_token(ctx, operator_position, "left operator is not scalar");
+                compiler_set_error_with_token(ctx, operator_position, "left operator is not scalar");
             }
             if (!type_is_scalar(&new_expression->right->type))
             {
-                parser_seterror_with_token(ctx, operator_position, "right operator is not scalar");
+                compiler_set_error_with_token(ctx, operator_position, "right operator is not scalar");
             }
 
 
@@ -12543,7 +12539,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                     int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
                     if (code != 0)
                     {
-                        parser_seterror_with_token(ctx, ctx->current, "internal error");
+                        compiler_set_error_with_token(ctx, ctx->current, "internal error");
                         throw;
                     }
                 }
@@ -12566,7 +12562,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                         }
                         else
                         {
-                            parser_seterror_with_token(ctx, ctx->current, "expected integer type on right");
+                            compiler_set_error_with_token(ctx, ctx->current, "expected integer type on right");
                         }
                     }
                     else if (right_category == TYPE_CATEGORY_POINTER || right_category == TYPE_CATEGORY_ARRAY /*|| right_category == TYPE_CATEGORY_FUNCTION*/)
@@ -12584,12 +12580,12 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                         }
                         else
                         {
-                            parser_seterror_with_token(ctx, ctx->current, "expected integer type on left");
+                            compiler_set_error_with_token(ctx, ctx->current, "expected integer type on left");
                         }
                     }
                     else
                     {
-                        parser_seterror_with_token(ctx, ctx->current, "invalid types additive expression");
+                        compiler_set_error_with_token(ctx, ctx->current, "invalid types additive expression");
                     }
                 }
             }
@@ -12612,7 +12608,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                     int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
                     if (code != 0)
                     {
-                        parser_seterror_with_token(ctx, ctx->current, "internal error type_common");
+                        compiler_set_error_with_token(ctx, ctx->current, "internal error type_common");
                         throw;
                     }
                 }
@@ -12629,7 +12625,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
 
                             if (!type_is_same(&t1, &t2, false))
                             {
-                                parser_seterror_with_token(ctx, ctx->current, "incompatible pointer types");
+                                compiler_set_error_with_token(ctx, ctx->current, "incompatible pointer types");
                             }
 
                             new_expression->type = type_make_int();
@@ -12645,13 +12641,13 @@ struct expression* additive_expression(struct parser_ctx* ctx)
                             }
                             else
                             {
-                                parser_seterror_with_token(ctx, ctx->current, "right must be integer type");
+                                compiler_set_error_with_token(ctx, ctx->current, "right must be integer type");
                             }
                         }
                     }
                     else
                     {
-                        parser_seterror_with_token(ctx, ctx->current, "invalid types for operator -");
+                        compiler_set_error_with_token(ctx, ctx->current, "invalid types for operator -");
                     }
                 }
             }
@@ -12726,7 +12722,7 @@ struct expression* shift_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid type shift expression");
+                compiler_set_error_with_token(ctx, ctx->current, "invalid type shift expression");
                 throw;
             }
 
@@ -12869,7 +12865,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                      * diferent scopes.
                     */
 
-                    parser_setwarning_with_token(ctx,
+                    compiler_set_warning_with_token(ctx,
                         operator_token,
                         "comparison between 'enum %s' and 'enum %s'",
                         lefttag,
@@ -12962,7 +12958,7 @@ struct expression* and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types and expression");
+                compiler_set_error_with_token(ctx, ctx->current, "invalid types and expression");
                 throw;
             }
 
@@ -13013,7 +13009,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types or expression");
+                compiler_set_error_with_token(ctx, ctx->current, "invalid types or expression");
                 throw;
             }
 
@@ -13062,7 +13058,7 @@ struct expression* inclusive_or_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid types inclusive or expression");
+                compiler_set_error_with_token(ctx, ctx->current, "invalid types inclusive or expression");
                 throw;
             }
             p_expression_node = new_expression;
@@ -13109,7 +13105,7 @@ struct expression* logical_and_expression(struct parser_ctx* ctx)
             {
                 type_print(&new_expression->left->type);
                 type_print(&new_expression->right->type);
-                parser_seterror_with_token(ctx, ctx->current, "invalid types logicl and expression");
+                compiler_set_error_with_token(ctx, ctx->current, "invalid types logicl and expression");
                 throw;
             }
             p_expression_node = new_expression;
@@ -13153,12 +13149,12 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
 
 
             if (!type_is_scalar(&new_expression->left->type)) {
-                parser_seterror_with_token(ctx, ctx->current, "left type is not scalar for or expression");
+                compiler_set_error_with_token(ctx, ctx->current, "left type is not scalar for or expression");
                 throw;
             }
 
             if (!type_is_scalar(&new_expression->right->type)) {
-                parser_seterror_with_token(ctx, ctx->current, "right type is not scalar for or expression");
+                compiler_set_error_with_token(ctx, ctx->current, "right type is not scalar for or expression");
                 throw;
             }
 
@@ -13222,22 +13218,27 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
 
             if (category == TYPE_CATEGORY_FUNCTION)
             {
-                parser_seterror_with_token(ctx, ctx->current, "assignment of function");
+                compiler_set_error_with_token(ctx, ctx->current, "assignment of function");
             }
             else if (category == TYPE_CATEGORY_ARRAY)
             {
-                parser_seterror_with_token(ctx, ctx->current, "assignment to expression with array type");
+                compiler_set_error_with_token(ctx, ctx->current, "assignment to expression with array type");
             }
             else {
 
                 if (type_is_const(&new_expression->left->type))
                 {
-                    parser_seterror_with_token(ctx, ctx->current, "assignment of read-only object");
+                    compiler_set_error_with_token(ctx, ctx->current, "assignment of read-only object");
                 }
             }
 
             new_expression->right = assignment_expression(ctx);
             if (new_expression->right == NULL) throw;
+
+            if (ctx->current->type == '=')
+            {
+                check_assigment(ctx, &new_expression->left->type, new_expression->right);
+            }
 
             if (new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
             {
@@ -13415,7 +13416,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
             /*The first operand shall have scalar type*/
             if (!type_is_scalar(&p_conditional_expression->condition_expr->type))
             {
-                parser_seterror_with_token(ctx, ctx->current, "condition must have scalar type");
+                compiler_set_error_with_token(ctx, ctx->current, "condition must have scalar type");
                 goto continuation;
             }
 
@@ -13437,7 +13438,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
             {
                 if (!type_is_same(&left_type, &right_type, true))
                 {
-                    parser_seterror_with_token(ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
+                    compiler_set_error_with_token(ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
                 }
                 type_swap(&p_conditional_expression->type, &right_type);
                 goto continuation;
@@ -13487,14 +13488,14 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
                     {
                         type_print(&left_type);
                         type_print(&right_type);
-                        parser_seterror_with_token(ctx, ctx->current, "incompatible types");
+                        compiler_set_error_with_token(ctx, ctx->current, "incompatible types");
                         goto continuation;
                     }
                     type_swap(&p_conditional_expression->type, &right_type);
                     goto continuation;
                 }
 
-                parser_seterror_with_token(ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
+                compiler_set_error_with_token(ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
                 goto continuation;
             }
 
@@ -13518,14 +13519,14 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
 
                     if (!type_is_same(&left_type, &right_type, false))
                     {
-                        parser_seterror_with_token(ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
+                        compiler_set_error_with_token(ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
                         goto continuation;
                     }
                     type_swap(&p_conditional_expression->type, &right_type);
                     goto continuation;
                 }
 
-                parser_seterror_with_token(ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
+                compiler_set_error_with_token(ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
                 goto continuation;
             }
         continuation:;
@@ -13548,7 +13549,7 @@ struct expression* constant_expression(struct parser_ctx* ctx)
 
     if (p_expression && !constant_value_is_valid(&p_expression->constant_value))
     {
-        parser_seterror_with_token(ctx, ctx->current, "expected constant expression");
+        compiler_set_error_with_token(ctx, ctx->current, "expected constant expression");
     }
 
     return p_expression;
@@ -13580,7 +13581,6 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
 /*
   For performance reasons we will separate expression from preprocessor from compiler.
 */
-
 
 #ifdef _WIN32
 #endif
@@ -13615,7 +13615,6 @@ void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx
 void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
 
 
-void pre_seterror_with_token(struct preprocessor_ctx* ctx, struct token* p_token, const char* fmt, ...);
 
 /*
 * preprocessor uses long long
@@ -13714,14 +13713,14 @@ void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expression_c
             if (ctx->n_errors > 0) throw;
             if (ctx->current && ctx->current->type != ')')
             {
-                pre_seterror_with_token(ctx, ctx->current, "expected )");
+                preprocessor_set_error_with_token(ctx, ctx->current, "expected )");
                 throw;
             }
             pre_match(ctx);
         }
         else
         {
-            pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+            preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             throw;
 
         }
@@ -13781,7 +13780,7 @@ void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx
     {
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
-            pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+            preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             throw;
         }
         else if (ctx->current != NULL &&
@@ -13807,15 +13806,15 @@ void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx
                 ectx->value = +ectx->value;
             else if (op == '*')
             {
-                pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
             else if (op == '&')
             {
-                pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
             else
             {
-                pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
         }
         else 
@@ -13903,7 +13902,7 @@ void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_
             pre_match(ctx);
             if (ctx->current == NULL)
             {
-                pre_seterror_with_token(ctx, ctx->current, "unexpected end of file");
+                preprocessor_set_error_with_token(ctx, ctx->current, "unexpected end of file");
                 throw;
             }
             long long left_value = ectx->value;
@@ -14234,7 +14233,7 @@ void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_expressio
                 ctx->current->type == '^=' ||
                 ctx->current->type == '|='))
         {
-            pre_seterror_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+            preprocessor_set_error_with_token(ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             throw;
         }
     }
@@ -14389,7 +14388,7 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
     if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
         print_item(ss, first, "nullptr_t");
 
-    return first;
+    return *first;
 }
 
 
@@ -14889,6 +14888,16 @@ bool type_is_floating_point(const struct type* p_type)
             TYPE_SPECIFIER_FLOAT);
 }
 
+bool type_is_unsigned_integer(const struct type* p_type)
+{
+    if (type_is_integer(p_type) &&
+        (p_type->type_specifier_flags & TYPE_SPECIFIER_UNSIGNED))
+    {
+        return true;
+    }
+
+    return false;
+}
 /*
   The type char, the signed and unsigned integer types,
   and the enumerated types
@@ -14968,15 +14977,6 @@ bool type_is_scalar(const struct type* p_type)
     return false;
 }
 
-bool type_is_compatible(const struct type* expression_type, struct type* return_type)
-{
-    //TODO
-
-    //if (!type_is_same(a, b))
-      //  return false;
-
-    return true;
-}
 
 const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type)
 {
@@ -15000,6 +15000,8 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct type* paramer_type,
     int param_num)
 {
+    //see also check_assigment
+
     struct type* argument_type = &current_argument->expression->type;
     bool is_null_pointer_constant = false;
 
@@ -15019,7 +15021,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     {
         if (!type_is_same(argument_type, paramer_type, false))
         {
-            parser_seterror_with_token(ctx,
+            compiler_set_error_with_token(ctx,
                 current_argument->expression->first_token,
                 " incompatible types at argument %d", param_num);
         }
@@ -15043,7 +15045,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(paramer_type))
     {
-        parser_setwarning_with_token(ctx,
+        compiler_set_warning_with_token(ctx,
             current_argument->expression->first_token,
             " passing null as array");
 
@@ -15079,14 +15081,14 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 if (parameter_array_size != 0 &&
                     argument_array_size < parameter_array_size)
                 {
-                    parser_seterror_with_token(ctx,
+                    compiler_set_error_with_token(ctx,
                         current_argument->expression->first_token,
                         " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
                 }
             }
             else if (is_null_pointer_constant || type_is_nullptr_t(argument_type))
             {
-                parser_seterror_with_token(ctx,
+                compiler_set_error_with_token(ctx,
                     current_argument->expression->first_token,
                     " passing null as array");
             }
@@ -15112,7 +15114,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             type_print(&t1);
             type_print(&t2);
 
-            parser_seterror_with_token(ctx,
+            compiler_set_error_with_token(ctx,
                 current_argument->expression->first_token,
                 " incompatible types at argument %d", param_num);
             //disabled for now util it works correctly
@@ -15127,7 +15129,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             struct type parameter_pointer_to = type_remove_pointer(&t2);
             if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
             {
-                parser_seterror_with_token(ctx,
+                compiler_set_error_with_token(ctx,
                     current_argument->expression->first_token,
                     " discarding const at argument %d", param_num);
             }
@@ -15137,9 +15139,179 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         //return true;
     }
 
+    //TODO
+    //if (!type_is_same(paramer_type, &current_argument->expression->type, false))
+    //{
+    //    compiler_set_error_with_token(ctx,
+    //        current_argument->expression->first_token,
+    //        " incompatible types at argument %d ", param_num);
+    //}
+
 continuation:
     type_destroy(&t1);
     type_destroy(&t2);
+}
+
+void check_assigment(struct parser_ctx* ctx,
+                     struct type* left_type,
+                     struct expression* right)
+{
+
+    //see also check_function_argument_and_parameter
+
+    struct type* p_right_type = &right->type;
+    bool is_null_pointer_constant = false;
+
+    if (type_is_nullptr_t(& right->type) ||
+        (constant_value_is_valid(&right->constant_value) &&
+            constant_value_to_ull(&right->constant_value) == 0))
+    {
+        is_null_pointer_constant = true;
+    }
+
+    struct type lvalue_right_type = { 0 };
+    struct type t2 = { 0 };
+
+    if (expression_is_subjected_to_lvalue_conversion(right))
+    {
+        lvalue_right_type = type_lvalue_conversion(p_right_type);
+    }
+    else
+    {
+        lvalue_right_type = type_dup(p_right_type);
+    }
+
+
+    /*
+       less generic tests are first
+    */
+    if (type_is_enum(p_right_type) && type_is_enum(left_type))
+    {
+        if (!type_is_same(p_right_type, left_type, false))
+        {
+            compiler_set_error_with_token(ctx,
+                right->first_token,
+                " incompatible types ");
+        }
+        goto continuation;
+    }
+
+    if (type_is_arithmetic(p_right_type) && type_is_arithmetic(left_type))
+    {
+        goto continuation;
+    }
+
+    if (is_null_pointer_constant && type_is_pointer(left_type))
+    {
+        //TODO void F(int * [[opt]] p)
+        // F(0) when passing null we will check if the parameter 
+        //have the anotation [[opt]]
+
+        /*can be converted to any type*/
+        goto continuation;
+    }
+
+    if (is_null_pointer_constant && type_is_array(left_type))
+    {
+        compiler_set_warning_with_token(ctx,
+            right->first_token,
+            " passing null as array");
+
+        goto continuation;
+    }
+
+    /*
+       We have two pointers or pointer/array combination
+    */
+    if (type_is_pointer_or_array(p_right_type) && type_is_pointer_or_array(left_type))
+    {
+        if (type_is_void_ptr(p_right_type))
+        {
+            /*void pointer can be converted to any type*/
+            goto continuation;
+        }
+
+        if (type_is_void_ptr(left_type))
+        {
+            /*any pointer can be converted to void* */
+            goto continuation;
+        }
+
+
+        //TODO  lvalue
+
+        if (type_is_array(left_type))
+        {
+            int parameter_array_size = type_get_array_size(left_type);
+            if (type_is_array(p_right_type))
+            {
+                int argument_array_size = type_get_array_size(p_right_type);
+                if (parameter_array_size != 0 &&
+                    argument_array_size < parameter_array_size)
+                {
+                    compiler_set_error_with_token(ctx,
+                        right->first_token,
+                        " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
+                }
+            }
+            else if (is_null_pointer_constant || type_is_nullptr_t(p_right_type))
+            {
+                compiler_set_error_with_token(ctx,
+                    right->first_token,
+                    " passing null as array");
+            }
+            t2 = type_lvalue_conversion(left_type);
+        }
+        else
+        {
+            t2 = type_dup(left_type);
+        }
+
+
+
+        if (!type_is_same(&lvalue_right_type, &t2, false))
+        {
+            type_print(&lvalue_right_type);
+            type_print(&t2);
+
+            compiler_set_error_with_token(ctx,
+                right->first_token,
+                " incompatible types at argument " );
+            //disabled for now util it works correctly
+            //return false;
+        }
+
+        if (type_is_pointer(&lvalue_right_type) && type_is_pointer(&t2))
+        {
+            //parameter pointer do non const
+            //argument const.
+            struct type argument_pointer_to = type_remove_pointer(&lvalue_right_type);
+            struct type parameter_pointer_to = type_remove_pointer(&t2);
+            if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
+            {
+                compiler_set_error_with_token(ctx,
+                    right->first_token,
+                    " discarding const at argument ");
+            }
+            type_destroy(&argument_pointer_to);
+            type_destroy(&parameter_pointer_to);
+        }
+        //return true;
+    }
+
+    if (!type_is_same(left_type, &lvalue_right_type, false))
+    {
+      //TODO more rules..but it is good to check worst case!
+      // 
+      //  compiler_set_error_with_token(ctx,
+      //      right->first_token,
+      //      " incompatible types ");
+    }
+
+continuation:
+    type_destroy(&lvalue_right_type);
+    type_destroy(&t2);
+    
 }
 
 bool type_is_function(const struct type* p_type)
@@ -15792,7 +15964,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
-            parser_set_info_with_token(ctx, ctx->current, "type information is missing");
+            compiler_set_info_with_token(ctx, ctx->current, "type information is missing");
             throw;
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
@@ -15806,7 +15978,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
         {
             if (type_is_void(p_type))
             {
-                parser_seterror_with_token(ctx,
+                compiler_set_error_with_token(ctx,
                     ctx->current,
                     "invalid application of 'sizeof' to a void type");
                 throw;
@@ -15944,6 +16116,7 @@ struct type get_function_return_type(struct type* p_type)
         struct type r = type_dup(p_type->next->next);
         return r;
     }
+    
 
     /*function returning ... */
     struct type r = type_dup(p_type->next);
@@ -16361,7 +16534,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
         struct type* p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ARRAY;
 
-        p->array_size = pdirectdeclarator->array_declarator->constant_size;
+        p->array_size = (int) pdirectdeclarator->array_declarator->constant_size;
 
         if (pdirectdeclarator->array_declarator->static_token_opt)
         {
@@ -16764,25 +16937,12 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
 }
 
 
-void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
+void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     ctx->n_errors++;
 
     if (p_token)
-    {
-        if (p_token->token_origin)
-        {
-            ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->token_origin->lexeme,
-                p_token->line,
-                p_token->col);
-        }
-    }
-    else
-    {
-        ctx->printf(WHITE "<>");
-    }
-
+      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
@@ -16796,24 +16956,11 @@ void parser_seterror_with_token(struct parser_ctx* ctx, struct token* p_token, c
 }
 
 
-void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
+void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     ctx->n_warnings++;
 
-    if (p_token)
-    {
-        if (p_token->token_origin)
-        {
-            ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->token_origin->lexeme,
-                p_token->line,
-                p_token->col);
-        }
-    }
-    else
-    {
-        ctx->printf(WHITE "<>");
-    }
+    print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
 
     char buffer[200] = { 0 };
     va_list args;
@@ -16827,26 +16974,11 @@ void parser_setwarning_with_token(struct parser_ctx* ctx, struct token* p_token,
 }
 
 
-void parser_set_info_with_token(struct parser_ctx* ctx, struct token* p_token, const char* fmt, ...)
+void compiler_set_info_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     ctx->n_info++;
 
-    if (p_token)
-    {
-        if (p_token->token_origin)
-        {
-
-            ctx->printf(WHITE "%s:%d:%d: ",
-                p_token->token_origin->lexeme,
-                p_token->line,
-                p_token->col);
-        }
-    }
-    else
-    {
-        ctx->printf(WHITE "<>");
-    }
-
+    print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
@@ -17909,7 +18041,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     {
         if (ctx->current->type != type)
         {
-            parser_seterror_with_token(ctx, ctx->current, "expected %s", get_token_name(type));
+            compiler_set_error_with_token(ctx, ctx->current, "expected %s", get_token_name(type));
             error = 1;
         }
 
@@ -17919,7 +18051,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     }
     else
     {
-        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");
+        compiler_set_error_with_token(ctx, ctx->input_list.tail, "unexpected end of file after");
         error = 1;
     }
 
@@ -18003,7 +18135,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
-            parser_seterror_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
+            compiler_set_error_with_token(ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
             return 1;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) //ja tinha um long
@@ -18175,7 +18307,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
     {
         if (p_attribute_specifier_sequence_opt)
         {
-            parser_seterror_with_token(ctx, ctx->current, "");
+            compiler_set_error_with_token(ctx, ctx->current, "");
         }
 
         p_declaration->static_assert_declaration = static_assert_declaration(ctx);
@@ -18215,11 +18347,11 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
         {
             if (ctx->current->type == TK_IDENTIFIER)
             {
-                parser_seterror_with_token(ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
+                compiler_set_error_with_token(ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
             }
             else
             {
-                parser_seterror_with_token(ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
+                compiler_set_error_with_token(ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
             }
             parser_match(ctx); //we need to go ahead
         }
@@ -18312,7 +18444,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
                     parameter->declarator->name->level == 0 /*direct source*/
                     )
                 {
-                    parser_setwarning_with_token(ctx,
+                    compiler_set_warning_with_token(ctx,
                         parameter->declarator->first_token,
                         "'%s': unreferenced formal parameter",
                         parameter->declarator->name->lexeme);
@@ -18380,7 +18512,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx)
     }
     else
     {
-        parser_seterror_with_token(ctx, ctx->current, "unexpected");
+        compiler_set_error_with_token(ctx, ctx->current, "unexpected");
     }
     return p_declaration_specifier;
 }
@@ -18413,7 +18545,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
         if (tkname == NULL)
         {
-            parser_seterror_with_token(ctx, ctx->current, "empty declarator name?? unexpected");
+            compiler_set_error_with_token(ctx, ctx->current, "empty declarator name?? unexpected");
 
             return p_init_declarator;
         }
@@ -18450,7 +18582,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 if (p_init_declarator->declarator->type.type_qualifier_flags != 0 ||
                     p_init_declarator->declarator->type.static_array)
                 {
-                    parser_seterror_with_token(ctx,
+                    compiler_set_error_with_token(ctx,
                         p_init_declarator->declarator->first_token,
                         "static or type qualifiers are not allowed in non-parameter array declarator");
                 }
@@ -18485,8 +18617,8 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        parser_seterror_with_token(ctx, ctx->current, "redeclaration");
-                        parser_set_info_with_token(ctx, previous->name, "previous declaration");
+                        compiler_set_error_with_token(ctx, ctx->current, "redeclaration");
+                        compiler_set_info_with_token(ctx, previous->name, "previous declaration");
                     }
                 }
                 else
@@ -18497,8 +18629,8 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     if (out->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
-                        parser_setwarning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
-                        parser_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                        compiler_set_warning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
+                        compiler_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
                     }
                 }
             }
@@ -18747,7 +18879,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
 
         if (p_typeof_specifier->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
         {
-            parser_setwarning_with_token(ctx, ctx->current, "typeof used in array arguments");
+            compiler_set_warning_with_token(ctx, ctx->current, "typeof used in array arguments");
 
             if (type_is_array(&p_typeof_specifier->type))
             {
@@ -19047,7 +19179,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             }
             else
             {
-                parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
+                compiler_set_error_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
             }
         }
         else
@@ -19125,11 +19257,11 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             if (p_struct_or_union_specifier->tagtoken)
             {
                 //TODO add deprecated message
-                parser_setwarning_with_token(ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                compiler_set_warning_with_token(ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
             }
             else
             {
-                parser_setwarning_with_token(ctx, p_struct_or_union_specifier->first_token, "deprecated");
+                compiler_set_warning_with_token(ctx, p_struct_or_union_specifier->first_token, "deprecated");
             }
         }
     }
@@ -19489,7 +19621,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
         {
             if (!has_identifier)
             {
-                parser_seterror_with_token(ctx, ctx->current, "missing enum tag name");
+                compiler_set_error_with_token(ctx, ctx->current, "missing enum tag name");
                 throw;
             }
         }
@@ -19516,7 +19648,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
                 if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
                     p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    parser_seterror_with_token(ctx, p_enum_specifier->tag_token, "multiple definition of 'enum %s'",
+                    compiler_set_error_with_token(ctx, p_enum_specifier->tag_token, "multiple definition of 'enum %s'",
                         p_enum_specifier->tag_token->lexeme);
                 }
                 else if (p_previous_tag_in_this_scope->enumerator_list.head != NULL)
@@ -19530,7 +19662,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
             }
             else
             {
-                parser_seterror_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
+                compiler_set_error_with_token(ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
                 throw;
             }
         }
@@ -19736,7 +19868,7 @@ struct function_specifier* function_specifier(struct parser_ctx* ctx)
 {
     if (ctx->current->type == TK_KEYWORD__NORETURN)
     {
-        parser_set_info_with_token(ctx, ctx->current, "_Noreturn is deprecated use attributes");
+        compiler_set_info_with_token(ctx, ctx->current, "_Noreturn is deprecated use attributes");
     }
 
     struct function_specifier* p_function_specifier = NULL;
@@ -20581,12 +20713,12 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         {
             if (p_static_assert_declaration->string_literal_opt)
             {
-                parser_seterror_with_token(ctx, position, "_Static_assert failed %s\n",
+                compiler_set_error_with_token(ctx, position, "_Static_assert failed %s\n",
                     p_static_assert_declaration->string_literal_opt->lexeme);
             }
             else
             {
-                parser_seterror_with_token(ctx, position, "_Static_assert failed");
+                compiler_set_error_with_token(ctx, position, "_Static_assert failed");
             }
         }
     }
@@ -20758,7 +20890,7 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         */
         if (!is_standard_attribute)
         {
-            parser_setwarning_with_token(ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
+            compiler_set_warning_with_token(ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
         }
     }
     return p_attribute_token;
@@ -20810,12 +20942,12 @@ struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* c
     }
     if (count2 != 0)
     {
-        parser_seterror_with_token(ctx, ctx->current, "expected ']' before ')'");
+        compiler_set_error_with_token(ctx, ctx->current, "expected ']' before ')'");
 
     }
     if (count3 != 0)
     {
-        parser_seterror_with_token(ctx, ctx->current, "expected '}' before ')'");
+        compiler_set_error_with_token(ctx, ctx->current, "expected '}' before ')'");
 
     }
     return p_balanced_token_sequence;
@@ -20864,7 +20996,7 @@ struct primary_block* primary_block(struct parser_ctx* ctx)
     }
     else
     {
-        parser_seterror_with_token(ctx, ctx->current, "unexpected token");
+        compiler_set_error_with_token(ctx, ctx->current, "unexpected token");
     }
     return p_primary_block;
 }
@@ -20929,7 +21061,7 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                     {
                         if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
                         {
-                            parser_setwarning_with_token(ctx,
+                            compiler_set_warning_with_token(ctx,
                                 p_unlabeled_statement->expression_statement->expression_opt->first_token,
                                 "ignoring return value of function declared with 'nodiscard' attribute");
                         }
@@ -20956,7 +21088,7 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                 {
                     if (ctx->current->level == 0)
                     {
-                        parser_setwarning_with_token(ctx,
+                        compiler_set_warning_with_token(ctx,
                             ctx->current,
                             "expression not used");
                     }
@@ -21046,7 +21178,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 */
                 if (p_declarator->static_analisys_flags & MUST_DESTROY)
                 {
-                    parser_seterror_with_token(ctx,
+                    compiler_set_error_with_token(ctx,
                         p_declarator->name,
                         "destructor of '%s' must be called before the end of scope",
                         p_declarator->name->lexeme);
@@ -21056,7 +21188,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 if (p_declarator->static_analisys_flags & MUST_FREE)
                 {
 
-                    parser_seterror_with_token(ctx,
+                    compiler_set_error_with_token(ctx,
                         p_declarator->name,
                         "free('%s') must be called before the end of scope",
                         p_declarator->name->lexeme);
@@ -21067,7 +21199,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 {
                     if (p_declarator->name->token_origin->level == 0)
                     {
-                        parser_setwarning_with_token(ctx,
+                        compiler_set_warning_with_token(ctx,
                             p_declarator->name,
                             "'%s': unreferenced declarator",
                             p_declarator->name->lexeme);
@@ -21305,7 +21437,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
         }
         else
         {
-            parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected end of file");
+            compiler_set_error_with_token(ctx, ctx->input_list.tail, "unexpected end of file");
         }
     }
     else if (ctx->current->type == TK_KEYWORD_SWITCH)
@@ -21321,7 +21453,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
     else
     {
         assert(false);
-        parser_seterror_with_token(ctx, ctx->input_list.tail, "unexpected token");
+        compiler_set_error_with_token(ctx, ctx->input_list.tail, "unexpected token");
     }
 
     p_selection_statement->last_token = ctx->previous;
@@ -21466,7 +21598,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
         if (ctx->p_current_try_statement_opt == NULL)
         {
 
-            parser_seterror_with_token(ctx, ctx->current, "throw statement not within try block");
+            compiler_set_error_with_token(ctx, ctx->current, "throw statement not within try block");
         }
         else
         {
@@ -21497,11 +21629,12 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                 /*
                 * Check is return type is compatible with function return
                 */
-                if (!type_is_compatible(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type,
-                    &p_jump_statement->expression_opt->type))
-                {
-                    parser_seterror_with_token(ctx, p_jump_statement->expression_opt->first_token, "return type is incompatible");
-                }
+                struct type return_type = 
+                    get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type);
+                
+                check_assigment(ctx, &return_type, p_jump_statement->expression_opt);
+
+                type_destroy(&return_type);
             }
         }
     }
@@ -21753,7 +21886,8 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.34.31933\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"\
+"\n"
 
 #define STR0 \
 "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"
@@ -22379,7 +22513,7 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
         return;
 
     if (!is_snake_case(token->lexeme)) {
-        parser_set_info_with_token(ctx, token, "use snake_case for struct/union tags");
+        compiler_set_info_with_token(ctx, token, "use snake_case for struct/union tags");
     }
 }
 
@@ -22389,7 +22523,7 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
         return;
 
     if (!is_snake_case(token->lexeme)) {
-        parser_set_info_with_token(ctx, token, "use snake_case for enum tags");
+        compiler_set_info_with_token(ctx, token, "use snake_case for enum tags");
     }
 }
 
@@ -22401,7 +22535,7 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 
 
     if (!is_snake_case(token->lexeme)) {
-        parser_set_info_with_token(ctx, token, "use snake_case for functions");
+        compiler_set_info_with_token(ctx, token, "use snake_case for functions");
     }
 }
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
@@ -22415,11 +22549,11 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
         {
             if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
             {
-                parser_set_info_with_token(ctx, token, "use prefix s_ for static global variables");
+                compiler_set_info_with_token(ctx, token, "use prefix s_ for static global variables");
             }
         }
         if (!is_snake_case(token->lexeme)) {
-            parser_set_info_with_token(ctx, token, "use snake_case global variables");
+            compiler_set_info_with_token(ctx, token, "use snake_case global variables");
         }
     }
 }
@@ -22432,7 +22566,7 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
     if (!type_is_function_or_function_pointer(type))
     {
         if (!is_snake_case(token->lexeme)) {
-            parser_set_info_with_token(ctx, token, "use snake_case for local variables");
+            compiler_set_info_with_token(ctx, token, "use snake_case for local variables");
         }
     }
 }
@@ -22443,7 +22577,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
         return;
 
     if (!is_all_upper(token->lexeme)) {
-        parser_set_info_with_token(ctx, token, "use UPPERCASE for enumerators");
+        compiler_set_info_with_token(ctx, token, "use UPPERCASE for enumerators");
     }
 }
 
@@ -22453,7 +22587,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
         return;
 
     if (!is_snake_case(token->lexeme)) {
-        parser_set_info_with_token(ctx, token, "use snake_case for struct members");
+        compiler_set_info_with_token(ctx, token, "use snake_case for struct members");
     }
 }
 
@@ -22463,7 +22597,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
         return;
 
     if (!is_snake_case(token->lexeme)) {
-        parser_set_info_with_token(ctx, token, "use snake_case for arguments");
+        compiler_set_info_with_token(ctx, token, "use snake_case for arguments");
     }
 }
 
@@ -26042,7 +26176,7 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
     while (tk)
     {
         if (tk->type == TK_LINE_COMMENT ||
-            tk->type == TK_COMENT)
+            tk->type == TK_COMMENT)
         {
             ajust_if_begin(tk, ctx);
         }
