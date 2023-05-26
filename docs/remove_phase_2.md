@@ -57,7 +57,7 @@ cd";
 note: you can use adjacent strings
 ```
 
-Warning: Line-slicing inside line comments is deprecated.
+Line-slicing inside line comments is deprecated.
 
 ```c
 int main(){
@@ -78,9 +78,9 @@ warning: multi-line comment [-Wcomment]
       |    ^
 ```
 
-Warning: Line-slicing is unnecessary when used outside of comments,
+Line-slicing is unnecessary when used outside of comments,
 literal strings, or line comments, in preprocessor text-line directives
-we have a warning if we find it.
+we have a warning.
 
 ```c
 #if WINDOWS
@@ -101,12 +101,10 @@ if (condition)
   function(context, (char*)zz, z, free, FLAG_UTF8);
 }
 
-
-
 ```
 
 ```
-warning: unnecessary line-slicing
+warning: unnecessary line-slicing deprecated
 ```
 
 It is expected and normal to encounter line-slicing in # directives.
