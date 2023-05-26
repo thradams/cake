@@ -71,8 +71,18 @@ literal strings, or line comments, in preprocessor text-line directives
 we have a warning if we find it.
 
 ```c
+#if WINDOWS
+WINBASEAPI HANDLE WINAPI CreateFileMappingFromApp(HANDLE, \
+        LPSECURITY_ATTRIBUTES, ULONG, ULONG64, LPCWSTR);
+#endif
+
+
+int main() {
 int a / 
 =  1;
+}
+
+
 ```
 
 ```
