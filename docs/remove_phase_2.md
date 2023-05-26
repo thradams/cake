@@ -124,3 +124,16 @@ It is expected and normal to encounter line-slicing in # directives.
 
 As an option, consider accepting spaces after the backslash and new-line (as in C++).
 Except for this last part the other rules are already implemented in cake.
+
+Code that compiles with no warnings acording with these rules is prepared for the future if phase 2 is removed. 
+Removal of phase 2 would be make line-slicing token work as blanks 
+except in comments, line comments, literal strings. Removing phase 2 now and handling line-slicing in tokens would break code like this:
+
+```c
+#define A B\
+C
+
+```
+A would expand to B C instead BC as it is today
+
+
