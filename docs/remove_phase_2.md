@@ -70,7 +70,7 @@ int main(){
 ```
 warning: line slicing inside line-comments is deprecated. use /*comments*/
 ```
-gcc already have a warning:
+gcc/clang already have a warning:
 
 ```
 warning: multi-line comment [-Wcomment]
