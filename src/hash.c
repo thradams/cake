@@ -1,7 +1,7 @@
 #include "hash.h"
 #include <string.h>
 
-unsigned int stringhash(const char* key)
+unsigned int string_hash(const char* key)
 {
     // hash key to unsigned int value by pseudorandomizing transform
     // (algorithm copied from STL char hash in xfunctional)

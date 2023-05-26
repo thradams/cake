@@ -46,7 +46,7 @@ struct map_entry* hashmap_find(struct hash_map* map, const char* key)
     if (map->table == NULL)
       return NULL;
 
-    const unsigned int hash = stringhash(key);
+    const unsigned int hash = string_hash(key);
     const int index = hash % map->capacity;
 
     struct map_entry* pentry = map->table[index];
@@ -66,7 +66,7 @@ void * hashmap_remove(struct hash_map* map, const char* key, enum tag * p_type_o
 {
     if (map->table != NULL)
     {
-        const unsigned int hash = stringhash(key);
+        const unsigned int hash = string_hash(key);
         struct map_entry** preventry = &map->table[hash % map->capacity];
         struct map_entry* pentry = *preventry;
 
@@ -108,7 +108,7 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type)
 
     if (map->table != NULL)
     {
-        unsigned int hash = stringhash(key);
+        unsigned int hash = string_hash(key);
         int index = hash % map->capacity;
 
         struct map_entry* pentry = map->table[index];

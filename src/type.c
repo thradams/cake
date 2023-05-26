@@ -1643,7 +1643,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
                 }
             }
 
-            hash = stringhash(ss.c_str);
+            hash = string_hash(ss.c_str);
             ss_close(&ss);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)

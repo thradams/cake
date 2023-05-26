@@ -1,4 +1,4 @@
 
 #pragma once
 
-unsigned int stringhash(const char* key);
+unsigned int string_hash(const char* key);
