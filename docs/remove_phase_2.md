@@ -24,6 +24,11 @@ warning: token-slicing
 Line-slicing inside comments is treated as normal.
 
 ```c
+/****************************\
+*                            *
+*                            *
+\****************************/
+
 /*
    path = C:\path\
 */
