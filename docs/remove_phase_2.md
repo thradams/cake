@@ -1,4 +1,4 @@
-## Remove phase 2
+## Line-slicing rules
 
 ## Proposal
 
