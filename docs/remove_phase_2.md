@@ -3,7 +3,7 @@
 ## Proposal
 
 With the exception of literal strings, comments, and line comments, line-slicing in the middle of any
-token is considered a warning.
+token is considered a warning/deprecation.
 
 ```c
 #define M\
@@ -21,7 +21,7 @@ ine X
 warning: token-slicing
 ```
 
-Line-slicing inside comments is treated as normal.
+Line-slicing inside /*comments*/ is fine
 
 ```c
 
@@ -46,7 +46,7 @@ Line-slicing inside comments is treated as normal.
 */
 ```
 
-Line-slicing inside literal strings are almost normal.
+Line-slicing inside "literal strings" are almost normal.
 
 ```c
 const char* s = "ab\
@@ -57,7 +57,8 @@ cd";
 note: you can use adjacent strings
 ```
 
-Line-slicing inside line comments is deprecated.
+Line-slicing inside //comments or backslash-new-line at the end of
+//comment is warning deprecation.
 
 ```c
 int main(){
@@ -68,7 +69,7 @@ int main(){
 ```
 
 ```
-warning: line slicing inside line-comments is deprecated. use /*comments*/
+warning: multi-line \\comment is deprecated. use /*comments*/
 ```
 gcc/clang already have a warning:
 
@@ -79,8 +80,8 @@ warning: multi-line comment [-Wcomment]
 ```
 
 Line-slicing is unnecessary when used outside of comments,
-literal strings, or line comments, in preprocessor text-line directives
-we have a warning.
+literal strings, or line comments, in preprocessor text-line
+directives we have a warning.
 
 ```c
 #if WINDOWS
@@ -107,7 +108,7 @@ if (condition)
 warning: unnecessary line-slicing deprecated
 ```
 
-It is expected and normal to encounter line-slicing in # directives.
+line-slicing is expected inside # directives.
 
 ```c
 #define X { \
@@ -124,31 +125,33 @@ It is expected and normal to encounter line-slicing in # directives.
 
 TODO accept spaces betewwen backslash and new-line (as in C++).
 
-## Design alternative
+## Why deprecation?
 
-Code that compiles with no warnings acording with these rules especially
-about token slice, is prepared for the future if phase 2 is removed making
-backslash-new-line a blank token.
+Code that compiles with no warnings acording with these rules
+especially about token slice, is prepared for the future if phase 2
+is removed following these rules.
 
-This change would break code like this
+ - backslash-new-line is a blank token
+ - backslash-new-line is handled inside literal strings and comments
+ - backslash-new-line is not handled (error) inside //comments 
+ 
+Compiler can warning (unnecessary) if backslash-new-line - that now wors
+as blank - is used in preprocessor text-line.
+
+This change would break code like this and other token-sliced samples.
 
 ```c
 #define A B\
 C
 ```
+A would expand to `B C` instead `BC`.
 
-A would expand to `B C` instead `BC` as it is today
-(that is not used but..)
+List of tools not prepared to handle sliced tokens
+ - Visual Studio Code - syntax color and IDE language server
+ - Visual Studio syntax color, rename tool
+ - ...
+ 
 
-
-Even making backslash-new-line a blank token we could have a warning
-in text-line directives.
-
-Also removing phase 2 the backslash-new-line would be handled at
-comments, line comments and literal strings. 
-
-The warning in line comments would remain except unless we break 
-compatibility.
 
 
 
