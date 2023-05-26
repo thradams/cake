@@ -8,6 +8,13 @@
   ```c
  #define M\
  ACRO 1
+  
+ int a\
+ b;
+ ```
+ 
+ ```
+ warning token-sliced
  ```
  
  line-slicing inside comments are handled as normal
@@ -23,7 +30,9 @@ line-slice inside literal string are almost normal
     const char* s = "ab\
  cd";
  ```
-compiler can say: note : you can use adjacents strings
+ ```
+ note: you can use adjacents strings
+ ```
  
 warning line-slicing inside line-comments - deprecated
 
@@ -32,13 +41,33 @@ warning line-slicing inside line-comments - deprecated
     \\comment\
     a = 1
  ```
+ 
+ ```
+ warning: line slicing inside line-comments are deprecated. use /*comments*/
+ ```
 
 warning about line-slicing other than inside comments, literal string, line comments
 if used in preprocessor text-line diretive.
+
+```c
+    int a / 
+    =  1;
+ ```
+ 
+ ```
+ warning: unnecessary line-slicing
+ ```
+
 It is expected and normal find line-slicing in # directives.
 ```c
     #define X { \
     1, \
     2  \
     }
+    #if 1 || \
+        2
+    #endif
+    
+    #undef \
+           X
  ```
