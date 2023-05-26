@@ -38,7 +38,7 @@ warning line-slicing inside line-comments - deprecated
 
 ```c
     int a;
-    \\comment\
+    \\path= c:\Program Files\
     a = 1
  ```
  
