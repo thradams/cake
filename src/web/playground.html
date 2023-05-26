@@ -23,17 +23,17 @@
     <style>
         .containerOne {
             position: relative;
-            height: 500px;
+            height: 400px;
             width: 100%;
             margin: auto;
             border: 1px solid;
             margin-top: 5px;
-            margin-bottom: 5px;
+            
         }
 
 
         #container {
-            height: 500px;
+            height: 400px;
             background-color: aqua;
             position: relative;
             width: 100%;
@@ -90,13 +90,13 @@
         </div>
     </div>
 
-            <button onclick="OnCompileOuput()">Compile Ouput (using coliru online)</button>
-
+   
     <pre id="output" rows="8" 
-    style="line-height:1.5; font-weight: bolder; background-color:#f5f5f5; color:#007bfd; width: 100%;font-size;14px; font: Consolas,Liberation Mono,Courier,monospace;">
+    style="line-height:1.5;border: 1px solid #d2d3d4; font-weight: bolder; background-color:#f5f5f5; color:#007bfd; width: 100%;font-size;14px; font: Consolas,Liberation Mono,Courier,monospace;">
     </pre>
 
-    
+     <button onclick="OnCompileOuput()">Compile Ouput (using coliru online)</button>
+
     <p>Cake is compiled with emscripten and it is running in your browser.</p>
 
     <script src="splitterbar.js"></script>
@@ -128,7 +128,7 @@
 
             }
         );
-        inputEditor.setSize(null, "500");
+        inputEditor.setSize(null, "400");
         
 
         var outputEditor = CodeMirror.fromTextArea(document.getElementById('out'),
@@ -143,7 +143,7 @@
             }
         );
 
-        outputEditor.setSize("100%", "500");
+        outputEditor.setSize("100%", "400");
         
 
         const urlParams = new URLSearchParams(window.location.search);

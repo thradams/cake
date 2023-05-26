@@ -2,6 +2,7 @@ pre {
     min-width: 30em;
     vertical-align: text-top;
     display: inline-block;
+    margin-top: 2px;
 }
 code {
     vertical-align: text-top;
