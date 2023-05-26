@@ -92,7 +92,15 @@ WINBASEAPI HANDLE WINAPI CreateFileMappingFromApp(HANDLE, \
 int main() {
 int a / 
 =  1;
+
+if (condition)
+{
+  {
+                                                       \
+  }
+  function(context, (char*)zz, z, free, FLAG_UTF8);
 }
+
 
 
 ```
