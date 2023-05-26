@@ -71,3 +71,8 @@ It is expected and normal find line-slicing in # directives.
     #undef \
            X
  ```
+ 
+ As an option to accept spaces after backslash and new-line. (check C++)
+ Not implemented yet in cake
+ 
+ 
