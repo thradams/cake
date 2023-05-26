@@ -2,11 +2,43 @@
 
 ## Proposal
 
- * Make line-slicing a blank token. (just ignore it)
- * Handle line-slicing inside literal string, line comments and comments
- * Warning about line-slicing in the middle of any other token other than 
-   literal string, line comments and comments
- * warning about line-slicing inside line-comments - deprecated
- * warning about line-slicing inside text-line  deprecated (preprocessor phase)
-   (any preprocessor line with # it is normal to find line-slicing)
+ Except for literal-string, comment, and line comment, line-slicing in the middle
+ of any token is an warning.
+ 
+  ```c
+ #define M\
+ ACRO 1
+ ```
+ 
+ line-slicing inside comments are handled as normal
+ 
+ ```c
+   /*
+      path = C:\path\
+   */
+ ```
+ 
+line-slice inside literal string are almost normal
+ ```c
+    const char* s = "ab\
+ cd";
+ ```
+compiler can say: note : you can use adjacents strings
+ 
+warning line-slicing inside line-comments - deprecated
 
+```c
+    int a;
+    \\comment\
+    a = 1
+ ```
+
+warning about line-slicing other than inside comments, literal string, line comments
+if used in preprocessor text-line diretive.
+It is expected and normal find line-slicing in # directives.
+```c
+    #define X { \
+    1, \
+    2  \
+    }
+ ```
