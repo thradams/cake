@@ -44,7 +44,15 @@ enum attribute_flags
     /*
      Used to detect argument type
     */
-    CUSTOM_ATTRIBUTE_PARAM = 1 << 9
+    CUSTOM_ATTRIBUTE_PARAM = 1 << 9,
+
+    /*
+     1 == 2 results in int in C
+     lets add extra flag here
+     not sure what is the best place to put in
+     type specifier my generate some error
+    */
+    CUSTOM_ATTRIBUTE_LIKE_BOOL = 1 << 10
 };
 
 enum type_specifier_flags
@@ -81,6 +89,8 @@ enum type_specifier_flags
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
     TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
+
+
 };
 
 enum type_qualifier_flags
@@ -205,6 +215,7 @@ struct type type_param_array_to_pointer(const struct type* p_type);
 
 struct type type_make_literal_string(int size, enum type_specifier_flags chartype);
 struct type type_make_int();
+struct type type_make_int_bool_like();
 struct type type_make_size_t();
 struct type type_make_enumerator(struct enum_specifier* enum_specifier);
 struct type make_void_type();

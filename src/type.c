@@ -1878,6 +1878,16 @@ struct type make_void_type()
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
+
+struct type type_make_int_bool_like()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_INT ;
+    t.attributes_flags = CUSTOM_ATTRIBUTE_LIKE_BOOL;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
 struct type type_make_int()
 {
     struct type t = { 0 };

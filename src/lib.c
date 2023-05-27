@@ -9004,6 +9004,12 @@ enum type_specifier_flags
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
     TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
+
+    /*
+        1 == 2 results in int in C
+        lets add extra flag here TYPE_SPECIFIER_LIKE_BOOL
+    */
+    TYPE_SPECIFIER_LIKE_BOOL = 1 << 25
 };
 
 enum type_qualifier_flags
@@ -9128,6 +9134,7 @@ struct type type_param_array_to_pointer(const struct type* p_type);
 
 struct type type_make_literal_string(int size, enum type_specifier_flags chartype);
 struct type type_make_int();
+struct type type_make_int_bool_like();
 struct type type_make_size_t();
 struct type type_make_enumerator(struct enum_specifier* enum_specifier);
 struct type make_void_type();
@@ -12158,7 +12165,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
 
                 //same as v == 0
 
-                new_expression->type = type_make_int();
+                new_expression->type = type_make_int_bool_like();
             }
             else if (op == '~')
             {
@@ -12321,7 +12328,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             }
 
 
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_IS_SAME)
@@ -12342,7 +12349,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                         &new_expression->type_name2->declarator->type, true));
 
 
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
@@ -12945,7 +12952,7 @@ struct expression* relational_expression(struct parser_ctx* ctx)
             new_expression->constant_value =
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
 
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
             new_expression = NULL;/*MOVED*/
@@ -13061,7 +13068,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
             {
                 assert(false);
             }
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
         }
@@ -13309,7 +13316,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
         }
@@ -16344,6 +16351,15 @@ struct type make_void_type()
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
+
+struct type type_make_int_bool_like()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = TYPE_SPECIFIER_INT | TYPE_SPECIFIER_LIKE_BOOL;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
 struct type type_make_int()
 {
     struct type t = { 0 };

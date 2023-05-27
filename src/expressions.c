@@ -1624,7 +1624,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
 
                 //same as v == 0
 
-                new_expression->type = type_make_int();
+                new_expression->type = type_make_int_bool_like();
             }
             else if (op == '~')
             {
@@ -1787,7 +1787,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
             }
 
 
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_IS_SAME)
@@ -1808,7 +1808,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                         &new_expression->type_name2->declarator->type, true));
 
 
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
@@ -2411,7 +2411,7 @@ struct expression* relational_expression(struct parser_ctx* ctx)
             new_expression->constant_value =
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
 
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
             new_expression = NULL;/*MOVED*/
@@ -2527,7 +2527,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
             {
                 assert(false);
             }
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
         }
@@ -2775,7 +2775,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->type = type_make_int();
+            new_expression->type = type_make_int_bool_like();
 
             p_expression_node = new_expression;
         }
