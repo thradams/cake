@@ -594,5 +594,18 @@ void print_line_and_token(int (*printf)(const char* fmt, ...), const struct toke
             printf(" ");
         }
     }
-    printf(LIGHTGREEN "^\n" RESET);
+
+    printf(LIGHTGREEN);
+
+    printf("^");
+
+    char* p = p_token->lexeme + 1;
+    while (p && *p)
+    {
+        printf("~");
+        p++;
+    }
+
+    printf(RESET);
+    printf("\n");
 }

@@ -1630,7 +1630,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
                 {
                     compiler_set_warning_with_token(W_UNUSED_PARAMETER,
                         ctx,
-                        parameter->declarator->first_token,
+                        parameter->declarator->name,
                         "'%s': unreferenced formal parameter",
                         parameter->declarator->name->lexeme);
                 }

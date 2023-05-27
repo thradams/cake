@@ -8,7 +8,7 @@ static struct w {
     enum compiler_warning w;
     const char* name;
 }
-g_warnings[] = {
+s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_COMPARE,"enum-compare"},
@@ -24,16 +24,16 @@ g_warnings[] = {
 const char* get_warning_name(enum compiler_warning w)
 {
     int lower_index = 0;
-    int upper_index = sizeof(g_warnings) / sizeof(g_warnings[0]) - 1;
+    int upper_index = sizeof(s_warnings) / sizeof(s_warnings[0]) - 1;
 
     while (lower_index <= upper_index)
     {
         const int mid = (lower_index + upper_index) / 2;
-        const int cmp = w - g_warnings[mid].w;
+        const int cmp = w - s_warnings[mid].w;
 
         if (cmp == 0)
         {
-            return g_warnings[mid].name;
+            return s_warnings[mid].name;
         }
         else if (cmp < 0)
         {
@@ -199,21 +199,21 @@ int fill_options(struct options* options,
 
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
-            for (int j = 0; j < sizeof(g_warnings) / sizeof(g_warnings[0]); j++)
+            for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
             {
                 if (disable_warning)
                 {
-                    if (strcmp(&argv[i][5], g_warnings[j].name) == 0)
+                    if (strcmp(&argv[i][5], s_warnings[j].name) == 0)
                     {
-                        options->disabled_warnings |= g_warnings[j].w;
+                        options->disabled_warnings |= s_warnings[j].w;
                         break;
                     }
                 }
                 else
                 {
-                    if (strcmp(&argv[i][2], g_warnings[j].name) == 0)
+                    if (strcmp(&argv[i][2], s_warnings[j].name) == 0)
                     {
-                        options->enabled_warnings |= g_warnings[j].w;
+                        options->enabled_warnings |= s_warnings[j].w;
                         break;
                     }
                 }
