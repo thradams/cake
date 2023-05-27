@@ -2,11 +2,65 @@
 #include <string.h>
 #include "console.h"
 #include <stdio.h>
+#include <assert.h>
 
-int fill_options(struct options* options, 
-                 int argc, 
-                 const char** argv)
+static struct w {
+    enum compiler_warning w;
+    const char* name;
+}
+g_warnings[] = {
+    {W_UNUSED_VARIABLE, "unused-variable"},
+    {W_DEPRECATED, "deprecated"},
+    {W_ENUN_COMPARE,"enum-compare"},
+    {W_NON_NULL, "nonnull"},
+    {W_ADDRESS, "address"},
+    {W_UNUSED_PARAMETER, "unused-parameter"},
+    {W_DECLARATOR_HIDE, "hide-declarator"},
+    {W_TYPEOF_ARRAY_PARAMETER, "typeof-parameter"},
+    {W_ATTRIBUTES, "attributes"},
+    {W_UNUSED_VALUE, "unused-value"}
+};
+
+const char* get_warning_name(enum compiler_warning w)
 {
+    int lower_index = 0;
+    int upper_index = sizeof(g_warnings) / sizeof(g_warnings[0]) - 1;
+
+    while (lower_index <= upper_index)
+    {
+        const int mid = (lower_index + upper_index) / 2;
+        const int cmp = w - g_warnings[mid].w;
+
+        if (cmp == 0)
+        {
+            return g_warnings[mid].name;
+        }
+        else if (cmp < 0)
+        {
+            upper_index = mid - 1;
+        }
+        else
+        {
+            lower_index = mid + 1;
+        }
+    }
+
+    assert(false);
+    return "";
+}
+
+int fill_options(struct options* options,
+    int argc,
+    const char** argv)
+{
+
+    /*
+       default at this moment is same as -Wall
+    */
+    options->disabled_warnings = 0;
+    options->enabled_warnings = ~(options->enabled_warnings & 0);
+
+
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
     {
@@ -23,7 +77,7 @@ int fill_options(struct options* options,
         {
             if (i + 1 < argc)
             {
-                strcpy(options->output, argv[i+1]);
+                strcpy(options->output, argv[i + 1]);
                 i++;
             }
             else
@@ -59,6 +113,7 @@ int fill_options(struct options* options,
             options->format_input = true;
             continue;
         }
+
 
         if (strcmp(argv[i], "-st") == 0)
         {
@@ -131,7 +186,39 @@ int fill_options(struct options* options,
             options->input = LANGUAGE_CXX;
             continue;
         }
-       
+
+        //warnings
+        if (argv[i][1] == 'W')
+        {
+            if (strcmp(argv[i], "-Wall") == 0)
+            {
+                options->disabled_warnings = 0;
+                options->enabled_warnings = ~(options->enabled_warnings & 0);
+                continue;
+            }
+
+            const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
+
+            for (int j = 0; j < sizeof(g_warnings) / sizeof(g_warnings[0]); j++)
+            {
+                if (disable_warning)
+                {
+                    if (strcmp(&argv[i][5], g_warnings[j].name) == 0)
+                    {
+                        options->disabled_warnings |= g_warnings[j].w;
+                        break;
+                    }
+                }
+                else
+                {
+                    if (strcmp(&argv[i][2], g_warnings[j].name) == 0)
+                    {
+                        options->enabled_warnings |= g_warnings[j].w;
+                        break;
+                    }
+                }
+            }
+        }
     }
     return 0;
 }
@@ -182,6 +269,8 @@ void print_help()
         "\n"
         WHITE "  --no-discard          " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
+        WHITE "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
+
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;

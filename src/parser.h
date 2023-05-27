@@ -40,6 +40,8 @@ struct report
 };
 
 
+
+
 struct _destroy parser_ctx
 {
     struct options options;
@@ -90,7 +92,7 @@ void print_scope(struct scope_list* e);
 char* CompileText(const char* options, const char* content);
 
 void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
-void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+_Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void compiler_set_info_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);

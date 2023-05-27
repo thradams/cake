@@ -733,7 +733,8 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(paramer_type))
     {
-        compiler_set_warning_with_token(ctx,
+        compiler_set_warning_with_token(W_NON_NULL,
+            ctx,
             current_argument->expression->first_token,
             " passing null as array");
 
@@ -901,7 +902,8 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(left_type))
     {
-        compiler_set_warning_with_token(ctx,
+        compiler_set_warning_with_token(W_NON_NULL,
+            ctx,
             right->first_token,
             " passing null as array");
 

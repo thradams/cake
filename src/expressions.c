@@ -881,7 +881,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
 
                     if (type_is_deprecated(&p_declarator->type))
                     {
-                        compiler_set_warning_with_token(ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
+                        compiler_set_warning_with_token(W_DEPRECATED, ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
                     }
 
                     p_declarator->num_uses++;
@@ -2483,7 +2483,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                      * diferent scopes.
                     */
 
-                    compiler_set_warning_with_token(ctx,
+                    compiler_set_warning_with_token(W_ENUN_COMPARE,
+                        ctx,
                         operator_token,
                         "comparison between 'enum %s' and 'enum %s'",
                         lefttag,

@@ -507,6 +507,20 @@ enum language_version
     LANGUAGE_CXX = 3, //experimental
 };
 
+enum compiler_warning {    
+    W_UNUSED_VARIABLE = 1 << 1, //-Wunused-variable
+    W_DEPRECATED = 1 << 2,
+    W_ENUN_COMPARE = 1 << 3 ,//-Wenum-compare
+    W_NON_NULL = 1 << 4, //-Wnonnull
+    W_ADDRESS = 1 << 5, //-Waddress (always true)
+    W_UNUSED_PARAMETER = 1 << 6, //-Wno-unused-parameter
+    W_DECLARATOR_HIDE = 1 << 7, // gcc no
+    W_TYPEOF_ARRAY_PARAMETER = 1 << 8,//
+    W_ATTRIBUTES = 1 << 9, //-Wattributes
+    W_UNUSED_VALUE = 1 << 10, //-Wunused-value
+};
+const char* get_warning_name(enum compiler_warning w);
+
 struct options
 {
     /*
@@ -519,6 +533,9 @@ struct options
     */
     enum language_version target;
     
+    enum compiler_warning disabled_warnings;
+    enum compiler_warning enabled_warnings;
+
     /*
        -remove-comments  
     */
@@ -8583,10 +8600,63 @@ char* readfile(const char* path)
 
 
 
-int fill_options(struct options* options, 
-                 int argc, 
-                 const char** argv)
+static struct w {
+    enum compiler_warning w;
+    const char* name;
+}
+g_warnings[] = {
+    {W_UNUSED_VARIABLE, "unused-variable"},
+    {W_DEPRECATED, "deprecated"},
+    {W_ENUN_COMPARE,"enum-compare"},
+    {W_NON_NULL, "nonnull"},
+    {W_ADDRESS, "address"},
+    {W_UNUSED_PARAMETER, "unused-parameter"},
+    {W_DECLARATOR_HIDE, "hide-declarator"},
+    {W_TYPEOF_ARRAY_PARAMETER, "typeof-parameter"},
+    {W_ATTRIBUTES, "attributes"},
+    {W_UNUSED_VALUE, "unused-value"}
+};
+
+const char* get_warning_name(enum compiler_warning w)
 {
+    int lower_index = 0;
+    int upper_index = sizeof(g_warnings) / sizeof(g_warnings[0]) - 1;
+
+    while (lower_index <= upper_index)
+    {
+        const int mid = (lower_index + upper_index) / 2;
+        const int cmp = w - g_warnings[mid].w;
+
+        if (cmp == 0)
+        {
+            return g_warnings[mid].name;
+        }
+        else if (cmp < 0)
+        {
+            upper_index = mid - 1;
+        }
+        else
+        {
+            lower_index = mid + 1;
+        }
+    }
+
+    assert(false);
+    return "";
+}
+
+int fill_options(struct options* options,
+    int argc,
+    const char** argv)
+{
+
+    /*
+       default at this moment is same as -Wall
+    */
+    options->disabled_warnings = 0;
+    options->enabled_warnings = ~(options->enabled_warnings & 0);
+
+
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
     {
@@ -8603,7 +8673,7 @@ int fill_options(struct options* options,
         {
             if (i + 1 < argc)
             {
-                strcpy(options->output, argv[i+1]);
+                strcpy(options->output, argv[i + 1]);
                 i++;
             }
             else
@@ -8639,6 +8709,7 @@ int fill_options(struct options* options,
             options->format_input = true;
             continue;
         }
+
 
         if (strcmp(argv[i], "-st") == 0)
         {
@@ -8711,7 +8782,39 @@ int fill_options(struct options* options,
             options->input = LANGUAGE_CXX;
             continue;
         }
-       
+
+        //warnings
+        if (argv[i][1] == 'W')
+        {
+            if (strcmp(argv[i], "-Wall") == 0)
+            {
+                options->disabled_warnings = 0;
+                options->enabled_warnings = ~(options->enabled_warnings & 0);
+                continue;
+            }
+
+            const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
+
+            for (int j = 0; j < sizeof(g_warnings) / sizeof(g_warnings[0]); j++)
+            {
+                if (disable_warning)
+                {
+                    if (strcmp(&argv[i][5], g_warnings[j].name) == 0)
+                    {
+                        options->disabled_warnings |= g_warnings[j].w;
+                        break;
+                    }
+                }
+                else
+                {
+                    if (strcmp(&argv[i][2], g_warnings[j].name) == 0)
+                    {
+                        options->enabled_warnings |= g_warnings[j].w;
+                        break;
+                    }
+                }
+            }
+        }
     }
     return 0;
 }
@@ -8762,6 +8865,8 @@ void print_help()
         "\n"
         WHITE "  --no-discard          " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
+        WHITE "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
+
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;
@@ -9243,6 +9348,8 @@ struct report
 };
 
 
+
+
 struct _destroy parser_ctx
 {
     struct options options;
@@ -9293,7 +9400,7 @@ void print_scope(struct scope_list* e);
 char* CompileText(const char* options, const char* content);
 
 void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
-void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+_Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void compiler_set_info_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
@@ -11263,7 +11370,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
 
                     if (type_is_deprecated(&p_declarator->type))
                     {
-                        compiler_set_warning_with_token(ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
+                        compiler_set_warning_with_token(W_DEPRECATED, ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
                     }
 
                     p_declarator->num_uses++;
@@ -12865,7 +12972,8 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                      * diferent scopes.
                     */
 
-                    compiler_set_warning_with_token(ctx,
+                    compiler_set_warning_with_token(W_ENUN_COMPARE,
+                        ctx,
                         operator_token,
                         "comparison between 'enum %s' and 'enum %s'",
                         lefttag,
@@ -15043,7 +15151,8 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(paramer_type))
     {
-        compiler_set_warning_with_token(ctx,
+        compiler_set_warning_with_token(W_NON_NULL,
+            ctx,
             current_argument->expression->first_token,
             " passing null as array");
 
@@ -15211,7 +15320,8 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_array(left_type))
     {
-        compiler_set_warning_with_token(ctx,
+        compiler_set_warning_with_token(W_NON_NULL,
+            ctx,
             right->first_token,
             " passing null as array");
 
@@ -16940,7 +17050,7 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
     ctx->n_errors++;
 
     if (p_token)
-      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
@@ -16954,8 +17064,19 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
 }
 
 
-void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+_Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
+    if (ctx->options.disabled_warnings & w)
+    {
+        //override default or set
+        return 0;
+    }
+
+    if (!(ctx->options.enabled_warnings & w))
+    {
+        //not default, not added
+        return 0;
+    }
     ctx->n_warnings++;
 
     print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
@@ -16966,9 +17087,10 @@ void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token*
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s " LIGHTMAGENTA "[-W%s]\n" RESET, buffer, get_warning_name(w));
 
     print_line_and_token(ctx->printf, p_token);
+    return 1;
 }
 
 
@@ -18442,7 +18564,8 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
                     parameter->declarator->name->level == 0 /*direct source*/
                     )
                 {
-                    compiler_set_warning_with_token(ctx,
+                    compiler_set_warning_with_token(W_UNUSED_PARAMETER,
+                        ctx,
                         parameter->declarator->first_token,
                         "'%s': unreferenced formal parameter",
                         parameter->declarator->name->lexeme);
@@ -18627,8 +18750,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     if (out->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
-                        compiler_set_warning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
-                        compiler_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                        if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name))
+                        {
+                            compiler_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                        }
                     }
                 }
             }
@@ -18877,7 +19002,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
 
         if (p_typeof_specifier->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
         {
-            compiler_set_warning_with_token(ctx, ctx->current, "typeof used in array arguments");
+            compiler_set_warning_with_token(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, "typeof used in array arguments");
 
             if (type_is_array(&p_typeof_specifier->type))
             {
@@ -19255,11 +19380,11 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             if (p_struct_or_union_specifier->tagtoken)
             {
                 //TODO add deprecated message
-                compiler_set_warning_with_token(ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                compiler_set_warning_with_token(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
             }
             else
             {
-                compiler_set_warning_with_token(ctx, p_struct_or_union_specifier->first_token, "deprecated");
+                compiler_set_warning_with_token(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "deprecated");
             }
         }
     }
@@ -20888,7 +21013,7 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         */
         if (!is_standard_attribute)
         {
-            compiler_set_warning_with_token(ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
+            compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
         }
     }
     return p_attribute_token;
@@ -21059,7 +21184,7 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                     {
                         if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
                         {
-                            compiler_set_warning_with_token(ctx,
+                            compiler_set_warning_with_token(W_ATTRIBUTES, ctx,
                                 p_unlabeled_statement->expression_statement->expression_opt->first_token,
                                 "ignoring return value of function declared with 'nodiscard' attribute");
                         }
@@ -21086,7 +21211,8 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                 {
                     if (ctx->current->level == 0)
                     {
-                        compiler_set_warning_with_token(ctx,
+                        compiler_set_warning_with_token(W_UNUSED_VALUE,
+                            ctx,
                             ctx->current,
                             "expression not used");
                     }
@@ -21197,7 +21323,8 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 {
                     if (p_declarator->name->token_origin->level == 0)
                     {
-                        compiler_set_warning_with_token(ctx,
+                        compiler_set_warning_with_token(W_UNUSED_VARIABLE,
+                            ctx,
                             p_declarator->name,
                             "'%s': unreferenced declarator",
                             p_declarator->name->lexeme);
@@ -21421,11 +21548,11 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
             //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
         }
 
-        
+
         if (type_is_function(&p_selection_statement->expression->type) ||
             type_is_array(&p_selection_statement->expression->type))
         {
-            compiler_set_warning_with_token(ctx, ctx->current, "always true");
+            compiler_set_warning_with_token(W_ADDRESS, ctx, ctx->current, "always true");
         }
 
         parser_match_tk(ctx, ')');
@@ -21634,9 +21761,9 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                 /*
                 * Check is return type is compatible with function return
                 */
-                struct type return_type = 
+                struct type return_type =
                     get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type);
-                
+
                 check_assigment(ctx, &return_type, p_jump_statement->expression_opt);
 
                 type_destroy(&return_type);
@@ -21771,19 +21898,10 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
-                    //setwarning_with_token(ctx, p_declarator->name, )
-                    ctx->n_warnings++;
-                    if (p_declarator->name &&
-                        p_declarator->name->token_origin)
-                    {
-                        ctx->printf(WHITE "%s:%d:%d: ",
-                            p_declarator->name->token_origin->lexeme,
-                            p_declarator->name->line,
-                            p_declarator->name->col);
-
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "'%s': defined but not used\n",
-                            p_declarator->name->lexeme);
-                    }
+                    compiler_set_warning_with_token(W_UNUSED_VARIABLE,
+                        ctx,
+                        p_declarator->name,
+                        "declarator '%s' not used", p_declarator->name->lexeme);
                 }
             }
 
@@ -21837,7 +21955,7 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
         if (argv[i][0] != '-')
             continue;
 
-        
+
         if (argv[i][1] == 'I')
         {
             include_dir_add(&prectx->include_dir, argv[i] + 2);
@@ -22172,7 +22290,7 @@ int compile(int argc, const char** argv, struct report* report)
             if (argv[i][0] == '-')
                 continue;
 
-            char fullpath[MAX_PATH] = {0};
+            char fullpath[MAX_PATH] = { 0 };
             realpath(argv[i], fullpath);
 
             if (root_dir[0] == 0 ||
@@ -22192,7 +22310,7 @@ int compile(int argc, const char** argv, struct report* report)
         if (argv[i][0] == '-')
             continue;
         no_files++;
-        char output_file[MAX_PATH] = {0};
+        char output_file[MAX_PATH] = { 0 };
 
         if (!options.no_output)
         {

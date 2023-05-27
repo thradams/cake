@@ -81,6 +81,24 @@ output
  #define __STDC_VERSION__ 202311L
 ```
 
+## Warnings
+
+Warning can be controlled with "-Wname" and "-Wno-name". When the 
+same warning exists in gcc it has the same name
+
+```
+    "-Wunused-variable",
+    "-Wdeprecated",
+    "-Wenum-compare",
+    "-Wnonnull",
+    "-Waddress",
+    "-Wunused-parameter",
+    "-Whide-declarator",
+    "-Wtypeof-parameter",
+    "-Wattributes",
+    "-Wunused-value"
+```
+//TODO better explanation
 
 ## C99 Transformations
 

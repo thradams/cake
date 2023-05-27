@@ -114,7 +114,7 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
     ctx->n_errors++;
 
     if (p_token)
-      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
@@ -128,8 +128,19 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
 }
 
 
-void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+_Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
+    if (ctx->options.disabled_warnings & w)
+    {
+        //override default or set
+        return 0;
+    }
+
+    if (!(ctx->options.enabled_warnings & w))
+    {
+        //not default, not added
+        return 0;
+    }
     ctx->n_warnings++;
 
     print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
@@ -140,9 +151,10 @@ void compiler_set_warning_with_token(struct parser_ctx* ctx, const struct token*
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s " LIGHTMAGENTA "[-W%s]\n" RESET, buffer, get_warning_name(w));
 
     print_line_and_token(ctx->printf, p_token);
+    return 1;
 }
 
 
@@ -1616,7 +1628,8 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
                     parameter->declarator->name->level == 0 /*direct source*/
                     )
                 {
-                    compiler_set_warning_with_token(ctx,
+                    compiler_set_warning_with_token(W_UNUSED_PARAMETER,
+                        ctx,
                         parameter->declarator->first_token,
                         "'%s': unreferenced formal parameter",
                         parameter->declarator->name->lexeme);
@@ -1801,8 +1814,10 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     if (out->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
-                        compiler_set_warning_with_token(ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name);
-                        compiler_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                        if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name))
+                        {
+                            compiler_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                        }
                     }
                 }
             }
@@ -2051,7 +2066,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
 
         if (p_typeof_specifier->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
         {
-            compiler_set_warning_with_token(ctx, ctx->current, "typeof used in array arguments");
+            compiler_set_warning_with_token(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, "typeof used in array arguments");
 
             if (type_is_array(&p_typeof_specifier->type))
             {
@@ -2429,11 +2444,11 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             if (p_struct_or_union_specifier->tagtoken)
             {
                 //TODO add deprecated message
-                compiler_set_warning_with_token(ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                compiler_set_warning_with_token(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
             }
             else
             {
-                compiler_set_warning_with_token(ctx, p_struct_or_union_specifier->first_token, "deprecated");
+                compiler_set_warning_with_token(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "deprecated");
             }
         }
     }
@@ -4062,7 +4077,7 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         */
         if (!is_standard_attribute)
         {
-            compiler_set_warning_with_token(ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
+            compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
         }
     }
     return p_attribute_token;
@@ -4233,7 +4248,7 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                     {
                         if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
                         {
-                            compiler_set_warning_with_token(ctx,
+                            compiler_set_warning_with_token(W_ATTRIBUTES, ctx,
                                 p_unlabeled_statement->expression_statement->expression_opt->first_token,
                                 "ignoring return value of function declared with 'nodiscard' attribute");
                         }
@@ -4260,7 +4275,8 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                 {
                     if (ctx->current->level == 0)
                     {
-                        compiler_set_warning_with_token(ctx,
+                        compiler_set_warning_with_token(W_UNUSED_VALUE,
+                            ctx,
                             ctx->current,
                             "expression not used");
                     }
@@ -4371,7 +4387,8 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 {
                     if (p_declarator->name->token_origin->level == 0)
                     {
-                        compiler_set_warning_with_token(ctx,
+                        compiler_set_warning_with_token(W_UNUSED_VARIABLE,
+                            ctx,
                             p_declarator->name,
                             "'%s': unreferenced declarator",
                             p_declarator->name->lexeme);
@@ -4595,11 +4612,11 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
             //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
         }
 
-        
+
         if (type_is_function(&p_selection_statement->expression->type) ||
             type_is_array(&p_selection_statement->expression->type))
         {
-            compiler_set_warning_with_token(ctx, ctx->current, "always true");
+            compiler_set_warning_with_token(W_ADDRESS, ctx, ctx->current, "always true");
         }
 
         parser_match_tk(ctx, ')');
@@ -4808,9 +4825,9 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                 /*
                 * Check is return type is compatible with function return
                 */
-                struct type return_type = 
+                struct type return_type =
                     get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type);
-                
+
                 check_assigment(ctx, &return_type, p_jump_statement->expression_opt);
 
                 type_destroy(&return_type);
@@ -4945,19 +4962,10 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
-                    //setwarning_with_token(ctx, p_declarator->name, )
-                    ctx->n_warnings++;
-                    if (p_declarator->name &&
-                        p_declarator->name->token_origin)
-                    {
-                        ctx->printf(WHITE "%s:%d:%d: ",
-                            p_declarator->name->token_origin->lexeme,
-                            p_declarator->name->line,
-                            p_declarator->name->col);
-
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "'%s': defined but not used\n",
-                            p_declarator->name->lexeme);
-                    }
+                    compiler_set_warning_with_token(W_UNUSED_VARIABLE,
+                        ctx,
+                        p_declarator->name,
+                        "declarator '%s' not used", p_declarator->name->lexeme);
                 }
             }
 
@@ -5011,7 +5019,7 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
         if (argv[i][0] != '-')
             continue;
 
-        
+
         if (argv[i][1] == 'I')
         {
             include_dir_add(&prectx->include_dir, argv[i] + 2);
@@ -5346,7 +5354,7 @@ int compile(int argc, const char** argv, struct report* report)
             if (argv[i][0] == '-')
                 continue;
 
-            char fullpath[MAX_PATH] = {0};
+            char fullpath[MAX_PATH] = { 0 };
             realpath(argv[i], fullpath);
 
             if (root_dir[0] == 0 ||
@@ -5366,7 +5374,7 @@ int compile(int argc, const char** argv, struct report* report)
         if (argv[i][0] == '-')
             continue;
         no_files++;
-        char output_file[MAX_PATH] = {0};
+        char output_file[MAX_PATH] = { 0 };
 
         if (!options.no_output)
         {
