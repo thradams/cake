@@ -3707,7 +3707,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                         current != start_macro.tail->next;
                         current = current->next)
                     {
-                        current->flags = current->flags & ~TK_FLAG_MACRO_EXPANDED;
+                        current->flags &= ~(TK_FLAG_MACRO_EXPANDED | TK_FLAG_SLICED | TK_FLAG_LINE_CONTINUATION);
                     }
                 }
 

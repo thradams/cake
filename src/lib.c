@@ -1265,10 +1265,10 @@ void print_line_and_token(int (*printf)(const char* fmt, ...), const struct toke
 
 //#pragma once
 
-unsigned int stringhash(const char* key);
+unsigned int string_hash(const char* key);
 
 
-unsigned int stringhash(const char* key)
+unsigned int string_hash(const char* key)
 {
     // hash key to unsigned int value by pseudorandomizing transform
     // (algorithm copied from STL char hash in xfunctional)
@@ -1328,7 +1328,7 @@ struct map_entry* hashmap_find(struct hash_map* map, const char* key)
     if (map->table == NULL)
       return NULL;
 
-    const unsigned int hash = stringhash(key);
+    const unsigned int hash = string_hash(key);
     const int index = hash % map->capacity;
 
     struct map_entry* pentry = map->table[index];
@@ -1348,7 +1348,7 @@ void * hashmap_remove(struct hash_map* map, const char* key, enum tag * p_type_o
 {
     if (map->table != NULL)
     {
-        const unsigned int hash = stringhash(key);
+        const unsigned int hash = string_hash(key);
         struct map_entry** preventry = &map->table[hash % map->capacity];
         struct map_entry* pentry = *preventry;
 
@@ -1390,7 +1390,7 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type)
 
     if (map->table != NULL)
     {
-        unsigned int hash = stringhash(key);
+        unsigned int hash = string_hash(key);
         int index = hash % map->capacity;
 
         struct map_entry* pentry = map->table[index];
@@ -5326,7 +5326,7 @@ struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* inp
                         current != start_macro.tail->next;
                         current = current->next)
                     {
-                        current->flags = current->flags & ~TK_FLAG_MACRO_EXPANDED;
+                        current->flags &= ~(TK_FLAG_MACRO_EXPANDED | TK_FLAG_SLICED | TK_FLAG_LINE_CONTINUATION);
                     }
                 }
 
@@ -15955,7 +15955,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
                 }
             }
 
-            hash = stringhash(ss.c_str);
+            hash = string_hash(ss.c_str);
             ss_close(&ss);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
