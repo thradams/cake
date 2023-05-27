@@ -151,7 +151,7 @@ _Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s " LIGHTMAGENTA "[-W%s]\n" RESET, buffer, get_warning_name(w));
+    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET , buffer, get_warning_name(w));
 
     print_line_and_token(ctx->printf, p_token);
     return 1;

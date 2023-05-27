@@ -83,22 +83,10 @@ output
 
 ## Warnings
 
-Warning can be controlled with "-Wname" and "-Wno-name". When the 
-same warning exists in gcc it has the same name
+Warnings can be controlled with "-Wname" and "-Wno-name" and "-Wall".
+When the same warning exists in gcc cakes uses the same name if possible.
 
-```
-    "-Wunused-variable",
-    "-Wdeprecated",
-    "-Wenum-compare",
-    "-Wnonnull",
-    "-Waddress",
-    "-Wunused-parameter",
-    "-Whide-declarator",
-    "-Wtypeof-parameter",
-    "-Wattributes",
-    "-Wunused-value"
-```
-//TODO better explanation
+See [warnings](warnings.html)
 
 ## C99 Transformations
 
