@@ -165,32 +165,6 @@ void preprocessor_set_error_with_token(struct preprocessor_ctx* ctx, const struc
 
 
 
-void pre_error_warning_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, bool is_error)
-{
-    ctx->n_warnings++;
-    //er->code = 1;
-
-    if (p_token)
-    {
-        ctx->printf(WHITE "%s:%d:%d: ",
-            p_token->token_origin->lexeme,
-            p_token->line,
-            p_token->col);
-    }
-    else
-    {
-        ctx->printf(WHITE "<>");
-    }
-
-    if (is_error)
-        ctx->printf(LIGHTRED "error: " WHITE);
-    else
-        ctx->printf(LIGHTMAGENTA "warning: " WHITE);
-
-    print_line_and_token(ctx->printf, p_token);
-}
-
-
 
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path)
 {
@@ -2806,7 +2780,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             ctx->n_warnings++;
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//error
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-            pre_error_warning_with_token(ctx, input_list->head, true);
+            preprocessor_set_error_with_token(ctx, input_list->head, "#error");
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
@@ -2827,7 +2801,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
 
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-            pre_error_warning_with_token(ctx, input_list->head, false);
+            preprocessor_set_warning_with_token(ctx, input_list->head, "#warning");
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
@@ -2891,7 +2865,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 }
 
 
-struct token_list non_directive(struct preprocessor_ctx* ctx, struct token_list* input_list, int level)
+static struct token_list non_directive(struct preprocessor_ctx* ctx, struct token_list* input_list, int level)
 {
     /*
       non-directive:
@@ -2903,7 +2877,7 @@ struct token_list non_directive(struct preprocessor_ctx* ctx, struct token_list*
     return r;
 }
 
-struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
+static struct macro_argument_list collect_macro_arguments(struct preprocessor_ctx* ctx,
     struct macro* macro,
     struct token_list* input_list, int level)
 {
@@ -3035,7 +3009,7 @@ hash_hash
 
 join(x, y)
 */
-struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* input_list)
+static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
     //printf("input="); print_list(input_list);
 
@@ -3128,7 +3102,7 @@ struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* i
   check if the argument list that corresponds to a trailing ...
   of the parameter list is present and has a non-empty substitution.
 */
-bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
+static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
     struct macro_expanded* p_list,
     struct macro_argument_list* p_macro_argument_list)
 {
@@ -3155,7 +3129,7 @@ bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
     return false;
 }
 
-struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments)
+static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments)
 {
     struct token_list r = { 0 };
 
@@ -3303,7 +3277,7 @@ struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct m
 
 struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_list* input_list);
 
-bool macro_already_expanded(struct macro_expanded* p_list, const char* name)
+static bool macro_already_expanded(struct macro_expanded* p_list, const char* name)
 {
     struct macro_expanded* p_item = p_list;
     while (p_item)
@@ -3626,7 +3600,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
 }
 void print_token(struct token* p_token);
 
-struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
+static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
     /*
           text-line:
@@ -3944,7 +3918,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 }
 
 
-void mark_macros_as_used(struct hash_map* map)
+static void mark_macros_as_used(struct hash_map* map)
 {
     /*
      *  Objetivo era alertar macros nao usadas...

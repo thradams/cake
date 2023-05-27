@@ -6,4 +6,7 @@ int main() {
     if (A == B){}
 #pragma CAKE diagnostic warning "-Wenum-compare"
     if (A == B) {}
+
+    #warning aasd sadasdas
+
 }
