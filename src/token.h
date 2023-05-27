@@ -39,6 +39,7 @@ enum token_type
     TK_RIGHT_CURLY_BRACKET = '}',
     TK_TILDE = '~',
     TK_PREPROCESSOR_LINE,
+    TK_PRAGMA,
     TK_STRING_LITERAL,
     TK_CHAR_CONSTANT,
     TK_LINE_COMMENT,

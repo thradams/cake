@@ -2835,12 +2835,20 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         {
             /*
               # pragma pp-tokensopt new-line
-            */
+            */            
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+            r.tail->type = TK_PRAGMA;
             skip_blanks_level(ctx, &r, input_list, level);
 
             if (input_list->head->type == TK_IDENTIFIER)
             {
+                if (strcmp(input_list->head->lexeme, "CAKE") == 0 ||
+                    strcmp(input_list->head->lexeme, "GCC") == 0)
+                {
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
+                    skip_blanks_level(ctx, &r, input_list, level);
+                }
+
                 if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
                     hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1, 0);
@@ -2860,6 +2868,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
 
                 }
+                else if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
+                {
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                    skip_blanks_level(ctx, &r, input_list, level);
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
+                    skip_blanks_level(ctx, &r, input_list, level);
+                    match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//
+                }                
             }
 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);

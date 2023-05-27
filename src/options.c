@@ -21,6 +21,31 @@ s_warnings[] = {
     {W_UNUSED_VALUE, "unused-value"}
 };
 
+enum compiler_warning  get_warning_flag(const char* wname, bool* p_disable_warning)
+{
+    const bool disable_warning = (wname[2] == 'n' && wname[3] == 'o');
+    *p_disable_warning = disable_warning;
+
+    for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+    {
+        if (disable_warning)
+        {
+            if (strncmp(s_warnings[j].name, wname + 5, strlen(s_warnings[j].name)) == 0)
+            {
+                return s_warnings[j].w;
+            }
+        }
+        else
+        {
+            if (strncmp(s_warnings[j].name, wname + 2, strlen(s_warnings[j].name)) == 0)
+            {
+                return s_warnings[j].w;
+            }
+        }
+    }
+    return 0;
+}
+
 const char* get_warning_name(enum compiler_warning w)
 {
     int lower_index = 0;
@@ -57,8 +82,7 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->disabled_warnings = 0;
-    options->enabled_warnings = ~(options->enabled_warnings & 0);
+    options->enabled_warnings = ~0;
 
 
     /*first loop used to collect options*/
@@ -192,32 +216,22 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-Wall") == 0)
             {
-                options->disabled_warnings = 0;
-                options->enabled_warnings = ~(options->enabled_warnings & 0);
+                options->enabled_warnings = ~0;
                 continue;
             }
 
-            const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
+            const bool disable_warning = 0;
+            enum compiler_warning  w = get_warning_flag(argv[i], &disable_warning);
 
-            for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+            if (disable_warning)
             {
-                if (disable_warning)
-                {
-                    if (strcmp(&argv[i][5], s_warnings[j].name) == 0)
-                    {
-                        options->disabled_warnings |= s_warnings[j].w;
-                        break;
-                    }
-                }
-                else
-                {
-                    if (strcmp(&argv[i][2], s_warnings[j].name) == 0)
-                    {
-                        options->enabled_warnings |= s_warnings[j].w;
-                        break;
-                    }
-                }
+                options->enabled_warnings &= ~w;
             }
+            else
+            {
+                options->enabled_warnings |= w;
+            }
+            continue;
         }
     }
     return 0;

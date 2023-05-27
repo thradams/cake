@@ -27,6 +27,7 @@ enum compiler_warning {
     W_UNUSED_VALUE = 1 << 10, //-Wunused-value
 };
 const char* get_warning_name(enum compiler_warning w);
+enum compiler_warning  get_warning_flag(const char* wname, bool* p_disable_warning);
 
 struct options
 {
@@ -40,8 +41,8 @@ struct options
     */
     enum language_version target;
     
-    enum compiler_warning disabled_warnings;
     enum compiler_warning enabled_warnings;
+    //TODO push pop
 
     /*
        -remove-comments  

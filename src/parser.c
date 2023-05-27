@@ -130,12 +130,6 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
 
 _Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
-    if (ctx->options.disabled_warnings & w)
-    {
-        //override default or set
-        return 0;
-    }
-
     if (!(ctx->options.enabled_warnings & w))
     {
         //not default, not added
@@ -1190,11 +1184,34 @@ enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flag
     return parse_number_core(&stream, flags_opt);
 }
 
-struct token* parser_skip_blanks(struct parser_ctx* ctx)
+static struct token* parser_skip_blanks(struct parser_ctx* ctx)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
     {
-        ctx->current = ctx->current->next;
+        if (ctx->current->type == TK_PRAGMA)
+        {
+            while (ctx->current && ctx->current->type != TK_NEWLINE)
+            {
+                if (ctx->current->type == TK_STRING_LITERAL)
+                {
+                    bool disable = false;
+                    enum compiler_warning  w = 
+                        get_warning_flag(ctx->current->lexeme + 1, &disable);
+                    if (disable)
+                    {
+                        ctx->options.enabled_warnings &= ~w;
+                    }
+                    else
+                    {
+                        ctx->options.enabled_warnings |= w;                        
+                    }
+                }
+                ctx->current = ctx->current->next;
+            }
+        }
+
+        if (ctx->current)
+          ctx->current = ctx->current->next;
     }
 
     if (ctx->current)
