@@ -52,7 +52,9 @@ enum attribute_flags
      not sure what is the best place to put in
      type specifier my generate some error
     */
-    CUSTOM_ATTRIBUTE_LIKE_BOOL = 1 << 10
+    CUSTOM_ATTRIBUTE_LIKE_BOOL = 1 << 10,
+    // 'a'
+    CUSTOM_ATTRIBUTE_LIKE_CHAR = 1 << 11
 };
 
 enum type_specifier_flags

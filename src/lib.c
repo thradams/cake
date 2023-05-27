@@ -8967,7 +8967,17 @@ enum attribute_flags
     /*
      Used to detect argument type
     */
-    CUSTOM_ATTRIBUTE_PARAM = 1 << 9
+    CUSTOM_ATTRIBUTE_PARAM = 1 << 9,
+
+    /*
+     1 == 2 results in int in C
+     lets add extra flag here
+     not sure what is the best place to put in
+     type specifier my generate some error
+    */
+    CUSTOM_ATTRIBUTE_LIKE_BOOL = 1 << 10,
+    // 'a'
+    CUSTOM_ATTRIBUTE_LIKE_CHAR = 1 << 11
 };
 
 enum type_specifier_flags
@@ -9005,11 +9015,7 @@ enum type_specifier_flags
 
     TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
 
-    /*
-        1 == 2 results in int in C
-        lets add extra flag here TYPE_SPECIFIER_LIKE_BOOL
-    */
-    TYPE_SPECIFIER_LIKE_BOOL = 1 << 25
+
 };
 
 enum type_qualifier_flags
@@ -11480,6 +11486,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
 
             p_expression_node->type = type_make_int();
+            p_expression_node->type.attributes_flags |= CUSTOM_ATTRIBUTE_LIKE_CHAR;
 
             parser_match(ctx);
         }
@@ -16355,7 +16362,8 @@ struct type make_void_type()
 struct type type_make_int_bool_like()
 {
     struct type t = { 0 };
-    t.type_specifier_flags = TYPE_SPECIFIER_INT | TYPE_SPECIFIER_LIKE_BOOL;
+    t.type_specifier_flags = TYPE_SPECIFIER_INT ;
+    t.attributes_flags = CUSTOM_ATTRIBUTE_LIKE_BOOL;
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }

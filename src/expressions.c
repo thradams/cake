@@ -939,6 +939,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
 
             p_expression_node->type = type_make_int();
+            p_expression_node->type.attributes_flags |= CUSTOM_ATTRIBUTE_LIKE_CHAR;
 
             parser_match(ctx);
         }
