@@ -4595,6 +4595,13 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
             //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
         }
 
+        
+        if (type_is_function(&p_selection_statement->expression->type) ||
+            type_is_array(&p_selection_statement->expression->type))
+        {
+            compiler_set_warning_with_token(ctx, ctx->current, "always true");
+        }
+
         parser_match_tk(ctx, ')');
         p_selection_statement->secondary_block = secondary_block(ctx);
 

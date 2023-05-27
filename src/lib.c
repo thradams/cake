@@ -12953,8 +12953,6 @@ struct expression* and_expression(struct parser_ctx* ctx)
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '&');
 
 
-
-
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
@@ -21421,6 +21419,13 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
         if (constant_value_is_valid(&p_selection_statement->expression->constant_value))
         {
             //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
+        }
+
+        
+        if (type_is_function(&p_selection_statement->expression->type) ||
+            type_is_array(&p_selection_statement->expression->type))
+        {
+            compiler_set_warning_with_token(ctx, ctx->current, "always true");
         }
 
         parser_match_tk(ctx, ')');

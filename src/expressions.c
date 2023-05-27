@@ -2571,8 +2571,6 @@ struct expression* and_expression(struct parser_ctx* ctx)
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '&');
 
 
-
-
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
