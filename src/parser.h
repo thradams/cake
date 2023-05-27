@@ -99,9 +99,6 @@ int compile(int argc, const char** argv, struct report* error);
 struct declaration_list parse(struct options* options, struct token_list* list, struct report* report);
 
 
-struct token* parser_skip_blanks(struct parser_ctx* ctx);
-
-
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
 
 enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flags_opt);
