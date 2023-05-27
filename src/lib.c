@@ -261,6 +261,7 @@ enum token_type
     TK_RIGHT_CURLY_BRACKET = '}',
     TK_TILDE = '~',
     TK_PREPROCESSOR_LINE,
+    TK_PRAGMA,
     TK_STRING_LITERAL,
     TK_CHAR_CONSTANT,
     TK_LINE_COMMENT,
@@ -456,7 +457,7 @@ struct stream
     const char* current;
     int line;
     int col;
-    bool line_continuation_count;
+    int line_continuation_count;
     const char* path; /*non owner*/
 };
 
@@ -520,6 +521,7 @@ enum compiler_warning {
     W_UNUSED_VALUE = 1 << 10, //-Wunused-value
 };
 const char* get_warning_name(enum compiler_warning w);
+enum compiler_warning  get_warning_flag(const char* wname, bool* p_disable_warning);
 
 struct options
 {
@@ -533,8 +535,8 @@ struct options
     */
     enum language_version target;
     
-    enum compiler_warning disabled_warnings;
     enum compiler_warning enabled_warnings;
+    //TODO push pop
 
     /*
        -remove-comments  
@@ -4484,12 +4486,20 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         {
             /*
               # pragma pp-tokensopt new-line
-            */
+            */            
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+            r.tail->type = TK_PRAGMA;
             skip_blanks_level(ctx, &r, input_list, level);
 
             if (input_list->head->type == TK_IDENTIFIER)
             {
+                if (strcmp(input_list->head->lexeme, "CAKE") == 0 ||
+                    strcmp(input_list->head->lexeme, "GCC") == 0)
+                {
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
+                    skip_blanks_level(ctx, &r, input_list, level);
+                }
+
                 if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
                     hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1, 0);
@@ -4509,6 +4519,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
 
                 }
+                else if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
+                {
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                    skip_blanks_level(ctx, &r, input_list, level);
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
+                    skip_blanks_level(ctx, &r, input_list, level);
+                    match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//
+                }                
             }
 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
@@ -8630,6 +8648,31 @@ s_warnings[] = {
     {W_UNUSED_VALUE, "unused-value"}
 };
 
+enum compiler_warning  get_warning_flag(const char* wname, bool* p_disable_warning)
+{
+    const bool disable_warning = (wname[2] == 'n' && wname[3] == 'o');
+    *p_disable_warning = disable_warning;
+
+    for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+    {
+        if (disable_warning)
+        {
+            if (strncmp(s_warnings[j].name, wname + 5, strlen(s_warnings[j].name)) == 0)
+            {
+                return s_warnings[j].w;
+            }
+        }
+        else
+        {
+            if (strncmp(s_warnings[j].name, wname + 2, strlen(s_warnings[j].name)) == 0)
+            {
+                return s_warnings[j].w;
+            }
+        }
+    }
+    return 0;
+}
+
 const char* get_warning_name(enum compiler_warning w)
 {
     int lower_index = 0;
@@ -8666,8 +8709,7 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->disabled_warnings = 0;
-    options->enabled_warnings = ~(options->enabled_warnings & 0);
+    options->enabled_warnings = ~0;
 
 
     /*first loop used to collect options*/
@@ -8801,32 +8843,22 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-Wall") == 0)
             {
-                options->disabled_warnings = 0;
-                options->enabled_warnings = ~(options->enabled_warnings & 0);
+                options->enabled_warnings = ~0;
                 continue;
             }
 
-            const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
+            bool disable_warning = 0;
+            enum compiler_warning  w = get_warning_flag(argv[i], &disable_warning);
 
-            for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+            if (disable_warning)
             {
-                if (disable_warning)
-                {
-                    if (strcmp(&argv[i][5], s_warnings[j].name) == 0)
-                    {
-                        options->disabled_warnings |= s_warnings[j].w;
-                        break;
-                    }
-                }
-                else
-                {
-                    if (strcmp(&argv[i][2], s_warnings[j].name) == 0)
-                    {
-                        options->enabled_warnings |= s_warnings[j].w;
-                        break;
-                    }
-                }
+                options->enabled_warnings &= ~w;
             }
+            else
+            {
+                options->enabled_warnings |= w;
+            }
+            continue;
         }
     }
     return 0;
@@ -17079,12 +17111,6 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
 
 _Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
-    if (ctx->options.disabled_warnings & w)
-    {
-        //override default or set
-        return 0;
-    }
-
     if (!(ctx->options.enabled_warnings & w))
     {
         //not default, not added
@@ -18139,11 +18165,34 @@ enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flag
     return parse_number_core(&stream, flags_opt);
 }
 
-struct token* parser_skip_blanks(struct parser_ctx* ctx)
+static struct token* parser_skip_blanks(struct parser_ctx* ctx)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
     {
-        ctx->current = ctx->current->next;
+        if (ctx->current->type == TK_PRAGMA)
+        {
+            while (ctx->current && ctx->current->type != TK_NEWLINE)
+            {
+                if (ctx->current->type == TK_STRING_LITERAL)
+                {
+                    bool disable = false;
+                    enum compiler_warning  w = 
+                        get_warning_flag(ctx->current->lexeme + 1, &disable);
+                    if (disable)
+                    {
+                        ctx->options.enabled_warnings &= ~w;
+                    }
+                    else
+                    {
+                        ctx->options.enabled_warnings |= w;                        
+                    }
+                }
+                ctx->current = ctx->current->next;
+            }
+        }
+
+        if (ctx->current)
+          ctx->current = ctx->current->next;
     }
 
     if (ctx->current)

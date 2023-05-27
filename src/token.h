@@ -235,7 +235,7 @@ struct stream
     const char* current;
     int line;
     int col;
-    bool line_continuation_count;
+    int line_continuation_count;
     const char* path; /*non owner*/
 };
 

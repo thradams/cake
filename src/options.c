@@ -220,7 +220,7 @@ int fill_options(struct options* options,
                 continue;
             }
 
-            const bool disable_warning = 0;
+            bool disable_warning = 0;
             enum compiler_warning  w = get_warning_flag(argv[i], &disable_warning);
 
             if (disable_warning)
