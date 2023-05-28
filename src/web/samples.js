@@ -1124,7 +1124,7 @@ enum E2 { B };
 int main() {
 
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic warning "-Wno-enum-compare"
+#pragma CAKE diagnostic ignore "-Wenum-compare"
     if (A == B){}
 #pragma CAKE diagnostic pop
 

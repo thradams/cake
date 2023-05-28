@@ -52,6 +52,25 @@
 <p>Warnings can be controlled with &quot;-Wname&quot; and &quot;-Wno-name&quot; and &quot;-Wall&quot;.
 When the same warning exists in gcc cakes uses the same name if possible.</p>
 
+<p>Inside source code you can control warning like this</p>
+
+<pre><code class="language-c">
+enum E1 { A };
+enum E2 { B };
+
+int main() {
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore &quot;-Wenum-compare&quot;
+    if (A == B){}
+#pragma CAKE diagnostic pop
+
+    if (A == B) {}
+
+}
+
+</code></pre>
+
 <h3 id="toc_1">-Wunused-variable</h3>
 
 <h3 id="toc_2">-Wdeprecated</h3>

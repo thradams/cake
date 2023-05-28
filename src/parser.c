@@ -1209,10 +1209,10 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             pragma_skip_blanks(ctx);
         }
 
-        
+
         if (ctx->current && strcmp(ctx->current->lexeme, "push") == 0) {
             //#pragma GCC diagnostic push
-            if (ctx->options.enabled_warnings_stack_top_index < 
+            if (ctx->options.enabled_warnings_stack_top_index <
                 sizeof(ctx->options.enabled_warnings_stack) / sizeof(ctx->options.enabled_warnings_stack[0]))
             {
                 ctx->options.enabled_warnings_stack_top_index++;
@@ -1222,13 +1222,13 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             else
             {
             }
-            
+
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
         }
 
         if (ctx->current && strcmp(ctx->current->lexeme, "pop") == 0) {
-            
+
             if (ctx->options.enabled_warnings_stack_top_index > 0)
             {
                 ctx->options.enabled_warnings_stack_top_index--;
@@ -1243,26 +1243,30 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
         }
 
         if (ctx->current && strcmp(ctx->current->lexeme, "warning") == 0) {
-            //#pragma CAKE diagnostic warning "-Wno-enum-compare"
+            //#pragma CAKE diagnostic warning "-Wenum-compare"
 
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
 
             if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
             {
-                bool disable = false;
-                enum compiler_warning  w =
-                    get_warning_flag(ctx->current->lexeme + 1, &disable);
-                if (disable)
-                {
-                    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] &= ~w;
-                }
-                else
-                {
-                    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;
-                }
+                enum compiler_warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);                
+                ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;                
             }
-        }        
+        }
+
+        if (ctx->current && strcmp(ctx->current->lexeme, "ignore") == 0) {
+            //#pragma CAKE diagnostic ignore "-Wenum-compare"
+
+            ctx->current = ctx->current->next;
+            pragma_skip_blanks(ctx);
+
+            if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
+            {
+                enum compiler_warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
+                ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] &= ~w;
+            }
+        }
     }
 }
 

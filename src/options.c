@@ -21,26 +21,14 @@ s_warnings[] = {
     {W_UNUSED_VALUE, "unused-value"}
 };
 
-enum compiler_warning  get_warning_flag(const char* wname, bool* p_disable_warning)
+enum compiler_warning  get_warning_flag(const char* wname)
 {
-    const bool disable_warning = (wname[2] == 'n' && wname[3] == 'o');
-    *p_disable_warning = disable_warning;
 
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
     {
-        if (disable_warning)
+        if (strncmp(s_warnings[j].name, wname, strlen(s_warnings[j].name)) == 0)
         {
-            if (strncmp(s_warnings[j].name, wname + 5, strlen(s_warnings[j].name)) == 0)
-            {
-                return s_warnings[j].w;
-            }
-        }
-        else
-        {
-            if (strncmp(s_warnings[j].name, wname + 2, strlen(s_warnings[j].name)) == 0)
-            {
-                return s_warnings[j].w;
-            }
+            return s_warnings[j].w;
         }
     }
     return 0;
@@ -219,9 +207,14 @@ int fill_options(struct options* options,
                 options->enabled_warnings_stack[0] = ~0;
                 continue;
             }
+            const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
-            bool disable_warning = 0;
-            enum compiler_warning  w = get_warning_flag(argv[i], &disable_warning);
+            enum compiler_warning  w = 0;
+            
+            if (disable_warning)
+                w = get_warning_flag(argv[i] + 5);
+            else
+                w = get_warning_flag(argv[i] + 2);
 
             if (disable_warning)
             {
