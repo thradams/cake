@@ -9,7 +9,7 @@
 #include "options.h"
 #include "annotations.h"
 
-#define CAKE_VERSION "0.5.9"
+#define CAKE_VERSION "0.5.10"
 
 
 struct _destroy scope

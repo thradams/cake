@@ -9347,7 +9347,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 //#pragma once
 
 
-#define CAKE_VERSION "0.5.9"
+#define CAKE_VERSION "0.5.10"
 
 
 struct _destroy scope
