@@ -1273,8 +1273,10 @@ static struct token* parser_skip_blanks(struct parser_ctx* ctx)
 
         if (ctx->current->type == TK_PRAGMA)
         {
+            /*only active block have TK_PRAGMA*/
             parse_pragma(ctx, ctx->current);
         }
+
         if (ctx->current)
             ctx->current = ctx->current->next;
     }
