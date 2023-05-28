@@ -41,8 +41,12 @@ struct options
     */
     enum language_version target;
     
-    enum compiler_warning enabled_warnings;
-    //TODO push pop
+    /*
+      #pragma CAKE diagnostic push
+      #pragma CAKE diagnostic pop
+    */
+    int enabled_warnings_stack_top_index;
+    enum compiler_warning enabled_warnings_stack[10];
 
     /*
        -remove-comments  

@@ -2844,11 +2844,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 }
                 else if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
                 {
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
-                    skip_blanks_level(ctx, &r, input_list, level);
-                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
-                    skip_blanks_level(ctx, &r, input_list, level);
-                    match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//
+                   // match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                   // skip_blanks_level(ctx, &r, input_list, level);
+                   // if (strcmp(ctx->current->lexeme )
+                   // match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
+                   // skip_blanks_level(ctx, &r, input_list, level);
+                   // match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//
                 }                
             }
 

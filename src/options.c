@@ -82,7 +82,7 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->enabled_warnings = ~0;
+    options->enabled_warnings_stack[0] = ~0;
 
 
     /*first loop used to collect options*/
@@ -216,7 +216,7 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-Wall") == 0)
             {
-                options->enabled_warnings = ~0;
+                options->enabled_warnings_stack[0] = ~0;
                 continue;
             }
 
@@ -225,11 +225,11 @@ int fill_options(struct options* options,
 
             if (disable_warning)
             {
-                options->enabled_warnings &= ~w;
+                options->enabled_warnings_stack[0] &= ~w;
             }
             else
             {
-                options->enabled_warnings |= w;
+                options->enabled_warnings_stack[0] |= w;
             }
             continue;
         }
