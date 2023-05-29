@@ -237,7 +237,7 @@ void print_help()
         WHITE "cake file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
-        WHITE "cake file.c -direct-compilation -o file.cc && cl file.cc" RESET
+        WHITE "cake file.c -direct-compilation -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc\n"
         "\n"
         WHITE "OPTIONS\n" RESET
