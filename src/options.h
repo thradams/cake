@@ -31,6 +31,31 @@ enum warning {
     W_STRING_SLICED = 1 << 14,
 };
 
+enum style
+{
+    STYLE_CAKE,
+
+    // https://llvm.org/docs/CodingStandards.html
+    STYLE_LLVM,// A style complying with the LLVM coding standards
+    
+    //https://google.github.io/styleguide/cppguide.html
+    STYLE_GOOGLE,// A style complying with Google’s C++ style guide
+
+    //https://chromium.googlesource.com/chromium/src/+/refs/heads/main/styleguide/styleguide.md
+    //https://www.kernel.org/doc/html/latest/process/coding-style.html
+    STYLE_CHROMIUM,// A style complying with Chromium’s style guide
+    
+    //https://firefox-source-docs.mozilla.org/code-quality/coding-style/index.html
+    STYLE_MOZILLA,// A style complying with Mozilla’s style guide
+    
+    //https://www.webkit.org/code-style-guidelines/
+    STYLE_WEBKIT,// A style complying with WebKit’s style guide
+    
+    STYLE_MICROSOFT,// A style complying with Microsoft’s style guide
+    
+    STYLE_GNU,// A style complying with the GNU coding standards
+    
+};
 const char* get_warning_name(enum warning w);
 enum warning  get_warning_flag(const char* wname);
 
@@ -52,6 +77,8 @@ struct options
     */
     int enabled_warnings_stack_top_index;
     enum warning enabled_warnings_stack[10];
+
+    enum style style;
 
     /*
        -remove-comments  

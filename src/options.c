@@ -136,6 +136,24 @@ int fill_options(struct options* options,
             continue;
         }
 
+        //
+        if (strcmp(argv[i], "-style=cake") == 0)
+        {
+            options->style = STYLE_CAKE;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-style=gnu") == 0)
+        {
+            options->style = STYLE_GNU;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-style=microsoft") == 0)
+        {
+            options->style = STYLE_GNU;
+            continue;
+        }
 
         //
         if (strcmp(argv[i], "-target=c89") == 0)

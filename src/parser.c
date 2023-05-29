@@ -5788,6 +5788,7 @@ static bool is_pascal_case(const char* text)
 
     return true;
 }
+
 /*
  * This naming conventions are not ready yet...
  * but not dificult to implement.maybe options to choose style
@@ -5798,9 +5799,18 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
     {
         return;
     }
-
-    if (!is_snake_case(token->lexeme)) {
-        compiler_set_info_with_token(ctx, token, "use snake_case for struct/union tags");
+    
+    if (ctx->options.style == STYLE_CAKE)
+    {
+        if (!is_snake_case(token->lexeme)) {
+            compiler_set_info_with_token(ctx, token, "use snake_case for struct/union tags");
+        }
+    }
+    else if (ctx->options.style == STYLE_MICROSOFT)
+    {
+        if (!is_pascal_case(token->lexeme)) {
+            compiler_set_info_with_token(ctx, token, "use camelCase for struct/union tags");
+        }
     }
 }
 
@@ -5812,8 +5822,17 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
     }
 
 
-    if (!is_snake_case(token->lexeme)) {
-        compiler_set_info_with_token(ctx, token, "use snake_case for enum tags");
+    if (ctx->options.style == STYLE_CAKE)
+    {
+        if (!is_snake_case(token->lexeme)) {
+            compiler_set_info_with_token(ctx, token, "use snake_case for enum tags");
+        }
+    }
+    else if (ctx->options.style == STYLE_MICROSOFT)
+    {
+        if (!is_pascal_case(token->lexeme)) {
+            compiler_set_info_with_token(ctx, token, "use PascalCase for enum tags");
+        }
     }
 }
 
@@ -5827,11 +5846,20 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
         return;
     }
 
-
-    if (!is_snake_case(token->lexeme)) {
-        compiler_set_info_with_token(ctx, token, "use snake_case for functions");
+    if (ctx->options.style == STYLE_CAKE)
+    {
+        if (!is_snake_case(token->lexeme)) {
+            compiler_set_info_with_token(ctx, token, "use snake_case for functions");
+        }
+    }
+    else if (ctx->options.style == STYLE_MICROSOFT)
+    {
+        if (!is_pascal_case(token->lexeme)) {
+            compiler_set_info_with_token(ctx, token, "use PascalCase for functions");
+        }
     }
 }
+
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
 {
     if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
@@ -5863,12 +5891,19 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
     }
 
 
-    if (!type_is_function_or_function_pointer(type))
+    if (ctx->options.style == STYLE_CAKE)
     {
         if (!is_snake_case(token->lexeme)) {
             compiler_set_info_with_token(ctx, token, "use snake_case for local variables");
         }
     }
+    else if (ctx->options.style == STYLE_MICROSOFT)
+    {
+        if (!is_camel_case(token->lexeme)) {
+            compiler_set_info_with_token(ctx, token, "use camelCase for local variables");
+        }
+    }
+
 }
 
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
