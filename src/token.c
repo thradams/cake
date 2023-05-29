@@ -562,7 +562,7 @@ void print_line_and_token(int (*printf)(const char* fmt, ...), const struct toke
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
 
-    struct token* prev = p_token;
+    const struct token* prev = p_token;
     while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
     {
         prev = prev->prev;

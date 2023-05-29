@@ -518,7 +518,7 @@ enum language_version
     LANGUAGE_CXX = 3, //experimental
 };
 
-enum compiler_warning {    
+enum warning {    
     W_UNUSED_VARIABLE = 1 << 1, //-Wunused-variable
     W_DEPRECATED = 1 << 2,
     W_ENUN_COMPARE = 1 << 3 ,//-Wenum-compare
@@ -530,9 +530,13 @@ enum compiler_warning {
     W_ATTRIBUTES = 1 << 9, //-Wattributes
     W_UNUSED_VALUE = 1 << 10, //-Wunused-value
     W_STYLE = 1 << 11, //-Wstyle
+    W_COMMENT = 1 << 12,
+    W_LINE_SLICING = 1 << 13,
+    W_STRING_SLICED = 1 << 14,
 };
-const char* get_warning_name(enum compiler_warning w);
-enum compiler_warning  get_warning_flag(const char* wname);
+
+const char* get_warning_name(enum warning w);
+enum warning  get_warning_flag(const char* wname);
 
 struct options
 {
@@ -551,7 +555,7 @@ struct options
       #pragma CAKE diagnostic pop
     */
     int enabled_warnings_stack_top_index;
-    enum compiler_warning enabled_warnings_stack[10];
+    enum warning enabled_warnings_stack[10];
 
     /*
        -remove-comments  
@@ -640,7 +644,7 @@ struct preprocessor_ctx
 void preprocessor_ctx_destroy(struct preprocessor_ctx* p);
 
 void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
-void preprocessor_set_warning_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void preprocessor_set_error_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 
@@ -1251,7 +1255,7 @@ void print_line_and_token(int (*printf)(const char* fmt, ...), const struct toke
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
 
-    struct token* prev = p_token;
+    const struct token* prev = p_token;
     while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
     {
         prev = prev->prev;
@@ -1739,7 +1743,7 @@ static int printf_nothing(char const* const format, ...) { return 0; }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum compiler_warning w)
+static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum warning w)
 {
     return
         (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
@@ -1796,8 +1800,13 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
     print_line_and_token(ctx->printf, p_token);
 }
 
-void preprocessor_set_warning_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
+    if (w != 0 && !preprocessor_is_warning_enabled(ctx, w))
+    {
+        return;
+    }
+
     ctx->n_warnings++;
     if (p_token)
       print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
@@ -4469,7 +4478,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
 
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-            preprocessor_set_warning_with_token(ctx, input_list->head, "#warning");
+            preprocessor_set_warning_with_token(0, ctx, input_list->head, "#warning");
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
@@ -5446,11 +5455,14 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                        here is optional.
                     */
                     if (input_list->head->type == TK_STRING_LITERAL)
-                        preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+                    {
+                        if (preprocessor_is_warning_enabled(ctx, W_STRING_SLICED))
+                          preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+                    }
                     else if (input_list->head->type == TK_LINE_COMMENT)
-                        preprocessor_set_warning_with_token(ctx, input_list->head, "multi-line //comment");
+                        preprocessor_set_warning_with_token(W_COMMENT, ctx, input_list->head, "multi-line //comment");
                     else
-                        preprocessor_set_warning_with_token(ctx, input_list->head, "unnecessary line-slicing");
+                        preprocessor_set_warning_with_token(W_LINE_SLICING, ctx, input_list->head, "unnecessary line-slicing");
                 }
 
                 bool blanks = token_is_blank(input_list->head) || input_list->head->type == TK_NEWLINE;
@@ -8633,7 +8645,7 @@ char* readfile(const char* path)
 
 
 static struct w {
-    enum compiler_warning w;
+    enum warning w;
     const char* name;
 }
 s_warnings[] = {
@@ -8650,7 +8662,7 @@ s_warnings[] = {
     {W_STYLE, "style"},
 };
 
-enum compiler_warning  get_warning_flag(const char* wname)
+enum warning  get_warning_flag(const char* wname)
 {
 
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
@@ -8663,7 +8675,7 @@ enum compiler_warning  get_warning_flag(const char* wname)
     return 0;
 }
 
-const char* get_warning_name(enum compiler_warning w)
+const char* get_warning_name(enum warning w)
 {
     int lower_index = 0;
     int upper_index = sizeof(s_warnings) / sizeof(s_warnings[0]) - 1;
@@ -8827,7 +8839,7 @@ int fill_options(struct options* options,
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
-            enum compiler_warning  w = 0;
+            enum warning  w = 0;
             
             if (disable_warning)
                 w = get_warning_flag(argv[i] + 5);
@@ -8865,7 +8877,7 @@ void print_help()
         WHITE "cake file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
-        WHITE "cake file.c -direct-compilation -o file.cc && cl file.cc" RESET
+        WHITE "cake file.c -direct-compilation -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc\n"
         "\n"
         WHITE "OPTIONS\n" RESET
@@ -9445,7 +9457,7 @@ void print_scope(struct scope_list* e);
 char* CompileText(const char* options, const char* content);
 
 void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
-_Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+_Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void compiler_set_info_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
@@ -17097,7 +17109,7 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
 
 }
 
-static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum compiler_warning w)
+static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum warning w)
 {
     return
         (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
@@ -17123,7 +17135,7 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
 }
 
 
-_Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+_Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     if (!parser_is_warning_enabled(ctx, w))
     {
@@ -18245,7 +18257,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 
             if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
             {
-                enum compiler_warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);                
+                enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);                
                 ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;                
             }
         }
@@ -18258,7 +18270,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 
             if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
             {
-                enum compiler_warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
+                enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
                 ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] &= ~w;
             }
         }

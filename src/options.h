@@ -14,7 +14,7 @@ enum language_version
     LANGUAGE_CXX = 3, //experimental
 };
 
-enum compiler_warning {    
+enum warning {    
     W_UNUSED_VARIABLE = 1 << 1, //-Wunused-variable
     W_DEPRECATED = 1 << 2,
     W_ENUN_COMPARE = 1 << 3 ,//-Wenum-compare
@@ -26,9 +26,13 @@ enum compiler_warning {
     W_ATTRIBUTES = 1 << 9, //-Wattributes
     W_UNUSED_VALUE = 1 << 10, //-Wunused-value
     W_STYLE = 1 << 11, //-Wstyle
+    W_COMMENT = 1 << 12,
+    W_LINE_SLICING = 1 << 13,
+    W_STRING_SLICED = 1 << 14,
 };
-const char* get_warning_name(enum compiler_warning w);
-enum compiler_warning  get_warning_flag(const char* wname);
+
+const char* get_warning_name(enum warning w);
+enum warning  get_warning_flag(const char* wname);
 
 struct options
 {
@@ -47,7 +51,7 @@ struct options
       #pragma CAKE diagnostic pop
     */
     int enabled_warnings_stack_top_index;
-    enum compiler_warning enabled_warnings_stack[10];
+    enum warning enabled_warnings_stack[10];
 
     /*
        -remove-comments  

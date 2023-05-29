@@ -5,7 +5,7 @@
 #include <assert.h>
 
 static struct w {
-    enum compiler_warning w;
+    enum warning w;
     const char* name;
 }
 s_warnings[] = {
@@ -22,7 +22,7 @@ s_warnings[] = {
     {W_STYLE, "style"},
 };
 
-enum compiler_warning  get_warning_flag(const char* wname)
+enum warning  get_warning_flag(const char* wname)
 {
 
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
@@ -35,7 +35,7 @@ enum compiler_warning  get_warning_flag(const char* wname)
     return 0;
 }
 
-const char* get_warning_name(enum compiler_warning w)
+const char* get_warning_name(enum warning w)
 {
     int lower_index = 0;
     int upper_index = sizeof(s_warnings) / sizeof(s_warnings[0]) - 1;
@@ -199,7 +199,7 @@ int fill_options(struct options* options,
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
-            enum compiler_warning  w = 0;
+            enum warning  w = 0;
             
             if (disable_warning)
                 w = get_warning_flag(argv[i] + 5);

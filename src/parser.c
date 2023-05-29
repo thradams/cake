@@ -108,7 +108,7 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
 
 }
 
-static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum compiler_warning w)
+static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum warning w)
 {
     return
         (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
@@ -134,7 +134,7 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
 }
 
 
-_Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+_Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     if (!parser_is_warning_enabled(ctx, w))
     {
@@ -1256,7 +1256,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 
             if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
             {
-                enum compiler_warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);                
+                enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);                
                 ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;                
             }
         }
@@ -1269,7 +1269,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 
             if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
             {
-                enum compiler_warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
+                enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
                 ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] &= ~w;
             }
         }

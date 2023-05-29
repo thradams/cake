@@ -77,7 +77,7 @@ static int printf_nothing(char const* const format, ...) { return 0; }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum compiler_warning w)
+static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum warning w)
 {
     return
         (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
@@ -134,8 +134,13 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
     print_line_and_token(ctx->printf, p_token);
 }
 
-void preprocessor_set_warning_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
+    if (w != 0 && !preprocessor_is_warning_enabled(ctx, w))
+    {
+        return;
+    }
+
     ctx->n_warnings++;
     if (p_token)
       print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
@@ -2807,7 +2812,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
 
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-            preprocessor_set_warning_with_token(ctx, input_list->head, "#warning");
+            preprocessor_set_warning_with_token(0, ctx, input_list->head, "#warning");
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
@@ -3784,11 +3789,14 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                        here is optional.
                     */
                     if (input_list->head->type == TK_STRING_LITERAL)
-                        preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+                    {
+                        if (preprocessor_is_warning_enabled(ctx, W_STRING_SLICED))
+                          preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+                    }
                     else if (input_list->head->type == TK_LINE_COMMENT)
-                        preprocessor_set_warning_with_token(ctx, input_list->head, "multi-line //comment");
+                        preprocessor_set_warning_with_token(W_COMMENT, ctx, input_list->head, "multi-line //comment");
                     else
-                        preprocessor_set_warning_with_token(ctx, input_list->head, "unnecessary line-slicing");
+                        preprocessor_set_warning_with_token(W_LINE_SLICING, ctx, input_list->head, "unnecessary line-slicing");
                 }
 
                 bool blanks = token_is_blank(input_list->head) || input_list->head->type == TK_NEWLINE;
