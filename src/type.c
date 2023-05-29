@@ -237,11 +237,12 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
             print_type_qualifier_flags(&local, &first, p->type_qualifier_flags);
 
-            if (p->struct_or_union_specifier) {
-
+            if (p->struct_or_union_specifier)
+            {
                 ss_fprintf(&local, "struct %s", p->struct_or_union_specifier->tag_name);
             }
-            else if (p->enum_specifier) {
+            else if (p->enum_specifier)
+            {
                 if (p->enum_specifier->tag_token->lexeme)
                     ss_fprintf(&local, "enum %s", p->enum_specifier->tag_token->lexeme);
             }
@@ -1575,112 +1576,54 @@ int type_get_sizeof(struct type* p_type)
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
 {
     unsigned int hash = 0;
-
-    try
+    if (type_is_struct_or_union(p_type))
     {
-
-        if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
+        struct osstream ss = { 0 };
+        struct struct_or_union_specifier* p_complete = 
+            p_type->struct_or_union_specifier->complete_struct_or_union_specifier_indirection;        
+        if (p_complete)
         {
-            //size = sizeof(char);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
-        {
-            //size = sizeof(_Bool);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
-        {
-            //size = sizeof(int);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
-        {
-            //size = sizeof(int);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
-        {
-            //size = sizeof(long);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
-        {
-            //size = sizeof(long long);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
-        {
-            //size = sizeof(long long);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
-        {
-            //size = sizeof(long);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT16)
-        {
-            //size = sizeof(short);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT8)
-        {
-            //size = sizeof(char);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
-        {
-            //size = sizeof(double);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
-        {
-            struct osstream ss = { 0 };
-
-            struct struct_or_union_specifier* p_complete =
-                get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-            if (p_complete)
+            struct token* current = p_complete->first_token;
+            for (;
+                current != p_complete->last_token->next;
+                current = current->next)
             {
-                struct token* current = p_complete->first_token;
-                for (;
-                    current != p_complete->last_token->next;
-                    current = current->next)
+                if (current->flags & TK_FLAG_FINAL)
                 {
-                    if (current->flags & TK_FLAG_FINAL)
-                    {
-                        ss_fprintf(&ss, "%s", current->lexeme);
+                    ss_fprintf(&ss, "%s", current->lexeme);
 
-                    }
                 }
             }
+        }
 
-            hash = string_hash(ss.c_str);
-            ss_close(&ss);
-        }
-        else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
-        {
-            //size = sizeof(int);
-        }
-        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
-        {
-            compiler_set_info_with_token(ctx, ctx->current, "type information is missing");
-            throw;
-        }
-        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_TYPEOF)
-        {
-            //s//ize = 1; //TODO
-            //assert(false);
-            //;; size =
-                //  type_get_sizeof(ctx, struct type* p_type)
-        }
-        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_VOID)
-        {
-            if (type_is_void(p_type))
-            {
-                compiler_set_error_with_token(ctx,
-                    ctx->current,
-                    "invalid application of 'sizeof' to a void type");
-                throw;
-            }
-        }
-        else
-        {
-            assert(false);
-        }
+        hash = string_hash(ss.c_str);
+        ss_close(&ss);
     }
-    catch
+    else if (type_is_enum(p_type))
     {
+        struct osstream ss = { 0 };
+        
+        struct enum_specifier* p_complete =
+            p_type->enum_specifier->complete_enum_specifier;
+
+
+        if (p_complete)
+        {
+            //struct token* current = p_complete->first_token;
+           // for (;
+             //   current != p_complete->last_token->next;
+               // current = current->next)
+            //{
+              //  if (current->flags & TK_FLAG_FINAL)
+                //{
+                  //  ss_fprintf(&ss, "%s", current->lexeme);
+//
+  //              }
+    //        }
+        }
+
+        hash = string_hash(ss.c_str);
+        ss_close(&ss);
     }
 
     return hash;
@@ -2132,11 +2075,13 @@ void type_list_push_front(struct type_list* books, struct type* new_book)
     assert(new_book != NULL);
     assert(new_book->next == NULL);
 
-    if (books->head == NULL) {
+    if (books->head == NULL)
+    {
         books->head = new_book;
         books->tail = new_book;
     }
-    else {
+    else
+    {
         new_book->next = books->head;
         books->head = new_book;
     }
@@ -2149,10 +2094,12 @@ void type_list_push_back(struct type_list* books, struct type* new_book)
     assert(new_book != NULL);
     //assert(new_book->next == NULL);
 
-    if (books->tail == NULL) {
+    if (books->tail == NULL)
+    {
         books->head = new_book;
     }
-    else {
+    else
+    {
         books->tail->next = new_book;
     }
     books->tail = new_book;
@@ -2290,7 +2237,8 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
     if (pointers.head)
     {
         struct type* p = pointers.head;
-        while (p) {
+        while (p)
+        {
             type_list_push_back(list, p);
             p = p->next;
         }

@@ -112,7 +112,7 @@ static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum warning
 {
     return
         (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
-  
+
 }
 
 void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
@@ -136,9 +136,18 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
 
 _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
-    if (!parser_is_warning_enabled(ctx, w))
+    if (w != W_NONE)
     {
-        return false;
+        if (p_token->level != 0)
+        {
+            /*we dont warning code inside includes*/
+            return false;
+        }
+
+        if (!parser_is_warning_enabled(ctx, w))
+        {
+            return false;
+        }
     }
 
     ctx->n_warnings++;
@@ -158,8 +167,22 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 }
 
 
-void compiler_set_info_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
+    if (w != W_NONE)
+    {
+        if (p_token->level != 0)
+        {
+            /*we dont warning code inside includes*/
+            return ;
+        }
+
+        if (!parser_is_warning_enabled(ctx, w))
+        {
+            return ;
+        }
+    }
+
     ctx->n_info++;
 
     print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
@@ -446,11 +469,12 @@ bool first_of_typedef_name(struct parser_ctx* ctx, struct token* p_token)
         pdeclarator->declaration_specifiers &&
         (pdeclarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF))
     {
+        pdeclarator->num_uses++;
         p_token->flags |= TK_FLAG_IDENTIFIER_IS_TYPEDEF;
         return true;
     }
     else
-    {
+    {        
         p_token->flags |= TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF;
     }
     return false;
@@ -1205,18 +1229,21 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
         ctx->current = ctx->current->next;
         pragma_skip_blanks(ctx);
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "CAKE") == 0) {
+        if (ctx->current && strcmp(ctx->current->lexeme, "CAKE") == 0)
+        {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
         }
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "diagnostic") == 0) {
+        if (ctx->current && strcmp(ctx->current->lexeme, "diagnostic") == 0)
+        {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
         }
 
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "push") == 0) {
+        if (ctx->current && strcmp(ctx->current->lexeme, "push") == 0)
+        {
             //#pragma GCC diagnostic push
             if (ctx->options.enabled_warnings_stack_top_index <
                 sizeof(ctx->options.enabled_warnings_stack) / sizeof(ctx->options.enabled_warnings_stack[0]))
@@ -1233,7 +1260,8 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             pragma_skip_blanks(ctx);
         }
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "pop") == 0) {
+        if (ctx->current && strcmp(ctx->current->lexeme, "pop") == 0)
+        {
 
             if (ctx->options.enabled_warnings_stack_top_index > 0)
             {
@@ -1248,7 +1276,8 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             pragma_skip_blanks(ctx);
         }
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "warning") == 0) {
+        if (ctx->current && strcmp(ctx->current->lexeme, "warning") == 0)
+        {
             //#pragma CAKE diagnostic warning "-Wenum-compare"
 
             ctx->current = ctx->current->next;
@@ -1256,12 +1285,13 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 
             if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
             {
-                enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);                
-                ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;                
+                enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
+                ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;
             }
         }
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "ignore") == 0) {
+        if (ctx->current && strcmp(ctx->current->lexeme, "ignore") == 0)
+        {
             //#pragma CAKE diagnostic ignore "-Wenum-compare"
 
             ctx->current = ctx->current->next;
@@ -1861,7 +1891,8 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         const char* name = p_init_declarator->declarator->name->lexeme;
         if (name)
         {
-            if (tkname) {
+            if (tkname)
+            {
                 if (ctx->scopes.tail->scope_level == 0)
                 {
 
@@ -1901,7 +1932,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     else
                     {
                         compiler_set_error_with_token(ctx, ctx->current, "redeclaration");
-                        compiler_set_info_with_token(ctx, previous->name, "previous declaration");
+                        compiler_set_info_with_token(W_NONE, ctx, previous->name, "previous declaration");
                     }
                 }
                 else
@@ -1914,7 +1945,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         /*but redeclaration at function scope we show warning*/
                         if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name))
                         {
-                            compiler_set_info_with_token(ctx, previous->first_token, "previous declaration is here");
+                            compiler_set_info_with_token(W_NONE, ctx, previous->first_token, "previous declaration is here");
                         }
                     }
                 }
@@ -3153,7 +3184,7 @@ struct function_specifier* function_specifier(struct parser_ctx* ctx)
 {
     if (ctx->current->type == TK_KEYWORD__NORETURN)
     {
-        compiler_set_info_with_token(ctx, ctx->current, "_Noreturn is deprecated use attributes");
+        compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "_Noreturn is deprecated use attributes");
     }
 
     struct function_specifier* p_function_specifier = NULL;
@@ -4005,6 +4036,19 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
             {
                 compiler_set_error_with_token(ctx, position, "_Static_assert failed");
             }
+
+            if (p_static_assert_declaration->constant_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+            {
+                if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_HASHOF_TYPE)
+                {
+                    compiler_set_info_with_token(W_NONE,
+                        ctx, 
+                        position, "%llu != %llu",
+                        constant_value_to_ull(&p_static_assert_declaration->constant_expression->left->constant_value),
+                        constant_value_to_ull(&p_static_assert_declaration->constant_expression->right->constant_value)
+                        );
+                }
+            }
         }
     }
     catch
@@ -4123,38 +4167,47 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
     struct token* attr_token = ctx->current;
 
     bool is_standard_attribute = false;
-    if (strcmp(attr_token->lexeme, "deprecated") == 0) {
+    if (strcmp(attr_token->lexeme, "deprecated") == 0)
+    {
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_DEPRECATED;
     }
-    else if (strcmp(attr_token->lexeme, "fallthrough") == 0) {
+    else if (strcmp(attr_token->lexeme, "fallthrough") == 0)
+    {
         is_standard_attribute = true;
     }
-    else if (strcmp(attr_token->lexeme, "maybe_unused") == 0) {
+    else if (strcmp(attr_token->lexeme, "maybe_unused") == 0)
+    {
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_MAYBE_UNUSED;
     }
-    else if (strcmp(attr_token->lexeme, "noreturn") == 0) {
+    else if (strcmp(attr_token->lexeme, "noreturn") == 0)
+    {
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_NORETURN;
     }
-    else if (strcmp(attr_token->lexeme, "reproducible") == 0) {
+    else if (strcmp(attr_token->lexeme, "reproducible") == 0)
+    {
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_REPRODUCIBLE;
     }
-    else if (strcmp(attr_token->lexeme, "unsequenced") == 0) {
+    else if (strcmp(attr_token->lexeme, "unsequenced") == 0)
+    {
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_UNSEQUENCED;
     }
-    else if (strcmp(attr_token->lexeme, "nodiscard") == 0) {
+    else if (strcmp(attr_token->lexeme, "nodiscard") == 0)
+    {
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
     }
-    else if (strcmp(attr_token->lexeme, "free") == 0) {
+    else if (strcmp(attr_token->lexeme, "free") == 0)
+    {
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_FREE;
     }
-    else if (strcmp(attr_token->lexeme, "destroy") == 0) {
+    else if (strcmp(attr_token->lexeme, "destroy") == 0)
+    {
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_DESTROY;
     }
@@ -4286,8 +4339,56 @@ struct primary_block* primary_block(struct parser_ctx* ctx)
     return p_primary_block;
 }
 
+static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
+{
+    //token points to {
+
+    if (token->level == 0 &&
+        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&        
+        token->type == '{' &&
+        parser_is_warning_enabled(ctx, W_STYLE))
+    {
+        if (ctx->options.style == STYLE_CAKE)
+        {
+            if (token->prev->type == TK_BLANKS &&
+                token->prev->prev->type == TK_NEWLINE)
+            {
+            }
+            else
+            {
+                compiler_set_info_with_token(W_STYLE, ctx, token, "not following correct brace style {");
+            }
+        }
+    }
+}
+
+static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
+{
+    //token points to {
+
+    if (token->level == 0 &&
+        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
+        token->type == '}' &&
+        parser_is_warning_enabled(ctx, W_STYLE))
+    {
+        if (ctx->options.style == STYLE_CAKE)
+        {
+            if (token->prev->type == TK_BLANKS &&
+                token->prev->prev->type == TK_NEWLINE)
+            {
+            }
+            else
+            {
+                compiler_set_info_with_token(W_STYLE, ctx, token, "not following correct close brace style }");
+            }
+        }
+    }
+}
+
 struct secondary_block* secondary_block(struct parser_ctx* ctx)
 {
+    check_open_brace_style(ctx, ctx->current);
+
     struct secondary_block* p_secondary_block = calloc(1, sizeof(struct secondary_block));
     p_secondary_block->first_token = ctx->current;
 
@@ -4295,6 +4396,8 @@ struct secondary_block* secondary_block(struct parser_ctx* ctx)
     p_secondary_block->statement = statement(ctx);
 
     p_secondary_block->last_token = ctx->previous;
+
+    check_close_brace_style(ctx, p_secondary_block->last_token);
 
     return p_secondary_block;
 }
@@ -4353,7 +4456,8 @@ struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx)
                     }
                 }
             }
-            else {
+            else
+            {
                 /*
                 *  The objective here is to detect expression with not effect
                 *  a == b; etc
@@ -4661,8 +4765,6 @@ struct try_statement* try_statement(struct parser_ctx* ctx)
     }
     p_try_statement->last_token = ctx->previous;
 
-
-
     return p_try_statement;
 }
 
@@ -4718,6 +4820,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
         }
 
         parser_match_tk(ctx, ')');
+
         p_selection_statement->secondary_block = secondary_block(ctx);
 
         if (ctx->current)
@@ -4741,6 +4844,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
 
         p_selection_statement->expression = expression(ctx);
         parser_match_tk(ctx, ')');
+
         p_selection_statement->secondary_block = secondary_block(ctx);
 
     }
@@ -4903,6 +5007,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
     }
     else if (ctx->current->type == TK_KEYWORD_RETURN)
     {
+        const struct token* const p_return_token = ctx->current;
         parser_match(ctx);
         if (ctx->current->type != ';')
         {
@@ -4926,7 +5031,18 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                 struct type return_type =
                     get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type);
 
-                check_assigment(ctx, &return_type, p_jump_statement->expression_opt);
+                if (type_is_void(&return_type))
+                {
+                    compiler_set_error_with_token(ctx, 
+                        p_return_token, 
+                        "void function '%s' should not return a value", 
+                        ctx->p_current_function_opt->init_declarator_list.head->declarator->name->lexeme);
+                }
+                else
+                {
+                    check_assigment(ctx, &return_type, p_jump_statement->expression_opt);
+                }
+                
 
                 type_destroy(&return_type);
             }
@@ -5170,12 +5286,12 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR \
+#define STR0 \
 "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32705\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 "\n"
 
-#define STR0 \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.36.32522\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"
+#define STR \
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
 
         //http://thradams.com/app/litapp.html
         snprintf(env, sizeof env,
@@ -5799,17 +5915,19 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
     {
         return;
     }
-    
+
     if (ctx->options.style == STYLE_CAKE)
     {
-        if (!is_snake_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use snake_case for struct/union tags");
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use snake_case for struct/union tags");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
-        if (!is_pascal_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use camelCase for struct/union tags");
+        if (!is_pascal_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use camelCase for struct/union tags");
         }
     }
 }
@@ -5824,14 +5942,16 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 
     if (ctx->options.style == STYLE_CAKE)
     {
-        if (!is_snake_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use snake_case for enum tags");
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use snake_case for enum tags");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
-        if (!is_pascal_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use PascalCase for enum tags");
+        if (!is_pascal_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use PascalCase for enum tags");
         }
     }
 }
@@ -5848,14 +5968,16 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 
     if (ctx->options.style == STYLE_CAKE)
     {
-        if (!is_snake_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use snake_case for functions");
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use snake_case for functions");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
-        if (!is_pascal_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use PascalCase for functions");
+        if (!is_pascal_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use PascalCase for functions");
         }
     }
 }
@@ -5874,11 +5996,12 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
         {
             if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
             {
-                compiler_set_info_with_token(ctx, token, "use prefix s_ for static global variables");
+                compiler_set_info_with_token(W_STYLE, ctx, token, "use prefix s_ for static global variables");
             }
         }
-        if (!is_snake_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use snake_case global variables");
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use snake_case global variables");
         }
     }
 }
@@ -5893,14 +6016,16 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
     if (ctx->options.style == STYLE_CAKE)
     {
-        if (!is_snake_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use snake_case for local variables");
+        if (!is_snake_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use snake_case for local variables");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
-        if (!is_camel_case(token->lexeme)) {
-            compiler_set_info_with_token(ctx, token, "use camelCase for local variables");
+        if (!is_camel_case(token->lexeme))
+        {
+            compiler_set_info_with_token(W_STYLE, ctx, token, "use camelCase for local variables");
         }
     }
 
@@ -5913,8 +6038,9 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
         return;
     }
 
-    if (!is_all_upper(token->lexeme)) {
-        compiler_set_info_with_token(ctx, token, "use UPPERCASE for enumerators");
+    if (!is_all_upper(token->lexeme))
+    {
+        compiler_set_info_with_token(W_STYLE, ctx, token, "use UPPERCASE for enumerators");
     }
 }
 
@@ -5925,8 +6051,9 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
         return;
     }
 
-    if (!is_snake_case(token->lexeme)) {
-        compiler_set_info_with_token(ctx, token, "use snake_case for struct members");
+    if (!is_snake_case(token->lexeme))
+    {
+        compiler_set_info_with_token(W_STYLE, ctx, token, "use snake_case for struct members");
     }
 }
 
@@ -5937,8 +6064,9 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
         return;
     }
 
-    if (!is_snake_case(token->lexeme)) {
-        compiler_set_info_with_token(ctx, token, "use snake_case for arguments");
+    if (!is_snake_case(token->lexeme))
+    {
+        compiler_set_info_with_token(W_STYLE, ctx, token, "use snake_case for arguments");
     }
 }
 

@@ -98,7 +98,7 @@ static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-    
+
     print_position(ctx->printf, stream->path, stream->line, stream->col);
     ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 }
@@ -106,22 +106,22 @@ static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream
 
 static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
-    ctx->n_warnings++;    
+    ctx->n_warnings++;
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
     print_position(ctx->printf, stream->path, stream->line, stream->col);
-    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);    
+    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
 }
 
 void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
-    
+
 
     if (p_token)
-      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
 
     char buffer[200] = { 0 };
     va_list args;
@@ -136,14 +136,23 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
 
 void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
-    if (w != 0 && !preprocessor_is_warning_enabled(ctx, w))
+    if (w != W_NONE)
     {
-        return;
+        /*
+         we dont warn ing code inside includes, except #warning (w == 0)
+        */
+        if (p_token->level != 0)
+            return;
+
+        if (!preprocessor_is_warning_enabled(ctx, w))
+        {
+            return;
+        }
     }
 
     ctx->n_warnings++;
     if (p_token)
-      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
 
     char buffer[200] = { 0 };
     va_list args;
@@ -161,7 +170,7 @@ void preprocessor_set_error_with_token(struct preprocessor_ctx* ctx, const struc
     ctx->n_errors++;
 
     if (p_token)
-      print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
 
     char buffer[200] = { 0 };
     va_list args;
@@ -1200,7 +1209,8 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
-    if (stream->line_continuation_count > 0) {
+    if (stream->line_continuation_count > 0)
+    {
         p_new_token->flags |= TK_FLAG_LINE_CONTINUATION;
         if (stream->line_continuation_count == 1)
         {
@@ -1214,7 +1224,8 @@ static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
                 p_new_token->flags |= TK_FLAG_SLICED;
             }
         }
-        else {
+        else
+        {
             p_new_token->flags |= TK_FLAG_SLICED;
         }
     }
@@ -2812,7 +2823,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
 
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-            preprocessor_set_warning_with_token(0, ctx, input_list->head, "#warning");
+            preprocessor_set_warning_with_token(W_NONE, ctx, input_list->head, "#warning");
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
@@ -2820,7 +2831,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         {
             /*
               # pragma pp-tokensopt new-line
-            */            
+            */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
             r.tail->type = TK_PRAGMA;
             skip_blanks_level(ctx, &r, input_list, level);
@@ -2855,13 +2866,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 }
                 else if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
                 {
-                   // match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
-                   // skip_blanks_level(ctx, &r, input_list, level);
-                   // if (strcmp(ctx->current->lexeme )
-                   // match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
-                   // skip_blanks_level(ctx, &r, input_list, level);
-                   // match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//
-                }                
+                    // match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                    // skip_blanks_level(ctx, &r, input_list, level);
+                    // if (strcmp(ctx->current->lexeme )
+                    // match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
+                    // skip_blanks_level(ctx, &r, input_list, level);
+                    // match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//
+                }
             }
 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
@@ -3791,7 +3802,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                     if (input_list->head->type == TK_STRING_LITERAL)
                     {
                         if (preprocessor_is_warning_enabled(ctx, W_STRING_SLICED))
-                          preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+                            preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
                     }
                     else if (input_list->head->type == TK_LINE_COMMENT)
                         preprocessor_set_warning_with_token(W_COMMENT, ctx, input_list->head, "multi-line //comment");
@@ -4551,7 +4562,8 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
         return;
     }
 
-    if (!is_screaming_case(token->lexeme)) {
+    if (!is_screaming_case(token->lexeme))
+    {
         preprocessor_set_info_with_token(ctx, token, "use SCREAMING_CASE for macros");
     }
 

@@ -1390,7 +1390,8 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
             else
             {
 
-                if (p_declarator->first_token == NULL) {
+                if (p_declarator->first_token == NULL)
+                {
                     l2.head->flags = p_declarator->last_token->flags;
                     /*it is a empty declarator, so first_token is not part of declarator it only marks de position*/
                     token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token->prev, &l2);

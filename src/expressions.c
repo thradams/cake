@@ -1104,14 +1104,11 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
                 p_expression_node_new->left = p_expression_node;
 
-                //TODO verificar se eh ponteiro ou array
-                // 
-                //if (!type_is_function_or_function_pointer(&p_expression_node->type))
-                //{
-                    //seterror_with_token(ctx, ctx->current,
-                  //      "called object is not a function or function pointer");
-                    //throw;
-                //}
+                if (!type_is_pointer_or_array(&p_expression_node->type))
+                {
+                    compiler_set_error_with_token(ctx, ctx->current, "subscripted value is neither array nor pointer");
+                }
+
                 if (type_is_pointer(&p_expression_node->type))
                 {
                     p_expression_node_new->type = type_remove_pointer(&p_expression_node->type);
@@ -1205,42 +1202,61 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
 
 
                 parser_match(ctx);
-                if (type_is_pointer(&p_expression_node->type) &&
-                    type_is_struct_or_union(p_expression_node->type.next))
+                
+                if (type_is_pointer_or_array(&p_expression_node->type))
                 {
-                    struct struct_or_union_specifier* p_complete =
-                        get_complete_struct_or_union_specifier(p_expression_node->type.next->struct_or_union_specifier);
-
-                    if (p_complete)
+                    struct type item_type = {0};
+                    if (type_is_array(&p_expression_node->type))
                     {
-                        struct member_declarator* p_member_declarator =
-                            find_member_declarator(&p_complete->member_declaration_list, ctx->current->lexeme);
-                        if (p_member_declarator)
+                        compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "using '->' in array as pointer to struct");
+                        item_type = get_array_item_type(&p_expression_node->type);
+                    }
+                    else
+                    {
+                        item_type = type_remove_pointer(&p_expression_node->type);
+                    }
+
+                    if (type_is_struct_or_union(&item_type))
+                    {
+                        struct struct_or_union_specifier* p_complete =
+                            get_complete_struct_or_union_specifier(p_expression_node->type.next->struct_or_union_specifier);
+
+                        if (p_complete)
                         {
-                            p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                            struct member_declarator* p_member_declarator =
+                                find_member_declarator(&p_complete->member_declaration_list, ctx->current->lexeme);
+                            if (p_member_declarator)
+                            {
+                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+                            }
+                            else
+                            {
+                                compiler_set_error_with_token(ctx,
+                                    ctx->current,
+                                    "struct member '%s' not found in '%s'",
+                                    ctx->current->lexeme, p_expression_node->type.struct_or_union_specifier->tag_name);
+                            }
                         }
                         else
                         {
                             compiler_set_error_with_token(ctx,
                                 ctx->current,
-                                "struct member '%s' not found in '%s'",
-                                ctx->current->lexeme, p_expression_node->type.struct_or_union_specifier->tag_name);
+                                "struct '%s' is incomplete.",
+                                p_expression_node->type.struct_or_union_specifier->tag_name);
                         }
+                        parser_match_tk(ctx, TK_IDENTIFIER);
+                        type_destroy(&item_type);
                     }
                     else
                     {
-                        compiler_set_error_with_token(ctx,
-                            ctx->current,
-                            "struct '%s' is incomplete.",
-                            p_expression_node->type.struct_or_union_specifier->tag_name);
+                        compiler_set_error_with_token(ctx, ctx->current, "structure or union required");
                     }
-                    parser_match_tk(ctx, TK_IDENTIFIER);
                 }
                 else
                 {
                     compiler_set_error_with_token(ctx, ctx->current, "structure or union required");
                 }
-                //todo apontar pro nome?
+                
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '++')
@@ -1826,21 +1842,21 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 new_expression->type_name = type_name(ctx);
                 new_expression->last_token = ctx->current;
                 parser_match_tk(ctx, ')');
-                new_expression->constant_value = make_constant_value_ull(type_get_hashof(ctx, &new_expression->type));
+
+                if (type_is_struct_or_union(&new_expression->type_name->type))
+                {
+                    new_expression->constant_value = make_constant_value_ull(type_get_hashof(ctx, &new_expression->type_name->type));
+                }
+                else
+                {
+                    compiler_set_error_with_token(ctx, ctx->current, "expected struct type");
+                }
 
             }
             else
             {
-                new_expression->right = unary_expression(ctx);
-                if (new_expression->right == NULL)
-                    throw;
-
-                new_expression->constant_value = make_constant_value_ull(type_get_hashof(ctx, &new_expression->right->type));
-
-
-                new_expression->last_token = ctx->previous;
+                compiler_set_error_with_token(ctx, ctx->current, "expected type-name");
             }
-
 
             new_expression->type = type_make_int();
             p_expression_node = new_expression;
@@ -2766,12 +2782,14 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '||');
 
 
-            if (!type_is_scalar(&new_expression->left->type)) {
+            if (!type_is_scalar(&new_expression->left->type))
+            {
                 compiler_set_error_with_token(ctx, ctx->current, "left type is not scalar for or expression");
                 throw;
             }
 
-            if (!type_is_scalar(&new_expression->right->type)) {
+            if (!type_is_scalar(&new_expression->right->type))
+            {
                 compiler_set_error_with_token(ctx, ctx->current, "right type is not scalar for or expression");
                 throw;
             }
@@ -2842,8 +2860,8 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
             {
                 compiler_set_error_with_token(ctx, ctx->current, "assignment to expression with array type");
             }
-            else {
-
+            else
+            {
                 if (type_is_const(&new_expression->left->type))
                 {
                     compiler_set_error_with_token(ctx, ctx->current, "assignment of read-only object");

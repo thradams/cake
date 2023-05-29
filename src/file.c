@@ -1,13 +1,24 @@
-#ifdef __CAKE__
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wstyle"
-#endif
-struct TAGDIR;
-typedef struct TAGDIR DIR;
 
-#ifdef __CAKE__
-#pragma CAKE diagnostic pop
-#endif
+struct X {
+    int a[10];
 
-void F() {}
+    /*uncomment the next line*/
+    char * text;
+};
+
+void x_destroy(struct X* p);
+
+int main()
+{
+    struct X x = {};
+    x_destroy(&x);
+}
+
+
+
+void x_destroy(struct X* p)
+{
+    static_assert(_Hashof(struct X) == 283780300);
+}
+
 

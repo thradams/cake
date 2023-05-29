@@ -8,7 +8,7 @@
 #include <Windows.h>
 #endif
 
-#if defined _MSC_VER && !defined __POCC__
+#if defined _MSC_VER
 #include <crtdbg.h>
 #endif
 
@@ -53,7 +53,8 @@ struct map_entry* hashmap_find(struct hash_map* map, const char* key)
 
     for (; pentry != NULL; pentry = pentry->next)
     {
-        if (pentry->hash == hash && strcmp(pentry->key, key) == 0) {
+        if (pentry->hash == hash && strcmp(pentry->key, key) == 0)
+        {
             return pentry;
         }
     }
@@ -99,7 +100,8 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type)
 
     if (map->table == NULL)
     {
-        if (map->capacity < 1) {
+        if (map->capacity < 1)
+        {
             map->capacity = 1000;
         }
 
@@ -113,8 +115,10 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type)
 
         struct map_entry* pentry = map->table[index];
 
-        for (; pentry != NULL; pentry = pentry->next) {
-            if (pentry->hash == hash && strcmp(pentry->key, key) == 0) {
+        for (; pentry != NULL; pentry = pentry->next)
+        {
+            if (pentry->hash == hash && strcmp(pentry->key, key) == 0)
+            {
                 break;
             }
         }

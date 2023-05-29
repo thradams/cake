@@ -15,6 +15,7 @@ enum language_version
 };
 
 enum warning {    
+    W_NONE = 0,  /*not a real warning, used in especial cases*/
     W_UNUSED_VARIABLE = 1 << 1, //-Wunused-variable
     W_DEPRECATED = 1 << 2,
     W_ENUN_COMPARE = 1 << 3 ,//-Wenum-compare

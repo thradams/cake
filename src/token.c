@@ -577,7 +577,8 @@ void print_line_and_token(int (*printf)(const char* fmt, ...), const struct toke
                 printf(" ");
             }
         }
-        if (next->flags & TK_FLAG_MACRO_EXPANDED) {
+        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+        {
             printf(DARKGRAY "%s" RESET, next->lexeme);
         }
         else
@@ -590,7 +591,8 @@ void print_line_and_token(int (*printf)(const char* fmt, ...), const struct toke
     printf(" %*s |", n, " ");
     if (p_token)
     {
-        for (int i = 1; i <= (p_token->col - 1); i++) {
+        for (int i = 1; i <= (p_token->col - 1); i++)
+        {
             printf(" ");
         }
     }
