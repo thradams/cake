@@ -759,14 +759,22 @@ int main()
     x_destroy(&x);
 }
 
-
-
 void x_destroy(struct X* p)
 {
-    /*In a far away galaxy*/
-    static_assert(_Hashof(p) == 283780300, "check this function x_destroy");
+    static_assert(_Hashof(struct X) == 283780300);
 }
 
+void x_print(struct X* p)
+{
+    static_assert(_Hashof(struct X) == 283780300);
+}
+
+struct X x_clone(const struct X* p)
+{
+  struct X x = *p;
+  static_assert(_Hashof(struct X) == 283780300);
+  return x;
+}
 
 `
 ;
