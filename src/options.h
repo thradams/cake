@@ -25,6 +25,7 @@ enum compiler_warning {
     W_TYPEOF_ARRAY_PARAMETER = 1 << 8,//
     W_ATTRIBUTES = 1 << 9, //-Wattributes
     W_UNUSED_VALUE = 1 << 10, //-Wunused-value
+    W_STYLE = 1 << 11, //-Wstyle
 };
 const char* get_warning_name(enum compiler_warning w);
 enum compiler_warning  get_warning_flag(const char* wname);
@@ -73,20 +74,13 @@ struct options
     bool nodiscard_is_default;
 
 
-    bool do_static_analisys;
-
+    
     /*
       -no-output
       if true cake does not generate ouput
     */
     bool no_output;
     
-    /*
-      -n
-      true - to info about name conventions violations
-    */
-    bool check_naming_conventions;
-
     /*
       -o filename
       defines the ouputfile when 1 file is used

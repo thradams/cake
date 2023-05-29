@@ -18,7 +18,8 @@ s_warnings[] = {
     {W_DECLARATOR_HIDE, "hide-declarator"},
     {W_TYPEOF_ARRAY_PARAMETER, "typeof-parameter"},
     {W_ATTRIBUTES, "attributes"},
-    {W_UNUSED_VALUE, "unused-value"}
+    {W_UNUSED_VALUE, "unused-value"},
+    {W_STYLE, "style"},
 };
 
 enum compiler_warning  get_warning_flag(const char* wname)
@@ -71,6 +72,7 @@ int fill_options(struct options* options,
        default at this moment is same as -Wall
     */
     options->enabled_warnings_stack[0] = ~0;
+    options->enabled_warnings_stack[0] &= ~W_STYLE; //default is OFF
 
 
     /*first loop used to collect options*/
@@ -115,24 +117,12 @@ int fill_options(struct options* options,
             options->direct_compilation = true;
             continue;
         }
-        if (strcmp(argv[i], "-n") == 0)
-        {
-            options->check_naming_conventions = true;
-            continue;
-        }
+     
         if (strcmp(argv[i], "-fi") == 0)
         {
             options->format_input = true;
             continue;
         }
-
-
-        if (strcmp(argv[i], "-st") == 0)
-        {
-            options->do_static_analisys = true;
-            continue;
-        }
-
 
         if (strcmp(argv[i], "-fo") == 0)
         {
@@ -239,10 +229,16 @@ void print_help()
         WHITE "SAMPLES\n" RESET
         "\n"
         WHITE "    cake source.c\n" RESET
-        "    Compiles source.c and ouputs /out/source.c\n"
+        "    Compiles source.c and outputs /out/source.c\n"
         "\n"
         WHITE "    cake -target=C11 source.c\n" RESET
-        "    Compiles source.c and ouputs C11 code at /out/source.c\n"
+        "    Compiles source.c and outputs C11 code at /out/source.c\n"
+        "\n"
+        WHITE "cake file.c -o file.cc && cl file.cc\n" RESET
+        "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
+        "\n"
+        WHITE "cake file.c -direct-compilation -o file.cc && cl file.cc" RESET
+        "    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc\n"
         "\n"
         WHITE "OPTIONS\n" RESET
         "\n"
@@ -266,7 +262,7 @@ void print_help()
         "                        C99 is the default and C89 (ANSI C) is the minimum target \n"
         "\n"
         WHITE "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
-        "                        (not implented yet, input is considered C23)                    \n"
+        "                        (not implemented yet, input is considered C23)                    \n"
         "\n"
         WHITE "  -n                    " RESET "Check naming conventions (it is hardcoded for its own naming convention)\n"
         "\n"
@@ -274,10 +270,9 @@ void print_help()
         "\n"
         WHITE "  -fo                   " RESET "Format output (format after language convertion, result parsed again)\n"
         "\n"
-        WHITE "  --no-discard          " RESET "Makes [[nodiscard]] default implicitly \n"
+        WHITE "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
         WHITE "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
-
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;

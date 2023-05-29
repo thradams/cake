@@ -34,4 +34,6 @@ int main() {
 ### -Wattributes
 ### -Wunused-value
 
+### -Wstyle
+
 

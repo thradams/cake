@@ -43,6 +43,10 @@ caso nao tenha este arquivos apt-get install uuid-dev
 
 #ifdef _WIN32
 
+#ifdef __CAKE__
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wstyle"
+#endif
 
 struct TAGDIR
 {
@@ -50,6 +54,9 @@ struct TAGDIR
     struct dirent dirent;
 };
 
+#ifdef __CAKE__
+#pragma CAKE diagnostic pop
+#endif
 
 DIR* opendir(const char* name)
 {

@@ -483,9 +483,19 @@ do {\
 
 //#pragma once
 
+#ifdef __CAKE__
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wstyle"
+#endif
+
 #define try  
 #define catch if (0) catch_label:
 #define throw goto catch_label
+
+#ifdef __CAKE__
+#pragma CAKE diagnostic pop
+#endif
+
 
 const char* get_posix_error_message(int error);
 int windows_error_to_posix(int i);
@@ -519,6 +529,7 @@ enum compiler_warning {
     W_TYPEOF_ARRAY_PARAMETER = 1 << 8,//
     W_ATTRIBUTES = 1 << 9, //-Wattributes
     W_UNUSED_VALUE = 1 << 10, //-Wunused-value
+    W_STYLE = 1 << 11, //-Wstyle
 };
 const char* get_warning_name(enum compiler_warning w);
 enum compiler_warning  get_warning_flag(const char* wname);
@@ -567,20 +578,13 @@ struct options
     bool nodiscard_is_default;
 
 
-    bool do_static_analisys;
-
+    
     /*
       -no-output
       if true cake does not generate ouput
     */
     bool no_output;
     
-    /*
-      -n
-      true - to info about name conventions violations
-    */
-    bool check_naming_conventions;
-
     /*
       -o filename
       defines the ouputfile when 1 file is used
@@ -1639,11 +1643,7 @@ void c_clrscr()
  include dirent.h on linux
 */
 
-#ifdef __POCC__
-/*missing in pelles c*/
-typedef unsigned short ino_t; // inode number (unused on Windows)
-typedef long off_t; // file offset value
-#endif
+
 
 enum
 {
@@ -1668,9 +1668,16 @@ struct dirent
     char d_name[256];        /* Null-terminated filename */
 };
 
-
+#ifdef __CAKE__
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wstyle"
+#endif
 struct TAGDIR;
 typedef struct TAGDIR DIR;
+
+#ifdef __CAKE__
+#pragma CAKE diagnostic pop
+#endif
 
 DIR* opendir(const char* name);
 int closedir(DIR* dirp);
@@ -1731,6 +1738,12 @@ static int printf_nothing(char const* const format, ...) { return 0; }
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
+
+static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum compiler_warning w)
+{
+    return
+        (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
+}
 
 void preprocessor_ctx_destroy(struct preprocessor_ctx* p)
 {
@@ -6187,8 +6200,10 @@ void print_all_macros(struct preprocessor_ctx* prectx)
 }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!preprocessor_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
 
     if (!is_screaming_case(token->lexeme)) {
         preprocessor_set_info_with_token(ctx, token, "use SCREAMING_CASE for macros");
@@ -7454,6 +7469,10 @@ caso nao tenha este arquivos apt-get install uuid-dev
 
 #ifdef _WIN32
 
+#ifdef __CAKE__
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wstyle"
+#endif
 
 struct TAGDIR
 {
@@ -7461,6 +7480,9 @@ struct TAGDIR
     struct dirent dirent;
 };
 
+#ifdef __CAKE__
+#pragma CAKE diagnostic pop
+#endif
 
 DIR* opendir(const char* name)
 {
@@ -8624,7 +8646,8 @@ s_warnings[] = {
     {W_DECLARATOR_HIDE, "hide-declarator"},
     {W_TYPEOF_ARRAY_PARAMETER, "typeof-parameter"},
     {W_ATTRIBUTES, "attributes"},
-    {W_UNUSED_VALUE, "unused-value"}
+    {W_UNUSED_VALUE, "unused-value"},
+    {W_STYLE, "style"},
 };
 
 enum compiler_warning  get_warning_flag(const char* wname)
@@ -8677,6 +8700,7 @@ int fill_options(struct options* options,
        default at this moment is same as -Wall
     */
     options->enabled_warnings_stack[0] = ~0;
+    options->enabled_warnings_stack[0] &= ~W_STYLE; //default is OFF
 
 
     /*first loop used to collect options*/
@@ -8721,24 +8745,12 @@ int fill_options(struct options* options,
             options->direct_compilation = true;
             continue;
         }
-        if (strcmp(argv[i], "-n") == 0)
-        {
-            options->check_naming_conventions = true;
-            continue;
-        }
+     
         if (strcmp(argv[i], "-fi") == 0)
         {
             options->format_input = true;
             continue;
         }
-
-
-        if (strcmp(argv[i], "-st") == 0)
-        {
-            options->do_static_analisys = true;
-            continue;
-        }
-
 
         if (strcmp(argv[i], "-fo") == 0)
         {
@@ -8845,10 +8857,16 @@ void print_help()
         WHITE "SAMPLES\n" RESET
         "\n"
         WHITE "    cake source.c\n" RESET
-        "    Compiles source.c and ouputs /out/source.c\n"
+        "    Compiles source.c and outputs /out/source.c\n"
         "\n"
         WHITE "    cake -target=C11 source.c\n" RESET
-        "    Compiles source.c and ouputs C11 code at /out/source.c\n"
+        "    Compiles source.c and outputs C11 code at /out/source.c\n"
+        "\n"
+        WHITE "cake file.c -o file.cc && cl file.cc\n" RESET
+        "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
+        "\n"
+        WHITE "cake file.c -direct-compilation -o file.cc && cl file.cc" RESET
+        "    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc\n"
         "\n"
         WHITE "OPTIONS\n" RESET
         "\n"
@@ -8872,7 +8890,7 @@ void print_help()
         "                        C99 is the default and C89 (ANSI C) is the minimum target \n"
         "\n"
         WHITE "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
-        "                        (not implented yet, input is considered C23)                    \n"
+        "                        (not implemented yet, input is considered C23)                    \n"
         "\n"
         WHITE "  -n                    " RESET "Check naming conventions (it is hardcoded for its own naming convention)\n"
         "\n"
@@ -8880,10 +8898,9 @@ void print_help()
         "\n"
         WHITE "  -fo                   " RESET "Format output (format after language convertion, result parsed again)\n"
         "\n"
-        WHITE "  --no-discard          " RESET "Makes [[nodiscard]] default implicitly \n"
+        WHITE "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
         WHITE "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
-
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;
@@ -17082,6 +17099,12 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
 
 }
 
+static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum compiler_warning w)
+{
+    return
+        (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
+  
+}
 
 void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
@@ -17104,11 +17127,11 @@ void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p
 
 _Bool compiler_set_warning_with_token(enum compiler_warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
-    if (!(ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w))
+    if (!parser_is_warning_enabled(ctx, w))
     {
-        //not default, not added
-        return 0;
+        return false;
     }
+
     ctx->n_warnings++;
 
     print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
@@ -18630,8 +18653,6 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
     struct declaration* p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition);
     if (is_function_definition)
     {
-        naming_convention_function(ctx, p_declaration->init_declarator_list.head->declarator->direct_declarator->name_opt);
-
 
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
@@ -18704,22 +18725,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
         scope_list_pop(&ctx->scopes);
         ctx->p_current_function_opt = NULL;
     }
-    else
-    {
-        struct init_declarator* p = p_declaration->init_declarator_list.head;
-        while (p)
-        {
-            if (p->declarator && p->declarator->name)
-            {
 
-                naming_convention_global_var(ctx,
-                    p->declarator->name,
-                    &p->declarator->type,
-                    p_declaration->declaration_specifiers->storage_class_specifier_flags);
-            }
-            p = p->next;
-        }
-    }
 
     return p_declaration;
 }
@@ -18846,6 +18852,27 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         const char* name = p_init_declarator->declarator->name->lexeme;
         if (name)
         {
+            if (tkname) {
+                if (ctx->scopes.tail->scope_level == 0)
+                {
+
+                    if (type_is_function(&p_init_declarator->declarator->type))
+                    {
+                        naming_convention_global_var(ctx,
+                            tkname,
+                            &p_init_declarator->declarator->type,
+                            p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags);
+                    }
+                    else
+                    {
+                        naming_convention_global_var(ctx,
+                            tkname,
+                            &p_init_declarator->declarator->type,
+                            p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags);
+                    }
+                }
+            }
+
             struct scope* out = NULL;
             struct declarator* previous = find_declarator(ctx, name, &out);
             if (previous)
@@ -22135,7 +22162,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"\
+"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32705\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 "\n"
 
 #define STR0 \
@@ -22758,8 +22785,10 @@ static bool is_pascal_case(const char* text)
  */
 void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
 
     if (!is_snake_case(token->lexeme)) {
         compiler_set_info_with_token(ctx, token, "use snake_case for struct/union tags");
@@ -22768,8 +22797,11 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
+
 
     if (!is_snake_case(token->lexeme)) {
         compiler_set_info_with_token(ctx, token, "use snake_case for enum tags");
@@ -22778,9 +22810,13 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 {
-
-    if (token == NULL || !ctx->options.check_naming_conventions || token->level != 0)
+    if (token == NULL)
         return;
+
+    if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
+        return;
+    }
 
 
     if (!is_snake_case(token->lexeme)) {
@@ -22789,8 +22825,11 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
 }
 void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, struct type* type, enum storage_class_specifier_flags storage)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
+
 
     if (!type_is_function_or_function_pointer(type))
     {
@@ -22809,8 +22848,11 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
 
 void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
+
 
     if (!type_is_function_or_function_pointer(type))
     {
@@ -22822,8 +22864,10 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
 
     if (!is_all_upper(token->lexeme)) {
         compiler_set_info_with_token(ctx, token, "use UPPERCASE for enumerators");
@@ -22832,8 +22876,10 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 
 void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
 
     if (!is_snake_case(token->lexeme)) {
         compiler_set_info_with_token(ctx, token, "use snake_case for struct members");
@@ -22842,8 +22888,10 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
 
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!parser_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
 
     if (!is_snake_case(token->lexeme)) {
         compiler_set_info_with_token(ctx, token, "use snake_case for arguments");

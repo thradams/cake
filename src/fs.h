@@ -14,11 +14,7 @@
  include dirent.h on linux
 */
 
-#ifdef __POCC__
-/*missing in pelles c*/
-typedef unsigned short ino_t; // inode number (unused on Windows)
-typedef long off_t; // file offset value
-#endif
+
 
 enum
 {
@@ -43,9 +39,16 @@ struct dirent
     char d_name[256];        /* Null-terminated filename */
 };
 
-
+#ifdef __CAKE__
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wstyle"
+#endif
 struct TAGDIR;
 typedef struct TAGDIR DIR;
+
+#ifdef __CAKE__
+#pragma CAKE diagnostic pop
+#endif
 
 DIR* opendir(const char* name);
 int closedir(DIR* dirp);

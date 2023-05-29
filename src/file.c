@@ -1,14 +1,13 @@
-
-enum E1 { A };
-enum E2 { B };
-
-int main() {
-
+#ifdef __CAKE__
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wenum-compare"
-    if (A == B){}
+#pragma CAKE diagnostic ignore "-Wstyle"
+#endif
+struct TAGDIR;
+typedef struct TAGDIR DIR;
+
+#ifdef __CAKE__
 #pragma CAKE diagnostic pop
+#endif
 
-    if (A == B) {}
+void F() {}
 
-}

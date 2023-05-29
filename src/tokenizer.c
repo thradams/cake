@@ -77,6 +77,12 @@ static int printf_nothing(char const* const format, ...) { return 0; }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
 
+static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum compiler_warning w)
+{
+    return
+        (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
+}
+
 void preprocessor_ctx_destroy(struct preprocessor_ctx* p)
 {
     hashmap_destroy(&p->macros);
@@ -4532,8 +4538,10 @@ void print_all_macros(struct preprocessor_ctx* prectx)
 }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
-    if (!ctx->options.check_naming_conventions || token->level != 0)
+    if (!preprocessor_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
+    {
         return;
+    }
 
     if (!is_screaming_case(token->lexeme)) {
         preprocessor_set_info_with_token(ctx, token, "use SCREAMING_CASE for macros");
