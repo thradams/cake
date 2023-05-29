@@ -264,8 +264,6 @@ void print_help()
         WHITE "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
         "                        (not implemented yet, input is considered C23)                    \n"
         "\n"
-        WHITE "  -n                    " RESET "Check naming conventions (it is hardcoded for its own naming convention)\n"
-        "\n"
         WHITE "  -fi                   " RESET "Format input (format before language convertion)\n"
         "\n"
         WHITE "  -fo                   " RESET "Format output (format after language convertion, result parsed again)\n"
