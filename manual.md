@@ -900,14 +900,52 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm
 
 ###  C23 constexpr for object definitions
 
-Only parsed. How to translate? defines?
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
+Cake convert constexpr declarator with a cast and the value.
+addressof constexpr declarator is not implemented.
+
+```c
+#include <stdio.h>
+
+constexpr int c = 123;
+
+int a[c];
+
+constexpr double PI = 3.14;
+
+static_assert(PI + 1 == 3.14 + 1.0);
+
+int main()
+{
+   printf("%f", PI);
+}
+
+```
+Becomes
+
+```c
+#include <stdio.h>
+
+const int c = 123;
+
+int a[((int)123)];
+
+const double PI = 3.14;
+
+
+
+int main()
+{
+   printf("%f", ((double)3.140000));
+}
+
+
+```
 
 ###  C23 Enhancements to Enumerations
 
-Already parsed.
 
 ```c
 enum X : short {
@@ -919,7 +957,7 @@ int main() {
 }
 ```
 
-Becomes in previous version?
+Becomes
 
 ```c
 enum X {
