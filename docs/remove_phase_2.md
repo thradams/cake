@@ -13,10 +13,9 @@ We propose removing Phase 2 and handling the backslash character `\` followed by
 The source file is decomposed into preprocessing tokens and sequences of white-space
 characters (including comments).
 
-_**While parsing comments, white-spaces and literal strings a backslash character `\` immediately followed by a newline 
+_While parsing comments, white-spaces and literal strings a backslash character `\` immediately followed by a newline 
 can be skipped as if non-exitent. For other types of tokens, such as identifiers, it is considered an error.
-The usage of backslash-new-line inside of `//comments` is deprecated.**_
-....
+The usage of backslash-new-line inside of `//comments` is deprecated._
 
 ## Breaking changes
 
