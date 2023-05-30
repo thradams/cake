@@ -717,14 +717,20 @@ void f(int n) {
 
 sample["C23 constexpr"] =
 `
-/*
-  NOT IMPLEMENTED YET
-  Just parsed and constexpr is removed.  
-*/
-constexpr int i = 1;
+#include <stdio.h>
 
-/*floating point now works in constant expressions*/
-static_assert(2.0 == 2.0);
+constexpr int c = 123;
+
+int a[c];
+
+constexpr double PI = 3.14;
+
+static_assert(PI + 1 == 3.14 + 1.0);
+
+int main()
+{
+   printf("%f", PI);
+}
 `;
 
 sample["C23 enum"] =

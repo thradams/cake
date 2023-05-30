@@ -24473,6 +24473,12 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             if (constant_value_is_valid(&p_expression->constant_value))
             {
+                free(p_expression->type.name_opt);
+                p_expression->type.name_opt = NULL;
+
+                struct osstream ss1 = { 0 };
+                struct osstream ss = { 0 };
+                print_type(&ss, &p_expression->type);
                 /*
                   this is the way we handle constexpr, replacing the declarator
                   for it's number and changing the expression type
@@ -24481,8 +24487,16 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 char buffer[40];
                 constant_value_to_string(&p_expression->constant_value, buffer, sizeof buffer);
                 free(p_expression->first_token->lexeme);
-                p_expression->first_token->lexeme = strdup(buffer);
+
+                ss_fprintf(&ss1, "((%s)%s)", ss.c_str, buffer);
+
+                p_expression->first_token->lexeme = ss1.c_str;
+                ss1.c_str = NULL;// MOVED
                 p_expression->expression_type = PRIMARY_EXPRESSION_NUMBER;
+                
+                
+                ss_close(&ss); 
+                ss_close(&ss1);
             }
         }
 
