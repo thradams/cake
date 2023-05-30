@@ -15,7 +15,7 @@ in phase 3.
 
 ## Phase 3
 
-3. The source file is decomposed into preprocessing tokens 7) and sequences of white-space
+The source file is decomposed into preprocessing tokens 7) and sequences of white-space
 characters (including comments). 
 
 _**During token creation and the parsing of comments and white-spaces, a backslash 
