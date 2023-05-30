@@ -30,11 +30,15 @@ C
 
 This code is easy to fix by promoting a clarification and not being dependent on where whitespace is used.
  
-Ideally backslash character `\` used in `//single-line comment` whould be part of the comment. This 
-is the behavior of any other language that uses `//single-line comment`.
-Unfortunatly some existing C code uses backslash-newline on purpouse to split the comment and this would
-be an extra breaking changing. Deprecating it will give time to code to be rewriten maybe.
+Ideally backslash character `\` used in `//single-line comment` should be part of the comment.
 
+This is the behavior of any other language (except C and C++)  that uses `//single-line comment` . 
+
+Unfortunatly some existing C++ and C code uses backslash-newline on purpouse to split the comment 
+and this could be dangerous making the next line that before was a comment to be valid. Deprecation
+will give time to remove \ from single-line comments.
+When \ is intented to be part of the comment we can add a extra space after \. The problem here is
+that C++ already make the spaces after \ and before new-line valid.
 
 //TODO C++ comparion  (allow spaces beetwen backslash-newline  )
 
