@@ -19,7 +19,7 @@ The usage of backslash-new-line inside of `//comments` is deprecated._
 
 ## Breaking changes
 
-Code that slices tokens other than literal strings, `/*comments*/`, or `//comment` will result in an error.
+Code that slices tokens other than `literal strings`, `/*comments*/`, or `//comment` will result in an error.
 
 ```c
 #define A\
