@@ -1,156 +1,46 @@
-## Line-Slicing Rules
+## Removing Phase 2
 
-## Proposal
+### Motivation
 
-With the exception of literal strings, comments, and line comments, line-slicing in the middle of any
-token is considered a warning/deprecation.
+Phase 2, works as being a preprocessor of the preprocessor, it does not make any distinction or judgment
+about where the backslash character `\` followed by a newline can be used. This allows it to be used in
+nonsensical places like in the middle of identifiers, punctuations and `//single-line comment`.
+We propose removing Phase 2 and handling the backslash character `\` followed by a newline in Phase 3.
 
-```c
-#define M\
-ACRO 1
 
-int a\
-b;
+## Phase 3 (modified)
 
-#def\
-ine X
+The source file is decomposed into preprocessing tokens and sequences of white-space
+characters (including comments).
 
-```
+_While parsing comments, white-spaces and literal strings a backslash character `\` immediately followed by a newline 
+can be skipped as if non-exitent. For other types of tokens, such as identifiers, it is considered an error.
 
-```
-warning: token-slicing
-```
+The usage of backslash-new-line inside of `//single-line comment` is deprecated. (GCC, CLANG and MSVC already have a warning for this)_
 
-Line-slicing inside /*comments*/ is fine
+## Breaking changes
 
-```c
-
-/*
-**             -----------
-**             | Parent  |
-**             -----------
-**            /     |     \
-**           /      |      \
-**  ---------   ---------   ---------
-**  |Child-A|   |Child-B|   |Child-C|
-**  ---------   ---------   ---------
-*/
-
-/****************************\
-*                            *
-*                            *
-\****************************/
-
-/*
-   path = C:\path\
-*/
-```
-
-Line-slicing inside "literal strings" are almost normal.
+Code that slices tokens other than `literal strings`, `/*comments*/` or `//single-line comment` will result in an error.
 
 ```c
-const char* s = "ab\
-cd";
-```
-
-```
-note: you can use adjacent strings
-```
-
-Line-slicing inside //comments or backslash-new-line at the end of
-//comment is warning deprecation.
-
-```c
-int main(){
-    int a;
-   //path= c:\Program Files\
-   a = 1;
-}
-```
-
-```
-warning: multi-line \\comment is deprecated. use /*comments*/
-```
-gcc/clang already have a warning:
-
-```
-warning: multi-line comment [-Wcomment]
-    3 |    //path= c:\Program Files\
-      |    ^
-```
-
-Line-slicing is unnecessary when used outside of comments,
-literal strings, or line comments, in preprocessor text-line
-directives we have a warning.
-
-```c
-#if WINDOWS
-WINBASEAPI HANDLE WINAPI CreateFileMappingFromApp(HANDLE, \
-        LPSECURITY_ATTRIBUTES, ULONG, ULONG64, LPCWSTR);
-#endif
-
-
-int main() {
-int a / 
-=  1;
-
-if (condition)
-{
-  {
-                                                       \
-  }
-  function(context, (char*)zz, z, free, FLAG_UTF8);
-}
-
-```
-
-```
-warning: unnecessary line-slicing deprecated
-```
-
-line-slicing is expected inside # directives.
-
-```c
-#define X { \
-1, \
-2  \
-}
-#if 1 || \
-   2
-#endif
-
-#undef \
-       X
-```
-
-TODO accept spaces betewwen backslash and new-line (as in C++).
-
-## Why deprecation?
-
-Code that compiles with no warnings acording with these rules
-especially about token slice, is prepared for the future if phase 2
-is removed following these rules.
-
- - backslash-new-line is a blank token
- - backslash-new-line is handled inside literal strings and comments
- - backslash-new-line is not handled (error) inside //comments 
- 
-Compiler can warning (unnecessary) if backslash-new-line - that now wors
-as blank - is used in preprocessor text-line.
-
-This change would break code like this and other token-sliced samples.
-
-```c
-#define A B\
+#define A\
+B\
 C
 ```
-A would expand to `B C` instead `BC`.
 
-List of tools not prepared to handle sliced tokens
- - Visual Studio Code - syntax color and IDE language server
- - Visual Studio syntax color, rename tool
- - ...
+This code is easy to fix by promoting a clarification and not being dependent on where whitespace is used.
  
+Ideally backslash character `\` used in `//single-line comment` should be part of the comment.
+
+This is the behavior of any other language (except C and C++)  that uses `//single-line comment` . 
+
+Unfortunatly some existing C++ and C code uses backslash-newline on purpouse to split the comment 
+and this could be dangerous making the next line that before was a comment to be valid. Deprecation
+will give time to remove \ from single-line comments.
+When \ is intented to be part of the comment we can add a extra space after \. The problem here is
+that C++ already make the spaces after \ and before new-line valid.
+
+//TODO C++ comparion  (allow spaces beetwen backslash-newline  )
 
 
 
