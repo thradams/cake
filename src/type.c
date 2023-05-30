@@ -2178,7 +2178,9 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
         struct type* p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ARRAY;
 
-        p->array_size = (int) pdirectdeclarator->array_declarator->constant_size;
+        p->array_size = 
+            (int) array_declarator_get_size(pdirectdeclarator->array_declarator);
+
 
         if (pdirectdeclarator->array_declarator->static_token_opt)
         {

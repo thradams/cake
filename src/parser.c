@@ -424,8 +424,18 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
 {
     struct map_entry* p_entry = find_variables(ctx, lexeme, ppscope_opt);
 
-    if (p_entry && p_entry->type == TAG_TYPE_DECLARATOR)
-        return p_entry->p;
+    if (p_entry)
+    {
+        if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
+        {
+            struct init_declarator* p_init_declarator = p_entry->p;
+            return p_init_declarator->declarator;
+        }
+        else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
+        {
+            return p_entry->p;
+        }
+    }
 
     return NULL;
 }
@@ -1937,7 +1947,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator->declarator, TAG_TYPE_DECLARATOR);
+                    hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator, TAG_TYPE_INIT_DECLARATOR);
 
                     /*global scope no warning...*/
                     if (out->scope_level != 0)
@@ -1953,7 +1963,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             else
             {
                 /*first time we see this declarator*/
-                hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator->declarator, TAG_TYPE_DECLARATOR);
+                hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator, TAG_TYPE_INIT_DECLARATOR);
             }
         }
         else
@@ -3341,6 +3351,19 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
 }
 
 
+unsigned long long array_declarator_get_size(struct array_declarator* p_array_declarator)
+{
+    if (p_array_declarator->assignment_expression)
+    {
+        if (constant_value_is_valid(&p_array_declarator->assignment_expression->constant_value))
+        {
+            return 
+                constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
+        }
+    }
+    return 0;
+}
+
 struct array_declarator* array_declarator(struct direct_declarator* p_direct_declarator, struct parser_ctx* ctx)
 {
     //direct_declarator '['          type_qualifier_list_opt           assignment_expression_opt ']'
@@ -3384,9 +3407,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             //tem que ter..
 
             p_array_declarator->assignment_expression = assignment_expression(ctx);
-            if (p_array_declarator->assignment_expression == NULL) throw;
-
-            p_array_declarator->constant_size = constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
+            if (p_array_declarator->assignment_expression == NULL) throw;            
         }
         else
         {
@@ -3397,16 +3418,11 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             }
             else if (ctx->current->type != ']')
             {
-
                 p_array_declarator->assignment_expression = assignment_expression(ctx);
-                if (p_array_declarator->assignment_expression == NULL) throw;
-
-                p_array_declarator->constant_size = constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
+                if (p_array_declarator->assignment_expression == NULL) throw;                
             }
             else
-            {
-                //int a [] = {};
-                p_array_declarator->constant_size = 0;
+            {             
             }
         }
 
@@ -3672,7 +3688,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         hashmap_set(&ctx->scopes.tail->variables,
             p_parameter_declaration->declarator->name->lexeme,
             p_parameter_declaration->declarator,
-            TAG_TYPE_DECLARATOR);
+            TAG_TYPE_ONLY_DECLARATOR);
         //print_scope(ctx->current_scope);
     }
     return p_parameter_declaration;
@@ -4552,13 +4568,24 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
         while (entry)
         {
 
-            if (entry->type != TAG_TYPE_DECLARATOR)
+            if (entry->type != TAG_TYPE_ONLY_DECLARATOR &&
+                entry->type != TAG_TYPE_INIT_DECLARATOR)
             {
                 entry = entry->next;
                 continue;
             }
 
-            struct declarator* p_declarator = entry->p;
+            struct declarator* p_declarator = NULL;
+            struct init_declarator* p_init_declarator = NULL;
+            if (entry->type == TAG_TYPE_INIT_DECLARATOR)
+            {
+                p_init_declarator = entry->p;
+                p_declarator = p_init_declarator->declarator;
+            }
+            else
+            {
+                p_declarator = entry->p;
+            }
 
             if (p_declarator)
             {
@@ -5131,13 +5158,24 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
         while (entry)
         {
 
-            if (entry->type != TAG_TYPE_DECLARATOR)
+            if (entry->type != TAG_TYPE_ONLY_DECLARATOR &&
+                entry->type != TAG_TYPE_INIT_DECLARATOR)
             {
                 entry = entry->next;
                 continue;
             }
 
-            struct declarator* p_declarator = entry->p;
+            struct declarator* p_declarator = NULL;
+            struct init_declarator* p_init_declarator = NULL;
+            if (entry->type == TAG_TYPE_INIT_DECLARATOR)
+            {
+                p_init_declarator = entry->p;
+                p_declarator = p_init_declarator->declarator;
+            }
+            else
+            {
+                p_declarator = entry->p;
+            }
 
             if (p_declarator &&
                 p_declarator->first_token &&

@@ -195,7 +195,8 @@ enum tag
     TAG_TYPE_STRUCT_OR_UNION_SPECIFIER,
 
     TAG_TYPE_ENUMERATOR,
-    TAG_TYPE_DECLARATOR,
+    TAG_TYPE_ONLY_DECLARATOR,
+    TAG_TYPE_INIT_DECLARATOR,
 };
 
 
@@ -9398,6 +9399,7 @@ long long constant_value_to_ll(const struct constant_value* a);
 long long constant_value_to_ll(const struct constant_value* a);
 bool constant_value_to_bool(const struct constant_value* a);
 bool constant_value_is_valid(const struct constant_value* a);
+void constant_value_to_string(const struct constant_value* a, char buffer[], int sz);
 
 struct expression
 {
@@ -9513,6 +9515,7 @@ struct token* parser_look_ahead(struct parser_ctx* ctx);
 struct token* previous_parser_token(struct token* token);
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 struct enumerator* find_enumerator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
+struct map_entry* find_variables(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
 bool first_is(struct parser_ctx* ctx, enum token_type type);
@@ -9974,10 +9977,15 @@ struct array_declarator
     struct expression* assignment_expression;
     struct expression* expression;
     struct type_qualifier_list* type_qualifier_list_opt;
-    unsigned long long constant_size;
+    
     struct token* token;
     struct token* static_token_opt;
 };
+
+/*
+  Return a value > 0 if it has constant size
+*/
+unsigned long long  array_declarator_get_size(struct array_declarator* p_array_declarator);
 
 struct function_declarator
 {
@@ -10663,6 +10671,24 @@ bool constant_value_is_valid(const struct constant_value* a)
 {
     return a->type != TYPE_NOT_CONSTANT &&
         a->type != TYPE_EMPTY;
+}
+
+void constant_value_to_string(const struct constant_value* a, char buffer[], int sz)
+{
+    buffer[0] = 0;
+    switch (a->type)
+    {
+    case TYPE_LONG_LONG:         
+        snprintf(buffer, sz, "%lld", a->llvalue);
+        break;
+    case TYPE_DOUBLE: 
+        snprintf(buffer, sz, "%f", a->dvalue);
+        break;
+
+    case TYPE_UNSIGNED_LONG_LONG: 
+        snprintf(buffer, sz, "%llu", a->ullvalue);
+        break;
+    }    
 }
 
 unsigned long long constant_value_to_ull(const struct constant_value* a)
@@ -11447,14 +11473,56 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            struct enumerator* p_enumerator = find_enumerator(ctx, ctx->current->lexeme, NULL);
-            if (p_enumerator)
+            struct map_entry* p_entry = find_variables(ctx, ctx->current->lexeme, NULL);
+
+            if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
+                struct enumerator* p_enumerator = p_entry->p;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = make_constant_value_ll(p_enumerator->value);
 
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
 
+            }
+            else if (p_entry && 
+                     (p_entry->type == TAG_TYPE_ONLY_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
+            {
+                struct declarator* p_declarator = NULL;
+                struct init_declarator* p_init_declarator = NULL;
+                if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
+                {
+                    p_init_declarator = p_entry->p;
+                    p_declarator = p_init_declarator->declarator;
+                }
+                else
+                {
+                    p_declarator = p_entry->p;
+                }
+
+                if (type_is_deprecated(&p_declarator->type))
+                {
+                    compiler_set_warning_with_token(W_DEPRECATED, ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
+                }
+
+                p_declarator->num_uses++;
+                p_expression_node->declarator = p_declarator;
+                p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
+
+                p_expression_node->type = type_dup(&p_declarator->type);
+                if (p_init_declarator)
+                {
+                    if (p_init_declarator->declarator &&
+                        p_init_declarator->declarator->declaration_specifiers &&
+                        p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+                    {
+                        if (p_init_declarator->initializer &&
+                            p_init_declarator->initializer->assignment_expression)
+                        {
+                            p_expression_node->constant_value =
+                                p_init_declarator->initializer->assignment_expression->constant_value;
+                        }
+                    }
+                }
             }
             else if (ctx->p_current_function_opt &&
                 strcmp(ctx->current->lexeme, "__func__") == 0)
@@ -11477,27 +11545,8 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                struct declarator* p_declarator = find_declarator(ctx, ctx->current->lexeme, NULL);
-                if (p_declarator == NULL)
-                {
-                    compiler_set_error_with_token(ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
-                    throw;
-                }
-                else
-                {
-
-                    if (type_is_deprecated(&p_declarator->type))
-                    {
-                        compiler_set_warning_with_token(W_DEPRECATED, ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
-                    }
-
-                    p_declarator->num_uses++;
-                    p_expression_node->declarator = p_declarator;
-                    p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
-
-
-                    p_expression_node->type = type_dup(&p_declarator->type);
-                }
+                compiler_set_error_with_token(ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
+                throw;
             }
             parser_match(ctx);
         }
@@ -11809,10 +11858,10 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
 
 
                 parser_match(ctx);
-                
+
                 if (type_is_pointer_or_array(&p_expression_node->type))
                 {
-                    struct type item_type = {0};
+                    struct type item_type = { 0 };
                     if (type_is_array(&p_expression_node->type))
                     {
                         compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "using '->' in array as pointer to struct");
@@ -11863,7 +11912,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 {
                     compiler_set_error_with_token(ctx, ctx->current, "structure or union required");
                 }
-                
+
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '++')
@@ -16736,7 +16785,9 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
         struct type* p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ARRAY;
 
-        p->array_size = (int) pdirectdeclarator->array_declarator->constant_size;
+        p->array_size = 
+            (int) array_declarator_get_size(pdirectdeclarator->array_declarator);
+
 
         if (pdirectdeclarator->array_declarator->static_token_opt)
         {
@@ -17455,8 +17506,18 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
 {
     struct map_entry* p_entry = find_variables(ctx, lexeme, ppscope_opt);
 
-    if (p_entry && p_entry->type == TAG_TYPE_DECLARATOR)
-        return p_entry->p;
+    if (p_entry)
+    {
+        if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
+        {
+            struct init_declarator* p_init_declarator = p_entry->p;
+            return p_init_declarator->declarator;
+        }
+        else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
+        {
+            return p_entry->p;
+        }
+    }
 
     return NULL;
 }
@@ -18968,7 +19029,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator->declarator, TAG_TYPE_DECLARATOR);
+                    hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator, TAG_TYPE_INIT_DECLARATOR);
 
                     /*global scope no warning...*/
                     if (out->scope_level != 0)
@@ -18984,7 +19045,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             else
             {
                 /*first time we see this declarator*/
-                hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator->declarator, TAG_TYPE_DECLARATOR);
+                hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator, TAG_TYPE_INIT_DECLARATOR);
             }
         }
         else
@@ -20372,6 +20433,19 @@ struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
 }
 
 
+unsigned long long array_declarator_get_size(struct array_declarator* p_array_declarator)
+{
+    if (p_array_declarator->assignment_expression)
+    {
+        if (constant_value_is_valid(&p_array_declarator->assignment_expression->constant_value))
+        {
+            return 
+                constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
+        }
+    }
+    return 0;
+}
+
 struct array_declarator* array_declarator(struct direct_declarator* p_direct_declarator, struct parser_ctx* ctx)
 {
     //direct_declarator '['          type_qualifier_list_opt           assignment_expression_opt ']'
@@ -20415,9 +20489,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             //tem que ter..
 
             p_array_declarator->assignment_expression = assignment_expression(ctx);
-            if (p_array_declarator->assignment_expression == NULL) throw;
-
-            p_array_declarator->constant_size = constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
+            if (p_array_declarator->assignment_expression == NULL) throw;            
         }
         else
         {
@@ -20428,16 +20500,11 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             }
             else if (ctx->current->type != ']')
             {
-
                 p_array_declarator->assignment_expression = assignment_expression(ctx);
-                if (p_array_declarator->assignment_expression == NULL) throw;
-
-                p_array_declarator->constant_size = constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
+                if (p_array_declarator->assignment_expression == NULL) throw;                
             }
             else
-            {
-                //int a [] = {};
-                p_array_declarator->constant_size = 0;
+            {             
             }
         }
 
@@ -20703,7 +20770,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         hashmap_set(&ctx->scopes.tail->variables,
             p_parameter_declaration->declarator->name->lexeme,
             p_parameter_declaration->declarator,
-            TAG_TYPE_DECLARATOR);
+            TAG_TYPE_ONLY_DECLARATOR);
         //print_scope(ctx->current_scope);
     }
     return p_parameter_declaration;
@@ -21583,13 +21650,24 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
         while (entry)
         {
 
-            if (entry->type != TAG_TYPE_DECLARATOR)
+            if (entry->type != TAG_TYPE_ONLY_DECLARATOR &&
+                entry->type != TAG_TYPE_INIT_DECLARATOR)
             {
                 entry = entry->next;
                 continue;
             }
 
-            struct declarator* p_declarator = entry->p;
+            struct declarator* p_declarator = NULL;
+            struct init_declarator* p_init_declarator = NULL;
+            if (entry->type == TAG_TYPE_INIT_DECLARATOR)
+            {
+                p_init_declarator = entry->p;
+                p_declarator = p_init_declarator->declarator;
+            }
+            else
+            {
+                p_declarator = entry->p;
+            }
 
             if (p_declarator)
             {
@@ -22162,13 +22240,24 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
         while (entry)
         {
 
-            if (entry->type != TAG_TYPE_DECLARATOR)
+            if (entry->type != TAG_TYPE_ONLY_DECLARATOR &&
+                entry->type != TAG_TYPE_INIT_DECLARATOR)
             {
                 entry = entry->next;
                 continue;
             }
 
-            struct declarator* p_declarator = entry->p;
+            struct declarator* p_declarator = NULL;
+            struct init_declarator* p_init_declarator = NULL;
+            if (entry->type == TAG_TYPE_INIT_DECLARATOR)
+            {
+                p_init_declarator = entry->p;
+                p_declarator = p_init_declarator->declarator;
+            }
+            else
+            {
+                p_declarator = entry->p;
+            }
 
             if (p_declarator &&
                 p_declarator->first_token &&
@@ -24368,18 +24457,35 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 print_type(&ss0, &t);
                 struct osstream ss = { 0 };
                 ss_fprintf(&ss, "((%s)%s)", ss0.c_str, p_expression->first_token->lexeme);
-                
+
                 free(p_expression->first_token->lexeme);
                 p_expression->first_token->lexeme = ss.c_str;
                 ss.c_str = NULL; /*MOVED*/
                 ss_close(&ss);
                 ss_close(&ss0);
             }
-            
-        }        
+
+        }
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
-        //p_expression->declarator->name    
+
+        if (ctx->target < LANGUAGE_C2X)
+        {
+            if (constant_value_is_valid(&p_expression->constant_value))
+            {
+                /*
+                  this is the way we handle constexpr, replacing the declarator
+                  for it's number and changing the expression type
+                  we are not handling &a at this moment
+                */
+                char buffer[40];
+                constant_value_to_string(&p_expression->constant_value, buffer, sizeof buffer);
+                free(p_expression->first_token->lexeme);
+                p_expression->first_token->lexeme = strdup(buffer);
+                p_expression->expression_type = PRIMARY_EXPRESSION_NUMBER;
+            }
+        }
+
         break;
     case PRIMARY_EXPRESSION_STRING_LITERAL:
         break;
@@ -24464,7 +24570,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             struct osstream ss = { 0 };
 
-            
+
 
             bool is_first = true;
             print_type_qualifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_qualifier_flags);
@@ -24473,7 +24579,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             free((void*)p_expression->type_name->declarator->type.name_opt);
             p_expression->type_name->declarator->type.name_opt = strdup(name);
-            
+
             struct osstream ss0 = { 0 };
             print_type(&ss0, &p_expression->type_name->declarator->type);
             ss_fprintf(&ss, "static %s", ss0.c_str);
@@ -24531,7 +24637,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                l3.head->flags = p_expression->last_token->flags;                
+                l3.head->flags = p_expression->last_token->flags;
                 token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, &l3);
             }
         }
@@ -25028,6 +25134,11 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
     }
     else if (p_direct_declarator->array_declarator)
     {
+        if (p_direct_declarator->array_declarator->assignment_expression)
+        {
+            visit_expression(ctx, p_direct_declarator->array_declarator->assignment_expression);
+        }
+
         if (ctx->target < LANGUAGE_C99)
         {
             /*static and type qualifiers in parameter array declarators where added in C99*/
@@ -25327,7 +25438,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 {
     if (ctx->target < LANGUAGE_C2X)
     {
-        if (p_enum_specifier->specifier_qualifier_list) 
+        if (p_enum_specifier->specifier_qualifier_list)
         {
             struct token* tk = p_enum_specifier->specifier_qualifier_list->first_token;
             while (tk)
@@ -25450,7 +25561,8 @@ static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_
     {
         if (ctx->target < LANGUAGE_C2X)
         {
-            p_storage_class_specifier->token->flags |= TK_FLAG_HIDE;
+            free(p_storage_class_specifier->token->lexeme);
+            p_storage_class_specifier->token->lexeme = strdup("const");
         }
     }
     if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_AUTO)
@@ -25471,6 +25583,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
         {
             if (ctx->target < LANGUAGE_C11)
             {
+                free(p_declaration_specifier->function_specifier->token->lexeme);
                 p_declaration_specifier->function_specifier->token->lexeme = strdup("/*[[noreturn]]*/");
             }
             else if (ctx->target == LANGUAGE_C11)
@@ -25480,6 +25593,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
             else if (ctx->target > LANGUAGE_C11)
             {
                 /*use attributes*/
+                free(p_declaration_specifier->function_specifier->token->lexeme);
                 p_declaration_specifier->function_specifier->token->lexeme = strdup("[[noreturn]]");
             }
 
@@ -25520,7 +25634,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
     if (!ctx->is_second_pass &&
         ctx->target < LANGUAGE_C2X &&
         (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO ||
-        p_declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF))
+            p_declaration_specifiers->type_specifier_flags & TYPE_SPECIFIER_TYPEOF))
     {
 
         struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;

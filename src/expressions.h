@@ -171,6 +171,7 @@ long long constant_value_to_ll(const struct constant_value* a);
 long long constant_value_to_ll(const struct constant_value* a);
 bool constant_value_to_bool(const struct constant_value* a);
 bool constant_value_is_valid(const struct constant_value* a);
+void constant_value_to_string(const struct constant_value* a, char buffer[], int sz);
 
 struct expression
 {

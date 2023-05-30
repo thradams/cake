@@ -84,6 +84,7 @@ struct token* parser_look_ahead(struct parser_ctx* ctx);
 struct token* previous_parser_token(struct token* token);
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 struct enumerator* find_enumerator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
+struct map_entry* find_variables(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
 bool first_is(struct parser_ctx* ctx, enum token_type type);
@@ -545,10 +546,15 @@ struct array_declarator
     struct expression* assignment_expression;
     struct expression* expression;
     struct type_qualifier_list* type_qualifier_list_opt;
-    unsigned long long constant_size;
+    
     struct token* token;
     struct token* static_token_opt;
 };
+
+/*
+  Return a value > 0 if it has constant size
+*/
+unsigned long long  array_declarator_get_size(struct array_declarator* p_array_declarator);
 
 struct function_declarator
 {

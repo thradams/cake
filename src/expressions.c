@@ -58,6 +58,24 @@ bool constant_value_is_valid(const struct constant_value* a)
         a->type != TYPE_EMPTY;
 }
 
+void constant_value_to_string(const struct constant_value* a, char buffer[], int sz)
+{
+    buffer[0] = 0;
+    switch (a->type)
+    {
+    case TYPE_LONG_LONG:         
+        snprintf(buffer, sz, "%lld", a->llvalue);
+        break;
+    case TYPE_DOUBLE: 
+        snprintf(buffer, sz, "%f", a->dvalue);
+        break;
+
+    case TYPE_UNSIGNED_LONG_LONG: 
+        snprintf(buffer, sz, "%llu", a->ullvalue);
+        break;
+    }    
+}
+
 unsigned long long constant_value_to_ull(const struct constant_value* a)
 {
     switch (a->type)
@@ -840,14 +858,56 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            struct enumerator* p_enumerator = find_enumerator(ctx, ctx->current->lexeme, NULL);
-            if (p_enumerator)
+            struct map_entry* p_entry = find_variables(ctx, ctx->current->lexeme, NULL);
+
+            if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
+                struct enumerator* p_enumerator = p_entry->p;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = make_constant_value_ll(p_enumerator->value);
 
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
 
+            }
+            else if (p_entry && 
+                     (p_entry->type == TAG_TYPE_ONLY_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
+            {
+                struct declarator* p_declarator = NULL;
+                struct init_declarator* p_init_declarator = NULL;
+                if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
+                {
+                    p_init_declarator = p_entry->p;
+                    p_declarator = p_init_declarator->declarator;
+                }
+                else
+                {
+                    p_declarator = p_entry->p;
+                }
+
+                if (type_is_deprecated(&p_declarator->type))
+                {
+                    compiler_set_warning_with_token(W_DEPRECATED, ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
+                }
+
+                p_declarator->num_uses++;
+                p_expression_node->declarator = p_declarator;
+                p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
+
+                p_expression_node->type = type_dup(&p_declarator->type);
+                if (p_init_declarator)
+                {
+                    if (p_init_declarator->declarator &&
+                        p_init_declarator->declarator->declaration_specifiers &&
+                        p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+                    {
+                        if (p_init_declarator->initializer &&
+                            p_init_declarator->initializer->assignment_expression)
+                        {
+                            p_expression_node->constant_value =
+                                p_init_declarator->initializer->assignment_expression->constant_value;
+                        }
+                    }
+                }
             }
             else if (ctx->p_current_function_opt &&
                 strcmp(ctx->current->lexeme, "__func__") == 0)
@@ -870,27 +930,8 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                struct declarator* p_declarator = find_declarator(ctx, ctx->current->lexeme, NULL);
-                if (p_declarator == NULL)
-                {
-                    compiler_set_error_with_token(ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
-                    throw;
-                }
-                else
-                {
-
-                    if (type_is_deprecated(&p_declarator->type))
-                    {
-                        compiler_set_warning_with_token(W_DEPRECATED, ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
-                    }
-
-                    p_declarator->num_uses++;
-                    p_expression_node->declarator = p_declarator;
-                    p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
-
-
-                    p_expression_node->type = type_dup(&p_declarator->type);
-                }
+                compiler_set_error_with_token(ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
+                throw;
             }
             parser_match(ctx);
         }
@@ -1202,10 +1243,10 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
 
 
                 parser_match(ctx);
-                
+
                 if (type_is_pointer_or_array(&p_expression_node->type))
                 {
-                    struct type item_type = {0};
+                    struct type item_type = { 0 };
                     if (type_is_array(&p_expression_node->type))
                     {
                         compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "using '->' in array as pointer to struct");
@@ -1256,7 +1297,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
                 {
                     compiler_set_error_with_token(ctx, ctx->current, "structure or union required");
                 }
-                
+
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '++')
