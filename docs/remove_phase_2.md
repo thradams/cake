@@ -14,7 +14,8 @@ The source file is decomposed into preprocessing tokens and sequences of white-s
 characters (including comments).
 
 _While parsing comments, white-spaces and literal strings a backslash character `\` immediately followed by a newline 
-can be skipped as if non-exitent. For other types of tokens, such as identifiers, it is considered an error.
+can be skipped as if non-exitent. For other types of tokens, such as identifiers, it is considered an error if present in 
+the middle of token.
 
 The usage of backslash-new-line inside of `//single-line comment` is deprecated. (GCC, CLANG and MSVC already have a warning for this)_
 
