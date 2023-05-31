@@ -898,8 +898,7 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm
 
-###  C23 constexpr for object definitions
-
+###  C23 constexpr 
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
@@ -1231,23 +1230,6 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm
 
 Not implemented
 
-###  C23 constexpr
-
-Parsed but not implemented.
-
-```c
-
- constexpr int K = 47;
- enum {
-  A = K, // valid, constant initialization
- };
- constexpr int L = K; // valid, constexpr initialization
- static int b = K + 1; // valid, static initialization
- int array[K]; // not a VL
-
-```
-
-https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
 ### C23 Compound Literals with storage specifier
 

@@ -5695,6 +5695,11 @@ void check_unused_macros(struct hash_map* map)
 
 void add_standard_macros(struct preprocessor_ctx* ctx)
 {
+    const enum warning w = 
+        ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index];
+    
+    /*we dont want warnings here*/
+    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = W_NONE;
 
     static char mon[][4] = {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -5767,6 +5772,8 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     mark_macros_as_used(&ctx->macros);
     token_list_destroy(&l);
     token_list_destroy(&l10);
+
+    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = w;
 }
 
 

@@ -721,6 +721,8 @@ sample["C23 constexpr"] =
 
 constexpr int c = 123;
 
+constexpr int c2 = c + 1000;
+
 int a[c];
 
 constexpr double PI = 3.14;
