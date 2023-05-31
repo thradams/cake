@@ -5,7 +5,7 @@
 Phase 2, works as being a preprocessor of the preprocessor, it does not make any distinction or judgment
 about where the backslash character `\` followed by a newline can be used. This allows it to be used in
 nonsensical places like in the middle of identifiers, punctuations and `//single-line comment`.
-We propose removing Phase 2 and handling the backslash character `\` followed by a newline in Phase 3.
+I propose we remove Phase 2 and handle the backslash character `\` followed by a newline in Phase 3.
 
 
 ## Phase 3 (modified)
