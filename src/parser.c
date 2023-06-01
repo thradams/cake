@@ -2114,7 +2114,10 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
         new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
         break;
     case TK_KEYWORD_CONSTEXPR:
+        
         new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
+        if (ctx->scopes.tail->scope_level == 0)
+            new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
         break;
     case TK_KEYWORD_STATIC:
         new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;

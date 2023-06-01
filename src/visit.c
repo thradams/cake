@@ -677,9 +677,9 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 p_expression->first_token->lexeme = ss1.c_str;
                 ss1.c_str = NULL;// MOVED
                 p_expression->expression_type = PRIMARY_EXPRESSION_NUMBER;
-                
-                
-                ss_close(&ss); 
+
+
+                ss_close(&ss);
                 ss_close(&ss1);
             }
         }
@@ -1755,14 +1755,6 @@ static void visit_type_specifier_qualifier(struct visit_ctx* ctx, struct type_sp
 
 static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_class_specifier* p_storage_class_specifier)
 {
-    if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_CONSTEXPR)
-    {
-        if (ctx->target < LANGUAGE_C2X)
-        {
-            free(p_storage_class_specifier->token->lexeme);
-            p_storage_class_specifier->token->lexeme = strdup("const");
-        }
-    }
     if (p_storage_class_specifier->flags & STORAGE_SPECIFIER_AUTO)
     {
         if (ctx->target < LANGUAGE_C2X)
@@ -1887,11 +1879,67 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
     }
 
     struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
+
+    struct declaration_specifier* p_constexpr_declaration_specifier = NULL;
     while (p_declaration_specifier)
     {
+        if (p_declaration_specifier->storage_class_specifier &&
+            p_declaration_specifier->storage_class_specifier->flags & STORAGE_SPECIFIER_CONSTEXPR)
+        {
+            p_constexpr_declaration_specifier = p_declaration_specifier;
+        }
+
         visit_declaration_specifier(ctx, p_declaration_specifier);
         p_declaration_specifier = p_declaration_specifier->next;
     }
+
+
+    if (ctx->target < LANGUAGE_C2X)
+    {
+        /*
+          fixing constexpr, we add static const if necessary
+        */
+        if (p_constexpr_declaration_specifier && 
+            p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+        {
+            struct osstream ss = { 0 };
+            const bool is_file_scope =
+                p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR_STATIC;
+
+            const bool has_static = 
+                p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC;
+
+            const bool has_const =
+                p_declaration_specifiers->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+
+
+            if (is_file_scope && !has_static)
+            {
+                ss_fprintf(&ss, "static");
+                if (!has_const)
+                {
+                    ss_fprintf(&ss, " const");
+                }            
+            }
+            else
+            {
+                if (!has_const)
+                {
+                    ss_fprintf(&ss, "const");
+                }
+                else
+                {
+                    ss_fprintf(&ss, " ");
+                }
+            }
+           
+            free(p_constexpr_declaration_specifier->storage_class_specifier->token->lexeme);
+            p_constexpr_declaration_specifier->storage_class_specifier->token->lexeme = ss.c_str;
+            ss.c_str = NULL; /*MOVED*/
+            ss_close(&ss);
+        }
+    }
+
 }
 
 /*

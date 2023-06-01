@@ -731,7 +731,9 @@ static_assert(PI + 1 == 3.14 + 1.0);
 
 int main()
 {
-   printf("%f", PI);
+    constexpr char ch = 'a';
+
+    printf("%f %c", PI, ch);
 }
 `;
 

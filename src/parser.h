@@ -115,6 +115,9 @@ enum storage_class_specifier_flags
     STORAGE_SPECIFIER_AUTO = 1 << 4,
     STORAGE_SPECIFIER_REGISTER = 1 << 5,
     STORAGE_SPECIFIER_CONSTEXPR = 1 << 6,
+    
+    /*extra flag just to annotate this*/
+    STORAGE_SPECIFIER_CONSTEXPR_STATIC = 1 << 7,
 };
 
 struct expression_ctx;
