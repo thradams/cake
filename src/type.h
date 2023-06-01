@@ -32,13 +32,13 @@ enum attribute_flags
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
 
-    CUSTOM_ATTRIBUTE_FREE = 1 << 7,
-    CUSTOM_ATTRIBUTE_DESTROY = 1 << 8,
+    CAKE_ATTRIBUTE_FREE = 1 << 7,
+    CAKE_ATTRIBUTE_DESTROY = 1 << 8,
     
     /*
      Used to detect argument type
     */
-    CUSTOM_ATTRIBUTE_PARAM = 1 << 9,
+    CAKE_HIDDEN_ATTRIBUTE_PARAM = 1 << 9,
 
     /*
      1 == 2 results in int in C
@@ -46,9 +46,9 @@ enum attribute_flags
      not sure what is the best place to put in
      type specifier my generate some error
     */
-    CUSTOM_ATTRIBUTE_LIKE_BOOL = 1 << 10,
+    CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 10,
     // 'a'
-    CUSTOM_ATTRIBUTE_LIKE_CHAR = 1 << 11
+    CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR = 1 << 11
 };
 
 enum type_specifier_flags

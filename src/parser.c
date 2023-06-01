@@ -1947,11 +1947,11 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         if (p_attribute_specifier_sequence_opt &&
             p_attribute_specifier_sequence_opt->attributes_flags)
         {
-            if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+            if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
             {
                 p_init_declarator->declarator->declarator_flags |= MUST_FREE;
             }
-            if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+            if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
             {
                 p_init_declarator->declarator->declarator_flags |= MUST_DESTROY;
             }
@@ -2298,7 +2298,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
             p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
         }
 
-        if (p_typeof_specifier->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
+        if (p_typeof_specifier->type.attributes_flags & CAKE_HIDDEN_ATTRIBUTE_PARAM)
         {
             compiler_set_warning_with_token(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, "typeof used in array arguments");
 
@@ -3751,11 +3751,11 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
-        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
         {
             p_parameter_declaration->declarator->declarator_flags |= MUST_DESTROY;
         }
-        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
         {
             p_parameter_declaration->declarator->declarator_flags |= MUST_FREE;
         }
@@ -3767,7 +3767,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         make_type_using_declarator(ctx, p_parameter_declaration->declarator);
 
 
-    p_parameter_declaration->declarator->type.attributes_flags |= CUSTOM_ATTRIBUTE_PARAM;
+    p_parameter_declaration->declarator->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_PARAM;
 
     if (p_parameter_declaration->declarator->name)
         naming_convention_parameter(ctx, p_parameter_declaration->declarator->name, &p_parameter_declaration->declarator->type);
@@ -4325,12 +4325,12 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         if (is_cake_attr && strcmp(ctx->current->lexeme, "free") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_FREE;
+            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_FREE;
         }
         else if (is_cake_attr && strcmp(ctx->current->lexeme, "destroy") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_DESTROY;
+            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_DESTROY;
         }
         else
         {

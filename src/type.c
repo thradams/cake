@@ -145,7 +145,7 @@ struct type type_lvalue_conversion(struct type* p_type)
            "pointer to function returning type".
         */
         struct type t = type_add_pointer(p_type);
-        t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+        t.attributes_flags &= ~CAKE_HIDDEN_ATTRIBUTE_PARAM;
         t.category = t.category;
         return t;
     }
@@ -168,7 +168,7 @@ struct type type_lvalue_conversion(struct type* p_type)
             }
         */
         type_destroy(&t);
-        t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+        t2.attributes_flags &= ~CAKE_HIDDEN_ATTRIBUTE_PARAM;
         return t2;
     }
 
@@ -180,7 +180,7 @@ struct type type_lvalue_conversion(struct type* p_type)
 
     struct type t = type_dup(p_type);
     type_remove_qualifiers(&t);
-    t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+    t.attributes_flags &= ~CAKE_HIDDEN_ATTRIBUTE_PARAM;
 
     t.category = type_get_category(&t);
 
@@ -478,7 +478,7 @@ bool type_is_nodiscard(const struct type* p_type)
 
 bool type_is_destroy(const struct type* p_type)
 {
-    return type_has_attribute(p_type, CUSTOM_ATTRIBUTE_DESTROY);
+    return type_has_attribute(p_type, CAKE_ATTRIBUTE_DESTROY);
 }
 
 bool type_is_array(const struct type* p_type)
@@ -1069,7 +1069,7 @@ struct type type_param_array_to_pointer(const struct type* p_type)
     }
 
     type_destroy(&t);
-    t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+    t2.attributes_flags &= ~CAKE_HIDDEN_ATTRIBUTE_PARAM;
 
     return t2;
 }
@@ -1822,7 +1822,7 @@ struct type type_make_int_bool_like()
 {
     struct type t = { 0 };
     t.type_specifier_flags = TYPE_SPECIFIER_INT ;
-    t.attributes_flags = CUSTOM_ATTRIBUTE_LIKE_BOOL;
+    t.attributes_flags = CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL;
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }

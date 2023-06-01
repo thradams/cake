@@ -437,7 +437,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
                 !arg_declarator->is_parameter_declarator)
             {
                 if (type_is_pointer(current_parameter_type->type) &&
-                    type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_DESTROY))
+                    type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_DESTROY))
                 {
                     arg_declarator->declarator_flags &= ~MUST_DESTROY;
                     arg_declarator->declarator_flags |= UNINITIALIZED;
@@ -445,7 +445,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
 
 
                 if (type_is_pointer(current_parameter_type->type) &&
-                    type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_FREE))
+                    type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_FREE))
                 {
                     arg_declarator->declarator_flags &= ~MUST_FREE;
                     arg_declarator->declarator_flags |= UNINITIALIZED;
@@ -983,7 +983,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
 
             p_expression_node->type = type_make_int();
-            p_expression_node->type.attributes_flags |= CUSTOM_ATTRIBUTE_LIKE_CHAR;
+            p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
 
             parser_match(ctx);
         }
@@ -3251,7 +3251,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
         return false;
     }
 
-    if (expression->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
+    if (expression->type.attributes_flags & CAKE_HIDDEN_ATTRIBUTE_PARAM)
         return true;
 
     return true;
