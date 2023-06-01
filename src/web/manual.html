@@ -228,7 +228,7 @@
 <a href="#toc_69">Extension type-expression</a>
 </li>
 <li>
-<a href="#toc_70">Extension - [[destroy, free]]  attributes</a>
+<a href="#toc_70">Extension - [[cake::destroy, cake::free]]  attributes</a>
 </li>
 <li>
 <a href="#toc_71">Extension typename on _Generic</a>
@@ -1763,7 +1763,7 @@ int main()
 
 <p>We can use != and == with void value to compare types.</p>
 
-<h3 id="toc_70">Extension - [[destroy, free]]  attributes</h3>
+<h3 id="toc_70">Extension - [[cake::destroy, cake::free]]  attributes</h3>
 
 <p>Cake has imaginary flags with explicity and implicity operations to set or 
 clear these flags.  </p>
@@ -1787,21 +1787,21 @@ on the declarator that receives the value. </p>
 
 <p>For instance:</p>
 
-<pre><code class="language-c">[[free]] void *  malloc(int i){}
+<pre><code class="language-c">[[cake::free]] void *  malloc(int i){}
 
 void f() {
   int * p = malloc(1);  
 }
 </code></pre>
 
-<p>In this sample p has the imaginary flag <em>&quot;must free&quot;</em> that is set implifity 
+<p>In this sample p has the imaginary flag <em>&quot;must free&quot;</em> that is set implicitly 
 because malloc has the attribute <strong>[[free]]</strong>.</p>
 
 <p>We can check the existence of this imaginary flag at compile time using static_assert and _has_attr.</p>
 
 <p>Sample:</p>
 
-<pre><code class="language-c">[[free]] void *  malloc(int i){}
+<pre><code class="language-c">[[cake::free]] void *  malloc(int i){}
 
 void f() {
   int * p = malloc(1);  
@@ -1809,16 +1809,16 @@ void f() {
 }
 </code></pre>
 
-<p>At the end of scope cake emmits an warning if the flag <em>&quot;must free&quot;</em> was not cleared.</p>
+<p>At the end of scope cake emits an warning if the flag <em>&quot;must free&quot;</em> was not cleared.</p>
 
-<p>This flag can be turned off implicity when used by a function that uses the attribute 
+<p>This flag can be turned off implicitly when used by a function that uses the attribute 
 <strong>[[free]]</strong>.</p>
 
 <p>For instance:</p>
 
 <pre><code class="language-c">
-[[free]] void *  malloc(int i){}
-void free([[free]] void * p) {}
+[[cake::free]] void *  malloc(int i){}
+void free([[cake::free]] void * p) {}
 
 void f() {
   
@@ -1844,17 +1844,17 @@ to the declarator that receives the value.</p>
 <p>if the return type of a function does not have the flag then compiler shows
 an warning.</p>
 
-<p><strong>[[destroy]]</strong> attribute can be used in structs.</p>
+<p><strong>[[cake::destroy]]</strong> attribute can be used in structs.</p>
 
 <p>For instance:</p>
 
-<pre><code class="language-c">struct [[destroy]] X {
+<pre><code class="language-c">struct [[cake::destroy]] X {
   int i;
 };
 
 </code></pre>
 
-<p>Then when a struct X is instanciated the flag <em>&quot;must destroy&quot;</em> is set automatically.</p>
+<p>Then when a struct X is instantiated the flag <em>&quot;must destroy&quot;</em> is set automatically.</p>
 
 <p>Sample:</p>
 
@@ -1865,23 +1865,23 @@ an warning.</p>
 </code></pre>
 
 <p>Similarly of <em>&quot;must free&quot;</em> this flag must be turned off before the end of scope,
-otherwise the compiler will emmit an warning.</p>
+otherwise the compiler will emit an warning.</p>
 
-<p>To clear this flag the process is the same of free. We declare a funcion with
+<p>To clear this flag the process is the same of free. We declare a function with
 the attribute <strong>[[destroy]]</strong>.</p>
 
 <p>For instance:</p>
 
-<pre><code class="language-c">void x_destroy([[destroy]] struct x *p) { }
+<pre><code class="language-c">void x_destroy([[cake::destroy]] struct x *p) { }
 </code></pre>
 
 <p>Then</p>
 
-<pre><code class="language-c">struct [[destroy]] X {
+<pre><code class="language-c">struct [[cake::destroy]] X {
   int i;
 };
 
-void x_destroy([[destroy]] struct x *p) { }
+void x_destroy([[cake::destroy]] struct x *p) { }
 
 int main() {
    struct X x = {0};   
@@ -1893,20 +1893,20 @@ int main() {
 
 <p>Will work without any warnings.</p>
 
-<p>Similary of <em>&quot;must free&quot;</em>, <em>&quot;must destroy&quot;</em> is transfered when we copy or return 
+<p>Similarly of <em>&quot;must free&quot;</em>, <em>&quot;must destroy&quot;</em> is transferred when we copy or return 
 one variable to other.</p>
 
 <p>If we copy or return a variable with <em>&quot;must free&quot;</em>, <em>&quot;must destroy&quot;</em> flag this
-flag is transfered copied to the destin variable and cleared from the origim variable.</p>
+flag is transferred copied to the destin variable and cleared from the origin variable.</p>
 
-<p>In other words, the onwership is moved.</p>
+<p>In other words, the ownership is moved.</p>
 
 <p>The origin variable also receives the flag <em>&quot;uninitialized&quot;</em>.</p>
 
 <p>For instance:</p>
 
-<pre><code class="language-c">[[free]] void *  malloc(int i){}
-void free([[free]] void *p) {}
+<pre><code class="language-c">[[cake::free]] void *  malloc(int i){}
+void free([[cake::free]] void *p) {}
 
 struct X {
   int i;

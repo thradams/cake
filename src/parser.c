@@ -265,12 +265,12 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
         if (p_token->level != 0)
         {
             /*we dont warning code inside includes*/
-            return ;
+            return;
         }
 
         if (!parser_is_warning_enabled(ctx, w))
         {
-            return ;
+            return;
         }
     }
 
@@ -575,7 +575,7 @@ bool first_of_typedef_name(struct parser_ctx* ctx, struct token* p_token)
         return true;
     }
     else
-    {        
+    {
         p_token->flags |= TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF;
     }
     return false;
@@ -2206,7 +2206,7 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
         new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
         break;
     case TK_KEYWORD_CONSTEXPR:
-        
+
         new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
         if (ctx->scopes.tail->scope_level == 0)
             new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
@@ -3452,7 +3452,7 @@ unsigned long long array_declarator_get_size(struct array_declarator* p_array_de
     {
         if (constant_value_is_valid(&p_array_declarator->assignment_expression->constant_value))
         {
-            return 
+            return
                 constant_value_to_ull(&p_array_declarator->assignment_expression->constant_value);
         }
     }
@@ -3502,7 +3502,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             //tem que ter..
 
             p_array_declarator->assignment_expression = assignment_expression(ctx);
-            if (p_array_declarator->assignment_expression == NULL) throw;            
+            if (p_array_declarator->assignment_expression == NULL) throw;
         }
         else
         {
@@ -3514,10 +3514,10 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
             else if (ctx->current->type != ']')
             {
                 p_array_declarator->assignment_expression = assignment_expression(ctx);
-                if (p_array_declarator->assignment_expression == NULL) throw;                
+                if (p_array_declarator->assignment_expression == NULL) throw;
             }
             else
-            {             
+            {
             }
         }
 
@@ -3665,7 +3665,7 @@ struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx)
         if (type_is_void(&p_parameter_type_list->parameter_list->head->declarator->type))
         {
             p_parameter_type_list->is_void = true;
-        }        
+        }
     }
 
     /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
@@ -4152,11 +4152,11 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
                 if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_HASHOF_TYPE)
                 {
                     compiler_set_info_with_token(W_NONE,
-                        ctx, 
+                        ctx,
                         position, "%llu != %llu",
                         constant_value_to_ull(&p_static_assert_declaration->constant_expression->left->constant_value),
                         constant_value_to_ull(&p_static_assert_declaration->constant_expression->right->constant_value)
-                        );
+                    );
                 }
             }
         }
@@ -4311,22 +4311,33 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         is_standard_attribute = true;
         p_attribute_token->attributes_flags = STD_ATTRIBUTE_NODISCARD;
     }
-    else if (strcmp(attr_token->lexeme, "free") == 0)
-    {
-        is_standard_attribute = true;
-        p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_FREE;
-    }
-    else if (strcmp(attr_token->lexeme, "destroy") == 0)
-    {
-        is_standard_attribute = true;
-        p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_DESTROY;
-    }
+
+    const bool is_cake_attr =
+        strcmp(attr_token->lexeme, "cake") == 0;
 
     parser_match_tk(ctx, TK_IDENTIFIER);
 
     if (ctx->current->type == '::')
     {
+
         parser_match(ctx);
+
+        if (is_cake_attr && strcmp(ctx->current->lexeme, "free") == 0)
+        {
+            is_standard_attribute = true;
+            p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_FREE;
+        }
+        else if (is_cake_attr && strcmp(ctx->current->lexeme, "destroy") == 0)
+        {
+            is_standard_attribute = true;
+            p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_DESTROY;
+        }
+        else
+        {
+            compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
+        }
+
+
         parser_match_tk(ctx, TK_IDENTIFIER);
     }
     else
@@ -5109,16 +5120,16 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
 
                 if (type_is_void(&return_type))
                 {
-                    compiler_set_error_with_token(ctx, 
-                        p_return_token, 
-                        "void function '%s' should not return a value", 
+                    compiler_set_error_with_token(ctx,
+                        p_return_token,
+                        "void function '%s' should not return a value",
                         ctx->p_current_function_opt->init_declarator_list.head->declarator->name->lexeme);
                 }
                 else
                 {
                     check_assigment(ctx, &return_type, p_jump_statement->expression_opt);
                 }
-                
+
 
                 type_destroy(&return_type);
             }
@@ -5621,7 +5632,7 @@ int compile_one_file(const char* file_name,
                 }
             }
         }
-    }
+        }
     catch
     {
         //printf("Error %s\n", error->message);
@@ -5633,7 +5644,7 @@ int compile_one_file(const char* file_name,
     preprocessor_ctx_destroy(&prectx);
 
     return report->error_count > 0;
-}
+    }
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -5674,7 +5685,7 @@ int compile(int argc, const char** argv, struct report* report)
                         root_dir[k] = '\0';
                         dirname(root_dir);
                         goto exit;
-                    }                    
+                    }
                 }
                 if (ch == '\0')
                     break;
@@ -5682,7 +5693,7 @@ int compile(int argc, const char** argv, struct report* report)
         }
     exit:;
     }
-    
+
     //printf("root dir %s\n", root_dir);
 
     const int root_dir_len = strlen(root_dir);
@@ -5862,7 +5873,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             preprocessor_ctx_destroy(&prectx);
 
 
-        }
+    }
         else
         {
             struct visit_ctx visit_ctx = { 0 };
@@ -5891,7 +5902,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             }
             ast_destroy(&ast);
         }
-    }
+}
     catch
     {
     }
@@ -6801,7 +6812,7 @@ void enum_scope() {
         "  static_assert( (typeof(e2)), (enum E) ); \n"
         "}\n";
     assert(compile_without_errors(source));
-}
+    }
 #endif
 
 

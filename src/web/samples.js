@@ -1211,16 +1211,16 @@ static_assert( _is_function(main) && (typeof(main())) == (int) );
 
 
 
-sample["Extension - [[free]] attribute"] =
+sample["Extension - [[cake::free]] attribute"] =
 `
-[[free]] void *  malloc(int i){}
-void free([[free]] void *p) {}
+[[cake::free]] void *  malloc(int i){}
+void free([[cake::free]] void *p) {}
 
 struct X {
   int i;
 };
 
-[[free]] struct X* f() {
+[[cake::free]] struct X* f() {
     struct X * p = malloc(1);
     struct X * p2;
     p2 = p;
@@ -1236,14 +1236,14 @@ int main() {
 
 `;
 
-sample["Extension - [[destroy]] attribute"] =
+sample["Extension - [[cake::destroy]] attribute"] =
     `
 
-struct [[destroy]] X {
+struct [[cake::destroy]] X {
   int i;
 };
 
-void x_destroy([[destroy]] struct x *p) { }
+void x_destroy([[cake::destroy]] struct x *p) { }
 
 void x_swap(struct X *a, struct X *b)
 {
@@ -1272,8 +1272,8 @@ int main() {
 
 sample["Extension - _has_att, destroy and free iteraction"] =
 `
-[[free]] void* malloc(int){};
-void free([[free]] void*) {}
+[[cake::free]] void* malloc(int){};
+void free([[cake::free]] void*) {}
 
 
 int main()
@@ -1295,3 +1295,4 @@ int main()
 }
 
 `;
+

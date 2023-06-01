@@ -1617,7 +1617,7 @@ int main()
 We can use != and == with void value to compare types.
 
 
-###  Extension - [[destroy, free]]  attributes
+###  Extension - [[cake::destroy, cake::free]]  attributes
 
 Cake has imaginary flags with explicity and implicity operations to set or 
 clear these flags.  
@@ -1641,14 +1641,14 @@ on the declarator that receives the value.
 For instance:
 
 ```c
-[[free]] void *  malloc(int i){}
+[[cake::free]] void *  malloc(int i){}
 
 void f() {
   int * p = malloc(1);  
 }
 ```
 
-In this sample p has the imaginary flag _"must free"_ that is set implifity 
+In this sample p has the imaginary flag _"must free"_ that is set implicitly 
 because malloc has the attribute **[[free]]**.
 
 We can check the existence of this imaginary flag at compile time using static_assert and \_has\_attr.
@@ -1656,7 +1656,7 @@ We can check the existence of this imaginary flag at compile time using static_a
 Sample:
 
 ```c
-[[free]] void *  malloc(int i){}
+[[cake::free]] void *  malloc(int i){}
 
 void f() {
   int * p = malloc(1);  
@@ -1665,17 +1665,17 @@ void f() {
 ```
 
 
-At the end of scope cake emmits an warning if the flag _"must free"_ was not cleared.
+At the end of scope cake emits an warning if the flag _"must free"_ was not cleared.
 
-This flag can be turned off implicity when used by a function that uses the attribute 
+This flag can be turned off implicitly when used by a function that uses the attribute 
 **[[free]]**.
 
 For instance:
 
 ```c
 
-[[free]] void *  malloc(int i){}
-void free([[free]] void * p) {}
+[[cake::free]] void *  malloc(int i){}
+void free([[cake::free]] void * p) {}
 
 void f() {
   
@@ -1701,18 +1701,18 @@ to the declarator that receives the value.
 if the return type of a function does not have the flag then compiler shows
 an warning.
 
-**[[destroy]]** attribute can be used in structs.
+**[[cake::destroy]]** attribute can be used in structs.
 
 For instance:
 
 ```c
-struct [[destroy]] X {
+struct [[cake::destroy]] X {
   int i;
 };
 
 ```
 
-Then when a struct X is instanciated the flag _"must destroy"_ is set automatically.
+Then when a struct X is instantiated the flag _"must destroy"_ is set automatically.
 
 Sample:
 
@@ -1724,25 +1724,25 @@ int main() {
 ```
 
 Similarly of _"must free"_ this flag must be turned off before the end of scope,
-otherwise the compiler will emmit an warning.
+otherwise the compiler will emit an warning.
 
-To clear this flag the process is the same of free. We declare a funcion with
+To clear this flag the process is the same of free. We declare a function with
 the attribute **[[destroy]]**.
 
 For instance:
 
 ```c
-void x_destroy([[destroy]] struct x *p) { }
+void x_destroy([[cake::destroy]] struct x *p) { }
 ```
 
 Then
 
 ```c
-struct [[destroy]] X {
+struct [[cake::destroy]] X {
   int i;
 };
 
-void x_destroy([[destroy]] struct x *p) { }
+void x_destroy([[cake::destroy]] struct x *p) { }
 
 int main() {
    struct X x = {0};   
@@ -1754,21 +1754,21 @@ int main() {
 
 Will work without any warnings.
 
-Similary of _"must free"_, _"must destroy"_ is transfered when we copy or return 
+Similarly of _"must free"_, _"must destroy"_ is transferred when we copy or return 
 one variable to other.
 
 If we copy or return a variable with _"must free"_, _"must destroy"_ flag this
-flag is transfered copied to the destin variable and cleared from the origim variable.
+flag is transferred copied to the destin variable and cleared from the origin variable.
 
-In other words, the onwership is moved.
+In other words, the ownership is moved.
 
 The origin variable also receives the flag _"uninitialized"_.
 
 For instance:
 
 ```c
-[[free]] void *  malloc(int i){}
-void free([[free]] void *p) {}
+[[cake::free]] void *  malloc(int i){}
+void free([[cake::free]] void *p) {}
 
 struct X {
   int i;
