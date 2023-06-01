@@ -19,21 +19,24 @@
 #endif
 
 
-struct constant_value make_constant_value_double(double d) {
+struct constant_value make_constant_value_double(double d)
+{
     struct constant_value r;
     r.dvalue = d;
     r.type = TYPE_DOUBLE;
     return r;
 }
 
-struct constant_value make_constant_value_ull(unsigned long long d) {
+struct constant_value make_constant_value_ull(unsigned long long d)
+{
     struct constant_value r;
     r.ullvalue = d;
     r.type = TYPE_UNSIGNED_LONG_LONG;
     return r;
 }
 
-struct constant_value make_constant_value_ll(long long d) {
+struct constant_value make_constant_value_ll(long long d)
+{
     struct constant_value r;
     r.llvalue = d;
     r.type = TYPE_LONG_LONG;
@@ -436,16 +439,16 @@ int  compare_function_arguments(struct parser_ctx* ctx,
                 if (type_is_pointer(current_parameter_type->type) &&
                     type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_DESTROY))
                 {
-                    arg_declarator->static_analisys_flags &= ~MUST_DESTROY;
-                    arg_declarator->static_analisys_flags |= UNINITIALIZED;
+                    arg_declarator->declarator_flags &= ~MUST_DESTROY;
+                    arg_declarator->declarator_flags |= UNINITIALIZED;
                 }
 
 
                 if (type_is_pointer(current_parameter_type->type) &&
                     type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_FREE))
                 {
-                    arg_declarator->static_analisys_flags &= ~MUST_FREE;
-                    arg_declarator->static_analisys_flags |= UNINITIALIZED;
+                    arg_declarator->declarator_flags &= ~MUST_FREE;
+                    arg_declarator->declarator_flags |= UNINITIALIZED;
                 }
 
             }
@@ -1499,7 +1502,7 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         is_first_of_compiler_function(ctx);
 }
 
-enum static_analisys_flags string_to_static_analisys_flags(const char* s)
+enum declarator_flags string_to_static_analisys_flags(const char* s)
 {
     if (strcmp(s, "\"must free\"") == 0)
     {
@@ -1559,7 +1562,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 
     parser_match_tk(ctx, ',');
 
-    enum static_analisys_flags attr = 0;
+    enum declarator_flags attr = 0;
     if (ctx->current->type == TK_STRING_LITERAL)
     {
         attr = string_to_static_analisys_flags(ctx->current->lexeme);
@@ -1590,29 +1593,29 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
     }
     else
     {
-        new_expression->declarator->static_analisys_flags |= ISVALID;
+        new_expression->declarator->declarator_flags |= ISVALID;
 
         switch (func->type)
         {
         case TK_KEYWORD_ATTR_ADD:
 
-            new_expression->declarator->static_analisys_flags |=
+            new_expression->declarator->declarator_flags |=
                 (unsigned int)(attr);
 
-            new_expression->constant_value = make_constant_value_ull(new_expression->declarator->static_analisys_flags);
+            new_expression->constant_value = make_constant_value_ull(new_expression->declarator->declarator_flags);
 
             break;
         case TK_KEYWORD_ATTR_REMOVE:
-            new_expression->declarator->static_analisys_flags &= ~
+            new_expression->declarator->declarator_flags &= ~
                 (unsigned int)(attr);
 
-            new_expression->constant_value = make_constant_value_ull(new_expression->declarator->static_analisys_flags);
+            new_expression->constant_value = make_constant_value_ull(new_expression->declarator->declarator_flags);
 
             break;
 
         case TK_KEYWORD_ATTR_HAS:
             new_expression->constant_value =
-                make_constant_value_ull(new_expression->declarator->static_analisys_flags & (unsigned int)(attr));
+                make_constant_value_ull(new_expression->declarator->declarator_flags & (unsigned int)(attr));
 
             break;
         }
@@ -2920,28 +2923,28 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
             if (new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
             {
                 /*let's remove the UNINITIALIZED flag*/
-                new_expression->left->declarator->static_analisys_flags &=
+                new_expression->left->declarator->declarator_flags &=
                     ~UNINITIALIZED;
 
 
                 if (new_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
                 {
                     /*let's remove the UNINITIALIZED flag*/
-                    if (new_expression->right->declarator->static_analisys_flags & MUST_DESTROY)
+                    if (new_expression->right->declarator->declarator_flags & MUST_DESTROY)
                     {
-                        new_expression->left->declarator->static_analisys_flags |= MUST_DESTROY;
-                        new_expression->right->declarator->static_analisys_flags &= ~MUST_DESTROY;
+                        new_expression->left->declarator->declarator_flags |= MUST_DESTROY;
+                        new_expression->right->declarator->declarator_flags &= ~MUST_DESTROY;
                     }
 
-                    if (new_expression->right->declarator->static_analisys_flags & MUST_FREE)
+                    if (new_expression->right->declarator->declarator_flags & MUST_FREE)
                     {
-                        new_expression->left->declarator->static_analisys_flags |= MUST_FREE;
-                        new_expression->right->declarator->static_analisys_flags &= ~MUST_FREE;
+                        new_expression->left->declarator->declarator_flags |= MUST_FREE;
+                        new_expression->right->declarator->declarator_flags &= ~MUST_FREE;
                     }
 
-                    new_expression->right->declarator->static_analisys_flags |= UNINITIALIZED;
+                    new_expression->right->declarator->declarator_flags |= UNINITIALIZED;
 
-                    if (new_expression->right->declarator->static_analisys_flags & UNINITIALIZED)
+                    if (new_expression->right->declarator->declarator_flags & UNINITIALIZED)
                     {
                         //TODO fix uninitialized value
                         //parser_setwarning_with_token(ctx, ctx->current, "using uninitialized value");

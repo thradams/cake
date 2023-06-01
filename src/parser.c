@@ -45,6 +45,102 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 ///////////////////////////////////////////////////////////////////////////////
 
+static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum warning w)
+{
+    return
+        (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
+
+}
+
+static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
+{
+    //token points to {
+
+    if (token->level == 0 &&
+        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
+        token->type == '{' &&
+        parser_is_warning_enabled(ctx, W_STYLE))
+    {
+        if (ctx->options.style == STYLE_CAKE)
+        {
+            if (token->prev->type == TK_BLANKS &&
+                token->prev->prev->type == TK_NEWLINE)
+            {
+            }
+            else
+            {
+                compiler_set_info_with_token(W_STYLE, ctx, token, "not following correct brace style {");
+            }
+        }
+    }
+}
+
+static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
+{
+    //token points to {
+
+    if (token->level == 0 &&
+        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
+        token->type == '}' &&
+        parser_is_warning_enabled(ctx, W_STYLE))
+    {
+        if (ctx->options.style == STYLE_CAKE)
+        {
+            if (token->prev->type == TK_BLANKS &&
+                token->prev->prev->type == TK_NEWLINE)
+            {
+            }
+            else
+            {
+                compiler_set_info_with_token(W_STYLE, ctx, token, "not following correct close brace style }");
+            }
+        }
+    }
+}
+
+static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* token)
+{
+    //token points to {
+
+    if (token->level == 0 &&
+        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
+        token->type == '{' &&
+        parser_is_warning_enabled(ctx, W_STYLE))
+    {
+        if (ctx->options.style == STYLE_CAKE)
+        {
+            if (token->prev->type == TK_NEWLINE)
+            {
+            }
+            else
+            {
+                compiler_set_info_with_token(W_STYLE, ctx, token, "not following correct brace style {");
+            }
+        }
+    }
+}
+
+static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* token)
+{
+    //token points to {
+
+    if (token->level == 0 &&
+        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
+        token->type == '}' &&
+        parser_is_warning_enabled(ctx, W_STYLE))
+    {
+        if (ctx->options.style == STYLE_CAKE)
+        {
+            if (token->prev->prev->type == TK_NEWLINE)
+            {
+            }
+            else
+            {
+                compiler_set_info_with_token(W_STYLE, ctx, token, "not following correct close brace style }");
+            }
+        }
+    }
+}
 
 
 #ifdef TEST
@@ -108,12 +204,7 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
 
 }
 
-static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum warning w)
-{
-    return
-        (ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
 
-}
 
 void compiler_set_error_with_token(struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
@@ -1735,6 +1826,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
         scope_list_push(&ctx->scopes, parameters_scope);
 
 
+        check_func_open_brace_style(ctx, ctx->current);
 
         //o function_prototype_scope era um block_scope
         p_declaration->function_body = function_body(ctx);
@@ -1857,11 +1949,11 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         {
             if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
             {
-                p_init_declarator->declarator->static_analisys_flags |= MUST_FREE;
+                p_init_declarator->declarator->declarator_flags |= MUST_FREE;
             }
             if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
             {
-                p_init_declarator->declarator->static_analisys_flags |= MUST_DESTROY;
+                p_init_declarator->declarator->declarator_flags |= MUST_DESTROY;
             }
         }
 
@@ -1894,7 +1986,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 type_is_destroy(&p_init_declarator->declarator->type) &&
                 !type_is_pointer(&p_init_declarator->declarator->type))
             {
-                p_init_declarator->declarator->static_analisys_flags = MUST_DESTROY | ISVALID;
+                p_init_declarator->declarator->declarator_flags = MUST_DESTROY | ISVALID;
             }
         }
 
@@ -1999,18 +2091,18 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                       FILE * f = fopen();
                     */
 
-                    p_init_declarator->declarator->static_analisys_flags |=
-                        p_init_declarator->initializer->assignment_expression->left->declarator->static_analisys_flags;
+                    p_init_declarator->declarator->declarator_flags |=
+                        p_init_declarator->initializer->assignment_expression->left->declarator->declarator_flags;
                 }
 
 
                 if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                    (p_init_declarator->declarator->static_analisys_flags & MUST_FREE) &&
+                    (p_init_declarator->declarator->declarator_flags & MUST_FREE) &&
                     type_is_nodiscard(&p_init_declarator->declarator->type) &&
                     type_is_pointer(&p_init_declarator->declarator->type))
                 {
                     /*pointer to MUST_FREE of a struct [[nodiscard]] has must_destroy*/
-                    p_init_declarator->declarator->static_analisys_flags |= (MUST_DESTROY);
+                    p_init_declarator->declarator->declarator_flags |= (MUST_DESTROY);
                 }
             }
             /*
@@ -2048,7 +2140,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            p_init_declarator->declarator->static_analisys_flags |= UNINITIALIZED;
+            p_init_declarator->declarator->declarator_flags |= UNINITIALIZED;
         }
     }
     catch
@@ -3570,13 +3662,12 @@ struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx)
     if (p_parameter_type_list->parameter_list->head ==
         p_parameter_type_list->parameter_list->tail)
     {
-        if (p_parameter_type_list->parameter_list->head->declaration_specifiers->type_specifier_flags == TYPE_SPECIFIER_VOID &&
-            p_parameter_type_list->parameter_list->head->declarator->pointer == NULL)
+        if (type_is_void(&p_parameter_type_list->parameter_list->head->declarator->type))
         {
-            //pattern f(void)
             p_parameter_type_list->is_void = true;
-        }
+        }        
     }
+
     /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
     if (ctx->current->type == '...')
     {
@@ -3662,11 +3753,11 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
     {
         if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
         {
-            p_parameter_declaration->declarator->static_analisys_flags |= MUST_DESTROY;
+            p_parameter_declaration->declarator->declarator_flags |= MUST_DESTROY;
         }
         if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
         {
-            p_parameter_declaration->declarator->static_analisys_flags |= MUST_FREE;
+            p_parameter_declaration->declarator->declarator_flags |= MUST_FREE;
         }
     }
     p_parameter_declaration->declarator->is_parameter_declarator = true;
@@ -4358,51 +4449,6 @@ struct primary_block* primary_block(struct parser_ctx* ctx)
     return p_primary_block;
 }
 
-static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
-{
-    //token points to {
-
-    if (token->level == 0 &&
-        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&        
-        token->type == '{' &&
-        parser_is_warning_enabled(ctx, W_STYLE))
-    {
-        if (ctx->options.style == STYLE_CAKE)
-        {
-            if (token->prev->type == TK_BLANKS &&
-                token->prev->prev->type == TK_NEWLINE)
-            {
-            }
-            else
-            {
-                compiler_set_info_with_token(W_STYLE, ctx, token, "not following correct brace style {");
-            }
-        }
-    }
-}
-
-static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
-{
-    //token points to {
-
-    if (token->level == 0 &&
-        !(token->flags & TK_FLAG_MACRO_EXPANDED) &&
-        token->type == '}' &&
-        parser_is_warning_enabled(ctx, W_STYLE))
-    {
-        if (ctx->options.style == STYLE_CAKE)
-        {
-            if (token->prev->type == TK_BLANKS &&
-                token->prev->prev->type == TK_NEWLINE)
-            {
-            }
-            else
-            {
-                compiler_set_info_with_token(W_STYLE, ctx, token, "not following correct close brace style }");
-            }
-        }
-    }
-}
 
 struct secondary_block* secondary_block(struct parser_ctx* ctx)
 {
@@ -4596,7 +4642,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                   let's print the declarators that were not cleared for these
                   flags
                 */
-                if (p_declarator->static_analisys_flags & MUST_DESTROY)
+                if (p_declarator->declarator_flags & MUST_DESTROY)
                 {
                     compiler_set_error_with_token(ctx,
                         p_declarator->name,
@@ -4605,7 +4651,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
 
                 }
 
-                if (p_declarator->static_analisys_flags & MUST_FREE)
+                if (p_declarator->declarator_flags & MUST_FREE)
                 {
 
                     compiler_set_error_with_token(ctx,
@@ -5050,7 +5096,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                    returning a declarator will remove the flags must destroy or must free,
                    similar of moving
                 */
-                p_jump_statement->expression_opt->declarator->static_analisys_flags &= ~(MUST_DESTROY | MUST_FREE);
+                p_jump_statement->expression_opt->declarator->declarator_flags &= ~(MUST_DESTROY | MUST_FREE);
             }
 
             if (p_jump_statement->expression_opt)
@@ -5190,26 +5236,26 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                   let's print the declarators that were not cleared for these
                   flags
                 */
-                if (p_declarator->static_analisys_flags & MUST_DESTROY)
+                if (p_declarator->declarator_flags & MUST_DESTROY)
                 {
                     ctx->printf(WHITE "%s:%d:%d: ",
                         p_declarator->name->token_origin->lexeme,
                         p_declarator->name->line,
                         p_declarator->name->col);
 
-                    if (p_declarator->static_analisys_flags & MUST_DESTROY)
+                    if (p_declarator->declarator_flags & MUST_DESTROY)
                         ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
                             p_declarator->name->lexeme);
                 }
 
-                if (p_declarator->static_analisys_flags & MUST_FREE)
+                if (p_declarator->declarator_flags & MUST_FREE)
                 {
                     ctx->printf(WHITE "%s:%d:%d: ",
                         p_declarator->name->token_origin->lexeme,
                         p_declarator->name->line,
                         p_declarator->name->col);
 
-                    if (p_declarator->static_analisys_flags & MUST_FREE)
+                    if (p_declarator->declarator_flags & MUST_FREE)
                         ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
                             p_declarator->name->lexeme);
                 }
@@ -5570,7 +5616,7 @@ int compile_one_file(const char* file_name,
                 else
                 {
                     report->error_count++;
-                    printf("cannot open output file '%s'", out_file_name);
+                    printf("cannot open output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));
                     throw;
                 }
             }
@@ -5604,22 +5650,40 @@ int compile(int argc, const char** argv, struct report* report)
 
     if (!options.no_output)
     {
+        /*
+          find the longest common path
+        */
         for (int i = 1; i < argc; i++)
         {
             if (argv[i][0] == '-')
                 continue;
 
-            char fullpath[MAX_PATH] = { 0 };
-            realpath(argv[i], fullpath);
+            char fullpath_i[MAX_PATH] = { 0 };
+            realpath(argv[i], fullpath_i);
 
-            if (root_dir[0] == 0 ||
-                (strlen(fullpath) < strlen(root_dir)))
+            for (int k = 0; ; k++)
             {
-                strcpy(root_dir, fullpath);
+                const char ch = fullpath_i[k];
+                for (int j = 0; j < argc; j++)
+                {
+                    char fullpath_j[MAX_PATH] = { 0 };
+                    realpath(argv[j], fullpath_j);
+                    if (fullpath_j[k] != ch)
+                    {
+                        strncpy(root_dir, fullpath_j, k);
+                        root_dir[k] = '\0';
+                        dirname(root_dir);
+                        goto exit;
+                    }                    
+                }
+                if (ch == '\0')
+                    break;
             }
         }
-        dirname(root_dir);
+    exit:;
     }
+    
+    //printf("root dir %s\n", root_dir);
 
     const int root_dir_len = strlen(root_dir);
 
@@ -5629,7 +5693,7 @@ int compile(int argc, const char** argv, struct report* report)
         if (argv[i][0] == '-')
             continue;
         no_files++;
-        char output_file[MAX_PATH] = { 0 };
+        char output_file[400] = { 0 };
 
         if (!options.no_output)
         {

@@ -493,6 +493,13 @@ struct initializer
 
 struct initializer* initializer(struct parser_ctx* ctx);
 
+enum declarator_flags
+{
+    ISVALID = 1 << 1,
+    UNINITIALIZED = 1 << 2,
+    MUST_DESTROY = 1 << 3,
+    MUST_FREE = 1 << 4
+};
 
 struct declarator
 {
@@ -519,7 +526,7 @@ struct declarator
 
     bool is_parameter_declarator;
     
-    enum static_analisys_flags static_analisys_flags;    
+    enum declarator_flags declarator_flags;    
 
     /*Já mastiga o tipo dele*/
     struct type type;    

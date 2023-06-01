@@ -81,6 +81,15 @@ int fill_options(struct options* options,
         if (argv[i][0] != '-')
             continue;
 
+        if (argv[i][1] == 'I'|| 
+            argv[i][1] == 'D')
+        {
+            /*
+              Valid, but handled with preprocessor
+            */
+            continue;
+        }
+
         if (strcmp(argv[i], "-no-output") == 0)
         {
             options->no_output = true;
@@ -224,6 +233,13 @@ int fill_options(struct options* options,
             else
                 w = get_warning_flag(argv[i] + 2);
 
+            if (w == 0)
+            {
+                printf("unknown warning '%s'", argv[i]);
+                return 1;
+            }
+
+            
             if (disable_warning)
             {
                 options->enabled_warnings_stack[0] &= ~w;
@@ -234,6 +250,9 @@ int fill_options(struct options* options,
             }
             continue;
         }
+
+        printf("unknown option '%s'", argv[i]);
+        return 1;
     }
     return 0;
 }

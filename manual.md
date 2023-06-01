@@ -973,13 +973,15 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 
 ###  C23 Attributes
 
-Attributes are being parsed and removed in some places. 
-More work is necessary to implement the checks in C23.
 
 Convertion to C11, C99, C89 will just remove the attributes.
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf
+
+Related: Standard Attributes in C and C++ - Timur Doumler - ACCU 2023
+https://youtu.be/EpAEFjbTh3I
+
 
 ### C23 fallthrough attribute
 Not implemented

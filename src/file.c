@@ -1,4 +1,9 @@
+typedef void VOID;
+void f(VOID)
+{
 
-static const constexpr int c1 = 1;
-const constexpr int c2 = 2;
-constexpr int c3 = 3;
+}
+
+int main() {
+    f();
+}

@@ -389,23 +389,19 @@ void print_type(struct osstream* ss, const struct type* p_type)
     print_type_core(ss, p_type, false);
 }
 
-
 void print_type_declarator(struct osstream* ss, const struct type* p_type)
 {
     print_type_core(ss, p_type, true);
 }
 
-
-void type_print(const struct type* a) {
+void type_print(const struct type* a)
+{
     struct osstream ss = { 0 };
     print_type(&ss, a);
     puts(ss.c_str);
     puts("\n");
     ss_close(&ss);
 }
-
-
-
 
 enum type_category type_get_category(const struct type* p_type)
 {
