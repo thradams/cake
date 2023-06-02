@@ -23382,7 +23382,7 @@ void string_concatenation_test()
 void test_digit_separator()
 {
     struct report report = { 0 };
-    char* result = compile_source("-std=C99", "int i = 1'000;", &report);
+    char* result = compile_source("-std=c99", "int i = 1'000;", &report);
     assert(strcmp(result, "int i = 1000;") == 0);
     free(result);
 }
@@ -23390,7 +23390,7 @@ void test_digit_separator()
 void test_lit()
 {
     struct report report = { 0 };
-    char* result = compile_source("-std=C99", "char * s = u8\"maçã\";", &report);
+    char* result = compile_source("-std=c99", "char * s = u8\"maçã\";", &report);
     assert(strcmp(result, "char * s = \"ma\\xc3\\xa7\\xc3\\xa3\";") == 0);
     free(result);
 }
@@ -23926,7 +23926,7 @@ void visit_test_auto_typeof()
     const char* source = "auto p2 = (typeof(int[2])*) 0;";
 
     struct report report = { 0 };
-    char* result = compile_source("-std=C99", source, &report);
+    char* result = compile_source("-std=c99", source, &report);
     assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);
     free(result);
 }

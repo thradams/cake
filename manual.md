@@ -1678,8 +1678,8 @@ void f() {
 
 After calling `free`, the imaginary flag _"must free"_ is removed, and there is no warning at the end of the scope.
 
-When a declarator is returned or assigned, the _"must free"_ flag is transferred to the receiving declarator.
-
+When a declarator is returned or assigned ´= [[cake::move]]´, the _"must free"_ flag is transferred to 
+the receiving declarator.
 If the return type of a function does not have the flag, the compiler shows a warning.
 
 The **[[cake::destroy]]** attribute can be used with structs. For example:
@@ -1690,7 +1690,7 @@ struct [[cake::destroy]] X {
 };
 ```
 
-When a struct `X` is instantiated, the flag _"must destroy"_ is automatically set.
+When a `struct X` is instantiated, the flag _"must destroy"_ is automatically set.
 
 ```c
 int main() {
