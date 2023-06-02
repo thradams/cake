@@ -35,6 +35,8 @@ int main(int argc, char** argv)
 	compile(argc, (const char**) argv, &report);
 
 
+	
+
  	return report.error_count > 0;
 }
 #else

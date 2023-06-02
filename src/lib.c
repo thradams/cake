@@ -19249,6 +19249,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                         struct type temp = t2;
                         t2 = t;
                         t = temp;
+                        _del_attr(temp, "must destroy");
                         type_destroy(&t2);
                     }
 
