@@ -66,17 +66,17 @@ void constant_value_to_string(const struct constant_value* a, char buffer[], int
     buffer[0] = 0;
     switch (a->type)
     {
-    case TYPE_LONG_LONG:         
+    case TYPE_LONG_LONG:
         snprintf(buffer, sz, "%lld", a->llvalue);
         break;
-    case TYPE_DOUBLE: 
+    case TYPE_DOUBLE:
         snprintf(buffer, sz, "%f", a->dvalue);
         break;
 
-    case TYPE_UNSIGNED_LONG_LONG: 
+    case TYPE_UNSIGNED_LONG_LONG:
         snprintf(buffer, sz, "%llu", a->ullvalue);
         break;
-    }    
+    }
 }
 
 unsigned long long constant_value_to_ull(const struct constant_value* a)
@@ -387,79 +387,53 @@ struct expression* conditional_expression(struct parser_ctx* ctx);
 
 
 
-int  compare_function_arguments(struct parser_ctx* ctx,
+static int compare_function_arguments(struct parser_ctx* ctx,
     struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
 {
     try
     {
-
-
-
-
-        struct param* current_parameter_type = NULL;
+        struct param* p_current_parameter_type = NULL;
 
         const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
         if (p_param_list)
         {
-            current_parameter_type = p_param_list->head;
+            p_current_parameter_type = p_param_list->head;
         }
 
-
         int param_num = 1;
-        struct argument_expression* current_argument =
-            p_argument_expression_list->head;
+        struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
-        while (current_argument && current_parameter_type)
+        while (p_current_argument && p_current_parameter_type)
         {
-            check_function_argument_and_parameter(ctx, current_argument, current_parameter_type->type, param_num);
+            check_function_argument_and_parameter(ctx, p_current_argument, p_current_parameter_type->type, param_num);
 
-            struct declarator* arg_declarator = NULL;
-            if (current_argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            struct declarator* const p_argument_declarator =
+                expression_get_declarator(p_current_argument->expression);
+
+
+            if (type_is_pointer(p_current_parameter_type->type) &&
+
+                (type_has_attribute(p_current_parameter_type->type->next, CAKE_ATTRIBUTE_DESTROY) ||
+                    type_has_attribute(p_current_parameter_type->type->next, CAKE_ATTRIBUTE_FREE) ||
+                    type_has_attribute(p_current_parameter_type->type->next, CAKE_ATTRIBUTE_MOVE))
+                )
             {
-                arg_declarator = current_argument->expression->declarator;
-            }
-            else if (current_argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
-            {
-                struct expression* right = current_argument->expression->right;
-                if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-                {
-                    arg_declarator = right->declarator;
-                }
-            }
-            else
-            {
-                arg_declarator = NULL;
-            }
-
-            if (arg_declarator &&
-                !arg_declarator->is_parameter_declarator)
-            {
-                if (type_is_pointer(current_parameter_type->type) &&
-                    type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_DESTROY))
-                {
-                    arg_declarator->declarator_flags &= ~DECLARATOR_MUST_DESTROY;
-                    arg_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
-                }
-
-
-                if (type_is_pointer(current_parameter_type->type) &&
-                    type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_FREE))
-                {
-                    arg_declarator->declarator_flags &= ~DECLARATOR_MUST_FREE;
-                    arg_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
-                }
-
+                /*
+                  design must decide if we want to destroy partially, like independent
+                  destroy and free.
+                */
+                if (p_argument_declarator)
+                  p_argument_declarator->declarator_flags = DECLARATOR_UNINITIALIZED;
             }
 
-
-            current_argument = current_argument->next;
-            current_parameter_type = current_parameter_type->next;
+            p_current_argument = p_current_argument->next;
+            p_current_parameter_type = p_current_parameter_type->next;
             param_num++;
         }
 
-        if (current_argument != NULL && !p_param_list->is_var_args)
+        if (p_current_argument != NULL && !p_param_list->is_var_args)
         {
             compiler_set_error_with_token(ctx,
                 p_argument_expression_list->tail->expression->first_token,
@@ -467,7 +441,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             throw;
         }
 
-        if (current_parameter_type != NULL && !p_param_list->is_void)
+        if (p_current_parameter_type != NULL && !p_param_list->is_void)
         {
             if (p_argument_expression_list->tail)
             {
@@ -477,9 +451,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             }
             else
             {
-                compiler_set_error_with_token(ctx,
-                    ctx->current,
-                    "too few arguments");
+                compiler_set_error_with_token(ctx, ctx->current, "too few arguments");
             }
             throw;
         }
@@ -838,6 +810,23 @@ static bool is_integer_or_floating_constant(enum token_type type)
         type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
+struct declarator* expression_get_declarator(struct expression* p_expression)
+{
+    struct declarator* p_declarator = NULL;
+    if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+    {
+        p_declarator = p_expression->declarator;
+    }
+    else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+    {
+        if (p_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+        {
+            p_declarator = p_expression->right->declarator;
+        }
+    }
+    return p_declarator;
+}
+
 
 struct expression* primary_expression(struct parser_ctx* ctx)
 {
@@ -872,15 +861,15 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
 
             }
-            else if (p_entry && 
-                     (p_entry->type == TAG_TYPE_ONLY_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
+            else if (p_entry &&
+                (p_entry->type == TAG_TYPE_ONLY_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
             {
                 struct declarator* p_declarator = NULL;
                 struct init_declarator* p_init_declarator = NULL;
                 if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
                     p_init_declarator = p_entry->p;
-                    p_declarator = p_init_declarator->declarator;
+                    p_declarator = p_init_declarator->p_declarator;
                 }
                 else
                 {
@@ -899,9 +888,9 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 p_expression_node->type = type_dup(&p_declarator->type);
                 if (p_init_declarator)
                 {
-                    if (p_init_declarator->declarator &&
-                        p_init_declarator->declarator->declaration_specifiers &&
-                        p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+                    if (p_init_declarator->p_declarator &&
+                        p_init_declarator->p_declarator->declaration_specifiers &&
+                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
                     {
                         if (p_init_declarator->initializer &&
                             p_init_declarator->initializer->assignment_expression)
@@ -920,7 +909,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                    works for now
                 */
                 const char* funcname =
-                    ctx->p_current_function_opt->init_declarator_list.head->declarator->name->lexeme;
+                    ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
 
                 p_expression_node = calloc(1, sizeof * p_expression_node);
                 if (p_expression_node == NULL) throw;
@@ -2887,20 +2876,22 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
         {
             parser_match(ctx);
 
-            struct attribute_specifier_sequence* p_attribute_specifier_sequence =
-                attribute_specifier_sequence_opt(ctx);
-            enum attribute_flags  attributes_flags = 0;
-            if (p_attribute_specifier_sequence)
-            {
-                attributes_flags = p_attribute_specifier_sequence->attributes_flags;
-                free(p_attribute_specifier_sequence);
-            }
 
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
+
+            new_expression->p_attribute_specifier_sequence_opt =
+                attribute_specifier_sequence_opt(ctx);
+
+            enum attribute_flags  attributes_flags = 0;
+            if (new_expression->p_attribute_specifier_sequence_opt)
+            {
+                attributes_flags = new_expression->p_attribute_specifier_sequence_opt->attributes_flags;
+            }
+
 
             enum type_category category =
                 type_get_category(&new_expression->left->type);
@@ -2929,42 +2920,16 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
                 check_assigment(ctx, &new_expression->left->type, new_expression->right);
             }
 
-            if ((attributes_flags & CAKE_ATTRIBUTE_MOVE) &&
-                new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            if (attributes_flags & CAKE_ATTRIBUTE_MOVE)
             {
-                /*let's remove the UNINITIALIZED flag*/
-                new_expression->left->declarator->declarator_flags &=
-                    ~DECLARATOR_UNINITIALIZED;
-
-
-                if (new_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                struct declarator* const p_left_declarator = expression_get_declarator(new_expression->left);
+                struct declarator* const p_right_declarator = expression_get_declarator(new_expression->right);
+                if (p_left_declarator && p_right_declarator)
                 {
-                    /*let's remove the UNINITIALIZED flag*/
-                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
-                    {
-                        new_expression->left->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
-                        new_expression->right->declarator->declarator_flags &= ~DECLARATOR_MUST_DESTROY;
-                    }
-
-                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_MUST_FREE)
-                    {
-                        new_expression->left->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
-                        new_expression->right->declarator->declarator_flags &= ~DECLARATOR_MUST_FREE;
-                    }
-
-                    new_expression->right->declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
-
-                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_UNINITIALIZED)
-                    {
-                        //TODO fix uninitialized value
-                        //parser_setwarning_with_token(ctx, ctx->current, "using uninitialized value");
-                    }
+                    p_left_declarator->declarator_flags = p_right_declarator->declarator_flags;
+                    p_right_declarator->declarator_flags = DECLARATOR_UNINITIALIZED;
                 }
-
-
             }
-
-
 
             new_expression->type = type_dup(&new_expression->right->type);
 

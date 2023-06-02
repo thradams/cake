@@ -20,6 +20,7 @@ s_warnings[] = {
     {W_ATTRIBUTES, "attributes"},
     {W_UNUSED_VALUE, "unused-value"},
     {W_STYLE, "style"},
+    {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"}
 };
 
 enum warning  get_warning_flag(const char* wname)

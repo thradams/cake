@@ -520,7 +520,7 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
             struct init_declarator* p_init_declarator = p_entry->p;
-            return p_init_declarator->declarator;
+            return p_init_declarator->p_declarator;
         }
         else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
         {
@@ -1797,7 +1797,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
-        assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator);
+        assert(p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator);
 
         /*
             scope of parameters is the inner declarator
@@ -1808,7 +1808,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
             }
         */
 
-        struct declarator* inner = p_declaration->init_declarator_list.head->declarator;
+        struct declarator* inner = p_declaration->init_declarator_list.head->p_declarator;
         for (;;)
         {
             if (inner->direct_declarator &&
@@ -1830,16 +1830,16 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
 
         //o function_prototype_scope era um block_scope
         p_declaration->function_body = function_body(ctx);
-        p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
+        p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
 
         struct parameter_declaration* parameter = NULL;
 
-        if (p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator &&
-            p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
-            p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
+        if (p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
+            p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
+            p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
         {
-            parameter = p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+            parameter = p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
 
         /*parametros nao usados*/
@@ -1926,15 +1926,15 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
     {
 
         struct token* tkname = 0;
-        p_init_declarator->declarator = declarator(ctx,
+        p_init_declarator->p_declarator = declarator(ctx,
             NULL,
             p_declaration_specifiers,
             false,
             &tkname);
 
-        if (p_init_declarator->declarator == NULL) throw;
+        if (p_init_declarator->p_declarator == NULL) throw;
 
-        p_init_declarator->declarator->name = tkname;
+        p_init_declarator->p_declarator->name = tkname;
 
 
         if (tkname == NULL)
@@ -1949,18 +1949,18 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         {
             if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
             {
-                p_init_declarator->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
+                p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_MUST_FREE;
             }
             if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
             {
-                p_init_declarator->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
+                p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
             }
         }
 
-        p_init_declarator->declarator->declaration_specifiers = p_declaration_specifiers;
-        p_init_declarator->declarator->name = tkname;
+        p_init_declarator->p_declarator->declaration_specifiers = p_declaration_specifiers;
+        p_init_declarator->p_declarator->name = tkname;
 
-        if (p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+        if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
             /*
               auto requires we find the type after initializer
@@ -1968,29 +1968,29 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            p_init_declarator->declarator->type =
-                make_type_using_declarator(ctx, p_init_declarator->declarator);
+            p_init_declarator->p_declarator->type =
+                make_type_using_declarator(ctx, p_init_declarator->p_declarator);
 
-            if (type_is_array(&p_init_declarator->declarator->type))
+            if (type_is_array(&p_init_declarator->p_declarator->type))
             {
-                if (p_init_declarator->declarator->type.type_qualifier_flags != 0 ||
-                    p_init_declarator->declarator->type.static_array)
+                if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
+                    p_init_declarator->p_declarator->type.static_array)
                 {
                     compiler_set_error_with_token(ctx,
-                        p_init_declarator->declarator->first_token,
+                        p_init_declarator->p_declarator->first_token,
                         "static or type qualifiers are not allowed in non-parameter array declarator");
                 }
             }
 
-            if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                type_is_destroy(&p_init_declarator->declarator->type) &&
-                !type_is_pointer(&p_init_declarator->declarator->type))
+            if ((p_init_declarator->p_declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
+                type_is_destroy(&p_init_declarator->p_declarator->type) &&
+                !type_is_pointer(&p_init_declarator->p_declarator->type))
             {
-                p_init_declarator->declarator->declarator_flags = DECLARATOR_MUST_DESTROY | DECLARATOR_ISVALID;
+                p_init_declarator->p_declarator->declarator_flags = DECLARATOR_MUST_DESTROY | DECLARATOR_ISVALID;
             }
         }
 
-        const char* name = p_init_declarator->declarator->name->lexeme;
+        const char* name = p_init_declarator->p_declarator->name->lexeme;
         if (name)
         {
             if (tkname)
@@ -1998,19 +1998,19 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 if (ctx->scopes.tail->scope_level == 0)
                 {
 
-                    if (type_is_function(&p_init_declarator->declarator->type))
+                    if (type_is_function(&p_init_declarator->p_declarator->type))
                     {
                         naming_convention_global_var(ctx,
                             tkname,
-                            &p_init_declarator->declarator->type,
-                            p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags);
+                            &p_init_declarator->p_declarator->type,
+                            p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
                     }
                     else
                     {
                         naming_convention_global_var(ctx,
                             tkname,
-                            &p_init_declarator->declarator->type,
-                            p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags);
+                            &p_init_declarator->p_declarator->type,
+                            p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
                     }
                 }
             }
@@ -2024,7 +2024,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     if (out->scope_level == 0)
                     {
                         /*file scope*/
-                        if (!type_is_same(&previous->type, &p_init_declarator->declarator->type, true))
+                        if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, true))
                         {
                             //TODO failing on windows headers
                             //parser_seterror_with_token(ctx, p_init_declarator->declarator->name, "redeclaration of  '%s' with diferent types", previous->name->lexeme);
@@ -2045,7 +2045,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     if (out->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
-                        if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name))
+                        if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token, "declaration of '%s' hides previous declaration", name))
                         {
                             compiler_set_info_with_token(W_NONE, ctx, previous->first_token, "previous declaration is here");
                         }
@@ -2069,16 +2069,16 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
             if (p_init_declarator->initializer->braced_initializer)
             {
-                if (type_is_array(&p_init_declarator->declarator->type))
+                if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    const int sz = type_get_array_size(&p_init_declarator->declarator->type);
+                    const int sz = type_get_array_size(&p_init_declarator->p_declarator->type);
                     if (sz == 0)
                     {
                         /*int a[] = {1, 2, 3}*/
                         const int braced_initializer_size =
                             p_init_declarator->initializer->braced_initializer->initializer_list->size;
 
-                        type_set_array_size(&p_init_declarator->declarator->type, braced_initializer_size);
+                        type_set_array_size(&p_init_declarator->p_declarator->type, braced_initializer_size);
                     }
                 }
             }
@@ -2091,24 +2091,35 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                       FILE * f = fopen();
                     */
 
-                    p_init_declarator->declarator->declarator_flags |=
+                    p_init_declarator->p_declarator->declarator_flags |=
                         p_init_declarator->initializer->assignment_expression->left->declarator->declarator_flags;
                 }
 
 
-                if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                    (p_init_declarator->declarator->declarator_flags & DECLARATOR_MUST_FREE) &&
-                    type_is_nodiscard(&p_init_declarator->declarator->type) &&
-                    type_is_pointer(&p_init_declarator->declarator->type))
+                if ((p_init_declarator->p_declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
+                    (p_init_declarator->p_declarator->declarator_flags & DECLARATOR_MUST_FREE) &&
+                    type_is_nodiscard(&p_init_declarator->p_declarator->type) &&
+                    type_is_pointer(&p_init_declarator->p_declarator->type))
                 {
                     /*pointer to MUST_FREE of a struct [[nodiscard]] has must_destroy*/
-                    p_init_declarator->declarator->declarator_flags |= (DECLARATOR_MUST_DESTROY);
+                    p_init_declarator->p_declarator->declarator_flags |= (DECLARATOR_MUST_DESTROY);
+                }
+
+                if (p_init_declarator->initializer->p_attribute_specifier_sequence_opt &&
+                    p_init_declarator->initializer->p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_MOVE)
+                {
+                    struct declarator* const p_right_declarator = expression_get_declarator(p_init_declarator->initializer->assignment_expression);
+                    if (p_right_declarator)
+                    {
+                        p_init_declarator->p_declarator->declarator_flags = p_right_declarator->declarator_flags;
+                        p_right_declarator->declarator_flags = DECLARATOR_UNINITIALIZED;
+                    }
                 }
             }
             /*
                auto requires we find the type after initializer
             */
-            if (p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+            if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
             {
                 if (p_init_declarator->initializer &&
                     p_init_declarator->initializer->assignment_expression)
@@ -2127,18 +2138,30 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     }
 
                     type_remove_names(&t);
-                    t.name_opt = strdup(p_init_declarator->declarator->name->lexeme);
+                    t.name_opt = strdup(p_init_declarator->p_declarator->name->lexeme);
 
-                    type_flat_set_qualifiers_using_declarator(&t, p_init_declarator->declarator);
+                    type_flat_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
                     type_visit_to_mark_anonymous(&t);
-                    type_swap(&p_init_declarator->declarator->type, &t);
+                    type_swap(&p_init_declarator->p_declarator->type, &t);
                     type_destroy(&t);
                 }
             }
+
+            if (p_init_declarator->initializer &&
+                p_init_declarator->initializer->assignment_expression &&
+                type_is_pointer_to_const(&p_init_declarator->initializer->assignment_expression->type))
+            {
+                if (p_init_declarator->p_declarator && 
+                    !type_is_pointer_to_const(&p_init_declarator->p_declarator->type))
+                {
+                    compiler_set_warning_with_token(W_DISCARDED_QUALIFIERS, ctx, ctx->current, "const qualifier discarded");
+                }
+            }
+
         }
         else
         {
-            p_init_declarator->declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
+            p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
         }
     }
     catch
@@ -3979,6 +4002,9 @@ struct initializer* initializer(struct parser_ctx* ctx)
 
     p_initializer->first_token = ctx->current;
 
+    p_initializer->p_attribute_specifier_sequence_opt =
+        attribute_specifier_sequence_opt(ctx);
+
     if (ctx->current->type == '{')
     {
         p_initializer->braced_initializer = braced_initializer(ctx);
@@ -4643,7 +4669,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
             if (entry->type == TAG_TYPE_INIT_DECLARATOR)
             {
                 p_init_declarator = entry->p;
-                p_declarator = p_init_declarator->declarator;
+                p_declarator = p_init_declarator->p_declarator;
             }
             else
             {
@@ -4790,9 +4816,9 @@ assembly-instruction-list:
         struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
         while (p)
         {
-            if (p->declarator && p->declarator->name)
+            if (p->p_declarator && p->p_declarator->name)
             {
-                naming_convention_local_var(ctx, p->declarator->name, &p->declarator->type);
+                naming_convention_local_var(ctx, p->p_declarator->name, &p->p_declarator->type);
             }
             p = p->next;
         }
@@ -5119,14 +5145,14 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                 * Check is return type is compatible with function return
                 */
                 struct type return_type =
-                    get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type);
+                    get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->p_declarator->type);
 
                 if (type_is_void(&return_type))
                 {
                     compiler_set_error_with_token(ctx,
                         p_return_token,
                         "void function '%s' should not return a value",
-                        ctx->p_current_function_opt->init_declarator_list.head->declarator->name->lexeme);
+                        ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme);
                 }
                 else
                 {
@@ -5233,7 +5259,7 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
             if (entry->type == TAG_TYPE_INIT_DECLARATOR)
             {
                 p_init_declarator = entry->p;
-                p_declarator = p_init_declarator->declarator;
+                p_declarator = p_init_declarator->p_declarator;
             }
             else
             {
@@ -5635,7 +5661,7 @@ int compile_one_file(const char* file_name,
                 }
             }
         }
-        }
+    }
     catch
     {
         //printf("Error %s\n", error->message);
@@ -5647,7 +5673,84 @@ int compile_one_file(const char* file_name,
     preprocessor_ctx_destroy(&prectx);
 
     return report->error_count > 0;
+}
+
+static void longest_common_path(int argc, const char** argv, char root_dir[MAX_PATH])
+{
+    /*
+     find the longest common path
+    */
+    for (int i = 1; i < argc; i++)
+    {
+        if (argv[i][0] == '-')
+            continue;
+
+        char fullpath_i[MAX_PATH] = { 0 };
+        realpath(argv[i], fullpath_i);
+        strcpy(root_dir, fullpath_i);
+        dirname(root_dir);
+
+        for (int k = 0; ; k++)
+        {
+            const char ch = fullpath_i[k];
+            for (int j = 2; j < argc; j++)
+            {
+                if (argv[j][0] == '-')
+                    continue;
+
+                char fullpath_j[MAX_PATH] = { 0 };
+                realpath(argv[j], fullpath_j);
+                if (fullpath_j[k] != ch)
+                {
+                    strncpy(root_dir, fullpath_j, k);
+                    root_dir[k] = '\0';
+                    dirname(root_dir);
+                    goto exit;
+                }
+            }
+            if (ch == '\0')
+                break;
+        }
     }
+exit:;
+}
+
+static int create_multiple_paths(const char* root, const char* outdir)
+{
+    /*
+       This function creates all dirs (folder1, forder2 ..) after root
+       root   : C:/folder
+       outdir : C:/folder/folder1/folder2 ...
+    */
+
+    const char* p = outdir + strlen(root) + 1;
+    for (;;)
+    {
+        if (*p != '\0' && *p != '/' && *p != '\\')
+        {
+            p++;
+            continue;
+        }
+
+        char temp[MAX_PATH] = { 0 };
+        strncpy(temp, outdir, p - outdir);
+
+        int er = mkdir(temp, 0777);
+        if (er != 0)
+        {
+            er = errno;
+            if (er != EEXIST)
+            {
+                printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
+                return er;
+            }
+        }
+        if (*p == '\0')
+            break;
+        p++;
+    }
+    return 0;
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -5664,40 +5767,8 @@ int compile(int argc, const char** argv, struct report* report)
 
     if (!options.no_output)
     {
-        /*
-          find the longest common path
-        */
-        for (int i = 1; i < argc; i++)
-        {
-            if (argv[i][0] == '-')
-                continue;
-
-            char fullpath_i[MAX_PATH] = { 0 };
-            realpath(argv[i], fullpath_i);
-
-            for (int k = 0; ; k++)
-            {
-                const char ch = fullpath_i[k];
-                for (int j = 0; j < argc; j++)
-                {
-                    char fullpath_j[MAX_PATH] = { 0 };
-                    realpath(argv[j], fullpath_j);
-                    if (fullpath_j[k] != ch)
-                    {
-                        strncpy(root_dir, fullpath_j, k);
-                        root_dir[k] = '\0';
-                        dirname(root_dir);
-                        goto exit;
-                    }
-                }
-                if (ch == '\0')
-                    break;
-            }
-        }
-    exit:;
+        longest_common_path(argc, argv, root_dir);
     }
-
-    //printf("root dir %s\n", root_dir);
 
     const int root_dir_len = strlen(root_dir);
 
@@ -5725,16 +5796,17 @@ int compile(int argc, const char** argv, struct report* report)
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
-                strcat(output_file, "/out");
+                strcat(output_file, "\\out");
 
                 strcat(output_file, fullpath + root_dir_len);
 
                 char outdir[MAX_PATH];
                 strcpy(outdir, output_file);
                 dirname(outdir);
-
-                /*let´s create output dir in case it does not exist*/
-                mkdir(outdir, 0777);
+                if (create_multiple_paths(root_dir, outdir) != 0)
+                {
+                    return 1;
+                }
             }
         }
 
@@ -5876,7 +5948,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             preprocessor_ctx_destroy(&prectx);
 
 
-    }
+        }
         else
         {
             struct visit_ctx visit_ctx = { 0 };
@@ -5905,7 +5977,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             }
             ast_destroy(&ast);
         }
-}
+    }
     catch
     {
     }
@@ -6815,7 +6887,7 @@ void enum_scope() {
         "  static_assert( (typeof(e2)), (enum E) ); \n"
         "}\n";
     assert(compile_without_errors(source));
-    }
+}
 #endif
 
 

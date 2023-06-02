@@ -198,6 +198,12 @@ struct expression
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
+    /*
+       cake extension
+       a = [[cake::move]] b;       
+    */
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
+
     struct expression* condition_expr;
     struct expression* left;
     struct expression* right;
@@ -207,3 +213,4 @@ struct expression* assignment_expression(struct parser_ctx* ctx);
 struct expression* expression(struct parser_ctx* ctx);
 struct expression* constant_expression(struct parser_ctx* ctx);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
+struct declarator* expression_get_declarator(struct expression*);

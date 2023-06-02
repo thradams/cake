@@ -167,6 +167,7 @@ int type_set_array_size(struct type* p_type, int size);
 bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
+bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);

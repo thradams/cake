@@ -30,6 +30,7 @@ enum warning {
     W_COMMENT = 1 << 12,
     W_LINE_SLICING = 1 << 13,
     W_STRING_SLICED = 1 << 14,
+    W_DISCARDED_QUALIFIERS = 1 << 15
 };
 
 enum style

@@ -471,6 +471,11 @@ static void visit_designation(struct visit_ctx* ctx, struct designation* p_desig
 
 static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initializer)
 {
+    if (p_initializer->p_attribute_specifier_sequence_opt)
+    {
+        visit_attribute_specifier_sequence(ctx, p_initializer->p_attribute_specifier_sequence_opt);
+    }
+
     if (p_initializer->designation)
     {
         visit_designation(ctx, p_initializer->designation);
@@ -657,7 +662,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             if (constant_value_is_valid(&p_expression->constant_value))
             {
-                free(p_expression->type.name_opt);
+                free((void*)p_expression->type.name_opt);
                 p_expression->type.name_opt = NULL;
 
                 struct osstream ss1 = { 0 };
@@ -892,8 +897,14 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
 
-    case CAST_EXPRESSION:
+    
     case ASSIGNMENT_EXPRESSION:
+        if (p_expression->p_attribute_specifier_sequence_opt)
+        {
+            visit_attribute_specifier_sequence(ctx, p_expression->p_attribute_specifier_sequence_opt);
+        }
+        break;
+    case CAST_EXPRESSION:
     case MULTIPLICATIVE_EXPRESSION_MULT:
     case MULTIPLICATIVE_EXPRESSION_DIV:
     case MULTIPLICATIVE_EXPRESSION_MOD:
@@ -1462,9 +1473,9 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
     while (p_init_declarator)
     {
-        if (p_init_declarator->declarator)
+        if (p_init_declarator->p_declarator)
         {
-            visit_declarator(ctx, p_init_declarator->declarator);
+            visit_declarator(ctx, p_init_declarator->p_declarator);
         }
 
         if (p_init_declarator->initializer)
@@ -1978,7 +1989,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         if (p_declaration->init_declarator_list.head)
         {
             visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers,
-                &p_declaration->init_declarator_list.head->declarator->type);
+                &p_declaration->init_declarator_list.head->p_declarator->type);
         }
         else
         {

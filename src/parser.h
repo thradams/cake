@@ -467,7 +467,7 @@ struct init_declarator
         declarator = initializer
     */
 
-    struct declarator* declarator;
+    struct declarator* p_declarator;
     struct initializer* initializer;
     struct init_declarator* next;
 };
@@ -489,6 +489,12 @@ struct initializer
     struct braced_initializer* braced_initializer;
     struct expression* assignment_expression;
     struct initializer* next;
+
+    /*
+       cake extension
+       int * p = [[cake::move]] p2;
+    */
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
 };
 
 struct initializer* initializer(struct parser_ctx* ctx);

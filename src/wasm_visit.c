@@ -633,9 +633,9 @@ static void wasm_visit_init_declarator_list(struct wasm_visit_ctx* ctx, struct i
 
     while (p_init_declarator)
     {
-        if (p_init_declarator->declarator)
+        if (p_init_declarator->p_declarator)
         {
-            wasm_visit_declarator(ctx, p_init_declarator->declarator);
+            wasm_visit_declarator(ctx, p_init_declarator->p_declarator);
         }
 
         if (p_init_declarator->initializer)
@@ -865,9 +865,9 @@ static void wasm_visit_declaration(struct wasm_visit_ctx* ctx, struct declaratio
 
     if (p_declaration &&
         p_declaration->init_declarator_list.head &&
-        p_declaration->init_declarator_list.head->declarator)
+        p_declaration->init_declarator_list.head->p_declarator)
     {
-        if (type_is_function(&p_declaration->init_declarator_list.head->declarator->type))
+        if (type_is_function(&p_declaration->init_declarator_list.head->p_declarator->type))
         {
             ss_fprintf(&ctx->ss, "(func\n");
         }

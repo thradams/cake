@@ -491,6 +491,18 @@ bool type_is_const(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
 }
 
+bool type_is_pointer_to_const(const struct type* p_type)
+{
+    if (p_type->category == TYPE_CATEGORY_POINTER)
+    {
+        if (p_type->next)
+        {
+            return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+        }
+    }
+    return false;
+}
+
 bool type_is_void_ptr(const struct type* p_type)
 {
     if (p_type->category == TYPE_CATEGORY_POINTER)

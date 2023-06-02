@@ -536,6 +536,7 @@ enum warning {
     W_COMMENT = 1 << 12,
     W_LINE_SLICING = 1 << 13,
     W_STRING_SLICED = 1 << 14,
+    W_DISCARDED_QUALIFIERS = 1 << 15
 };
 
 enum style
@@ -8716,6 +8717,7 @@ s_warnings[] = {
     {W_ATTRIBUTES, "attributes"},
     {W_UNUSED_VALUE, "unused-value"},
     {W_STYLE, "style"},
+    {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"}
 };
 
 enum warning  get_warning_flag(const char* wname)
@@ -9182,6 +9184,7 @@ int type_set_array_size(struct type* p_type, int size);
 bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
+bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
@@ -9449,6 +9452,12 @@ struct expression
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
+    /*
+       cake extension
+       a = [[cake::move]] b;       
+    */
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
+
     struct expression* condition_expr;
     struct expression* left;
     struct expression* right;
@@ -9458,6 +9467,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx);
 struct expression* expression(struct parser_ctx* ctx);
 struct expression* constant_expression(struct parser_ctx* ctx);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
+struct declarator* expression_get_declarator(struct expression*);
 
 
 //#pragma once
@@ -9921,7 +9931,7 @@ struct init_declarator
         declarator = initializer
     */
 
-    struct declarator* declarator;
+    struct declarator* p_declarator;
     struct initializer* initializer;
     struct init_declarator* next;
 };
@@ -9943,6 +9953,12 @@ struct initializer
     struct braced_initializer* braced_initializer;
     struct expression* assignment_expression;
     struct initializer* next;
+
+    /*
+       cake extension
+       int * p = [[cake::move]] p2;
+    */
+    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
 };
 
 struct initializer* initializer(struct parser_ctx* ctx);
@@ -10714,17 +10730,17 @@ void constant_value_to_string(const struct constant_value* a, char buffer[], int
     buffer[0] = 0;
     switch (a->type)
     {
-    case TYPE_LONG_LONG:         
+    case TYPE_LONG_LONG:
         snprintf(buffer, sz, "%lld", a->llvalue);
         break;
-    case TYPE_DOUBLE: 
+    case TYPE_DOUBLE:
         snprintf(buffer, sz, "%f", a->dvalue);
         break;
 
-    case TYPE_UNSIGNED_LONG_LONG: 
+    case TYPE_UNSIGNED_LONG_LONG:
         snprintf(buffer, sz, "%llu", a->ullvalue);
         break;
-    }    
+    }
 }
 
 unsigned long long constant_value_to_ull(const struct constant_value* a)
@@ -11035,79 +11051,53 @@ struct expression* conditional_expression(struct parser_ctx* ctx);
 
 
 
-int  compare_function_arguments(struct parser_ctx* ctx,
+static int compare_function_arguments(struct parser_ctx* ctx,
     struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
 {
     try
     {
-
-
-
-
-        struct param* current_parameter_type = NULL;
+        struct param* p_current_parameter_type = NULL;
 
         const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
         if (p_param_list)
         {
-            current_parameter_type = p_param_list->head;
+            p_current_parameter_type = p_param_list->head;
         }
 
-
         int param_num = 1;
-        struct argument_expression* current_argument =
-            p_argument_expression_list->head;
+        struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
-        while (current_argument && current_parameter_type)
+        while (p_current_argument && p_current_parameter_type)
         {
-            check_function_argument_and_parameter(ctx, current_argument, current_parameter_type->type, param_num);
+            check_function_argument_and_parameter(ctx, p_current_argument, p_current_parameter_type->type, param_num);
 
-            struct declarator* arg_declarator = NULL;
-            if (current_argument->expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            struct declarator* const p_argument_declarator =
+                expression_get_declarator(p_current_argument->expression);
+
+
+            if (type_is_pointer(p_current_parameter_type->type) &&
+
+                (type_has_attribute(p_current_parameter_type->type->next, CAKE_ATTRIBUTE_DESTROY) ||
+                    type_has_attribute(p_current_parameter_type->type->next, CAKE_ATTRIBUTE_FREE) ||
+                    type_has_attribute(p_current_parameter_type->type->next, CAKE_ATTRIBUTE_MOVE))
+                )
             {
-                arg_declarator = current_argument->expression->declarator;
-            }
-            else if (current_argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
-            {
-                struct expression* right = current_argument->expression->right;
-                if (right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-                {
-                    arg_declarator = right->declarator;
-                }
-            }
-            else
-            {
-                arg_declarator = NULL;
-            }
-
-            if (arg_declarator &&
-                !arg_declarator->is_parameter_declarator)
-            {
-                if (type_is_pointer(current_parameter_type->type) &&
-                    type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_DESTROY))
-                {
-                    arg_declarator->declarator_flags &= ~DECLARATOR_MUST_DESTROY;
-                    arg_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
-                }
-
-
-                if (type_is_pointer(current_parameter_type->type) &&
-                    type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_FREE))
-                {
-                    arg_declarator->declarator_flags &= ~DECLARATOR_MUST_FREE;
-                    arg_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
-                }
-
+                /*
+                  design must decide if we want to destroy partially, like independent
+                  destroy and free.
+                */
+                if (p_argument_declarator)
+                  p_argument_declarator->declarator_flags = DECLARATOR_UNINITIALIZED;
             }
 
-
-            current_argument = current_argument->next;
-            current_parameter_type = current_parameter_type->next;
+            p_current_argument = p_current_argument->next;
+            p_current_parameter_type = p_current_parameter_type->next;
             param_num++;
         }
 
-        if (current_argument != NULL && !p_param_list->is_var_args)
+        if (p_current_argument != NULL && !p_param_list->is_var_args)
         {
             compiler_set_error_with_token(ctx,
                 p_argument_expression_list->tail->expression->first_token,
@@ -11115,7 +11105,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             throw;
         }
 
-        if (current_parameter_type != NULL && !p_param_list->is_void)
+        if (p_current_parameter_type != NULL && !p_param_list->is_void)
         {
             if (p_argument_expression_list->tail)
             {
@@ -11125,9 +11115,7 @@ int  compare_function_arguments(struct parser_ctx* ctx,
             }
             else
             {
-                compiler_set_error_with_token(ctx,
-                    ctx->current,
-                    "too few arguments");
+                compiler_set_error_with_token(ctx, ctx->current, "too few arguments");
             }
             throw;
         }
@@ -11486,6 +11474,23 @@ static bool is_integer_or_floating_constant(enum token_type type)
         type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
+struct declarator* expression_get_declarator(struct expression* p_expression)
+{
+    struct declarator* p_declarator = NULL;
+    if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+    {
+        p_declarator = p_expression->declarator;
+    }
+    else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
+    {
+        if (p_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+        {
+            p_declarator = p_expression->right->declarator;
+        }
+    }
+    return p_declarator;
+}
+
 
 struct expression* primary_expression(struct parser_ctx* ctx)
 {
@@ -11520,15 +11525,15 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
 
             }
-            else if (p_entry && 
-                     (p_entry->type == TAG_TYPE_ONLY_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
+            else if (p_entry &&
+                (p_entry->type == TAG_TYPE_ONLY_DECLARATOR || p_entry->type == TAG_TYPE_INIT_DECLARATOR))
             {
                 struct declarator* p_declarator = NULL;
                 struct init_declarator* p_init_declarator = NULL;
                 if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
                     p_init_declarator = p_entry->p;
-                    p_declarator = p_init_declarator->declarator;
+                    p_declarator = p_init_declarator->p_declarator;
                 }
                 else
                 {
@@ -11547,9 +11552,9 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 p_expression_node->type = type_dup(&p_declarator->type);
                 if (p_init_declarator)
                 {
-                    if (p_init_declarator->declarator &&
-                        p_init_declarator->declarator->declaration_specifiers &&
-                        p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
+                    if (p_init_declarator->p_declarator &&
+                        p_init_declarator->p_declarator->declaration_specifiers &&
+                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_CONSTEXPR)
                     {
                         if (p_init_declarator->initializer &&
                             p_init_declarator->initializer->assignment_expression)
@@ -11568,7 +11573,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                    works for now
                 */
                 const char* funcname =
-                    ctx->p_current_function_opt->init_declarator_list.head->declarator->name->lexeme;
+                    ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
 
                 p_expression_node = calloc(1, sizeof * p_expression_node);
                 if (p_expression_node == NULL) throw;
@@ -13535,20 +13540,22 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
         {
             parser_match(ctx);
 
-            struct attribute_specifier_sequence* p_attribute_specifier_sequence =
-                attribute_specifier_sequence_opt(ctx);
-            enum attribute_flags  attributes_flags = 0;
-            if (p_attribute_specifier_sequence)
-            {
-                attributes_flags = p_attribute_specifier_sequence->attributes_flags;
-                free(p_attribute_specifier_sequence);
-            }
 
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
+
+            new_expression->p_attribute_specifier_sequence_opt =
+                attribute_specifier_sequence_opt(ctx);
+
+            enum attribute_flags  attributes_flags = 0;
+            if (new_expression->p_attribute_specifier_sequence_opt)
+            {
+                attributes_flags = new_expression->p_attribute_specifier_sequence_opt->attributes_flags;
+            }
+
 
             enum type_category category =
                 type_get_category(&new_expression->left->type);
@@ -13577,42 +13584,16 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
                 check_assigment(ctx, &new_expression->left->type, new_expression->right);
             }
 
-            if ((attributes_flags & CAKE_ATTRIBUTE_MOVE) &&
-                new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            if (attributes_flags & CAKE_ATTRIBUTE_MOVE)
             {
-                /*let's remove the UNINITIALIZED flag*/
-                new_expression->left->declarator->declarator_flags &=
-                    ~DECLARATOR_UNINITIALIZED;
-
-
-                if (new_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+                struct declarator* const p_left_declarator = expression_get_declarator(new_expression->left);
+                struct declarator* const p_right_declarator = expression_get_declarator(new_expression->right);
+                if (p_left_declarator && p_right_declarator)
                 {
-                    /*let's remove the UNINITIALIZED flag*/
-                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
-                    {
-                        new_expression->left->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
-                        new_expression->right->declarator->declarator_flags &= ~DECLARATOR_MUST_DESTROY;
-                    }
-
-                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_MUST_FREE)
-                    {
-                        new_expression->left->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
-                        new_expression->right->declarator->declarator_flags &= ~DECLARATOR_MUST_FREE;
-                    }
-
-                    new_expression->right->declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
-
-                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_UNINITIALIZED)
-                    {
-                        //TODO fix uninitialized value
-                        //parser_setwarning_with_token(ctx, ctx->current, "using uninitialized value");
-                    }
+                    p_left_declarator->declarator_flags = p_right_declarator->declarator_flags;
+                    p_right_declarator->declarator_flags = DECLARATOR_UNINITIALIZED;
                 }
-
-
             }
-
-
 
             new_expression->type = type_dup(&new_expression->right->type);
 
@@ -15139,6 +15120,18 @@ bool type_is_array(const struct type* p_type)
 bool type_is_const(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+}
+
+bool type_is_pointer_to_const(const struct type* p_type)
+{
+    if (p_type->category == TYPE_CATEGORY_POINTER)
+    {
+        if (p_type->next)
+        {
+            return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_CONST;
+        }
+    }
+    return false;
 }
 
 bool type_is_void_ptr(const struct type* p_type)
@@ -17644,7 +17637,7 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
             struct init_declarator* p_init_declarator = p_entry->p;
-            return p_init_declarator->declarator;
+            return p_init_declarator->p_declarator;
         }
         else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
         {
@@ -18921,7 +18914,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
         ctx->p_current_function_opt = p_declaration;
         //tem que ter 1 so
         //tem 1 que ter  1 cara e ser funcao
-        assert(p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator);
+        assert(p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator);
 
         /*
             scope of parameters is the inner declarator
@@ -18932,7 +18925,7 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
             }
         */
 
-        struct declarator* inner = p_declaration->init_declarator_list.head->declarator;
+        struct declarator* inner = p_declaration->init_declarator_list.head->p_declarator;
         for (;;)
         {
             if (inner->direct_declarator &&
@@ -18954,16 +18947,16 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
 
         //o function_prototype_scope era um block_scope
         p_declaration->function_body = function_body(ctx);
-        p_declaration->init_declarator_list.head->declarator->function_body = p_declaration->function_body;
+        p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
 
         struct parameter_declaration* parameter = NULL;
 
-        if (p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator &&
-            p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
-            p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
+        if (p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
+            p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
+            p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list)
         {
-            parameter = p_declaration->init_declarator_list.head->declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
+            parameter = p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt->parameter_list->head;
         }
 
         /*parametros nao usados*/
@@ -19050,15 +19043,15 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
     {
 
         struct token* tkname = 0;
-        p_init_declarator->declarator = declarator(ctx,
+        p_init_declarator->p_declarator = declarator(ctx,
             NULL,
             p_declaration_specifiers,
             false,
             &tkname);
 
-        if (p_init_declarator->declarator == NULL) throw;
+        if (p_init_declarator->p_declarator == NULL) throw;
 
-        p_init_declarator->declarator->name = tkname;
+        p_init_declarator->p_declarator->name = tkname;
 
 
         if (tkname == NULL)
@@ -19073,18 +19066,18 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         {
             if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
             {
-                p_init_declarator->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
+                p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_MUST_FREE;
             }
             if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
             {
-                p_init_declarator->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
+                p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
             }
         }
 
-        p_init_declarator->declarator->declaration_specifiers = p_declaration_specifiers;
-        p_init_declarator->declarator->name = tkname;
+        p_init_declarator->p_declarator->declaration_specifiers = p_declaration_specifiers;
+        p_init_declarator->p_declarator->name = tkname;
 
-        if (p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+        if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
             /*
               auto requires we find the type after initializer
@@ -19092,29 +19085,29 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            p_init_declarator->declarator->type =
-                make_type_using_declarator(ctx, p_init_declarator->declarator);
+            p_init_declarator->p_declarator->type =
+                make_type_using_declarator(ctx, p_init_declarator->p_declarator);
 
-            if (type_is_array(&p_init_declarator->declarator->type))
+            if (type_is_array(&p_init_declarator->p_declarator->type))
             {
-                if (p_init_declarator->declarator->type.type_qualifier_flags != 0 ||
-                    p_init_declarator->declarator->type.static_array)
+                if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
+                    p_init_declarator->p_declarator->type.static_array)
                 {
                     compiler_set_error_with_token(ctx,
-                        p_init_declarator->declarator->first_token,
+                        p_init_declarator->p_declarator->first_token,
                         "static or type qualifiers are not allowed in non-parameter array declarator");
                 }
             }
 
-            if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                type_is_destroy(&p_init_declarator->declarator->type) &&
-                !type_is_pointer(&p_init_declarator->declarator->type))
+            if ((p_init_declarator->p_declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
+                type_is_destroy(&p_init_declarator->p_declarator->type) &&
+                !type_is_pointer(&p_init_declarator->p_declarator->type))
             {
-                p_init_declarator->declarator->declarator_flags = DECLARATOR_MUST_DESTROY | DECLARATOR_ISVALID;
+                p_init_declarator->p_declarator->declarator_flags = DECLARATOR_MUST_DESTROY | DECLARATOR_ISVALID;
             }
         }
 
-        const char* name = p_init_declarator->declarator->name->lexeme;
+        const char* name = p_init_declarator->p_declarator->name->lexeme;
         if (name)
         {
             if (tkname)
@@ -19122,19 +19115,19 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 if (ctx->scopes.tail->scope_level == 0)
                 {
 
-                    if (type_is_function(&p_init_declarator->declarator->type))
+                    if (type_is_function(&p_init_declarator->p_declarator->type))
                     {
                         naming_convention_global_var(ctx,
                             tkname,
-                            &p_init_declarator->declarator->type,
-                            p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags);
+                            &p_init_declarator->p_declarator->type,
+                            p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
                     }
                     else
                     {
                         naming_convention_global_var(ctx,
                             tkname,
-                            &p_init_declarator->declarator->type,
-                            p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags);
+                            &p_init_declarator->p_declarator->type,
+                            p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
                     }
                 }
             }
@@ -19148,7 +19141,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     if (out->scope_level == 0)
                     {
                         /*file scope*/
-                        if (!type_is_same(&previous->type, &p_init_declarator->declarator->type, true))
+                        if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, true))
                         {
                             //TODO failing on windows headers
                             //parser_seterror_with_token(ctx, p_init_declarator->declarator->name, "redeclaration of  '%s' with diferent types", previous->name->lexeme);
@@ -19169,7 +19162,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     if (out->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
-                        if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->declarator->first_token, "declaration of '%s' hides previous declaration", name))
+                        if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token, "declaration of '%s' hides previous declaration", name))
                         {
                             compiler_set_info_with_token(W_NONE, ctx, previous->first_token, "previous declaration is here");
                         }
@@ -19193,16 +19186,16 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
             if (p_init_declarator->initializer->braced_initializer)
             {
-                if (type_is_array(&p_init_declarator->declarator->type))
+                if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    const int sz = type_get_array_size(&p_init_declarator->declarator->type);
+                    const int sz = type_get_array_size(&p_init_declarator->p_declarator->type);
                     if (sz == 0)
                     {
                         /*int a[] = {1, 2, 3}*/
                         const int braced_initializer_size =
                             p_init_declarator->initializer->braced_initializer->initializer_list->size;
 
-                        type_set_array_size(&p_init_declarator->declarator->type, braced_initializer_size);
+                        type_set_array_size(&p_init_declarator->p_declarator->type, braced_initializer_size);
                     }
                 }
             }
@@ -19215,24 +19208,35 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                       FILE * f = fopen();
                     */
 
-                    p_init_declarator->declarator->declarator_flags |=
+                    p_init_declarator->p_declarator->declarator_flags |=
                         p_init_declarator->initializer->assignment_expression->left->declarator->declarator_flags;
                 }
 
 
-                if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                    (p_init_declarator->declarator->declarator_flags & DECLARATOR_MUST_FREE) &&
-                    type_is_nodiscard(&p_init_declarator->declarator->type) &&
-                    type_is_pointer(&p_init_declarator->declarator->type))
+                if ((p_init_declarator->p_declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
+                    (p_init_declarator->p_declarator->declarator_flags & DECLARATOR_MUST_FREE) &&
+                    type_is_nodiscard(&p_init_declarator->p_declarator->type) &&
+                    type_is_pointer(&p_init_declarator->p_declarator->type))
                 {
                     /*pointer to MUST_FREE of a struct [[nodiscard]] has must_destroy*/
-                    p_init_declarator->declarator->declarator_flags |= (DECLARATOR_MUST_DESTROY);
+                    p_init_declarator->p_declarator->declarator_flags |= (DECLARATOR_MUST_DESTROY);
+                }
+
+                if (p_init_declarator->initializer->p_attribute_specifier_sequence_opt &&
+                    p_init_declarator->initializer->p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_MOVE)
+                {
+                    struct declarator* const p_right_declarator = expression_get_declarator(p_init_declarator->initializer->assignment_expression);
+                    if (p_right_declarator)
+                    {
+                        p_init_declarator->p_declarator->declarator_flags = p_right_declarator->declarator_flags;
+                        p_right_declarator->declarator_flags = DECLARATOR_UNINITIALIZED;
+                    }
                 }
             }
             /*
                auto requires we find the type after initializer
             */
-            if (p_init_declarator->declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
+            if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
             {
                 if (p_init_declarator->initializer &&
                     p_init_declarator->initializer->assignment_expression)
@@ -19247,26 +19251,34 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     {
                         struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
                         type_swap(&t2, &t);
-                        //struct type temp = t2;
-                        //t2 = t;
-                        //t = temp;
-                        //_del_attr(temp, "must destroy");
                         type_destroy(&t2);
                     }
 
                     type_remove_names(&t);
-                    t.name_opt = strdup(p_init_declarator->declarator->name->lexeme);
+                    t.name_opt = strdup(p_init_declarator->p_declarator->name->lexeme);
 
-                    type_flat_set_qualifiers_using_declarator(&t, p_init_declarator->declarator);
+                    type_flat_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
                     type_visit_to_mark_anonymous(&t);
-                    type_swap(&p_init_declarator->declarator->type, &t);
+                    type_swap(&p_init_declarator->p_declarator->type, &t);
                     type_destroy(&t);
                 }
             }
+
+            if (p_init_declarator->initializer &&
+                p_init_declarator->initializer->assignment_expression &&
+                type_is_pointer_to_const(&p_init_declarator->initializer->assignment_expression->type))
+            {
+                if (p_init_declarator->p_declarator && 
+                    !type_is_pointer_to_const(&p_init_declarator->p_declarator->type))
+                {
+                    compiler_set_warning_with_token(W_DISCARDED_QUALIFIERS, ctx, ctx->current, "const qualifier discarded");
+                }
+            }
+
         }
         else
         {
-            p_init_declarator->declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
+            p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
         }
     }
     catch
@@ -21107,6 +21119,9 @@ struct initializer* initializer(struct parser_ctx* ctx)
 
     p_initializer->first_token = ctx->current;
 
+    p_initializer->p_attribute_specifier_sequence_opt =
+        attribute_specifier_sequence_opt(ctx);
+
     if (ctx->current->type == '{')
     {
         p_initializer->braced_initializer = braced_initializer(ctx);
@@ -21771,7 +21786,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
             if (entry->type == TAG_TYPE_INIT_DECLARATOR)
             {
                 p_init_declarator = entry->p;
-                p_declarator = p_init_declarator->declarator;
+                p_declarator = p_init_declarator->p_declarator;
             }
             else
             {
@@ -21918,9 +21933,9 @@ assembly-instruction-list:
         struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
         while (p)
         {
-            if (p->declarator && p->declarator->name)
+            if (p->p_declarator && p->p_declarator->name)
             {
-                naming_convention_local_var(ctx, p->declarator->name, &p->declarator->type);
+                naming_convention_local_var(ctx, p->p_declarator->name, &p->p_declarator->type);
             }
             p = p->next;
         }
@@ -22247,14 +22262,14 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                 * Check is return type is compatible with function return
                 */
                 struct type return_type =
-                    get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->declarator->type);
+                    get_function_return_type(&ctx->p_current_function_opt->init_declarator_list.head->p_declarator->type);
 
                 if (type_is_void(&return_type))
                 {
                     compiler_set_error_with_token(ctx,
                         p_return_token,
                         "void function '%s' should not return a value",
-                        ctx->p_current_function_opt->init_declarator_list.head->declarator->name->lexeme);
+                        ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme);
                 }
                 else
                 {
@@ -22361,7 +22376,7 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
             if (entry->type == TAG_TYPE_INIT_DECLARATOR)
             {
                 p_init_declarator = entry->p;
-                p_declarator = p_init_declarator->declarator;
+                p_declarator = p_init_declarator->p_declarator;
             }
             else
             {
@@ -22763,7 +22778,7 @@ int compile_one_file(const char* file_name,
                 }
             }
         }
-        }
+    }
     catch
     {
         //printf("Error %s\n", error->message);
@@ -22775,7 +22790,84 @@ int compile_one_file(const char* file_name,
     preprocessor_ctx_destroy(&prectx);
 
     return report->error_count > 0;
+}
+
+static void longest_common_path(int argc, const char** argv, char root_dir[MAX_PATH])
+{
+    /*
+     find the longest common path
+    */
+    for (int i = 1; i < argc; i++)
+    {
+        if (argv[i][0] == '-')
+            continue;
+
+        char fullpath_i[MAX_PATH] = { 0 };
+        realpath(argv[i], fullpath_i);
+        strcpy(root_dir, fullpath_i);
+        dirname(root_dir);
+
+        for (int k = 0; ; k++)
+        {
+            const char ch = fullpath_i[k];
+            for (int j = 2; j < argc; j++)
+            {
+                if (argv[j][0] == '-')
+                    continue;
+
+                char fullpath_j[MAX_PATH] = { 0 };
+                realpath(argv[j], fullpath_j);
+                if (fullpath_j[k] != ch)
+                {
+                    strncpy(root_dir, fullpath_j, k);
+                    root_dir[k] = '\0';
+                    dirname(root_dir);
+                    goto exit;
+                }
+            }
+            if (ch == '\0')
+                break;
+        }
     }
+exit:;
+}
+
+static int create_multiple_paths(const char* root, const char* outdir)
+{
+    /*
+       This function creates all dirs (folder1, forder2 ..) after root
+       root   : C:/folder
+       outdir : C:/folder/folder1/folder2 ...
+    */
+
+    const char* p = outdir + strlen(root) + 1;
+    for (;;)
+    {
+        if (*p != '\0' && *p != '/' && *p != '\\')
+        {
+            p++;
+            continue;
+        }
+
+        char temp[MAX_PATH] = { 0 };
+        strncpy(temp, outdir, p - outdir);
+
+        int er = mkdir(temp, 0777);
+        if (er != 0)
+        {
+            er = errno;
+            if (er != EEXIST)
+            {
+                printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
+                return er;
+            }
+        }
+        if (*p == '\0')
+            break;
+        p++;
+    }
+    return 0;
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -22792,40 +22884,8 @@ int compile(int argc, const char** argv, struct report* report)
 
     if (!options.no_output)
     {
-        /*
-          find the longest common path
-        */
-        for (int i = 1; i < argc; i++)
-        {
-            if (argv[i][0] == '-')
-                continue;
-
-            char fullpath_i[MAX_PATH] = { 0 };
-            realpath(argv[i], fullpath_i);
-
-            for (int k = 0; ; k++)
-            {
-                const char ch = fullpath_i[k];
-                for (int j = 0; j < argc; j++)
-                {
-                    char fullpath_j[MAX_PATH] = { 0 };
-                    realpath(argv[j], fullpath_j);
-                    if (fullpath_j[k] != ch)
-                    {
-                        strncpy(root_dir, fullpath_j, k);
-                        root_dir[k] = '\0';
-                        dirname(root_dir);
-                        goto exit;
-                    }
-                }
-                if (ch == '\0')
-                    break;
-            }
-        }
-    exit:;
+        longest_common_path(argc, argv, root_dir);
     }
-
-    //printf("root dir %s\n", root_dir);
 
     const int root_dir_len = strlen(root_dir);
 
@@ -22853,16 +22913,17 @@ int compile(int argc, const char** argv, struct report* report)
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
-                strcat(output_file, "/out");
+                strcat(output_file, "\\out");
 
                 strcat(output_file, fullpath + root_dir_len);
 
                 char outdir[MAX_PATH];
                 strcpy(outdir, output_file);
                 dirname(outdir);
-
-                /*let´s create output dir in case it does not exist*/
-                mkdir(outdir, 0777);
+                if (create_multiple_paths(root_dir, outdir) != 0)
+                {
+                    return 1;
+                }
             }
         }
 
@@ -23004,7 +23065,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             preprocessor_ctx_destroy(&prectx);
 
 
-    }
+        }
         else
         {
             struct visit_ctx visit_ctx = { 0 };
@@ -23033,7 +23094,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
             }
             ast_destroy(&ast);
         }
-}
+    }
     catch
     {
     }
@@ -23942,7 +24003,7 @@ void enum_scope() {
         "  static_assert( (typeof(e2)), (enum E) ); \n"
         "}\n";
     assert(compile_without_errors(source));
-    }
+}
 #endif
 
 
@@ -24414,6 +24475,11 @@ static void visit_designation(struct visit_ctx* ctx, struct designation* p_desig
 
 static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initializer)
 {
+    if (p_initializer->p_attribute_specifier_sequence_opt)
+    {
+        visit_attribute_specifier_sequence(ctx, p_initializer->p_attribute_specifier_sequence_opt);
+    }
+
     if (p_initializer->designation)
     {
         visit_designation(ctx, p_initializer->designation);
@@ -24600,7 +24666,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             if (constant_value_is_valid(&p_expression->constant_value))
             {
-                free(p_expression->type.name_opt);
+                free((void*)p_expression->type.name_opt);
                 p_expression->type.name_opt = NULL;
 
                 struct osstream ss1 = { 0 };
@@ -24835,8 +24901,14 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
 
-    case CAST_EXPRESSION:
+    
     case ASSIGNMENT_EXPRESSION:
+        if (p_expression->p_attribute_specifier_sequence_opt)
+        {
+            visit_attribute_specifier_sequence(ctx, p_expression->p_attribute_specifier_sequence_opt);
+        }
+        break;
+    case CAST_EXPRESSION:
     case MULTIPLICATIVE_EXPRESSION_MULT:
     case MULTIPLICATIVE_EXPRESSION_DIV:
     case MULTIPLICATIVE_EXPRESSION_MOD:
@@ -25405,9 +25477,9 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
     while (p_init_declarator)
     {
-        if (p_init_declarator->declarator)
+        if (p_init_declarator->p_declarator)
         {
-            visit_declarator(ctx, p_init_declarator->declarator);
+            visit_declarator(ctx, p_init_declarator->p_declarator);
         }
 
         if (p_init_declarator->initializer)
@@ -25921,7 +25993,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         if (p_declaration->init_declarator_list.head)
         {
             visit_declaration_specifiers(ctx, p_declaration->declaration_specifiers,
-                &p_declaration->init_declarator_list.head->declarator->type);
+                &p_declaration->init_declarator_list.head->p_declarator->type);
         }
         else
         {
@@ -27656,9 +27728,9 @@ static void wasm_visit_init_declarator_list(struct wasm_visit_ctx* ctx, struct i
 
     while (p_init_declarator)
     {
-        if (p_init_declarator->declarator)
+        if (p_init_declarator->p_declarator)
         {
-            wasm_visit_declarator(ctx, p_init_declarator->declarator);
+            wasm_visit_declarator(ctx, p_init_declarator->p_declarator);
         }
 
         if (p_init_declarator->initializer)
@@ -27888,9 +27960,9 @@ static void wasm_visit_declaration(struct wasm_visit_ctx* ctx, struct declaratio
 
     if (p_declaration &&
         p_declaration->init_declarator_list.head &&
-        p_declaration->init_declarator_list.head->declarator)
+        p_declaration->init_declarator_list.head->p_declarator)
     {
-        if (type_is_function(&p_declaration->init_declarator_list.head->declarator->type))
+        if (type_is_function(&p_declaration->init_declarator_list.head->p_declarator->type))
         {
             ss_fprintf(&ctx->ss, "(func\n");
         }
