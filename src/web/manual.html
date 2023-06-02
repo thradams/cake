@@ -1765,11 +1765,7 @@ int main()
 
 <h3 id="toc_70">Extension - [[cake::destroy, cake::free]]  attributes</h3>
 
-<p>Cake has imaginary flags with explicity and implicity operations to set or 
-clear these flags.  </p>
-
-<p>These operations and flags exists only in compile time, 
-no runtime operation is executed.</p>
+<p>Cake declarators (variables) have imaginary flags.</p>
 
 <p>At this moment cake has 3 built-in imaginary flags:</p>
 
@@ -1779,10 +1775,10 @@ no runtime operation is executed.</p>
 <li><em>uninitialized</em></li>
 </ul>
 
-<p><strong>[[free]]</strong> and <strong>[[destroy]]</strong> attributes can be used to set or clear implicitly these 
-flags.</p>
+<p><strong>[[cake::free]]</strong> and <strong>[[cake::destroy]]</strong> attributes can be used to set or 
+clear implicitly these flags.</p>
 
-<p>When <strong>[[free]]</strong> is used in return types the imaginary flag <em>&quot;must free&quot;</em> is set
+<p>When <strong>[[cake::free]]</strong> is used in return types the imaginary flag <em>&quot;must free&quot;</em> is set
 on the declarator that receives the value. </p>
 
 <p>For instance:</p>
@@ -1795,7 +1791,7 @@ void f() {
 </code></pre>
 
 <p>In this sample p has the imaginary flag <em>&quot;must free&quot;</em> that is set implicitly 
-because malloc has the attribute <strong>[[free]]</strong>.</p>
+because malloc has the attribute <strong>[[cake::free]]</strong>.</p>
 
 <p>We can check the existence of this imaginary flag at compile time using static_assert and _has_attr.</p>
 
@@ -1812,7 +1808,7 @@ void f() {
 <p>At the end of scope cake emits an warning if the flag <em>&quot;must free&quot;</em> was not cleared.</p>
 
 <p>This flag can be turned off implicitly when used by a function that uses the attribute 
-<strong>[[free]]</strong>.</p>
+<strong>[[cake::free]]</strong>.</p>
 
 <p>For instance:</p>
 
@@ -1893,8 +1889,8 @@ int main() {
 
 <p>Will work without any warnings.</p>
 
-<p>Similarly of <em>&quot;must free&quot;</em>, <em>&quot;must destroy&quot;</em> is transferred when we copy or return 
-one variable to other.</p>
+<p>Similarly of <em>&quot;must free&quot;</em>, <em>&quot;must destroy&quot;</em> is transferred when we do a = [[std::move]] b 
+or return one variable to other.</p>
 
 <p>If we copy or return a variable with <em>&quot;must free&quot;</em>, <em>&quot;must destroy&quot;</em> flag this
 flag is transferred copied to the destin variable and cleared from the origin variable.</p>
@@ -1915,7 +1911,7 @@ struct X {
 void f() {
     struct X * p = malloc(1);  
     struct X * p2;
-    p2 = p;     
+    p2 = [[cake::move]] p;     
     static_assert(!_has_attr(p, &quot;must free&quot;));
     static_assert(_has_attr(p2, &quot;must free&quot;));  
     static_assert(_has_attr(p,  &quot;uninitialized&quot;));
@@ -1936,12 +1932,12 @@ are always &quot;executed&quot;. For instance:</p>
 }
 </code></pre>
 
-<p>This will not emmit any warning. This implementation is not ready yet
+<p>This will not emit any warning. This implementation is not ready yet
 but cake must ensure that there is a path that is 100% sure that the flag
-will be cleared. So, in the previous sample the compiler should emmit an
+will be cleared. So, in the previous sample the compiler should emit an
 warning saying the there is static path that clear the flag.</p>
 
-<p>Having this feature we can ensure that cake has the same garantees of C++ 
+<p>Having this feature we can ensure that cake has the same guarantees of C++ 
 destrutors. We ensure that is required one function will be called before
 the end of the scope.</p>
 
@@ -1952,8 +1948,6 @@ we have _add_attr and _del_attr</p>
     _add_attr(p, &quot;must free&quot;);
     _del_attr(p, &quot;must free&quot;);
 </code></pre>
-
-<p>(probabily these names will change)</p>
 
 <h3 id="toc_71">Extension typename on _Generic</h3>
 

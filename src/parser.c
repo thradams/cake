@@ -1949,11 +1949,11 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         {
             if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
             {
-                p_init_declarator->declarator->declarator_flags |= MUST_FREE;
+                p_init_declarator->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
             }
             if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
             {
-                p_init_declarator->declarator->declarator_flags |= MUST_DESTROY;
+                p_init_declarator->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
             }
         }
 
@@ -1986,7 +1986,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 type_is_destroy(&p_init_declarator->declarator->type) &&
                 !type_is_pointer(&p_init_declarator->declarator->type))
             {
-                p_init_declarator->declarator->declarator_flags = MUST_DESTROY | ISVALID;
+                p_init_declarator->declarator->declarator_flags = DECLARATOR_MUST_DESTROY | DECLARATOR_ISVALID;
             }
         }
 
@@ -2097,12 +2097,12 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
 
                 if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                    (p_init_declarator->declarator->declarator_flags & MUST_FREE) &&
+                    (p_init_declarator->declarator->declarator_flags & DECLARATOR_MUST_FREE) &&
                     type_is_nodiscard(&p_init_declarator->declarator->type) &&
                     type_is_pointer(&p_init_declarator->declarator->type))
                 {
                     /*pointer to MUST_FREE of a struct [[nodiscard]] has must_destroy*/
-                    p_init_declarator->declarator->declarator_flags |= (MUST_DESTROY);
+                    p_init_declarator->declarator->declarator_flags |= (DECLARATOR_MUST_DESTROY);
                 }
             }
             /*
@@ -2140,7 +2140,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            p_init_declarator->declarator->declarator_flags |= UNINITIALIZED;
+            p_init_declarator->declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
         }
     }
     catch
@@ -3753,11 +3753,11 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
     {
         if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
         {
-            p_parameter_declaration->declarator->declarator_flags |= MUST_DESTROY;
+            p_parameter_declaration->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
         }
         if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
         {
-            p_parameter_declaration->declarator->declarator_flags |= MUST_FREE;
+            p_parameter_declaration->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
         }
     }
     p_parameter_declaration->declarator->is_parameter_declarator = true;
@@ -4332,6 +4332,11 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
             is_standard_attribute = true;
             p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_DESTROY;
         }
+        else if (is_cake_attr && strcmp(ctx->current->lexeme, "move") == 0)
+        {
+            is_standard_attribute = true;
+            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_MOVE;
+        }
         else
         {
             compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
@@ -4653,7 +4658,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                   let's print the declarators that were not cleared for these
                   flags
                 */
-                if (p_declarator->declarator_flags & MUST_DESTROY)
+                if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                 {
                     compiler_set_error_with_token(ctx,
                         p_declarator->name,
@@ -4662,7 +4667,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
 
                 }
 
-                if (p_declarator->declarator_flags & MUST_FREE)
+                if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
                 {
 
                     compiler_set_error_with_token(ctx,
@@ -5107,7 +5112,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                    returning a declarator will remove the flags must destroy or must free,
                    similar of moving
                 */
-                p_jump_statement->expression_opt->declarator->declarator_flags &= ~(MUST_DESTROY | MUST_FREE);
+                p_jump_statement->expression_opt->declarator->declarator_flags &= ~(DECLARATOR_MUST_DESTROY | DECLARATOR_MUST_FREE);
             }
 
             if (p_jump_statement->expression_opt)
@@ -5247,26 +5252,26 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                   let's print the declarators that were not cleared for these
                   flags
                 */
-                if (p_declarator->declarator_flags & MUST_DESTROY)
+                if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                 {
                     ctx->printf(WHITE "%s:%d:%d: ",
                         p_declarator->name->token_origin->lexeme,
                         p_declarator->name->line,
                         p_declarator->name->col);
 
-                    if (p_declarator->declarator_flags & MUST_DESTROY)
+                    if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                         ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
                             p_declarator->name->lexeme);
                 }
 
-                if (p_declarator->declarator_flags & MUST_FREE)
+                if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
                 {
                     ctx->printf(WHITE "%s:%d:%d: ",
                         p_declarator->name->token_origin->lexeme,
                         p_declarator->name->line,
                         p_declarator->name->col);
 
-                    if (p_declarator->declarator_flags & MUST_FREE)
+                    if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
                         ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
                             p_declarator->name->lexeme);
                 }
@@ -6254,7 +6259,7 @@ void string_concatenation_test()
 void test_digit_separator()
 {
     struct report report = { 0 };
-    char* result = compile_source("-std=C99", "int i = 1'000;", &report);
+    char* result = compile_source("-std=c99", "int i = 1'000;", &report);
     assert(strcmp(result, "int i = 1000;") == 0);
     free(result);
 }
@@ -6262,7 +6267,7 @@ void test_digit_separator()
 void test_lit()
 {
     struct report report = { 0 };
-    char* result = compile_source("-std=C99", "char * s = u8\"maçã\";", &report);
+    char* result = compile_source("-std=c99", "char * s = u8\"maçã\";", &report);
     assert(strcmp(result, "char * s = \"ma\\xc3\\xa7\\xc3\\xa3\";") == 0);
     free(result);
 }
@@ -6798,7 +6803,7 @@ void visit_test_auto_typeof()
     const char* source = "auto p2 = (typeof(int[2])*) 0;";
 
     struct report report = { 0 };
-    char* result = compile_source("-std=C99", source, &report);
+    char* result = compile_source("-std=c99", source, &report);
     assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);
     free(result);
 }

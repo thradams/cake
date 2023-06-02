@@ -9,7 +9,7 @@ struct X {
 [[cake::free]] struct X* f() {
     struct X* p = malloc(1);
     struct X* p2;
-    p2 = p;
+    p2 = [[cake::move]] p;
     return p2; /*p2 is moved*/
 }
 

@@ -1619,11 +1619,7 @@ We can use != and == with void value to compare types.
 
 ###  Extension - [[cake::destroy, cake::free]]  attributes
 
-Cake has imaginary flags with explicity and implicity operations to set or 
-clear these flags.  
-
-These operations and flags exists only in compile time, 
-no runtime operation is executed.
+Cake declarators (variables) have imaginary flags.
 
 At this moment cake has 3 built-in imaginary flags:
 
@@ -1632,10 +1628,10 @@ At this moment cake has 3 built-in imaginary flags:
 - _uninitialized_
 
 
-**[[free]]** and **[[destroy]]** attributes can be used to set or clear implicitly these 
-flags.
+**[[cake::free]]** and **[[cake::destroy]]** attributes can be used to set or 
+clear implicitly these flags.
 
-When **[[free]]** is used in return types the imaginary flag _"must free"_ is set
+When **[[cake::free]]** is used in return types the imaginary flag _"must free"_ is set
 on the declarator that receives the value. 
 
 For instance:
@@ -1649,7 +1645,7 @@ void f() {
 ```
 
 In this sample p has the imaginary flag _"must free"_ that is set implicitly 
-because malloc has the attribute **[[free]]**.
+because malloc has the attribute **[[cake::free]]**.
 
 We can check the existence of this imaginary flag at compile time using static_assert and \_has\_attr.
 
@@ -1668,7 +1664,7 @@ void f() {
 At the end of scope cake emits an warning if the flag _"must free"_ was not cleared.
 
 This flag can be turned off implicitly when used by a function that uses the attribute 
-**[[free]]**.
+**[[cake::free]]**.
 
 For instance:
 
@@ -1754,8 +1750,8 @@ int main() {
 
 Will work without any warnings.
 
-Similarly of _"must free"_, _"must destroy"_ is transferred when we copy or return 
-one variable to other.
+Similarly of _"must free"_, _"must destroy"_ is transferred when we do a = [[std::move]] b 
+or return one variable to other.
 
 If we copy or return a variable with _"must free"_, _"must destroy"_ flag this
 flag is transferred copied to the destin variable and cleared from the origin variable.
@@ -1777,7 +1773,7 @@ struct X {
 void f() {
     struct X * p = malloc(1);  
     struct X * p2;
-    p2 = p;     
+    p2 = [[cake::move]] p;     
     static_assert(!_has_attr(p, "must free"));
     static_assert(_has_attr(p2, "must free"));  
     static_assert(_has_attr(p,  "uninitialized"));
@@ -1800,12 +1796,12 @@ int f(int i) {
 }
 ```
 
-This will not emmit any warning. This implementation is not ready yet
+This will not emit any warning. This implementation is not ready yet
 but cake must ensure that there is a path that is 100% sure that the flag
-will be cleared. So, in the previous sample the compiler should emmit an
+will be cleared. So, in the previous sample the compiler should emit an
 warning saying the there is static path that clear the flag.
 
-Having this feature we can ensure that cake has the same garantees of C++ 
+Having this feature we can ensure that cake has the same guarantees of C++ 
 destrutors. We ensure that is required one function will be called before
 the end of the scope.
 
@@ -1819,7 +1815,6 @@ we have \_add\_attr and \_del\_attr
     _del_attr(p, "must free");
 ```
 
-(probabily these names will change)
 
 ### Extension typename on _Generic
 

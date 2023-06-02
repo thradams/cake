@@ -439,16 +439,16 @@ int  compare_function_arguments(struct parser_ctx* ctx,
                 if (type_is_pointer(current_parameter_type->type) &&
                     type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_DESTROY))
                 {
-                    arg_declarator->declarator_flags &= ~MUST_DESTROY;
-                    arg_declarator->declarator_flags |= UNINITIALIZED;
+                    arg_declarator->declarator_flags &= ~DECLARATOR_MUST_DESTROY;
+                    arg_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
                 }
 
 
                 if (type_is_pointer(current_parameter_type->type) &&
                     type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_FREE))
                 {
-                    arg_declarator->declarator_flags &= ~MUST_FREE;
-                    arg_declarator->declarator_flags |= UNINITIALIZED;
+                    arg_declarator->declarator_flags &= ~DECLARATOR_MUST_FREE;
+                    arg_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
                 }
 
             }
@@ -1506,15 +1506,15 @@ enum declarator_flags string_to_static_analisys_flags(const char* s)
 {
     if (strcmp(s, "\"must free\"") == 0)
     {
-        return MUST_FREE;
+        return DECLARATOR_MUST_FREE;
     }
     else if (strcmp(s, "\"must destroy\"") == 0)
     {
-        return MUST_DESTROY;
+        return DECLARATOR_MUST_DESTROY;
     }
     else if (strcmp(s, "\"uninitialized\"") == 0)
     {
-        return UNINITIALIZED;
+        return DECLARATOR_UNINITIALIZED;
     }
     return 0;
 }
@@ -1593,7 +1593,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
     }
     else
     {
-        new_expression->declarator->declarator_flags |= ISVALID;
+        new_expression->declarator->declarator_flags |= DECLARATOR_ISVALID;
 
         switch (func->type)
         {
@@ -2887,6 +2887,15 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
         {
             parser_match(ctx);
 
+            struct attribute_specifier_sequence* p_attribute_specifier_sequence =
+                attribute_specifier_sequence_opt(ctx);
+            enum attribute_flags  attributes_flags = 0;
+            if (p_attribute_specifier_sequence)
+            {
+                attributes_flags = p_attribute_specifier_sequence->attributes_flags;
+                free(p_attribute_specifier_sequence);
+            }
+
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
@@ -2920,31 +2929,32 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
                 check_assigment(ctx, &new_expression->left->type, new_expression->right);
             }
 
-            if (new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            if ((attributes_flags & CAKE_ATTRIBUTE_MOVE) &&
+                new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
             {
                 /*let's remove the UNINITIALIZED flag*/
                 new_expression->left->declarator->declarator_flags &=
-                    ~UNINITIALIZED;
+                    ~DECLARATOR_UNINITIALIZED;
 
 
                 if (new_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
                 {
                     /*let's remove the UNINITIALIZED flag*/
-                    if (new_expression->right->declarator->declarator_flags & MUST_DESTROY)
+                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                     {
-                        new_expression->left->declarator->declarator_flags |= MUST_DESTROY;
-                        new_expression->right->declarator->declarator_flags &= ~MUST_DESTROY;
+                        new_expression->left->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
+                        new_expression->right->declarator->declarator_flags &= ~DECLARATOR_MUST_DESTROY;
                     }
 
-                    if (new_expression->right->declarator->declarator_flags & MUST_FREE)
+                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_MUST_FREE)
                     {
-                        new_expression->left->declarator->declarator_flags |= MUST_FREE;
-                        new_expression->right->declarator->declarator_flags &= ~MUST_FREE;
+                        new_expression->left->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
+                        new_expression->right->declarator->declarator_flags &= ~DECLARATOR_MUST_FREE;
                     }
 
-                    new_expression->right->declarator->declarator_flags |= UNINITIALIZED;
+                    new_expression->right->declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
 
-                    if (new_expression->right->declarator->declarator_flags & UNINITIALIZED)
+                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_UNINITIALIZED)
                     {
                         //TODO fix uninitialized value
                         //parser_setwarning_with_token(ctx, ctx->current, "using uninitialized value");

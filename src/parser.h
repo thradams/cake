@@ -495,10 +495,10 @@ struct initializer* initializer(struct parser_ctx* ctx);
 
 enum declarator_flags
 {
-    ISVALID = 1 << 1,
-    UNINITIALIZED = 1 << 2,
-    MUST_DESTROY = 1 << 3,
-    MUST_FREE = 1 << 4
+    DECLARATOR_ISVALID = 1 << 1,
+    DECLARATOR_UNINITIALIZED = 1 << 2,
+    DECLARATOR_MUST_DESTROY = 1 << 3,
+    DECLARATOR_MUST_FREE = 1 << 4
 };
 
 struct declarator

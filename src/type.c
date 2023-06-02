@@ -2001,7 +2001,7 @@ void type_swap(struct type* a, struct type* b)
     struct type temp = *a;
     *a = *b;
     *b = temp;
-    _del_attr(temp, MUST_DESTROY);
+    _del_attr(temp, DECLARATOR_MUST_DESTROY);
 }
 
 

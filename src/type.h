@@ -34,11 +34,12 @@ enum attribute_flags
 
     CAKE_ATTRIBUTE_FREE = 1 << 7,
     CAKE_ATTRIBUTE_DESTROY = 1 << 8,
-    
+    CAKE_ATTRIBUTE_MOVE = 1 << 9,
+
     /*
      Used to detect argument type
     */
-    CAKE_HIDDEN_ATTRIBUTE_PARAM = 1 << 9,
+    CAKE_HIDDEN_ATTRIBUTE_PARAM = 1 << 20,
 
     /*
      1 == 2 results in int in C
@@ -46,9 +47,9 @@ enum attribute_flags
      not sure what is the best place to put in
      type specifier my generate some error
     */
-    CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 10,
+    CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 21,
     // 'a'
-    CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR = 1 << 11
+    CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR = 1 << 22
 };
 
 enum type_specifier_flags

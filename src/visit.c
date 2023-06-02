@@ -1058,7 +1058,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
             free(p_jump_statement->first_token->lexeme);
             p_jump_statement->first_token->lexeme = ss.c_str;
-            _del_attr(ss, MUST_DESTROY); /*MOVED*/
+            _del_attr(ss, DECLARATOR_MUST_DESTROY); /*MOVED*/
 
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
 
@@ -1069,7 +1069,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "goto _catch_label_%d", p_jump_statement->try_catch_block_index);
             free(p_jump_statement->first_token->lexeme);
             p_jump_statement->first_token->lexeme = ss.c_str; /*MOVED*/
-            _del_attr(ss, MUST_DESTROY); /*MOVED*/
+            _del_attr(ss, DECLARATOR_MUST_DESTROY); /*MOVED*/
         }
 
         ss_close(&ss0);
@@ -2151,7 +2151,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     //TODO  check /* inside
                     ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
                     free(current->lexeme);
-                    _del_attr(ss, MUST_DESTROY);
+                    _del_attr(ss, DECLARATOR_MUST_DESTROY);
                     current->lexeme = ss.c_str;/*MOVED*/
                 }
             }

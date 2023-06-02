@@ -146,10 +146,10 @@ void c_clrscr();
 
 #ifdef __CAKE__
 
-#define _destroy [[destroy]]
-#define _delete [[destroy,free]]
-#define _free [[free]]
-
+#define _destroy [[cake::destroy]]
+#define _delete [[cake::destroy,cake::free]]
+#define _free [[cake::free]]
+#define MOVE [[cake::move]]
 #else
 
 #define _destroy 
@@ -158,6 +158,7 @@ void c_clrscr();
 
 #define _del_attr(a, b)
 #define _add_attr(a, b)
+#define MOVE
 
 #endif
 
@@ -9046,13 +9047,14 @@ enum attribute_flags
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
 
-    CUSTOM_ATTRIBUTE_FREE = 1 << 7,
-    CUSTOM_ATTRIBUTE_DESTROY = 1 << 8,
-    
+    CAKE_ATTRIBUTE_FREE = 1 << 7,
+    CAKE_ATTRIBUTE_DESTROY = 1 << 8,
+    CAKE_ATTRIBUTE_MOVE = 1 << 9,
+
     /*
      Used to detect argument type
     */
-    CUSTOM_ATTRIBUTE_PARAM = 1 << 9,
+    CAKE_HIDDEN_ATTRIBUTE_PARAM = 1 << 20,
 
     /*
      1 == 2 results in int in C
@@ -9060,9 +9062,9 @@ enum attribute_flags
      not sure what is the best place to put in
      type specifier my generate some error
     */
-    CUSTOM_ATTRIBUTE_LIKE_BOOL = 1 << 10,
+    CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 21,
     // 'a'
-    CUSTOM_ATTRIBUTE_LIKE_CHAR = 1 << 11
+    CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR = 1 << 22
 };
 
 enum type_specifier_flags
@@ -9947,10 +9949,10 @@ struct initializer* initializer(struct parser_ctx* ctx);
 
 enum declarator_flags
 {
-    ISVALID = 1 << 1,
-    UNINITIALIZED = 1 << 2,
-    MUST_DESTROY = 1 << 3,
-    MUST_FREE = 1 << 4
+    DECLARATOR_ISVALID = 1 << 1,
+    DECLARATOR_UNINITIALIZED = 1 << 2,
+    DECLARATOR_MUST_DESTROY = 1 << 3,
+    DECLARATOR_MUST_FREE = 1 << 4
 };
 
 struct declarator
@@ -11083,18 +11085,18 @@ int  compare_function_arguments(struct parser_ctx* ctx,
                 !arg_declarator->is_parameter_declarator)
             {
                 if (type_is_pointer(current_parameter_type->type) &&
-                    type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_DESTROY))
+                    type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_DESTROY))
                 {
-                    arg_declarator->declarator_flags &= ~MUST_DESTROY;
-                    arg_declarator->declarator_flags |= UNINITIALIZED;
+                    arg_declarator->declarator_flags &= ~DECLARATOR_MUST_DESTROY;
+                    arg_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
                 }
 
 
                 if (type_is_pointer(current_parameter_type->type) &&
-                    type_has_attribute(current_parameter_type->type->next, CUSTOM_ATTRIBUTE_FREE))
+                    type_has_attribute(current_parameter_type->type->next, CAKE_ATTRIBUTE_FREE))
                 {
-                    arg_declarator->declarator_flags &= ~MUST_FREE;
-                    arg_declarator->declarator_flags |= UNINITIALIZED;
+                    arg_declarator->declarator_flags &= ~DECLARATOR_MUST_FREE;
+                    arg_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
                 }
 
             }
@@ -11629,7 +11631,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
 
             p_expression_node->type = type_make_int();
-            p_expression_node->type.attributes_flags |= CUSTOM_ATTRIBUTE_LIKE_CHAR;
+            p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
 
             parser_match(ctx);
         }
@@ -12152,15 +12154,15 @@ enum declarator_flags string_to_static_analisys_flags(const char* s)
 {
     if (strcmp(s, "\"must free\"") == 0)
     {
-        return MUST_FREE;
+        return DECLARATOR_MUST_FREE;
     }
     else if (strcmp(s, "\"must destroy\"") == 0)
     {
-        return MUST_DESTROY;
+        return DECLARATOR_MUST_DESTROY;
     }
     else if (strcmp(s, "\"uninitialized\"") == 0)
     {
-        return UNINITIALIZED;
+        return DECLARATOR_UNINITIALIZED;
     }
     return 0;
 }
@@ -12239,7 +12241,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
     }
     else
     {
-        new_expression->declarator->declarator_flags |= ISVALID;
+        new_expression->declarator->declarator_flags |= DECLARATOR_ISVALID;
 
         switch (func->type)
         {
@@ -13533,6 +13535,15 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
         {
             parser_match(ctx);
 
+            struct attribute_specifier_sequence* p_attribute_specifier_sequence =
+                attribute_specifier_sequence_opt(ctx);
+            enum attribute_flags  attributes_flags = 0;
+            if (p_attribute_specifier_sequence)
+            {
+                attributes_flags = p_attribute_specifier_sequence->attributes_flags;
+                free(p_attribute_specifier_sequence);
+            }
+
             struct expression* new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
@@ -13566,31 +13577,32 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
                 check_assigment(ctx, &new_expression->left->type, new_expression->right);
             }
 
-            if (new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+            if ((attributes_flags & CAKE_ATTRIBUTE_MOVE) &&
+                new_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
             {
                 /*let's remove the UNINITIALIZED flag*/
                 new_expression->left->declarator->declarator_flags &=
-                    ~UNINITIALIZED;
+                    ~DECLARATOR_UNINITIALIZED;
 
 
                 if (new_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
                 {
                     /*let's remove the UNINITIALIZED flag*/
-                    if (new_expression->right->declarator->declarator_flags & MUST_DESTROY)
+                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                     {
-                        new_expression->left->declarator->declarator_flags |= MUST_DESTROY;
-                        new_expression->right->declarator->declarator_flags &= ~MUST_DESTROY;
+                        new_expression->left->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
+                        new_expression->right->declarator->declarator_flags &= ~DECLARATOR_MUST_DESTROY;
                     }
 
-                    if (new_expression->right->declarator->declarator_flags & MUST_FREE)
+                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_MUST_FREE)
                     {
-                        new_expression->left->declarator->declarator_flags |= MUST_FREE;
-                        new_expression->right->declarator->declarator_flags &= ~MUST_FREE;
+                        new_expression->left->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
+                        new_expression->right->declarator->declarator_flags &= ~DECLARATOR_MUST_FREE;
                     }
 
-                    new_expression->right->declarator->declarator_flags |= UNINITIALIZED;
+                    new_expression->right->declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
 
-                    if (new_expression->right->declarator->declarator_flags & UNINITIALIZED)
+                    if (new_expression->right->declarator->declarator_flags & DECLARATOR_UNINITIALIZED)
                     {
                         //TODO fix uninitialized value
                         //parser_setwarning_with_token(ctx, ctx->current, "using uninitialized value");
@@ -13897,7 +13909,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
         return false;
     }
 
-    if (expression->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
+    if (expression->type.attributes_flags & CAKE_HIDDEN_ATTRIBUTE_PARAM)
         return true;
 
     return true;
@@ -14783,7 +14795,7 @@ struct type type_lvalue_conversion(struct type* p_type)
            "pointer to function returning type".
         */
         struct type t = type_add_pointer(p_type);
-        t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+        t.attributes_flags &= ~CAKE_HIDDEN_ATTRIBUTE_PARAM;
         t.category = t.category;
         return t;
     }
@@ -14806,7 +14818,7 @@ struct type type_lvalue_conversion(struct type* p_type)
             }
         */
         type_destroy(&t);
-        t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+        t2.attributes_flags &= ~CAKE_HIDDEN_ATTRIBUTE_PARAM;
         return t2;
     }
 
@@ -14818,7 +14830,7 @@ struct type type_lvalue_conversion(struct type* p_type)
 
     struct type t = type_dup(p_type);
     type_remove_qualifiers(&t);
-    t.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+    t.attributes_flags &= ~CAKE_HIDDEN_ATTRIBUTE_PARAM;
 
     t.category = type_get_category(&t);
 
@@ -15116,7 +15128,7 @@ bool type_is_nodiscard(const struct type* p_type)
 
 bool type_is_destroy(const struct type* p_type)
 {
-    return type_has_attribute(p_type, CUSTOM_ATTRIBUTE_DESTROY);
+    return type_has_attribute(p_type, CAKE_ATTRIBUTE_DESTROY);
 }
 
 bool type_is_array(const struct type* p_type)
@@ -15707,7 +15719,7 @@ struct type type_param_array_to_pointer(const struct type* p_type)
     }
 
     type_destroy(&t);
-    t2.attributes_flags &= ~CUSTOM_ATTRIBUTE_PARAM;
+    t2.attributes_flags &= ~CAKE_HIDDEN_ATTRIBUTE_PARAM;
 
     return t2;
 }
@@ -16463,7 +16475,7 @@ struct type type_make_int_bool_like()
 {
     struct type t = { 0 };
     t.type_specifier_flags = TYPE_SPECIFIER_INT ;
-    t.attributes_flags = CUSTOM_ATTRIBUTE_LIKE_BOOL;
+    t.attributes_flags = CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL;
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
@@ -16642,7 +16654,7 @@ void type_swap(struct type* a, struct type* b)
     struct type temp = *a;
     *a = *b;
     *b = temp;
-    _del_attr(temp, MUST_DESTROY);
+    _del_attr(temp, DECLARATOR_MUST_DESTROY);
 }
 
 
@@ -19059,13 +19071,13 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         if (p_attribute_specifier_sequence_opt &&
             p_attribute_specifier_sequence_opt->attributes_flags)
         {
-            if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+            if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
             {
-                p_init_declarator->declarator->declarator_flags |= MUST_FREE;
+                p_init_declarator->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
             }
-            if (p_attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+            if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
             {
-                p_init_declarator->declarator->declarator_flags |= MUST_DESTROY;
+                p_init_declarator->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
             }
         }
 
@@ -19098,7 +19110,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 type_is_destroy(&p_init_declarator->declarator->type) &&
                 !type_is_pointer(&p_init_declarator->declarator->type))
             {
-                p_init_declarator->declarator->declarator_flags = MUST_DESTROY | ISVALID;
+                p_init_declarator->declarator->declarator_flags = DECLARATOR_MUST_DESTROY | DECLARATOR_ISVALID;
             }
         }
 
@@ -19209,12 +19221,12 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
 
                 if ((p_init_declarator->declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                    (p_init_declarator->declarator->declarator_flags & MUST_FREE) &&
+                    (p_init_declarator->declarator->declarator_flags & DECLARATOR_MUST_FREE) &&
                     type_is_nodiscard(&p_init_declarator->declarator->type) &&
                     type_is_pointer(&p_init_declarator->declarator->type))
                 {
                     /*pointer to MUST_FREE of a struct [[nodiscard]] has must_destroy*/
-                    p_init_declarator->declarator->declarator_flags |= (MUST_DESTROY);
+                    p_init_declarator->declarator->declarator_flags |= (DECLARATOR_MUST_DESTROY);
                 }
             }
             /*
@@ -19252,7 +19264,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            p_init_declarator->declarator->declarator_flags |= UNINITIALIZED;
+            p_init_declarator->declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
         }
     }
     catch
@@ -19410,7 +19422,7 @@ struct typeof_specifier* typeof_specifier(struct parser_ctx* ctx)
             p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
         }
 
-        if (p_typeof_specifier->type.attributes_flags & CUSTOM_ATTRIBUTE_PARAM)
+        if (p_typeof_specifier->type.attributes_flags & CAKE_HIDDEN_ATTRIBUTE_PARAM)
         {
             compiler_set_warning_with_token(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, "typeof used in array arguments");
 
@@ -20863,13 +20875,13 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
-        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_DESTROY)
+        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
         {
-            p_parameter_declaration->declarator->declarator_flags |= MUST_DESTROY;
+            p_parameter_declaration->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
         }
-        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CUSTOM_ATTRIBUTE_FREE)
+        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
         {
-            p_parameter_declaration->declarator->declarator_flags |= MUST_FREE;
+            p_parameter_declaration->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
         }
     }
     p_parameter_declaration->declarator->is_parameter_declarator = true;
@@ -20879,7 +20891,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         make_type_using_declarator(ctx, p_parameter_declaration->declarator);
 
 
-    p_parameter_declaration->declarator->type.attributes_flags |= CUSTOM_ATTRIBUTE_PARAM;
+    p_parameter_declaration->declarator->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_PARAM;
 
     if (p_parameter_declaration->declarator->name)
         naming_convention_parameter(ctx, p_parameter_declaration->declarator->name, &p_parameter_declaration->declarator->type);
@@ -21437,12 +21449,17 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         if (is_cake_attr && strcmp(ctx->current->lexeme, "free") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_FREE;
+            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_FREE;
         }
         else if (is_cake_attr && strcmp(ctx->current->lexeme, "destroy") == 0)
         {
             is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CUSTOM_ATTRIBUTE_DESTROY;
+            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_DESTROY;
+        }
+        else if (is_cake_attr && strcmp(ctx->current->lexeme, "move") == 0)
+        {
+            is_standard_attribute = true;
+            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_MOVE;
         }
         else
         {
@@ -21765,7 +21782,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                   let's print the declarators that were not cleared for these
                   flags
                 */
-                if (p_declarator->declarator_flags & MUST_DESTROY)
+                if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                 {
                     compiler_set_error_with_token(ctx,
                         p_declarator->name,
@@ -21774,7 +21791,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
 
                 }
 
-                if (p_declarator->declarator_flags & MUST_FREE)
+                if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
                 {
 
                     compiler_set_error_with_token(ctx,
@@ -22219,7 +22236,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                    returning a declarator will remove the flags must destroy or must free,
                    similar of moving
                 */
-                p_jump_statement->expression_opt->declarator->declarator_flags &= ~(MUST_DESTROY | MUST_FREE);
+                p_jump_statement->expression_opt->declarator->declarator_flags &= ~(DECLARATOR_MUST_DESTROY | DECLARATOR_MUST_FREE);
             }
 
             if (p_jump_statement->expression_opt)
@@ -22359,26 +22376,26 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                   let's print the declarators that were not cleared for these
                   flags
                 */
-                if (p_declarator->declarator_flags & MUST_DESTROY)
+                if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                 {
                     ctx->printf(WHITE "%s:%d:%d: ",
                         p_declarator->name->token_origin->lexeme,
                         p_declarator->name->line,
                         p_declarator->name->col);
 
-                    if (p_declarator->declarator_flags & MUST_DESTROY)
+                    if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                         ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
                             p_declarator->name->lexeme);
                 }
 
-                if (p_declarator->declarator_flags & MUST_FREE)
+                if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
                 {
                     ctx->printf(WHITE "%s:%d:%d: ",
                         p_declarator->name->token_origin->lexeme,
                         p_declarator->name->line,
                         p_declarator->name->col);
 
-                    if (p_declarator->declarator_flags & MUST_FREE)
+                    if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
                         ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
                             p_declarator->name->lexeme);
                 }
@@ -24982,7 +24999,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
             free(p_jump_statement->first_token->lexeme);
             p_jump_statement->first_token->lexeme = ss.c_str;
-            _del_attr(ss, MUST_DESTROY); /*MOVED*/
+            _del_attr(ss, DECLARATOR_MUST_DESTROY); /*MOVED*/
 
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
 
@@ -24993,7 +25010,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "goto _catch_label_%d", p_jump_statement->try_catch_block_index);
             free(p_jump_statement->first_token->lexeme);
             p_jump_statement->first_token->lexeme = ss.c_str; /*MOVED*/
-            _del_attr(ss, MUST_DESTROY); /*MOVED*/
+            _del_attr(ss, DECLARATOR_MUST_DESTROY); /*MOVED*/
         }
 
         ss_close(&ss0);
@@ -26075,7 +26092,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     //TODO  check /* inside
                     ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
                     free(current->lexeme);
-                    _del_attr(ss, MUST_DESTROY);
+                    _del_attr(ss, DECLARATOR_MUST_DESTROY);
                     current->lexeme = ss.c_str;/*MOVED*/
                 }
             }
