@@ -1616,122 +1616,96 @@ int main()
 
 We can use != and == with void value to compare types.
 
+### Extension - [[cake::destroy]] [[cake::free]] [[cake::move]] Attributes
 
-###  Extension - [[cake::destroy, cake::free]]  attributes
+Cake declarators (variables) can have imaginary flags associated with them.
 
-Cake declarators (variables) have imaginary flags.
-
-At this moment cake has 3 built-in imaginary flags:
+Currently, there are three built-in imaginary flags in Cake:
 
 - _must free_
 - _must destroy_
 - _uninitialized_
 
+The **[[cake::free]]** ,  **[[cake::destroy]]** and **[[cake::move]]** attributes allow you to set or clear these 
+imaginary flags implicitly.
 
-**[[cake::free]]** and **[[cake::destroy]]** attributes can be used to set or 
-clear implicitly these flags.
-
-When **[[cake::free]]** is used in return types the imaginary flag _"must free"_ is set
-on the declarator that receives the value. 
-
-For instance:
+When **[[cake::free]]** is used in return types, it sets the imaginary flag _"must free"_ on the receiving declarator.
+Here's an example:
 
 ```c
-[[cake::free]] void *  malloc(int i){}
+[[cake::free]] void* malloc(int i) {}
 
 void f() {
-  int * p = malloc(1);  
+  int* p = malloc(1);
 }
 ```
 
-In this sample p has the imaginary flag _"must free"_ that is set implicitly 
-because malloc has the attribute **[[cake::free]]**.
+In this example, the declarator `p` has the imaginary flag _"must free"_, which is set implicitly 
+because the `malloc` function has the attribute **[[cake::free]]**.
 
-We can check the existence of this imaginary flag at compile time using static_assert and \_has\_attr.
-
-Sample:
+You can check the existence of this imaginary flag at compile time
+using `static_assert` and `_has_attr` as shown below:
 
 ```c
-[[cake::free]] void *  malloc(int i){}
+[[cake::free]] void* malloc(int i) {}
 
 void f() {
-  int * p = malloc(1);  
+  int* p = malloc(1);
   static_assert(_has_attr(p, "must free"));
 }
 ```
 
+At the end of the scope, Cake emits a warning if the _"must free"_ flag has not been cleared.
 
-At the end of scope cake emits an warning if the flag _"must free"_ was not cleared.
-
-This flag can be turned off implicitly when used by a function that uses the attribute 
-**[[cake::free]]**.
-
-For instance:
+This flag can be turned off implicitly when a function using the **[[cake::free]]** attribute is called, like in the following example:
 
 ```c
-
-[[cake::free]] void *  malloc(int i){}
-void free([[cake::free]] void * p) {}
+[[cake::free]] void* malloc(int i) {}
+void free([[cake::free]] void* p) {}
 
 void f() {
-  
-  int * p = malloc(1);  
-  
-  /*malloc add this imaginary attribute*/
-  static_assert(_has_attr(p, "must free"));                
-  
-  free(p);
-  
-  /*free removes this imaginary attribute*/
-  static_assert(!_has_attr(p, "must free"));  
-}
+  int* p = malloc(1);
 
+  /* malloc adds this imaginary attribute */
+  static_assert(_has_attr(p, "must free"));
+
+  free(p);
+
+  /* free removes this imaginary attribute */
+  static_assert(!_has_attr(p, "must free"));
+}
 ```
 
-After calling free the imaginary flag _"must free"_ is removed and there is 
-no warning at end of scope.
+After calling `free`, the imaginary flag _"must free"_ is removed, and there is no warning at the end of the scope.
 
-When a declarator is returned or assigned the _"must free"_ flag is moved
-to the declarator that receives the value.
+When a declarator is returned or assigned, the _"must free"_ flag is transferred to the receiving declarator.
 
-if the return type of a function does not have the flag then compiler shows
-an warning.
+If the return type of a function does not have the flag, the compiler shows a warning.
 
-**[[cake::destroy]]** attribute can be used in structs.
-
-For instance:
+The **[[cake::destroy]]** attribute can be used with structs. For example:
 
 ```c
 struct [[cake::destroy]] X {
   int i;
 };
-
 ```
 
-Then when a struct X is instantiated the flag _"must destroy"_ is set automatically.
-
-Sample:
+When a struct `X` is instantiated, the flag _"must destroy"_ is automatically set.
 
 ```c
 int main() {
-   struct X x;   
+   struct X x;
    static_assert(_has_attr(p, "must destroy"));
 }
 ```
 
-Similarly of _"must free"_ this flag must be turned off before the end of scope,
-otherwise the compiler will emit an warning.
-
-To clear this flag the process is the same of free. We declare a function with
-the attribute **[[destroy]]**.
-
-For instance:
+Similar to _"must free"_, this flag must be cleared before the end of the scope, or the compiler will emit a warning. To clear this flag, you can declare a function with the attribute **[[destroy]]**:
 
 ```c
 void x_destroy([[cake::destroy]] struct x *p) { }
 ```
 
-Then
+Then, in the `main` function:
 
 ```c
 struct [[cake::destroy]] X {
@@ -1741,80 +1715,56 @@ struct [[cake::destroy]] X {
 void x_destroy([[cake::destroy]] struct x *p) { }
 
 int main() {
-   struct X x = {0};   
-   //...
+   struct X x = {0};
+   // ...
    x_destroy(&x);
 }
-
 ```
 
-Will work without any warnings.
+This code will work without any warnings.
 
-Similarly of _"must free"_, _"must destroy"_ is transferred when we do a = [[std::move]] b 
-or return one variable to other.
+Similar to _"must free"_, the _"must destroy"_ flag is transferred when assigning with `[[std::move]]` or returning one variable to another.
 
-If we copy or return a variable with _"must free"_, _"must destroy"_ flag this
-flag is transferred copied to the destin variable and cleared from the origin variable.
+If a variable with the _"must free"_ or _"must destroy"_ flag is copied or returned, this flag is transferred to the destination variable and cleared from the original variable.
 
-In other words, the ownership is moved.
+In other words,
 
-The origin variable also receives the flag _"uninitialized"_.
+ ownership is moved. The original variable also receives the _"uninitialized"_ flag.
 
-For instance:
+For example:
 
 ```c
-[[cake::free]] void *  malloc(int i){}
-void free([[cake::free]] void *p) {}
+[[cake::free]] void* malloc(int i) {}
+void free([[cake::free]] void* p) {}
 
 struct X {
   int i;
 };
 
 void f() {
-    struct X * p = malloc(1);  
-    struct X * p2;
-    p2 = [[cake::move]] p;     
+    struct X* p = malloc(1);
+    struct X* p2;
+    p2 = [[cake::move]] p;
     static_assert(!_has_attr(p, "must free"));
-    static_assert(_has_attr(p2, "must free"));  
+    static_assert(_has_attr(p2, "must free"));
     static_assert(_has_attr(p,  "uninitialized"));
-  
+
     free(p2);
     static_assert(!_has_attr(p2, "must free"));
 }
-
 ```
 
+In this example, because these flags are checked at compile time, runtime conditionals are always "executed."
 
-Because these flags are in compile time, runtime time conditionals
-are always "executed". For instance:
+To explicitly set or clear these imaginary flags, you can use `_add_attr` and `_del_attr`:
 
 ```c
-int f(int i) {
-   struct X x = {0};   
-   if (i > 3)
-     x_destroy(&x);
-}
+int* p = 0;
+_add_attr(p, "must free");
+_del_attr(p, "must free");
 ```
 
-This will not emit any warning. This implementation is not ready yet
-but cake must ensure that there is a path that is 100% sure that the flag
-will be cleared. So, in the previous sample the compiler should emit an
-warning saying the there is static path that clear the flag.
-
-Having this feature we can ensure that cake has the same guarantees of C++ 
-destrutors. We ensure that is required one function will be called before
-the end of the scope.
-
-
-The imaginary flags also can be set or cleared explicitly. For this task 
-we have \_add\_attr and \_del\_attr
-
-```c
-    int * p = 0;
-    _add_attr(p, "must free");
-    _del_attr(p, "must free");
-```
-
+These functions allow you to manipulate the imaginary flags directly.
 
 ### Extension typename on _Generic
 
