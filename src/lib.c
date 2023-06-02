@@ -19246,10 +19246,11 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     else
                     {
                         struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
-                        struct type temp = t2;
-                        t2 = t;
-                        t = temp;
-                        _del_attr(temp, "must destroy");
+                        type_swap(&t2, &t);
+                        //struct type temp = t2;
+                        //t2 = t;
+                        //t = temp;
+                        //_del_attr(temp, "must destroy");
                         type_destroy(&t2);
                     }
 
