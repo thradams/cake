@@ -94,7 +94,13 @@ int ppnumber_to_longlong(struct token* token, long long* result)
     return 0;
 }
 
-struct token* pre_match(struct preprocessor_ctx* ctx)
+/*
+  ctx->current and pre_match are used only in preprocessor constant expressions
+  (the preprocessor itself uses concept of removing from one list and adding
+  into another so the head of the input list is the current.
+  We could use the same concept here removing current.
+*/
+static struct token* pre_match(struct preprocessor_ctx* ctx)
 {
     ctx->current = ctx->current->next;
 
