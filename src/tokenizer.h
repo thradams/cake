@@ -79,7 +79,7 @@ struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const cha
 const char* get_code_as_we_see(struct token_list* list, bool remove_comments);
 const char* get_code_as_compiler_see(struct token_list* list);
 
-const char* get_code_as_we_see_plusmacros(struct token_list* list);
+const char* get_code_as_we_see_plus_macros(struct token_list* list);
 const char* get_code_as_we_see(struct token_list* list, bool remove_comments);
 
 void print_tokens(struct token* p_token);

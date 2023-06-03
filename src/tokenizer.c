@@ -4245,7 +4245,7 @@ void print_literal(const char* s)
 
 
 
-const char* get_code_as_we_see_plusmacros(struct token_list* list)
+const char* get_code_as_we_see_plus_macros(struct token_list* list)
 {
     struct osstream ss = { 0 };
     struct token* current = list->head;
