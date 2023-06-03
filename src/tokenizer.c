@@ -215,7 +215,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
     }
 
 
-    char* content = readfile(fullpath);
+    char* content = read_file(fullpath);
     if (content == NULL)
     {
         struct include_dir* current = ctx->include_dir.head;
@@ -229,7 +229,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
                 return NULL;
             }
 
-            content = readfile(fullpath);
+            content = read_file(fullpath);
             if (content != NULL)
                 break;
             current = current->next;
@@ -1120,7 +1120,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         }
 #else
         /*web versions only text files that are included*/
-        const char* textfile = readfile(filename_opt);
+        const char* textfile = read_file(filename_opt);
         if (textfile == NULL)
         {
             preprocessor_set_error_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
@@ -4785,7 +4785,7 @@ int test_preprocessor_in_out(const char* input, const char* output)
 int test_preprocessor_in_out_using_file(const char* fileName)
 {
     int res = 0;
-    const char* input = normalize_line_end(readfile(fileName));
+    const char* input = normalize_line_end(read_file(fileName));
     char* output = 0;
     if (input)
     {

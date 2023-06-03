@@ -709,7 +709,7 @@ struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const cha
 const char* get_code_as_we_see(struct token_list* list, bool remove_comments);
 const char* get_code_as_compiler_see(struct token_list* list);
 
-const char* get_code_as_we_see_plusmacros(struct token_list* list);
+const char* get_code_as_we_see_plus_macros(struct token_list* list);
 const char* get_code_as_we_see(struct token_list* list, bool remove_comments);
 
 void print_tokens(struct token* p_token);
@@ -718,7 +718,7 @@ const char* print_preprocessed_to_string(struct token* p_token);
 const char* print_preprocessed_to_string2(struct token* p_token);
 void check_unused_macros(struct hash_map* map);
 
-char* readfile(const char* path);
+char* read_file(const char* path);
 const char* get_token_name(enum token_type tk);
 void print_all_macros(struct preprocessor_ctx* prectx);
 
@@ -1741,7 +1741,7 @@ char* realpath(const char* restrict path, char* restrict resolved_path);
 
 int get_self_path(char* buffer, int maxsize);
 
-char* readfile(const char* path);
+char* read_file(const char* path);
 char* dirname(char* path);
 
 const char* get_posix_error_message(int error);
@@ -1918,7 +1918,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
     }
 
 
-    char* content = readfile(fullpath);
+    char* content = read_file(fullpath);
     if (content == NULL)
     {
         struct include_dir* current = ctx->include_dir.head;
@@ -1932,7 +1932,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
                 return NULL;
             }
 
-            content = readfile(fullpath);
+            content = read_file(fullpath);
             if (content != NULL)
                 break;
             current = current->next;
@@ -2823,7 +2823,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         }
 #else
         /*web versions only text files that are included*/
-        const char* textfile = readfile(filename_opt);
+        const char* textfile = read_file(filename_opt);
         if (textfile == NULL)
         {
             preprocessor_set_error_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
@@ -5948,7 +5948,7 @@ void print_literal(const char* s)
 
 
 
-const char* get_code_as_we_see_plusmacros(struct token_list* list)
+const char* get_code_as_we_see_plus_macros(struct token_list* list)
 {
     struct osstream ss = { 0 };
     struct token* current = list->head;
@@ -6529,7 +6529,7 @@ int test_preprocessor_in_out(const char* input, const char* output)
 int test_preprocessor_in_out_using_file(const char* fileName)
 {
     int res = 0;
-    const char* input = normalize_line_end(readfile(fileName));
+    const char* input = normalize_line_end(read_file(fileName));
     char* output = 0;
     if (input)
     {
@@ -7915,7 +7915,7 @@ char* readfile_core(const char* path)
 }
 
 
-char* readfile(const char* path)
+char* read_file(const char* path)
 {
 #ifdef MOCKFILES
     
@@ -13916,29 +13916,29 @@ struct pre_expression_ctx
 };
 
 
-void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
+static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
 
 
 
 /*
 * preprocessor uses long long
 */
-int ppnumber_to_longlong(struct token* token, long long* result)
+static int ppnumber_to_longlong(struct token* token, long long* result)
 {
 
     /*copia removendo os separadores*/
@@ -13984,7 +13984,13 @@ int ppnumber_to_longlong(struct token* token, long long* result)
     return 0;
 }
 
-struct token* pre_match(struct preprocessor_ctx* ctx)
+/*
+  ctx->current and pre_match are used only in preprocessor constant expressions
+  (the preprocessor itself uses concept of removing from one list and adding
+  into another so the head of the input list is the current.
+  We could use the same concept here removing current.
+*/
+static struct token* pre_match(struct preprocessor_ctx* ctx)
 {
     ctx->current = ctx->current->next;
 
@@ -13996,7 +14002,7 @@ struct token* pre_match(struct preprocessor_ctx* ctx)
     return ctx->current;
 }
 
-void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
      primary-expression:
@@ -14052,7 +14058,7 @@ void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expression_c
 
 
 
-void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
       postfix-expression:
@@ -14081,7 +14087,7 @@ void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_c
 }
 
 
-void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
     unary-expression:
@@ -14146,7 +14152,7 @@ void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx
     }
 }
 
-void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
      cast-expression:
@@ -14156,7 +14162,7 @@ void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx*
     pre_unary_expression(ctx,  ectx);    
 }
 
-void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
      multiplicative-expression:
@@ -14200,7 +14206,7 @@ void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expre
     }
 }
 
-void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
      additive-expression:
@@ -14243,7 +14249,7 @@ void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_
     }
 }
 
-void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
      shift-expression:
@@ -14281,7 +14287,7 @@ void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx
     }
 }
 
-void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
     relational-expression:
@@ -14331,7 +14337,7 @@ void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expressio
     }
 }
 
-void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
       equality-expression:
@@ -14379,7 +14385,7 @@ void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_
     }
 }
 
-void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
      AND-expression:
@@ -14405,7 +14411,7 @@ void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* 
     }
 }
 
-void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
      exclusive-OR-expression:
@@ -14433,7 +14439,7 @@ void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_express
     }
 }
 
-void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
     inclusive-OR-expression:
@@ -14461,7 +14467,7 @@ void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_express
     }
 }
 
-void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
     logical-AND-expression:
@@ -14489,7 +14495,7 @@ void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expressi
     }
 }
 
-void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
       logical-OR-expression:
@@ -14520,7 +14526,7 @@ void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expressio
 
 
 
-void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
     assignment-expression:
@@ -14561,7 +14567,7 @@ void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_expressio
     }
 }
 
-void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*expression:
       assignment-expression
@@ -14586,7 +14592,7 @@ void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx
 
 
 
-void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
 {
     /*
       conditional-expression:
@@ -22703,7 +22709,7 @@ int compile_one_file(const char* file_name,
         append_msvc_include_dir(&prectx);
 
 
-        char* content = readfile(file_name);
+        char* content = read_file(file_name);
         if (content == NULL)
         {
             report->error_count++;

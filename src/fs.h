@@ -73,7 +73,7 @@ char* realpath(const char* restrict path, char* restrict resolved_path);
 
 int get_self_path(char* buffer, int maxsize);
 
-char* readfile(const char* path);
+char* read_file(const char* path);
 char* dirname(char* path);
 
 const char* get_posix_error_message(int error);

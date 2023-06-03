@@ -421,7 +421,7 @@ char* readfile_core(const char* path)
 }
 
 
-char* readfile(const char* path)
+char* read_file(const char* path)
 {
 #ifdef MOCKFILES
     

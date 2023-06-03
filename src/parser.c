@@ -5586,7 +5586,7 @@ int compile_one_file(const char* file_name,
         append_msvc_include_dir(&prectx);
 
 
-        char* content = readfile(file_name);
+        char* content = read_file(file_name);
         if (content == NULL)
         {
             report->error_count++;

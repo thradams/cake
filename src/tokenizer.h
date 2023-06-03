@@ -88,7 +88,7 @@ const char* print_preprocessed_to_string(struct token* p_token);
 const char* print_preprocessed_to_string2(struct token* p_token);
 void check_unused_macros(struct hash_map* map);
 
-char* readfile(const char* path);
+char* read_file(const char* path);
 const char* get_token_name(enum token_type tk);
 void print_all_macros(struct preprocessor_ctx* prectx);
 
