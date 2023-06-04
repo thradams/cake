@@ -1450,7 +1450,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     {
         if (ctx->current->type != type)
         {
-            compiler_set_error_with_token(C1, ctx, ctx->current, "expected %s", get_token_name(type));
+            compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "expected %s", get_token_name(type));
             error = 1;
         }
 
@@ -1460,7 +1460,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     }
     else
     {
-        compiler_set_error_with_token(C1, ctx, ctx->input_list.tail, "unexpected end of file after");
+        compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->input_list.tail, "unexpected end of file after");
         error = 1;
     }
 
@@ -1544,7 +1544,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
-            compiler_set_error_with_token(C1, ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
+            compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
             return 1;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) //ja tinha um long
@@ -1716,7 +1716,7 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
     {
         if (p_attribute_specifier_sequence_opt)
         {
-            compiler_set_error_with_token(C1, ctx, ctx->current, "");
+            compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "");
         }
 
         p_declaration->static_assert_declaration = static_assert_declaration(ctx);
@@ -1756,11 +1756,11 @@ struct declaration* declaration_core(struct parser_ctx* ctx,
         {
             if (ctx->current->type == TK_IDENTIFIER)
             {
-                compiler_set_error_with_token(C1, ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
+                compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
             }
             else
             {
-                compiler_set_error_with_token(C1, ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
+                compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
             }
             parser_match(ctx); //we need to go ahead
         }
@@ -1906,7 +1906,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx)
     }
     else
     {
-        compiler_set_error_with_token(C1, ctx, ctx->current, "unexpected");
+        compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "unexpected");
     }
     return p_declaration_specifier;
 }
@@ -1939,7 +1939,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
         if (tkname == NULL)
         {
-            compiler_set_error_with_token(C1, ctx, ctx->current, "empty declarator name?? unexpected");
+            compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "empty declarator name?? unexpected");
 
             return p_init_declarator;
         }
@@ -1976,7 +1976,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
                     p_init_declarator->p_declarator->type.static_array)
                 {
-                    compiler_set_error_with_token(C1, ctx,
+                    compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
                         p_init_declarator->p_declarator->first_token,
                         "static or type qualifiers are not allowed in non-parameter array declarator");
                 }
@@ -2033,7 +2033,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_set_error_with_token(C1, ctx, ctx->current, "redeclaration");
+                        compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "redeclaration");
                         compiler_set_info_with_token(W_NONE, ctx, previous->name, "previous declaration");
                     }
                 }
@@ -2621,7 +2621,7 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             }
             else
             {
-                compiler_set_error_with_token(C1, ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
+                compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
             }
         }
         else
@@ -3063,7 +3063,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
         {
             if (!has_identifier)
             {
-                compiler_set_error_with_token(C1, ctx, ctx->current, "missing enum tag name");
+                compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "missing enum tag name");
                 throw;
             }
         }
@@ -3090,7 +3090,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
                 if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
                     p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    compiler_set_error_with_token(C1, ctx, p_enum_specifier->tag_token, "multiple definition of 'enum %s'",
+                    compiler_set_error_with_token(C_MISSING_NUMBER, ctx, p_enum_specifier->tag_token, "multiple definition of 'enum %s'",
                         p_enum_specifier->tag_token->lexeme);
                 }
                 else if (p_previous_tag_in_this_scope->enumerator_list.head != NULL)
@@ -3104,7 +3104,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
             }
             else
             {
-                compiler_set_error_with_token(C1, ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
+                compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "use of '%s' with tag type that does not match previous declaration.", ctx->current->lexeme);
                 throw;
             }
         }
@@ -4163,12 +4163,12 @@ struct static_assert_declaration* static_assert_declaration(struct parser_ctx* c
         {
             if (p_static_assert_declaration->string_literal_opt)
             {
-                compiler_set_error_with_token(C1, ctx, position, "_Static_assert failed %s\n",
+                compiler_set_error_with_token(C_MISSING_NUMBER, ctx, position, "_Static_assert failed %s\n",
                     p_static_assert_declaration->string_literal_opt->lexeme);
             }
             else
             {
-                compiler_set_error_with_token(C1, ctx, position, "_Static_assert failed");
+                compiler_set_error_with_token(C_MISSING_NUMBER, ctx, position, "_Static_assert failed");
             }
 
             if (p_static_assert_declaration->constant_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
@@ -4430,12 +4430,12 @@ struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* c
     }
     if (count2 != 0)
     {
-        compiler_set_error_with_token(C1, ctx, ctx->current, "expected ']' before ')'");
+        compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "expected ']' before ')'");
 
     }
     if (count3 != 0)
     {
-        compiler_set_error_with_token(C1, ctx, ctx->current, "expected '}' before ')'");
+        compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "expected '}' before ')'");
 
     }
     return p_balanced_token_sequence;
@@ -4484,7 +4484,7 @@ struct primary_block* primary_block(struct parser_ctx* ctx)
     }
     else
     {
-        compiler_set_error_with_token(C1, ctx, ctx->current, "unexpected token");
+        compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "unexpected token");
     }
     return p_primary_block;
 }
@@ -4684,7 +4684,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 */
                 if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                 {
-                    compiler_set_error_with_token(C1, ctx,
+                    compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
                         p_declarator->name,
                         "destructor of '%s' must be called before the end of scope",
                         p_declarator->name->lexeme);
@@ -4694,7 +4694,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
                 if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
                 {
 
-                    compiler_set_error_with_token(C1, ctx,
+                    compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
                         p_declarator->name,
                         "free('%s') must be called before the end of scope",
                         p_declarator->name->lexeme);
@@ -4950,7 +4950,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
         }
         else
         {
-            compiler_set_error_with_token(C1, ctx, ctx->input_list.tail, "unexpected end of file");
+            compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->input_list.tail, "unexpected end of file");
         }
     }
     else if (ctx->current->type == TK_KEYWORD_SWITCH)
@@ -4967,7 +4967,7 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
     else
     {
         assert(false);
-        compiler_set_error_with_token(C1, ctx, ctx->input_list.tail, "unexpected token");
+        compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->input_list.tail, "unexpected token");
     }
 
     p_selection_statement->last_token = ctx->previous;
@@ -5112,7 +5112,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
         if (ctx->p_current_try_statement_opt == NULL)
         {
 
-            compiler_set_error_with_token(C1, ctx, ctx->current, "throw statement not within try block");
+            compiler_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "throw statement not within try block");
         }
         else
         {
@@ -5149,7 +5149,7 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
 
                 if (type_is_void(&return_type))
                 {
-                    compiler_set_error_with_token(C1, ctx,
+                    compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
                         p_return_token,
                         "void function '%s' should not return a value",
                         ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme);

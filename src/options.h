@@ -35,7 +35,7 @@ enum warning {
 
 enum error
 {
-    C1
+    C_MISSING_NUMBER
 };
 
 enum style
