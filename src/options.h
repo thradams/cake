@@ -33,6 +33,11 @@ enum warning {
     W_DISCARDED_QUALIFIERS = 1 << 15
 };
 
+enum error
+{
+    C1
+};
+
 enum style
 {
     STYLE_CAKE,
