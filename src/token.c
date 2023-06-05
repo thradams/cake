@@ -19,7 +19,16 @@
 #include <debugapi.h>
 #endif
 
+bool style_has_space(const struct token* token)
+{
+    return token_is_blank(token->prev);
+}
 
+bool style_has_one_space(const struct token* token)
+{
+    return token->prev &&
+        token->prev->type == TK_BLANKS;
+}
 
 void print_literal2(const char* s);
 
@@ -567,7 +576,7 @@ void print_line_and_token(int (*printf)(const char* fmt, ...), const struct toke
     {
         prev = prev->prev;
     }
-    struct token* next = prev;
+    const struct token* next = prev;
     while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
     {
         if (next->flags & TK_FLAG_MACRO_EXPANDED)

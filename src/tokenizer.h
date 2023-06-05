@@ -46,7 +46,7 @@ void preprocessor_ctx_destroy(struct preprocessor_ctx* p);
 
 void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
-void preprocessor_set_error_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 
 struct tokenizer_ctx

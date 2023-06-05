@@ -718,7 +718,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     {
         if (!type_is_same(argument_type, paramer_type, false))
         {
-            compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+            compiler_set_error_with_token(C_INCOMPATIBLE_TYPES, ctx,
                 current_argument->expression->first_token,
                 " incompatible types at argument %d", param_num);
         }
@@ -779,14 +779,16 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 if (parameter_array_size != 0 &&
                     argument_array_size < parameter_array_size)
                 {
-                    compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+                    compiler_set_error_with_token(C_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
+                        ctx,
                         current_argument->expression->first_token,
                         " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
                 }
             }
             else if (is_null_pointer_constant || type_is_nullptr_t(argument_type))
             {
-                compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+                compiler_set_error_with_token(C_PASSING_NULL_AS_ARRAY,
+                    ctx,
                     current_argument->expression->first_token,
                     " passing null as array");
             }
@@ -812,7 +814,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             type_print(&t1);
             type_print(&t2);
 
-            compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+            compiler_set_error_with_token(C_INCOMPATIBLE_TYPES, ctx,
                 current_argument->expression->first_token,
                 " incompatible types at argument %d", param_num);
             //disabled for now util it works correctly
@@ -827,7 +829,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             struct type parameter_pointer_to = type_remove_pointer(&t2);
             if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
             {
-                compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+                compiler_set_error_with_token(C_DISCARDING_CONST_AT_ARGUMENT, ctx,
                     current_argument->expression->first_token,
                     " discarding const at argument %d", param_num);
             }
@@ -887,7 +889,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!type_is_same(p_right_type, left_type, false))
         {
-            compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+            compiler_set_error_with_token(C_INCOMPATIBLE_ENUN_TYPES, ctx,
                 right->first_token,
                 " incompatible types ");
         }
@@ -948,14 +950,14 @@ void check_assigment(struct parser_ctx* ctx,
                 if (parameter_array_size != 0 &&
                     argument_array_size < parameter_array_size)
                 {
-                    compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+                    compiler_set_error_with_token(C_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
                         right->first_token,
                         " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
                 }
             }
             else if (is_null_pointer_constant || type_is_nullptr_t(p_right_type))
             {
-                compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+                compiler_set_error_with_token(C_PASSING_NULL_AS_ARRAY, ctx,
                     right->first_token,
                     " passing null as array");
             }
@@ -973,7 +975,7 @@ void check_assigment(struct parser_ctx* ctx,
             type_print(&lvalue_right_type);
             type_print(&t2);
 
-            compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+            compiler_set_error_with_token(C_INCOMPATIBLE_TYPES, ctx,
                 right->first_token,
                 " incompatible types at argument " );
             //disabled for now util it works correctly
@@ -988,7 +990,7 @@ void check_assigment(struct parser_ctx* ctx,
             struct type parameter_pointer_to = type_remove_pointer(&t2);
             if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
             {
-                compiler_set_error_with_token(C_MISSING_NUMBER, ctx,
+                compiler_set_error_with_token(C_DISCARDING_CONST_AT_ARGUMENT, ctx,
                     right->first_token,
                     " discarding const at argument ");
             }

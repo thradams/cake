@@ -165,7 +165,7 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
     print_line_and_token(ctx->printf, p_token);
 }
 
-void preprocessor_set_error_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     ctx->n_errors++;
 
@@ -1115,7 +1115,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         file = fopen(filename_opt, "rb");
         if (file == NULL)
         {
-            preprocessor_set_error_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
+            preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
             throw;
         }
 #else
@@ -1123,7 +1123,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         const char* textfile = read_file(filename_opt);
         if (textfile == NULL)
         {
-            preprocessor_set_error_with_token(ctx, ctx->current, "file '%s' not found", filename_opt);
+            preprocessor_set_error_with_token(C_MISSING_NUMBER, ctx, ctx->current, "file '%s' not found", filename_opt);
             throw;
         }
 
@@ -1810,7 +1810,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 {
                     if (input_list->head->type != ')')
                     {
-                        preprocessor_set_error_with_token(ctx, input_list->head, "missing )");
+                        preprocessor_set_error_with_token(C_MISSING_CLOSE_PARENTHESIS, ctx, input_list->head, "missing )");
                         throw;
                     }
                     token_list_pop_front(input_list);
@@ -2079,7 +2079,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     long long value = 0;
     if (pre_constant_expression(&pre_ctx, &value) != 0)
     {
-        preprocessor_set_error_with_token(ctx, first, "expression error");
+        preprocessor_set_error_with_token(C_EXPRESSION_ERROR, ctx, first, "expression error");
     }
 
     ctx->conditional_inclusion = false;
@@ -2111,9 +2111,9 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
             else
             {
                 if (input_list->head)
-                    preprocessor_set_error_with_token(ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
+                    preprocessor_set_error_with_token(C_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
                 else
-                    preprocessor_set_error_with_token(ctx, dest->tail, "expected EOF \n");
+                    preprocessor_set_error_with_token(C_UNEXPECTED_TOKEN, ctx, dest->tail, "expected EOF \n");
 
                 throw;
             }
@@ -2196,7 +2196,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
         else
         {
 
-            preprocessor_set_error_with_token(ctx, input_list->head, "unexpected");
+            preprocessor_set_error_with_token(C_UNEXPECTED, ctx, input_list->head, "unexpected");
             throw;
         }
         struct token_list r2 = group_opt(ctx, input_list, is_active && *p_result, level);
@@ -2556,7 +2556,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (!already_included)
                 {
-                    preprocessor_set_error_with_token(ctx, r.tail, "file %s not found", path + 1);
+                    preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
 
                     for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
                     {
@@ -2663,7 +2663,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct macro* macro = calloc(1, sizeof * macro);
             if (macro == NULL)
             {
-                preprocessor_set_error_with_token(ctx, ctx->current, "out of mem");
+                preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "out of mem");
                 throw;
             }
 
@@ -2802,7 +2802,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             ctx->n_warnings++;
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//error
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-            preprocessor_set_error_with_token(ctx, input_list->head, "#error");
+            preprocessor_set_error_with_token(C_PREPROCESSOR_ERROR_DIRECTIVE, ctx, input_list->head, "#error");
             token_list_append_list(&r, &r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
@@ -2963,7 +2963,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         }
                         else
                         {
-                            preprocessor_set_error_with_token(ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
+                            preprocessor_set_error_with_token(C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
                             throw;
                         }
                     }
@@ -2993,7 +2993,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                     p_current_parameter = p_current_parameter->next;
                     if (p_current_parameter == NULL)
                     {
-                        preprocessor_set_error_with_token(ctx, macro_name_token, "invalid args");
+                        preprocessor_set_error_with_token(C_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
                         throw;
                     }
                     p_argument->name = strdup(p_current_parameter->name);
@@ -3049,7 +3049,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
         {
             if (r.tail == NULL)
             {
-                preprocessor_set_error_with_token(ctx, input_list->head, "missing macro argument (should be checked before)");
+                preprocessor_set_error_with_token(C_MISSING_MACRO_ARGUMENT, ctx, input_list->head, "missing macro argument (should be checked before)");
                 break;
             }
             /*
@@ -3233,7 +3233,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     char* s = token_list_join_tokens(&argumentlist, true);
                     if (s == NULL)
                     {
-                        preprocessor_set_error_with_token(ctx, input_list->head, "unexpected");
+                        preprocessor_set_error_with_token(C_UNEXPECTED, ctx, input_list->head, "unexpected");
                         throw;
                     }
                     struct token* p_new_token = calloc(1, sizeof * p_new_token);

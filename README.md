@@ -123,10 +123,8 @@ Have a suggestion for C?
 
 # Status?
 
-Even if not necessary for most features, I want Cake to make a full 
-semantic analysis to catch errors and show warnings. At this point
-the number of errors/warning is small compared wit gcc/clang/msvc.
-
+At version 0.5.13 we have 58 types of erros (we have more messages sharing the 
+same type) and 14 warnings/info.
 
 # How cake is tested?
 

@@ -256,3 +256,6 @@ do {\
         (list)->tail = pitem;\
     }\
 } while(0)
+
+bool style_has_space(const struct token* token);
+bool style_has_one_space(const struct token* token);
