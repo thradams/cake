@@ -63,10 +63,6 @@
 #endif
 
 
-
-static int printf_nothing(char const* const format, ...) { return 0; }
-
-
 /*
  Se for 1 inclui todos os ignorados de dentro dos includes
  se for 0 ele faz so resumido e desctart oq nao eh usado.
@@ -93,35 +89,39 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
 static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
     ctx->n_errors++;
+#ifndef TEST
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    print_position(ctx->printf, stream->path, stream->line, stream->col);
-    ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+    print_position(stream->path, stream->line, stream->col);
+    printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+#endif
 }
 
 
 static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stream, const char* fmt, ...)
 {
     ctx->n_warnings++;
+
+#ifndef TEST
     char buffer[200] = { 0 };
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-    print_position(ctx->printf, stream->path, stream->line, stream->col);
-    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+    print_position(stream->path, stream->line, stream->col);
+    printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+#endif
 }
 
 void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
-
-
+#ifndef TEST
     if (p_token)
-        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
 
     char buffer[200] = { 0 };
     va_list args;
@@ -129,9 +129,11 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+    printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 
-    print_line_and_token(ctx->printf, p_token);
+    print_line_and_token(p_token);
+#endif
+
 }
 
 void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
@@ -151,8 +153,10 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
     }
 
     ctx->n_warnings++;
+#ifndef TEST
+
     if (p_token)
-        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
 
     char buffer[200] = { 0 };
     va_list args;
@@ -160,17 +164,21 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+    printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
 
-    print_line_and_token(ctx->printf, p_token);
+    print_line_and_token(p_token);
+#endif
+
 }
 
 void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     ctx->n_errors++;
 
+#ifndef TEST
+
     if (p_token)
-        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
 
     char buffer[200] = { 0 };
     va_list args;
@@ -178,9 +186,10 @@ void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTRED"error: " WHITE "%s\n", buffer);
+    printf(LIGHTRED"error: " WHITE "%s\n", buffer);
 
-    print_line_and_token(ctx->printf, p_token);
+    print_line_and_token(p_token);
+#endif
 }
 
 
@@ -188,7 +197,7 @@ void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx
 
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path)
 {
-    struct include_dir* p_new_include_dir = calloc(1, sizeof * p_new_include_dir);
+    struct include_dir* p_new_include_dir = calloc(1, sizeof *p_new_include_dir);
     p_new_include_dir->path = strdup(path);
     if (list->head == NULL)
     {
@@ -266,7 +275,7 @@ struct macro_expanded
 
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct macro* macro = calloc(1, sizeof * macro);
+    struct macro* macro = calloc(1, sizeof *macro);
     if (macro == NULL)
     {
     }
@@ -341,7 +350,7 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
     if (list.head == NULL)
     {
         /*nunca eh vazio..se for ele colocar um TK_PLACEMARKER*/
-        struct token* p_new_token = calloc(1, sizeof * p_new_token);
+        struct token* p_new_token = calloc(1, sizeof *p_new_token);
         p_new_token->lexeme = strdup("");
         p_new_token->type = TK_PLACEMARKER;
         token_list_add(&list, p_new_token);
@@ -769,7 +778,7 @@ enum token_type is_punctuator(struct stream* stream)
 
 struct token* new_token(const char* lexeme_head, const char* lexeme_tail, enum token_type type)
 {
-    struct token* p_new_token = calloc(1, sizeof * p_new_token);
+    struct token* p_new_token = calloc(1, sizeof *p_new_token);
     size_t sz = lexeme_tail - lexeme_head;
     p_new_token->lexeme = calloc(sz + 1, sizeof(char));
     p_new_token->type = type;
@@ -1858,7 +1867,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 bool has_include = s != NULL;
                 free((void*)s);
 
-                struct token* p_new_token = calloc(1, sizeof * p_new_token);
+                struct token* p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_include ? "1" : "0");
@@ -1916,7 +1925,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 */
                 bool has_c_attribute = false;
 
-                struct token* p_new_token = calloc(1, sizeof * p_new_token);
+                struct token* p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_c_attribute ? "1" : "0");
@@ -2065,11 +2074,6 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     assert(list4.head != NULL);
 
     struct preprocessor_ctx pre_ctx = { 0 };
-#ifdef TEST
-    pre_ctx.printf = printf_nothing;
-#else
-    pre_ctx.printf = printf;
-#endif
 
     //struct parser_ctx parser_ctx = { 0 };
     pre_ctx.input_list = list4;
@@ -2404,7 +2408,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
       identifier-list , identifier
     */
     skip_blanks(ctx, &r, input_list);
-    struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+    struct macro_parameter* p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
     p_macro_parameter->name = strdup(input_list->head->lexeme);
     macro->parameters = p_macro_parameter;
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -2417,7 +2421,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
         {
             break;
         }
-        p_macro_parameter->next = calloc(1, sizeof * p_macro_parameter);
+        p_macro_parameter->next = calloc(1, sizeof *p_macro_parameter);
         p_macro_parameter = p_macro_parameter->next;
         p_macro_parameter->name = strdup(input_list->head->lexeme);
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -2540,12 +2544,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (content != NULL)
             {
                 struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-                tctx.printf = printf_nothing;
-#else
-                tctx.printf = printf;
-#endif
-
                 struct token_list list = tokenizer(&tctx, content, fullpath, level + 1, TK_FLAG_NONE);
                 free((void*)content);
 
@@ -2561,7 +2559,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
                     {
                         /*let's print the include path*/
-                        ctx->printf("%s\n", p->path);
+                        preprocessor_set_info_with_token(ctx, r.tail, "dir = '%s'", p->path);
                     }
                 }
                 else
@@ -2660,7 +2658,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             A
             */
 
-            struct macro* macro = calloc(1, sizeof * macro);
+            struct macro* macro = calloc(1, sizeof *macro);
             if (macro == NULL)
             {
                 preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "out of mem");
@@ -2711,7 +2709,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 skip_blanks_level(ctx, &r, input_list, level);
                 if (input_list->head->type == '...')
                 {
-                    struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                    struct macro_parameter* p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
                     p_macro_parameter->name = strdup("__VA_ARGS__");
                     macro->parameters = p_macro_parameter;
 
@@ -2732,7 +2730,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     skip_blanks_level(ctx, &r, input_list, level);
                     if (input_list->head->type == '...')
                     {
-                        struct macro_parameter* p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                        struct macro_parameter* p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
                         p_macro_parameter->name = strdup("__VA_ARGS__");
                         struct macro_parameter* p_last = macro->parameters;
                         assert(p_last != NULL);
@@ -2838,13 +2836,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (input_list->head->type == TK_IDENTIFIER)
             {
-                if (strcmp(input_list->head->lexeme, "CAKE") == 0 ||
-                    strcmp(input_list->head->lexeme, "GCC") == 0)
+                if (strcmp(input_list->head->lexeme, "CAKE") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
                     skip_blanks_level(ctx, &r, input_list, level);
                 }
-
+                
                 if (strcmp(input_list->head->lexeme, "once") == 0)
                 {
                     hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1, 0);
@@ -2864,14 +2861,61 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
 
                 }
-                else if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
+                
+                if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
                 {
-                    // match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
-                    // skip_blanks_level(ctx, &r, input_list, level);
-                    // if (strcmp(ctx->current->lexeme )
-                    // match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
-                    // skip_blanks_level(ctx, &r, input_list, level);
-                    // match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                    skip_blanks_level(ctx, &r, input_list, level);
+
+                    if (input_list->head && strcmp(input_list->head->lexeme, "push") == 0)
+                    {
+                        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                        //#pragma GCC diagnostic push
+                        if (ctx->options.enabled_warnings_stack_top_index <
+                            sizeof(ctx->options.enabled_warnings_stack) / sizeof(ctx->options.enabled_warnings_stack[0]))
+                        {
+                            ctx->options.enabled_warnings_stack_top_index++;
+                            ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] =
+                                ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index - 1];
+                        }
+                    }
+                    else if (input_list->head && strcmp(input_list->head->lexeme, "pop") == 0)
+                    {
+                        //#pragma GCC diagnostic pop
+                        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pop
+                        if (ctx->options.enabled_warnings_stack_top_index > 0)
+                        {
+                            ctx->options.enabled_warnings_stack_top_index--;
+                        }                        
+                    }
+                    else if (input_list->head && strcmp(input_list->head->lexeme, "warning") == 0)
+                    {
+                        //#pragma CAKE diagnostic warning "-Wenum-compare"
+
+                        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
+                        skip_blanks_level(ctx, &r, input_list, level);
+
+                        if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
+                        {
+                            match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
+
+                            enum warning  w = get_warning_flag(input_list->head->lexeme + 1 + 2);
+                            ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;
+                        }
+                    }
+                    else if (input_list->head && strcmp(input_list->head->lexeme, "ignore") == 0)
+                    {
+                        //#pragma CAKE diagnostic ignore "-Wenum-compare"
+
+                        match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//ignore
+                        skip_blanks_level(ctx, &r, input_list, level);
+
+                        if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
+                        {
+                            enum warning  w = get_warning_flag(input_list->head->lexeme + 1 + 2);
+                            ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] &= ~w;
+                        }
+                    }
                 }
             }
 
@@ -3080,12 +3124,6 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             * Faz um novo token com a string montada
             */
             struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-            tctx.printf = printf_nothing;
-#else
-            tctx.printf = printf;
-#endif
-
             struct token_list newlist = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_NONE);
 
             if (newlist.head)
@@ -3094,7 +3132,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             }
             else
             {
-                struct token* p_new_token = calloc(1, sizeof * p_new_token);
+                struct token* p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->lexeme = strdup("");
                 p_new_token->type = TK_PLACEMARKER;
                 token_list_add(&newlist, p_new_token);
@@ -3236,7 +3274,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                         preprocessor_set_error_with_token(C_UNEXPECTED, ctx, input_list->head, "unexpected");
                         throw;
                     }
-                    struct token* p_new_token = calloc(1, sizeof * p_new_token);
+                    struct token* p_new_token = calloc(1, sizeof *p_new_token);
                     p_new_token->lexeme = s;
                     p_new_token->type = TK_STRING_LITERAL;
                     p_new_token->flags = flags;
@@ -3532,11 +3570,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     if (strcmp(macro->name, "__LINE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-        tctx.printf = printf_nothing;
-#else
-        tctx.printf = printf;
-#endif
+
         struct token_list r = tokenizer(&tctx, "1", "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
@@ -3545,11 +3579,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     else if (strcmp(macro->name, "__FILE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-        tctx.printf = printf_nothing;
-#else
-        tctx.printf = printf;
-#endif
+
 
         struct token_list r = tokenizer(&tctx, "\"file\"", "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
@@ -4009,11 +4039,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     struct tm* tm = localtime(&now);
 
     struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-    tctx.printf = printf_nothing;
-#else
-    tctx.printf = printf;
-#endif
+
 
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
@@ -4699,8 +4725,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
-    ctx.printf = printf;
-
+    
     struct token_list r = preprocessor(&ctx, &list, 0);
     const char* s = print_preprocessed_to_string(r.head);
     if (strcmp(s, output) != 0)
@@ -4752,7 +4777,6 @@ int test_preprocessor_in_out(const char* input, const char* output)
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
-    ctx.printf = printf_nothing;
 
     struct token_list r = preprocessor(&ctx, &list, 0);
     const char* result = print_preprocessed_to_string(r.head);
@@ -5342,7 +5366,6 @@ void tetris()
     struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx ctx = { 0 };
-    ctx.printf = printf;
 
     struct token_list r = preprocessor(&ctx, &list, 0);
 
@@ -5437,7 +5460,7 @@ int test_preprocessor_expression(const char* expr, long long expected)
 {
 
     struct preprocessor_ctx ctx = { 0 };
-    ctx.printf = printf;
+    
     struct token_list r = { 0 };
     struct tokenizer_ctx tctx = { 0 };
     struct token_list input = tokenizer(&tctx, expr, "", 0, TK_FLAG_NONE);

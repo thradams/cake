@@ -862,7 +862,7 @@ void check_assigment(struct parser_ctx* ctx,
     struct type* p_right_type = &right->type;
     bool is_null_pointer_constant = false;
 
-    if (type_is_nullptr_t(& right->type) ||
+    if (type_is_nullptr_t(&right->type) ||
         (constant_value_is_valid(&right->constant_value) &&
             constant_value_to_ull(&right->constant_value) == 0))
     {
@@ -1216,7 +1216,7 @@ struct type type_dup(const struct type* p_type)
             struct param* p_param = p->params.head;
             while (p_param)
             {
-                struct param* p_new_param = calloc(1, sizeof * p_new_param);
+                struct param* p_new_param = calloc(1, sizeof *p_new_param);
                 p_new_param->type = calloc(1, sizeof(struct type));
                 *p_new_param->type = type_dup(p_param->type);
 
@@ -1816,7 +1816,7 @@ struct type make_void_ptr_type()
     struct type t = { 0 };
     t.category = TYPE_CATEGORY_POINTER;
 
-    struct type* p = calloc(1, sizeof * p);
+    struct type* p = calloc(1, sizeof *p);
     p->category = TYPE_CATEGORY_ITSELF;
     p->type_specifier_flags = TYPE_SPECIFIER_VOID;
     t.next = p;

@@ -210,19 +210,21 @@ void parser_ctx_destroy(struct parser_ctx* ctx)
 void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     ctx->n_errors++;
+#ifndef TEST
 
     if (p_token)
-        print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
-    char buffer[200] = { 0 };
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
+
+    char buffer[200] = {0};
     va_list args;
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+    printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 
-
-    print_line_and_token(ctx->printf, p_token);
+    print_line_and_token(p_token);
+#endif
 }
 
 
@@ -243,18 +245,19 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
     }
 
     ctx->n_warnings++;
+#ifndef TEST
+    print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
 
-    print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
-
-    char buffer[200] = { 0 };
+    char buffer[200] = {0};
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+    printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
 
-    print_line_and_token(ctx->printf, p_token);
+    print_line_and_token(p_token);
+#endif
     return 1;
 }
 
@@ -276,17 +279,17 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
     }
 
     ctx->n_info++;
-
-    print_position(ctx->printf, p_token->token_origin->lexeme, p_token->line, p_token->col);
-    char buffer[200] = { 0 };
+#ifndef TEST
+    print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
+    char buffer[200] = {0};
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    ctx->printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
-
-    print_line_and_token(ctx->printf, p_token);
+    printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+    print_line_and_token(p_token);
+#endif // !TEST
 }
 
 
@@ -792,141 +795,141 @@ enum token_type is_keyword(const char* text)
     enum token_type result = 0;
     switch (text[0])
     {
-    case 'a':
-        if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-        else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
-        else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
-        else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
-        break;
-    case 'b':
-        if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
-        else if (strcmp("bool", text) == 0) result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
+        case 'a':
+            if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+            else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
+            else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
+            else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+            break;
+        case 'b':
+            if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
+            else if (strcmp("bool", text) == 0) result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
 
-        break;
-    case 'c':
-        if (strcmp("case", text) == 0) result = TK_KEYWORD_CASE;
-        else if (strcmp("char", text) == 0) result = TK_KEYWORD_CHAR;
-        else if (strcmp("const", text) == 0) result = TK_KEYWORD_CONST;
-        else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;
-        else if (strcmp("continue", text) == 0) result = TK_KEYWORD_CONTINUE;
-        else if (strcmp("catch", text) == 0) result = TK_KEYWORD_CATCH;
-        break;
-    case 'd':
-        if (strcmp("default", text) == 0) result = TK_KEYWORD_DEFAULT;
-        else if (strcmp("do", text) == 0) result = TK_KEYWORD_DO;
-        else if (strcmp("defer", text) == 0) result = TK_KEYWORD_DEFER;
-        else if (strcmp("double", text) == 0) result = TK_KEYWORD_DOUBLE;
-        break;
-    case 'e':
-        if (strcmp("else", text) == 0) result = TK_KEYWORD_ELSE;
-        else if (strcmp("enum", text) == 0) result = TK_KEYWORD_ENUM;
-        else if (strcmp("extern", text) == 0) result = TK_KEYWORD_EXTERN;
-        break;
-    case 'f':
-        if (strcmp("float", text) == 0) result = TK_KEYWORD_FLOAT;
-        else if (strcmp("for", text) == 0) result = TK_KEYWORD_FOR;
-        else if (strcmp("false", text) == 0) result = TK_KEYWORD_FALSE;
-        break;
-    case 'g':
-        if (strcmp("goto", text) == 0) result = TK_KEYWORD_GOTO;
-        break;
-    case 'i':
-        if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
-        else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
-        else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
-        break;
-    case 'n':
-        if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
-        break;
-    case 'l':
-        if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
-        break;
-    case 'r':
-        if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
-        else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
-        else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
-        else if (strcmp("repeat", text) == 0) result = TK_KEYWORD_REPEAT;
-        break;
-    case 's':
-        if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
-        else if (strcmp("signed", text) == 0) result = TK_KEYWORD_SIGNED;
-        else if (strcmp("sizeof", text) == 0) result = TK_KEYWORD_SIZEOF;
-        else if (strcmp("static", text) == 0) result = TK_KEYWORD_STATIC;
-        else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
-        else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
-        else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
+            break;
+        case 'c':
+            if (strcmp("case", text) == 0) result = TK_KEYWORD_CASE;
+            else if (strcmp("char", text) == 0) result = TK_KEYWORD_CHAR;
+            else if (strcmp("const", text) == 0) result = TK_KEYWORD_CONST;
+            else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;
+            else if (strcmp("continue", text) == 0) result = TK_KEYWORD_CONTINUE;
+            else if (strcmp("catch", text) == 0) result = TK_KEYWORD_CATCH;
+            break;
+        case 'd':
+            if (strcmp("default", text) == 0) result = TK_KEYWORD_DEFAULT;
+            else if (strcmp("do", text) == 0) result = TK_KEYWORD_DO;
+            else if (strcmp("defer", text) == 0) result = TK_KEYWORD_DEFER;
+            else if (strcmp("double", text) == 0) result = TK_KEYWORD_DOUBLE;
+            break;
+        case 'e':
+            if (strcmp("else", text) == 0) result = TK_KEYWORD_ELSE;
+            else if (strcmp("enum", text) == 0) result = TK_KEYWORD_ENUM;
+            else if (strcmp("extern", text) == 0) result = TK_KEYWORD_EXTERN;
+            break;
+        case 'f':
+            if (strcmp("float", text) == 0) result = TK_KEYWORD_FLOAT;
+            else if (strcmp("for", text) == 0) result = TK_KEYWORD_FOR;
+            else if (strcmp("false", text) == 0) result = TK_KEYWORD_FALSE;
+            break;
+        case 'g':
+            if (strcmp("goto", text) == 0) result = TK_KEYWORD_GOTO;
+            break;
+        case 'i':
+            if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
+            else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
+            else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
+            break;
+        case 'n':
+            if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
+            break;
+        case 'l':
+            if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
+            break;
+        case 'r':
+            if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
+            else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
+            else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
+            else if (strcmp("repeat", text) == 0) result = TK_KEYWORD_REPEAT;
+            break;
+        case 's':
+            if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
+            else if (strcmp("signed", text) == 0) result = TK_KEYWORD_SIGNED;
+            else if (strcmp("sizeof", text) == 0) result = TK_KEYWORD_SIZEOF;
+            else if (strcmp("static", text) == 0) result = TK_KEYWORD_STATIC;
+            else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
+            else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
+            else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
 
-        break;
-    case 't':
-        if (strcmp("typedef", text) == 0) result = TK_KEYWORD_TYPEDEF;
-        else if (strcmp("typeof", text) == 0) result = TK_KEYWORD_TYPEOF; /*C23*/
-        else if (strcmp("typeof_unqual", text) == 0) result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
-        else if (strcmp("true", text) == 0) result = TK_KEYWORD_TRUE; /*C23*/
-        else if (strcmp("thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
-        else if (strcmp("try", text) == 0) result = TK_KEYWORD_TRY;
-        else if (strcmp("throw", text) == 0) result = TK_KEYWORD_THROW;
-        break;
-    case 'u':
-        if (strcmp("union", text) == 0) result = TK_KEYWORD_UNION;
-        else if (strcmp("unsigned", text) == 0) result = TK_KEYWORD_UNSIGNED;
-        break;
-    case 'v':
-        if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
-        else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
-        break;
-    case 'w':
-        if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
-        break;
-    case '_':
+            break;
+        case 't':
+            if (strcmp("typedef", text) == 0) result = TK_KEYWORD_TYPEDEF;
+            else if (strcmp("typeof", text) == 0) result = TK_KEYWORD_TYPEOF; /*C23*/
+            else if (strcmp("typeof_unqual", text) == 0) result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
+            else if (strcmp("true", text) == 0) result = TK_KEYWORD_TRUE; /*C23*/
+            else if (strcmp("thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
+            else if (strcmp("try", text) == 0) result = TK_KEYWORD_TRY;
+            else if (strcmp("throw", text) == 0) result = TK_KEYWORD_THROW;
+            break;
+        case 'u':
+            if (strcmp("union", text) == 0) result = TK_KEYWORD_UNION;
+            else if (strcmp("unsigned", text) == 0) result = TK_KEYWORD_UNSIGNED;
+            break;
+        case 'v':
+            if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
+            else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
+            break;
+        case 'w':
+            if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
+            break;
+        case '_':
 
-        //begin microsoft
-        if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
-        else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
-        else if (strcmp("__int32", text) == 0) result = TK_KEYWORD__INT32;
-        else if (strcmp("__int64", text) == 0) result = TK_KEYWORD__INT64;
-        else if (strcmp("__forceinline", text) == 0) result = TK_KEYWORD_INLINE;
-        else if (strcmp("__inline", text) == 0) result = TK_KEYWORD_INLINE;
-        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0) result = TK_KEYWORD__ASM;
-        else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-        //
-        //end microsoft
+            //begin microsoft
+            if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
+            else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
+            else if (strcmp("__int32", text) == 0) result = TK_KEYWORD__INT32;
+            else if (strcmp("__int64", text) == 0) result = TK_KEYWORD__INT64;
+            else if (strcmp("__forceinline", text) == 0) result = TK_KEYWORD_INLINE;
+            else if (strcmp("__inline", text) == 0) result = TK_KEYWORD_INLINE;
+            else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0) result = TK_KEYWORD__ASM;
+            else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+            //
+            //end microsoft
 
-        /*EXPERIMENTAL EXTENSION*/
-        else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
-        else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
-        else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
-        /*EXPERIMENTAL EXTENSION*/
+            /*EXPERIMENTAL EXTENSION*/
+            else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
+            else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
+            else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
+            /*EXPERIMENTAL EXTENSION*/
 
-        /*TRAITS EXTENSION*/
-        else if (strcmp("_is_const", text) == 0) result = TK_KEYWORD_IS_CONST;
-        else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
-        else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
-        else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
-        else if (strcmp("_is_arithmetic", text) == 0) result = TK_KEYWORD_IS_ARITHMETIC;
-        else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
-        else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
-        else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
-        /*TRAITS EXTENSION*/
+            /*TRAITS EXTENSION*/
+            else if (strcmp("_is_const", text) == 0) result = TK_KEYWORD_IS_CONST;
+            else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
+            else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
+            else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
+            else if (strcmp("_is_arithmetic", text) == 0) result = TK_KEYWORD_IS_ARITHMETIC;
+            else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
+            else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
+            else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
+            /*TRAITS EXTENSION*/
 
-        else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
-        else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
-        else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-        else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
-        else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
-        else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
-        else if (strcmp("_Complex", text) == 0) result = TK_KEYWORD__COMPLEX;
-        else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL32;
-        else if (strcmp("_Decimal64", text) == 0) result = TK_KEYWORD__DECIMAL64;
-        else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL128;
-        else if (strcmp("_Generic", text) == 0) result = TK_KEYWORD__GENERIC;
-        else if (strcmp("_Imaginary", text) == 0) result = TK_KEYWORD__IMAGINARY;
-        else if (strcmp("_Noreturn", text) == 0) result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
-        else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
-        else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
-        else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
-        break;
-    default:
-        break;
+            else if (strcmp("_Hashof", text) == 0) result = TK_KEYWORD_HASHOF;
+            else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
+            else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+            else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
+            else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
+            else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
+            else if (strcmp("_Complex", text) == 0) result = TK_KEYWORD__COMPLEX;
+            else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL32;
+            else if (strcmp("_Decimal64", text) == 0) result = TK_KEYWORD__DECIMAL64;
+            else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL128;
+            else if (strcmp("_Generic", text) == 0) result = TK_KEYWORD__GENERIC;
+            else if (strcmp("_Imaginary", text) == 0) result = TK_KEYWORD__IMAGINARY;
+            else if (strcmp("_Noreturn", text) == 0) result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
+            else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
+            else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
+            else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
+            break;
+        default:
+            break;
     }
     return result;
 }
@@ -1312,7 +1315,7 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
 
 enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flags_opt)
 {
-    struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
+    struct stream stream = {.source = lexeme, .current = lexeme, .line = 1, .col = 1};
     return parse_number_core(&stream, flags_opt);
 }
 
@@ -1324,6 +1327,9 @@ static void pragma_skip_blanks(struct parser_ctx* ctx)
     }
 }
 
+/*
+ * Some pragmas needs to be handled by the compiler
+ */
 static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 {
     if (ctx->current->type == TK_PRAGMA)
@@ -1341,68 +1347,55 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
         {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
-        }
 
-
-        if (ctx->current && strcmp(ctx->current->lexeme, "push") == 0)
-        {
-            //#pragma GCC diagnostic push
-            if (ctx->options.enabled_warnings_stack_top_index <
-                sizeof(ctx->options.enabled_warnings_stack) / sizeof(ctx->options.enabled_warnings_stack[0]))
+            if (ctx->current && strcmp(ctx->current->lexeme, "push") == 0)
             {
-                ctx->options.enabled_warnings_stack_top_index++;
-                ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] =
-                    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index - 1];
+                //#pragma GCC diagnostic push
+                if (ctx->options.enabled_warnings_stack_top_index <
+                    sizeof(ctx->options.enabled_warnings_stack) / sizeof(ctx->options.enabled_warnings_stack[0]))
+                {
+                    ctx->options.enabled_warnings_stack_top_index++;
+                    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] =
+                        ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index - 1];
+                }
+                ctx->current = ctx->current->next;
+                pragma_skip_blanks(ctx);
             }
-            else
+            else if (ctx->current && strcmp(ctx->current->lexeme, "pop") == 0)
             {
+                //#pragma CAKE diagnostic pop
+                if (ctx->options.enabled_warnings_stack_top_index > 0)
+                {
+                    ctx->options.enabled_warnings_stack_top_index--;
+                }
+                ctx->current = ctx->current->next;
+                pragma_skip_blanks(ctx);
             }
-
-            ctx->current = ctx->current->next;
-            pragma_skip_blanks(ctx);
-        }
-
-        if (ctx->current && strcmp(ctx->current->lexeme, "pop") == 0)
-        {
-
-            if (ctx->options.enabled_warnings_stack_top_index > 0)
+            else if (ctx->current && strcmp(ctx->current->lexeme, "warning") == 0)
             {
-                ctx->options.enabled_warnings_stack_top_index--;
+                //#pragma CAKE diagnostic warning "-Wenum-compare"
+
+                ctx->current = ctx->current->next;
+                pragma_skip_blanks(ctx);
+
+                if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
+                {
+                    enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
+                    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;
+                }
             }
-            else
+            else if (ctx->current && strcmp(ctx->current->lexeme, "ignore") == 0)
             {
-            }
+                //#pragma CAKE diagnostic ignore "-Wenum-compare"
 
-            //#pragma GCC diagnostic pop
-            ctx->current = ctx->current->next;
-            pragma_skip_blanks(ctx);
-        }
+                ctx->current = ctx->current->next;
+                pragma_skip_blanks(ctx);
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "warning") == 0)
-        {
-            //#pragma CAKE diagnostic warning "-Wenum-compare"
-
-            ctx->current = ctx->current->next;
-            pragma_skip_blanks(ctx);
-
-            if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
-            {
-                enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
-                ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;
-            }
-        }
-
-        if (ctx->current && strcmp(ctx->current->lexeme, "ignore") == 0)
-        {
-            //#pragma CAKE diagnostic ignore "-Wenum-compare"
-
-            ctx->current = ctx->current->next;
-            pragma_skip_blanks(ctx);
-
-            if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
-            {
-                enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
-                ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] &= ~w;
+                if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
+                {
+                    enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
+                    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] &= ~w;
+                }
             }
         }
     }
@@ -1425,7 +1418,6 @@ static struct token* parser_skip_blanks(struct parser_ctx* ctx)
 
     if (ctx->current)
     {
-
         token_promote(ctx->current); //transforma para token de parser
     }
 
@@ -1483,11 +1475,7 @@ void print_declaration_specifiers(struct osstream* ss, struct declaration_specif
     }
     else if (p_declaration_specifiers->struct_or_union_specifier)
     {
-        //
-        if (p_declaration_specifiers->struct_or_union_specifier->tag_name)
-            ss_fprintf(ss, "struct %s", p_declaration_specifiers->struct_or_union_specifier->tag_name);
-        else
-            assert(false);
+        ss_fprintf(ss, "struct %s", p_declaration_specifiers->struct_or_union_specifier->tag_name);
     }
     else if (p_declaration_specifiers->typedef_declarator)
     {
@@ -1887,7 +1875,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx)
     //    storage-class-specifier
     //    type-specifier-qualifier
     //    function-specifier
-    struct declaration_specifier* p_declaration_specifier = calloc(1, sizeof * p_declaration_specifier);
+    struct declaration_specifier* p_declaration_specifier = calloc(1, sizeof *p_declaration_specifier);
     if (first_of_storage_class_specifier(ctx))
     {
         p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
@@ -1972,7 +1960,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
                     p_init_declarator->p_declarator->type.static_array)
                 {
-                    compiler_set_error_with_token(C_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER, 
+                    compiler_set_error_with_token(C_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
                         ctx,
                         p_init_declarator->p_declarator->first_token,
                         "static or type qualifiers are not allowed in non-parameter array declarator");
@@ -2121,7 +2109,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 if (p_init_declarator->initializer &&
                     p_init_declarator->initializer->assignment_expression)
                 {
-                    struct type t = { 0 };
+                    struct type t = {0};
 
                     if (p_init_declarator->initializer->assignment_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
                     {
@@ -2148,7 +2136,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 p_init_declarator->initializer->assignment_expression &&
                 type_is_pointer_to_const(&p_init_declarator->initializer->assignment_expression->type))
             {
-                if (p_init_declarator->p_declarator && 
+                if (p_init_declarator->p_declarator &&
                     !type_is_pointer_to_const(&p_init_declarator->p_declarator->type))
                 {
                     compiler_set_warning_with_token(W_DISCARDED_QUALIFIERS, ctx, ctx->current, "const qualifier discarded");
@@ -2177,7 +2165,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
       init-declarator
       init-declarator-list , init-declarator
     */
-    struct init_declarator_list init_declarator_list = { 0 };
+    struct init_declarator_list init_declarator_list = {0};
     struct init_declarator* p_init_declarator = NULL;
 
     try
@@ -2217,32 +2205,32 @@ struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx)
     new_storage_class_specifier->token = ctx->current;
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_TYPEDEF:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
-        break;
-    case TK_KEYWORD_EXTERN:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
-        break;
-    case TK_KEYWORD_CONSTEXPR:
+        case TK_KEYWORD_TYPEDEF:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
+            break;
+        case TK_KEYWORD_EXTERN:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
+            break;
+        case TK_KEYWORD_CONSTEXPR:
 
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
-        if (ctx->scopes.tail->scope_level == 0)
-            new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
-        break;
-    case TK_KEYWORD_STATIC:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
-        break;
-    case TK_KEYWORD__THREAD_LOCAL:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
-        break;
-    case TK_KEYWORD_AUTO:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
-        break;
-    case TK_KEYWORD_REGISTER:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
-        break;
-    default:
-        assert(false);
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
+            if (ctx->scopes.tail->scope_level == 0)
+                new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
+            break;
+        case TK_KEYWORD_STATIC:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
+            break;
+        case TK_KEYWORD__THREAD_LOCAL:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
+            break;
+        case TK_KEYWORD_AUTO:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
+            break;
+        case TK_KEYWORD_REGISTER:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
+            break;
+        default:
+            assert(false);
     }
 
     /*
@@ -2372,7 +2360,7 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx)
        typeof-specifier                      C23
     */
 
-    struct type_specifier* p_type_specifier = calloc(1, sizeof * p_type_specifier);
+    struct type_specifier* p_type_specifier = calloc(1, sizeof *p_type_specifier);
 
 
 
@@ -2380,128 +2368,128 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx)
     //typeof (expression)
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_VOID:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_VOID;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_VOID:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_VOID;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_CHAR:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_CHAR:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_SHORT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_SHORT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_INT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_INT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-        //microsoft
-    case TK_KEYWORD__INT8:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT8;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            //microsoft
+        case TK_KEYWORD__INT8:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__INT16:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT16;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-    case TK_KEYWORD__INT32:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT32;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-    case TK_KEYWORD__INT64:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT64;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-        //end microsoft
+        case TK_KEYWORD__INT16:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+        case TK_KEYWORD__INT32:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+        case TK_KEYWORD__INT64:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+            //end microsoft
 
-    case TK_KEYWORD_LONG:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_LONG;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_LONG:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_LONG;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_FLOAT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_FLOAT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_DOUBLE:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_DOUBLE:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_SIGNED:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_SIGNED:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_UNSIGNED:
+        case TK_KEYWORD_UNSIGNED:
 
-        p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__BOOL:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__BOOL:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__COMPLEX:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__COMPLEX:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL32:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__DECIMAL32:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL64:
+        case TK_KEYWORD__DECIMAL64:
 
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL128:
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__DECIMAL128:
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
 
     }
@@ -2579,7 +2567,7 @@ bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_s
 
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx)
 {
-    struct struct_or_union_specifier* p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
+    struct struct_or_union_specifier* p_struct_or_union_specifier = calloc(1, sizeof *p_struct_or_union_specifier);
 
     if (ctx->current->type == TK_KEYWORD_STRUCT ||
         ctx->current->type == TK_KEYWORD_UNION)
@@ -2619,8 +2607,8 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
             else
             {
                 compiler_set_error_with_token(C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
-                    ctx, 
-                    ctx->current, 
+                    ctx,
+                    ctx->current,
                     "use of '%s' with tag type that does not match previous declaration.",
                     ctx->current->lexeme);
             }
@@ -2759,7 +2747,7 @@ struct member_declarator_list* member_declarator_list(struct parser_ctx* ctx,
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx)
 {
-    struct member_declaration_list list = { 0 };
+    struct member_declaration_list list = {0};
     //member_declaration
     //member_declaration_list member_declaration
 
@@ -3092,8 +3080,8 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
                     p_enum_specifier->enumerator_list.head != NULL)
                 {
                     compiler_set_error_with_token(C_MULTIPLE_DEFINITION_ENUM,
-                        ctx, 
-                        p_enum_specifier->tag_token, 
+                        ctx,
+                        p_enum_specifier->tag_token,
                         "multiple definition of 'enum %s'",
                         p_enum_specifier->tag_token->lexeme);
                 }
@@ -3109,8 +3097,8 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
             else
             {
                 compiler_set_error_with_token(C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
-                    ctx, 
-                    ctx->current, "use of '%s' with tag type that does not match previous declaration.", 
+                    ctx,
+                    ctx->current, "use of '%s' with tag type that does not match previous declaration.",
                     ctx->current->lexeme);
                 throw;
             }
@@ -3176,7 +3164,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
         enumerator_list ',' enumerator
      */
 
-    struct enumerator_list enumeratorlist = { 0 };
+    struct enumerator_list enumeratorlist = {0};
     struct enumerator* p_enumerator = NULL;
     try
     {
@@ -3262,7 +3250,7 @@ struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx)
 struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx)
 {
     //'_Atomic' '(' type_name ')'
-    struct atomic_type_specifier* p = calloc(1, sizeof * p);
+    struct atomic_type_specifier* p = calloc(1, sizeof *p);
     p->token = ctx->current;
     parser_match_tk(ctx, TK_KEYWORD__ATOMIC);
     parser_match_tk(ctx, '(');
@@ -3274,22 +3262,22 @@ struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx)
 
 struct type_qualifier* type_qualifier(struct parser_ctx* ctx)
 {
-    struct type_qualifier* p_type_qualifier = calloc(1, sizeof * p_type_qualifier);
+    struct type_qualifier* p_type_qualifier = calloc(1, sizeof *p_type_qualifier);
 
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_CONST:
-        p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
-        break;
-    case TK_KEYWORD_RESTRICT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
-        break;
-    case TK_KEYWORD_VOLATILE:
-        p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
-        break;
-    case TK_KEYWORD__ATOMIC:
-        p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
-        break;
+        case TK_KEYWORD_CONST:
+            p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
+            break;
+        case TK_KEYWORD_RESTRICT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
+            break;
+        case TK_KEYWORD_VOLATILE:
+            p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
+            break;
+        case TK_KEYWORD__ATOMIC:
+            p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
+            break;
     }
 
     p_type_qualifier->token = ctx->current;
@@ -3323,7 +3311,7 @@ struct function_specifier* function_specifier(struct parser_ctx* ctx)
     struct function_specifier* p_function_specifier = NULL;
     try
     {
-        p_function_specifier = calloc(1, sizeof * p_function_specifier);
+        p_function_specifier = calloc(1, sizeof *p_function_specifier);
         if (p_function_specifier == NULL) throw;
 
         p_function_specifier->token = ctx->current;
@@ -3497,7 +3485,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
     struct array_declarator* p_array_declarator = NULL;
     try
     {
-        p_array_declarator = calloc(1, sizeof * p_array_declarator);
+        p_array_declarator = calloc(1, sizeof *p_array_declarator);
         if (p_array_declarator == NULL) throw;
 
         p_array_declarator->direct_declarator = p_direct_declarator;
@@ -4640,7 +4628,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
 {
     //'{' block_item_list_opt '}'
     struct compound_statement* p_compound_statement = calloc(1, sizeof(struct compound_statement));
-    struct scope block_scope = { .variables.capacity = 10 };
+    struct scope block_scope = {.variables.capacity = 10};
     scope_list_push(&ctx->scopes, &block_scope);
 
     p_compound_statement->first_token = ctx->current;
@@ -4739,7 +4727,7 @@ struct block_item_list block_item_list(struct parser_ctx* ctx)
       block_item
       block_item_list block_item
     */
-    struct block_item_list block_item_list = { 0 };
+    struct block_item_list block_item_list = {0};
     struct block_item* p_block_item = NULL;
     try
     {
@@ -4912,14 +4900,14 @@ struct selection_statement* selection_statement(struct parser_ctx* ctx)
 
     p_selection_statement->first_token = ctx->current;
 
-    struct scope if_scope = { 0 };
+    struct scope if_scope = {0};
     scope_list_push(&ctx->scopes, &if_scope); //variaveis decladas no if
 
     if (ctx->current->type == TK_KEYWORD_IF)
     {
         parser_match(ctx);
 
-        if ( !(ctx->current->flags & TK_FLAG_MACRO_EXPANDED)
+        if (!(ctx->current->flags & TK_FLAG_MACRO_EXPANDED)
             && !style_has_one_space(ctx->current))
         {
             compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "one space");
@@ -5049,7 +5037,7 @@ struct iteration_statement* iteration_statement(struct parser_ctx* ctx)
         parser_match_tk(ctx, '(');
         if (first_of_declaration_specifier(ctx))
         {
-            struct scope for_scope = { 0 };
+            struct scope for_scope = {0};
             scope_list_push(&ctx->scopes, &for_scope);
 
             struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt =
@@ -5217,7 +5205,7 @@ void declaration_list_destroy(struct declaration_list* list)
 
 struct declaration_list translation_unit(struct parser_ctx* ctx)
 {
-    struct declaration_list declaration_list = { 0 };
+    struct declaration_list declaration_list = {0};
     /*
       translation_unit:
       external_declaration
@@ -5293,26 +5281,18 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                 */
                 if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
                 {
-                    ctx->printf(WHITE "%s:%d:%d: ",
-                        p_declarator->name->token_origin->lexeme,
-                        p_declarator->name->line,
-                        p_declarator->name->col);
-
-                    if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.\n",
-                            p_declarator->name->lexeme);
+                    compiler_set_warning_with_token(W_DECLARATOR_STATE, ctx,
+                        p_declarator->name->token_origin,
+                        "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.",
+                        p_declarator->name->lexeme);
                 }
 
                 if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
                 {
-                    ctx->printf(WHITE "%s:%d:%d: ",
-                        p_declarator->name->token_origin->lexeme,
-                        p_declarator->name->line,
-                        p_declarator->name->col);
-
-                    if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
-                        ctx->printf(LIGHTMAGENTA "warning: " WHITE "MUST_FREE declarator flag of '%s' must be cleared before end of scope\n",
-                            p_declarator->name->lexeme);
+                    compiler_set_warning_with_token(W_DECLARATOR_STATE, ctx,
+                        p_declarator->name->token_origin,
+                        "MUST_FREE declarator flag of '%s' must be cleared before and of scope.",
+                        p_declarator->name->lexeme);
                 }
 
                 if (!type_is_maybe_unused(&p_declarator->type) &&
@@ -5330,35 +5310,28 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
     }
 }
 
-struct declaration_list parse(struct options* options,
+struct declaration_list parse(struct parser_ctx* ctx,
     struct token_list* list,
     struct report* report)
 {
 
     s_anonymous_struct_count = 0;
 
-    struct scope file_scope = { 0 };
-    struct parser_ctx ctx = { .options = *options };
-#ifdef TEST
-    ctx.printf = printf_nothing;
-#else
-    ctx.printf = printf;
-#endif
+    struct scope file_scope = {0};
+
+    scope_list_push(&ctx->scopes, &file_scope);
+    ctx->input_list = *list;
+    ctx->current = ctx->input_list.head;
+    parser_skip_blanks(ctx);
+
+    struct declaration_list l = translation_unit(ctx);
+    show_unused_file_scope(ctx);
+
+    report->error_count = ctx->n_errors;
+    report->warnings_count = ctx->n_warnings;
+    report->info_count = ctx->n_info;
 
 
-    scope_list_push(&ctx.scopes, &file_scope);
-    ctx.input_list = *list;
-    ctx.current = ctx.input_list.head;
-    parser_skip_blanks(&ctx);
-
-    struct declaration_list l = translation_unit(&ctx);
-    show_unused_file_scope(&ctx);
-
-    report->error_count = ctx.n_errors;
-    report->warnings_count = ctx.n_warnings;
-    report->info_count = ctx.n_info;
-
-    parser_ctx_destroy(&ctx);
 
     scope_destroy(&file_scope);
 
@@ -5385,12 +5358,7 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
         {
             char buffer[200];
             snprintf(buffer, sizeof buffer, "#define %s \n", argv[i] + 2);
-            struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-            tctx.printf = printf_nothing;
-#else
-            tctx.printf = printf;
-#endif
+            struct tokenizer_ctx tctx = {0};
             struct token_list l1 = tokenizer(&tctx, buffer, "", 0, TK_FLAG_NONE);
             preprocessor(prectx, &l1, 0);
             token_list_clear(&l1);
@@ -5441,7 +5409,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             STR);
 
 
-        n = (int)strlen(env);
+        n = (int) strlen(env);
 #endif
     }
 
@@ -5456,7 +5424,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             {
                 break;
             }
-            char filename_local[500] = { 0 };
+            char filename_local[500] = {0};
             int count = 0;
             while (*p != '\0' && *p != ';')
             {
@@ -5482,44 +5450,34 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 
 const char* format_code(struct options* options, const char* content)
 {
-    struct ast ast = { 0 };
+    struct ast ast = {0};
     const char* s = NULL;
 
 
-    struct preprocessor_ctx prectx = { 0 };
-
-#ifdef TEST
-    prectx.printf = printf_nothing;
-#else
-    prectx.printf = printf;
-#endif
-
+    struct preprocessor_ctx prectx = {0};
 
     prectx.macros.capacity = 5000;
     add_standard_macros(&prectx);
 
+    struct parser_ctx ctx = {0};
+    ctx.options = *options;
 
     try
     {
         prectx.options = *options;
         append_msvc_include_dir(&prectx);
 
-        struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-        tctx.printf = printf_nothing;
-#else
-        tctx.printf = printf;
-#endif
-
+        struct tokenizer_ctx tctx = {0};
         struct token_list tokens = tokenizer(&tctx, content, "", 0, TK_FLAG_NONE);
         ast.token_list = preprocessor(&prectx, &tokens, 0);
         if (prectx.n_errors != 0) throw;
 
-        struct report report = { 0 };
-        ast.declaration_list = parse(options, &ast.token_list, &report);
+        struct report report = {0};
+
+        ast.declaration_list = parse(&ctx, &ast.token_list, &report);
         if (report.error_count > 0) throw;
 
-        struct format_visit_ctx visit_ctx = { 0 };
+        struct format_visit_ctx visit_ctx = {0};
         visit_ctx.ast = ast;
         format_visit(&visit_ctx);
 
@@ -5534,7 +5492,7 @@ const char* format_code(struct options* options, const char* content)
 
     }
 
-
+    parser_ctx_destroy(&ctx);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
     return s;
@@ -5544,7 +5502,7 @@ const char* format_code(struct options* options, const char* content)
 void ast_format_visit(struct ast* ast)
 {
     /*format input source before transformation*/
-    struct format_visit_ctx visit_ctx = { 0 };
+    struct format_visit_ctx visit_ctx = {0};
     visit_ctx.ast = *ast;
     format_visit(&visit_ctx);
 }
@@ -5556,7 +5514,7 @@ void c_visit(struct ast* ast)
 
 void ast_wasm_visit(struct ast* ast)
 {
-    struct wasm_visit_ctx ctx = { 0 };
+    struct wasm_visit_ctx ctx = {0};
     ctx.ast = *ast;
     wasm_visit(&ctx);
 }
@@ -5569,14 +5527,7 @@ int compile_one_file(const char* file_name,
     struct report* report)
 {
 
-    struct preprocessor_ctx prectx = { 0 };
-
-#ifdef TEST
-    prectx.printf = printf_nothing;
-#else
-    prectx.printf = printf;
-#endif
-
+    struct preprocessor_ctx prectx = {0};
 
     prectx.macros.capacity = 5000;
 
@@ -5584,13 +5535,29 @@ int compile_one_file(const char* file_name,
 
     //print_all_macros(&prectx);
 
-    struct ast ast = { 0 };
+    struct ast ast = {0};
 
     const char* s = NULL;
 
+    struct parser_ctx ctx = {0};
+    ctx.options = *options;
+
     try
     {
+        ctx.sarif_file = fopen("file.sarif", "w");
+        if (ctx.sarif_file)
+        {
+#define BEGIN \
+"{\n"\
+"  \"version\": \"2.1.0\",\n"\
+"  \"$schema\": \"https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json\",\n"\
+"  \"runs\": [\n"\
+"    {\n"\
+"      \"results\": [\n"\
+"\n"
 
+            fprintf(ctx.sarif_file, "%s", BEGIN);
+        }
 
         if (fill_preprocessor_options(argc, argv, &prectx) != 0)
         {
@@ -5601,6 +5568,7 @@ int compile_one_file(const char* file_name,
         append_msvc_include_dir(&prectx);
 
 
+
         char* content = read_file(file_name);
         if (content == NULL)
         {
@@ -5609,13 +5577,7 @@ int compile_one_file(const char* file_name,
             throw;
         }
 
-        struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-        tctx.printf = printf_nothing;
-#else
-        tctx.printf = printf;
-#endif
-
+        struct tokenizer_ctx tctx = {0};
         struct token_list tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
 
 
@@ -5627,11 +5589,12 @@ int compile_one_file(const char* file_name,
         {
             const char* s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
-            free((void*)s2);
+            free((void*) s2);
         }
         else
         {
-            ast.declaration_list = parse(options, &ast.token_list, report);
+
+            ast.declaration_list = parse(&ctx, &ast.token_list, report);
             if (report->error_count > 0) throw;
 
             //ast_wasm_visit(&ast);
@@ -5640,10 +5603,10 @@ int compile_one_file(const char* file_name,
             {
                 if (options->format_input)
                 {
-                    struct format_visit_ctx f = { .ast = ast, .identation = 4 };
+                    struct format_visit_ctx f = {.ast = ast, .identation = 4};
                     format_visit(&f);
                 }
-                struct visit_ctx visit_ctx = { 0 };
+                struct visit_ctx visit_ctx = {0};
                 visit_ctx.target = options->target;
                 visit_ctx.ast = ast;
                 visit(&visit_ctx);
@@ -5657,7 +5620,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* s2 = format_code(options, s);
-                    free((void*)s);
+                    free((void*) s);
                     s = s2;
                 }
 
@@ -5682,8 +5645,30 @@ int compile_one_file(const char* file_name,
         //printf("Error %s\n", error->message);
     }
 
-
-    free((void*)s);
+    if (ctx.sarif_file)
+    {
+        if (ctx.sarif_file)
+        {
+#define END \
+"      ],\n"\
+"      \"tool\": {\n"\
+"        \"driver\": {\n"\
+"          \"name\": \"cake\",\n"\
+"          \"fullName\": \"cake code analysis\",\n"\
+"          \"version\": \"0.5\",\n"\
+"          \"informationUri\": \"https://github.com/cake-build\"\n"\
+"        }\n"\
+"      }\n"\
+"    }\n"\
+"  ]\n"\
+"}\n"\
+"\n"
+            fprintf(ctx.sarif_file, "%s", END);            
+        }
+        fclose(ctx.sarif_file);
+    }
+    parser_ctx_destroy(&ctx);
+    free((void*) s);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
 
@@ -5700,7 +5685,7 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MAX_P
         if (argv[i][0] == '-')
             continue;
 
-        char fullpath_i[MAX_PATH] = { 0 };
+        char fullpath_i[MAX_PATH] = {0};
         realpath(argv[i], fullpath_i);
         strcpy(root_dir, fullpath_i);
         dirname(root_dir);
@@ -5713,7 +5698,7 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MAX_P
                 if (argv[j][0] == '-')
                     continue;
 
-                char fullpath_j[MAX_PATH] = { 0 };
+                char fullpath_j[MAX_PATH] = {0};
                 realpath(argv[j], fullpath_j);
                 if (fullpath_j[k] != ch)
                 {
@@ -5747,7 +5732,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
             continue;
         }
 
-        char temp[MAX_PATH] = { 0 };
+        char temp[MAX_PATH] = {0};
         strncpy(temp, outdir, p - outdir);
 
         int er = mkdir(temp, 0777);
@@ -5769,7 +5754,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 
 int compile(int argc, const char** argv, struct report* report)
 {
-    struct options options = { 0 };
+    struct options options = {0};
     if (fill_options(&options, argc, argv) != 0)
     {
         return 1;
@@ -5778,7 +5763,7 @@ int compile(int argc, const char** argv, struct report* report)
     clock_t begin_clock = clock();
     int no_files = 0;
 
-    char root_dir[MAX_PATH] = { 0 };
+    char root_dir[MAX_PATH] = {0};
 
     if (!options.no_output)
     {
@@ -5793,7 +5778,7 @@ int compile(int argc, const char** argv, struct report* report)
         if (argv[i][0] == '-')
             continue;
         no_files++;
-        char output_file[400] = { 0 };
+        char output_file[400] = {0};
 
         if (!options.no_output)
         {
@@ -5807,7 +5792,7 @@ int compile(int argc, const char** argv, struct report* report)
             }
             else
             {
-                char fullpath[MAX_PATH] = { 0 };
+                char fullpath[MAX_PATH] = {0};
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
@@ -5825,7 +5810,7 @@ int compile(int argc, const char** argv, struct report* report)
             }
         }
 
-        struct report local_report = { 0 };
+        struct report local_report = {0};
         compile_one_file(argv[i], &options, output_file, argc, argv, &local_report);
 
 
@@ -5836,7 +5821,7 @@ int compile(int argc, const char** argv, struct report* report)
 
     /*tempo total da compilacao*/
     clock_t end_clock = clock();
-    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
+    double cpu_time_used = ((double) (end_clock - begin_clock)) / CLOCKS_PER_SEC;
 
     printf("\n");
     printf("Total %d files %f seconds\n", no_files, cpu_time_used);
@@ -5851,25 +5836,13 @@ struct ast get_ast(struct options* options,
     const char* source,
     struct report* report)
 {
-    struct ast ast = { 0 };
-    struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-    tctx.printf = printf_nothing;
-#else
-    tctx.printf = printf;
-#endif
+    struct ast ast = {0};
+    struct tokenizer_ctx tctx = {0};
 
     struct token_list list = tokenizer(&tctx, source, filename, 0, TK_FLAG_NONE);
 
-    struct preprocessor_ctx prectx = { 0 };
+    struct preprocessor_ctx prectx = {0};
     prectx.options = *options;
-
-#ifdef TEST
-    prectx.printf = printf_nothing;
-#else
-    prectx.printf = printf;
-#endif
-
     prectx.macros.capacity = 5000;
 
     add_standard_macros(&prectx);
@@ -5879,8 +5852,11 @@ struct ast get_ast(struct options* options,
     if (prectx.n_errors > 0)
         return ast;
 
-    ast.declaration_list = parse(options, &ast.token_list, report);
+    struct parser_ctx ctx = {0};
+    ctx.options = *options;
+    ast.declaration_list = parse(&ctx, &ast.token_list, report);
 
+    parser_ctx_destroy(&ctx);
     return ast;
 }
 
@@ -5914,22 +5890,17 @@ int strtoargv(char* s, int n, const char* argv[/*n*/])
 
 const char* compile_source(const char* pszoptions, const char* content, struct report* report)
 {
-    const char* argv[100] = { 0 };
-    char string[200] = { 0 };
+    const char* argv[100] = {0};
+    char string[200] = {0};
     snprintf(string, sizeof string, "exepath %s", pszoptions);
 
     const int argc = strtoargv(string, 10, argv);
 
     const char* s = NULL;
 
-    struct preprocessor_ctx prectx = { 0 };
-#ifdef TEST
-    prectx.printf = printf_nothing;
-#else
-    prectx.printf = printf;
-#endif
+    struct preprocessor_ctx prectx = {0};
 
-    struct options options = { .input = LANGUAGE_CXX };
+    struct options options = {.input = LANGUAGE_CXX};
     //printf("options '%s'\n", pszoptions);
     try
     {
@@ -5944,13 +5915,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
         if (options.preprocess_only)
         {
-            struct tokenizer_ctx tctx = { 0 };
-#ifdef TEST
-            tctx.printf = printf_nothing;
-#else
-            tctx.printf = printf;
-#endif
-
+            struct tokenizer_ctx tctx = {0};
             struct token_list tokens = tokenizer(&tctx, content, "source", 0, TK_FLAG_NONE);
 
 
@@ -5966,7 +5931,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
         }
         else
         {
-            struct visit_ctx visit_ctx = { 0 };
+            struct visit_ctx visit_ctx = {0};
             visit_ctx.target = options.target;
             struct ast ast = get_ast(&options, "source", content, report);
             if (report->error_count > 0) throw;
@@ -5987,7 +5952,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
                 /*re-parser ouput and format*/
                 const char* s2 = format_code(&options, s);
-                free((void*)s);
+                free((void*) s);
                 s = s2;
             }
             ast_destroy(&ast);
@@ -6007,8 +5972,8 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 char* CompileText(const char* pszoptions, const char* content)
 {
     printf(WHITE "Cake " CAKE_VERSION RESET "\n");
-    struct report report = { 0 };
-    return  (char*)compile_source(pszoptions, content, &report);
+    struct report report = {0};
+    return  (char*) compile_source(pszoptions, content, &report);
 }
 
 void ast_destroy(struct ast* ast)
@@ -6261,13 +6226,6 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
     {
         compiler_set_info_with_token(W_STYLE, ctx, token, "use snake_case for struct members");
     }
-    if (type_is_pointer(type))
-    {
-        if (strncmp(token->lexeme, "p_", 2) == 0)
-        {
-            compiler_set_info_with_token(W_STYLE, ctx, token, "dont use p_ prefix for pointers");
-        }
-    }
 }
 
 void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, struct type* type)
@@ -6289,8 +6247,8 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 static bool compile_without_errors(const char* src)
 {
 
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99};
+    struct report report = {0};
     get_ast(&options, "source", src, &report);
     return report.error_count == 0;
 }
@@ -6298,8 +6256,8 @@ static bool compile_without_errors(const char* src)
 static bool compile_with_errors(const char* src)
 {
 
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99};
+    struct report report = {0};
     get_ast(&options, "source", src, &report);
     return report.error_count != 0;
 }
@@ -6350,7 +6308,7 @@ void string_concatenation_test()
 
 void test_digit_separator()
 {
-    struct report report = { 0 };
+    struct report report = {0};
     char* result = compile_source("-std=c99", "int i = 1'000;", &report);
     assert(strcmp(result, "int i = 1000;") == 0);
     free(result);
@@ -6358,7 +6316,7 @@ void test_digit_separator()
 
 void test_lit()
 {
-    struct report report = { 0 };
+    struct report report = {0};
     char* result = compile_source("-std=c99", "char * s = u8\"maçã\";", &report);
     assert(strcmp(result, "char * s = \"ma\\xc3\\xa7\\xc3\\xa3\";") == 0);
     free(result);
@@ -6894,13 +6852,14 @@ void visit_test_auto_typeof()
 {
     const char* source = "auto p2 = (typeof(int[2])*) 0;";
 
-    struct report report = { 0 };
+    struct report report = {0};
     char* result = compile_source("-std=c99", source, &report);
     assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);
     free(result);
 }
 
-void enum_scope() {
+void enum_scope()
+{
     const char* source =
         "enum E { A = 1 };\n"
         "int main()\n"

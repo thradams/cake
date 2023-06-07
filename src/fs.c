@@ -71,7 +71,7 @@ DIR* opendir(const char* name)
 
     if (handle != INVALID_HANDLE_VALUE)
     {
-        DIR* p = calloc(1, sizeof * p);
+        DIR* p = calloc(1, sizeof *p);
         if (p)
         {
             p->handle = handle;

@@ -310,7 +310,7 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
     {
 
         //adiciona como filho do ultimo bloco
-        struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
+        struct defer_scope* p_defer = calloc(1, sizeof *p_defer);
         p_defer->defer_statement = p_defer_statement;
 
 
@@ -334,7 +334,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
 {
     if (!ctx->is_second_pass)
     {
-        struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
+        struct defer_scope* p_defer = calloc(1, sizeof *p_defer);
         p_defer->previous = ctx->tail_block;
         ctx->tail_block = p_defer;
         p_defer->p_try_statement = p_try_statement;
@@ -388,7 +388,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     convert_if_statement(ctx, p_selection_statement);
 
     //PUSH
-    struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
+    struct defer_scope* p_defer = calloc(1, sizeof *p_defer);
     p_defer->previous = ctx->tail_block;
     ctx->tail_block = p_defer;
     p_defer->p_selection_statement2 = p_selection_statement;
@@ -1025,7 +1025,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 
     if (p_iteration_statement->secondary_block)
     {
-        struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
+        struct defer_scope* p_defer = calloc(1, sizeof *p_defer);
         p_defer->previous = ctx->tail_block;
         ctx->tail_block = p_defer;
         p_defer->p_iteration_statement = p_iteration_statement;
@@ -2072,7 +2072,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         ctx->is_second_pass = false;
 
 
-        struct defer_scope* p_defer = calloc(1, sizeof * p_defer);
+        struct defer_scope* p_defer = calloc(1, sizeof *p_defer);
         ctx->tail_block = p_defer;
         p_defer->p_function_body = p_declaration->function_body;
 

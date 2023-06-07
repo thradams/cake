@@ -5,10 +5,23 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef __CAKE__
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wstyle"
+#endif
+
+
 //https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?view=msvc-160
 #define mkdir(a, b) _mkdir(a)
 #define rmdir _rmdir
 #define chdir _chdir
+
+
+#ifdef __CAKE__
+#pragma CAKE diagnostic pop
+#endif
+
+
 /*
  opendir,  readdir closedir for windows.
  include dirent.h on linux

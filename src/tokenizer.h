@@ -39,8 +39,7 @@ struct preprocessor_ctx
 
     bool conditional_inclusion;
     int n_warnings;
-    int n_errors;
-    int (*printf)(const char* fmt, ...);
+    int n_errors;    
 };
 void preprocessor_ctx_destroy(struct preprocessor_ctx* p);
 
@@ -53,8 +52,7 @@ struct tokenizer_ctx
 {
     struct options options;
     int n_warnings;
-    int n_errors;
-    int (*printf)(const char* fmt, ...);
+    int n_errors;    
 };
 
 struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* filename_opt, int level, enum token_flags addflags);

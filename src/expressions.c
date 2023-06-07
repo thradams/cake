@@ -569,7 +569,7 @@ struct generic_association* generic_association(struct parser_ctx* ctx)
     struct generic_association* p_generic_association = NULL;
     try
     {
-        p_generic_association = calloc(1, sizeof * p_generic_association);
+        p_generic_association = calloc(1, sizeof *p_generic_association);
         if (p_generic_association == NULL)
             throw;
 
@@ -647,7 +647,7 @@ struct generic_selection* generic_selection(struct parser_ctx* ctx)
     struct generic_selection* p_generic_selection = NULL;
     try
     {
-        p_generic_selection = calloc(1, sizeof * p_generic_selection);
+        p_generic_selection = calloc(1, sizeof *p_generic_selection);
         if (p_generic_selection == NULL)
             throw;
 
@@ -843,7 +843,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
     {
         if (ctx->current->type == TK_IDENTIFIER)
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
 
             if (p_expression_node == NULL) throw;
 
@@ -911,7 +911,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
                 const char* funcname =
                     ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
 
-                p_expression_node = calloc(1, sizeof * p_expression_node);
+                p_expression_node = calloc(1, sizeof *p_expression_node);
                 if (p_expression_node == NULL) throw;
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
@@ -929,7 +929,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_STRING_LITERAL)
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
@@ -962,7 +962,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->constant_value = make_constant_value_ll(char_constant_to_int(ctx->current->lexeme));
@@ -980,7 +980,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == TK_KEYWORD_TRUE ||
             ctx->current->type == TK_KEYWORD_FALSE)
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
@@ -999,7 +999,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_NULLPTR)
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
@@ -1018,7 +1018,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
         }
         else if (is_integer_or_floating_constant(ctx->current->type))
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->first_token = ctx->current;
@@ -1029,7 +1029,7 @@ struct expression* primary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD__GENERIC)
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_GENERIC;
@@ -1099,7 +1099,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
         {
             parser_match(ctx);
 
-            struct argument_expression* p_argument_expression_2 = calloc(1, sizeof * p_argument_expression_2);
+            struct argument_expression* p_argument_expression_2 = calloc(1, sizeof *p_argument_expression_2);
             if (p_argument_expression_2 == NULL) throw;
 
             p_argument_expression_2->expression = assignment_expression(ctx);
@@ -1133,7 +1133,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
         {
             if (ctx->current->type == '[')
             {
-                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                struct expression* p_expression_node_new = calloc(1, sizeof *p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
                 p_expression_node_new->left = p_expression_node;
 
@@ -1165,7 +1165,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
             }
             else if (ctx->current->type == '(')
             {
-                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                struct expression* p_expression_node_new = calloc(1, sizeof *p_expression_node_new);
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
                 p_expression_node_new->left = p_expression_node;
@@ -1194,7 +1194,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
             }
             else if (ctx->current->type == '.')
             {
-                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                struct expression* p_expression_node_new = calloc(1, sizeof *p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
 
@@ -1240,7 +1240,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
             }
             else if (ctx->current->type == '->')
             {
-                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                struct expression* p_expression_node_new = calloc(1, sizeof *p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
                 p_expression_node_new->left = p_expression_node;
 
@@ -1313,7 +1313,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
             }
             else if (ctx->current->type == '++')
             {
-                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                struct expression* p_expression_node_new = calloc(1, sizeof *p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
@@ -1322,7 +1322,7 @@ struct expression* postfix_expression_tail(struct parser_ctx* ctx, struct expres
             }
             else if (ctx->current->type == '--')
             {
-                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                struct expression* p_expression_node_new = calloc(1, sizeof *p_expression_node_new);
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
@@ -1357,7 +1357,7 @@ struct expression* postfix_expression_type_name(struct parser_ctx* ctx, struct t
 
     try
     {
-        p_expression_node = calloc(1, sizeof * p_expression_node);
+        p_expression_node = calloc(1, sizeof *p_expression_node);
         if (p_expression_node == NULL) throw;
 
         assert(p_expression_node->type_name == NULL);
@@ -1424,7 +1424,7 @@ struct expression* postfix_expression(struct parser_ctx* ctx)
         if (first_of_type_name_ahead(ctx)) //aqui preciso ver se nao eh primary
         {
             assert(false); //este caso esta pegando lá dentro deo cast expression.
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->first_token = ctx->current;
@@ -1529,7 +1529,7 @@ enum declarator_flags string_to_static_analisys_flags(const char* s)
 
 struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 {
-    struct expression* new_expression = calloc(1, sizeof * new_expression);
+    struct expression* new_expression = calloc(1, sizeof *new_expression);
     new_expression->expression_type = UNARY_DECLARATOR_ATTRIBUTE_EXPR;
     new_expression->first_token = ctx->current;
     struct token* func = ctx->current;
@@ -1615,8 +1615,7 @@ struct expression* declarator_attribute_expression(struct parser_ctx* ctx)
 
             break;
         case TK_KEYWORD_ATTR_REMOVE:
-            new_expression->declarator->declarator_flags &= ~
-                (unsigned int)(attr);
+            new_expression->declarator->declarator_flags &= ~(unsigned int)(attr);
 
             new_expression->constant_value = make_constant_value_ull(new_expression->declarator->declarator_flags);
 
@@ -1655,7 +1654,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
     {
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
 
             if (ctx->current->type == '++')
                 new_expression->expression_type = UNARY_EXPRESSION_INCREMENT;
@@ -1677,7 +1676,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
                 || ctx->current->type == '!'))
         {
             
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             new_expression->first_token = ctx->current;
 
 
@@ -1757,7 +1756,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             parser_match(ctx);
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             if (first_of_type_name_ahead(ctx))
             {
                 new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_TYPE;
@@ -1803,7 +1802,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
         {
             struct token* traits_token = ctx->current;
 
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_TRAITS;
 
@@ -1875,7 +1874,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_IS_SAME)
         {
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             new_expression->first_token = ctx->current;
             parser_match(ctx);
             new_expression->expression_type = UNARY_EXPRESSION_IS_SAME;
@@ -1896,7 +1895,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_HASHOF)
         {
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
 
@@ -1929,7 +1928,7 @@ struct expression* unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
 
             new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
             new_expression->first_token = ctx->current;
@@ -1977,7 +1976,7 @@ struct expression* cast_expression(struct parser_ctx* ctx)
     {
         if (first_of_type_name_ahead(ctx))
         {
-            p_expression_node = calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof *p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->first_token = ctx->current;
@@ -2078,7 +2077,7 @@ struct expression* multiplicative_expression(struct parser_ctx* ctx)
                 ctx->current->type == '/' ||
                 ctx->current->type == '%'))
         {
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             enum token_type op = ctx->current->type;
@@ -2199,7 +2198,7 @@ struct expression* additive_expression(struct parser_ctx* ctx)
             struct token* operator_position = ctx->current;
 
             assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof *new_expression);
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
@@ -2396,7 +2395,7 @@ struct expression* shift_expression(struct parser_ctx* ctx)
             (ctx->current->type == '>>' ||
                 ctx->current->type == '<<'))
         {
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
@@ -2463,7 +2462,7 @@ struct expression* relational_expression(struct parser_ctx* ctx)
                 ctx->current->type == '<='))
         {
             assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             enum token_type op = ctx->current->type;
@@ -2538,7 +2537,7 @@ struct expression* equality_expression(struct parser_ctx* ctx)
                 ctx->current->type == '!='))
         {
             assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             struct  token* operator_token = ctx->current;
@@ -2643,7 +2642,7 @@ struct expression* and_expression(struct parser_ctx* ctx)
             parser_match(ctx);
 
             assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = AND_EXPRESSION;
@@ -2694,7 +2693,7 @@ struct expression* exclusive_or_expression(struct parser_ctx* ctx)
             parser_match(ctx);
 
             assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
@@ -2742,7 +2741,7 @@ struct expression* inclusive_or_expression(struct parser_ctx* ctx)
             (ctx->current->type == '|'))
         {
             parser_match(ctx);
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
@@ -2788,7 +2787,7 @@ struct expression* logical_and_expression(struct parser_ctx* ctx)
             (ctx->current->type == '&&'))
         {
             parser_match(ctx);
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = INCLUSIVE_AND_EXPRESSION;
@@ -2835,7 +2834,7 @@ struct expression* logical_or_expression(struct parser_ctx* ctx)
             (ctx->current->type == '||'))
         {
             parser_match(ctx);
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = LOGICAL_OR_EXPRESSION;
@@ -2910,7 +2909,7 @@ struct expression* assignment_expression(struct parser_ctx* ctx)
             parser_match(ctx);
 
 
-            struct expression* new_expression = calloc(1, sizeof * new_expression);
+            struct expression* new_expression = calloc(1, sizeof *new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
@@ -2992,7 +2991,7 @@ struct expression* expression(struct parser_ctx* ctx)
             while (ctx->current->type == ',')
             {
                 parser_match(ctx);
-                struct expression* p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                struct expression* p_expression_node_new = calloc(1, sizeof *p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
 
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
@@ -3050,7 +3049,7 @@ struct expression* conditional_expression(struct parser_ctx* ctx)
 
         if (ctx->current && ctx->current->type == '?')
         {
-            struct expression* p_conditional_expression = calloc(1, sizeof * p_conditional_expression);
+            struct expression* p_conditional_expression = calloc(1, sizeof *p_conditional_expression);
             p_conditional_expression->expression_type = CONDITIONAL_EXPRESSION;
             p_conditional_expression->condition_expr = p_expression_node;
             p_expression_node = p_conditional_expression;

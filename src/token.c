@@ -318,7 +318,7 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 
 struct token* clone_token(struct token* p)
 {
-    struct token* token = calloc(1, sizeof * token);
+    struct token* token = calloc(1, sizeof *token);
     if (token)
     {
         *token = *p;
@@ -554,12 +554,12 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");
 }
 
-void print_position(int (*printf)(const char* fmt, ...), const char* path, int line, int col)
+void print_position(const char* path, int line, int col)
 {
     printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
 }
 
-void print_line_and_token(int (*printf)(const char* fmt, ...), const struct token* p_token)
+void print_line_and_token(const struct token* p_token)
 {
     if (p_token == NULL)
         return;

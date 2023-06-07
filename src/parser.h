@@ -1,5 +1,5 @@
 #pragma once
-
+#include <stdio.h>
 #include "hashmap.h"
 #include "tokenizer.h"
 #include "expressions.h"
@@ -61,6 +61,8 @@ struct _destroy parser_ctx
     */
     const struct try_statement* p_current_try_statement_opt;
 
+    FILE* sarif_file;
+
     struct token_list input_list;
     struct token* current;
     struct token* previous;
@@ -68,7 +70,6 @@ struct _destroy parser_ctx
     int n_warnings;
     int n_errors;
     int n_info;
-    int (*printf)(const char* fmt, ...);    
 };
 
 ///////////////////////////////////////////////////////
@@ -97,7 +98,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
-struct declaration_list parse(struct options* options, struct token_list* list, struct report* report);
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct report* report);
 
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
