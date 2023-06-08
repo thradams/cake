@@ -1,7 +1,6 @@
 
-enum E1 { A };
-enum E2 { B };
-int main() { 
-if (A == B){} 
-if (A == B) {}
+
+int main()
+{
+    int a; 
 }

@@ -22,10 +22,11 @@ a readable C99 source code that compiles everywhere.
 # Features
 
 * C23 preprocessor
-* Syntax analysis
-* Semantic analysis
+* C23 syntax analysis
+* C23 semantic analysis (> 58 errors, > 16 warnings)
+* sarif output
 * C backend
-* Builds AST 
+* AST 
 
 # Build
 

@@ -241,36 +241,57 @@
 </ul>
 <h2 id="toc_0">Command line</h2>
 
-<pre><code>cake [options] source1.c source2.c ...
+<pre><code>
+cake [options] source1.c source2.c ...
 
-Options
-  -I                  Adds a directory to the list of directories searched for include files.
-                      (On windows, if you run cake at the visual studio command prompt cake 
-                      uses the same include files used by msvc.)
+SAMPLES
 
-  -no-output          Cake will not generate ouput
+    cake source.c
+    Compiles source.c and outputs /out/source.c
 
-  -D                  Defines a preprocessing symbol for a source file.
+    cake -target=C11 source.c
+    Compiles source.c and outputs C11 code at /out/source.c
 
-  -E                  Copies preprocessor output to standard output.
+cake file.c -o file.cc &amp;&amp; cl file.cc
+    Compiles file.c and outputs file.cc then use cl to compile file.cc
 
-  -r                  Remove all comments from the ouput file.
+cake file.c -direct-compilation -o file.cc &amp;&amp; cl file.cc
+    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc
 
-  -rm                 Outputs preprocessed code after compilation.
+OPTIONS
 
-  -target=standard    Output target C standard (c89, c99, c11, c2x, cxx).
-                      C99 is the default and C89 (ANSI C) is the minimum target.
+  -I                    Adds a directory to the list of directories searched for include files
+                        (On windows, if you run cake at the visual studio command prompt cake
+                        uses the same include files used by msvc )
 
-  -std=standard       Assume that the input sources are for standard (c89, c99, c11, c2x, cxx).
-                      (not implented yet, input is considered C23)                    
+  -no-output            Cake will not generate ouput
 
-  -n                  Check naming conventions (it is hardcoded for its own naming convention)
+  -D                    Defines a preprocessing symbol for a source file
 
-  -fi                 Format input (format before language convertion)
+  -E                    Copies preprocessor output to standard output
 
-  -fo                 Format output (format after language convertion, result parsed again)
+  -o name.c             Defines the ouput name. used when we compile one file
 
-  -default_nodiscard  Makes [[nodiscard]] default implicity.
+  -remove-comments      Remove all comments from the ouput file
+
+  -direct-compilation   output without macros/preprocessor parts
+
+  -target=standard      Output target C standard (c89, c99, c11, c2x, cxx)
+                        C99 is the default and C89 (ANSI C) is the minimum target
+
+  -std=standard         Assume that the input sources are for standard (c89, c99, c11, c2x, cxx)
+                        (not implemented yet, input is considered C23)
+
+  -fi                   Format input (format before language convertion)
+
+  -fo                   Format output (format after language convertion, result parsed again)
+
+  -no-discard           Makes [[nodiscard]] default implicitly
+
+  -Wname -Wno-name      Enables or disable warning
+
+  -sarif                Generates sarif files
+
 </code></pre>
 
 <p>One directory called <strong>out</strong> is created keeping the same directory structure 
