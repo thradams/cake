@@ -69,3 +69,4 @@ dkms.conf
 /src/sqlite3ext.h
 /src/shell.c
 src/cake
+*.sarif
