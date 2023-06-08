@@ -1133,7 +1133,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         if (textfile == NULL)
         {
             preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
-            throw;
+            throw;  
         }
 
         const char* pch = textfile;
