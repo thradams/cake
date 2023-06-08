@@ -145,7 +145,15 @@ char* realpath(const char* restrict path, char* restrict resolved_path)
       letter that isn't valid or can't be found, or if the length of the 
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
-    return _fullpath(resolved_path, path, MAX_PATH);
+    char * p = _fullpath(resolved_path, path, MAX_PATH);
+    char* p2 = resolved_path;
+    while (*p2)
+    {
+        if (*p2 == '\\')
+            *p2 = '/';
+        p2++;
+    }
+    return p;
 }
 
 #endif //_WINDOWS_
@@ -321,102 +329,72 @@ char* dirname(char* path)
 }
 #endif
 
-static bool fs_fread2(void* buffer, size_t size, size_t count, FILE* stream, size_t* sz)
-{
-    *sz = 0;//out
-
-    bool result = false;
-    size_t n = fread(buffer, size, count, stream);
-    if (n == count)
-    {
-        *sz = n;
-        result = true;
-    }
-    else if (n < count)
-    {
-        if (feof(stream))
-        {
-            *sz = n;
-            result = true;
-        }
-    }
-    return result;
-}
-
-char* readfile_core(const char* path)
+char* readfile_core(const char* const path)
 {
     char* result = NULL;
+    char* data = NULL;
+    FILE* file = NULL;
+    struct stat info = {0};
 
-
-
-    struct stat info;
-    if (stat(path, &info) == 0)
+    /*try*/
     {
-        char* data = (char*)malloc(sizeof(char) * info.st_size + 1);
-        if (data != NULL)
+        if (stat(path, &info) != 0)
+            goto exit;
+
+        const int mem_size_bytes = sizeof(char) * info.st_size + 3 /*BOM*/ + 1 /* \0 */;
+
+        data = (char*) malloc(mem_size_bytes);
+        if (data == NULL)
+            goto exit;
+
+        file = fopen(path, "r");
+        if (file == NULL)
+            goto exit;
+
+        /* first we read 3 bytes */
+        size_t bytes_read = fread(data, 1, 3, file);
+
+        if (bytes_read < 3)
         {
-            FILE* file = fopen(path, "r");
-            if (file != NULL)
+            /* we have less than 3 bytes - no BOM */
+
+            data[bytes_read] = '\0';
+
+            if (feof(file))
             {
-                if (info.st_size >= 3)
-                {
-                    size_t n = 0;
-                    if (fs_fread2(data, 1, 3, file, &n))
-                    {
-                        if (n == 3)
-                        {
-                            if ((unsigned char) data[0] == (unsigned char)0xEF &&
-                                    (unsigned char) data[1] == (unsigned char)0xBB &&
-                                    (unsigned char) data[2] == (unsigned char)0xBF)
-                            {
-                                if (fs_fread2(data, 1, info.st_size - 3, file, &n))
-                                {
-                                    //ok
-                                    data[n] = 0;
-                                    result = data;
-                                    data = 0;
-                                }
-                            }
-                            else if (fs_fread2(data + 3, 1, info.st_size - 3, file, &n))
-                            {
-                                data[3 + n] = 0;
-                                result = data;
-                                data = 0;
-                            }
-                        }
-                        else
-                        {
-                            data[n] = 0;
-                            result = data;
-                            data = 0;
-                        }
-                    }
-                }
-                else
-                {
-                    size_t n = 0;
-                    if (fs_fread2(data, 1, info.st_size, file, &n))
-                    {
-                        data[n] = 0;
-                        result = data;
-                        data = 0;
-                    }
-                }
-                fclose(file);
+                result = data;
+                data = NULL; /*MOVED*/
             }
-            free(data);
+
+            goto exit;
+        }
+
+        /* check byte order mark (BOM) */
+        if ((unsigned char) data[0] == (unsigned char) 0xEF &&
+            (unsigned char) data[1] == (unsigned char) 0xBB &&
+            (unsigned char) data[2] == (unsigned char) 0xBF)
+        {
+            /* in this case we skip this BOM */
+            size_t bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
+            data[bytes_read_part2] = 0;
+            result = data;
+            data = NULL; /*MOVED*/
+        }
+        else
+        {
+            size_t bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
+            data[bytes_read_part2 + 3] = 0;
+            result = data;
+            data = NULL; /*MOVED*/
         }
     }
-#ifdef  DEBUG
-    const char* p = result;
-    while (*p)
-    {
-        assert(*p != '\r');
-        p++;
-    }
-#endif //  DEBUG
 
-    
+exit:
+    if (file)
+        fclose(file);
+
+    free(data);
+
     return result;
 }
 

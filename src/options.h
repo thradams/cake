@@ -162,6 +162,11 @@ struct options
     */
     bool direct_compilation;
 
+    /*
+      -sarif
+    */
+    bool sarif_output;
+
     bool format_input;
     bool format_ouput;
     

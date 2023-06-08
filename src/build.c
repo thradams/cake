@@ -276,7 +276,7 @@ int main()
 /*run cake on it�s own source*/
 #ifdef BUILD_WINDOWS_MSC
 
-    if (system(RUN OUTPUT " -Wstyle -Wno-unused-parameter " HEADER_FILES SOURCE_FILES) != 0)
+    if (system("cake.exe -Wstyle -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 

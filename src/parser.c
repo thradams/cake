@@ -245,6 +245,13 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
     }
 
     ctx->n_warnings++;
+
+    const char* func_name = "module";
+    if (ctx->p_current_function_opt)
+    {
+        func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
+    }
+
 #ifndef TEST
     print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
 
@@ -258,6 +265,54 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 
     print_line_and_token(p_token);
 #endif
+
+    if (ctx->sarif_file)
+    {
+        if (ctx->n_warnings + ctx->n_info > 1)
+        {
+            fprintf(ctx->sarif_file, ",\n");
+        }
+
+        fprintf(ctx->sarif_file, "   {\n");
+        fprintf(ctx->sarif_file, "     \"ruleId\":\"%s\",\n", get_warning_name(w));
+        fprintf(ctx->sarif_file, "     \"level\":\"warning\",\n");
+        fprintf(ctx->sarif_file, "     \"message\": {\n");
+        fprintf(ctx->sarif_file, "            \"text\": \"%s\"\n", buffer);
+        fprintf(ctx->sarif_file, "      },\n");
+        fprintf(ctx->sarif_file, "      \"locations\": [\n");
+        fprintf(ctx->sarif_file, "       {\n");
+
+        fprintf(ctx->sarif_file, "       \"physicalLocation\": {\n");
+
+        fprintf(ctx->sarif_file, "             \"artifactLocation\": {\n");
+        fprintf(ctx->sarif_file, "                 \"uri\": \"file:///%s\"\n", p_token->token_origin->lexeme);
+        fprintf(ctx->sarif_file, "              },\n");
+
+        fprintf(ctx->sarif_file, "              \"region\": {\n");
+        fprintf(ctx->sarif_file, "                  \"startLine\": %d,\n", p_token->line);
+        fprintf(ctx->sarif_file, "                  \"startColumn\": %d,\n", p_token->col);
+        fprintf(ctx->sarif_file, "                  \"endLine\": %d,\n", p_token->line);
+        fprintf(ctx->sarif_file, "                  \"endColumn\": %d\n", p_token->col);
+        fprintf(ctx->sarif_file, "               }\n");
+        fprintf(ctx->sarif_file, "         },\n");
+
+        fprintf(ctx->sarif_file, "         \"logicalLocations\": [\n");
+        fprintf(ctx->sarif_file, "          {\n");
+        
+        fprintf(ctx->sarif_file, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
+        fprintf(ctx->sarif_file, "              \"decoratedName\": \"%s\",\n", func_name);
+
+        fprintf(ctx->sarif_file, "              \"kind\": \"%s\"\n", "function");
+        fprintf(ctx->sarif_file, "          }\n");
+
+        fprintf(ctx->sarif_file, "         ]\n");
+
+        fprintf(ctx->sarif_file, "       }\n");
+        fprintf(ctx->sarif_file, "     ]\n");
+
+        fprintf(ctx->sarif_file, "   }\n");
+    }
+
     return 1;
 }
 
@@ -277,7 +332,11 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
             return;
         }
     }
-
+    const char* func_name = "module";
+    if (ctx->p_current_function_opt)
+    {
+        func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
+    }
     ctx->n_info++;
 #ifndef TEST
     print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
@@ -290,6 +349,55 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
     printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
     print_line_and_token(p_token);
 #endif // !TEST
+
+    
+    if (ctx->sarif_file)
+    {
+        if (ctx->n_warnings + ctx->n_info > 1)
+        {
+            fprintf(ctx->sarif_file, ",\n");
+        }
+
+        fprintf(ctx->sarif_file, "   {\n");
+        fprintf(ctx->sarif_file, "     \"ruleId\":\"%s\",\n", "info");
+        fprintf(ctx->sarif_file, "     \"level\":\"note\",\n");
+        fprintf(ctx->sarif_file, "     \"message\": {\n");
+        fprintf(ctx->sarif_file, "            \"text\": \"%s\"\n", buffer);
+        fprintf(ctx->sarif_file, "      },\n");
+        fprintf(ctx->sarif_file, "      \"locations\": [\n");
+        fprintf(ctx->sarif_file, "       {\n");
+
+        fprintf(ctx->sarif_file, "       \"physicalLocation\": {\n");
+
+        fprintf(ctx->sarif_file, "             \"artifactLocation\": {\n");
+        fprintf(ctx->sarif_file, "                 \"uri\": \"file:///%s\"\n", p_token->token_origin->lexeme);
+        fprintf(ctx->sarif_file, "              },\n");
+
+        fprintf(ctx->sarif_file, "              \"region\": {\n");
+        fprintf(ctx->sarif_file, "                  \"startLine\": %d,\n", p_token->line);
+        fprintf(ctx->sarif_file, "                  \"startColumn\": %d,\n", p_token->col);
+        fprintf(ctx->sarif_file, "                  \"endLine\": %d,\n", p_token->line);
+        fprintf(ctx->sarif_file, "                  \"endColumn\": %d\n", p_token->col);
+        fprintf(ctx->sarif_file, "               }\n");
+        fprintf(ctx->sarif_file, "         },\n");
+
+        fprintf(ctx->sarif_file, "         \"logicalLocations\": [\n");
+        fprintf(ctx->sarif_file, "          {\n");
+        
+        fprintf(ctx->sarif_file, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
+        fprintf(ctx->sarif_file, "              \"decoratedName\": \"%s\",\n", func_name);
+
+        fprintf(ctx->sarif_file, "              \"kind\": \"%s\"\n", "function");
+        fprintf(ctx->sarif_file, "          }\n");
+
+        fprintf(ctx->sarif_file, "         ]\n");
+
+        fprintf(ctx->sarif_file, "       }\n");
+        fprintf(ctx->sarif_file, "     ]\n");
+
+        fprintf(ctx->sarif_file, "   }\n");
+    }
+
 }
 
 
@@ -2963,7 +3071,7 @@ struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx
 
 struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx)
 {
-    struct type_specifier_qualifier* type_specifier_qualifier = calloc(1, sizeof * type_specifier_qualifier);
+    struct type_specifier_qualifier* type_specifier_qualifier = calloc(1, sizeof *type_specifier_qualifier);
     //type_specifier
     //type_qualifier
     //alignment_specifier
@@ -3007,7 +3115,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
     struct enum_specifier* p_enum_specifier = NULL;
     try
     {
-        p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
+        p_enum_specifier = calloc(1, sizeof *p_enum_specifier);
 
         p_enum_specifier->first_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_ENUM);
@@ -3227,7 +3335,7 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
 
 struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx)
 {
-    struct alignment_specifier* alignment_specifier = calloc(1, sizeof * alignment_specifier);
+    struct alignment_specifier* alignment_specifier = calloc(1, sizeof *alignment_specifier);
     alignment_specifier->token = ctx->current;
     parser_match_tk(ctx, TK_KEYWORD__ALIGNAS);
     parser_match_tk(ctx, '(');
@@ -5544,20 +5652,7 @@ int compile_one_file(const char* file_name,
 
     try
     {
-        ctx.sarif_file = fopen("file.sarif", "w");
-        if (ctx.sarif_file)
-        {
-#define BEGIN \
-"{\n"\
-"  \"version\": \"2.1.0\",\n"\
-"  \"$schema\": \"https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json\",\n"\
-"  \"runs\": [\n"\
-"    {\n"\
-"      \"results\": [\n"\
-"\n"
 
-            fprintf(ctx.sarif_file, "%s", BEGIN);
-        }
 
         if (fill_preprocessor_options(argc, argv, &prectx) != 0)
         {
@@ -5575,6 +5670,33 @@ int compile_one_file(const char* file_name,
             report->error_count++;
             printf("file not found '%s'\n", file_name);
             throw;
+        }
+
+        if (options->sarif_output)
+        {
+            char sarif_file_name[260];
+            strcpy(sarif_file_name, file_name);
+            strcat(sarif_file_name, ".sarif");            
+            ctx.sarif_file = fopen(sarif_file_name, "w");
+            if (ctx.sarif_file)
+            {
+                const char* begin_sarif=
+                    "{\n"
+                    "  \"version\": \"2.1.0\",\n"
+                    "  \"$schema\": \"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json\",\n"
+                    "  \"runs\": [\n"
+                    "    {\n"
+                    "      \"results\": [\n"
+                    "\n";
+
+                fprintf(ctx.sarif_file, "%s", begin_sarif);
+            }
+            else
+            {
+                report->error_count++;
+                printf("cannot open sarif output file '%s'\n", sarif_file_name);
+                throw;
+            }
         }
 
         struct tokenizer_ctx tctx = {0};
@@ -5663,7 +5785,7 @@ int compile_one_file(const char* file_name,
 "  ]\n"\
 "}\n"\
 "\n"
-            fprintf(ctx.sarif_file, "%s", END);            
+            fprintf(ctx.sarif_file, "%s", END);
         }
         fclose(ctx.sarif_file);
     }
@@ -5811,7 +5933,9 @@ int compile(int argc, const char** argv, struct report* report)
         }
 
         struct report local_report = {0};
-        compile_one_file(argv[i], &options, output_file, argc, argv, &local_report);
+        char fullpath[260];
+        realpath(argv[i], fullpath);
+        compile_one_file(fullpath, &options, output_file, argc, argv, &local_report);
 
 
         report->error_count += local_report.error_count;
@@ -5824,8 +5948,13 @@ int compile(int argc, const char** argv, struct report* report)
     double cpu_time_used = ((double) (end_clock - begin_clock)) / CLOCKS_PER_SEC;
 
     printf("\n");
-    printf("Total %d files %f seconds\n", no_files, cpu_time_used);
-    printf("%d errors %d warnings %d notes\n", report->error_count, report->warnings_count, report->info_count);
+    printf("%d files in %f seconds\n", no_files, cpu_time_used);
+        
+    printf("%d" LIGHTRED  " errors " RESET, report->error_count);
+
+    printf("%d" LIGHTMAGENTA " warnings " RESET, report->warnings_count);
+    printf("%d" LIGHTCYAN    " notes " RESET, report->info_count);
+    printf("\n");
 
     return 0;
 }

@@ -556,7 +556,14 @@ void print_tokens_html(struct token* p_token)
 
 void print_position(const char* path, int line, int col)
 {
+    //GCC format
     printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+
+    //MSVC format
+#if 0
+    printf(WHITE "%s(%d,%d): ", path ? path : "<>", line, col);
+#endif
+
 }
 
 void print_line_and_token(const struct token* p_token)

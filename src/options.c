@@ -116,6 +116,13 @@ int fill_options(struct options* options,
             options->preprocess_only = true;
             continue;
         }
+
+        if (strcmp(argv[i], "-sarif") == 0)
+        {
+            options->sarif_output = true;
+            continue; 
+        }
+
         if (strcmp(argv[i], "-remove-comments") == 0)
         {
             options->remove_comments = true;
@@ -309,6 +316,8 @@ void print_help()
         WHITE "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
         WHITE "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
+        "\n"
+        WHITE "  -sarif                " RESET "Generates sarif files\n"
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;
