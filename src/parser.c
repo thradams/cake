@@ -5683,7 +5683,8 @@ int compile_one_file(const char* file_name,
                 const char* begin_sarif=
                     "{\n"
                     "  \"version\": \"2.1.0\",\n"
-                    "  \"$schema\": \"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json\",\n"
+                    //"  \"$schema\": \"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json\",\n"
+                    "  \"$schema\": \"https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json\",\n"
                     "  \"runs\": [\n"
                     "    {\n"
                     "      \"results\": [\n"
