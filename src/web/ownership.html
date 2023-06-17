@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  
+    <link rel="stylesheet" href="default.min.css">
+    <script src="highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+     <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
+<h1>Cake</h1>
+<ul>
+<li>
+<a href="#toc_0">Ownership rules tour</a>
+<ul>
+<li>
+<a href="#toc_1">Moving function arguments</a>
+</li>
+<li>
+<a href="#toc_2">Moving locals</a>
+</li>
+<li>
+<a href="#toc_3">Returning locals</a>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="toc_0">Ownership rules tour</h1>
+
+<h2 id="toc_1">Moving function arguments</h2>
+
+<pre><code class="language-c">void list_add(struct list* list, [[cake::move]] struct node* node) 
+{
+}
+
+int main()
+{
+   struct list list = {};
+   struct node * node = malloc(sizeof (struct node));
+   list_add(&amp;list, node);
+}
+</code></pre>
+
+<h2 id="toc_2">Moving locals</h2>
+
+<pre><code class="language-c">
+int main()
+{
+   struct node * node = malloc(sizeof (struct node));
+   struct node * p;
+   p = [[cake:::move]] node; //explicitly moved
+   free(p);
+}
+
+
+</code></pre>
+
+<h2 id="toc_3">Returning locals</h2>
+
+<pre><code class="language-c">
+struct node* make_node()
+{
+   struct node * node = malloc(sizeof (struct node));
+   return node; /*implicitly moved*/
+}
+
+</code></pre>
+</body></html>

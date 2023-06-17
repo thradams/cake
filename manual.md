@@ -1639,7 +1639,7 @@ We can use != and == with void value to compare types.
 
 ### Extension - [[cake::destroy]] [[cake::free]] [[cake::move]] Attributes
 
-Cake declarators (variables) can have imaginary flags associated with them.
+Cake declarators (variables)  have imaginary flags associated with them.
 
 Currently, there are three built-in imaginary flags in Cake:
 
@@ -1786,6 +1786,8 @@ _del_attr(p, "must free");
 ```
 
 These functions allow you to manipulate the imaginary flags directly.
+
+See [ownership](ownership.html)
 
 ### Extension typename on _Generic
 
