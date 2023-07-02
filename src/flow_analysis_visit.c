@@ -314,7 +314,6 @@ static void flow_visit_defer_statement(struct flow_analysis_visit_ctx* ctx, stru
 
 static void flow_visit_try_statement(struct flow_analysis_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
-
     struct flow_defer_scope* p_defer = calloc(1, sizeof * p_defer);
     p_defer->previous = ctx->tail_block;
     ctx->tail_block = p_defer;
@@ -323,38 +322,12 @@ static void flow_visit_try_statement(struct flow_analysis_visit_ctx* ctx, struct
     if (p_try_statement->secondary_block)
         flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
 
-
-
     check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
-
-
 
     if (ctx->tail_block)
     {
         //POP
         ctx->tail_block = ctx->tail_block->previous;
-    }
-
-    free(p_try_statement->first_token->lexeme);
-    p_try_statement->first_token->lexeme = strdup("if (1) /*try*/");
-
-
-    char buffer[50] = {0};
-    if (p_try_statement->catch_secondary_block_opt)
-    {
-
-        snprintf(buffer, sizeof buffer, "else _catch_label_%d:", p_try_statement->try_catch_block_index);
-
-        free(p_try_statement->catch_token_opt->lexeme);
-        p_try_statement->catch_token_opt->lexeme = strdup(buffer);
-
-        flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
-    }
-    else
-    {
-        snprintf(buffer, sizeof buffer, "} else {_catch_label_%d:;}", p_try_statement->try_catch_block_index);
-        free(p_try_statement->last_token->lexeme);
-        p_try_statement->last_token->lexeme = strdup(buffer);
     }
 }
 
@@ -452,26 +425,6 @@ static void flow_visit_specifier_qualifier(struct flow_analysis_visit_ctx* ctx, 
 static void flow_visit_specifier_qualifier_list(struct flow_analysis_visit_ctx* ctx, struct specifier_qualifier_list* p_specifier_qualifier_list_opt,
     struct type* p_type)
 {
-
-    //(typeof(int[2])*)
-    // 
-    //TODO se tiver typeof em qualquer parte tem que imprimir todo  tipo
-    // tem que refazer
-    if (p_specifier_qualifier_list_opt->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
-    {
-        token_range_add_flag(p_specifier_qualifier_list_opt->first_token,
-            p_specifier_qualifier_list_opt->last_token, TK_FLAG_HIDE);
-
-        struct osstream ss = {0};
-        print_type(&ss, type_get_specifer_part(p_type));
-
-        struct tokenizer_ctx tctx = {0};
-        struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_specifier_qualifier_list_opt->last_token, &l2);
-
-        ss_close(&ss);
-    }
-
     if (p_specifier_qualifier_list_opt == NULL)
         return;
 
@@ -539,9 +492,6 @@ static void flow_visit_generic_selection(struct flow_analysis_visit_ctx* ctx, st
     {
         flow_visit_type_name(ctx, p_generic_selection->type_name);
     }
-
-
-
 }
 
 static int compare_function_arguments2(struct parser_ctx* ctx,
@@ -853,11 +803,6 @@ static void flow_visit_iteration_statement(struct flow_analysis_visit_ctx* ctx, 
         flow_visit_expression(ctx, p_iteration_statement->expression2);
     }
 
-    if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
-    {
-        free(p_iteration_statement->first_token->lexeme);
-        p_iteration_statement->first_token->lexeme = strdup("for(;;)/*repeat*/");
-    }
 
     if (p_iteration_statement->secondary_block)
     {
@@ -867,9 +812,6 @@ static void flow_visit_iteration_statement(struct flow_analysis_visit_ctx* ctx, 
         p_defer->p_iteration_statement = p_iteration_statement;
 
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
-
-
-
 
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
@@ -1439,9 +1381,7 @@ void flow_analysis_visit_declaration(struct flow_analysis_visit_ctx* ctx, struct
 
     if (p_declaration->p_attribute_specifier_sequence_opt)
     {
-
     }
-
 
     if (p_declaration->init_declarator_list.head)
     {
@@ -1451,7 +1391,7 @@ void flow_analysis_visit_declaration(struct flow_analysis_visit_ctx* ctx, struct
     if (p_declaration->function_body)
     {
 
-
+        assert(ctx->tail_block == NULL);
         struct flow_defer_scope* p_defer = calloc(1, sizeof * p_defer);
         ctx->tail_block = p_defer;
         p_defer->p_function_body = p_declaration->function_body;
@@ -1468,10 +1408,25 @@ void flow_analysis_visit_declaration(struct flow_analysis_visit_ctx* ctx, struct
 
         }
 
+        /*delete all defer memory*/
+        struct flow_defer_scope* p_block = ctx->tail_block;
+        while (p_block != NULL)
+        {
+            struct flow_defer_scope* deferchild = p_block->lastchild;
+            while (deferchild != NULL)
+            {
+                struct flow_defer_scope* prev = deferchild->previous;
+                free(deferchild);
+                deferchild = prev;
+            }
+
+            struct flow_defer_scope* prev_block = p_block->previous;
+            free(p_block);
+            p_block = prev_block;
+        }
+
 
         ctx->tail_block = NULL;
-
-
 
     }
 }

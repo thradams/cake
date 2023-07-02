@@ -2110,6 +2110,25 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         }
 
 
+           /*delete all defer memory*/
+        struct defer_scope* p_block = ctx->tail_block;
+        while (p_block != NULL)
+        {
+            struct defer_scope* deferchild = p_block->lastchild;
+            while (deferchild != NULL)
+            {
+                struct defer_scope* prev = deferchild->previous;
+                free(deferchild);
+                deferchild = prev;
+            }
+
+            struct defer_scope* prev_block = p_block->previous;
+            free(p_block);
+            p_block = prev_block;
+        }
+
+
+        
         ctx->tail_block = NULL;
 
 
