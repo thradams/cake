@@ -69,7 +69,7 @@
 
 <p>For example, we can declare <code>malloc</code> as follows:</p>
 
-<pre><code class="language-c">void * owner malloc(int 1);
+<pre><code class="language-c">void * owner malloc(size_t sz);
 </code></pre>
 
 <p>To assign ownership to the result of <code>malloc</code>, we need to assign it to an <em>owner</em> variable:</p>
@@ -125,12 +125,16 @@
 
 <p>In this case, assigning <code>p2</code> into <code>p1</code> leads to a memory leak of the <code>p1</code> object and a double free of the <code>p2</code> object.</p>
 
-<p>To address this issue, I introduced the move assignment syntax:</p>
+<p>To address this issue, the compiler will check the end of lifetime of <code>p1</code> before the assignment.  </p>
+
+<p>The move assignment can be only used if both variables are owner.</p>
+
+<p>The syntax is:</p>
 
 <pre><code>p1 = move p2;
 </code></pre>
 
-<p>The code generated for this assignment is identical to that of a normal assignment.</p>
+<p>There is nothing especial on this assignment compared with the normal assignment. The only difference is that the intention is explicit. </p>
 
 <p>After any move (assignment or function argument), the object transitions into an uninitialized state. This state is only for static analysis purposes and has no runtime implications.</p>
 
@@ -187,6 +191,18 @@ or
 <code>c
   [[unitialized]] p-&gt;name = move strdup(&quot;new text&quot;);
 </code></p>
+
+<p>We can assign a non owner to a owner.</p>
+
+<pre><code class="language-c">  a = b; /* b is owner*/
+</code></pre>
+
+<p>In this situation the ownership is not transfered. The same think happens when we can function arguments that are not owners.</p>
+
+<pre><code class="language-c">  void F(T a) {}
+  owner T a;
+  F(a); /*ownership is not transfered*/
+</code></pre>
 
 <h2 id="toc_3">structs/union/enum</h2>
 

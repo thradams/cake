@@ -14,7 +14,7 @@ For example, we can declare `malloc` as follows:
 
 
 ```c
-void * owner malloc(int 1);
+void * owner malloc(size_t sz);
 ```
 
 To assign ownership to the result of `malloc`, we need to assign it to an _owner_ variable:
@@ -77,13 +77,17 @@ int main() {
 
 In this case, assigning `p2` into `p1` leads to a memory leak of the `p1` object and a double free of the `p2` object.
 
-To address this issue, I introduced the move assignment syntax:
+To address this issue, the compiler will check the end of lifetime of `p1` before the assignment.  
+
+The move assignment can be only used if both variables are owner.
+  
+The syntax is:
 
 ```
 p1 = move p2;
 ```
 
-The code generated for this assignment is identical to that of a normal assignment.
+There is nothing especial on this assignment compared with the normal assignment. The only difference is that the intention is explicit. 
 
 After any move (assignment or function argument), the object transitions into an uninitialized state. This state is only for static analysis purposes and has no runtime implications.
 
@@ -143,6 +147,21 @@ or
 or
 ```c
   [[unitialized]] p->name = move strdup("new text");
+```
+
+
+We can assign a non owner to a owner.
+
+```c
+  a = b; /* b is owner*/
+```
+
+In this situation the ownership is not transfered. The same think happens when we can function arguments that are not owners.
+
+```c
+  void F(T a) {}
+  owner T a;
+  F(a); /*ownership is not transfered*/
 ```
 
 ## structs/union/enum
