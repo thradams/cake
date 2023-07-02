@@ -1,5 +1,4 @@
 
-V0.4 - 01/07/2023
 # Ownership checks for C
 
 > This feature provides the experience of engaging in pair programming with an attentive developer who ensures program safety.
