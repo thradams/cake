@@ -30,6 +30,7 @@
     <ClCompile Include="..\src\console.c" />
     <ClCompile Include="..\src\error.c" />
     <ClCompile Include="..\src\expressions.c" />
+    <ClCompile Include="..\src\flow_analysis_visit.c" />
     <ClCompile Include="..\src\format_visit.c" />
     <ClCompile Include="..\src\fs.c" />
     <ClCompile Include="..\src\hash.c" />
@@ -49,6 +50,7 @@
     <ClInclude Include="..\src\console.h" />
     <ClInclude Include="..\src\error.h" />
     <ClInclude Include="..\src\expressions.h" />
+    <ClInclude Include="..\src\flow_analysis_visit.h" />
     <ClInclude Include="..\src\format_visit.h" />
     <ClInclude Include="..\src\fs.h" />
     <ClInclude Include="..\src\hash.h" />

@@ -146,7 +146,7 @@ void token_list_destroy(struct token_list* list)
     }
 }
 
-char* token_list_join_tokens(struct token_list* list, bool bliteral)
+char * _owner token_list_join_tokens(struct token_list* list, bool bliteral)
 {
     struct osstream ss = { 0 };
     if (bliteral)
@@ -185,12 +185,12 @@ char* token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    const char* cstr = ss.c_str;
+    char* _owner cstr = _move ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
 
-    return (char*)cstr;
+    return cstr;
 }
 
 void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)

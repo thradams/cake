@@ -1209,82 +1209,84 @@ static_assert( _is_function(main) && (typeof(main())) == (int) );
 
 `;
 
+sample["Extension - ownership I"] =
+`
+void * _owner malloc(int i);
+void free([[cake::implicit]] void * _owner p);
 
+int main() {
+   void * _owner p = malloc(1);
+   //free(p);
+}
+`;
 
-sample["Extension - [[cake::free]] attribute"] =
+sample["Extension - ownership II"] =
 `
 
-[[cake::free]] void *  malloc(int i){}
-void free([[cake::free]] void *p) {}
+void * _owner malloc(int i){}
+void free([[cake::implicit]] void * _owner p) {}
 
 struct X {
   int i;
 };
 
-[[cake::free]] struct X* f() {
-    struct X * p = malloc(1);
-    struct X * p2;
-    p2 = [[cake::move]] p;
+ struct X * _owner f() {
+    struct X * _owner p = malloc(1);
+    struct X * _owner p2 = _move p;
     return p2; /*p2 is moved*/
 }
 
 int main() {
-   struct X * p = f();
-
-   /*we need call free here*/
-   free(p);
+   struct X * _owner p = f();
+   //free(p);     
 }
 
 
 `;
 
-sample["Extension - [[cake::destroy]] attribute"] =
-    `
-
-
-
-struct [[cake::destroy]] X {
+sample["Extension - ownership III"] =
+`
+struct _owner X {
   int i;
 };
 
-void x_destroy([[cake::destroy]] struct x *p) { }
-
-void x_swap(struct X *a, struct X *b)
-{
-  struct X temp = *a;
-  *a = *b;
-  *b = temp;
-
-  /*temp does not need to be destroy*/
-  _del_attr(temp, "must destroy");
-
-}
-
-struct X f() {
-    struct X x = {0};
-    struct X x2 = {0};
-    x2 = [[cake::move]] x;
-    return x2;
-}
+void x_destroy([[cake::implicit]] struct X * _obj_owner p) { }
 
 int main() {
-   struct X x = f();
-   //x_destroy(&x);
+   struct X x = {};
+   x_destroy(&x);
 }
 
+`;
 
+sample["Extension - ownership IV"] =
+`
+void free([[cake::implicit]] void* _owner ptr);
+[[nodiscard]] void* _owner malloc(int size);
+
+struct _owner X
+{
+    int i;
+};
+
+int main() 
+{
+    struct X * _owner p = malloc(sizeof (struct X));
+    free(p);
+}
 
 `;
 
 sample["Extension - _has_att, destroy and free iteraction"] =
 `
-[[cake::free]] void* malloc(int){};
-void free([[cake::free]] void*) {}
+
+void* _owner malloc(int){};
+void free([[cake::implicit]] void* _owner) {}
 
 
 int main()
 {
-    int * p = malloc(10);
+    int * _owner p = malloc(10);
     static_assert(_has_attr(p, "must free"));
 
     int * p2;
@@ -1299,6 +1301,7 @@ int main()
     //free(p2);
     static_assert(_has_attr(p2, "uninitialized"));
 }
+
 
 `;
 

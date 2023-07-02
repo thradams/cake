@@ -31,11 +31,7 @@ enum attribute_flags
     STD_ATTRIBUTE_NORETURN = 1 << 4,
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
-
-    CAKE_ATTRIBUTE_FREE = 1 << 7,
-    CAKE_ATTRIBUTE_DESTROY = 1 << 8,
-    CAKE_ATTRIBUTE_MOVE = 1 << 9,
-
+    CAKE_ATTRIBUTE_IMPLICT= 1 << 7,
     /*
      Used to detect argument type
     */
@@ -96,7 +92,12 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_CONST = 1 << 0,
     TYPE_QUALIFIER_RESTRICT = 1 << 1,
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
-    TYPE_QUALIFIER__ATOMIC = 1 << 3    
+    TYPE_QUALIFIER__ATOMIC = 1 << 3 , 
+    
+    /*ownership extensions*/
+    TYPE_QUALIFIER_OWNER = 1 << 4,    
+    TYPE_QUALIFIER_OBJ_OWNER = 1 << 5,   
+    TYPE_QUALIFIER_VIEW = 1 << 6
 };
 
 
@@ -124,7 +125,7 @@ struct param_list {
     struct param* tail;
 };
 
-struct _destroy type 
+struct _owner type 
 {
     enum type_category category;
     enum attribute_flags  attributes_flags;
@@ -148,12 +149,14 @@ struct expression;
 
 void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
-    struct expression* right);
+    struct expression* right,
+    bool move_assignment,
+    bool return_assignment);
 
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
-void type_destroy(_destroy struct type* p_type);
+void type_destroy(implicit struct type* _obj_owner p_type);
 
 
 struct type get_function_return_type(struct type* p_type);
@@ -182,7 +185,7 @@ bool type_is_void(const struct type* p_type);
 bool type_is_function_or_function_pointer(const struct type* p_type);
 bool type_is_function(const struct type* p_type);
 bool type_is_nodiscard(const struct type* p_type);
-bool type_is_destroy(const struct type* p_type);
+
 bool type_is_deprecated(const struct type* p_type);
 bool type_is_maybe_unused(const struct type* p_type);
 bool type_is_pointer_or_array(const struct type* p_type);

@@ -32,6 +32,7 @@ enum warning {
     W_STRING_SLICED = 1 << 14,
     W_DISCARDED_QUALIFIERS = 1 << 15,
     W_DECLARATOR_STATE = 1 << 16,
+    
 };
 
 enum error
@@ -95,6 +96,10 @@ enum error
     C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
     C_MACRO_INVALID_ARG,
     C_MISSING_MACRO_ARGUMENT,
+    C_EXPLICIT_MOVE,
+    C_MISSING_OWNER,
+    C_NOT_OWNER,
+    C_MOVE_ASSIGNMENT_OF_NON_OWNER,
 };
 
 enum style

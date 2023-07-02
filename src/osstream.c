@@ -10,8 +10,7 @@ void ss_swap(struct osstream* a, struct osstream* b)
 {
     struct osstream r = *a;
     *a = *b;
-    *b = r;
-    _del_attr(r, "must destroy");
+    *b = r;    
 }
 
 void ss_clear(struct osstream* stream)
@@ -19,7 +18,12 @@ void ss_clear(struct osstream* stream)
     stream->size = 0;
 }
 
-void ss_close(struct osstream* stream)
+char * _owner ss_get_str_and_close(implicit struct osstream * _obj_owner stream)
+{
+    return stream->c_str;
+}
+
+void ss_close(implicit struct osstream * _obj_owner stream)
 {
     free(stream->c_str);    
 }

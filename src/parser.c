@@ -1,3 +1,12 @@
+
+#if  defined __CAKE__
+[[nodiscard]] void* _owner calloc(int nmemb, int size);
+void free([[cake::implicit]] void* _owner ptr);
+[[nodiscard]] void* _owner malloc(int size);
+[[nodiscard]] void* _owner realloc(void* _owner ptr, int size);
+#endif
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -12,6 +21,7 @@
 #include <ctype.h>
 #include "format_visit.h"
 #include "wasm_visit.h"
+#include "flow_analysis_visit.h"
 #include <errno.h>
 
 #ifdef _WIN32
@@ -148,7 +158,7 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
 int printf_nothing(const char* fmt, ...) { return 0; }
 #endif
 
-void scope_destroy(struct scope* p)
+void scope_destroy(implicit struct scope * _obj_owner p)
 {
     hashmap_destroy(&p->tags);
     hashmap_destroy(&p->variables);
@@ -200,7 +210,7 @@ void scope_list_pop(struct scope_list* list)
 }
 
 
-void parser_ctx_destroy(struct parser_ctx* ctx)
+void parser_ctx_destroy(implicit struct parser_ctx* _obj_owner ctx)
 {
 
 }
@@ -225,6 +235,69 @@ void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, con
 
     print_line_and_token(p_token);
 #endif
+    const char* func_name = "module";
+    if (ctx->p_current_function_opt)
+    {
+        func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
+    }
+
+    if (ctx->sarif_file)
+    {
+        const char * file_name = "?";
+        int line = 0;
+        int col = 0;
+        if (p_token)
+        {
+            file_name = p_token->token_origin->lexeme;
+            line = p_token->line;
+            col = p_token->col;
+        }
+
+        if (ctx->n_errors + ctx->n_warnings + ctx->n_info > 1)
+        {
+            fprintf(ctx->sarif_file, ",\n");
+        }
+
+        fprintf(ctx->sarif_file, "   {\n");
+        fprintf(ctx->sarif_file, "     \"ruleId\":\"%s\",\n", "error");
+        fprintf(ctx->sarif_file, "     \"level\":\"error\",\n");
+        fprintf(ctx->sarif_file, "     \"message\": {\n");
+        fprintf(ctx->sarif_file, "            \"text\": \"%s\"\n", buffer);
+        fprintf(ctx->sarif_file, "      },\n");
+        fprintf(ctx->sarif_file, "      \"locations\": [\n");
+        fprintf(ctx->sarif_file, "       {\n");
+
+        fprintf(ctx->sarif_file, "       \"physicalLocation\": {\n");
+
+        fprintf(ctx->sarif_file, "             \"artifactLocation\": {\n");
+        fprintf(ctx->sarif_file, "                 \"uri\": \"file:///%s\"\n", file_name);
+        fprintf(ctx->sarif_file, "              },\n");
+
+        fprintf(ctx->sarif_file, "              \"region\": {\n");
+        fprintf(ctx->sarif_file, "                  \"startLine\": %d,\n", line);
+        fprintf(ctx->sarif_file, "                  \"startColumn\": %d,\n", col);
+        fprintf(ctx->sarif_file, "                  \"endLine\": %d,\n", line);
+        fprintf(ctx->sarif_file, "                  \"endColumn\": %d\n", col);
+        fprintf(ctx->sarif_file, "               }\n");
+        fprintf(ctx->sarif_file, "         },\n");
+
+        fprintf(ctx->sarif_file, "         \"logicalLocations\": [\n");
+        fprintf(ctx->sarif_file, "          {\n");
+
+        fprintf(ctx->sarif_file, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
+        fprintf(ctx->sarif_file, "              \"decoratedName\": \"%s\",\n", func_name);
+
+        fprintf(ctx->sarif_file, "              \"kind\": \"%s\"\n", "function");
+        fprintf(ctx->sarif_file, "          }\n");
+
+        fprintf(ctx->sarif_file, "         ]\n");
+
+        fprintf(ctx->sarif_file, "       }\n");
+        fprintf(ctx->sarif_file, "     ]\n");
+
+        fprintf(ctx->sarif_file, "   }\n");
+    }
+
 }
 
 
@@ -232,7 +305,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 {
     if (w != W_NONE)
     {
-        if (p_token->level != 0)
+        if (p_token && p_token->level != 0)
         {
             /*we dont warning code inside includes*/
             return false;
@@ -268,7 +341,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 
     if (ctx->sarif_file)
     {
-        if (ctx->n_warnings + ctx->n_info > 1)
+        if (ctx->n_errors + ctx->n_warnings + ctx->n_info > 1)
         {
             fprintf(ctx->sarif_file, ",\n");
         }
@@ -298,7 +371,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 
         fprintf(ctx->sarif_file, "         \"logicalLocations\": [\n");
         fprintf(ctx->sarif_file, "          {\n");
-        
+
         fprintf(ctx->sarif_file, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
         fprintf(ctx->sarif_file, "              \"decoratedName\": \"%s\",\n", func_name);
 
@@ -350,10 +423,10 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
     print_line_and_token(p_token);
 #endif // !TEST
 
-    
+
     if (ctx->sarif_file)
     {
-        if (ctx->n_warnings + ctx->n_info > 1)
+        if (ctx->n_errors + ctx->n_warnings + ctx->n_info > 1)
         {
             fprintf(ctx->sarif_file, ",\n");
         }
@@ -383,7 +456,7 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
 
         fprintf(ctx->sarif_file, "         \"logicalLocations\": [\n");
         fprintf(ctx->sarif_file, "          {\n");
-        
+
         fprintf(ctx->sarif_file, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
         fprintf(ctx->sarif_file, "              \"decoratedName\": \"%s\",\n", func_name);
 
@@ -529,7 +602,13 @@ bool first_of_type_qualifier_token(struct token* p_token)
     return p_token->type == TK_KEYWORD_CONST ||
         p_token->type == TK_KEYWORD_RESTRICT ||
         p_token->type == TK_KEYWORD_VOLATILE ||
-        p_token->type == TK_KEYWORD__ATOMIC;
+        p_token->type == TK_KEYWORD__ATOMIC ||
+
+        /*extensions*/
+        p_token->type == TK_KEYWORD__OWNER ||
+        p_token->type == TK_KEYWORD__OBJ_OWNER ||
+        p_token->type == TK_KEYWORD__VIEW;
+
     //__fastcall
     //__stdcall
 }
@@ -714,12 +793,6 @@ bool first_of_type_name(struct parser_ctx* ctx)
 {
     return first_of_type_specifier(ctx) || first_of_type_qualifier(ctx);
 }
-
-bool first_of_pointer(struct parser_ctx* ctx)
-{
-    return first_is(ctx, '*');
-}
-
 
 
 bool first_of_type_specifier_token(struct parser_ctx* ctx, struct token* p_token)
@@ -1035,6 +1108,13 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
             else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
             else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
+
+            else if (strcmp("_owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("_obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            else if (strcmp("_view", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
+            else if (strcmp("_move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
+
+
             break;
         default:
             break;
@@ -1924,6 +2004,15 @@ struct declaration* function_definition_or_declaration(struct parser_ctx* ctx)
         p_declaration->function_body = function_body(ctx);
         p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
+        /*
+          Now we have the full function AST let´s visit to analise
+          jumps
+        */
+        struct flow_analysis_visit_ctx ctx2 = {0};
+        ctx2.target = ctx->options.target;
+        ctx2.ctx = ctx;
+        flow_analysis_visit_declaration(&ctx2, p_declaration);
+
 
         struct parameter_declaration* parameter = NULL;
 
@@ -1983,7 +2072,7 @@ struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx)
     //    storage-class-specifier
     //    type-specifier-qualifier
     //    function-specifier
-    struct declaration_specifier* p_declaration_specifier = calloc(1, sizeof *p_declaration_specifier);
+    struct declaration_specifier* p_declaration_specifier = calloc(1, sizeof * p_declaration_specifier);
     if (first_of_storage_class_specifier(ctx))
     {
         p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
@@ -2026,6 +2115,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
 
         if (p_init_declarator->p_declarator == NULL) throw;
 
+
         p_init_declarator->p_declarator->name = tkname;
 
 
@@ -2034,19 +2124,6 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             compiler_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "empty declarator name?? unexpected");
 
             return p_init_declarator;
-        }
-
-        if (p_attribute_specifier_sequence_opt &&
-            p_attribute_specifier_sequence_opt->attributes_flags)
-        {
-            if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
-            {
-                p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_MUST_FREE;
-            }
-            if (p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
-            {
-                p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
-            }
         }
 
         p_init_declarator->p_declarator->declaration_specifiers = p_declaration_specifiers;
@@ -2075,12 +2152,6 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
                 }
             }
 
-            if ((p_init_declarator->p_declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                type_is_destroy(&p_init_declarator->p_declarator->type) &&
-                !type_is_pointer(&p_init_declarator->p_declarator->type))
-            {
-                p_init_declarator->p_declarator->declarator_flags = DECLARATOR_MUST_DESTROY | DECLARATOR_ISVALID;
-            }
         }
 
         const char* name = p_init_declarator->p_declarator->name->lexeme;
@@ -2158,7 +2229,19 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
         if (ctx->current && ctx->current->type == '=')
         {
             parser_match(ctx);
+
+            struct token* move_token = NULL;
+            if (ctx->current->type == TK_KEYWORD__MOVE)
+            {
+                move_token = ctx->current;
+                parser_match(ctx);
+
+            }
+
             p_init_declarator->initializer = initializer(ctx);
+            p_init_declarator->initializer->move_token = move_token;
+
+
 
             if (p_init_declarator->initializer->braced_initializer)
             {
@@ -2177,37 +2260,7 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
-                if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL &&
-                    type_is_function(&p_init_declarator->initializer->assignment_expression->left->type))
-                {
-                    /*
-                      FILE * f = fopen();
-                    */
 
-                    p_init_declarator->p_declarator->declarator_flags |=
-                        p_init_declarator->initializer->assignment_expression->left->declarator->declarator_flags;
-                }
-
-
-                if ((p_init_declarator->p_declarator->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION) &&
-                    (p_init_declarator->p_declarator->declarator_flags & DECLARATOR_MUST_FREE) &&
-                    type_is_nodiscard(&p_init_declarator->p_declarator->type) &&
-                    type_is_pointer(&p_init_declarator->p_declarator->type))
-                {
-                    /*pointer to MUST_FREE of a struct [[nodiscard]] has must_destroy*/
-                    p_init_declarator->p_declarator->declarator_flags |= (DECLARATOR_MUST_DESTROY);
-                }
-
-                if (p_init_declarator->initializer->p_attribute_specifier_sequence_opt &&
-                    p_init_declarator->initializer->p_attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_MOVE)
-                {
-                    struct declarator* const p_right_declarator = expression_get_declarator(p_init_declarator->initializer->assignment_expression);
-                    if (p_right_declarator)
-                    {
-                        p_init_declarator->p_declarator->declarator_flags = p_right_declarator->declarator_flags;
-                        p_right_declarator->declarator_flags = DECLARATOR_UNINITIALIZED;
-                    }
-                }
             }
             /*
                auto requires we find the type after initializer
@@ -2252,14 +2305,29 @@ struct init_declarator* init_declarator(struct parser_ctx* ctx,
             }
 
         }
-        else
-        {
-            p_init_declarator->p_declarator->declarator_flags |= DECLARATOR_UNINITIALIZED;
-        }
+
     }
     catch
     {
     }
+
+    if (p_init_declarator->initializer &&
+        p_init_declarator->initializer->assignment_expression)
+    {
+        if (p_init_declarator->initializer->assignment_expression->type.type_qualifier_flags &
+            TYPE_QUALIFIER_OWNER)
+        {            
+            if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL)
+            {
+                //type * p = f();
+                if (!(p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
+                {
+                    compiler_set_error_with_token(C_MISSING_OWNER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+                }
+            }
+        }
+    }
+
     return p_init_declarator;
 }
 
@@ -2468,7 +2536,7 @@ struct type_specifier* type_specifier(struct parser_ctx* ctx)
        typeof-specifier                      C23
     */
 
-    struct type_specifier* p_type_specifier = calloc(1, sizeof *p_type_specifier);
+    struct type_specifier* p_type_specifier = calloc(1, sizeof * p_type_specifier);
 
 
 
@@ -2675,7 +2743,7 @@ bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_s
 
 struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx)
 {
-    struct struct_or_union_specifier* p_struct_or_union_specifier = calloc(1, sizeof *p_struct_or_union_specifier);
+    struct struct_or_union_specifier* p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
 
     if (ctx->current->type == TK_KEYWORD_STRUCT ||
         ctx->current->type == TK_KEYWORD_UNION)
@@ -2687,6 +2755,14 @@ struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* c
     {
         assert(false);
     }
+
+    /*extension*/
+    if (ctx->current->type == TK_KEYWORD__OWNER)
+    {
+        p_struct_or_union_specifier->owner_token = ctx->current;
+        parser_match(ctx);
+    }
+
 
     p_struct_or_union_specifier->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx);
@@ -3071,7 +3147,7 @@ struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx
 
 struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx)
 {
-    struct type_specifier_qualifier* type_specifier_qualifier = calloc(1, sizeof *type_specifier_qualifier);
+    struct type_specifier_qualifier* type_specifier_qualifier = calloc(1, sizeof * type_specifier_qualifier);
     //type_specifier
     //type_qualifier
     //alignment_specifier
@@ -3115,7 +3191,7 @@ struct enum_specifier* enum_specifier(struct parser_ctx* ctx)
     struct enum_specifier* p_enum_specifier = NULL;
     try
     {
-        p_enum_specifier = calloc(1, sizeof *p_enum_specifier);
+        p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
 
         p_enum_specifier->first_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_ENUM);
@@ -3335,7 +3411,7 @@ struct enumerator* enumerator(struct parser_ctx* ctx,
 
 struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx)
 {
-    struct alignment_specifier* alignment_specifier = calloc(1, sizeof *alignment_specifier);
+    struct alignment_specifier* alignment_specifier = calloc(1, sizeof * alignment_specifier);
     alignment_specifier->token = ctx->current;
     parser_match_tk(ctx, TK_KEYWORD__ALIGNAS);
     parser_match_tk(ctx, '(');
@@ -3358,7 +3434,7 @@ struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx)
 struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx)
 {
     //'_Atomic' '(' type_name ')'
-    struct atomic_type_specifier* p = calloc(1, sizeof *p);
+    struct atomic_type_specifier* p = calloc(1, sizeof * p);
     p->token = ctx->current;
     parser_match_tk(ctx, TK_KEYWORD__ATOMIC);
     parser_match_tk(ctx, '(');
@@ -3370,7 +3446,7 @@ struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx)
 
 struct type_qualifier* type_qualifier(struct parser_ctx* ctx)
 {
-    struct type_qualifier* p_type_qualifier = calloc(1, sizeof *p_type_qualifier);
+    struct type_qualifier* p_type_qualifier = calloc(1, sizeof * p_type_qualifier);
 
     switch (ctx->current->type)
     {
@@ -3386,6 +3462,21 @@ struct type_qualifier* type_qualifier(struct parser_ctx* ctx)
         case TK_KEYWORD__ATOMIC:
             p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
             break;
+
+            /*
+              ownership extensions
+            */
+
+        case TK_KEYWORD__OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+            break;
+        case TK_KEYWORD__OBJ_OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
+            break;
+        case TK_KEYWORD__VIEW:
+            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+            break;
+
     }
 
     p_type_qualifier->token = ctx->current;
@@ -3419,7 +3510,7 @@ struct function_specifier* function_specifier(struct parser_ctx* ctx)
     struct function_specifier* p_function_specifier = NULL;
     try
     {
-        p_function_specifier = calloc(1, sizeof *p_function_specifier);
+        p_function_specifier = calloc(1, sizeof * p_function_specifier);
         if (p_function_specifier == NULL) throw;
 
         p_function_specifier->token = ctx->current;
@@ -3593,7 +3684,7 @@ struct array_declarator* array_declarator(struct direct_declarator* p_direct_dec
     struct array_declarator* p_array_declarator = NULL;
     try
     {
-        p_array_declarator = calloc(1, sizeof *p_array_declarator);
+        p_array_declarator = calloc(1, sizeof * p_array_declarator);
         if (p_array_declarator == NULL) throw;
 
         p_array_declarator->direct_declarator = p_direct_declarator;
@@ -3854,12 +3945,7 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
         attribute_specifier_sequence_opt(ctx);
 
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx);
-
-    if (p_parameter_declaration->attribute_specifier_sequence_opt)
-    {
-        p_parameter_declaration->declaration_specifiers->attributes_flags =
-            p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags;
-    }
+    
 
     //talvez no ctx colocar um flag que esta em argumentos
     //TODO se tiver uma struct tag novo...
@@ -3873,25 +3959,31 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
     p_parameter_declaration->declarator->name = p_token_name;
 
 
-    if (p_parameter_declaration->attribute_specifier_sequence_opt)
-    {
-        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_DESTROY)
-        {
-            p_parameter_declaration->declarator->declarator_flags |= DECLARATOR_MUST_DESTROY;
-        }
-        if (p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags & CAKE_ATTRIBUTE_FREE)
-        {
-            p_parameter_declaration->declarator->declarator_flags |= DECLARATOR_MUST_FREE;
-        }
-    }
+
     p_parameter_declaration->declarator->is_parameter_declarator = true;
     p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
     p_parameter_declaration->declarator->type =
         make_type_using_declarator(ctx, p_parameter_declaration->declarator);
 
+    if (p_parameter_declaration->attribute_specifier_sequence_opt)
+    {
+        /*
+          we keep only function type so lets move implict flag to type
+          void free( [[cake::implicit]] void *owner p) {}
+        */
+        p_parameter_declaration->declarator->type.attributes_flags |=
+            p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags;
+    }
 
     p_parameter_declaration->declarator->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_PARAM;
+
+    if (p_parameter_declaration->attribute_specifier_sequence_opt)
+    {
+        //implicit flag must be on the parameter type to be accebly everwhere (function pointer etc)
+        p_parameter_declaration->declarator->type.attributes_flags |= 
+            p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags;        
+    }
 
     if (p_parameter_declaration->declarator->name)
         naming_convention_parameter(ctx, p_parameter_declaration->declarator->name, &p_parameter_declaration->declarator->type);
@@ -4105,15 +4197,14 @@ struct initializer* initializer(struct parser_ctx* ctx)
 
     p_initializer->first_token = ctx->current;
 
-    p_initializer->p_attribute_specifier_sequence_opt =
-        attribute_specifier_sequence_opt(ctx);
-
     if (ctx->current->type == '{')
     {
         p_initializer->braced_initializer = braced_initializer(ctx);
     }
     else
     {
+        p_initializer->p_attribute_specifier_sequence_opt =
+            attribute_specifier_sequence_opt(ctx);
 
         p_initializer->assignment_expression = assignment_expression(ctx);
     }
@@ -4446,30 +4537,18 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
 
     if (ctx->current->type == '::')
     {
-
         parser_match(ctx);
-
-        if (is_cake_attr && strcmp(ctx->current->lexeme, "free") == 0)
+        if (is_cake_attr)
         {
-            is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_FREE;
+            if (strcmp(ctx->current->lexeme, "implicit") == 0)
+            {
+                p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_IMPLICT;
+            }
+            else
+            {
+                compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
+            }
         }
-        else if (is_cake_attr && strcmp(ctx->current->lexeme, "destroy") == 0)
-        {
-            is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_DESTROY;
-        }
-        else if (is_cake_attr && strcmp(ctx->current->lexeme, "move") == 0)
-        {
-            is_standard_attribute = true;
-            p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_MOVE;
-        }
-        else
-        {
-            compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
-        }
-
-
         parser_match_tk(ctx, TK_IDENTIFIER);
     }
     else
@@ -4781,27 +4860,7 @@ struct compound_statement* compound_statement(struct parser_ctx* ctx)
 
             if (p_declarator)
             {
-                /*
-                  let's print the declarators that were not cleared for these
-                  flags
-                */
-                if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
-                {
-                    compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE, ctx,
-                        p_declarator->name,
-                        "destructor of '%s' must be called before the end of scope",
-                        p_declarator->name->lexeme);
 
-                }
-
-                if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
-                {
-
-                    compiler_set_error_with_token(C_FREE_MUST_BE_CALLED_BEFORE_END_OF_SCOPE, ctx,
-                        p_declarator->name,
-                        "free('%s') must be called before the end of scope",
-                        p_declarator->name->lexeme);
-                }
 
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
@@ -5239,15 +5298,6 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
         {
             p_jump_statement->expression_opt = expression(ctx);
 
-            if (p_jump_statement->expression_opt &&
-                p_jump_statement->expression_opt->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
-            {
-                /*
-                   returning a declarator will remove the flags must destroy or must free,
-                   similar of moving
-                */
-                p_jump_statement->expression_opt->declarator->declarator_flags &= ~(DECLARATOR_MUST_DESTROY | DECLARATOR_MUST_FREE);
-            }
 
             if (p_jump_statement->expression_opt)
             {
@@ -5267,7 +5317,10 @@ struct jump_statement* jump_statement(struct parser_ctx* ctx)
                 }
                 else
                 {
-                    check_assigment(ctx, &return_type, p_jump_statement->expression_opt);
+                    if (p_jump_statement->expression_opt)
+                    {
+                        check_assigment(ctx, &return_type, p_jump_statement->expression_opt, false, true);
+                    }
                 }
 
 
@@ -5383,26 +5436,6 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                 declarator_is_function(p_declarator) &&
                 (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC))
             {
-                /*
-                  let's print the declarators that were not cleared for these
-                  flags
-                */
-                if (p_declarator->declarator_flags & DECLARATOR_MUST_DESTROY)
-                {
-                    compiler_set_warning_with_token(W_DECLARATOR_STATE, ctx,
-                        p_declarator->name->token_origin,
-                        "MUST_DESTROY declarator flag of '%s' must be cleared before and of scope.",
-                        p_declarator->name->lexeme);
-                }
-
-                if (p_declarator->declarator_flags & DECLARATOR_MUST_FREE)
-                {
-                    compiler_set_warning_with_token(W_DECLARATOR_STATE, ctx,
-                        p_declarator->name->token_origin,
-                        "MUST_FREE declarator flag of '%s' must be cleared before and of scope.",
-                        p_declarator->name->lexeme);
-                }
-
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
@@ -5504,12 +5537,10 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR0 \
+#define STR \
 "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32705\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 "\n"
 
-#define STR \
-"C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um\n"
 
         //http://thradams.com/app/litapp.html
         snprintf(env, sizeof env,
@@ -5650,6 +5681,8 @@ int compile_one_file(const char* file_name,
     struct parser_ctx ctx = {0};
     ctx.options = *options;
 
+    char* _owner content = NULL;
+
     try
     {
 
@@ -5664,7 +5697,7 @@ int compile_one_file(const char* file_name,
 
 
 
-        char* content = read_file(file_name);
+        content = read_file(file_name);
         if (content == NULL)
         {
             report->error_count++;
@@ -5676,11 +5709,11 @@ int compile_one_file(const char* file_name,
         {
             char sarif_file_name[260];
             strcpy(sarif_file_name, file_name);
-            strcat(sarif_file_name, ".sarif");            
+            strcat(sarif_file_name, ".sarif");
             ctx.sarif_file = fopen(sarif_file_name, "w");
             if (ctx.sarif_file)
             {
-                const char* begin_sarif=
+                const char* begin_sarif =
                     "{\n"
                     "  \"version\": \"2.1.0\",\n"
                     //"  \"$schema\": \"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json\",\n"
@@ -5710,9 +5743,9 @@ int compile_one_file(const char* file_name,
 
         if (options->preprocess_only)
         {
-            const char* s2 = print_preprocessed_to_string2(ast.token_list.head);
+            const char* _owner s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
-            free((void*) s2);
+            free((void* _owner) s2);
         }
         else
         {
@@ -5743,7 +5776,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* s2 = format_code(options, s);
-                    free((void*) s);
+                    free((char* _owner) s);
                     s = s2;
                 }
 
@@ -5791,7 +5824,8 @@ int compile_one_file(const char* file_name,
         fclose(ctx.sarif_file);
     }
     parser_ctx_destroy(&ctx);
-    free((void*) s);
+    free((char* _owner) s);
+    free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
 
@@ -5950,7 +5984,7 @@ int compile(int argc, const char** argv, struct report* report)
 
     printf("\n");
     printf("%d files in %f seconds\n", no_files, cpu_time_used);
-        
+
     printf("%d" LIGHTRED  " errors " RESET, report->error_count);
 
     printf("%d" LIGHTMAGENTA " warnings " RESET, report->warnings_count);
@@ -6029,8 +6063,12 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
     const char* s = NULL;
 
     struct preprocessor_ctx prectx = {0};
-
+    struct ast ast = {0};
     struct options options = {.input = LANGUAGE_CXX};
+
+    struct visit_ctx visit_ctx = {0};
+    visit_ctx.target = options.target;
+
     //printf("options '%s'\n", pszoptions);
     try
     {
@@ -6061,9 +6099,8 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
         }
         else
         {
-            struct visit_ctx visit_ctx = {0};
-            visit_ctx.target = options.target;
-            struct ast ast = get_ast(&options, "source", content, report);
+            
+            ast = get_ast(&options, "source", content, report);
             if (report->error_count > 0) throw;
 
             visit_ctx.ast = ast;
@@ -6082,7 +6119,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
                 /*re-parser ouput and format*/
                 const char* s2 = format_code(&options, s);
-                free((void*) s);
+                free((void* _owner) s);
                 s = s2;
             }
             ast_destroy(&ast);
@@ -6092,7 +6129,8 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
     {
     }
 
-
+    visit_ctx_destroy(&visit_ctx);
+    ast_destroy(&ast);
 
     return s;
 }
@@ -6106,7 +6144,7 @@ char* CompileText(const char* pszoptions, const char* content)
     return  (char*) compile_source(pszoptions, content, &report);
 }
 
-void ast_destroy(struct ast* ast)
+void ast_destroy(implicit struct ast* _obj_owner ast)
 {
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);

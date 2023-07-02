@@ -192,6 +192,8 @@ struct expression
     /*token used in _add_attr, _has_attr, _del_attr, return*/
     struct token* contract_arg_token;
 
+    struct token* move_assignment;
+
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* declarator;
 

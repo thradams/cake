@@ -1,3 +1,11 @@
+#if  defined __CAKE__
+[[nodiscard]] void* _owner calloc(int nmemb, int size);
+void free([[cake::implicit]] void* _owner ptr);
+[[nodiscard]] void* _owner malloc(int size);
+[[nodiscard]] void* _owner realloc(void* _owner ptr, int size);
+#endif
+
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -5,6 +13,11 @@
 #include "visit.h"
 #include "expressions.h"
 #include "annotations.h"
+
+void visit_ctx_destroy(implicit struct visit_ctx* _obj_owner ctx)
+{
+    //ctx->
+}
 
 static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence);
 
@@ -70,13 +83,13 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
         l.tail = deferchild->defer_statement->last_token;
 
         l.head->flags |= TK_FLAG_HIDE;
-        const char* s = get_code_as_compiler_see(&l);
+        const char* _owner s = get_code_as_compiler_see(&l);
         assert(s != NULL);
         if (hide_tokens)
             token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
         ss_fprintf(ss, "%s", s);
-        free((void*)s);
+        free((void* _owner)s);
         deferchild = deferchild->previous;
     }
 }
@@ -653,7 +666,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 ss_close(&ss);
                 ss_close(&ss0);
             }
-
+            type_destroy(&t);
         }
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
@@ -662,7 +675,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             if (constant_value_is_valid(&p_expression->constant_value))
             {
-                free((void*)p_expression->type.name_opt);
+                free((void* _owner)p_expression->type.name_opt);
                 p_expression->type.name_opt = NULL;
 
                 struct osstream ss1 = { 0 };
@@ -780,7 +793,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             print_type_specifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_specifier_flags);
 
 
-            free((void*)p_expression->type_name->declarator->type.name_opt);
+            free((void* _owner)p_expression->type_name->declarator->type.name_opt);
             p_expression->type_name->declarator->type.name_opt = strdup(name);
 
             struct osstream ss0 = { 0 };
@@ -1067,9 +1080,10 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "goto _catch_label_%d;", p_jump_statement->try_catch_block_index);
             ss_fprintf(&ss, "}");
+            
             free(p_jump_statement->first_token->lexeme);
-            p_jump_statement->first_token->lexeme = ss.c_str;
-            _del_attr(ss, DECLARATOR_MUST_DESTROY); /*MOVED*/
+            p_jump_statement->first_token->lexeme = ss_get_str_and_close(&ss);
+            
 
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
 
@@ -1079,8 +1093,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             struct osstream ss = { 0 };
             ss_fprintf(&ss, "goto _catch_label_%d", p_jump_statement->try_catch_block_index);
             free(p_jump_statement->first_token->lexeme);
-            p_jump_statement->first_token->lexeme = ss.c_str; /*MOVED*/
-            _del_attr(ss, DECLARATOR_MUST_DESTROY); /*MOVED*/
+            p_jump_statement->first_token->lexeme = ss_get_str_and_close(&ss); /*MOVED*/
         }
 
         ss_close(&ss0);
@@ -2161,9 +2174,8 @@ int visit_tokens(struct visit_ctx* ctx)
                     struct osstream ss = { 0 };
                     //TODO  check /* inside
                     ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
-                    free(current->lexeme);
-                    _del_attr(ss, DECLARATOR_MUST_DESTROY);
-                    current->lexeme = ss.c_str;/*MOVED*/
+                    free(current->lexeme);                    
+                    current->lexeme = ss_get_str_and_close(&ss);
                 }
             }
             else if (current->type == TK_PREPROCESSOR_LINE)

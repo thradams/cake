@@ -228,7 +228,7 @@
 <a href="#toc_69">Extension type-expression</a>
 </li>
 <li>
-<a href="#toc_70">Extension - [[cake::destroy]] [[cake::free]] [[cake::move]] Attributes</a>
+<a href="#toc_70">Extension - Ownership checks</a>
 </li>
 <li>
 <a href="#toc_71">Extension typename on _Generic</a>
@@ -1784,148 +1784,7 @@ int main()
 
 <p>We can use != and == with void value to compare types.</p>
 
-<h3 id="toc_70">Extension - [[cake::destroy]] [[cake::free]] [[cake::move]] Attributes</h3>
-
-<p>Cake declarators (variables)  have imaginary flags associated with them.</p>
-
-<p>Currently, there are three built-in imaginary flags in Cake:</p>
-
-<ul>
-<li><em>must free</em></li>
-<li><em>must destroy</em></li>
-<li><em>uninitialized</em></li>
-</ul>
-
-<p>The <strong>[[cake::free]]</strong> ,  <strong>[[cake::destroy]]</strong> and <strong>[[cake::move]]</strong> attributes allow you to set or clear these 
-imaginary flags implicitly.</p>
-
-<p>When <strong>[[cake::free]]</strong> is used in return types, it sets the imaginary flag <em>&quot;must free&quot;</em> on the receiving declarator.
-Here&#39;s an example:</p>
-
-<pre><code class="language-c">[[cake::free]] void* malloc(int i) {}
-
-void f() {
-  int* p = malloc(1);
-}
-</code></pre>
-
-<p>In this example, the declarator <code>p</code> has the imaginary flag <em>&quot;must free&quot;</em>, which is set implicitly 
-because the <code>malloc</code> function has the attribute <strong>[[cake::free]]</strong>.</p>
-
-<p>You can check the existence of this imaginary flag at compile time
-using <code>static_assert</code> and <code>_has_attr</code> as shown below:</p>
-
-<pre><code class="language-c">[[cake::free]] void* malloc(int i) {}
-
-void f() {
-  int* p = malloc(1);
-  static_assert(_has_attr(p, &quot;must free&quot;));
-}
-</code></pre>
-
-<p>At the end of the scope, Cake emits a warning if the <em>&quot;must free&quot;</em> flag has not been cleared.</p>
-
-<p>This flag can be turned off implicitly when a function using the <strong>[[cake::free]]</strong> attribute is called, like in the following example:</p>
-
-<pre><code class="language-c">[[cake::free]] void* malloc(int i) {}
-void free([[cake::free]] void* p) {}
-
-void f() {
-  int* p = malloc(1);
-
-  /* malloc adds this imaginary attribute */
-  static_assert(_has_attr(p, &quot;must free&quot;));
-
-  free(p);
-
-  /* free removes this imaginary attribute */
-  static_assert(!_has_attr(p, &quot;must free&quot;));
-}
-</code></pre>
-
-<p>After calling <code>free</code>, the imaginary flag <em>&quot;must free&quot;</em> is removed, and there is no warning at the end of the scope.</p>
-
-<p>When a declarator is returned or assigned ´= [[cake::move]]´, the <em>&quot;must free&quot;</em> flag is transferred to 
-the receiving declarator.
-If the return type of a function does not have the flag, the compiler shows a warning.</p>
-
-<p>The <strong>[[cake::destroy]]</strong> attribute can be used with structs. For example:</p>
-
-<pre><code class="language-c">struct [[cake::destroy]] X {
-  int i;
-};
-</code></pre>
-
-<p>When a <code>struct X</code> is instantiated, the flag <em>&quot;must destroy&quot;</em> is automatically set.</p>
-
-<pre><code class="language-c">int main() {
-   struct X x;
-   static_assert(_has_attr(p, &quot;must destroy&quot;));
-}
-</code></pre>
-
-<p>Similar to <em>&quot;must free&quot;</em>, this flag must be cleared before the end of the scope, or the compiler will emit a warning. To clear this flag, you can declare a function with the attribute <strong>[[destroy]]</strong>:</p>
-
-<pre><code class="language-c">void x_destroy([[cake::destroy]] struct x *p) { }
-</code></pre>
-
-<p>Then, in the <code>main</code> function:</p>
-
-<pre><code class="language-c">struct [[cake::destroy]] X {
-  int i;
-};
-
-void x_destroy([[cake::destroy]] struct x *p) { }
-
-int main() {
-   struct X x = {0};
-   // ...
-   x_destroy(&amp;x);
-}
-</code></pre>
-
-<p>This code will work without any warnings.</p>
-
-<p>Similar to <em>&quot;must free&quot;</em>, the <em>&quot;must destroy&quot;</em> flag is transferred when assigning with <code>[[std::move]]</code> or returning one variable to another.</p>
-
-<p>If a variable with the <em>&quot;must free&quot;</em> or <em>&quot;must destroy&quot;</em> flag is copied or returned, this flag is transferred to the destination variable and cleared from the original variable.</p>
-
-<p>In other words,</p>
-
-<p>ownership is moved. The original variable also receives the <em>&quot;uninitialized&quot;</em> flag.</p>
-
-<p>For example:</p>
-
-<pre><code class="language-c">[[cake::free]] void* malloc(int i) {}
-void free([[cake::free]] void* p) {}
-
-struct X {
-  int i;
-};
-
-void f() {
-    struct X* p = malloc(1);
-    struct X* p2;
-    p2 = [[cake::move]] p;
-    static_assert(!_has_attr(p, &quot;must free&quot;));
-    static_assert(_has_attr(p2, &quot;must free&quot;));
-    static_assert(_has_attr(p,  &quot;uninitialized&quot;));
-
-    free(p2);
-    static_assert(!_has_attr(p2, &quot;must free&quot;));
-}
-</code></pre>
-
-<p>In this example, because these flags are checked at compile time, runtime conditionals are always &quot;executed.&quot;</p>
-
-<p>To explicitly set or clear these imaginary flags, you can use <code>_add_attr</code> and <code>_del_attr</code>:</p>
-
-<pre><code class="language-c">int* p = 0;
-_add_attr(p, &quot;must free&quot;);
-_del_attr(p, &quot;must free&quot;);
-</code></pre>
-
-<p>These functions allow you to manipulate the imaginary flags directly.</p>
+<h3 id="toc_70">Extension - Ownership checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 

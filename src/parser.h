@@ -12,7 +12,7 @@
 #define CAKE_VERSION "0.5.13"
 
 
-struct _destroy scope
+struct _owner scope
 {
     int scope_level;
     struct hash_map tags;
@@ -22,7 +22,7 @@ struct _destroy scope
     struct scope* previous;        
 };
 
-void scope_destroy(_destroy struct scope* p);
+void scope_destroy(implicit struct scope* _obj_owner p);
 
 struct scope_list
 {
@@ -42,7 +42,7 @@ struct report
 
 
 
-struct _destroy parser_ctx
+struct _owner parser_ctx
 {
     struct options options;
     
@@ -74,7 +74,7 @@ struct _destroy parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(_destroy struct parser_ctx* ctx);
+void parser_ctx_destroy(implicit struct parser_ctx* _obj_owner ctx);
 
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
@@ -433,6 +433,7 @@ struct struct_or_union_specifier
     
     struct token* first_token;
     struct token* last_token;
+    struct token* owner_token;
 
     /*
     * Token que possui tag da struct
@@ -470,7 +471,7 @@ struct init_declarator
 
     struct declarator* p_declarator;
     struct initializer* initializer;
-    struct init_declarator* next;
+    struct init_declarator* next;    
 };
 
 struct init_declarator* init_declarator(struct parser_ctx* ctx,
@@ -490,7 +491,7 @@ struct initializer
     struct braced_initializer* braced_initializer;
     struct expression* assignment_expression;
     struct initializer* next;
-
+    struct token * move_token;
     /*
        cake extension
        int * p = [[cake::move]] p2;
@@ -502,8 +503,8 @@ struct initializer* initializer(struct parser_ctx* ctx);
 
 enum declarator_flags
 {
-    DECLARATOR_ISVALID = 1 << 1,
-    DECLARATOR_UNINITIALIZED = 1 << 2,
+    DECLARATOR_UNINITIALIZED = 0,
+    DECLARATOR_ISVALID = 1 << 1,    
     DECLARATOR_MUST_DESTROY = 1 << 3,
     DECLARATOR_MUST_FREE = 1 << 4
 };
@@ -682,6 +683,7 @@ void print_type_name(struct osstream* ss, struct type_name* p);
 
 struct argument_expression
 {
+    struct token * move_token;
     struct expression* expression;
     struct argument_expression* next;
 };
@@ -1199,7 +1201,7 @@ struct label
 
 struct label* label(struct parser_ctx* ctx);
 
-struct _destroy ast
+struct _owner ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
@@ -1207,7 +1209,7 @@ struct _destroy ast
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
-void ast_destroy(_destroy struct ast* ast);
+void ast_destroy(implicit struct ast* _obj_owner ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 

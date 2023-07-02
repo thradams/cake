@@ -1,3 +1,9 @@
+#if  defined __CAKE__
+[[nodiscard]] void* _owner calloc(int nmemb, int size);
+void free([[cake::implicit]] void* _owner ptr);
+[[nodiscard]] void* _owner malloc(int size);
+[[nodiscard]] void* _owner realloc(void* _owner ptr, int size);
+#endif
 
 /*
    "string com codigo" se transforma em uma lista ligada de tokens
@@ -1865,7 +1871,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* s = find_and_read_include_file(ctx, path, fullpath, &already_included);
 
                 bool has_include = s != NULL;
-                free((void*)s);
+                free((void* _owner)s);
 
                 struct token* p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->type = TK_PPNUMBER;
@@ -2545,7 +2551,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list list = tokenizer(&tctx, content, fullpath, level + 1, TK_FLAG_NONE);
-                free((void*)content);
+                free((void* _owner)content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
                 token_list_append_list(&r, &list2);
@@ -3268,14 +3274,14 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     ///----------------------------
                     //transforma tudo em string e coloca no resultado
                     struct token_list argumentlist = copy_argument_list(p_argument);
-                    char* s = token_list_join_tokens(&argumentlist, true);
+                    char* _owner s = token_list_join_tokens(&argumentlist, true);
                     if (s == NULL)
                     {
                         preprocessor_set_error_with_token(C_UNEXPECTED, ctx, input_list->head, "unexpected");
                         throw;
                     }
                     struct token* p_new_token = calloc(1, sizeof *p_new_token);
-                    p_new_token->lexeme = s;
+                    p_new_token->lexeme = _move s;
                     p_new_token->type = TK_STRING_LITERAL;
                     p_new_token->flags = flags;
                     token_list_add(&r, p_new_token);
@@ -4298,7 +4304,7 @@ const char* get_code_as_we_see_plus_macros(struct token_list* list)
     return cstr;
 }
 
-const char* get_code_as_we_see(struct token_list* list, bool remove_comments)
+const char* _owner get_code_as_we_see(struct token_list* list, bool remove_comments)
 {
     struct osstream ss = { 0 };
     struct token* current = list->head;
@@ -4333,7 +4339,7 @@ const char* get_code_as_we_see(struct token_list* list, bool remove_comments)
         current = current->next;
     }
 
-    const char* cstr = ss.c_str;
+    const char* _owner cstr = _move ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -4376,7 +4382,7 @@ const char* get_code_as_compiler_see(struct token_list* list)
     return cstr;
 }
 
-const char* print_preprocessed_to_string2(struct token* p_token)
+const char* _owner print_preprocessed_to_string2(struct token* p_token)
 {
     /*
     * No nivel > 0 (ou seja dentro dos includes)
@@ -4451,7 +4457,7 @@ const char* print_preprocessed_to_string2(struct token* p_token)
         }
     }
 
-    const char* cstr = ss.c_str;
+    const char* _owner cstr = _move ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -4459,7 +4465,7 @@ const char* print_preprocessed_to_string2(struct token* p_token)
     return cstr;
 }
 
-const char* print_preprocessed_to_string(struct token* p_token)
+const char * _owner print_preprocessed_to_string(struct token* p_token)
 {
     /*
     * Esta funcao imprime os tokens como o compilador ve
@@ -4506,21 +4512,16 @@ const char* print_preprocessed_to_string(struct token* p_token)
         }
     }
 
-    const char* cstr = ss.c_str;
-    ss.c_str = NULL; /*MOVED*/
-
-    ss_close(&ss);
-
-    return cstr;
+    return ss_get_str_and_close(&ss);
 }
 
 void print_preprocessed(struct token* p_token)
 {
-    const char* s = print_preprocessed_to_string(p_token);
+    const char* _owner s  = print_preprocessed_to_string(p_token);
     if (s)
     {
         printf("%s", s);
-        free((void*)s);
+        free((void* _owner)s);
     }
 }
 
@@ -4660,7 +4661,7 @@ void print_preprocessed_to_file(struct token* p_token, const char* filename)
         if (s)
         {
             fprintf(f, "%s", s);
-            free((void*)s);
+            free((void* _owner)s);
         }
         fclose(f);
     }
@@ -4738,7 +4739,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
         printf("TEST 0 FAILED\n");
         return 1;
     }
-    free((void*)s);
+    free((void* _owner)s);
     return 0;
 }
 
@@ -4831,7 +4832,7 @@ int test_preprocessor_in_out_using_file(const char* fileName)
                 *pos = 0;
         }
         res = test_preprocessor_in_out(input, output);
-        free((void*)input);
+        free((void* _owner)input);
     }
     return res;
 }

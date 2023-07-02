@@ -4,19 +4,12 @@
 
 
 #ifdef __CAKE__
-
-#define _destroy [[cake::destroy]]
-#define _delete [[cake::destroy,cake::free]]
-#define _free [[cake::free]]
-#define MOVE [[cake::move]]
+#define implicit [[cake::implicit]]
 #else
-
-#define _destroy 
-#define _delete
-#define _free
-
-#define _del_attr(a, b)
-#define _add_attr(a, b)
-#define MOVE
+#define implicit
+#define _owner
+#define _view
+#define _obj_owner
+#define _move
 
 #endif
