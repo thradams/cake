@@ -18,54 +18,36 @@
 <a href="#toc_1">One minute tour</a>
 </li>
 <li>
-<a href="#toc_2">Syntax</a>
+<a href="#toc_2">Move assignment</a>
 </li>
 <li>
-<a href="#toc_3">Owner pointer checks</a>
+<a href="#toc_3">structs/union/enum</a>
 </li>
 <li>
-<a href="#toc_4">Move assignment</a>
+<a href="#toc_4">pointers</a>
 </li>
 <li>
-<a href="#toc_5">Moving to function arguments</a>
+<a href="#toc_5">destroying structs\unions</a>
 </li>
 <li>
-<a href="#toc_6">Implicit move</a>
+<a href="#toc_6">Returning owner type</a>
 </li>
 <li>
-<a href="#toc_7">Returning owner type</a>
+<a href="#toc_7">Owner arrays</a>
 </li>
 <li>
-<a href="#toc_8">obj_owner qualifier</a>
+<a href="#toc_8">Reality check I</a>
 </li>
 <li>
-<a href="#toc_9">Owner arrays</a>
-</li>
-<li>
-<a href="#toc_10">Checks inside destructors</a>
-</li>
-<li>
-<a href="#toc_11">Reality check I</a>
-</li>
-<li>
-<a href="#toc_12">Reality check II</a>
-</li>
-<li>
-<a href="#toc_13">Reality check III</a>
-</li>
-<li>
-<a href="#toc_14">Reality check IV</a>
-</li>
-<li>
-<a href="#toc_15">Reality check V</a>
+<a href="#toc_9">Reality check II</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_16">What&#39;s next?</a>
+<a href="#toc_10">What&#39;s next?</a>
 <ul>
 <li>
-<a href="#toc_17">Motivation</a>
+<a href="#toc_11">Motivation</a>
 </li>
 </ul>
 </li>
@@ -75,133 +57,263 @@
 <h1 id="toc_0">Ownership checks for C</h1>
 
 <blockquote>
-<p><strong>cake compiler</strong> will make you feel like you&#39;re engaging in pair programming with an experienced and attentive developer working to make the program safe.</p>
+<p>This makes you feel like you&#39;re engaging in pair programming with an attentive developer working to make the program safe.</p>
 </blockquote>
 
 <h2 id="toc_1">One minute tour</h2>
 
-<p>To inform the compiler a type must be moved/destroyed, we add <code>owner</code>.</p>
+<p>In this context, <em>destructor</em> is a function called before the end of lifetime of an object. The <em>lifetime</em> of an object refers to the period during which the object is accessible and valid.</p>
+
+<p>We have a new qualifier <em>owner</em> that can be used to declare a type which requires the call of some <em>destructor</em> before the end of it&#39;s lifetime.</p>
+
+<p>For instance, we can declare malloc as follows:</p>
 
 <pre><code class="language-c">void * owner malloc(int 1);
 </code></pre>
 
-<p>When a non owner type is assigned to a function returning a owner, the compiler will complain.</p>
+<p>We need the assign a owner variable to the result of malloc.</p>
 
-<pre><code class="language-c">void * owner malloc(int 1);
-int main() {
-  void * p = malloc(1);
-  //missing owner qualifier in &#39;p&#39;
+<pre><code class="language-c">int main() {
+  void * owner p = malloc(1);
 }
 </code></pre>
 
-<p>After adding the owner qualifier we have this warning.</p>
+<p>then compiler will say
+<strong>&quot;object &#39;p&#39; was not moved/destroyed&quot;</strong></p>
 
-<pre><code>int main() {
-  void * owner p = malloc(1);
-} //warning: owner variable &#39;p&#39; not moved/destroyed
-</code></pre>
-
-<p>To destroy p we can make</p>
+<p>Let&#39;s create a destructor, declaring free as:</p>
 
 <pre><code class="language-c">void free(void * owner p);
-int main() {
+</code></pre>
+
+<pre><code class="language-c">int main() {
   void * owner p = malloc(1);
-  free(move p);
+  free(p); //error
 }
 </code></pre>
 
-<p>When we move a variable we want to be explicit about it. That is the reason of using keyword move in function arguments. </p>
+<p>But the compiler will complain again.</p>
 
-<p>However some functions names make this so obvious that we can just ignore move adding <code>[[implicit]]</code> 
+<p><strong>&quot;p cannot be moved to free implicitly, use move before the argument&quot;</strong>.  </p>
+
+<p>Adding move before the argument it works.</p>
+
+<pre><code>   free(move p);
+</code></pre>
+
+<p>The reason for that I want to make clear at the caller side that a variable has been moved/destroyed. </p>
+
+<p>However, some functions have a obvious move semantic just reading the name. So for this kind of function we have  an attribute <code>[[implicit]]</code> </p>
+
+<pre><code class="language-c">void free([[implicit]] void * owner p);
+</code></pre>
+
+<p>That makes optional the usage of <em>move</em> before the argument.</p>
+
+<p>I hope this brief tour provides you with a glimpse of what I aim to achieve.</p>
+
+<h2 id="toc_2">Move assignment</h2>
+
+<p>With the introduction of the owner qualifier we need some changes in the type system.</p>
+
+<p>In the same way we are cautious and explicit about moving a variable into a function we are with the assignment.  </p>
+
+<p>Consider this sample</p>
+
+<pre><code class="language-c">int main() {
+  void * p1 = malloc(1);
+  void * p2 = malloc(1);
+  p1 = p2;
+  free(p1);
+  free(p2);
+}
+</code></pre>
+
+<p>Assign p2 into p1 will create a memory leak of p1 object and double free of p2 object. </p>
+
+<p>To be more explicit about this I created the move assignment</p>
+
+<pre><code>p1 = move p2;
+</code></pre>
+
+<p>The generated code for this assignment is identical of the normal assignment.</p>
+
+<p>After any move (assignment or function argument) the object transitions into an uninitialized state. Again nothing in runtime, this is just a state for the static analyzer.</p>
+
+<p>Returning to our sample</p>
+
+<pre><code class="language-c">int main() {
+  void * owner p1 = malloc(1);
+  void * owner p2 = malloc(1);
+  p1 = move p2;
+  free(p1);
+  free(p2);
+}
+</code></pre>
+
+<p>Compiler will complain <strong>&quot;p1 not moved/destroyed&quot; before the assignment&quot;</strong>.</p>
+
+<p>So, this is how we can fix that.</p>
+
+<pre><code class="language-c">int main() {
+  void * owner p1 = malloc(1);
+  void * owner p2 = move p1;
+  free(p2);
+}
+</code></pre>
+
+<p>In case you try to use <code>p1</code> after moving it the compile will complain 
+<code>warning : using a uninitialized variable</code>.</p>
+
+<p>In some cases, we will not be able to check if object is initialized or not.</p>
+
+<pre><code class="language-c">struct X { char * owner name; };
+void some_function(struct X * p) {
+  p-&gt;name = strdup(&quot;new text&quot;);
+}
+</code></pre>
+
+<p>The compiler will have to say   </p>
+
+<p><code>the state of &#39;p-&gt;name&#39; cannot be determinated. You can use assertion or attribute [[unitialized]] or destroy the object before the assigment</code></p>
+
+<p>This is what we need to do</p>
+
+<pre><code class="language-c">  free(p-&gt;name);
+  p-&gt;name = strdup(&quot;new text&quot;);
+</code></pre>
+
+<p>or
 <code>c
-void free([[implicit]] void * owner p);
-...
-free(p);
+  assert(p-&gt;name == NULL);
+  p-&gt;name = strdup(&quot;new text&quot;);
+</code>
+or
+<code>c
+  [[unitialized]] p-&gt;name = move strdup(&quot;new text&quot;);
 </code></p>
 
-<h2 id="toc_2">Syntax</h2>
+<h2 id="toc_3">structs/union/enum</h2>
 
-<p>We have a new qualifier called <strong>owner</strong>. When this qualifier is used, the variable needs to be moved or destroyed before the end of it&#39;s lifetime.</p>
+<p>We can apply the <code>owner</code> qualifier like this</p>
 
-<p>The syntax is similar of const qualifier.</p>
-
-<pre><code class="language-c">owner int handle; 
-void * owner ptr = malloc(1);
-int arr[owner 10];
-owner struct X x;
-</code></pre>
-
-<p>For structs it can be placed before the tag, this will make local variables of this struct automatically owner.</p>
-
-<pre><code class="language-c">struct owner X {  
-  resource rc;   
-};
-int main(){
-  struct X x; //same as owner struct X x;
+<pre><code class="language-c">int main() {
+ owner struct X x = {};
 }
 </code></pre>
 
-<h2 id="toc_3">Owner pointer checks</h2>
+<p>It works. However, imagine you  forgot to put the qualifier in a object that needs a destructor? Then we have a leak.</p>
 
-<p>When we have owner pointer to a owner object, the compiler will check if both, pointer and pointed object are moved/destroyed before the end of scope.  </p>
+<p>For this reason, we have an extra syntax for objects with tags.</p>
 
-<pre><code class="language-c">owner struct X { ... };
-int main() {
- struct X * owner p = calloc(1, sizeof(*p));
- x_destroy(p);
- free(p);
-}//ok
-</code></pre>
-
-<h2 id="toc_4">Move assignment</h2>
-
-<p>The <em>move assignment</em> also <em>move initialization</em> is used to transfer the ownership of some owner variable to another owner variable.</p>
-
-<p>For the variable receiving the value, we have a situation similar of leaving the scope. Compiler must check if the variable is uninitialized or null before receiving the new value.</p>
-
-<p>After the <em>move assignment</em> / <em>move initialization</em> the source variable became uninitialized. The uninitialized is just conceptual state, nothing changes at runtime.</p>
-
-<pre><code class="language-c">void * owner p1 = malloc(1);
-void * owner p2 = nullptr;
-p2 = move p1;
-free(p2);
-</code></pre>
-
-<p>If we try to use p1 after move, we receive a warning &quot;using a uninitialized variable&quot;.</p>
-
-<p>We can assign a owner variable to a non owned variable.
-In this case we have a view only.</p>
-
-<h2 id="toc_5">Moving to function arguments</h2>
-
-<p>Passing a variable to a function is very similar of assignment. The same rules apply.</p>
-
-<pre><code class="language-c">owner struct list {...};
-owner struct node {...};
-
-struct list list = {0};
-struct node node = {0}
+<pre><code class="language-c">struct owner X {
 ...
-list_add(&amp;list, move node);
-</code></pre>
-
-<h2 id="toc_6">Implicit move</h2>
-
-<p>Some moves are so obvious that we can make them optional. For instance, free, close, destroy and delete are good candidates.
-For this job we can use the attribute [[implicit]].</p>
-
-<pre><code class="language-c">void list_destroy([[implicit]] struct list l) { }
-
-int main()
-{
-  owner struct list {...};
-  list_destroy(list);
 }
 </code></pre>
 
-<h2 id="toc_7">Returning owner type</h2>
+<p>The consequence is that object is <code>owner</code> qualified by default.</p>
 
-<p>Returning a owner variable is the same of moving it and it is implicit.</p>
+<pre><code class="language-c">int main() {
+   struct X x = {};    
+} //**&quot;object &#39;x&#39; was not moved/destroyed&quot;**
+</code></pre>
+
+<h2 id="toc_4">pointers</h2>
+
+<p>So far, the samples with pointers were using <code>void *</code>.  </p>
+
+<p>Now consider this situation:</p>
+
+<pre><code class="language-c">struct owner X { char * owner name; };
+int main() {
+   struct X * owner p = new_x();    
+}
+</code></pre>
+
+<p>p is a owner pointer to a owner object. In this case the pointer is the owner of the memory and the object. Moving the pointer will move the both responsibilities, destroy the object and the memory.</p>
+
+<p>Consider this sample</p>
+
+<pre><code class="language-c">
+void x_delete([[implicit]] struct X * owner p) 
+{
+   if (p){
+      p-&gt;free(name);
+      free(p);
+   }
+}
+int main() {
+   struct X * owner p = new_x();
+   x_delete(p);   
+} 
+</code></pre>
+
+<p>and compare with</p>
+
+<pre><code class="language-c">int main() {
+   struct X * owner p = new_x();
+   if (p){
+      p-&gt;free(name);
+      free(p);
+   }   
+} 
+</code></pre>
+
+<p>The checks necessary inside the <code>x_delete</code> are exactly the same of the checks necessary in <code>main</code>. This shows that there is nothing especial about the <em>destructors</em>.</p>
+
+<p>What compiler will have to do check each of it&#39;s owner member separately.</p>
+
+<pre><code class="language-c">int main() {
+   struct X * owner p = new_x();
+   if (p){
+      free(p-&gt;name);
+      free(p);
+   }   
+} 
+</code></pre>
+
+<p>Having this in a specialized function makes the life of the compiler much easier because the flow analysis is simpler. You have to help the compiler to let it help you.</p>
+
+<p>One more detail, when we free the owner pointer using <code>void*</code> the compiler assumes we are destroying the memory not the pointed object. So it the pointed object is owner the compiler has to check the object is destroyed first. In this sample, <code>free(p-&gt;name);</code> was the only owner member of the struct, so it was safe to call <code>free</code> on p.  </p>
+
+<h2 id="toc_5">destroying structs\unions</h2>
+
+<p>Consider:</p>
+
+<pre><code>struct owner X { char * owner name; };
+void x_destroy([[implicit]] struct X x) 
+{
+   free(x.name);
+}
+int main() {
+   struct X x;
+   x_destroy(x);   
+} 
+</code></pre>
+
+<p>This code is correct and works.   </p>
+
+<p>But let&#39;s say you want to pass the struct using a pointer.</p>
+
+<pre><code>void x_destroy([[implicit]] struct X * p) {
+   free(p-&gt;name);
+}
+</code></pre>
+
+<p>The problem is that if we pass a owner pointer the compiler will think we want to destroy the object and the memory. But the object is on the stack and we need to destroy only the object.</p>
+
+<p>To fix this, we have a qualifier <code>obj_owner</code> that can be used only for pointers.   </p>
+
+<pre><code>void x_destroy([[implicit]] struct X * obj_owner p) {
+   free(p-&gt;name);
+}
+</code></pre>
+
+<p>It means the pointer is the owner of the object but not the owner of the memory.</p>
+
+<h2 id="toc_6">Returning owner type</h2>
+
+<p>Returning a owner variable is the same of moving it. No need to use <code>move</code>;</p>
 
 <pre><code class="language-c">struct list make()
 {
@@ -210,38 +322,10 @@ int main()
 }
 </code></pre>
 
-<h2 id="toc_8">obj_owner qualifier</h2>
+<h2 id="toc_7">Owner arrays</h2>
 
-<p>We can create destructors like this</p>
-
-<pre><code class="language-c">void x_destroy([[implicit]] struct list list) {
-}
-
-int main()
-{
-  struct list list = {};
-  x_destroy(list);
-}
-</code></pre>
-
-<p>But we may want to create destructor passing pointers.
-The problem is that a owner pointer is owner of both memory and the object but for objects allocated on the stack we want to destroy only the object.</p>
-
-<p>The <code>obj_owner</code> qualifier was created basically to allow destructors to be implemented as:</p>
-
-<pre><code class="language-c">void x_destroy([[implicit]] struct list* obj_owner list) {
-}
-
-int main()
-{
-  struct list list = {};
-  x_destroy(&amp;list);
-}
-</code></pre>
-
-<h2 id="toc_9">Owner arrays</h2>
-
-<p>As expected arrays and pointer are related. However, a parameter of owner array type is equivalent of <code>obj_owner</code>.  </p>
+<p>As expected arrays and pointer are related. 
+We place owner inside together with the array size.</p>
 
 <pre><code class="language-c">void array_destroy(int n, struct X a[owner n])
 {
@@ -254,7 +338,7 @@ int main()
 }
 </code></pre>
 
-<p>We can pass owner pointer to onwer array parameters, but then we also need to free.</p>
+<p>We can pass owner pointer.</p>
 
 <pre><code class="language-c">void array_destroy(int n, struct X a[owner n])
 {
@@ -268,7 +352,9 @@ int main()
 }
 </code></pre>
 
-<p>We also can use owner pointers</p>
+<p>by convention passing owner pointer to array destructor will not transfer the memory ownership.</p>
+
+<p>To destroy both we use:</p>
 
 <pre><code class="language-c">void array_delete(int n, struct X * owner p)
 {
@@ -281,18 +367,7 @@ int main()
 }
 </code></pre>
 
-<h2 id="toc_10">Checks inside destructors</h2>
-
-<p>When we move a owner variable, we postponed the checks. But the checks must be done somewhere, for instance inside the destructor.</p>
-
-<p>Let&#39;s assume you want just ignore the checks inside the destructor.</p>
-
-<p>For this task we can just use [[ignore]].</p>
-
-<pre><code class="language-c">[[ignore]] variable;
-</code></pre>
-
-<h2 id="toc_11">Reality check I</h2>
+<h2 id="toc_8">Reality check I</h2>
 
 <p>Let&#39;s check if these rules can help us with <code>fopen/fclose</code>.</p>
 
@@ -314,104 +389,33 @@ int fclose([[implicit]] FILE* owner f);
 
 <p>To solve this problem we also need null-checks in your static analyzer.  </p>
 
-<p>The compiler will not emit warning if it can prove that a owner variable is empty or uninitialized at the end of scope. </p>
+<p>The compiler will not emit warning if it can prove that a owner variable is empty or uninitialized at the end of lifetime. </p>
 
-<h2 id="toc_12">Reality check II</h2>
-
-<pre><code class="language-c">onwer struct book {
-    char * owner title;
-};
-
-void book_destroy(struct book * obj_owner book) { 
-  free(book-&gt;title);
-}
-
-void book_delete([[implicit]] struct book* owner book) {
-    if (book) {
-       book_destroy(book);
-       free(book);
-    }
-}
-owner struct books {
-    struct book * owner * owner data;
-    int size;
-    int capacity;
-};
-
-void books_destroy([[implicit]] struct books * obj_owner books) 
-{
-   for (int i = 0; i &lt; books-&gt;size; i++) {
-     book_delete(books-&gt;data[i]);
-   }
-   free(books-&gt;data);
-}
-
-int books_push_back(struct books* p, 
-                    struct book* owner book)
-{
-    //... 
-    p-&gt;data[p-&gt;size] = move book;
-    //...
-}
-
-int main() 
-{
-   struct books books = {};
-   struct book* owner book = calloc(1, sizeof (struct book));
-   if (book == NULL) goto continuation;
-   
-   book-&gt;title = strdup(&quot;book1&quot;);
-   if (book-&gt;title == NULL) goto continuation;
-   
-   if (books_push_back(&amp;books, move book) == 0) {
-     book = NULL;
-   }
- continuation:
-  book_delete(book);
-  books_destroy(&amp;books);
-}
-</code></pre>
-
-<h2 id="toc_13">Reality check III</h2>
+<h2 id="toc_9">Reality check II</h2>
 
 <pre><code class="language-c">int main()
 {
   FILE * owner f = NULL;
   if (fopen_s( &amp;f,&quot;f.txt&quot;, &quot;r&quot;) == 0)  {
-    fclose(f);
+    fclose([[initialized]] f);
   }
+  [[uninitialized]] f;
 }
 </code></pre>
 
-<p>The problem here is that in previous fopen we could check for null to decide if we need or not a warning if the destructor is not called.</p>
+<p>When the initialization must be checked using a result code, we don&#39;t have this semantics and the compiler does not know that. The solution is an annotation. [[initialized]]</p>
 
-<h2 id="toc_14">Reality check IV</h2>
+<h1 id="toc_10">What&#39;s next?</h1>
 
-<pre><code class="language-c">struct X {
-  char * owner text;
-};
-const char * f(struct X * p) {
-  return p-&gt;text; //returning owner to non owner is OK
-}
-</code></pre>
+<p>Implement this in cake.
+<a href="http://thradams.com/cake/index.html">http://thradams.com/cake/index.html</a>
+The hard part is the flow analysis.</p>
 
-<h2 id="toc_15">Reality check V</h2>
+<h2 id="toc_11">Motivation</h2>
 
-<pre><code class="language-c">struct X {
-  char * owner text;
-};
-
-const char * _owner f() {
-  struct X x;
-  return x.text; //moved
-}
-</code></pre>
-
-<h1 id="toc_16">What&#39;s next?</h1>
-
-<p>Implement this in cake!</p>
-
-<h2 id="toc_17">Motivation</h2>
+<blockquote>
+<p>I put the motivation at the end, because these memory safety guarantees are already a hot topic, and the motivation is already present when someone reads this.</p>
+</blockquote>
 
 <p>In C, resources such as memory are managed manually. For example, we utilize the <code>malloc</code> function to allocate memory and store the resulting address in a variable. When the memory is no longer needed, we need the address returned by <code>malloc</code> to be able to call <code>free</code>.  </p>
 
@@ -420,12 +424,4 @@ const char * _owner f() {
 <p>Resource leaks pose a significant challenge as they tend to be silent problems that don&#39;t immediately impact a program&#39;s behavior or cause immediate issues. Moreover, they can easily go unnoticed during unit tests, creating a false sense of security. Therefore, it is absolutely crucial to address and track these problems early on. By doing so, not only can potential complications be prevented, but it can also save valuable time and resources in the long run.</p>
 
 <p>This checks also prevent double free, or use after free.   Both problems generally fail fast in runtime, but it is also good to have.</p>
-
-<p>To check the correctness of owner variables this proposal suggests new type qualifiers <code>owner</code>, <code>view</code> and <code>obj_owner</code> and a move assignment.</p>
-
-<p>The <code>owner</code> qualifier will qualify the variable as the <code>owner</code> and <code>view</code> can be used to override (negate) <code>owner</code>.</p>
-
-<p>Owner variables cannot be discarded, they must be <em>moved</em> or <em>destroyed</em>.</p>
-
-<p>The <code>obj_owner</code> is a special case of <code>owner</code> pointer and it will be explained later.</p>
 </body></html>
