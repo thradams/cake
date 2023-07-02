@@ -42,19 +42,20 @@
 <a href="#toc_9">Reality check II</a>
 </li>
 <li>
-<a href="#toc_10">What&#39;s next?</a>
+<a href="#toc_10">Headers</a>
 </li>
 <li>
-<a href="#toc_11">Conclusion</a>
+<a href="#toc_11">What&#39;s next?</a>
 </li>
 <li>
-<a href="#toc_12">Motivation</a>
+<a href="#toc_12">Conclusion</a>
+</li>
+<li>
+<a href="#toc_13">Motivation</a>
 </li>
 </ul>
 </li>
 </ul>
-<p>V0.4 - 01/07/2023</p>
-
 <h1 id="toc_0">Ownership checks for C</h1>
 
 <blockquote>
@@ -417,17 +418,29 @@ int fclose([[implicit]] FILE* owner f);
 
 <p>In this case, an annotation <code>[[initialized]]</code> is needed to inform the compiler that the variable is initialized, and an annotation <code>[[uninitialized]]</code> is needed to inform the compiler that the variable is uninitialized.</p>
 
-<h2 id="toc_10">What&#39;s next?</h2>
+<h2 id="toc_10">Headers</h2>
+
+<p>move, owner, obj_owner and implicit can be defined as macros on <ownership.h>. (Similar of C99 did with bool _Bool)</p>
+
+<pre><code class="language-c">#define move _Move
+#define owner _Owner
+#define obj_owner _Obj_owner
+#define implicit [[implicit]]
+</code></pre>
+
+<p>Defining this macros to empty makes to code compatible with any compiler.</p>
+
+<h2 id="toc_11">What&#39;s next?</h2>
 
 <p>Implement this in cake.
 <a href="http://thradams.com/cake/index.html">http://thradams.com/cake/index.html</a>
 The hard part is the flow analysis.</p>
 
-<h2 id="toc_11">Conclusion</h2>
+<h2 id="toc_12">Conclusion</h2>
 
 <p>This feature aims to provide ownership checks in C by introducing the <em>owner</em> qualifier. It ensures that objects are properly destroyed or moved before their lifetime ends, preventing memory leaks and use-after-free errors. The compiler assists in detecting potential issues and suggests necessary changes to the code. By leveraging ownership checks, developers can write safer and more reliable code in C.</p>
 
-<h2 id="toc_12">Motivation</h2>
+<h2 id="toc_13">Motivation</h2>
 
 <p>I have placed the motivation section at the end, considering that memory safety guarantees are already a widely discussed topic and the motivation becomes apparent as readers delve into the content.</p>
 

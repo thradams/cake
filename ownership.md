@@ -402,6 +402,18 @@ When initialization needs to be checked using a result code, we don't have seman
 In this case, an annotation `[[initialized]]` is needed to inform the compiler that the variable is initialized, and an annotation `[[uninitialized]]` is needed to inform the compiler that the variable is uninitialized.
 
 
+## Headers  
+move, owner, obj_owner and implicit can be defined as macros on <ownership.h>. (Similar of C99 did with bool _Bool)
+
+```c
+#define move _Move
+#define owner _Owner
+#define obj_owner _Obj_owner
+#define implicit [[implicit]]
+```
+
+Defining this macros to empty makes to code compatible with any compiler.
+
 ## What's next?
 Implement this in cake.
 http://thradams.com/cake/index.html

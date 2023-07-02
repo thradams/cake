@@ -408,7 +408,7 @@ enum type_category type_get_category(const struct type* p_type)
     return p_type->category;
 }
 
-void type_destroy(implicit struct type* _obj_owner p_type)
+void type_destroy(implicit struct type* obj_owner p_type)
 {
     //TODO
 }
@@ -2530,7 +2530,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
     if (pdeclarator->name)
     {
-        free((void* _owner) list.head->name_opt);
+        free((void* owner) list.head->name_opt);
         list.head->name_opt = pdeclarator->name->lexeme;
     }
     return *list.head;
@@ -2547,7 +2547,7 @@ void type_remove_names(struct type* p_type)
     {
         if (p->name_opt)
         {
-            free((void* _owner) p->name_opt);
+            free((void* owner) p->name_opt);
             p->name_opt = NULL;
         }
         p = p->next;

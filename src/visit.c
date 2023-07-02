@@ -1,20 +1,13 @@
-#if  defined __CAKE__
-[[nodiscard]] void* _owner calloc(int nmemb, int size);
-void free([[cake::implicit]] void* _owner ptr);
-[[nodiscard]] void* _owner malloc(int size);
-[[nodiscard]] void* _owner realloc(void* _owner ptr, int size);
-#endif
-
-
+#include "ownership.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
 #include "visit.h"
 #include "expressions.h"
-#include "annotations.h"
+#include "ownership.h"
 
-void visit_ctx_destroy(implicit struct visit_ctx* _obj_owner ctx)
+void visit_ctx_destroy(implicit struct visit_ctx* obj_owner ctx)
 {
     //ctx->
 }
@@ -83,13 +76,13 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
         l.tail = deferchild->defer_statement->last_token;
 
         l.head->flags |= TK_FLAG_HIDE;
-        const char* _owner s = get_code_as_compiler_see(&l);
+        const char* owner s = get_code_as_compiler_see(&l);
         assert(s != NULL);
         if (hide_tokens)
             token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
         ss_fprintf(ss, "%s", s);
-        free((void* _owner)s);
+        free((void* owner)s);
         deferchild = deferchild->previous;
     }
 }
@@ -675,7 +668,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             if (constant_value_is_valid(&p_expression->constant_value))
             {
-                free((void* _owner)p_expression->type.name_opt);
+                free((void* owner)p_expression->type.name_opt);
                 p_expression->type.name_opt = NULL;
 
                 struct osstream ss1 = { 0 };
@@ -793,7 +786,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             print_type_specifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_specifier_flags);
 
 
-            free((void* _owner)p_expression->type_name->declarator->type.name_opt);
+            free((void* owner)p_expression->type_name->declarator->type.name_opt);
             p_expression->type_name->declarator->type.name_opt = strdup(name);
 
             struct osstream ss0 = { 0 };

@@ -1,11 +1,5 @@
 
-#if  defined __CAKE__
-[[nodiscard]] void* _owner calloc(int nmemb, int size);
-void free([[cake::implicit]] void* _owner ptr);
-[[nodiscard]] void* _owner malloc(int size);
-[[nodiscard]] void* _owner realloc(void* _owner ptr, int size);
-#endif
-
+#include "ownership.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -158,7 +152,7 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
 int printf_nothing(const char* fmt, ...) { return 0; }
 #endif
 
-void scope_destroy(implicit struct scope * _obj_owner p)
+void scope_destroy(implicit struct scope * obj_owner p)
 {
     hashmap_destroy(&p->tags);
     hashmap_destroy(&p->variables);
@@ -210,7 +204,7 @@ void scope_list_pop(struct scope_list* list)
 }
 
 
-void parser_ctx_destroy(implicit struct parser_ctx* _obj_owner ctx)
+void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx)
 {
 
 }
@@ -1115,11 +1109,12 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
             else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
 
-            else if (strcmp("_owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
-            else if (strcmp("_obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
-            else if (strcmp("_view", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
-            else if (strcmp("_move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
-
+            else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
+            else if (strcmp("_Move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
+            else if (strcmp("_Implicit", text) == 0) result = TK_KEYWORD__IMPLICIT; /*extension*/
+            
 
             break;
         default:
@@ -3947,12 +3942,18 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 {
     struct parameter_declaration* p_parameter_declaration = calloc(1, sizeof(struct parameter_declaration));
 
+    if (ctx->current->type == TK_KEYWORD__IMPLICIT)
+    {
+        p_parameter_declaration->implicit_token = ctx->current;
+        parser_match(ctx);
+    }
+
     p_parameter_declaration->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx);
 
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx);
     
-
+  
     //talvez no ctx colocar um flag que esta em argumentos
     //TODO se tiver uma struct tag novo...
     //warning: declaration of 'struct X' will not be visible outside of this function [-Wvisibility]
@@ -3984,11 +3985,9 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 
     p_parameter_declaration->declarator->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_PARAM;
 
-    if (p_parameter_declaration->attribute_specifier_sequence_opt)
+    if (p_parameter_declaration->implicit_token)
     {
-        //implicit flag must be on the parameter type to be accebly everwhere (function pointer etc)
-        p_parameter_declaration->declarator->type.attributes_flags |= 
-            p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags;        
+        p_parameter_declaration->declarator->type.attributes_flags |=  CAKE_ATTRIBUTE_IMPLICT;        
     }
 
     if (p_parameter_declaration->declarator->name)
@@ -4546,11 +4545,11 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         parser_match(ctx);
         if (is_cake_attr)
         {
-            if (strcmp(ctx->current->lexeme, "implicit") == 0)
-            {
-                p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_IMPLICT;
-            }
-            else
+            //if (strcmp(ctx->current->lexeme, "implicit") == 0)
+            //{
+              //  p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_IMPLICT;
+            //}
+            //else
             {
                 compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
             }
@@ -5687,7 +5686,7 @@ int compile_one_file(const char* file_name,
     struct parser_ctx ctx = {0};
     ctx.options = *options;
 
-    char* _owner content = NULL;
+    char* owner content = NULL;
 
     try
     {
@@ -5749,9 +5748,9 @@ int compile_one_file(const char* file_name,
 
         if (options->preprocess_only)
         {
-            const char* _owner s2 = print_preprocessed_to_string2(ast.token_list.head);
+            const char* owner s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
-            free((void* _owner) s2);
+            free((void* owner) s2);
         }
         else
         {
@@ -5782,7 +5781,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* s2 = format_code(options, s);
-                    free((char* _owner) s);
+                    free((char* owner) s);
                     s = s2;
                 }
 
@@ -5830,7 +5829,7 @@ int compile_one_file(const char* file_name,
         fclose(ctx.sarif_file);
     }
     parser_ctx_destroy(&ctx);
-    free((char* _owner) s);
+    free((char* owner) s);
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
@@ -6125,7 +6124,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
                 /*re-parser ouput and format*/
                 const char* s2 = format_code(&options, s);
-                free((void* _owner) s);
+                free((void* owner) s);
                 s = s2;
             }
             
@@ -6150,7 +6149,7 @@ char* CompileText(const char* pszoptions, const char* content)
     return  (char*) compile_source(pszoptions, content, &report);
 }
 
-void ast_destroy(implicit struct ast* _obj_owner ast)
+void ast_destroy(implicit struct ast* obj_owner ast)
 {
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);

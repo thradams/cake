@@ -146,7 +146,7 @@ void token_list_destroy(struct token_list* list)
     }
 }
 
-char * _owner token_list_join_tokens(struct token_list* list, bool bliteral)
+char * owner token_list_join_tokens(struct token_list* list, bool bliteral)
 {
     struct osstream ss = { 0 };
     if (bliteral)
@@ -185,7 +185,7 @@ char * _owner token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    char* _owner cstr = _move ss.c_str;
+    char* owner cstr = move ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -224,7 +224,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
 }
 
-struct token* token_list_add(struct token_list* list, struct token * _owner pnew)
+struct token* token_list_add(struct token_list* list, struct token * owner pnew)
 {
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);

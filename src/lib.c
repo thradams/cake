@@ -145,27 +145,38 @@ void c_clrscr();
 
 
 #ifdef __CAKE__
-#define implicit [[cake::implicit]]
+#define implicit _Implicit
+#define owner _Owner
+#define obj_owner _Obj_owner
+#define move _Move
+
+
+[[nodiscard]] void* owner calloc(int nmemb, int size);
+void free(implicit void* owner ptr);
+[[nodiscard]] void* owner malloc(int size);
+[[nodiscard]] void* owner realloc(void* owner ptr, int size);
+
+
+
 #else
 #define implicit
-#define _owner
-#define _view
-#define _obj_owner
-#define _move
+#define owner
+#define obj_owner
+#define move
 
 #endif
 
 
-struct _owner osstream
+struct owner osstream
 {
-    char* _owner c_str;
+    char* owner c_str;
     int size;
     int capacity;
 };
 
 
-void ss_close(implicit struct osstream * _obj_owner stream);
-char * _owner ss_get_str_and_close(implicit struct osstream * _obj_owner stream);
+void ss_close(implicit struct osstream * obj_owner stream);
+char * owner ss_get_str_and_close(implicit struct osstream * obj_owner stream);
 int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args);
 int ss_fprintf(struct osstream* stream, const char* fmt, ...);
 int ss_putc(char ch, struct osstream* stream);
@@ -384,10 +395,12 @@ enum token_type
     TK_KEYWORD_TYPEOF_UNQUAL, /*C23*/
     TK_KEYWORD__BITINT /*C23*/,
 
+    /*cake extension*/
     TK_KEYWORD__OWNER, 
     TK_KEYWORD__OBJ_OWNER, 
     TK_KEYWORD__VIEW,
     TK_KEYWORD__MOVE,
+    TK_KEYWORD__IMPLICIT
 };
 
 enum token_flags
@@ -409,7 +422,7 @@ enum token_flags
 struct token
 {
     enum token_type type;
-    char* _owner lexeme;
+    char* owner lexeme;
     char* original;
 
     int line;
@@ -437,12 +450,12 @@ struct token_list
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
 struct token* clone_token(struct token* p);
-struct token* token_list_add(struct token_list* list, struct token* _owner pnew);
+struct token* token_list_add(struct token_list* list, struct token* owner pnew);
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
 void token_list_append_list(struct token_list* dest, struct token_list* source);
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
-char* _owner token_list_join_tokens(struct token_list* list, bool bliteral);
+char* owner token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);
 bool token_is_blank(struct token* p);
 void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag);
@@ -772,19 +785,19 @@ struct token_list token_list_remove(struct token_list* list, struct token* first
 void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* append);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* filename_opt, int level, enum token_flags addflags);
 
-const char* _owner get_code_as_we_see(struct token_list* list, bool remove_comments);
-const char* _owner get_code_as_compiler_see(struct token_list* list);
+const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments);
+const char* owner get_code_as_compiler_see(struct token_list* list);
 
-const char* _owner get_code_as_we_see_plus_macros(struct token_list* list);
-const char* _owner get_code_as_we_see(struct token_list* list, bool remove_comments);
+const char* owner get_code_as_we_see_plus_macros(struct token_list* list);
+const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments);
 
 void print_tokens(struct token* p_token);
 void print_preprocessed(struct token* p_token);
-const char* _owner print_preprocessed_to_string(struct token* p_token);
-const char* _owner print_preprocessed_to_string2(struct token* p_token);
+const char* owner print_preprocessed_to_string(struct token* p_token);
+const char* owner print_preprocessed_to_string2(struct token* p_token);
 void check_unused_macros(struct hash_map* map);
 
-char* _owner read_file(const char* path);
+char* owner read_file(const char* path);
 const char* get_token_name(enum token_type tk);
 void print_all_macros(struct preprocessor_ctx* prectx);
 
@@ -936,7 +949,7 @@ void token_list_destroy(struct token_list* list)
     }
 }
 
-char * _owner token_list_join_tokens(struct token_list* list, bool bliteral)
+char * owner token_list_join_tokens(struct token_list* list, bool bliteral)
 {
     struct osstream ss = { 0 };
     if (bliteral)
@@ -975,7 +988,7 @@ char * _owner token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    char* _owner cstr = _move ss.c_str;
+    char* owner cstr = move ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -1014,7 +1027,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
 }
 
-struct token* token_list_add(struct token_list* list, struct token * _owner pnew)
+struct token* token_list_add(struct token_list* list, struct token * owner pnew)
 {
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);
@@ -1698,12 +1711,6 @@ void c_clrscr()
 }
 
 
-#if  defined __CAKE__
-[[nodiscard]] void* _owner calloc(int nmemb, int size);
-void free([[cake::implicit]] void* _owner ptr);
-[[nodiscard]] void* _owner malloc(int size);
-[[nodiscard]] void* _owner realloc(void* _owner ptr, int size);
-#endif
 
 /*
    "string com codigo" se transforma em uma lista ligada de tokens
@@ -1734,7 +1741,6 @@ void free([[cake::implicit]] void* _owner ptr);
   de um header por ex copiando a linha. a desvantagem eh mais memoria
 
 */
-
 
 
 
@@ -2001,7 +2007,7 @@ void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx
 
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path)
 {
-    struct include_dir* _owner p_new_include_dir = calloc(1, sizeof *p_new_include_dir);
+    struct include_dir* owner p_new_include_dir = calloc(1, sizeof *p_new_include_dir);
     p_new_include_dir->path = strdup(path);
     if (list->head == NULL)
     {
@@ -2079,7 +2085,7 @@ struct macro_expanded
 
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct macro* _owner macro = calloc(1, sizeof *macro);
+    struct macro* owner macro = calloc(1, sizeof *macro);
     if (macro == NULL)
     {
     }
@@ -2154,7 +2160,7 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
     if (list.head == NULL)
     {
         /*nunca eh vazio..se for ele colocar um TK_PLACEMARKER*/
-        struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
+        struct token* owner p_new_token = calloc(1, sizeof *p_new_token);
         p_new_token->lexeme = strdup("");
         p_new_token->type = TK_PLACEMARKER;
         token_list_add(&list, p_new_token);
@@ -2201,7 +2207,7 @@ struct macro_argument* find_macro_argument_by_name(struct macro_argument_list* p
 }
 
 
-void argument_list_add(struct macro_argument_list* list, struct macro_argument * _owner pnew)
+void argument_list_add(struct macro_argument_list* list, struct macro_argument * owner pnew)
 {
     assert(pnew->next == NULL);
     if (list->head == NULL)
@@ -2582,7 +2588,7 @@ enum token_type is_punctuator(struct stream* stream)
 
 struct token* new_token(const char* lexeme_head, const char* lexeme_tail, enum token_type type)
 {
-    struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
+    struct token* owner p_new_token = calloc(1, sizeof *p_new_token);
     size_t sz = lexeme_tail - lexeme_head;
     p_new_token->lexeme = calloc(sz + 1, sizeof(char));
     p_new_token->type = type;
@@ -3617,7 +3623,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     p_new_token->lexeme = strdup("0");
                 }
 
-                token_list_add(&r, _move p_new_token);
+                token_list_add(&r, move p_new_token);
 
                 if (has_parentesis)
                 {
@@ -3669,15 +3675,15 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 const char* s = find_and_read_include_file(ctx, path, fullpath, &already_included);
 
                 bool has_include = s != NULL;
-                free((void* _owner)s);
+                free((void* owner)s);
 
-                struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
+                struct token* owner p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_include ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
-                token_list_add(&r, _move p_new_token);
+                token_list_add(&r, move p_new_token);
                 token_list_pop_front(input_list); //pop )
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
@@ -3729,18 +3735,18 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 */
                 bool has_c_attribute = false;
 
-                struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
+                struct token* owner p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_c_attribute ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
-                token_list_add(&r, _move p_new_token);
+                token_list_add(&r, move p_new_token);
                 token_list_pop_front(input_list); //pop )
             }
             else
             {
-                token_list_add(&r, _move token_list_pop_front(input_list));
+                token_list_add(&r, move token_list_pop_front(input_list));
             }
         }
     }
@@ -3813,7 +3819,7 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
     struct token_list r = { 0 };
     while (input_list->head->type != TK_NEWLINE)
     {
-        token_list_add(&r, _move token_list_pop_front(input_list));
+        token_list_add(&r, move token_list_pop_front(input_list));
     }
     return r;
 }
@@ -3831,7 +3837,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-        token_list_add(&r, _move token_list_pop_front(input_list));
+        token_list_add(&r, move token_list_pop_front(input_list));
 
         /*
           We call preprocessor that emmit warnings if line continuation
@@ -4212,7 +4218,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
       identifier-list , identifier
     */
     skip_blanks(ctx, &r, input_list);
-    struct macro_parameter* _owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
+    struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
     p_macro_parameter->name = strdup(input_list->head->lexeme);
     macro->parameters = p_macro_parameter;
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -4349,7 +4355,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list list = tokenizer(&tctx, content, fullpath, level + 1, TK_FLAG_NONE);
-                free((void* _owner)content);
+                free((void* owner)content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
                 token_list_append_list(&r, &list2);
@@ -4462,7 +4468,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             A
             */
 
-            struct macro* _owner macro = calloc(1, sizeof *macro);
+            struct macro* owner macro = calloc(1, sizeof *macro);
             if (macro == NULL)
             {
                 preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "out of mem");
@@ -4513,7 +4519,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 skip_blanks_level(ctx, &r, input_list, level);
                 if (input_list->head->type == '...')
                 {
-                    struct macro_parameter* _owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
+                    struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
                     p_macro_parameter->name = strdup("__VA_ARGS__");
                     macro->parameters = p_macro_parameter;
 
@@ -4534,7 +4540,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     skip_blanks_level(ctx, &r, input_list, level);
                     if (input_list->head->type == '...')
                     {
-                        struct macro_parameter* _owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
+                        struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
                         p_macro_parameter->name = strdup("__VA_ARGS__");
                         struct macro_parameter* p_last = macro->parameters;
                         assert(p_last != NULL);
@@ -4774,14 +4780,14 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         {
             if (macro->parameters != NULL)
             {
-                struct macro_argument* _owner p_argument = calloc(1, sizeof(struct macro_argument));
+                struct macro_argument* owner p_argument = calloc(1, sizeof(struct macro_argument));
                 p_argument->name = strdup(p_current_parameter->name);
-                argument_list_add(&macro_argument_list, _move p_argument);
+                argument_list_add(&macro_argument_list, move p_argument);
             }
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
             return macro_argument_list;
         }
-        struct macro_argument* _owner p_argument = calloc(1, sizeof(struct macro_argument));
+        struct macro_argument* owner p_argument = calloc(1, sizeof(struct macro_argument));
         p_argument->name = strdup(p_current_parameter->name);
         while (input_list->head != NULL)
         {
@@ -4936,10 +4942,10 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             }
             else
             {
-                struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
+                struct token* owner p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->lexeme = strdup("");
                 p_new_token->type = TK_PLACEMARKER;
-                token_list_add(&newlist, _move p_new_token);
+                token_list_add(&newlist, move p_new_token);
                 newlist.head->flags = r.tail->flags;
             }
             /*
@@ -5072,17 +5078,17 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     ///----------------------------
                     //transforma tudo em string e coloca no resultado
                     struct token_list argumentlist = copy_argument_list(p_argument);
-                    char* _owner s = token_list_join_tokens(&argumentlist, true);
+                    char* owner s = token_list_join_tokens(&argumentlist, true);
                     if (s == NULL)
                     {
                         preprocessor_set_error_with_token(C_UNEXPECTED, ctx, input_list->head, "unexpected");
                         throw;
                     }
-                    struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
-                    p_new_token->lexeme = _move s;
+                    struct token* owner p_new_token = calloc(1, sizeof *p_new_token);
+                    p_new_token->lexeme = move s;
                     p_new_token->type = TK_STRING_LITERAL;
                     p_new_token->flags = flags;
-                    token_list_add(&r, _move p_new_token);
+                    token_list_add(&r, move p_new_token);
                     continue;
                 }
                 else if (r.tail != NULL && r.tail->type == '##')
@@ -6102,7 +6108,7 @@ const char* get_code_as_we_see_plus_macros(struct token_list* list)
     return cstr;
 }
 
-const char* _owner get_code_as_we_see(struct token_list* list, bool remove_comments)
+const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments)
 {
     struct osstream ss = { 0 };
     struct token* current = list->head;
@@ -6137,7 +6143,7 @@ const char* _owner get_code_as_we_see(struct token_list* list, bool remove_comme
         current = current->next;
     }
 
-    const char* _owner cstr = _move ss.c_str;
+    const char* owner cstr = move ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -6180,7 +6186,7 @@ const char* get_code_as_compiler_see(struct token_list* list)
     return cstr;
 }
 
-const char* _owner print_preprocessed_to_string2(struct token* p_token)
+const char* owner print_preprocessed_to_string2(struct token* p_token)
 {
     /*
     * No nivel > 0 (ou seja dentro dos includes)
@@ -6193,7 +6199,7 @@ const char* _owner print_preprocessed_to_string2(struct token* p_token)
     */
 
     if (p_token == NULL)
-        return (const char* _owner) strdup("(null)");
+        return (const char* owner) strdup("(null)");
 
     struct osstream ss = { 0 };
     struct token* current = p_token;
@@ -6255,7 +6261,7 @@ const char* _owner print_preprocessed_to_string2(struct token* p_token)
         }
     }
 
-    const char* _owner cstr = _move ss.c_str;
+    const char* owner cstr = move ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -6263,7 +6269,7 @@ const char* _owner print_preprocessed_to_string2(struct token* p_token)
     return cstr;
 }
 
-const char * _owner print_preprocessed_to_string(struct token* p_token)
+const char * owner print_preprocessed_to_string(struct token* p_token)
 {
     /*
     * Esta funcao imprime os tokens como o compilador ve
@@ -6315,11 +6321,11 @@ const char * _owner print_preprocessed_to_string(struct token* p_token)
 
 void print_preprocessed(struct token* p_token)
 {
-    const char* _owner s  = print_preprocessed_to_string(p_token);
+    const char* owner s  = print_preprocessed_to_string(p_token);
     if (s)
     {
         printf("%s", s);
-        free((void* _owner)s);
+        free((void* owner)s);
     }
 }
 
@@ -6500,7 +6506,7 @@ void print_preprocessed_to_file(struct token* p_token, const char* filename)
         if (s)
         {
             fprintf(f, "%s", s);
-            free((void* _owner)s);
+            free((void* owner)s);
         }
         fclose(f);
     }
@@ -6578,7 +6584,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
         printf("TEST 0 FAILED\n");
         return 1;
     }
-    free((void* _owner)s);
+    free((void* owner)s);
     return 0;
 }
 
@@ -6671,7 +6677,7 @@ int test_preprocessor_in_out_using_file(const char* fileName)
                 *pos = 0;
         }
         res = test_preprocessor_in_out(input, output);
-        free((void* _owner)input);
+        free((void* owner)input);
     }
     return res;
 }
@@ -7542,12 +7548,12 @@ void ss_clear(struct osstream* stream)
     stream->size = 0;
 }
 
-char * _owner ss_get_str_and_close(implicit struct osstream * _obj_owner stream)
+char * owner ss_get_str_and_close(implicit struct osstream * obj_owner stream)
 {
     return stream->c_str;
 }
 
-void ss_close(implicit struct osstream * _obj_owner stream)
+void ss_close(implicit struct osstream * obj_owner stream)
 {
     free(stream->c_str);    
 }
@@ -9252,7 +9258,7 @@ struct param_list {
     struct param* tail;
 };
 
-struct _owner type 
+struct owner type 
 {
     enum type_category category;
     enum attribute_flags  attributes_flags;
@@ -9283,7 +9289,7 @@ void check_assigment(struct parser_ctx* ctx,
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
-void type_destroy(implicit struct type* _obj_owner p_type);
+void type_destroy(implicit struct type* obj_owner p_type);
 
 
 struct type get_function_return_type(struct type* p_type);
@@ -9590,7 +9596,7 @@ struct declarator* expression_get_declarator(struct expression*);
 #define CAKE_VERSION "0.6"
 
 
-struct _owner scope
+struct owner scope
 {
     int scope_level;
     struct hash_map tags;
@@ -9600,7 +9606,7 @@ struct _owner scope
     struct scope* previous;        
 };
 
-void scope_destroy(implicit struct scope* _obj_owner p);
+void scope_destroy(implicit struct scope* obj_owner p);
 
 struct scope_list
 {
@@ -9620,7 +9626,7 @@ struct report
 
 
 
-struct _owner parser_ctx
+struct owner parser_ctx
 {
     struct options options;
     
@@ -9652,7 +9658,7 @@ struct _owner parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(implicit struct parser_ctx* _obj_owner ctx);
+void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx);
 
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
@@ -10237,7 +10243,7 @@ struct parameter_declaration
     
     struct declaration_specifiers* declaration_specifiers;
     struct declarator* declarator;
-
+    struct token * implicit_token;
     struct parameter_declaration* next;
 };
 struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx);
@@ -10779,7 +10785,7 @@ struct label
 
 struct label* label(struct parser_ctx* ctx);
 
-struct _owner ast
+struct owner ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
@@ -10787,7 +10793,7 @@ struct _owner ast
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
-void ast_destroy(implicit struct ast* _obj_owner ast);
+void ast_destroy(implicit struct ast* obj_owner ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
@@ -15211,7 +15217,7 @@ enum type_category type_get_category(const struct type* p_type)
     return p_type->category;
 }
 
-void type_destroy(implicit struct type* _obj_owner p_type)
+void type_destroy(implicit struct type* obj_owner p_type)
 {
     //TODO
 }
@@ -17336,7 +17342,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
     if (pdeclarator->name)
     {
-        free((void* _owner) list.head->name_opt);
+        free((void* owner) list.head->name_opt);
         list.head->name_opt = pdeclarator->name->lexeme;
     }
     return *list.head;
@@ -17353,7 +17359,7 @@ void type_remove_names(struct type* p_type)
     {
         if (p->name_opt)
         {
-            free((void* _owner) p->name_opt);
+            free((void* owner) p->name_opt);
             p->name_opt = NULL;
         }
         p = p->next;
@@ -17370,13 +17376,6 @@ const struct type* type_get_specifer_part(const struct type* p_type)
     return p;
 }
 
-
-#if  defined __CAKE__
-[[nodiscard]] void* _owner calloc(int nmemb, int size);
-void free([[cake::implicit]] void* _owner ptr);
-[[nodiscard]] void* _owner malloc(int size);
-[[nodiscard]] void* _owner realloc(void* _owner ptr, int size);
-#endif
 
 
 
@@ -17453,7 +17452,7 @@ struct defer_scope
     struct defer_scope* previous;
 };
 
-struct _owner visit_ctx
+struct owner visit_ctx
 {
     /*
     * It is necessary two passes to generate lambdas expressions
@@ -17478,7 +17477,7 @@ struct _owner visit_ctx
 };
 
 void visit(struct visit_ctx* ctx);
-void visit_ctx_destroy(implicit struct visit_ctx* _obj_owner ctx);
+void visit_ctx_destroy(implicit struct visit_ctx* obj_owner ctx);
 
 
 
@@ -17602,7 +17601,7 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
 int printf_nothing(const char* fmt, ...) { return 0; }
 #endif
 
-void scope_destroy(implicit struct scope * _obj_owner p)
+void scope_destroy(implicit struct scope * obj_owner p)
 {
     hashmap_destroy(&p->tags);
     hashmap_destroy(&p->variables);
@@ -17654,7 +17653,7 @@ void scope_list_pop(struct scope_list* list)
 }
 
 
-void parser_ctx_destroy(implicit struct parser_ctx* _obj_owner ctx)
+void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx)
 {
 
 }
@@ -18559,11 +18558,12 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
             else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
 
-            else if (strcmp("_owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
-            else if (strcmp("_obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
-            else if (strcmp("_view", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
-            else if (strcmp("_move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
-
+            else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
+            else if (strcmp("_Move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
+            else if (strcmp("_Implicit", text) == 0) result = TK_KEYWORD__IMPLICIT; /*extension*/
+            
 
             break;
         default:
@@ -21391,12 +21391,18 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 {
     struct parameter_declaration* p_parameter_declaration = calloc(1, sizeof(struct parameter_declaration));
 
+    if (ctx->current->type == TK_KEYWORD__IMPLICIT)
+    {
+        p_parameter_declaration->implicit_token = ctx->current;
+        parser_match(ctx);
+    }
+
     p_parameter_declaration->attribute_specifier_sequence_opt =
         attribute_specifier_sequence_opt(ctx);
 
     p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx);
     
-
+  
     //talvez no ctx colocar um flag que esta em argumentos
     //TODO se tiver uma struct tag novo...
     //warning: declaration of 'struct X' will not be visible outside of this function [-Wvisibility]
@@ -21428,11 +21434,9 @@ struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx)
 
     p_parameter_declaration->declarator->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_PARAM;
 
-    if (p_parameter_declaration->attribute_specifier_sequence_opt)
+    if (p_parameter_declaration->implicit_token)
     {
-        //implicit flag must be on the parameter type to be accebly everwhere (function pointer etc)
-        p_parameter_declaration->declarator->type.attributes_flags |= 
-            p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags;        
+        p_parameter_declaration->declarator->type.attributes_flags |=  CAKE_ATTRIBUTE_IMPLICT;        
     }
 
     if (p_parameter_declaration->declarator->name)
@@ -21990,11 +21994,11 @@ struct attribute_token* attribute_token(struct parser_ctx* ctx)
         parser_match(ctx);
         if (is_cake_attr)
         {
-            if (strcmp(ctx->current->lexeme, "implicit") == 0)
-            {
-                p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_IMPLICT;
-            }
-            else
+            //if (strcmp(ctx->current->lexeme, "implicit") == 0)
+            //{
+              //  p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_IMPLICT;
+            //}
+            //else
             {
                 compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
             }
@@ -23131,7 +23135,7 @@ int compile_one_file(const char* file_name,
     struct parser_ctx ctx = {0};
     ctx.options = *options;
 
-    char* _owner content = NULL;
+    char* owner content = NULL;
 
     try
     {
@@ -23193,9 +23197,9 @@ int compile_one_file(const char* file_name,
 
         if (options->preprocess_only)
         {
-            const char* _owner s2 = print_preprocessed_to_string2(ast.token_list.head);
+            const char* owner s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
-            free((void* _owner) s2);
+            free((void* owner) s2);
         }
         else
         {
@@ -23226,7 +23230,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* s2 = format_code(options, s);
-                    free((char* _owner) s);
+                    free((char* owner) s);
                     s = s2;
                 }
 
@@ -23274,7 +23278,7 @@ int compile_one_file(const char* file_name,
         fclose(ctx.sarif_file);
     }
     parser_ctx_destroy(&ctx);
-    free((char* _owner) s);
+    free((char* owner) s);
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
@@ -23569,7 +23573,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
 
                 /*re-parser ouput and format*/
                 const char* s2 = format_code(&options, s);
-                free((void* _owner) s);
+                free((void* owner) s);
                 s = s2;
             }
             
@@ -23594,7 +23598,7 @@ char* CompileText(const char* pszoptions, const char* content)
     return  (char*) compile_source(pszoptions, content, &report);
 }
 
-void ast_destroy(implicit struct ast* _obj_owner ast)
+void ast_destroy(implicit struct ast* obj_owner ast)
 {
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);
@@ -24491,16 +24495,8 @@ void enum_scope()
 
 
 
-#if  defined __CAKE__
-[[nodiscard]] void* _owner calloc(int nmemb, int size);
-void free([[cake::implicit]] void* _owner ptr);
-[[nodiscard]] void* _owner malloc(int size);
-[[nodiscard]] void* _owner realloc(void* _owner ptr, int size);
-#endif
 
-
-
-void visit_ctx_destroy(implicit struct visit_ctx* _obj_owner ctx)
+void visit_ctx_destroy(implicit struct visit_ctx* obj_owner ctx)
 {
     //ctx->
 }
@@ -24569,13 +24565,13 @@ void print_block_defer(struct defer_scope* deferblock, struct osstream* ss, bool
         l.tail = deferchild->defer_statement->last_token;
 
         l.head->flags |= TK_FLAG_HIDE;
-        const char* _owner s = get_code_as_compiler_see(&l);
+        const char* owner s = get_code_as_compiler_see(&l);
         assert(s != NULL);
         if (hide_tokens)
             token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
         ss_fprintf(ss, "%s", s);
-        free((void* _owner)s);
+        free((void* owner)s);
         deferchild = deferchild->previous;
     }
 }
@@ -25161,7 +25157,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             if (constant_value_is_valid(&p_expression->constant_value))
             {
-                free((void* _owner)p_expression->type.name_opt);
+                free((void* owner)p_expression->type.name_opt);
                 p_expression->type.name_opt = NULL;
 
                 struct osstream ss1 = { 0 };
@@ -25279,7 +25275,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             print_type_specifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_specifier_flags);
 
 
-            free((void* _owner)p_expression->type_name->declarator->type.name_opt);
+            free((void* owner)p_expression->type_name->declarator->type.name_opt);
             p_expression->type_name->declarator->type.name_opt = strdup(name);
 
             struct osstream ss0 = { 0 };

@@ -4,7 +4,7 @@
 #include <assert.h>
 #include "flow_analysis_visit.h"
 #include "expressions.h"
-#include "annotations.h"
+#include "ownership.h"
 
 struct flow_defer_scope
 {

@@ -1,6 +1,6 @@
 #pragma once
 #include <stdbool.h>
-#include "annotations.h"
+#include "ownership.h"
 
 enum token_type
 {
@@ -167,10 +167,12 @@ enum token_type
     TK_KEYWORD_TYPEOF_UNQUAL, /*C23*/
     TK_KEYWORD__BITINT /*C23*/,
 
+    /*cake extension*/
     TK_KEYWORD__OWNER, 
     TK_KEYWORD__OBJ_OWNER, 
     TK_KEYWORD__VIEW,
     TK_KEYWORD__MOVE,
+    TK_KEYWORD__IMPLICIT
 };
 
 enum token_flags
@@ -192,7 +194,7 @@ enum token_flags
 struct token
 {
     enum token_type type;
-    char* _owner lexeme;
+    char* owner lexeme;
     char* original;
 
     int line;
@@ -220,12 +222,12 @@ struct token_list
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
 struct token* clone_token(struct token* p);
-struct token* token_list_add(struct token_list* list, struct token* _owner pnew);
+struct token* token_list_add(struct token_list* list, struct token* owner pnew);
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
 void token_list_append_list(struct token_list* dest, struct token_list* source);
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
-char* _owner token_list_join_tokens(struct token_list* list, bool bliteral);
+char* owner token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);
 bool token_is_blank(struct token* p);
 void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag);

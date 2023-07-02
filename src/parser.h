@@ -7,12 +7,12 @@
 #include "osstream.h"
 #include "type.h"
 #include "options.h"
-#include "annotations.h"
+#include "ownership.h"
 
 #define CAKE_VERSION "0.6"
 
 
-struct _owner scope
+struct owner scope
 {
     int scope_level;
     struct hash_map tags;
@@ -22,7 +22,7 @@ struct _owner scope
     struct scope* previous;        
 };
 
-void scope_destroy(implicit struct scope* _obj_owner p);
+void scope_destroy(implicit struct scope* obj_owner p);
 
 struct scope_list
 {
@@ -42,7 +42,7 @@ struct report
 
 
 
-struct _owner parser_ctx
+struct owner parser_ctx
 {
     struct options options;
     
@@ -74,7 +74,7 @@ struct _owner parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(implicit struct parser_ctx* _obj_owner ctx);
+void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx);
 
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
@@ -659,7 +659,7 @@ struct parameter_declaration
     
     struct declaration_specifiers* declaration_specifiers;
     struct declarator* declarator;
-
+    struct token * implicit_token;
     struct parameter_declaration* next;
 };
 struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx);
@@ -1201,7 +1201,7 @@ struct label
 
 struct label* label(struct parser_ctx* ctx);
 
-struct _owner ast
+struct owner ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
@@ -1209,7 +1209,7 @@ struct _owner ast
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
-void ast_destroy(implicit struct ast* _obj_owner ast);
+void ast_destroy(implicit struct ast* obj_owner ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 

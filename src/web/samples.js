@@ -1211,11 +1211,11 @@ static_assert( _is_function(main) && (typeof(main())) == (int) );
 
 sample["Extension - ownership I"] =
 `
-void * _owner malloc(int i);
-void free([[cake::implicit]] void * _owner p);
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
 
 int main() {
-   void * _owner p = malloc(1);
+   void * _Owner p = malloc(1);
    //free(p);
 }
 `;
@@ -1223,21 +1223,21 @@ int main() {
 sample["Extension - ownership II"] =
 `
 
-void * _owner malloc(int i){}
-void free([[cake::implicit]] void * _owner p) {}
+void * _Owner malloc(int i){}
+void free(_Implicit void * _Owner p) {}
 
 struct X {
   int i;
 };
 
- struct X * _owner f() {
-    struct X * _owner p = malloc(1);
-    struct X * _owner p2 = _move p;
+ struct X * _Owner f() {
+    struct X * _Owner p = malloc(1);
+    struct X * _Owner p2 = _Move p;
     return p2; /*p2 is moved*/
 }
 
 int main() {
-   struct X * _owner p = f();
+   struct X * _Owner p = f();
    //free(p);     
 }
 
@@ -1246,11 +1246,11 @@ int main() {
 
 sample["Extension - ownership III"] =
 `
-struct _owner X {
+struct _Owner X {
   int i;
 };
 
-void x_destroy([[cake::implicit]] struct X * _obj_owner p) { }
+void x_destroy(_Implicit struct X * _Obj_owner p) { }
 
 int main() {
    struct X x = {};
@@ -1261,17 +1261,17 @@ int main() {
 
 sample["Extension - ownership IV"] =
 `
-void free([[cake::implicit]] void* _owner ptr);
-[[nodiscard]] void* _owner malloc(int size);
+void free(_Implicit void* _Owner ptr);
+[[nodiscard]] void* _Owner malloc(int size);
 
-struct _owner X
+struct _Owner X
 {
     int i;
 };
 
 int main() 
 {
-    struct X * _owner p = malloc(sizeof (struct X));
+    struct X * _Owner p = malloc(sizeof (struct X));
     free(p);
 }
 

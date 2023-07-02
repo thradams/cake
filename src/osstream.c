@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "annotations.h"
+#include "ownership.h"
 
 void ss_swap(struct osstream* a, struct osstream* b)
 {
@@ -18,12 +18,12 @@ void ss_clear(struct osstream* stream)
     stream->size = 0;
 }
 
-char * _owner ss_get_str_and_close(implicit struct osstream * _obj_owner stream)
+char * owner ss_get_str_and_close(implicit struct osstream * obj_owner stream)
 {
     return stream->c_str;
 }
 
-void ss_close(implicit struct osstream * _obj_owner stream)
+void ss_close(implicit struct osstream * obj_owner stream)
 {
     free(stream->c_str);    
 }

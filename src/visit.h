@@ -15,7 +15,7 @@ struct defer_scope
     struct defer_scope* previous;
 };
 
-struct _owner visit_ctx
+struct owner visit_ctx
 {
     /*
     * It is necessary two passes to generate lambdas expressions
@@ -40,4 +40,4 @@ struct _owner visit_ctx
 };
 
 void visit(struct visit_ctx* ctx);
-void visit_ctx_destroy(implicit struct visit_ctx* _obj_owner ctx);
+void visit_ctx_destroy(implicit struct visit_ctx* obj_owner ctx);

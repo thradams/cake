@@ -3,7 +3,7 @@
 #include "token.h"
 #include "error.h"
 #include "options.h"
-#include "annotations.h"
+#include "ownership.h"
 
 struct include_dir
 {
@@ -74,19 +74,19 @@ struct token_list token_list_remove(struct token_list* list, struct token* first
 void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* append);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* filename_opt, int level, enum token_flags addflags);
 
-const char* _owner get_code_as_we_see(struct token_list* list, bool remove_comments);
-const char* _owner get_code_as_compiler_see(struct token_list* list);
+const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments);
+const char* owner get_code_as_compiler_see(struct token_list* list);
 
-const char* _owner get_code_as_we_see_plus_macros(struct token_list* list);
-const char* _owner get_code_as_we_see(struct token_list* list, bool remove_comments);
+const char* owner get_code_as_we_see_plus_macros(struct token_list* list);
+const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments);
 
 void print_tokens(struct token* p_token);
 void print_preprocessed(struct token* p_token);
-const char* _owner print_preprocessed_to_string(struct token* p_token);
-const char* _owner print_preprocessed_to_string2(struct token* p_token);
+const char* owner print_preprocessed_to_string(struct token* p_token);
+const char* owner print_preprocessed_to_string2(struct token* p_token);
 void check_unused_macros(struct hash_map* map);
 
-char* _owner read_file(const char* path);
+char* owner read_file(const char* path);
 const char* get_token_name(enum token_type tk);
 void print_all_macros(struct preprocessor_ctx* prectx);
 

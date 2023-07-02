@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "expressions.h"
-#include "annotations.h"
+#include "ownership.h"
 
 static void wasm_visit_attribute_specifier_sequence(struct wasm_visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence);
 

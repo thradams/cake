@@ -7,7 +7,7 @@
 
 struct parser_ctx;
 
-#include "annotations.h"
+#include "ownership.h"
 
 enum type_category
 {
@@ -125,7 +125,7 @@ struct param_list {
     struct param* tail;
 };
 
-struct _owner type 
+struct owner type 
 {
     enum type_category category;
     enum attribute_flags  attributes_flags;
@@ -156,7 +156,7 @@ void check_assigment(struct parser_ctx* ctx,
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
-void type_destroy(implicit struct type* _obj_owner p_type);
+void type_destroy(implicit struct type* obj_owner p_type);
 
 
 struct type get_function_return_type(struct type* p_type);
