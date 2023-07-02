@@ -220,12 +220,14 @@ void parser_ctx_destroy(implicit struct parser_ctx* _obj_owner ctx)
 void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     ctx->n_errors++;
+    char buffer[200] = {0};
+
 #ifndef TEST
 
     if (p_token)
         print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
 
-    char buffer[200] = {0};
+    
     va_list args;
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
@@ -325,10 +327,12 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
         func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
     }
 
+    char buffer[200] = {0};
+
 #ifndef TEST
     print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
 
-    char buffer[200] = {0};
+    
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
@@ -411,9 +415,11 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
         func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
     }
     ctx->n_info++;
+    char buffer[200] = {0};
+
 #ifndef TEST
     print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
-    char buffer[200] = {0};
+    
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
@@ -6122,7 +6128,7 @@ const char* compile_source(const char* pszoptions, const char* content, struct r
                 free((void* _owner) s);
                 s = s2;
             }
-            ast_destroy(&ast);
+            
         }
     }
     catch
