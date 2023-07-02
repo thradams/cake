@@ -1,4 +1,10 @@
 
+The C Programming language 1978
+
+> "C is a general-purpose programming language which features economy of expression, modern control flow and data structures, and a rich set of operators. C is not a "very high level" language, nor a "big" one, and is not specialised to any particular area of application. But its absence of restrictions and its generality make it more convenient and effective for many tasks than supposedly more powerful languages."
+
+> "In our experience, C has proven to be a pleasant, expressive, and versatile language for a wide variety of programs. It is easy to learn, and it wears well as one's experience with it grows"
+
 # 🍰 Cake
 
 Cake is a compiler front end written from scratch in C, specifically designed for C23. It allows you to translate newer versions of C, such as C23, to C99. Additionally, Cake provides a platform for experimenting with new features for the C language, including extensions like lambdas and defer.
