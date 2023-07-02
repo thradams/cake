@@ -224,7 +224,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
 }
 
-struct token* token_list_add(struct token_list* list, struct token* pnew)
+struct token* token_list_add(struct token_list* list, struct token * _owner pnew)
 {
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);

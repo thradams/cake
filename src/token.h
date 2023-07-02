@@ -220,7 +220,7 @@ struct token_list
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
 struct token* clone_token(struct token* p);
-struct token* token_list_add(struct token_list* list, struct token* pnew);
+struct token* token_list_add(struct token_list* list, struct token* _owner pnew);
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
 void token_list_append_list(struct token_list* dest, struct token_list* source);
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);

@@ -694,6 +694,19 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 {
     //see also check_assigment
 
+    if (current_argument->move_token)
+    {
+        if (!
+            (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
+             paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+            )
+        {
+            compiler_set_error_with_token(C_EXPLICIT_MOVE, ctx,
+                current_argument->expression->first_token,
+                "cannot move to parameter %d", param_num);
+        }
+    }
+
     if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
         paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
     {
@@ -723,8 +736,6 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         {
             if (current_argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
             {
-
-
                 if (p_declarator &&
                     !(p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
                 {

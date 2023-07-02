@@ -203,7 +203,7 @@ void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx
 
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path)
 {
-    struct include_dir* p_new_include_dir = calloc(1, sizeof *p_new_include_dir);
+    struct include_dir* _owner p_new_include_dir = calloc(1, sizeof *p_new_include_dir);
     p_new_include_dir->path = strdup(path);
     if (list->head == NULL)
     {
@@ -281,7 +281,7 @@ struct macro_expanded
 
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct macro* macro = calloc(1, sizeof *macro);
+    struct macro* _owner macro = calloc(1, sizeof *macro);
     if (macro == NULL)
     {
     }
@@ -356,7 +356,7 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
     if (list.head == NULL)
     {
         /*nunca eh vazio..se for ele colocar um TK_PLACEMARKER*/
-        struct token* p_new_token = calloc(1, sizeof *p_new_token);
+        struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
         p_new_token->lexeme = strdup("");
         p_new_token->type = TK_PLACEMARKER;
         token_list_add(&list, p_new_token);
@@ -403,7 +403,7 @@ struct macro_argument* find_macro_argument_by_name(struct macro_argument_list* p
 }
 
 
-void argument_list_add(struct macro_argument_list* list, struct macro_argument* pnew)
+void argument_list_add(struct macro_argument_list* list, struct macro_argument * _owner pnew)
 {
     assert(pnew->next == NULL);
     if (list->head == NULL)
@@ -784,7 +784,7 @@ enum token_type is_punctuator(struct stream* stream)
 
 struct token* new_token(const char* lexeme_head, const char* lexeme_tail, enum token_type type)
 {
-    struct token* p_new_token = calloc(1, sizeof *p_new_token);
+    struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
     size_t sz = lexeme_tail - lexeme_head;
     p_new_token->lexeme = calloc(sz + 1, sizeof(char));
     p_new_token->type = type;
@@ -1819,7 +1819,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     p_new_token->lexeme = strdup("0");
                 }
 
-                token_list_add(&r, p_new_token);
+                token_list_add(&r, _move p_new_token);
 
                 if (has_parentesis)
                 {
@@ -1873,13 +1873,13 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 bool has_include = s != NULL;
                 free((void* _owner)s);
 
-                struct token* p_new_token = calloc(1, sizeof *p_new_token);
+                struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_include ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
-                token_list_add(&r, p_new_token);
+                token_list_add(&r, _move p_new_token);
                 token_list_pop_front(input_list); //pop )
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
@@ -1931,18 +1931,18 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 */
                 bool has_c_attribute = false;
 
-                struct token* p_new_token = calloc(1, sizeof *p_new_token);
+                struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_c_attribute ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
-                token_list_add(&r, p_new_token);
+                token_list_add(&r, _move p_new_token);
                 token_list_pop_front(input_list); //pop )
             }
             else
             {
-                token_list_add(&r, token_list_pop_front(input_list));
+                token_list_add(&r, _move token_list_pop_front(input_list));
             }
         }
     }
@@ -2015,7 +2015,7 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
     struct token_list r = { 0 };
     while (input_list->head->type != TK_NEWLINE)
     {
-        token_list_add(&r, token_list_pop_front(input_list));
+        token_list_add(&r, _move token_list_pop_front(input_list));
     }
     return r;
 }
@@ -2033,7 +2033,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list r = { 0 };
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-        token_list_add(&r, token_list_pop_front(input_list));
+        token_list_add(&r, _move token_list_pop_front(input_list));
 
         /*
           We call preprocessor that emmit warnings if line continuation
@@ -2414,7 +2414,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
       identifier-list , identifier
     */
     skip_blanks(ctx, &r, input_list);
-    struct macro_parameter* p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
+    struct macro_parameter* _owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
     p_macro_parameter->name = strdup(input_list->head->lexeme);
     macro->parameters = p_macro_parameter;
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -2664,7 +2664,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             A
             */
 
-            struct macro* macro = calloc(1, sizeof *macro);
+            struct macro* _owner macro = calloc(1, sizeof *macro);
             if (macro == NULL)
             {
                 preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "out of mem");
@@ -2715,7 +2715,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 skip_blanks_level(ctx, &r, input_list, level);
                 if (input_list->head->type == '...')
                 {
-                    struct macro_parameter* p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
+                    struct macro_parameter* _owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
                     p_macro_parameter->name = strdup("__VA_ARGS__");
                     macro->parameters = p_macro_parameter;
 
@@ -2736,7 +2736,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     skip_blanks_level(ctx, &r, input_list, level);
                     if (input_list->head->type == '...')
                     {
-                        struct macro_parameter* p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
+                        struct macro_parameter* _owner p_macro_parameter = calloc(1, sizeof *p_macro_parameter);
                         p_macro_parameter->name = strdup("__VA_ARGS__");
                         struct macro_parameter* p_last = macro->parameters;
                         assert(p_last != NULL);
@@ -2976,14 +2976,14 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         {
             if (macro->parameters != NULL)
             {
-                struct macro_argument* p_argument = calloc(1, sizeof(struct macro_argument));
+                struct macro_argument* _owner p_argument = calloc(1, sizeof(struct macro_argument));
                 p_argument->name = strdup(p_current_parameter->name);
-                argument_list_add(&macro_argument_list, p_argument);
+                argument_list_add(&macro_argument_list, _move p_argument);
             }
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
             return macro_argument_list;
         }
-        struct macro_argument* p_argument = calloc(1, sizeof(struct macro_argument));
+        struct macro_argument* _owner p_argument = calloc(1, sizeof(struct macro_argument));
         p_argument->name = strdup(p_current_parameter->name);
         while (input_list->head != NULL)
         {
@@ -3138,10 +3138,10 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             }
             else
             {
-                struct token* p_new_token = calloc(1, sizeof *p_new_token);
+                struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
                 p_new_token->lexeme = strdup("");
                 p_new_token->type = TK_PLACEMARKER;
-                token_list_add(&newlist, p_new_token);
+                token_list_add(&newlist, _move p_new_token);
                 newlist.head->flags = r.tail->flags;
             }
             /*
@@ -3280,11 +3280,11 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                         preprocessor_set_error_with_token(C_UNEXPECTED, ctx, input_list->head, "unexpected");
                         throw;
                     }
-                    struct token* p_new_token = calloc(1, sizeof *p_new_token);
+                    struct token* _owner p_new_token = calloc(1, sizeof *p_new_token);
                     p_new_token->lexeme = _move s;
                     p_new_token->type = TK_STRING_LITERAL;
                     p_new_token->flags = flags;
-                    token_list_add(&r, p_new_token);
+                    token_list_add(&r, _move p_new_token);
                     continue;
                 }
                 else if (r.tail != NULL && r.tail->type == '##')
@@ -4395,7 +4395,7 @@ const char* _owner print_preprocessed_to_string2(struct token* p_token)
     */
 
     if (p_token == NULL)
-        return strdup("(null)");
+        return (const char* _owner) strdup("(null)");
 
     struct osstream ss = { 0 };
     struct token* current = p_token;

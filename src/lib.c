@@ -4774,9 +4774,9 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         {
             if (macro->parameters != NULL)
             {
-                struct macro_argument* p_argument = calloc(1, sizeof(struct macro_argument));
+                struct macro_argument* _owner p_argument = calloc(1, sizeof(struct macro_argument));
                 p_argument->name = strdup(p_current_parameter->name);
-                argument_list_add(&macro_argument_list, p_argument);
+                argument_list_add(&macro_argument_list, _move p_argument);
             }
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
             return macro_argument_list;
@@ -6193,7 +6193,7 @@ const char* _owner print_preprocessed_to_string2(struct token* p_token)
     */
 
     if (p_token == NULL)
-        return strdup("(null)");
+        return (const char* _owner) strdup("(null)");
 
     struct osstream ss = { 0 };
     struct token* current = p_token;
@@ -15497,6 +15497,19 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 {
     //see also check_assigment
 
+    if (current_argument->move_token)
+    {
+        if (!
+            (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
+             paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+            )
+        {
+            compiler_set_error_with_token(C_EXPLICIT_MOVE, ctx,
+                current_argument->expression->first_token,
+                "cannot move to parameter %d", param_num);
+        }
+    }
+
     if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
         paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
     {
@@ -15526,8 +15539,6 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         {
             if (current_argument->expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
             {
-
-
                 if (p_declarator &&
                     !(p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
                 {
