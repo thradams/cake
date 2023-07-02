@@ -9587,7 +9587,7 @@ struct declarator* expression_get_declarator(struct expression*);
 
 //#pragma once
 
-#define CAKE_VERSION "0.5.13"
+#define CAKE_VERSION "0.6"
 
 
 struct _owner scope
