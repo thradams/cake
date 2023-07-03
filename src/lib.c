@@ -1,6 +1,34 @@
 
 
 
+
+//#pragma once
+
+
+
+#ifdef __CAKE__
+#define implicit _Implicit
+#define owner _Owner
+#define obj_owner _Obj_owner
+#define move _Move
+
+
+[[nodiscard]] void* _Owner calloc(int nmemb, int size);
+void free(_Implicit void* _Owner ptr);
+[[nodiscard]] void* _Owner malloc(int size);
+[[nodiscard]] void* _Owner realloc(void* _Owner ptr, int size);
+[[nodiscard]] char * _Owner strdup( const char *src );
+
+#else
+#define implicit
+#define owner
+#define obj_owner
+#define move
+
+#endif
+
+
+
 #include <stdlib.h>
 
 
@@ -137,34 +165,6 @@ void c_clrscr();
 
 
 #include <stdarg.h>
-
-
-
-//#pragma once
-
-
-
-#ifdef __CAKE__
-#define implicit _Implicit
-#define owner _Owner
-#define obj_owner _Obj_owner
-#define move _Move
-
-
-[[nodiscard]] void* _Owner calloc(int nmemb, int size);
-void free(_Implicit void* _Owner ptr);
-[[nodiscard]] void* _Owner malloc(int size);
-[[nodiscard]] void* _Owner realloc(void* _Owner ptr, int size);
-[[nodiscard]] char * _Owner strdup( const char *src );
-
-#else
-#define implicit
-#define owner
-#define obj_owner
-#define move
-
-#endif
-
 
 struct owner osstream
 {
@@ -435,20 +435,20 @@ struct token
     /*points to the token with file name or macro*/
     struct token* token_origin;
 
-    struct token* next;
+    struct token* owner next;
     struct token* prev;
 };
 
-void token_delete(struct token* p);
+void token_delete(implicit struct token* owner p);
 
 struct token_list
 {
-    struct token* head;
+    struct token* owner head;
     struct token* tail;
 };
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
-struct token* clone_token(struct token* p);
+struct token* owner clone_token(struct token* p);
 struct token* token_list_add(struct token_list* list, struct token* owner pnew);
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
 void token_list_append_list(struct token_list* dest, struct token_list* source);
@@ -774,7 +774,7 @@ struct token_list  copy_replacement_list(struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* source);
 void print_list(struct token_list* list);
-void token_list_destroy(struct token_list* list);
+void token_list_destroy(implicit struct token_list* obj_owner list);
 bool token_is_blank(struct token* p);
 struct token* token_list_pop_back(struct token_list* list);
 struct token* token_list_pop_front(struct token_list* list);
@@ -915,7 +915,7 @@ struct token* token_list_pop_front(struct token_list* list)
     return p;
 }
 
-void token_delete(struct token* p)
+void token_delete(implicit struct token* owner p)
 {
     if (p)
     {
@@ -937,14 +937,14 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     }
 }
 
-void token_list_destroy(struct token_list* list)
+void token_list_destroy(implicit struct token_list* obj_owner list)
 {
-    struct token* p = list->head;
+    struct token* owner p = move list->head;
     while (p)
     {
-        struct token* next = p->next;
+        struct token* owner next = move p->next;
         token_delete(p);
-        p = next;
+        p = move next;
     }
 }
 
@@ -1048,7 +1048,7 @@ struct token* token_list_add(struct token_list* list, struct token * owner pnew)
         list->tail = pnew;
     }
     assert(list->tail->next == NULL);
-    return pnew;
+    return list->tail;
 }
 
 int is_digit(struct stream* p)
@@ -1070,9 +1070,8 @@ bool token_is_blank(struct token* p)
 
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
-    struct token* clone = clone_token(pnew);
-    token_list_add(list, clone);
-    return clone;
+    struct token* owner clone = clone_token(pnew);
+    return token_list_add(list, move clone);    
 }
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source)
@@ -1118,9 +1117,9 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 }
 
 
-struct token* clone_token(struct token* p)
+struct token* owner clone_token(struct token* p)
 {
-    struct token* token = calloc(1, sizeof *token);
+    struct token* owner token = calloc(1, sizeof *token);
     if (token)
     {
         *token = *p;

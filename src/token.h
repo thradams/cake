@@ -208,20 +208,20 @@ struct token
     /*points to the token with file name or macro*/
     struct token* token_origin;
 
-    struct token* next;
+    struct token* owner next;
     struct token* prev;
 };
 
-void token_delete(struct token* p);
+void token_delete(implicit struct token* owner p);
 
 struct token_list
 {
-    struct token* head;
+    struct token* owner head;
     struct token* tail;
 };
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
-struct token* clone_token(struct token* p);
+struct token* owner clone_token(struct token* p);
 struct token* token_list_add(struct token_list* list, struct token* owner pnew);
 struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
 void token_list_append_list(struct token_list* dest, struct token_list* source);

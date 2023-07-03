@@ -30,7 +30,7 @@
 <a href="#toc_5">destroying structs\unions</a>
 </li>
 <li>
-<a href="#toc_6">Returning _Owner type</a>
+<a href="#toc_6">Returning local _Owner type</a>
 </li>
 <li>
 <a href="#toc_7">_Owner arrays</a>
@@ -42,10 +42,13 @@
 <a href="#toc_9">Reality check II</a>
 </li>
 <li>
-<a href="#toc_10">Conclusion</a>
+<a href="#toc_10">Reality check III</a>
 </li>
 <li>
-<a href="#toc_11">Motivation</a>
+<a href="#toc_11">Conclusion</a>
+</li>
+<li>
+<a href="#toc_12">Motivation</a>
 </li>
 </ul>
 </li>
@@ -327,14 +330,22 @@ int main() {
 
 <p>This qualifier indicates that the pointer is the _Owner of the object but not the _Owner of the memory.</p>
 
-<h2 id="toc_6">Returning _Owner type</h2>
+<h2 id="toc_6">Returning local _Owner type</h2>
 
-<p>Returning an <em>owner</em> variable is the same as moving it. The design decision here was not require the <code>_Move</code> keyword.</p>
+<p>Returning an local <em>_Owner</em> variable is the same as moving it. The design decision here was not require the <code>_Move</code> keyword.</p>
 
 <pre><code class="language-c">struct list make()
 {
   struct list {...};
   return list; /*moved*/
+}
+</code></pre>
+
+<p>Returning a owner variable that is not local, follow the same rules of assignment</p>
+
+<pre><code>owner T global;
+T f() { 
+  return global; 
 }
 </code></pre>
 
@@ -422,11 +433,25 @@ int fclose(_Implicit FILE* _Owner f);
 
 <p>In this case, an annotation <code>[[initialized]]</code> is needed to inform the compiler that the variable is initialized, and an annotation <code>[[uninitialized]]</code> is needed to inform the compiler that the variable is uninitialized.</p>
 
-<h2 id="toc_10">Conclusion</h2>
+<h2 id="toc_10">Reality check III</h2>
+
+<pre><code class="language-c">void list_destroy(_Implicit struct list* _Obj_owner list)
+{
+    struct token* _Owner p = _Move list-&gt;head;
+    while (p) {
+        struct token* _Owner next = _Move p-&gt;next;
+        token_delete(p);
+        p = _Move next;
+    }
+    //p is null here, no need to delete
+}
+</code></pre>
+
+<h2 id="toc_11">Conclusion</h2>
 
 <p>This feature aims to provide ownership checks in C by introducing the <em>owner</em> qualifier. It ensures that objects are properly destroyed or moved before their lifetime ends, preventing memory leaks and use-after-free errors. The compiler assists in detecting potential issues and suggests necessary changes to the code. By leveraging ownership checks, developers can write safer and more reliable code in C.</p>
 
-<h2 id="toc_11">Motivation</h2>
+<h2 id="toc_12">Motivation</h2>
 
 <p>I have placed the motivation section at the end, considering that memory safety guarantees are already a widely discussed topic and the motivation becomes apparent as readers delve into the content.</p>
 

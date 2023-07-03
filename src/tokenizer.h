@@ -64,7 +64,7 @@ struct token_list  copy_replacement_list(struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* source);
 void print_list(struct token_list* list);
-void token_list_destroy(struct token_list* list);
+void token_list_destroy(implicit struct token_list* obj_owner list);
 bool token_is_blank(struct token* p);
 struct token* token_list_pop_back(struct token_list* list);
 struct token* token_list_pop_front(struct token_list* list);

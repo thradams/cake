@@ -1,3 +1,4 @@
+#include "ownership.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
@@ -113,7 +114,7 @@ struct token* token_list_pop_front(struct token_list* list)
     return p;
 }
 
-void token_delete(struct token* p)
+void token_delete(implicit struct token* owner p)
 {
     if (p)
     {
@@ -135,14 +136,14 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     }
 }
 
-void token_list_destroy(struct token_list* list)
+void token_list_destroy(implicit struct token_list* obj_owner list)
 {
-    struct token* p = list->head;
+    struct token* owner p = move list->head;
     while (p)
     {
-        struct token* next = p->next;
+        struct token* owner next = move p->next;
         token_delete(p);
-        p = next;
+        p = move next;
     }
 }
 
@@ -246,7 +247,7 @@ struct token* token_list_add(struct token_list* list, struct token * owner pnew)
         list->tail = pnew;
     }
     assert(list->tail->next == NULL);
-    return pnew;
+    return list->tail;
 }
 
 int is_digit(struct stream* p)
@@ -268,9 +269,8 @@ bool token_is_blank(struct token* p)
 
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
-    struct token* clone = clone_token(pnew);
-    token_list_add(list, clone);
-    return clone;
+    struct token* owner clone = clone_token(pnew);
+    return token_list_add(list, move clone);    
 }
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source)
@@ -316,9 +316,9 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 }
 
 
-struct token* clone_token(struct token* p)
+struct token* owner clone_token(struct token* p)
 {
-    struct token* token = calloc(1, sizeof *token);
+    struct token* owner token = calloc(1, sizeof *token);
     if (token)
     {
         *token = *p;

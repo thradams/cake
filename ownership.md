@@ -308,9 +308,9 @@ void x_destroy(_Implicit struct X * obj__Owner p) {
 This qualifier indicates that the pointer is the _Owner of the object but not the _Owner of the memory.
 
 
-## Returning _Owner type
+## Returning local _Owner type
 
-Returning an _owner_ variable is the same as moving it. The design decision here was not require the `_Move` keyword.
+Returning an local _\_Owner_ variable is the same as moving it. The design decision here was not require the `_Move` keyword.
 
 
 ```c
@@ -318,6 +318,15 @@ struct list make()
 {
   struct list {...};
   return list; /*moved*/
+}
+```
+  
+Returning a owner variable that is not local, follow the same rules of assignment
+
+```
+owner T global;
+T f() { 
+  return global; 
 }
 ```
 
@@ -412,6 +421,20 @@ When initialization needs to be checked using a result code, we don't have seman
 
 In this case, an annotation `[[initialized]]` is needed to inform the compiler that the variable is initialized, and an annotation `[[uninitialized]]` is needed to inform the compiler that the variable is uninitialized.
 
+## Reality check III
+
+```c
+void list_destroy(_Implicit struct list* _Obj_owner list)
+{
+    struct token* _Owner p = _Move list->head;
+    while (p) {
+        struct token* _Owner next = _Move p->next;
+        token_delete(p);
+        p = _Move next;
+    }
+    //p is null here, no need to delete
+}
+```
 
 ## Conclusion
 This feature aims to provide ownership checks in C by introducing the _owner_ qualifier. It ensures that objects are properly destroyed or moved before their lifetime ends, preventing memory leaks and use-after-free errors. The compiler assists in detecting potential issues and suggests necessary changes to the code. By leveraging ownership checks, developers can write safer and more reliable code in C.
