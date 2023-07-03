@@ -151,12 +151,11 @@ void c_clrscr();
 #define move _Move
 
 
-[[nodiscard]] void* owner calloc(int nmemb, int size);
-void free(implicit void* owner ptr);
-[[nodiscard]] void* owner malloc(int size);
-[[nodiscard]] void* owner realloc(void* owner ptr, int size);
-
-
+[[nodiscard]] void* _Owner calloc(int nmemb, int size);
+void free(_Implicit void* _Owner ptr);
+[[nodiscard]] void* _Owner malloc(int size);
+[[nodiscard]] void* _Owner realloc(void* _Owner ptr, int size);
+[[nodiscard]] char * _Owner strdup( const char *src );
 
 #else
 #define implicit
@@ -15717,6 +15716,7 @@ void check_assigment(struct parser_ctx* ctx,
     bool return_assignment)
 {
 
+    
 
     //see also check_function_argument_and_parameter
 
@@ -15740,6 +15740,17 @@ void check_assigment(struct parser_ctx* ctx,
     else
     {
         lvalue_right_type = type_dup(p_right_type);
+    }
+
+
+    if (!(right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER) &&
+          left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+    {        
+        if (!is_null_pointer_constant)
+        {
+          compiler_set_error_with_token(C_MISSING_OWNER, ctx, right->first_token, "cannot assign a non owner to owner");
+          goto continuation;
+        }
     }
 
 
@@ -15914,6 +15925,8 @@ void check_assigment(struct parser_ctx* ctx,
             }
         }
     }
+
+ 
 
 continuation:
     type_destroy(&lvalue_right_type);

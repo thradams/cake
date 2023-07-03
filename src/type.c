@@ -908,6 +908,7 @@ void check_assigment(struct parser_ctx* ctx,
     bool return_assignment)
 {
 
+    
 
     //see also check_function_argument_and_parameter
 
@@ -931,6 +932,17 @@ void check_assigment(struct parser_ctx* ctx,
     else
     {
         lvalue_right_type = type_dup(p_right_type);
+    }
+
+
+    if (!(right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER) &&
+          left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+    {        
+        if (!is_null_pointer_constant)
+        {
+          compiler_set_error_with_token(C_MISSING_OWNER, ctx, right->first_token, "cannot assign a non owner to owner");
+          goto continuation;
+        }
     }
 
 
@@ -1105,6 +1117,8 @@ void check_assigment(struct parser_ctx* ctx,
             }
         }
     }
+
+ 
 
 continuation:
     type_destroy(&lvalue_right_type);

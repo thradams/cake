@@ -1,17 +1,8 @@
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
 
-
-void free([[cake::implicit]] void* _owner ptr);
-[[nodiscard]] void* _owner malloc(int size);
-
-struct _owner X
-{
-    int i;
-};
-
-int main() 
-{
-    struct X * _owner p = malloc(sizeof (struct X));
-    free(p);
+int main() {
+   void * _Owner p = malloc(1);
+   void  * p2;
+   p = 0;
 }
-
-

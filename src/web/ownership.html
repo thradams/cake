@@ -18,7 +18,7 @@
 <a href="#toc_1">One minute tour</a>
 </li>
 <li>
-<a href="#toc_2">Move assignment</a>
+<a href="#toc_2">_Move assignment</a>
 </li>
 <li>
 <a href="#toc_3">structs/union/enum</a>
@@ -30,10 +30,10 @@
 <a href="#toc_5">destroying structs\unions</a>
 </li>
 <li>
-<a href="#toc_6">Returning owner type</a>
+<a href="#toc_6">Returning _Owner type</a>
 </li>
 <li>
-<a href="#toc_7">Owner arrays</a>
+<a href="#toc_7">_Owner arrays</a>
 </li>
 <li>
 <a href="#toc_8">Reality check I</a>
@@ -42,16 +42,10 @@
 <a href="#toc_9">Reality check II</a>
 </li>
 <li>
-<a href="#toc_10">Headers</a>
+<a href="#toc_10">Conclusion</a>
 </li>
 <li>
-<a href="#toc_11">What&#39;s next?</a>
-</li>
-<li>
-<a href="#toc_12">Conclusion</a>
-</li>
-<li>
-<a href="#toc_13">Motivation</a>
+<a href="#toc_11">Motivation</a>
 </li>
 </ul>
 </li>
@@ -64,54 +58,54 @@
 
 <h2 id="toc_1">One minute tour</h2>
 
-<p>In the context of this feature, a <em>destructor</em> is a function called before an object&#39;s lifetime ends. The <em>lifetime</em> of an object refers to the period during which it is accessible and valid.</p>
+<p>In this context, a <em>destructor</em> is a function called before an object&#39;s lifetime ends. The <em>lifetime</em> of an object refers to the period during which it is accessible and valid.</p>
 
-<p>Introducing the new qualifier <em>owner</em>, which can be used to declare a type that requires the invocation of a <em>destructor</em> before the end of its lifetime.</p>
+<p>Introducing the new qualifier <em>_Owner</em>, which can be used to declare a type that requires the invocation of a <em>destructor</em> before the end of its lifetime.</p>
 
 <p>For example, we can declare <code>malloc</code> as follows:</p>
 
-<pre><code class="language-c">void * owner malloc(size_t sz);
+<pre><code class="language-c">void * _Owner malloc(size_t sz);
 </code></pre>
 
 <p>To assign ownership to the result of <code>malloc</code>, we need to assign it to an <em>owner</em> variable:</p>
 
 <pre><code class="language-c">int main() {
-  void * owner p = malloc(1);
+  void * _Owner p = malloc(1);
 }
 </code></pre>
 
-<p>The compiler will generate an error message stating that the object &#39;p&#39; was not moved or destroyed.</p>
+<p>The compiler will generate an error message stating that the object <code>p</code> was not moved or destroyed.</p>
 
 <p>To address this, we define a destructor for the object by declaring <code>free</code> as follows:</p>
 
-<pre><code class="language-c">void free(void * owner p);
+<pre><code class="language-c">void free(void * _Owner p);
 </code></pre>
 
 <pre><code class="language-c">int main() {
-  void * owner p = malloc(1);
+  void * _Owner p = malloc(1);
   free(p); //p cannot be moved to free implicitly
 }
 </code></pre>
 
-<p>The compiler informs us that &#39;p&#39; cannot be moved to <code>free</code> implicitly and suggests using <code>move</code> before the argument.</p>
+<p>The compiler informs us that <code>p</code> cannot be moved to <code>free</code> implicitly and suggests using <code>move</code> before the argument.</p>
 
-<p>By explicitly using <code>move</code>, we indicate that the variable has been moved or destroyed at the caller&#39;s side.</p>
+<p>By explicitly using <code>_Move</code>, we indicate that the variable has been moved or destroyed at the caller&#39;s side.</p>
 
-<pre><code>   free(move p);
+<pre><code>   free(_Move p);
 </code></pre>
 
 <p>The reason for that I want to make clear at the caller side that a variable has been moved/destroyed. </p>
 
-<p>However, for certain functions with obvious move semantics based on their names, we can use the <code>[[implicit]]</code> attribute to make the usage of <code>move</code> optional:</p>
+<p>However, for certain functions with obvious _Move semantics based on their names, we can use the <code>_Implicit</code> attribute to make the usage of <code>_Move</code> optional:</p>
 
-<pre><code class="language-c">void free([[implicit]] void * owner p);
+<pre><code class="language-c">void free(_Implicit void * _Owner p);
 </code></pre>
 
 <p>I hope this brief tour provides you with a glimpse of what I aim to achieve.</p>
 
-<h2 id="toc_2">Move assignment</h2>
+<h2 id="toc_2">_Move assignment</h2>
 
-<p>With the introduction of the <em>owner</em> qualifier, certain changes in the type system are necessary. Similar to being cautious and explicit when moving a variable into a function, we should adopt the same approach for assignments.</p>
+<p>With the introduction of the <em>_Owner</em> qualifier, certain changes in the type system are necessary. Similar to being cautious and explicit when moving a variable into a function, we should adopt the same approach for assignments.</p>
 
 <p>Consider this sample</p>
 
@@ -128,25 +122,25 @@
 
 <p>To address this issue, the compiler will check the end of lifetime of <code>p1</code> before the assignment.  </p>
 
-<p>The move assignment can be only used if both variables are owner.</p>
+<p>The _Move assignment can be only used if both variables are owner.</p>
 
 <p>The syntax is:</p>
 
-<pre><code>p1 = move p2;
+<pre><code>p1 = _Move p2;
 </code></pre>
 
 <p>There is nothing especial on this assignment compared with the normal assignment. The only difference is that the intention is explicit. </p>
 
-<p>After any move (assignment or function argument), the object transitions into an uninitialized state. This state is only for static analysis purposes and has no runtime implications.</p>
+<p>After any _Move (assignment or function argument), the object transitions into an uninitialized state. This state is only for static analysis purposes and has no runtime implications.</p>
 
 <p>Returning to our sample:</p>
 
 <pre><code class="language-c">int main() {
-  void * owner p1 = malloc(1);
-  void * owner p2 = malloc(1);
+  void * _Owner p1 = malloc(1);
+  void * _Owner p2 = malloc(1);
   
   //error p1 was not moved or destroyed
-  p1 = move p2;
+  p1 = _Move p2;
   
   free(p1);
   free(p2);
@@ -156,8 +150,8 @@
 <p>The compiler will complain that <code>p1</code> was not moved or destroyed before the assignment. To resolve this, we modify the code as follows:</p>
 
 <pre><code class="language-c">int main() {
-  void * owner p1 = malloc(1);
-  void * owner p2 = move p1;
+  void * _Owner p1 = malloc(1);
+  void * _Owner p2 = _Move p1;
   free(p2);
 }
 </code></pre>
@@ -168,7 +162,7 @@
 
 <p>For instance:</p>
 
-<pre><code class="language-c">struct X { char * owner name; };
+<pre><code class="language-c">struct X { char * _Owner name; };
 void some_function(struct X * p) {
   //error: unknown p-&gt;name state
   p-&gt;name = strdup(&quot;new text&quot;);
@@ -190,10 +184,10 @@ void some_function(struct X * p) {
 </code>
 or
 <code>c
-  [[unitialized]] p-&gt;name = move strdup(&quot;new text&quot;);
+  [[unitialized]] p-&gt;name = _Move strdup(&quot;new text&quot;);
 </code></p>
 
-<p>We can assign a non owner to a owner.</p>
+<p>We can assign a non _Owner to a owner.</p>
 
 <pre><code class="language-c">  a = b; /* b is owner*/
 </code></pre>
@@ -201,8 +195,18 @@ or
 <p>In this situation the ownership is not transfered. The same think happens when we can function arguments that are not owners.</p>
 
 <pre><code class="language-c">  void F(T a) {}
-  owner T a;
+  _Owner T a;
   F(a); /*ownership is not transfered*/
+</code></pre>
+
+<p>Possible assignments  </p>
+
+<pre><code>non_owner_obj =       non_owner_obj; //ok
+non_owner_obj =       owner_obj;     //ok
+owner_obj     =       non_owner_obj; //error
+owner_obj     =       null;          //ok
+owner_obj     =       owner_obj;     //error
+owner_obj     = _Move owner_obj;     //ok
 </code></pre>
 
 <h2 id="toc_3">structs/union/enum</h2>
@@ -210,7 +214,7 @@ or
 <p>We can apply the <em>owner</em> qualifier to structs, unions, and enums as well:</p>
 
 <pre><code class="language-c">int main() {
- owner struct X x = {};
+ _Owner struct X x = {};
 }
 </code></pre>
 
@@ -218,7 +222,7 @@ or
 
 <p>To address this, an additional syntax is provided for tagged objects:</p>
 
-<pre><code class="language-c">struct owner X {
+<pre><code class="language-c">struct _Owner X {
    ...
 }
 </code></pre>
@@ -234,18 +238,18 @@ or
 
 <p>So far, the pointer samples have used <code>void *</code>. Now, let&#39;s consider the following situation:</p>
 
-<pre><code class="language-c">struct owner X { char * owner name; };
+<pre><code class="language-c">struct _Owner X { char * _Owner name; };
 int main() {
-   struct X * owner p = new_x();    
+   struct X * _Owner p = new_x();    
 }
 </code></pre>
 
-<p>Here, <code>p</code> is an <em>owner</em> pointer to an <em>owner</em> object. In this case, the pointer is the owner of both the memory and the object. Moving the pointer will transfer both responsibilities, resulting in the destruction of the object and the memory.</p>
+<p>Here, <code>p</code> is an <em>owner</em> pointer to an <em>owner</em> object. In this case, the pointer is the _Owner of both the memory and the object. Moving the pointer will transfer both responsibilities, resulting in the destruction of the object and the memory.</p>
 
 <p>Consider this sample</p>
 
 <pre><code class="language-c">
-void x_delete([[implicit]] struct X * owner p) 
+void x_delete(_Implicit struct X * _Owner p) 
 {
    if (p){
       p-&gt;free(name);
@@ -253,7 +257,7 @@ void x_delete([[implicit]] struct X * owner p)
    }
 }
 int main() {
-   struct X * owner p = new_x();
+   struct X * _Owner p = new_x();
    x_delete(p);   
 } 
 </code></pre>
@@ -261,7 +265,7 @@ int main() {
 <p>This code demonstrates the same behavior as the following code:</p>
 
 <pre><code class="language-c">int main() {
-   struct X * owner p = new_x();
+   struct X * _Owner p = new_x();
    if (p){
       p-&gt;free(name);
       free(p);
@@ -274,7 +278,7 @@ int main() {
 <p>The compiler needs to check each <em>owner</em> member of the struct individually:</p>
 
 <pre><code class="language-c">int main() {
-   struct X * owner p = new_x();
+   struct X * _Owner p = new_x();
    if (p){
       free(p-&gt;name);
       free(p);
@@ -292,8 +296,8 @@ int main() {
 
 <p>Consider:</p>
 
-<pre><code>struct owner X { char * owner name; };
-void x_destroy([[implicit]] struct X x) 
+<pre><code>struct _Owner X { char * _Owner name; };
+void x_destroy(_Implicit struct X x) 
 {
    free(x.name);
 }
@@ -307,7 +311,7 @@ int main() {
 
 <p>However, if we want to pass the struct using a pointer like:</p>
 
-<pre><code>void x_destroy([[implicit]] struct X * owner p) {
+<pre><code>void x_destroy(_Implicit struct X * _Owner p) {
    free(p-&gt;name);
 }
 </code></pre>
@@ -316,16 +320,16 @@ int main() {
 
 <p>To address this, a qualifier called <code>obj_owner</code> is introduced, which can only be used for pointers:</p>
 
-<pre><code>void x_destroy([[implicit]] struct X * obj_owner p) {
+<pre><code>void x_destroy(_Implicit struct X * obj__Owner p) {
    free(p-&gt;name);
 }
 </code></pre>
 
-<p>This qualifier indicates that the pointer is the owner of the object but not the owner of the memory.</p>
+<p>This qualifier indicates that the pointer is the _Owner of the object but not the _Owner of the memory.</p>
 
-<h2 id="toc_6">Returning owner type</h2>
+<h2 id="toc_6">Returning _Owner type</h2>
 
-<p>Returning an <em>owner</em> variable is the same as moving it. The design decision here was not require the <code>move</code> keyword.</p>
+<p>Returning an <em>owner</em> variable is the same as moving it. The design decision here was not require the <code>_Move</code> keyword.</p>
 
 <pre><code class="language-c">struct list make()
 {
@@ -334,32 +338,32 @@ int main() {
 }
 </code></pre>
 
-<h2 id="toc_7">Owner arrays</h2>
+<h2 id="toc_7">_Owner arrays</h2>
 
 <p>As expected arrays and pointer are related.</p>
 
 <p>The <em>owner</em> qualifier can be placed inside the array together with the array size:</p>
 
-<pre><code class="language-c">void array_destroy(int n, struct X a[owner n])
+<pre><code class="language-c">void array_destroy(int n, struct X a[_Owner n])
 {
 }
 
 int main()
 {
-  struct X a[owner 100];
+  struct X a[_Owner 100];
   array_destroy(100, a);
 }
 </code></pre>
 
 <p>We can also pass an <em>owner</em> pointer:</p>
 
-<pre><code class="language-c">void array_destroy(int n, struct X a[owner n])
+<pre><code class="language-c">void array_destroy(int n, struct X a[_Owner n])
 {
 }
 
 int main()
 {
-  struct X * owner p = calloc(100, sizeof(struct X));
+  struct X * _Owner p = calloc(100, sizeof(struct X));
   array_destroy(100, p);
   free(p);
 }
@@ -369,13 +373,13 @@ int main()
 
 <p>To destroy both the array and the memory, we can use:</p>
 
-<pre><code class="language-c">void array_delete(int n, struct X * owner p)
+<pre><code class="language-c">void array_delete(int n, struct X * _Owner p)
 {
 }
 
 int main()
 {
-  struct X * owner p = calloc(100, sizeof(struct X));
+  struct X * _Owner p = calloc(100, sizeof(struct X));
   array_delete(100, p);  
 }
 </code></pre>
@@ -384,12 +388,12 @@ int main()
 
 <p>Let&#39;s examine how these rules can help with <code>fopen</code> and <code>fclose</code>.</p>
 
-<pre><code class="language-c">FILE* owner fopen(char const* name,char const* mode);
-int fclose([[implicit]] FILE* owner f);
+<pre><code class="language-c">FILE* _Owner fopen(char const* name,char const* mode);
+int fclose(_Implicit FILE* _Owner f);
 </code></pre>
 
 <pre><code class="language-c">int main() {
-  FILE * owner p = fopen(&quot;text.txt&quot;, &quot;r&quot;);
+  FILE * _Owner p = fopen(&quot;text.txt&quot;, &quot;r&quot;);
   if (p) {
     fclose(p);
   }
@@ -406,7 +410,7 @@ int fclose([[implicit]] FILE* owner f);
 
 <pre><code class="language-c">int main()
 {
-  FILE * owner f = NULL;
+  FILE * _Owner f = NULL;
   if (fopen_s( &amp;f,&quot;f.txt&quot;, &quot;r&quot;) == 0)  {
     fclose([[initialized]] f);
   }
@@ -418,35 +422,17 @@ int fclose([[implicit]] FILE* owner f);
 
 <p>In this case, an annotation <code>[[initialized]]</code> is needed to inform the compiler that the variable is initialized, and an annotation <code>[[uninitialized]]</code> is needed to inform the compiler that the variable is uninitialized.</p>
 
-<h2 id="toc_10">Headers</h2>
-
-<p>move, owner, obj_owner and implicit can be defined as macros on <ownership.h>. (Similar of C99 did with bool _Bool)</p>
-
-<pre><code class="language-c">#define move _Move
-#define owner _Owner
-#define obj_owner _Obj_owner
-#define implicit [[implicit]]
-</code></pre>
-
-<p>Defining this macros to empty makes to code compatible with any compiler.</p>
-
-<h2 id="toc_11">What&#39;s next?</h2>
-
-<p>Implement this in cake.
-<a href="http://thradams.com/cake/index.html">http://thradams.com/cake/index.html</a>
-The hard part is the flow analysis.</p>
-
-<h2 id="toc_12">Conclusion</h2>
+<h2 id="toc_10">Conclusion</h2>
 
 <p>This feature aims to provide ownership checks in C by introducing the <em>owner</em> qualifier. It ensures that objects are properly destroyed or moved before their lifetime ends, preventing memory leaks and use-after-free errors. The compiler assists in detecting potential issues and suggests necessary changes to the code. By leveraging ownership checks, developers can write safer and more reliable code in C.</p>
 
-<h2 id="toc_13">Motivation</h2>
+<h2 id="toc_11">Motivation</h2>
 
 <p>I have placed the motivation section at the end, considering that memory safety guarantees are already a widely discussed topic and the motivation becomes apparent as readers delve into the content.</p>
 
 <p>In the C programming language, manual management of resources such as memory is necessary. We rely on functions like <code>malloc</code> to allocate memory and store the resulting address in a variable. To properly deallocate memory when it is no longer needed, we must use the address returned by <code>malloc</code> and call the <code>free</code> function.</p>
 
-<p>Consequently, the variable holding the memory address is considered the owner of that memory. Discarding this address without calling <code>free</code> would result in a memory leak, which is an undesirable scenario.</p>
+<p>Consequently, the variable holding the memory address is considered the _Owner of that memory. Discarding this address without calling <code>free</code> would result in a memory leak, which is an undesirable scenario.</p>
 
 <p>Resource leaks present a significant challenge because they often remain silent problems, initially having no immediate impact on a program&#39;s behavior or causing immediate issues. These leaks can easily go unnoticed during unit tests, creating a false sense of security. It is crucial to address and track these problems early on. By doing so, we can not only prevent potential complications but also save valuable time and resources in the long run.</p>
 

@@ -10,12 +10,11 @@
 #define move _Move
 
 
-[[nodiscard]] void* owner calloc(int nmemb, int size);
-void free(implicit void* owner ptr);
-[[nodiscard]] void* owner malloc(int size);
-[[nodiscard]] void* owner realloc(void* owner ptr, int size);
-
-
+[[nodiscard]] void* _Owner calloc(int nmemb, int size);
+void free(_Implicit void* _Owner ptr);
+[[nodiscard]] void* _Owner malloc(int size);
+[[nodiscard]] void* _Owner realloc(void* _Owner ptr, int size);
+[[nodiscard]] char * _Owner strdup( const char *src );
 
 #else
 #define implicit
