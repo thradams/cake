@@ -19,8 +19,6 @@ enum type_category
 };
 
 
-
-
 enum attribute_flags
 {
     STD_ATTRIBUTE_NONE = 0,
@@ -33,19 +31,14 @@ enum attribute_flags
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
     CAKE_ATTRIBUTE_IMPLICT= 1 << 7,
     /*
-     Used to detect argument type
-    */
-    CAKE_HIDDEN_ATTRIBUTE_PARAM = 1 << 20,
-
-    /*
      1 == 2 results in int in C
      lets add extra flag here
      not sure what is the best place to put in
      type specifier my generate some error
     */
-    CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 21,
+    CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL = 1 << 25,
     // 'a'
-    CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR = 1 << 22
+    CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR = 1 << 26
 };
 
 enum type_specifier_flags
@@ -100,39 +93,66 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_VIEW = 1 << 6
 };
 
+enum storage_class_specifier_flags
+{
+    STORAGE_SPECIFIER_NONE = 0,
+    STORAGE_SPECIFIER_TYPEDEF = 1 << 0,
+    STORAGE_SPECIFIER_EXTERN = 1 << 1,
+    STORAGE_SPECIFIER_STATIC = 1 << 2,
+    STORAGE_SPECIFIER_THREAD_LOCAL = 1 << 3,
+    STORAGE_SPECIFIER_AUTO = 1 << 4,
+    STORAGE_SPECIFIER_REGISTER = 1 << 5,
+    STORAGE_SPECIFIER_CONSTEXPR = 1 << 6,
+    
+    /*extra flag just to annotate this*/
+    STORAGE_SPECIFIER_CONSTEXPR_STATIC = 1 << 7,
+
+    /*
+      Not working yet...TODO
+    */
+    STORAGE_SPECIFIER_LVALUE = 1 << 10,
+
+    STORAGE_SPECIFIER_PARAMETER = 1 << 11,
+    STORAGE_SPECIFIER_AUTOMATIC_STORAGE = 1 << 12,
+    STORAGE_SPECIFIER_FUNCTION_RETURN = 1 << 13,
+    STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD = 1 << 14,
+};
+
 
 struct declarator;
 struct type;
 
 
 struct type_list {
-    struct type* head;
+    struct type* owner head;
     struct type* tail;
 };
 
-void type_list_push_back(struct type_list* books, struct type* new_book);
-void type_list_push_front(struct type_list* books, struct type* new_book);
+void type_list_push_back(struct type_list* books, struct type* owner new_book);
+void type_list_push_front(struct type_list* books, struct type* owner new_book);
 
 struct param {
-    struct type* type;
-    struct param* next;
+    struct type* owner type;
+    struct param* owner next;
 };
 
 struct param_list {
     bool is_var_args;
     bool is_void;
-    struct param* head;
+    struct param* owner head;
     struct param* tail;
 };
 
-struct owner type 
+struct type 
 {
     enum type_category category;
+
     enum attribute_flags  attributes_flags;
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
+    enum storage_class_specifier_flags storage_class_specifier_flags;
 
-    const char* name_opt;
+    const char* owner name_opt;
 
     struct struct_or_union_specifier* struct_or_union_specifier;
     struct enum_specifier* enum_specifier;
@@ -140,7 +160,7 @@ struct owner type
     int array_size;
     bool static_array;
     struct param_list params;
-    struct type* next;
+    struct type* owner next;
 };
 
 const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
@@ -159,7 +179,7 @@ struct type type_dup(const struct type* p_type);
 void type_destroy(implicit struct type* obj_owner p_type);
 
 
-struct type get_function_return_type(struct type* p_type);
+
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
 struct type get_array_item_type(const struct type* p_type);
@@ -170,6 +190,8 @@ int type_set_array_size(struct type* p_type, int size);
 bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
+bool type_is_owner(const struct type* p_type);
+bool type_is_lvalue(const struct type* p_type);
 bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
@@ -202,7 +224,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct type* paramer_type,
     int param_num);
 
-struct type type_convert_to(struct type* p_type, enum language_version target);
+struct type type_convert_to(const struct type* p_type, enum language_version target);
 struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
@@ -222,13 +244,15 @@ struct type type_make_enumerator(struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
 
-struct type get_function_return_type(struct type* p_type);
+struct type get_function_return_type(const struct type* p_type);
 
-int type_get_sizeof(struct type* p_type);
-int type_get_alignof(struct type* p_type);
+int type_get_sizeof(const struct type* p_type);
+int type_get_num_members(const struct type* type);
+
+int type_get_alignof(const struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
 
-struct type type_add_pointer(struct type* p_type);
+struct type type_add_pointer(const struct type* p_type);
 void type_print(const struct type* a);
 enum type_category type_get_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
@@ -236,7 +260,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
 
 void type_visit_to_mark_anonymous(struct type* p_type);
 
-void type_flat_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
+void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);

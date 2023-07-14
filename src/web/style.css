@@ -1,12 +1,12 @@
 pre {
-    min-width: 30em;
-    vertical-align: text-top;
-    display: inline-block;
+    
+    vertical-align: text-top;    
     margin-top: 2px;
 }
 code {
     vertical-align: text-top;
-    display: inline-block;
+    
+    
 }
 
 body {

@@ -1,9 +1,9 @@
-
+#include "ownership.h"
 #include <stdlib.h>
 #include <string.h>
 #include "hashmap.h"
 #include "hash.h"
-
+#include <assert.h>
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -19,11 +19,11 @@ void hashmap_remove_all(struct hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* pentry = map->table[i];
+            struct map_entry* pentry = move map->table[i];
 
             while (pentry != NULL)
             {
-                struct map_entry* p_entry_current = pentry;
+                struct map_entry* owner p_entry_current = move pentry;
                 pentry = pentry->next;
                 free(p_entry_current->key);
                 free(p_entry_current);
@@ -63,30 +63,30 @@ struct map_entry* hashmap_find(struct hash_map* map, const char* key)
 }
 
 
-void * hashmap_remove(struct hash_map* map, const char* key, enum tag * p_type_opt)
+void * view hashmap_remove(struct hash_map* map, const char* key, enum tag * p_type_opt)
 {
     if (map->table != NULL)
     {
         const unsigned int hash = string_hash(key);
-        struct map_entry** preventry = &map->table[hash % map->capacity];
-        struct map_entry* pentry = *preventry;
+        struct map_entry* owner * pp_entry = &map->table[hash % map->capacity];
+        struct map_entry* owner p_entry = *pp_entry;
 
-        for (; pentry != NULL; pentry = pentry->next)
+        for (; p_entry != NULL; p_entry = move p_entry->next)
         {
-            if ((pentry->hash == hash) && (strcmp(pentry->key, key) == 0))
+            if ((p_entry->hash == hash) && (strcmp(p_entry->key, key) == 0))
             {
-                *preventry = pentry->next;
+                *pp_entry = move p_entry->next;
 
                 if (p_type_opt)
-                    *p_type_opt = pentry->type;
+                    *p_type_opt = p_entry->type;
 
-                void* p = pentry->p;
-                free(pentry->key);
-                free(pentry);
+                void* view p = move p_entry->p;
+                free(p_entry->key);
+                free(p_entry);
                 
                 return p;
             }
-            preventry = &pentry->next;
+            pp_entry = &p_entry->next;
         }
     }
 
@@ -94,7 +94,7 @@ void * hashmap_remove(struct hash_map* map, const char* key, enum tag * p_type_o
 }
 
 
-int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type)
+int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag type)
 {
     int result = 0;
 
@@ -105,7 +105,7 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type)
             map->capacity = 1000;
         }
 
-        map->table = calloc(map->capacity, sizeof(map->table[0]));
+        map->table = move calloc(map->capacity, sizeof(map->table[0]));
     }
 
     if (map->table != NULL)
@@ -125,20 +125,20 @@ int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type)
 
         if (pentry == NULL)
         {
-            pentry = calloc(1, sizeof(*pentry));
-            pentry->hash = hash;
-            pentry->p = p;
-            pentry->type = type;
-            pentry->key = strdup(key);
-            pentry->next = map->table[index];
-            map->table[index] = pentry;
+            struct map_entry* owner p_new_entry = calloc(1, sizeof(*pentry));
+            p_new_entry->hash = hash;
+            p_new_entry->p = p;
+            p_new_entry->type = type;
+            p_new_entry->key = move strdup(key);
+            p_new_entry->next = move map->table[index];
+            map->table[index] = move p_new_entry;
             map->size++;
             result = 0;
         }
         else
         {
-            result = 1;
-            pentry->p = p;
+            result = 1;            
+            pentry->p =  p;
             pentry->type = type;
         }
     }

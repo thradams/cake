@@ -7,13 +7,13 @@
 
 struct include_dir
 {
-    const char* path;
-    struct include_dir* next;
+    const char* owner path;
+    struct include_dir* owner next;
 };
 
 struct include_dir_list
 {
-    struct include_dir* head;
+    struct include_dir* owner head;
     struct include_dir* tail;
 };
 
@@ -62,16 +62,17 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 struct token_list  copy_replacement_list(struct token_list* list);
 
-void token_list_append_list(struct token_list* dest, struct token_list* source);
+void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source);
 void print_list(struct token_list* list);
 void token_list_destroy(implicit struct token_list* obj_owner list);
 bool token_is_blank(struct token* p);
 struct token* token_list_pop_back(struct token_list* list);
-struct token* token_list_pop_front(struct token_list* list);
+void token_list_pop_front(struct token_list* list);
+struct token* owner token_list_pop_front_get(struct token_list* list);
 void remove_line_continuation(char* s);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
-struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
-void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* append);
+
+void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* obj_owner append);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* filename_opt, int level, enum token_flags addflags);
 
 const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments);

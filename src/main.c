@@ -33,6 +33,15 @@ int main(int argc, char** argv)
 	struct report report = { 0 };
 	compile(argc, (const char**) argv, &report);
 	
+	printf("\n");
+    printf(" %d files in %.2f seconds\n", report.no_files, report.cpu_time_used_sec);
+
+    printf(" %d" LIGHTRED  " errors " RESET, report.error_count);
+    printf("%d" LIGHTMAGENTA " warnings " RESET, report.warnings_count);
+    printf("%d" LIGHTCYAN    " notes " RESET, report.info_count);
+    printf("\n");
+
+
  	return report.error_count > 0;
 }
 #else

@@ -20,7 +20,11 @@ s_warnings[] = {
     {W_ATTRIBUTES, "attributes"},
     {W_UNUSED_VALUE, "unused-value"},
     {W_STYLE, "style"},
-    {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"}
+    {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"},
+    {W_UNINITIALZED, "uninitialized"},
+    {W_NON_OWNER_ASSIGN, "owner-assign"},
+    {W_EXPLICIT_MOVE, "explicit-move"},
+    {W_RETURN_LOCAL_ADDR, "return-local-addr"}
 };
 
 enum warning  get_warning_flag(const char* wname)
@@ -122,12 +126,19 @@ int fill_options(struct options* options,
             options->sarif_output = true;
             continue; 
         }
+        
+        if (strcmp(argv[i], "-flow-analysis") == 0)
+        {
+            options->flow_analysis = true;
+            continue;
+        }
 
         if (strcmp(argv[i], "-remove-comments") == 0)
         {
             options->remove_comments = true;
             continue;
         }
+
         if (strcmp(argv[i], "-direct-compilation") == 0 ||
             strcmp(argv[i], "-rm") == 0)
         {

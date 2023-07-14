@@ -42,7 +42,7 @@ enum token_type
     TK_PREPROCESSOR_LINE,
     TK_PRAGMA,
     TK_STRING_LITERAL,
-    TK_CHAR_CONSTANT,
+    TK_CHAR_CONSTANT,    
     TK_LINE_COMMENT,
     TK_COMMENT,
     TK_PPNUMBER,
@@ -110,23 +110,7 @@ enum token_type
     TK_KEYWORD_SHORT,
     TK_KEYWORD_SIGNED,
     TK_KEYWORD_SIZEOF,
-
-    /*compile time functions*/
-    TK_KEYWORD_HASHOF, /*extension*/
-    TK_KEYWORD_ATTR_ADD, /*extension*/
-    TK_KEYWORD_ATTR_REMOVE, /*extension*/
-    TK_KEYWORD_ATTR_HAS, /*extension*/
-    /*https://en.cppreference.com/w/cpp/header/type_traits*/
-    TK_KEYWORD_IS_POINTER,
-    TK_KEYWORD_IS_CONST,
-    TK_KEYWORD_IS_ARRAY,
-    TK_KEYWORD_IS_FUNCTION,
-    TK_KEYWORD_IS_SCALAR,
-    TK_KEYWORD_IS_ARITHMETIC,
-    TK_KEYWORD_IS_FLOATING_POINT,
-    TK_KEYWORD_IS_INTEGRAL,
-    TK_KEYWORD_IS_SAME,
-
+    
     TK_KEYWORD_STATIC,
     TK_KEYWORD_STRUCT,
     TK_KEYWORD_SWITCH,
@@ -172,7 +156,28 @@ enum token_type
     TK_KEYWORD__OBJ_OWNER, 
     TK_KEYWORD__VIEW,
     TK_KEYWORD__MOVE,
-    TK_KEYWORD__IMPLICIT
+    TK_KEYWORD__IMPLICIT,
+
+    /*extension compile time functions*/
+    TK_KEYWORD_STATIC_DEBUG, /*extension*/
+    TK_KEYWORD_ATTR_ADD, /*extension*/
+    TK_KEYWORD_ATTR_REMOVE, /*extension*/
+    TK_KEYWORD_ATTR_HAS, /*extension*/
+    
+    /*https://en.cppreference.com/w/cpp/header/type_traits*/
+    
+    TK_KEYWORD_IS_POINTER,
+    TK_KEYWORD_IS_LVALUE,
+    TK_KEYWORD_IS_CONST,
+    TK_KEYWORD_IS_OWNER,
+    TK_KEYWORD_IS_ARRAY,
+    TK_KEYWORD_IS_FUNCTION,
+    TK_KEYWORD_IS_SCALAR,
+    TK_KEYWORD_IS_ARITHMETIC,
+    TK_KEYWORD_IS_FLOATING_POINT,
+    TK_KEYWORD_IS_INTEGRAL,
+    TK_KEYWORD_IS_SAME,
+
 };
 
 enum token_flags
@@ -223,9 +228,10 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
 bool token_list_is_empty(struct token_list* p);
 struct token* owner clone_token(struct token* p);
 struct token* token_list_add(struct token_list* list, struct token* owner pnew);
-struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last);
-void token_list_append_list(struct token_list* dest, struct token_list* source);
-void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
+void token_list_remove(struct token_list* list, struct token* first, struct token* last);
+struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last);
+void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source);
+void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 char* owner token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);
@@ -253,14 +259,14 @@ void stream_match(struct stream* stream);
 
 #define LIST_ADD(list, pnew)\
 do {\
-    void* pitem = (pnew);\
+    void* owner pitem = move (pnew);\
     if ((list)->head == NULL)\
     {\
-        (list)->head = pitem;\
+        (list)->head = move pitem;\
         (list)->tail = pitem;\
     } else \
     {\
-        (list)->tail->next = pitem;\
+        (list)->tail->next = move pitem;\
         (list)->tail = pitem;\
     }\
 } while(0)

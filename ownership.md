@@ -1,453 +1,491 @@
 
 # Ownership checks for C
 
-> This feature provides the experience of engaging in pair programming with an attentive developer who ensures program safety.
+The static ownership check is an experimental feature for Cake.
+It consists of two separate implementations. 
 
-## One minute tour
+The first implementation focuses on introducing the concept of an owner qualifier in the type system. 
 
-In this context, a _destructor_ is a function called before an object's lifetime ends. The _lifetime_ of an object refers to the period during which it is accessible and valid.
-
-Introducing the new qualifier _\_Owner_, which can be used to declare a type that requires the invocation of a _destructor_ before the end of its lifetime.
-
-For example, we can declare `malloc` as follows:
-
-
-```c
-void * _Owner malloc(size_t sz);
-```
-
-To assign ownership to the result of `malloc`, we need to assign it to an _owner_ variable:
-
-```c
-int main() {
-  void * _Owner p = malloc(1);
-}
-```
-
-The compiler will generate an error message stating that the object `p` was not moved or destroyed.
-
-To address this, we define a destructor for the object by declaring `free` as follows:
-
-```c
-void free(void * _Owner p);
-```
- 
-```c
-int main() {
-  void * _Owner p = malloc(1);
-  free(p); //p cannot be moved to free implicitly
-}
-```
-
-The compiler informs us that `p` cannot be moved to `free` implicitly and suggests using `move` before the argument.
-
-By explicitly using `_Move`, we indicate that the variable has been moved or destroyed at the caller's side.
-
-```
-   free(_Move p);
-```
-
-The reason for that I want to make clear at the caller side that a variable has been moved/destroyed. 
-
-However, for certain functions with obvious _Move semantics based on their names, we can use the `_Implicit` attribute to make the usage of `_Move` optional:
-
-```c
-void free(_Implicit void * _Owner p);
-```
-
-
-I hope this brief tour provides you with a glimpse of what I aim to achieve.
-
-## _Move assignment
-
-With the introduction of the _\_Owner_ qualifier, certain changes in the type system are necessary. Similar to being cautious and explicit when moving a variable into a function, we should adopt the same approach for assignments.
-
-Consider this sample
-
-```c
-int main() {
-  void * p1 = malloc(1);
-  void * p2 = malloc(1);
-  p1 = p2;
-  free(p1);
-  free(p2);
-}
-```
-
-In this case, assigning `p2` into `p1` leads to a memory leak of the `p1` object and a double free of the `p2` object.
-
-To address this issue, the compiler will check the end of lifetime of `p1` before the assignment.  
-
-The _Move assignment can be only used if both variables are owner.
+The second implementation revolves around flow analysis, ensuring that owned resources are appropriately released when necessary.   
   
-The syntax is:
-
-```
-p1 = _Move p2;
-```
-
-There is nothing especial on this assignment compared with the normal assignment. The only difference is that the intention is explicit. 
-
-After any _Move (assignment or function argument), the object transitions into an uninitialized state. This state is only for static analysis purposes and has no runtime implications.
-
-Returning to our sample:
-
-```c
-int main() {
-  void * _Owner p1 = malloc(1);
-  void * _Owner p2 = malloc(1);
+By implementing the static ownership check, and using the feature on it's own source, Cake aims to explore and evaluate the effectiveness of this feature.
   
-  //error p1 was not moved or destroyed
-  p1 = _Move p2;
+## New Type qualifiers
+
+```c
+type-qualifier:
+  ...
+  _Owner
+  _View
+  _Obj_owner   
+```
+
+The **_Owner** qualifier can be used when declaring a variable to indicate that its value represents a reference to a resource that must be released exclusively through that reference.
+
+The **_View** qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it. View qualified object does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.
+
+The **_Owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of both the pointed object and its associated memory.
+
+Conversely, the **_Obj\_owner** qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies.
+
+For aggregate types, if at least one member has the **_Owner** qualifier, the entire aggregate is considered to be an owner qualified type.
+
+Sample:
+
+```c
+struct person {
+  char * _Owner name;
+};
+
+int main(){
+  struct person p1;
+  // same as _Owner struct person p1;
+}
+```
+
+Applying the **_View** qualifier to an aggregate type designates the entire aggregate as a view, regardless of whether it includes members owner qualified.
+
+```c
+struct person {
+  char * _Owner name;
+};
+
+int main(){
+  _View struct person p2;
+   //p2      is _View qualified  
+   //p2.name is _View qualified
+}
+```
+
+For arrays, if the element of the array is owner qualified the entire array is treated as an owner qualified type.
+
+When array types are used in parameters the array is not considered owner qualified type. 
+
+```c
+void print_array(int n, _Owner int a[n]);
+
+int main()
+{
+  _Owner int a[10];
+  print_array(10, a);
+}
+```
+
+To qualify array parameters as owner we do:
+
+```c
+void destroy_array(int n, _Owner int a[_Owner n]);
+
+int main()
+{
+  _Owner int a[10];
+  destroy_array(10, _Move a);
+}
+```
+
+
+## Initialization
+### Owner = Owner
+
+In this situation we always move the ownership.
+
+When assigning from a owner variable we need explicitly add the **_Move** keyword. 
+
+```c
+_Owner T a = _Move b;        //OK
+```
+We have the ownership moved from b to a.
+
+When assigning from a function result we don't use **_Move**.
+
+```c
+_Owner T make_owner();
+_Owner T a = make_owner();
+```
   
-  free(p1);
-  free(p2);
+
+### Owner = Non-owner
+
+We can initialize owner qualified pointer with the null pointer constant.
+
+```c
+T _Owner * p1 = 0;       //OK
+T _Owner * p2 = NULL;    //OK
+T _Owner * p3 = nullptr; //OK
+```
+  
+
+### Non-Owner = Owner  
+
+In this situation we always have a view.
+
+```c  
+_Owner T b;
+T a = b;            //OK
+```
+
+We say "a is a view to b".
+
+We cannot have a view for a object returned by a function.
+
+```c
+T a = make_owner(); //ERROR
+```
+  
+## Assignment
+
+### Owner = Owner
+
+In this situation we always move the ownership. 
+
+When assigning from a function result we need to use  **_Move**.
+
+```c
+a = _Move make_owner();   //OK
+```
+
+
+### Owner = Non-Owner
+We can only assign null pointer constant to owner pointers.
+
+```c
+ T * _Owner p;
+ p = 0;
+```
+
+### Non-Owner = Owner
+
+Same of initialization, we have a view.
+
+```c  
+_Owner T b;
+T a;
+a = b;            //OK
+```
+
+
+## Return
+  
+### Owner F() return Owner  
+
+When returning local storage variables we don't have to use **_Move**.
+
+```c
+_Owner T F() {
+   _Owner T local;
+   return local; //OK   
 }
 ```
 
-The compiler will complain that `p1` was not moved or destroyed before the assignment. To resolve this, we modify the code as follows:
+When returning non local storage variables (including function parameters) we need to use **_Move.**
 
-```c
-int main() {
-  void * _Owner p1 = malloc(1);
-  void * _Owner p2 = _Move p1;
-  free(p2);
+```c  
+_Owner T global;
+_Owner T F() {
+   return global;       //ERROR
+   return _Move global; //OK   
+}
+```
+
+```c  
+_Owner T F(_Owner T arg) {
+   return arg;       //ERROR
+   return _Move arg; //OK   
+}
+```
+
+When returning a owner type, the called cannot discard the result.
+
+```c  
+ F(); //ERROR discarding a owner result   
+```
+
+
+### Owner F() return Non-Owner
+
+The only possible value is null pointer constant.
+
+```c  
+T * _Owner F() {
+  return 0;        // OK, or nullptr or (void*)0)
 }
 ```
 
 
-If you attempt to use `p1` after moving it, the compiler will issue a warning about using an uninitialized variable.
+### Non-Owner F() return Owner
 
-In some cases, it may not be possible to determine if an object is initialized or not. For such scenarios, the compiler suggests using options like assertions, the `[[uninitialized]]` attribute, or destroying the object before assignment.  
+We return a view of the object.
 
-For instance:
+Returning a owner local storage variable is an error.
 
 ```c
-struct X { char * _Owner name; };
-void some_function(struct X * p) {
-  //error: unknown p->name state
-  p->name = strdup("new text");
+T F()
+{
+    _Owner T local;
+    return local; //ERROR    
+} 
+```
+
+We can return non local variables. 
+
+```c  
+_Owner T global;
+T F() {
+   return global;       //OK (view)
 }
 ```
 
-In this case, the compiler will display a message stating that the state of `p->name` cannot be determined and provides suggestions for handling this situation:
-
-This is how to fix it
-
-```c
-  free(p->name);
-  p->name = strdup("new text");
-```
-or
-```c
-  assert(p->name == NULL);
-  p->name = strdup("new text");
-```
-or
-```c
-  [[unitialized]] p->name = _Move strdup("new text");
+```c  
+T F(_Owner T arg) {
+   return arg;         //OK (view)
+}
 ```
 
 
-We can assign a non _Owner to a owner.
+## Calling functions
+In general the rules are similar of initializing the parameter with the argument. 
+
+### void F(Owner); F(Owner);
+
+We explicitly use **_Move** on the caller.
 
 ```c
-  a = b; /* b is owner*/
-```
-
-In this situation the ownership is not transfered. The same think happens when we can function arguments that are not owners.
-
-```c
-  void F(T a) {}
+  void F(_Owner T a);
+  
   _Owner T a;
-  F(a); /*ownership is not transfered*/
-```
-
-Possible assignments  
-
-```
-non_owner_obj =       non_owner_obj; //ok
-non_owner_obj =       owner_obj;     //ok
-owner_obj     =       non_owner_obj; //error
-owner_obj     =       null;          //ok
-owner_obj     =       owner_obj;     //error
-owner_obj     = _Move owner_obj;     //ok
-```
-
-## structs/union/enum
-
-We can apply the _owner_ qualifier to structs, unions, and enums as well:
-
-```c
-int main() {
- _Owner struct X x = {};
-}
-```
-
-This syntax works. However, if we forget to include the qualifier for an object that requires a destructor, we have a leak.
-
-To address this, an additional syntax is provided for tagged objects:
-
-```c
-struct _Owner X {
-   ...
-}
-```
-
-By using this syntax, the object is qualified as _owner_ by default:
-
-```c
-int main() {
-   struct X x = {};    
-} //**"object 'x' was not moved/destroyed"**
-```
-
-
-## pointers
-
-So far, the pointer samples have used `void *`. Now, let's consider the following situation:
-
-```c  
-struct _Owner X { char * _Owner name; };
-int main() {
-   struct X * _Owner p = new_x();    
-}
-```
-
-Here, `p` is an _owner_ pointer to an _owner_ object. In this case, the pointer is the _Owner of both the memory and the object. Moving the pointer will transfer both responsibilities, resulting in the destruction of the object and the memory.
-
-Consider this sample
-
-```c  
-
-void x_delete(_Implicit struct X * _Owner p) 
-{
-   if (p){
-      p->free(name);
-      free(p);
-   }
-}
-int main() {
-   struct X * _Owner p = new_x();
-   x_delete(p);   
-} 
-```
-
-This code demonstrates the same behavior as the following code:
-
-
-```c  
-int main() {
-   struct X * _Owner p = new_x();
-   if (p){
-      p->free(name);
-      free(p);
-   }   
-} 
-```
-
-Both scenarios require the same checks, indicating that there is nothing special about the destructors. 
-
-The compiler needs to check each _owner_ member of the struct individually:
-
-
-```c  
-int main() {
-   struct X * _Owner p = new_x();
-   if (p){
-      free(p->name);
-      free(p);
-   }   
-} 
-```
-
-Having this logic in a specialized function makes the compiler's job easier, as the flow analysis becomes simpler. It's important to assist the compiler in order to leverage its capabilities.
-
-Another detail to note is that when we free an _owner_ pointer using `void *`, the compiler assumes that we are destroying the memory and not the pointed object. 
-
-If the pointed object is also an _owner_, the compiler checks if the object is destroyed first. In the provided sample, `free(p->name);` was the only _owner_ member of the struct, so it was safe to call `free` on `p`.
-
-
-## destroying structs\unions 
-
-Consider:
-
-```
-struct _Owner X { char * _Owner name; };
-void x_destroy(_Implicit struct X x) 
-{
-   free(x.name);
-}
-int main() {
-   struct X x;
-   x_destroy(x);   
-} 
-```
-
-This code is correct and works as expected.   
   
-However, if we want to pass the struct using a pointer like:
-
-
-```
-void x_destroy(_Implicit struct X * _Owner p) {
-   free(p->name);
-}
-```
-
-The problem arises when we pass an _owner_ pointer. The compiler assumes that we want to destroy both the object and the memory. However, in this case, the object is on the stack, and we only want to destroy the object, not to free the memory.
-
-To address this, a qualifier called `obj_owner` is introduced, which can only be used for pointers:
-
-```
-void x_destroy(_Implicit struct X * obj__Owner p) {
-   free(p->name);
-}
-```
-
-This qualifier indicates that the pointer is the _Owner of the object but not the _Owner of the memory.
-
-
-## Returning local _Owner type
-
-Returning an local _\_Owner_ variable is the same as moving it. The design decision here was not require the `_Move` keyword.
-
-
-```c
-struct list make()
-{
-  struct list {...};
-  return list; /*moved*/
-}
-```
+  F(_Move a);      //OK
+  F(make_owner()); //OK
   
-Returning a owner variable that is not local, follow the same rules of assignment
-
-```
-owner T global;
-T f() { 
-  return global; 
-}
 ```
 
-## _Owner arrays
-As expected arrays and pointer are related.
 
-The _owner_ qualifier can be placed inside the array together with the array size:
+We can use the attribute [[implicit]]  to make the usage of **_Move** optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is "destroy".
 
 ```c
-void array_destroy(int n, struct X a[_Owner n])
-{
-}
-
-int main()
-{
-  struct X a[_Owner 100];
-  array_destroy(100, a);
-}
+void x_destroy([[implicit]] struct X * _Obj_owner);
 ```
 
-We can also pass an _owner_ pointer:
+
+### void F(Owner); F(Non-Owner);
+We can just use a null pointer constant.
 
 ```c
-void array_destroy(int n, struct X a[_Owner n])
-{
-}
-
-int main()
-{
-  struct X * _Owner p = calloc(100, sizeof(struct X));
-  array_destroy(100, p);
-  free(p);
-}
+  F(0);            //nullptr, NULL, etc.  
 ```
 
-By convention, passing an _owner_ pointer to an array destructor will not transfer ownership of the memory, just of the pointed object.
+### void F(Non-Owner); F(Owner);
 
-To destroy both the array and the memory, we can use:
+Here, the difference from initialization is that we cannot pass owner object return by a function.
 
 ```c
-void array_delete(int n, struct X * _Owner p)
-{
-}
-
-int main()
-{
-  struct X * _Owner p = calloc(100, sizeof(struct X));
-  array_delete(100, p);  
-}
-```
-
-## Reality check I
-
-Let's examine how these rules can help with `fopen` and `fclose`.
-
-
-```c 
-FILE* _Owner fopen(char const* name,char const* mode);
-int fclose(_Implicit FILE* _Owner f);
+  F(make_owner()); //ERROR  
 ```
 
 ```c
-int main() {
-  FILE * _Owner p = fopen("text.txt", "r");
+  _Owner T a; 
+  F(a); //OK (view)
+```
+
+
+## Samples
+
+Pointers
+
+```c
+struct person {
+  char * _Owner name;
+};  
+
+void person_delete([[implicit]] struct person * _Owner p) 
+{
   if (p) {
-    fclose(p);
+    free(p->name);
+    free(p);
   }
 }
-```
 
-In this scenario, we encounter a problem because not all control paths call the destructor. The compiler would emit a warning in such cases.
-
-However, the code is correct because we don't need to and cannot call `fclose` on a null pointer.
-
-To address this, null checks need to be implemented in the static analyzer. The compiler will not emit warnings if it can prove that an _owner_ variable is empty or uninitialized at the end of its lifetime.
-
-
-## Reality check II
-
-```c
 int main()
 {
-  FILE * _Owner f = NULL;
-  if (fopen_s( &f,"f.txt", "r") == 0)  {
-    fclose([[initialized]] f);
-  }
-  [[uninitialized]] f;
+   struct person * _Owner p = malloc(sizeof * p);   
+   person_delete(p);
 }
 ```
 
-When initialization needs to be checked using a result code, we don't have semantics to provide the necessary information to the compiler. In this case, an annotation `
-
-In this case, an annotation `[[initialized]]` is needed to inform the compiler that the variable is initialized, and an annotation `[[uninitialized]]` is needed to inform the compiler that the variable is uninitialized.
-
-## Reality check III
+Swap
 
 ```c
-void list_destroy(_Implicit struct list* _Obj_owner list)
+struct person {
+  char * _Owner name;
+};  
+
+void person_swap(_View struct person * a,  
+                 _View struct person * b) 
 {
-    struct token* _Owner p = _Move list->head;
-    while (p) {
-        struct token* _Owner next = _Move p->next;
-        token_delete(p);
-        p = _Move next;
-    }
-    //p is null here, no need to delete
+   _View struct person temp = *a;
+   *a = *b;
+   *b = temp;
+}
+
+void person_destroy(struct person * _Obj_owner p) 
+{
+  free(p->name);
+}
+
+int main()
+{
+   struct person p1 = {};
+   struct person p2 = {};
+   
+   person_swap(&p1, &p2);
+   person_destroy(&p1);
+   person_destroy(&p2);
 }
 ```
 
-## Conclusion
-This feature aims to provide ownership checks in C by introducing the _owner_ qualifier. It ensures that objects are properly destroyed or moved before their lifetime ends, preventing memory leaks and use-after-free errors. The compiler assists in detecting potential issues and suggests necessary changes to the code. By leveraging ownership checks, developers can write safer and more reliable code in C.
+Linked list:
 
-## Motivation
+```c
+void * _Owner calloc(int n, int sz);
+void free(_Implicit void * _Owner);
+#define NULL ((void*) 0)
 
-I have placed the motivation section at the end, considering that memory safety guarantees are already a widely discussed topic and the motivation becomes apparent as readers delve into the content.
+struct book {
+     char* _Owner title;
+     struct book* _Owner next;
+};
 
-In the C programming language, manual management of resources such as memory is necessary. We rely on functions like `malloc` to allocate memory and store the resulting address in a variable. To properly deallocate memory when it is no longer needed, we must use the address returned by `malloc` and call the `free` function.
+void book_destroy(_Implicit struct book* _Obj_owner book) {
+     free(book->title);
+}
+ 
 
-Consequently, the variable holding the memory address is considered the _Owner of that memory. Discarding this address without calling `free` would result in a memory leak, which is an undesirable scenario.
+struct books {
+    struct book* _Owner head, *tail;
+};
 
-Resource leaks present a significant challenge because they often remain silent problems, initially having no immediate impact on a program's behavior or causing immediate issues. These leaks can easily go unnoticed during unit tests, creating a false sense of security. It is crucial to address and track these problems early on. By doing so, we can not only prevent potential complications but also save valuable time and resources in the long run.
 
-Moreover, these checks also help prevent occurrences of double free or use-after-free issues. While both problems typically lead to immediate failures at runtime, having preventive measures in place is highly advantageous.
+void books_push_back(struct books* books, struct book* _Owner new_book)
+{
+   if (books->tail == NULL) {
+      books->head = _Move new_book;
+   }
+   else {
+      books->tail->next = _Move new_book;
+   }
+   books->tail = new_book;
+}
+
+void books_destroy(_Implicit struct books* _Obj_owner books)
+{
+    struct book* _Owner it = books->head;
+    while (it != NULL) {
+        struct book* _Owner next = _Move it->next;
+        book_destroy(it);
+        free(it);
+        it = _Move next;
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    struct books list = { 0 };
+    struct book* _Owner b1 = calloc(1, sizeof(struct book));
+    if (b1)
+    {
+        books_push_back(&list, _Move b1);
+    }
+    books_destroy(&list);
+}
+
+```
+
+## Flow analysis
+
+When owner objects goes out of scope, the flow analysis
+must check if the object has been moved.
+
+```
+{
+  _Owner int a;
+} //warning variable a not moved/destroyed
+```
+
+At the final destination, the object will not be moved, then we annotate the function as [[no_ownership_checks]].
+
+```c
+[[no_ownership_checks]] free(void * _Owner p)
+{
+  //implementation of free....
+}
+```
+
+
+## Grammar
+
+```c
+New keywords:
+  _Move _Owner _View _Obj_owner 
+
+ type-qualifier:
+   ...
+   _Owner
+   _View
+   _Obj_owner   
+
+ argument-expression-list:
+   move_opt assignment-expression
+   argument-expression-list , assignment-expression
+
+ init-declarator:
+   declarator
+   declarator = move_opt initializer
+
+ assignment-operator:
+  = 
+  = move
+  ...
+
+ jump-statement:
+  ...
+  return;
+  return move_opt expression;  
+
+```
+
+## Checking your source code
+I suggest the creation of a header file "ownership.h"
+
+```c
+
+#pragma once
+
+#ifdef __CAKE__
+#define implicit _Implicit
+#define owner _Owner
+#define obj_owner _Obj_owner
+#define move _Move
+#define view _View
+  
+void* _Owner calloc(int nmemb, int size);
+void free(_Implicit void* _Owner ptr);
+void* _Owner malloc(int size);
+void* _Owner realloc(void* _Owner ptr, int size);
+char * _Owner strdup( const char *src );
+char * _Owner strdup( const char *str1 );
+
+#else
+#define implicit
+#define owner
+#define obj_owner
+#define move
+#define view
+
+#endif
+
+```
+
+Then include this header on the top of your files and just run cake.
+
+
 

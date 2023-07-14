@@ -1,0 +1,40 @@
+Initialization
+OwnerNon-OwnerOwner _Owner T a = _Move b;
+_Owner T a = make_owner();
+_Owner T a = b;
+_Owner T a = _Move make_owner();T _Owner * p = 0;
+T _Owner * p = b;
+_Owner T a = b;
+Non-OwnerT a = b;
+T a = move b;
+T a = make_owner();T a = b;
+Assignment
+OwnerNon-OwnerOwner a = _Move b;
+a = _Move make_owner();
+a = b;
+a = make_owner();p = 0;
+p = nullptr;
+a = b;Non-Ownera = b;
+a = move b;
+a = make_owner();a = b
+Return
+OwnerNon-OwnerOwnerreturn local;
+return _Move non_local_var;
+return non_local_var;return 0;
+return nullptr;
+return local;
+return non_local_var;Non-Ownerreturn  local;
+return _Move non_local;
+return make_owner();return &local_var;
+return local_var;
+return non_local_var;
+Calling functions
+OwnerNon-OwnerF(Owner T )F(_Move arg);
+F(make_owner());
+F(arg);
+F(0);
+F(nullptr);
+F(arg);F(Non-Owner)F(arg);
+F(make_owner());
+F(arg);
+

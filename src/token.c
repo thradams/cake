@@ -79,7 +79,8 @@ struct token* token_list_pop_back(struct token_list* list)
     struct token* p = list->tail;
     if (list->head == list->tail)
     {
-        list->head = list->tail = NULL;
+        list->head = NULL;
+        list->tail = NULL;
     }
     else
     {
@@ -95,22 +96,47 @@ struct token* token_list_pop_back(struct token_list* list)
     return p;
 }
 
-struct token* token_list_pop_front(struct token_list* list)
+void token_list_pop_front(struct token_list* list)
+{
+    if (list->head == NULL)
+        return;
+
+    struct token* owner p = move list->head;
+
+    if (list->head == list->tail)
+    {
+        list->head = NULL;
+        list->tail = NULL;
+    }
+    else
+    {
+        list->head = move list->head->next;
+    }
+    p->next = NULL;
+    p->prev = NULL;
+
+    token_delete(p);    
+}
+
+struct token* owner token_list_pop_front_get(struct token_list* list)
 {
     if (list->head == NULL)
         return NULL;
 
-    struct token* p = list->head;
+    struct token* owner p = move list->head;
+
     if (list->head == list->tail)
     {
-        list->head = list->tail = NULL;
+        list->head = NULL;
+        list->tail = NULL;
     }
     else
     {
-        list->head = list->head->next;
+        list->head = move list->head->next;
     }
     p->next = NULL;
     p->prev = NULL;
+
     return p;
 }
 
@@ -147,9 +173,9 @@ void token_list_destroy(implicit struct token_list* obj_owner list)
     }
 }
 
-char * owner token_list_join_tokens(struct token_list* list, bool bliteral)
+char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
 {
-    struct osstream ss = { 0 };
+    struct osstream ss = {0};
     if (bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
@@ -194,7 +220,7 @@ char * owner token_list_join_tokens(struct token_list* list, bool bliteral)
     return cstr;
 }
 
-void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
+void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* obj_owner append_list)
 {
     if (append_list->head == NULL)
         return;
@@ -209,7 +235,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
     else
     {
-        struct token* follow = after->next;
+        struct token* owner follow = move after->next;
         if (token_list->tail == after)
         {
             token_list->tail = append_list->tail;
@@ -217,16 +243,19 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         else if (token_list->head == after)
         {
         }
-        append_list->tail->next = follow;
+        append_list->tail->next = move follow;
         follow->prev = append_list->tail;
-        after->next = append_list->head;
+        after->next = move append_list->head;
         append_list->head->prev = after;
 
     }
 }
 
-struct token* token_list_add(struct token_list* list, struct token * owner pnew)
+struct token* token_list_add(struct token_list* list, struct token* owner pnew)
 {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wexplicit-move"
+
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
@@ -248,6 +277,8 @@ struct token* token_list_add(struct token_list* list, struct token * owner pnew)
     }
     assert(list->tail->next == NULL);
     return list->tail;
+
+#pragma CAKE diagnostic pop
 }
 
 int is_digit(struct stream* p)
@@ -270,11 +301,14 @@ bool token_is_blank(struct token* p)
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
     struct token* owner clone = clone_token(pnew);
-    return token_list_add(list, move clone);    
+    return token_list_add(list, move clone);
 }
 
-void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source)
+void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source)
 {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wexplicit-move"
+
     //print_list(source);
     //printf("->");
     //print_list(dest);
@@ -294,10 +328,14 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
         dest->head = source->head;
     }
     //print_list(dest);
+#pragma CAKE diagnostic pop
 }
 
-void token_list_append_list(struct token_list* dest, struct token_list* source)
+void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source)
 {
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wexplicit-move"
+
     if (source->head == NULL)
     {
         return;
@@ -313,25 +351,34 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
         source->head->prev = dest->tail;
         dest->tail = source->tail;
     }
+#pragma CAKE diagnostic pop
 }
 
 
 struct token* owner clone_token(struct token* p)
 {
-    struct token* owner token = calloc(1, sizeof *token);
+    struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-        *token = *p;
-        token->lexeme = strdup(p->lexeme);
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wexplicit-move"
+        * token = *p;
+#pragma CAKE diagnostic pop
+
+        token->lexeme = move strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
     }
     return token;
 }
 
-struct token_list token_list_remove(struct token_list* list, struct token* first, struct token* last)
+struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last)
 {
-    struct token_list r = { 0 };
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignore "-Wowner-assign"
+
+    struct token_list r = {0};
 
     struct token* before_first = first->prev;
     struct token* after_last = last->next;
@@ -343,10 +390,18 @@ struct token_list token_list_remove(struct token_list* list, struct token* first
     first->prev = NULL;
     r.tail = last;
     last->next = NULL;
+#pragma CAKE diagnostic pop
+
 
     return r;
 }
 
+
+void token_list_remove(struct token_list* list, struct token* first, struct token* last)
+{
+    struct token_list r = token_list_remove_get(list, first, last);
+    token_list_destroy(&r);    
+}
 
 
 bool token_list_is_empty(struct token_list* p)
@@ -393,11 +448,11 @@ void print_literal2(const char* s)
     {
         switch (*s)
         {
-        case '\n':
-            printf("\\n");
-            break;
-        default:
-            printf("%c", *s);
+            case '\n':
+                printf("\\n");
+                break;
+            default:
+                printf("%c", *s);
         }
         s++;
     }
@@ -415,7 +470,7 @@ void print_token(struct token* p_token)
         printf(LIGHTGREEN);
     else
         printf(LIGHTGRAY);
-    char buffer0[50] = { 0 };
+    char buffer0[50] = {0};
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
@@ -423,7 +478,7 @@ void print_token(struct token* p_token)
     {
         printf(LIGHTCYAN);
     }
-    char buffer[50] = { 0 };
+    char buffer[50] = {0};
     strcat(buffer, "[");
     if (p_token->flags & TK_FLAG_FINAL)
     {
@@ -574,7 +629,7 @@ void print_line_and_token(const struct token* p_token)
     int line = p_token->line;
     printf(LIGHTGRAY);
 
-    char nbuffer[20] = { 0 };
+    char nbuffer[20] = {0};
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
 

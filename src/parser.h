@@ -12,7 +12,7 @@
 #define CAKE_VERSION "0.6"
 
 
-struct owner scope
+struct scope
 {
     int scope_level;
     struct hash_map tags;
@@ -34,15 +34,19 @@ void scope_list_pop(struct scope_list* list);
 
 struct report
 {
+    int no_files;
+    double cpu_time_used_sec;
     int error_count;
     int warnings_count;
     int info_count;
+    enum error last_error;
+    enum warning last_warning;
 };
 
 
 
 
-struct owner parser_ctx
+struct parser_ctx
 {
     struct options options;
     
@@ -61,15 +65,15 @@ struct owner parser_ctx
     */
     const struct try_statement* p_current_try_statement_opt;
 
-    FILE* sarif_file;
+    FILE* owner sarif_file;
 
-    struct token_list input_list;
+    view struct token_list input_list;
     struct token* current;
     struct token* previous;
     int try_catch_block_index;
-    int n_warnings;
-    int n_errors;
-    int n_info;
+
+    struct report* p_report;
+    
 };
 
 ///////////////////////////////////////////////////////
@@ -98,7 +102,6 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
-struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, struct report* report);
 
 
 void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qualifier_flags e_type_qualifier_flags);
@@ -106,20 +109,6 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
 enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flags_opt);
 bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_specifier_flags e_type_specifier_flags);
 
-enum storage_class_specifier_flags
-{
-    STORAGE_SPECIFIER_NONE = 0,
-    STORAGE_SPECIFIER_TYPEDEF = 1 << 0,
-    STORAGE_SPECIFIER_EXTERN = 1 << 1,
-    STORAGE_SPECIFIER_STATIC = 1 << 2,
-    STORAGE_SPECIFIER_THREAD_LOCAL = 1 << 3,
-    STORAGE_SPECIFIER_AUTO = 1 << 4,
-    STORAGE_SPECIFIER_REGISTER = 1 << 5,
-    STORAGE_SPECIFIER_CONSTEXPR = 1 << 6,
-    
-    /*extra flag just to annotate this*/
-    STORAGE_SPECIFIER_CONSTEXPR_STATIC = 1 << 7,
-};
 
 struct expression_ctx;
 
@@ -131,16 +120,16 @@ struct declaration_specifier
          type-specifier-qualifier
          function-specifier
     */
-    struct storage_class_specifier* storage_class_specifier;
+    struct storage_class_specifier* owner storage_class_specifier;
 
-    struct type_specifier_qualifier* type_specifier_qualifier;
+    struct type_specifier_qualifier* owner  type_specifier_qualifier;
     
-    struct function_specifier* function_specifier;
+    struct function_specifier* owner function_specifier;
 
-    struct declaration_specifier* next;
+    struct declaration_specifier* owner next;
 };
 
-struct declaration_specifier* declaration_specifier(struct parser_ctx* ctx);
+struct declaration_specifier* owner declaration_specifier(struct parser_ctx* ctx);
 
 
 struct declaration_specifiers
@@ -166,12 +155,12 @@ struct declaration_specifiers
     struct token* first_token; /*not owner*/
     struct token* last_token; /*not owner*/
 
-    struct declaration_specifier* head;
+    struct declaration_specifier* owner head;
     struct declaration_specifier* tail;
 };
 
 void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p);
-struct declaration_specifiers* declaration_specifiers(struct parser_ctx* ctx);
+struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
 
 struct static_assert_declaration
 {
@@ -181,12 +170,12 @@ struct static_assert_declaration
        "static_assert" ( constant-expression ) ;
     */
     
-    struct token* first_token;
-    struct token* last_token;
-    struct expression* constant_expression;
-    struct token* string_literal_opt;
+    struct token*  first_token;
+    struct token*  last_token;
+    struct expression* owner constant_expression;
+    struct token*  string_literal_opt;
 };
-struct static_assert_declaration* static_assert_declaration(struct parser_ctx* ctx);
+struct static_assert_declaration* owner static_assert_declaration(struct parser_ctx* ctx);
 
 struct attribute_specifier_sequence
 {
@@ -198,10 +187,10 @@ struct attribute_specifier_sequence
     struct token* first_token;
     struct token* last_token;
     enum attribute_flags  attributes_flags;
-    struct attribute_specifier* head;
+    struct attribute_specifier* owner head;
     struct attribute_specifier* tail;
 };
-struct attribute_specifier_sequence* attribute_specifier_sequence_opt(struct parser_ctx* ctx);
+struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(struct parser_ctx* ctx);
 
 struct attribute_specifier
 {
@@ -211,11 +200,11 @@ struct attribute_specifier
     */
     struct token* first_token;
     struct token* last_token;
-    struct attribute_list* attribute_list;
-    struct attribute_specifier* next;
+    struct attribute_list* owner attribute_list;
+    struct attribute_specifier* owner next;
 };
 
-struct attribute_specifier* attribute_specifier(struct parser_ctx* ctx);
+struct attribute_specifier*  owner attribute_specifier(struct parser_ctx* ctx);
 struct attribute* attribute(struct parser_ctx* ctx);
 
 
@@ -235,7 +224,7 @@ struct storage_class_specifier
     struct token* token;
 };
 
-struct storage_class_specifier* storage_class_specifier(struct parser_ctx* ctx);
+struct storage_class_specifier* owner storage_class_specifier(struct parser_ctx* ctx);
 
 struct function_specifier
 {
@@ -246,7 +235,7 @@ struct function_specifier
     */
     struct token* token;
 };
-struct function_specifier* function_specifier(struct parser_ctx* ctx);
+struct function_specifier*  owner function_specifier(struct parser_ctx* ctx);
 
 
 struct typeof_specifier_argument
@@ -256,8 +245,8 @@ struct typeof_specifier_argument
        expression
        type-name
     */
-    struct expression* expression;
-    struct type_name* type_name;
+    struct expression* owner expression;
+    struct type_name* owner type_name;
 };
 
 struct typeof_specifier
@@ -268,7 +257,7 @@ struct typeof_specifier
     */
     struct token* first_token;
     struct token* last_token;
-    struct typeof_specifier_argument* typeof_specifier_argument;
+    struct typeof_specifier_argument*  owner typeof_specifier_argument;
     struct type type;    
 };
 
@@ -299,14 +288,14 @@ struct type_specifier
     */
     enum type_specifier_flags flags;
     struct token* token;
-    struct struct_or_union_specifier* struct_or_union_specifier;
-    struct typeof_specifier* typeof_specifier;
-    struct enum_specifier* enum_specifier;
-    struct declarator* typedef_declarator;
-    struct atomic_type_specifier* atomic_type_specifier;
+    struct struct_or_union_specifier* owner struct_or_union_specifier;
+    struct typeof_specifier*  owner  typeof_specifier;
+    struct enum_specifier*  owner enum_specifier;
+    struct declarator*  view typedef_declarator;
+    struct atomic_type_specifier* owner atomic_type_specifier;
 };
 
-struct type_specifier* type_specifier(struct parser_ctx* ctx);
+struct type_specifier*  owner type_specifier(struct parser_ctx* ctx);
 
 struct init_declarator_list
 {
@@ -315,7 +304,7 @@ struct init_declarator_list
        init-declarator
        init-declarator-list , init-declarator
     */
-    struct init_declarator* head;
+    struct init_declarator* owner head;
     struct init_declarator* tail;    
 };
 
@@ -333,23 +322,23 @@ struct declaration
         static_assert-declaration
         attribute-declaration
     */
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     
-    struct static_assert_declaration* static_assert_declaration;
+    struct static_assert_declaration* owner static_assert_declaration;
 
-    struct declaration_specifiers* declaration_specifiers;
+    struct declaration_specifiers* owner declaration_specifiers;
     struct init_declarator_list init_declarator_list;
 
-    struct compound_statement* function_body;
-    struct declarator* contract_declarator;
+    struct compound_statement* owner function_body;
+    struct declarator*  contract_declarator;
 
     struct token* first_token;
     struct token* last_token;
 
-    struct declaration* next;
+    struct declaration* owner next;
 };
 
-struct declaration* external_declaration(struct parser_ctx* ctx);
+struct declaration*  owner external_declaration(struct parser_ctx* ctx);
 
 struct atomic_type_specifier
 {
@@ -358,10 +347,10 @@ struct atomic_type_specifier
         "_Atomic" ( type-name )
     */
     struct token* token;
-    struct type_name* type_name;
+    struct type_name* owner type_name;
 };
 
-struct atomic_type_specifier* atomic_type_specifier(struct parser_ctx* ctx);
+struct atomic_type_specifier*  owner atomic_type_specifier(struct parser_ctx* ctx);
 
 struct enumerator_list
 {
@@ -370,7 +359,7 @@ struct enumerator_list
        enumerator
        enumerator-list , enumerator
     */
-    struct enumerator* head;
+    struct enumerator* owner head;
     struct enumerator* tail;
 };
 
@@ -390,8 +379,8 @@ struct enum_specifier
        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list , }
        "enum" identifier enum-type-specifier opt
     */
-    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
-    struct specifier_qualifier_list* specifier_qualifier_list;
+    struct attribute_specifier_sequence*  owner attribute_specifier_sequence_opt;
+    struct specifier_qualifier_list*  owner specifier_qualifier_list;
     
 
     struct enumerator_list enumerator_list;
@@ -402,7 +391,7 @@ struct enum_specifier
     struct enum_specifier* complete_enum_specifier;
 };
 
-struct enum_specifier* enum_specifier(struct parser_ctx*);
+struct enum_specifier*  owner enum_specifier(struct parser_ctx*);
 
 struct member_declaration_list
 {
@@ -414,12 +403,12 @@ struct member_declaration_list
 
     struct token* first_token; /*TODO ? necessary*/
     struct token* last_token;
-    struct member_declaration* head;
+    struct member_declaration* owner head;
     struct member_declaration* tail;
 };
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx);
-struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name);
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
 
 struct struct_or_union_specifier
 {
@@ -428,12 +417,13 @@ struct struct_or_union_specifier
        struct-or-union attribute-specifier-sequence opt identifier opt { member-declaration-list }
        struct-or-union attribute-specifier-sequence opt identifier
     */
-    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
     struct member_declaration_list member_declaration_list;
     
     struct token* first_token;
     struct token* last_token;
-    struct token* owner_token;
+        
+    bool is_owner;
 
     /*
     * Token que possui tag da struct
@@ -457,9 +447,9 @@ struct struct_or_union_specifier
     struct struct_or_union_specifier* complete_struct_or_union_specifier_indirection;
 };
 
-struct struct_or_union_specifier* struct_or_union_specifier(struct parser_ctx* ctx);
+struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_ctx* ctx);
 bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
-struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
+struct struct_or_union_specifier* view get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
 
 struct init_declarator
 {
@@ -469,12 +459,12 @@ struct init_declarator
         declarator = initializer
     */
 
-    struct declarator* p_declarator;
-    struct initializer* initializer;
-    struct init_declarator* next;    
+    struct declarator* owner p_declarator;
+    struct initializer* owner initializer;
+    struct init_declarator* owner next;    
 };
 
-struct init_declarator* init_declarator(struct parser_ctx* ctx,
+struct init_declarator*  owner init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
     struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt
     );
@@ -487,26 +477,40 @@ struct initializer
        braced-initializer
     */
     struct token* first_token;
-    struct designation* designation; /*auxiliar para list??*/
-    struct braced_initializer* braced_initializer;
-    struct expression* assignment_expression;
-    struct initializer* next;
+    struct designation*  owner designation; /*auxiliar para list??*/
+    struct braced_initializer*  owner braced_initializer;
+    struct expression*  owner assignment_expression;
+    struct initializer* owner next;
     struct token * move_token;
     /*
        cake extension
        int * p = [[cake::move]] p2;
     */
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
 };
 
-struct initializer* initializer(struct parser_ctx* ctx);
+struct initializer* owner initializer(struct parser_ctx* ctx);
 
+/*
+*  object
+   used bt flow analysis
+   object
+   region of data storage in the execution 
+   environment, the contents of which can 
+   represent values
+   
+   value
+   precise meaning of the contents of an object when interpreted as having a specific type
+
+*/
 enum declarator_flags
 {
-    DECLARATOR_UNINITIALIZED = 0,
-    DECLARATOR_ISVALID = 1 << 1,    
-    DECLARATOR_MUST_DESTROY = 1 << 3,
-    DECLARATOR_MUST_FREE = 1 << 4
+    DECLARATOR_UNINITIALIZED = 0,        
+    DECLARATOR_MUST_DESTROY = 1 << 1,
+    DECLARATOR_MUST_FREE = 1 << 2,
+    DECLARATOR_ZERO = 1 << 3,
+    DECLARATOR_UNKNOWN = 1 << 4,
+    DECLARATOR_NOT_ZERO = 1 << 5,
 };
 
 struct declarator
@@ -520,21 +524,21 @@ struct declarator
     struct token* last_token;
 
 
-    struct pointer* pointer;
-    struct direct_declarator* direct_declarator;
+    struct pointer*  owner pointer;
+    struct direct_declarator*  owner direct_declarator;
 
     
-    struct declaration_specifiers* declaration_specifiers; //aponta para este cara
-    struct specifier_qualifier_list* specifier_qualifier_list; //aponta
+    struct declaration_specifiers* view declaration_specifiers; //aponta para este cara
+    struct specifier_qualifier_list* view specifier_qualifier_list; //aponta
     struct token* name; //shortcut
 
-    struct compound_statement* function_body;
+    struct compound_statement* view function_body;
            
     int num_uses; /*used to show not used warnings*/
-
-    bool is_parameter_declarator;
     
-    enum declarator_flags declarator_flags;    
+    
+    enum declarator_flags * owner p_declarator_flags;    
+    int declarator_flags_size;    
 
     /*Já mastiga o tipo dele*/
     struct type type;    
@@ -545,7 +549,7 @@ enum type_specifier_flags declarator_get_type_specifier_flags(const struct decla
 struct declarator;
 void print_declarator(struct osstream* ss, struct declarator* declarator, bool is_abstract);
 
-struct declarator* declarator(struct parser_ctx* ctx,
+struct declarator* owner declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* specifier_qualifier_list,
     struct declaration_specifiers* declaration_specifiers,
     bool abstract_acceptable,
@@ -560,10 +564,10 @@ struct array_declarator
         direct-declarator [ type-qualifier-list "static" assignment-expression ]
         direct-declarator [ type-qualifier-listopt * ]
     */
-    struct direct_declarator* direct_declarator;
-    struct expression* assignment_expression;
-    struct expression* expression;
-    struct type_qualifier_list* type_qualifier_list_opt;
+    struct direct_declarator* owner direct_declarator;
+    struct expression* owner assignment_expression;
+    struct expression* owner expression;
+    struct type_qualifier_list* owner type_qualifier_list_opt;
     
     struct token* token;
     struct token* static_token_opt;
@@ -580,9 +584,9 @@ struct function_declarator
      function-declarator:
        direct-declarator ( parameter-type-list opt )
     */
-    struct direct_declarator* direct_declarator;
+    struct direct_declarator* owner direct_declarator;
     struct scope parameters_scope; //usado para escopo parametros
-    struct parameter_type_list* parameter_type_list_opt;
+    struct parameter_type_list* owner parameter_type_list_opt;
 };
 
 struct direct_declarator
@@ -595,12 +599,13 @@ struct direct_declarator
         function-declarator attribute-specifier-sequence opt
     */
     struct token* name_opt;
-    struct declarator* declarator;
-    struct array_declarator* array_declarator;
-    struct function_declarator* function_declarator;
+    struct declarator* owner declarator;
+    struct array_declarator* owner array_declarator;
+    struct function_declarator* owner function_declarator;
+    struct attribute_specifier_sequence * owner p_attribute_specifier_sequence_opt;
 };
 
-struct direct_declarator* direct_declarator(struct parser_ctx* ctx,
+struct direct_declarator*  owner  direct_declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* specifier_qualifier_list,
     struct declaration_specifiers* declaration_specifiers,
     bool abstract_acceptable,
@@ -617,10 +622,10 @@ struct parameter_type_list
     */
     bool is_var_args; /*(...)*/
     bool is_void;/*(void)*/
-    struct parameter_list* parameter_list;
+    struct parameter_list* owner parameter_list;
 };
 
-struct parameter_type_list* parameter_type_list(struct parser_ctx* ctx);
+struct parameter_type_list*  owner parameter_type_list(struct parser_ctx* ctx);
 
 struct pointer
 {
@@ -629,12 +634,12 @@ struct pointer
         * attribute-specifier-sequence opt type-qualifier-list opt
         * attribute-specifier-sequence opt type-qualifier-list opt pointer    
     */
-    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
-    struct type_qualifier_list* type_qualifier_list_opt;
-    struct pointer* pointer;
+    struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
+    struct type_qualifier_list* owner type_qualifier_list_opt;
+    struct pointer* owner pointer;
 };
 
-struct pointer* pointer_opt(struct parser_ctx* ctx);
+struct pointer*  owner pointer_opt(struct parser_ctx* ctx);
 
 struct parameter_list
 {
@@ -643,10 +648,10 @@ struct parameter_list
         parameter-declaration
         parameter-list , parameter-declaration
     */
-    struct parameter_declaration* head;
+    struct parameter_declaration* owner head;
     struct parameter_declaration* tail;
 };
-struct parameter_list* parameter_list(struct parser_ctx* ctx);
+struct parameter_list*  owner  parameter_list(struct parser_ctx* ctx);
 
 struct parameter_declaration
 {
@@ -655,14 +660,14 @@ struct parameter_declaration
       attribute-specifier-sequence opt declaration-specifiers declarator
       attribute-specifier-sequence opt declaration-specifiers abstract-declarator opt
     */
-    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
     
-    struct declaration_specifiers* declaration_specifiers;
-    struct declarator* declarator;
+    struct declaration_specifiers* owner declaration_specifiers;
+    struct declarator* owner declarator;
     struct token * implicit_token;
-    struct parameter_declaration* next;
+    struct parameter_declaration* owner next;
 };
-struct parameter_declaration* parameter_declaration(struct parser_ctx* ctx);
+struct parameter_declaration*  owner parameter_declaration(struct parser_ctx* ctx);
 
 struct type_name
 {
@@ -673,19 +678,19 @@ struct type_name
 
     struct token* first_token;
     struct token* last_token;
-    struct specifier_qualifier_list* specifier_qualifier_list;
-    struct declarator* declarator;
+    struct specifier_qualifier_list* owner specifier_qualifier_list;
+    struct declarator* owner declarator;
     struct type type;
 };
 
-struct type_name* type_name(struct parser_ctx* ctx);
+struct type_name*  owner type_name(struct parser_ctx* ctx);
 void print_type_name(struct osstream* ss, struct type_name* p);
 
 struct argument_expression
 {
     struct token * move_token;
-    struct expression* expression;
-    struct argument_expression* next;
+    struct expression* owner expression;
+    struct argument_expression* owner next;
 };
 
 struct braced_initializer
@@ -697,9 +702,9 @@ struct braced_initializer
     */
 
     struct token* first_token;
-    struct initializer_list* initializer_list;
+    struct initializer_list* owner initializer_list;
 };
-struct braced_initializer* braced_initializer(struct parser_ctx* ctx);
+struct braced_initializer*  owner braced_initializer(struct parser_ctx* ctx);
 
 struct type_specifier_qualifier
 {
@@ -710,13 +715,13 @@ struct type_specifier_qualifier
        alignment-specifier
     */
 
-    struct type_specifier* type_specifier;
-    struct type_qualifier* type_qualifier;
-    struct alignment_specifier* alignment_specifier;
+    struct type_specifier* owner type_specifier;
+    struct type_qualifier* owner type_qualifier;
+    struct alignment_specifier* owner alignment_specifier;
 
-    struct type_specifier_qualifier* next;
+    struct type_specifier_qualifier* owner next;
 };
-struct type_specifier_qualifier* type_specifier_qualifier(struct parser_ctx* ctx);
+struct type_specifier_qualifier*  owner type_specifier_qualifier(struct parser_ctx* ctx);
 
 
 struct specifier_qualifier_list
@@ -732,19 +737,21 @@ struct specifier_qualifier_list
     enum type_qualifier_flags type_qualifier_flags;
 
     /*shortcuts*/
-    struct struct_or_union_specifier* struct_or_union_specifier;
-    struct enum_specifier* enum_specifier;
-    struct typeof_specifier* typeof_specifier;
-    struct declarator* typedef_declarator;
+    struct struct_or_union_specifier* view struct_or_union_specifier;
+    struct enum_specifier* view enum_specifier;
+    struct typeof_specifier* view typeof_specifier;
+    struct declarator* view typedef_declarator;
     
-    struct type_specifier_qualifier* head;
+    struct type_specifier_qualifier* owner head;
     struct type_specifier_qualifier* tail;
     struct token* first_token;
     struct token* last_token;
 
+    struct attribute_specifier_sequence * owner p_attribute_specifier_sequence;
+
 };
 
-struct specifier_qualifier_list* specifier_qualifier_list(struct parser_ctx* ctx);
+struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ctx* ctx);
 void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list);
 
 
@@ -755,9 +762,11 @@ struct alignment_specifier
        "alignas" ( type-name )
        "alignas" ( constant-expression )
     */
+    struct type_name * owner type_name;
+    struct expression * owner constant_expression;
     struct token* token;
 };
-struct alignment_specifier* alignment_specifier(struct parser_ctx* ctx);
+struct alignment_specifier*  owner alignment_specifier(struct parser_ctx* ctx);
 
 
 struct type_qualifier
@@ -771,10 +780,10 @@ struct type_qualifier
     */
     enum type_qualifier_flags flags;
     struct token* token;
-    struct type_qualifier* next;
+    struct type_qualifier* owner next;
 };
 
-struct type_qualifier* type_qualifier(struct parser_ctx* ctx);
+struct type_qualifier*  owner type_qualifier(struct parser_ctx* ctx);
 
 struct member_declaration
 {
@@ -783,15 +792,16 @@ struct member_declaration
        attribute-specifier-sequence opt specifier-qualifier-list member-declarator-list opt ;
        static_assert-declaration
     */
-    struct specifier_qualifier_list* specifier_qualifier_list;
-    struct member_declarator_list* member_declarator_list_opt;
+    struct specifier_qualifier_list* owner specifier_qualifier_list;
+    struct member_declarator_list* owner member_declarator_list_opt;
 
-    struct static_assert_declaration* static_assert_declaration;
-
-    struct member_declaration* next;
+    struct static_assert_declaration* owner static_assert_declaration;
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
+    struct member_declaration* owner next;
+    
 };
 
-struct member_declaration* member_declaration(struct parser_ctx* ctx);
+struct member_declaration*  owner member_declaration(struct parser_ctx* ctx, struct struct_or_union_specifier*);
 
 struct member_declarator
 {
@@ -801,9 +811,9 @@ struct member_declarator
        declarator opt : constant-expression
     */
     
-    struct declarator* declarator;
-    struct expression* constant_expression;
-    struct member_declarator* next;
+    struct declarator* owner declarator;
+    struct expression* owner constant_expression;
+    struct member_declarator* owner next;
 };
 
 struct member_declarator_list
@@ -814,11 +824,12 @@ struct member_declarator_list
         member-declarator-list , member-declarator
     */
 
-    struct member_declarator* head;
+    struct member_declarator* owner head;
     struct member_declarator* tail;
 };
 
-struct member_declarator_list* member_declarator_list(struct parser_ctx* ctx,
+struct member_declarator_list*  owner member_declarator_list(struct parser_ctx* ctx,
+    struct struct_or_union_specifier* ,
     struct specifier_qualifier_list* specifier_qualifier_list
     );
 
@@ -829,9 +840,10 @@ struct block_item_list
        block-item
        block-item-list block-item
     */
-    struct block_item* head;
+    struct block_item* owner head;
     struct block_item* tail;
 };
+
 struct block_item_list block_item_list(struct parser_ctx* ctx);
 
 
@@ -846,7 +858,7 @@ struct compound_statement
 
     struct block_item_list block_item_list;
 };
-struct compound_statement* compound_statement(struct parser_ctx* ctx);
+struct compound_statement*  owner compound_statement(struct parser_ctx* ctx);
 
 struct defer_statement
 {
@@ -856,7 +868,7 @@ struct defer_statement
     */
     struct token* first_token;
     struct token* last_token;
-    struct secondary_block* secondary_block;
+    struct secondary_block* owner secondary_block;
 };
 
 struct try_statement
@@ -866,16 +878,16 @@ struct try_statement
       "try" secondary-block
       "try" secondary-block "catch" secondary-block
    */
-    struct secondary_block* secondary_block;
-    struct secondary_block* catch_secondary_block_opt;
+    struct secondary_block* owner secondary_block;
+    struct secondary_block* owner catch_secondary_block_opt;
     struct token* first_token; /*try*/
     struct token* last_token;
-    struct token* catch_token_opt; /*catch*/
+    struct token*  catch_token_opt; /*catch*/
     /*Used to generate label names*/
     int try_catch_block_index;
 };
 
-struct try_statement* try_statement(struct parser_ctx* ctx);
+struct try_statement*  owner try_statement(struct parser_ctx* ctx);
 
 struct selection_statement
 {
@@ -887,18 +899,18 @@ struct selection_statement
     */
 
     /*C++ 17 if with initialization extension*/
-    struct init_declarator* init_declarator;
+    struct init_declarator* owner init_declarator;
 
-    struct expression* expression;
-    struct secondary_block* secondary_block;
-    struct secondary_block* else_secondary_block_opt;
+    struct expression* owner expression;
+    struct secondary_block* owner secondary_block;
+    struct secondary_block* owner else_secondary_block_opt;
 
     struct token* first_token;
     struct token* last_token;
     struct token* else_token_opt;    
 };
 
-struct selection_statement* selection_statement(struct parser_ctx* ctx);
+struct selection_statement*  owner selection_statement(struct parser_ctx* ctx);
 
 struct iteration_statement
 {
@@ -914,12 +926,14 @@ struct iteration_statement
     struct token* first_token;
     struct token* second_token; /*do {} while*/
 
-    struct secondary_block* secondary_block;
-    struct expression* expression1;
-    struct expression* expression2;
+    struct secondary_block* owner secondary_block;
+    struct expression* owner expression1;
+    struct expression* owner expression2;
+    struct expression* owner expression0;
+    struct declaration * owner declaration;
 };
 
-struct iteration_statement* iteration_statement(struct parser_ctx* ctx);
+struct iteration_statement*  owner iteration_statement(struct parser_ctx* ctx);
 
 struct jump_statement
 {
@@ -934,12 +948,12 @@ struct jump_statement
     struct token* label;
     struct token* first_token;
     struct token* last_token;
-    struct expression* expression_opt;
-    
+    struct expression* owner expression_opt;
+    struct token* token_move;
     int try_catch_block_index;
 };
 
-struct jump_statement* jump_statement(struct parser_ctx* ctx);
+struct jump_statement*  owner jump_statement(struct parser_ctx* ctx);
 
 struct expression_statement
 {
@@ -949,11 +963,11 @@ struct expression_statement
        attribute-specifier-sequence expression ;
     */
     
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
-    struct expression* expression_opt;
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
+    struct expression* owner expression_opt;
 };
 
-struct expression_statement* expression_statement(struct parser_ctx* ctx);
+struct expression_statement*  owner expression_statement(struct parser_ctx* ctx);
 
 struct block_item
 {
@@ -964,15 +978,16 @@ struct block_item
       label
     */
     struct token* first_token; //?necessary
-    struct declaration* declaration;    
-    struct unlabeled_statement* unlabeled_statement;
-    struct label* label;
+    struct declaration* owner declaration;    
+    struct unlabeled_statement* owner unlabeled_statement;
+    struct label* owner label;
 
-    struct block_item* next;
+    struct block_item* owner next;
 };
-struct block_item* block_item(struct parser_ctx* ctx);
 
-struct compound_statement* function_body(struct parser_ctx* ctx);
+struct block_item*  owner block_item(struct parser_ctx* ctx);
+
+struct compound_statement*  owner function_body(struct parser_ctx* ctx);
 
 struct designator
 {
@@ -981,11 +996,11 @@ struct designator
        [ constant-expression ]
        . identifier
     */
-    struct expression* constant_expression_opt;
+    struct expression* owner constant_expression_opt;
     struct token* token;
-    struct designator* next;
+    struct designator* owner next;
 };
-struct designator* designator(struct parser_ctx* ctx);
+struct designator*  owner designator(struct parser_ctx* ctx);
 
 struct initializer_list
 {
@@ -995,11 +1010,11 @@ struct initializer_list
         initializer-list , designation opt initializer
     */
     struct token* first_token;
-    struct initializer* head;
+    struct initializer* owner head;
     struct initializer* tail;
     int size;
 };
-struct initializer_list* initializer_list(struct parser_ctx* ctx);
+struct initializer_list*  owner initializer_list(struct parser_ctx* ctx);
 
 struct primary_block
 {
@@ -1012,11 +1027,11 @@ struct primary_block
          try-statement (extension)
     */
     
-    struct compound_statement* compound_statement;
-    struct selection_statement* selection_statement;
-    struct iteration_statement* iteration_statement;
-    struct defer_statement* defer_statement;
-    struct try_statement* try_statement;
+    struct compound_statement* owner compound_statement;
+    struct selection_statement* owner selection_statement;
+    struct iteration_statement* owner iteration_statement;
+    struct defer_statement* owner defer_statement;
+    struct try_statement* owner try_statement;
 };
 
 struct secondary_block
@@ -1025,9 +1040,9 @@ struct secondary_block
      secondary-block:
        statement
     */
-    struct token* first_token;
-    struct token* last_token;
-    struct statement* statement;
+    struct token* view first_token;
+    struct token* view last_token;
+    struct statement* owner statement;
 };
 
 struct unlabeled_statement
@@ -1039,12 +1054,12 @@ struct unlabeled_statement
         attribute-specifier-sequence opt jump-statement
      */
 
-    struct expression_statement* expression_statement;
-    struct primary_block* primary_block;
-    struct jump_statement* jump_statement;
+    struct expression_statement*  owner expression_statement;
+    struct primary_block*  owner primary_block;
+    struct jump_statement*  owner jump_statement;
 };
 
-struct unlabeled_statement* unlabeled_statement(struct parser_ctx* ctx);
+struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx);
 
 struct labeled_statement
 {
@@ -1052,10 +1067,10 @@ struct labeled_statement
      label statement:
        label statement
     */
-    struct label* label;
-    struct statement* statement;
+    struct label* owner label;
+    struct statement* owner statement;
 };
-struct labeled_statement* labeled_statement(struct parser_ctx* ctx);
+struct labeled_statement* owner labeled_statement(struct parser_ctx* ctx);
 
 struct statement
 {    
@@ -1064,10 +1079,10 @@ struct statement
        labeled-statement
        unlabeled-statemen
     */
-    struct labeled_statement* labeled_statement;
-    struct unlabeled_statement* unlabeled_statement;
+    struct labeled_statement* owner labeled_statement;
+    struct unlabeled_statement* owner unlabeled_statement;
 };
-struct statement* statement(struct parser_ctx* ctx);
+struct statement* owner statement(struct parser_ctx* ctx);
 
 struct designator_list
 {
@@ -1076,11 +1091,11 @@ struct designator_list
        designator
        designator-list designator
     */
-    struct designator* head;
+    struct designator* owner head;
     struct designator* tail;
 };
 
-struct designator_list* designator_list(struct parser_ctx* ctx);
+struct designator_list* owner designator_list(struct parser_ctx* ctx);
 
 struct designation
 {
@@ -1088,9 +1103,10 @@ struct designation
      designation:
        designator-list =
     */
+    struct designator_list * owner designator_list;
     struct token* token;
 };
-struct designation* designation(struct parser_ctx* ctx);
+struct designation* owner designation(struct parser_ctx* ctx);
 
 
 struct type_qualifier_list
@@ -1101,34 +1117,34 @@ struct type_qualifier_list
        type-qualifier-list type-qualifier
     */
     enum type_qualifier_flags flags;
-    struct type_qualifier* head;
+    struct type_qualifier* owner head;
     struct type_qualifier* tail;
 };
 
-struct type_qualifier_list* type_qualifier_list(struct parser_ctx* ctx);
+struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx);
 
 struct attribute_token
 {
     enum attribute_flags attributes_flags;
     struct token* token;
 };
-struct attribute_token* attribute_token(struct parser_ctx* ctx);
+struct attribute_token* owner attribute_token(struct parser_ctx* ctx);
 
 struct attribute
 {
     enum attribute_flags  attributes_flags;
-    struct attribute_token* attribute_token;
-    struct attribute_argument_clause* attribute_argument_clause;
-    struct attribute_specifier* next;
+    struct attribute_token* owner attribute_token;
+    struct attribute_argument_clause* owner attribute_argument_clause;
+    struct attribute_specifier* owner next;
 };
 
 struct attribute_list
 {
     enum attribute_flags  attributes_flags;
-    struct attribute* head;
+    struct attribute* owner head;
     struct attribute* tail;
 };
-struct attribute_list* attribute_list(struct parser_ctx* ctx);
+struct attribute_list* owner attribute_list(struct parser_ctx* ctx);
 
 struct enumerator
 {
@@ -1142,15 +1158,20 @@ struct enumerator
     */
     
     struct token* token;
-    struct attribute_specifier_sequence* attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
 
-    struct expression* constant_expression_opt;
-    struct enum_specifier* enum_specifier;
-    struct enumerator* next;
+    struct expression* owner constant_expression_opt;
+    
+    /*
+      having the enum specifier we have better information about the type
+    */
+    struct enum_specifier* view enum_specifier;
+
+    struct enumerator* owner next;
     long long value;    
 };
 
-struct enumerator* enumerator(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier);
+struct enumerator* owner enumerator(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier);
 
 struct attribute_argument_clause
 {
@@ -1158,19 +1179,20 @@ struct attribute_argument_clause
      attribute-argument-clause:
        ( balanced-token-sequence opt )
     */
+    struct balanced_token_sequence * owner p_balanced_token_sequence;
     struct token* token;
 };
 
-struct attribute_argument_clause* attribute_argument_clause(struct parser_ctx* ctx);
+struct attribute_argument_clause* owner attribute_argument_clause(struct parser_ctx* ctx);
 
 bool first_of_attribute(struct parser_ctx* ctx);
 
 struct balanced_token_sequence
 {
-    struct balanced_token* head;
+    struct balanced_token* owner head;
     struct balanced_token* tail;
 };
-struct balanced_token_sequence* balanced_token_sequence_opt(struct parser_ctx* ctx);
+struct balanced_token_sequence* owner balanced_token_sequence_opt(struct parser_ctx* ctx);
 
 bool is_first_of_conditional_expression(struct parser_ctx* ctx);
 bool first_of_type_name(struct parser_ctx* ctx);
@@ -1180,7 +1202,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
 
 struct declaration_list
 {
-    struct declaration* head;
+    struct declaration* owner head;
     struct declaration* tail;
 };
 
@@ -1195,13 +1217,13 @@ struct label
        attribute-specifier-sequence opt "case" constant-expression :
        attribute-specifier-sequence opt "default" :
     */
-    struct expression* constant_expression;
+    struct expression* owner constant_expression;
     struct token* name;
 };
 
-struct label* label(struct parser_ctx* ctx);
+struct label* owner label(struct parser_ctx* ctx);
 
-struct owner ast
+struct ast
 {
     struct token_list token_list;
     struct declaration_list declaration_list;
@@ -1213,3 +1235,4 @@ void ast_destroy(implicit struct ast* obj_owner ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list);

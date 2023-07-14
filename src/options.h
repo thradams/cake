@@ -32,11 +32,16 @@ enum warning {
     W_STRING_SLICED = 1 << 14,
     W_DISCARDED_QUALIFIERS = 1 << 15,
     W_DECLARATOR_STATE = 1 << 16,
+    W_UNINITIALZED  = 1 << 17,
+    W_NON_OWNER_ASSIGN = 1 << 18,
+    W_EXPLICIT_MOVE = 1 << 19,    
+    W_RETURN_LOCAL_ADDR = 1 << 20,
     
 };
 
 enum error
-{
+{ 
+    C_SUCCESS = 0,
     C_UNEXPECTED,    
     C_TOO_MANY_ARGUMENTS,
     C_TOO_FEW_ARGUMENTS,
@@ -66,6 +71,7 @@ enum error
     C_ASSIGNMENT_OF_FUNCTION,
     C_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE,
     C_ASSIGNMENT_OF_READ_ONLY_OBJECT,
+    C_LVALUE_ASSIGNMENT,
     C_CONDITION_MUST_HAVE_SCALAR_TYPE,
     C_INCOMPATIBLE_TYPES,
     C_EXPECTED_CONSTANT_EXPRESSION,
@@ -96,10 +102,12 @@ enum error
     C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
     C_MACRO_INVALID_ARG,
     C_MISSING_MACRO_ARGUMENT,
-    C_EXPLICIT_MOVE,
+    C_NON_OWNER_MOVE,
     C_MISSING_OWNER,
     C_NOT_OWNER,
+    C_USING_TEMPORARY_OWNER,
     C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+    C_ADDRESS_OF_REGISTER,
 };
 
 enum style
@@ -155,6 +163,11 @@ struct options
        -remove-comments  
     */
     bool remove_comments;    
+
+    /*
+       -flow-analysis
+    */
+    bool flow_analysis;
 
     /*
       -E 

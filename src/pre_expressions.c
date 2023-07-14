@@ -128,10 +128,16 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
         {
             const char* p = ctx->current->lexeme + 1;
             ectx->value = 0;
+            int count = 0;
             while (*p != '\'')
             {
                 ectx->value = ectx->value * 256 + *p;
                 p++;
+                count++;
+                if (count > 4)
+                {
+                    preprocessor_set_warning_with_token(W_NONE, ctx, ctx->current, "character constant too long for its type");
+                }
             }
 
             pre_match(ctx);
@@ -731,13 +737,13 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_e
                 if (ctx->n_errors > 0) throw;
 
                 pre_match(ctx); //:
-                struct pre_expression_ctx temp;
+                struct pre_expression_ctx temp = {0};
                 pre_conditional_expression(ctx, &temp);                
                 if (ctx->n_errors > 0) throw;
             }
             else
             {
-                struct pre_expression_ctx temp;
+                struct pre_expression_ctx temp = {0};
                 pre_expression(ctx, &temp);
                 if (ctx->n_errors > 0) throw;
 

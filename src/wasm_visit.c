@@ -416,12 +416,6 @@ static void wasm_visit_iteration_statement(struct wasm_visit_ctx* ctx, struct it
         wasm_visit_expression(ctx, p_iteration_statement->expression2);
     }
 
-    if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
-    {
-        free(p_iteration_statement->first_token->lexeme);
-        p_iteration_statement->first_token->lexeme = strdup("for(;;)/*repeat*/");
-    }
-
     if (p_iteration_statement->secondary_block)
     {
 

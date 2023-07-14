@@ -1,10 +1,11 @@
 #pragma once
 #include "parser.h"
 #include  "error.h"
+#include"ownership.h"
 
 struct format_visit_ctx
 {
-    struct ast ast;
+    view struct ast ast;
     int identation;
 };
 

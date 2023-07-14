@@ -46,7 +46,7 @@
     " type.c "            \
     " parser.c "          \
     " visit.c "           \
-    " flow_analysis_visit.c " \
+    " flow_visit.c " \
     " error.c "           \
     " format_visit.c "    \
     " wasm_visit.c "
@@ -186,6 +186,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
         "     <link rel=\"stylesheet\" href=\"style.css\" />\n"
         "</head>\n"
         "<body>\n"
+        "    <article style=\"max-width: 40em; margin:auto\">\n"
         "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"playground.html\">Playground</a></p>\n"
         "<h1>Cake</h1>\n";
 
@@ -207,7 +208,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
     FILE *f3 = fopen(outfile /*"./web/index.html"*/, "a");
     if (f3)
     {
-        fwrite("</body></html>", 1, strlen("</body></html>"), f3);
+        fwrite("</body></html>", 1, strlen("</article></body></html>"), f3);
         fclose(f3);
     }
 }
@@ -227,8 +228,6 @@ int main()
     if (system(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe") != 0)
         exit(1);
     if (system(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe") != 0)
-        exit(1);
-    if (system(CC " -D_CRT_SECURE_NO_WARNINGS embed.c " OUT_OPT "../embed.exe") != 0)
         exit(1);
 
     chdir("./hoedown");
@@ -260,17 +259,6 @@ int main()
         exit(1);
     remove("amalgamator.exe");
 
-#define EMBED_SRC              \
-    " ./web_include/stdio.h "  \
-    " ./web_include/stdlib.h " \
-    " ./web_include/math.h "   \
-    " ./web_include/errno.h "  \
-    " ./web_include/string.h " \
-    " ./web_include/assert.h "
-
-    if (system(RUN "embed.exe " EMBED_SRC) != 0)
-        exit(1);
-    remove("embed.exe");
 
     compile_cake();
 
@@ -278,7 +266,8 @@ int main()
 /*run cake on it�s own source*/
 #ifdef BUILD_WINDOWS_MSC
 
-    if (system("cake.exe -Wno-unused-parameter -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    //-flow-analysis 
+    if (system("cake.exe -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 

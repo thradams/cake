@@ -1,6 +1,6 @@
 #pragma once
 #include "parser.h"
-
+#include "ownership.h"
 
 struct defer_scope
 {
@@ -15,7 +15,7 @@ struct defer_scope
     struct defer_scope* previous;
 };
 
-struct owner visit_ctx
+struct visit_ctx
 {
     /*
     * It is necessary two passes to generate lambdas expressions
@@ -34,7 +34,7 @@ struct owner visit_ctx
     
     struct token_list insert_before_declaration;
     struct token_list insert_before_block_item;
-    struct ast ast;
+    view struct ast ast;
     enum language_version target;
     struct defer_scope* tail_block;
 };

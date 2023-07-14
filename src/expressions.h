@@ -1,6 +1,7 @@
 #pragma once
 #include "type.h"
 #include  "tokenizer.h"
+#include "ownership.h"
 
 struct parser_ctx;
 
@@ -84,7 +85,7 @@ struct argument_expression_list
         assignment-expression
         argument-expression-list , assignment-expression
     */
-    struct argument_expression* head;
+    struct argument_expression* owner head;
     struct argument_expression* tail;
 };
 
@@ -99,18 +100,18 @@ struct generic_association
     */
 
     struct type type;
-    struct type_name* p_type_name;
-    struct expression* expression;
+    struct type_name* owner p_type_name;
+    struct expression* owner expression;
 
     struct token* first_token;
     struct token* last_token;
 
-    struct generic_association* next;
+    struct generic_association* owner next;
 };
 
 struct generic_assoc_list
 {
-    struct generic_association* head;
+    struct generic_association* owner head;
     struct generic_association* tail;
 };
 
@@ -133,8 +134,8 @@ struct generic_selection
     */
 
 
-    struct expression* expression;
-    struct type_name* type_name;
+    struct expression* owner expression;
+    struct type_name* owner type_name;
     /*
     * Points to the matching expression
     */
@@ -180,11 +181,11 @@ struct expression
 
     struct constant_value constant_value;
 
-    struct type_name* type_name; 
-    struct type_name* type_name2; /*is_same*/
-    struct braced_initializer* braced_initializer;
-    struct compound_statement* compound_statement; //function literal (lambda)
-    struct generic_selection* generic_selection; //_Generic
+    struct type_name* owner type_name; 
+    struct type_name* owner type_name2; /*is_same*/
+    struct braced_initializer* owner braced_initializer;
+    struct compound_statement* owner compound_statement; //function literal (lambda)
+    struct generic_selection* owner generic_selection; //_Generic
 
     struct token* first_token;
     struct token* last_token;
@@ -196,23 +197,19 @@ struct expression
 
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* declarator;
+    int member_index; //used in post_fix .
 
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
-    /*
-       cake extension
-       a = [[cake::move]] b;       
-    */
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt;
-
-    struct expression* condition_expr;
-    struct expression* left;
-    struct expression* right;
+    struct expression* owner condition_expr;
+    struct expression* owner left;
+    struct expression* owner right;
 };
 
-struct expression* assignment_expression(struct parser_ctx* ctx);
-struct expression* expression(struct parser_ctx* ctx);
-struct expression* constant_expression(struct parser_ctx* ctx);
+struct expression* owner assignment_expression(struct parser_ctx* ctx);
+struct expression* owner expression(struct parser_ctx* ctx);
+struct expression* owner constant_expression(struct parser_ctx* ctx);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
-struct declarator* expression_get_declarator(struct expression*);
+bool expression_is_zero(struct expression*);
+struct declarator* expression_get_declarator(struct expression*, int * p_member_index);

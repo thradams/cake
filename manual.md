@@ -1456,12 +1456,11 @@ void create_app(const char* appname)
 ```
 iteration-statement:
         ...
-        "repeat" secondary-block  (extension)
-```
-  repeat statement
+        "repeat" secondary-block
 ```
 
-Repeat merely executes the given statement forever unless a break statement is encountered, or a goto passes control to a statement outside the loop.
+Repeat merely executes the given statement forever unless a break statement is encountered, 
+or a goto passes control to a statement outside the loop.
 
 ```c
   repeat {
@@ -1470,14 +1469,15 @@ Repeat merely executes the given statement forever unless a break statement is e
   }
 ```
 
-Repeat is equivalent of for(;;) 
+Repeat is the same of `for(;;)`. In cake's source for instance I have 5 ocorrences of `for(;;)`.
 
 
 ### Extension #pragma expand
 
-pragma expand tells the back end to not hide macro expansions.
+pragma expand tells the C back-end to not hide macro expansions. This is necessary when
+the compiler makes changes inside the macro code.
 
-Sample: 
+Sample:
 
 
 ```c
@@ -1518,47 +1518,6 @@ int main()
 
 ```
 
-###  Extension _Hashof
-
-_Hashof is a compile time function that returns a hash of the parsing tokens
-of some struct.
-
-
-```c
-
-struct X {
-    int a[10];
-  
-    /*uncomment the next line*/
-    //char * text;
-};
-
-void x_destroy(struct X* p);
-
-int main()
-{
-    struct X x = {};
-    x_destroy(&x);
-}
-
-void x_destroy(struct X* p)
-{
-    static_assert(_Hashof(struct X) == 283780300);
-}
-
-void x_print(struct X* p)
-{
-    static_assert(_Hashof(struct X) == 283780300);
-}
-
-struct X x_clone(const struct X* p)
-{
-  struct X x = *p;
-  static_assert(_Hashof(struct X) == 283780300);
-  return x;
-}
-
-```
 
 ### Type traits
 
@@ -1601,13 +1560,14 @@ If T and U name the same type (taking into account const/volatile qualifications
 
 ###  Extension type-expression
 
-syntax:
+
+Syntax:
 
 ``` 
   cast-expression:
     unary-expression
     ( type-name ) cast-expression
-    ( type-name )              //<- creates a type expression
+    ( type-name )                  //<- creates a type expression
 ```
 
 Sample
@@ -1639,9 +1599,11 @@ We can use != and == with void value to compare types.
 
 ### Extension - Ownership checks
 
+Under development...
 See [ownership](ownership.html)
 
 ### Extension typename on _Generic
+
 
 ```c
  int main()

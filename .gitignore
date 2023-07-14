@@ -70,3 +70,4 @@ dkms.conf
 /src/shell.c
 src/cake
 *.sarif
+/src/.vs/cake

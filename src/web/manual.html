@@ -8,6 +8,7 @@
      <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+    <article style="max-width: 40em; margin:auto">
 <p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
 <h1>Cake</h1>
 <ul>
@@ -219,24 +220,21 @@
 <a href="#toc_66">Extension #pragma expand</a>
 </li>
 <li>
-<a href="#toc_67">Extension _Hashof</a>
+<a href="#toc_67">Type traits</a>
 </li>
 <li>
-<a href="#toc_68">Type traits</a>
+<a href="#toc_68">Extension type-expression</a>
 </li>
 <li>
-<a href="#toc_69">Extension type-expression</a>
+<a href="#toc_69">Extension - Ownership checks</a>
 </li>
 <li>
-<a href="#toc_70">Extension - Ownership checks</a>
-</li>
-<li>
-<a href="#toc_71">Extension typename on _Generic</a>
+<a href="#toc_70">Extension typename on _Generic</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_72">Versions</a>
+<a href="#toc_71">Versions</a>
 </li>
 </ul>
 <h2 id="toc_0">Command line</h2>
@@ -1614,13 +1612,11 @@ void create_app(const char* appname)
 
 <pre><code>iteration-statement:
         ...
-        &quot;repeat&quot; secondary-block  (extension)
+        &quot;repeat&quot; secondary-block
 </code></pre>
 
-<p>repeat statement
-```</p>
-
-<p>Repeat merely executes the given statement forever unless a break statement is encountered, or a goto passes control to a statement outside the loop.</p>
+<p>Repeat merely executes the given statement forever unless a break statement is encountered, 
+or a goto passes control to a statement outside the loop.</p>
 
 <pre><code class="language-c">  repeat {
        if (condition) 
@@ -1628,13 +1624,14 @@ void create_app(const char* appname)
   }
 </code></pre>
 
-<p>Repeat is equivalent of for(;;) </p>
+<p>Repeat is the same of <code>for(;;)</code>. In cake&#39;s source for instance I have 5 ocorrences of <code>for(;;)</code>.</p>
 
 <h3 id="toc_66">Extension #pragma expand</h3>
 
-<p>pragma expand tells the back end to not hide macro expansions.</p>
+<p>pragma expand tells the C back-end to not hide macro expansions. This is necessary when
+the compiler makes changes inside the macro code.</p>
 
-<p>Sample: </p>
+<p>Sample:</p>
 
 <pre><code class="language-c">
 #define SWAP(a, b) \
@@ -1672,47 +1669,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_67">Extension _Hashof</h3>
-
-<p>_Hashof is a compile time function that returns a hash of the parsing tokens
-of some struct.</p>
-
-<pre><code class="language-c">
-struct X {
-    int a[10];
-  
-    /*uncomment the next line*/
-    //char * text;
-};
-
-void x_destroy(struct X* p);
-
-int main()
-{
-    struct X x = {};
-    x_destroy(&amp;x);
-}
-
-void x_destroy(struct X* p)
-{
-    static_assert(_Hashof(struct X) == 283780300);
-}
-
-void x_print(struct X* p)
-{
-    static_assert(_Hashof(struct X) == 283780300);
-}
-
-struct X x_clone(const struct X* p)
-{
-  struct X x = *p;
-  static_assert(_Hashof(struct X) == 283780300);
-  return x;
-}
-
-</code></pre>
-
-<h3 id="toc_68">Type traits</h3>
+<h3 id="toc_67">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.
 They are based on C++ <a href="https://en.cppreference.com/w/cpp/header/type_traits">https://en.cppreference.com/w/cpp/header/type_traits</a></p>
@@ -1748,14 +1705,14 @@ If T and U name the same type (taking into account const/volatile qualifications
 
 </code></pre>
 
-<h3 id="toc_69">Extension type-expression</h3>
+<h3 id="toc_68">Extension type-expression</h3>
 
-<p>syntax:</p>
+<p>Syntax:</p>
 
 <pre><code>  cast-expression:
     unary-expression
     ( type-name ) cast-expression
-    ( type-name )              //&lt;- creates a type expression
+    ( type-name )                  //&lt;- creates a type expression
 </code></pre>
 
 <p>Sample</p>
@@ -1784,11 +1741,12 @@ int main()
 
 <p>We can use != and == with void value to compare types.</p>
 
-<h3 id="toc_70">Extension - Ownership checks</h3>
+<h3 id="toc_69">Extension - Ownership checks</h3>
 
-<p>See <a href="ownership.html">ownership</a></p>
+<p>Under development...
+See <a href="ownership.html">ownership</a></p>
 
-<h3 id="toc_71">Extension typename on _Generic</h3>
+<h3 id="toc_70">Extension typename on _Generic</h3>
 
 <pre><code class="language-c"> int main()
 {
@@ -1805,7 +1763,8 @@ int main()
 <p>and the lvalue conversion will not happen, allowing 
 more precise (with qualifiers) type match.</p>
 
-<h2 id="toc_72">Versions</h2>
+<h2 id="toc_71">Versions</h2>
 
 <p>0.5.1 Versioning started</p>
-</body></html>
+</body></html>  msvc
+   
