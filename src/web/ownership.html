@@ -89,6 +89,8 @@
 </ul>
 </li>
 </ul>
+<p>Under devolvement.</p>
+
 <h1 id="toc_0">Ownership checks for C</h1>
 
 <p>The static ownership check is an experimental feature for Cake.
@@ -323,10 +325,12 @@ T F() {
   
 </code></pre>
 
-<p>We can use the attribute [[implicit]]  to make the usage of <strong>_Move</strong> optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is &quot;destroy&quot;.</p>
+<p>We can use <em>Implicit  to make the usage of **</em>Move** optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is &quot;destroy&quot;.</p>
 
-<pre><code class="language-c">void x_destroy([[implicit]] struct X * _Obj_owner);
+<pre><code class="language-c">void x_destroy(_Implicit struct X * _Obj_owner);
 </code></pre>
+
+<p>This can change in the future to use attributes;</p>
 
 <h3 id="toc_16">void F(Owner); F(Non-Owner);</h3>
 
@@ -354,7 +358,7 @@ T F() {
   char * _Owner name;
 };  
 
-void person_delete([[implicit]] struct person * _Owner p) 
+void person_delete(_Implicit struct person * _Owner p) 
 {
   if (p) {
     free(p-&gt;name);

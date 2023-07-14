@@ -1,4 +1,7 @@
 
+
+Under devolvement.
+
 # Ownership checks for C
 
 The static ownership check is an experimental feature for Cake.
@@ -265,6 +268,8 @@ We can use _Implicit  to make the usage of **_Move** optional. This is useful wh
 ```c
 void x_destroy(_Implicit struct X * _Obj_owner);
 ```
+
+This can change in the future to use attributes;
 
 
 ### void F(Owner); F(Non-Owner);
