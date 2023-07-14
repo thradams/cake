@@ -260,10 +260,10 @@ We explicitly use **_Move** on the caller.
 ```
 
 
-We can use the attribute [[implicit]]  to make the usage of **_Move** optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is "destroy".
+We can use _Implicit  to make the usage of **_Move** optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is "destroy".
 
 ```c
-void x_destroy([[implicit]] struct X * _Obj_owner);
+void x_destroy(_Implicit struct X * _Obj_owner);
 ```
 
 
@@ -297,7 +297,7 @@ struct person {
   char * _Owner name;
 };  
 
-void person_delete([[implicit]] struct person * _Owner p) 
+void person_delete(_Implicit struct person * _Owner p) 
 {
   if (p) {
     free(p->name);
