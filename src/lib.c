@@ -1076,9 +1076,6 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
 
 struct token* token_list_add(struct token_list* list, struct token* owner pnew)
 {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wexplicit-move"
-
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);
     assert(pnew->prev == NULL);
@@ -1088,20 +1085,19 @@ struct token* token_list_add(struct token_list* list, struct token* owner pnew)
     {
         pnew->prev = NULL;
         pnew->next = NULL;
-        list->head = pnew;
+        list->head = move pnew;
         list->tail = pnew;
         //pnew->prev = list->tail;
     }
     else
     {
         pnew->prev = list->tail;
-        list->tail->next = pnew;
+        list->tail->next = move pnew;
         list->tail = pnew;
     }
     assert(list->tail->next == NULL);
     return list->tail;
 
-#pragma CAKE diagnostic pop
 }
 
 int is_digit(struct stream* p)
