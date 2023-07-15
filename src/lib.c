@@ -1198,9 +1198,6 @@ struct token* owner clone_token(struct token* p)
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last)
 {
 
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wowner-assign"
-
     struct token_list r = {0};
 
     struct token* before_first = first->prev;
@@ -1213,7 +1210,6 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     first->prev = NULL;
     r.tail = last;
     last->next = NULL;
-#pragma CAKE diagnostic pop
 
 
     return r;
