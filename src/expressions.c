@@ -407,7 +407,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
 
         while (p_current_argument && p_current_parameter_type)
         {
-            check_function_argument_and_parameter(ctx, p_current_argument, p_current_parameter_type->type, param_num);
+            check_function_argument_and_parameter(ctx, p_current_argument, &p_current_parameter_type->type, param_num);
 
 
 

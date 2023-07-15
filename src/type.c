@@ -330,7 +330,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
                 while (pa)
                 {
                     struct osstream sslocal = {0};
-                    print_type(&sslocal, pa->type);
+                    print_type(&sslocal, &pa->type);
                     ss_fprintf(ss, "%s", sslocal.c_str);
                     if (pa->next)
                         ss_fprintf(ss, ",");
@@ -1581,8 +1581,7 @@ struct type type_dup(const struct type* p_type)
             while (p_param)
             {
                 struct param* owner p_new_param = calloc(1, sizeof * p_new_param);
-                p_new_param->type = move calloc(1, sizeof(struct type));
-                *p_new_param->type = move type_dup(p_param->type);
+                p_new_param->type = move type_dup(&p_param->type);
 
                 LIST_ADD(&p_new->params, p_new_param);
                 p_param = p_param->next;
@@ -2366,7 +2365,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
             struct param* p_param_b = pb->params.head;
             while (p_param_a && p_param_b)
             {
-                if (!type_is_same(p_param_a->type, p_param_b->type, true))
+                if (!type_is_same(&p_param_a->type, &p_param_b->type, true))
                 {
                     return false;
                 }
@@ -2610,27 +2609,13 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 pdirectdeclarator->function_declarator->parameter_type_list_opt->parameter_list->head;
 
             p_func->params.is_var_args = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_var_args;
-
             p_func->params.is_void = pdirectdeclarator->function_declarator->parameter_type_list_opt->is_void;
-
-
 
             while (p)
             {
                 struct param* owner p_new_param = calloc(1, sizeof(struct param));
-                //p_new_param->type = type_dup(&p->declarator->type);
-
-                struct type* owner pt = calloc(1, sizeof(struct type));
+                p_new_param->type = move type_dup(&p->declarator->type);
                 assert(p->declarator->type.category != TYPE_CATEGORY_NONE);
-
-                *pt = move type_dup(&p->declarator->type);
-                //struct type nt =
-                  //  make_type_using_declarator(ctx, p->declarator);
-                //*pt = nt; /*MOVED*/
-                //_del_attr(nt, "must destroy");
-
-                p_new_param->type = move pt;
-
                 LIST_ADD(&p_func->params, p_new_param);
                 p = p->next;
             }

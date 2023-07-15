@@ -131,10 +131,8 @@ struct type_list {
 void type_list_push_back(struct type_list* books, struct type* owner new_book);
 void type_list_push_front(struct type_list* books, struct type* owner new_book);
 
-struct param {
-    struct type* owner type;
-    struct param* owner next;
-};
+
+struct param;
 
 struct param_list {
     bool is_var_args;
@@ -164,6 +162,11 @@ struct type
 };
 
 const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
+
+struct param {
+    struct type type;
+    struct param* owner next;
+};
 
 struct expression;
 

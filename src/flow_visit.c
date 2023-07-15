@@ -833,8 +833,8 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
 
 
-            if (p_current_parameter_type->type->type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
-                p_current_parameter_type->type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+            if (p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
+                p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
             {
                 int member_index = 0;
                 struct declarator* const p_argument_declarator =
