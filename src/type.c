@@ -1574,9 +1574,8 @@ struct type type_dup(const struct type* p_type)
 
         if (p->category == TYPE_CATEGORY_FUNCTION)
         {
-            p_new->params = (struct param_list){0};
-            p_new->params.is_var_args = p->params.is_var_args;
-            p_new->params.is_void = p->params.is_void;
+            p_new->params.head = NULL;
+            p_new->params.tail = NULL;
 
             struct param* p_param = p->params.head;
             while (p_param)
