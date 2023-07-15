@@ -227,10 +227,10 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
 
     if (after == NULL)
     {
-        append_list->tail->next = token_list->head;
+        append_list->tail->next = move token_list->head;
         token_list->head->prev = append_list->tail;
 
-        token_list->head = append_list->head;
+        token_list->head = move append_list->head;
         append_list->head->prev = NULL;
     }
     else
@@ -381,12 +381,12 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     struct token_list r = {0};
 
     struct token* before_first = first->prev;
-    struct token* after_last = last->next;
+    struct token* owner after_last = move last->next;
 
-    before_first->next = after_last;
+    before_first->next = move after_last;
     after_last->prev = before_first;
 
-    r.head = first;
+    r.head = move (struct token* owner)first;
     first->prev = NULL;
     r.tail = last;
     last->next = NULL;

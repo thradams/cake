@@ -4042,12 +4042,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     char datastr[100] = { 0 };
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
     struct token_list l1 = tokenizer(&tctx, datastr, "__DATE__ macro inclusion", 0, TK_FLAG_NONE);
-    preprocessor(ctx, &l1, 0);
+    struct token_list tl1 = preprocessor(ctx, &l1, 0);
+    token_list_destroy(&tl1);
 
     char timestr[100] = { 0 };
     snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
     struct token_list l2 = tokenizer(&tctx, timestr, "__TIME__ macro inclusion", 0, TK_FLAG_NONE);
-    preprocessor(ctx, &l2, 0);
+    struct token_list tl2 = preprocessor(ctx, &l2, 0);
+     token_list_destroy(&tl2);
 
 
     /*
