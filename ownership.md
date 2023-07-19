@@ -306,117 +306,7 @@ Here, the difference from initialization is that we cannot pass owner object ret
 ```
 
 
-## Samples
-
-Pointers
-
-```c
-struct person {
-  char * _Owner name;
-};  
-
-void person_delete(_Implicit struct person * _Owner p) 
-{
-  if (p) {
-    free(p->name);
-    free(p);
-  }
-}
-
-int main()
-{
-   struct person * _Owner p = malloc(sizeof * p);   
-   person_delete(p);
-}
-```
-
-Swap
-
-```c
-struct person {
-  char * _Owner name;
-};  
-
-void person_swap(_View struct person * a,  
-                 _View struct person * b) 
-{
-   _View struct person temp = *a;
-   *a = *b;
-   *b = temp;
-}
-
-void person_destroy(struct person * _Obj_owner p) 
-{
-  free(p->name);
-}
-
-int main()
-{
-   struct person p1 = {};
-   struct person p2 = {};
-   
-   person_swap(&p1, &p2);
-   person_destroy(&p1);
-   person_destroy(&p2);
-}
-```
-
-Linked list:
-
-```c
-void * _Owner calloc(int n, int sz);
-void free(_Implicit void * _Owner);
-#define NULL ((void*) 0)
-
-struct book {
-     char* _Owner title;
-     struct book* _Owner next;
-};
-
-void book_destroy(_Implicit struct book* _Obj_owner book) {
-     free(book->title);
-}
- 
-
-struct books {
-    struct book* _Owner head, *tail;
-};
-
-
-void books_push_back(struct books* books, struct book* _Owner new_book)
-{
-   if (books->tail == NULL) {
-      books->head = _Move new_book;
-   }
-   else {
-      books->tail->next = _Move new_book;
-   }
-   books->tail = new_book;
-}
-
-void books_destroy(_Implicit struct books* _Obj_owner books)
-{
-    struct book* _Owner it = books->head;
-    while (it != NULL) {
-        struct book* _Owner next = _Move it->next;
-        book_destroy(it);
-        free(it);
-        it = _Move next;
-    }
-}
-
-int main(int argc, char* argv[])
-{
-    struct books list = { 0 };
-    struct book* _Owner b1 = calloc(1, sizeof(struct book));
-    if (b1)
-    {
-        books_push_back(&list, _Move b1);
-    }
-    books_destroy(&list);
-}
-
-```
+### Type system samples
 
 
 ## Flow analysis
@@ -573,6 +463,124 @@ void * _Owner f1(){
 
 ```
 
+### Sample 7
+
+This sample shows how _View can be used to implement swap.
+
+```c
+/*    
+  See also: http://thradams.com/cake/ownership.html
+*/
+
+void free(_Implicit void * _Owner p);
+
+struct person {
+  char * _Owner name;
+};  
+
+void person_swap(_View struct person * a,  
+                 _View struct person * b) 
+{
+   _View struct person temp = *a;
+   *a = *b;
+   *b = temp;
+}
+
+void person_destroy(_Implicit struct person * _Obj_owner p) {
+  free(p->name);
+}
+
+int main()
+{
+   struct person p1 = {};
+   struct person p2 = {};
+   
+   person_swap(&p1, &p2);
+   person_destroy(&p1);
+   person_destroy(&p2);
+}
+```
+
+### Sample 8
+
+
+```c
+void * _Owner calloc(int n, int sz);
+void free(_Implicit void * _Owner);
+#define NULL ((void*) 0)
+
+struct book {
+     char* _Owner title;
+     struct book* _Owner next;
+};
+
+void book_destroy(_Implicit struct book* _Obj_owner book) {
+     free(book->title);
+}
+ 
+
+struct books {
+    struct book* _Owner head, *tail;
+};
+
+
+void books_push_back(struct books* books, struct book* _Owner new_book)
+{
+   if (books->tail == NULL) {
+      books->head = _Move new_book;
+   }
+   else {
+      books->tail->next = _Move new_book;
+   }
+   books->tail = new_book;
+}
+
+void books_destroy(_Implicit struct books* _Obj_owner books)
+{
+    struct book* _Owner it = books->head;
+    while (it != NULL) {
+        struct book* _Owner next = _Move it->next;
+        book_destroy(it);
+        free(it);
+        it = _Move next;
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    struct books list = { 0 };
+    struct book* _Owner b1 = calloc(1, sizeof(struct book));
+    if (b1)
+    {
+        books_push_back(&list, _Move b1);
+    }
+    books_destroy(&list);
+}
+
+```
+
+### Sample 9
+
+Uncomment /\*_Owner\*/ in this sample and you will see chain reaction that requires changes to make sure this program is not leaking memory.
+
+```c
+/*  
+  See also: http://thradams.com/cake/ownership.html
+*/
+
+char * /*_Owner*/ strdup(const char *s);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char * text;
+};
+
+int main() {
+   struct X x = {};
+   x.text = strdup("a");
+}
+
+```
 ## Grammar
 
 ```c

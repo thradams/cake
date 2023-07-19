@@ -1355,31 +1355,64 @@ void * _Owner f1(){
 `;
 
 
-sample["Extension - _has_att, destroy and free iteraction"] =
+
+sample["Extension - ownership VII"] =
 `
+/*  
+  This sample shows how _View can be used to implement swap.
+  See also: http://thradams.com/cake/ownership.html
+*/
 
-void* _owner malloc(int){};
-void free([[cake::implicit]] void* _owner) {}
+void free(_Implicit void * _Owner p);
 
+struct person {
+  char * _Owner name;
+};  
+
+void person_swap(_View struct person * a,  
+                 _View struct person * b) 
+{
+   _View struct person temp = *a;
+   *a = *b;
+   *b = temp;
+}
+
+void person_destroy(_Implicit struct person * _Obj_owner p) {
+  free(p->name);
+}
 
 int main()
 {
-    int * _owner p = malloc(10);
-    static_assert(_has_attr(p, "must free"));
+   struct person p1 = {};
+   struct person p2 = {};
+   
+   person_swap(&p1, &p2);
+   person_destroy(&p1);
+   person_destroy(&p2);
+}
+`;
 
-    int * p2;
+sample["Extension - ownership VIII"] =
+`
 
-    static_assert(_has_attr(p2, "uninitialized"));
+/*  
+  See also: http://thradams.com/cake/ownership.html
+*/
 
-    p2 = p;
-    static_assert(!_has_attr(p, "must free"));
-    static_assert(_has_attr(p, "uninitialized"));
-    static_assert(_has_attr(p2, "must free"));
+char * _Owner strdup(const char *s);
+void free(_Implicit void * _Owner p);
 
-    //free(p2);
-    static_assert(_has_attr(p2, "uninitialized"));
+struct X {
+  char * text;
+};
+
+
+int main() {
+   struct X x = {};
+   x.text = strdup("a");
 }
 
 
 `;
+
 
