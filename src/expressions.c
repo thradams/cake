@@ -709,7 +709,7 @@ struct generic_selection* owner generic_selection(struct parser_ctx* ctx)
 }
 
 
-int char_constant_to_int(const char* text, bool * overflow)
+int char_constant_to_int(const char* text, bool* overflow)
 {
     int count = 0;
     const char* p = text + 1;
@@ -800,36 +800,50 @@ static bool is_integer_or_floating_constant(enum token_type type)
         type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
-struct declarator* expression_get_declarator(struct expression* p_expression, int* p_member_index)
-{
-    struct declarator* p_declarator = NULL;
+struct object* expression_get_object(struct expression* p_expression, struct type* p_type)
+{    
     if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
     {
-        *p_member_index = 0;
-        p_declarator = p_expression->declarator;
+        *p_type = type_dup(&p_expression->declarator->type);
+        return &p_expression->declarator->object;
     }
     else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
     {
         if (p_expression->right->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
         {
-            *p_member_index = 0;
-            p_declarator = p_expression->right->declarator;
+            *p_type = type_dup(&p_expression->right->declarator->type);
+            return &p_expression->right->declarator->object;
         }
     }
     else if (p_expression->expression_type == CAST_EXPRESSION)
     {
         if (p_expression->left && p_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
         {
-            *p_member_index = 0;
-            p_declarator = p_expression->left->declarator;
+            *p_type = type_dup(&p_expression->left->declarator->type);
+            return &p_expression->left->declarator->object;
         }
     }
     else if (p_expression->expression_type == POSTFIX_DOT)
     {
-        *p_member_index = p_expression->member_index;
-        p_declarator = p_expression->left->declarator;
+        if (p_expression->left->declarator)
+        {
+            *p_type = type_dup(&p_expression->type);
+            return &p_expression->left->declarator->object.members[p_expression->member_index];
+        }
     }
-    return p_declarator;
+    else if (p_expression->expression_type == POSTFIX_ARROW)
+    {
+        if (p_expression->left->declarator)
+        {
+            if (p_expression->left->declarator->object.pointed && 
+                p_expression->left->declarator->object.pointed->members)
+            {
+                *p_type = type_dup(&p_expression->type);
+                return &p_expression->left->declarator->object.pointed->members[p_expression->member_index];
+            }
+        }
+    }
+    return NULL;
 }
 
 
@@ -1298,8 +1312,10 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 }
                 else
                 {
-                    int mindex = 0;
-                    p_expression_node_new->declarator = expression_get_declarator(p_expression_node, &mindex);
+                    p_expression_node_new->declarator = p_expression_node_new->left->declarator;
+                    //assert(false);
+                    //int mindex = 0;
+                    //p_expression_node_new->declarator = expression_get_declarator(p_expression_node, &mindex);
                 }
 
                 //struct declarator* declarator;
@@ -1486,7 +1502,7 @@ struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, st
 
     try
     {
-        p_expression_node =  move calloc(1, sizeof * p_expression_node);
+        p_expression_node = move calloc(1, sizeof * p_expression_node);
         if (p_expression_node == NULL) throw;
 
         assert(p_expression_node->type_name == NULL);
@@ -1553,7 +1569,7 @@ struct expression* owner postfix_expression(struct parser_ctx* ctx)
         if (first_of_type_name_ahead(ctx)) //aqui preciso ver se nao eh primary
         {
             assert(false); //este caso esta pegando lá dentro deo cast expression.
-            p_expression_node =  move calloc(1, sizeof * p_expression_node);
+            p_expression_node = move calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->first_token = ctx->current;
@@ -1639,23 +1655,6 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_SIZEOF ||
         ctx->current->type == TK_KEYWORD__ALIGNOF ||
         is_first_of_compiler_function(ctx);
-}
-
-enum declarator_flags string_to_static_analisys_flags(const char* s)
-{
-    if (strcmp(s, "\"must free\"") == 0)
-    {
-        return DECLARATOR_MUST_FREE;
-    }
-    else if (strcmp(s, "\"must destroy\"") == 0)
-    {
-        return DECLARATOR_MUST_DESTROY;
-    }
-    else if (strcmp(s, "\"uninitialized\"") == 0)
-    {
-        return DECLARATOR_UNINITIALIZED;
-    }
-    return 0;
 }
 
 
@@ -1973,7 +1972,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL) throw;
 
 
-            new_expression->declarator = expression_get_declarator(new_expression->right, &new_expression->member_index);
+            //new_expression->declarator = expression_get_declarator(new_expression->right, &new_expression->member_index);
 
             new_expression->type = move make_void_type();
             p_expression_node = move new_expression;
@@ -2028,7 +2027,7 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
     {
         if (first_of_type_name_ahead(ctx))
         {
-            p_expression_node =  move calloc(1, sizeof * p_expression_node);
+            p_expression_node = move calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->first_token = ctx->current;

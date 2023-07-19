@@ -79,17 +79,37 @@
 </li>
 <li>
 <a href="#toc_19">Flow analysis</a>
+<ul>
+<li>
+<a href="#toc_20">Sample 1</a>
 </li>
 <li>
-<a href="#toc_20">Grammar</a>
+<a href="#toc_21">Sample 2</a>
 </li>
 <li>
-<a href="#toc_21">Checking your source code</a>
+<a href="#toc_22">Sample 3</a>
+</li>
+<li>
+<a href="#toc_23">Sample 4</a>
+</li>
+<li>
+<a href="#toc_24">Sample 5</a>
+</li>
+<li>
+<a href="#toc_25">Sample 6</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_26">Grammar</a>
+</li>
+<li>
+<a href="#toc_27">Checking your source code</a>
 </li>
 </ul>
 </li>
 </ul>
-<p>Under devolvement.</p>
+<p>** Under development.**</p>
 
 <h1 id="toc_0">Ownership checks for C</h1>
 
@@ -117,9 +137,17 @@ It consists of two separate implementations. </p>
 
 <p>The <strong>_Owner</strong> qualifier, when used with a pointer, indicates that the pointer assumes ownership of both the pointed object and its associated memory.</p>
 
+<p>When converting a owner pointer to void*, only the ownership of the memory is moved.</p>
+
+<pre><code class="language-c">void * _Owner f1(){
+  struct X * _Owner p = malloc(sizeof (struct X));
+  return p; //error 
+}
+</code></pre>
+
 <p>Conversely, the <strong>_Obj_owner</strong> qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies.</p>
 
-<p>For aggregate types, if at least one member has the <strong>_Owner</strong> qualifier, the entire aggregate is considered to be an owner qualified type.</p>
+<p>For struct and unions, if at least one member has the <strong>_Owner</strong> qualifier, the entire type is considered to be an owner qualified type.</p>
 
 <p>Sample:</p>
 
@@ -128,12 +156,12 @@ It consists of two separate implementations. </p>
 };
 
 int main(){
-  struct person p1;
+  struct person p1 = {};
   // same as _Owner struct person p1;
 }
 </code></pre>
 
-<p>Applying the <strong>_View</strong> qualifier to an aggregate type designates the entire aggregate as a view, regardless of whether it includes members owner qualified.</p>
+<p>Applying the <strong>_View</strong> qualifier to an struct or union type designates the type as a view, regardless of whether it includes members owner qualified.</p>
 
 <pre><code class="language-c">struct person {
   char * _Owner name;
@@ -146,28 +174,31 @@ int main(){
 }
 </code></pre>
 
-<p>For arrays, if the element of the array is owner qualified the entire array is treated as an owner qualified type.</p>
+<p>Similarly of what happens with structs and unions, if the element of the array is owner qualified the entire array is treated as an owner qualified type.</p>
+
+<p>Sample:</p>
+
+<pre><code class="language-c">int main()
+{
+  struct person a[10] = {};  
+  //a is the owner of 10 struct person
+}
+</code></pre>
 
 <p>When array types are used in parameters the array is not considered owner qualified type. </p>
 
-<pre><code class="language-c">void print_array(int n, _Owner int a[n]);
+<pre><code class="language-c">void print_array(int n, struct person a[10]);
 
 int main()
 {
-  _Owner int a[10];
+  struct person a[10] = {};
   print_array(10, a);
 }
 </code></pre>
 
 <p>To qualify array parameters as owner we do:</p>
 
-<pre><code class="language-c">void destroy_array(int n, _Owner int a[_Owner n]);
-
-int main()
-{
-  _Owner int a[10];
-  destroy_array(10, _Move a);
-}
+<pre><code class="language-c">void destroy_array(int n, struct person a[_Owner 10]);
 </code></pre>
 
 <h2 id="toc_2">Initialization</h2>
@@ -330,7 +361,7 @@ T F() {
 <pre><code class="language-c">void x_destroy(_Implicit struct X * _Obj_owner);
 </code></pre>
 
-<p>This can change in the future to use attributes;</p>
+<p>(This can be changed to a attribute in the next version)</p>
 
 <h3 id="toc_16">void F(Owner); F(Non-Owner);</h3>
 
@@ -462,14 +493,14 @@ int main(int argc, char* argv[])
 <h2 id="toc_19">Flow analysis</h2>
 
 <p>When owner objects goes out of scope, the flow analysis
-must check if the object has been moved.</p>
+must check if the object has been moved. </p>
 
 <pre><code>{
   _Owner int a;
 } //warning variable a not moved/destroyed
 </code></pre>
 
-<p>At the final destination, the object will not be moved, then we annotate the function as [[no<em>ownership</em>checks]].</p>
+<p>At the final destination, the object will not be moved anymore, then we annotate the function definition as [[no_ownership_checks]].</p>
 
 <pre><code class="language-c">[[no_ownership_checks]] free(void * _Owner p)
 {
@@ -477,16 +508,152 @@ must check if the object has been moved.</p>
 }
 </code></pre>
 
-<h2 id="toc_20">Grammar</h2>
+<h3 id="toc_20">Sample 1</h3>
+
+<p>Simple sample with malloc and free.  </p>
+
+<pre><code class="language-c">void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+int main() {
+   void * _Owner p = malloc(1);
+   //free(p);
+} //compiler will complain c not moved
+</code></pre>
+
+<h3 id="toc_21">Sample 2</h3>
+
+<p>This sample shows move and returns at f and initialization at main.</p>
+
+<pre><code class="language-c">void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  int i;
+};
+
+ struct X * _Owner f() {
+    struct X * _Owner p = malloc(1);
+    struct X * _Owner p2 = _Move p;
+    return p2; /*p2 is moved*/
+}
+
+int main() {
+   struct X * _Owner p = f();
+   //free(p);     
+}
+</code></pre>
+
+<h3 id="toc_22">Sample 3</h3>
+
+<p>This sample shows that we need to move the struct x at main and also shows that we must implement x_destroy correctly.</p>
+
+<pre><code class="language-c">char * _Owner strdup(const char *s);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char *_Owner name;
+};
+
+void x_destroy(_Implicit struct X * _Obj_owner p) {
+  //free(p-&gt;name);
+}
+
+int main() {
+   struct X x = {0};
+   x.name = _Move strdup(&quot;a&quot;);
+   //x_destroy(&amp;x);
+}
+</code></pre>
+
+<h3 id="toc_23">Sample 4</h3>
+
+<p>This sample shows that adding a new member name at struct requires we also free at main.</p>
+
+<pre><code class="language-c">void free(_Implicit void* _Owner ptr);
+void* _Owner malloc(int size);
+
+struct X
+{
+    int i;
+    //char * _Owner name;
+};
+
+int main() 
+{
+    struct X * _Owner p = malloc(sizeof (struct X));
+    free(p);
+}
+
+</code></pre>
+
+<h3 id="toc_24">Sample 5</h3>
+
+<p>This sample show the implementation of delete.</p>
+
+<pre><code class="language-c">void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char * _Owner text;
+};
+
+void x_delete(_Implicit struct X * _Owner p) {
+    free(p-&gt;text);
+    free(p);    
+}
+
+int main() {
+   struct X * _Owner p = malloc(sizeof(struct X));
+   p-&gt;text = _Move malloc(10);
+   x_delete(p);
+}
+</code></pre>
+
+<h3 id="toc_25">Sample 6</h3>
+
+<p>This sample show some details when we cast a owner pointer to void*.</p>
+
+<pre><code class="language-c">void free(_Implicit void* _Owner ptr);
+void* _Owner malloc(int size);
+
+struct X
+{    
+    char * _Owner name;
+};
+
+/*
+  To remove this error return 
+    struct X * _Owner 
+  instead   of 
+    void * _Owner.
+*/
+void * _Owner f1(){
+  struct X * _Owner p = malloc(sizeof (struct X));
+  return p;
+}
+
+</code></pre>
+
+<h2 id="toc_26">Grammar</h2>
 
 <pre><code class="language-c">New keywords:
-  _Move _Owner _View _Obj_owner 
+  _Move   
+  _Owner   
+  _View   
+  _Obj_owner   
+  _Implicit /*may become attribute*/
 
  type-qualifier:
    ...
    _Owner
    _View
    _Obj_owner   
+
+parameter-declaration:
+  attribute-specifier-sequence opt _Implicit opt                declaration-specifiers declarator  
+
+  attribute-specifier-sequence opt _Implicit opt declaration-specifiers abstract-declarator opt
 
  argument-expression-list:
    move_opt assignment-expression
@@ -508,7 +675,7 @@ must check if the object has been moved.</p>
 
 </code></pre>
 
-<h2 id="toc_21">Checking your source code</h2>
+<h2 id="toc_27">Checking your source code</h2>
 
 <p>I suggest the creation of a header file &quot;ownership.h&quot;</p>
 

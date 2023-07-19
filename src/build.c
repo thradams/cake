@@ -267,7 +267,7 @@ int main()
 #ifdef BUILD_WINDOWS_MSC
 
     //-flow-analysis 
-    if (system("cake.exe -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    if (system("cake.exe  -flow-analysis -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 

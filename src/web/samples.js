@@ -1211,6 +1211,9 @@ static_assert( _is_function(main) && (typeof(main())) == (int) );
 
 sample["Extension - ownership I"] =
 `
+/*  
+  See also: http://thradams.com/cake/ownership.html
+*/
 void * _Owner malloc(int i);
 void free(_Implicit void * _Owner p);
 
@@ -1222,9 +1225,12 @@ int main() {
 
 sample["Extension - ownership II"] =
 `
+/* 
+  See also: http://thradams.com/cake/ownership.html
+*/
 
-void * _Owner malloc(int i){}
-void free(_Implicit void * _Owner p) {}
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
 
 struct X {
   int i;
@@ -1242,31 +1248,48 @@ int main() {
 }
 
 
+
 `;
 
 sample["Extension - ownership III"] =
 `
-struct _Owner X {
-  int i;
+
+/*  
+  See also: http://thradams.com/cake/ownership.html
+*/
+char * _Owner strdup(const char *s);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char *_Owner name;
 };
 
-void x_destroy(_Implicit struct X * _Obj_owner p) { }
+void x_destroy(_Implicit struct X * _Obj_owner p) 
+{
+  //free(p->name);
+}
 
 int main() {
-   struct X x = {};
-   x_destroy(&x);
+   struct X x = {0};
+   x.name = _Move strdup("a");
+   //x_destroy(&x);
 }
 
 `;
 
 sample["Extension - ownership IV"] =
 `
-void free(_Implicit void* _Owner ptr);
-[[nodiscard]] void* _Owner malloc(int size);
+/*  
+  See also: http://thradams.com/cake/ownership.html
+*/
 
-struct _Owner X
+void free(_Implicit void* _Owner ptr);
+void* _Owner malloc(int size);
+
+struct X
 {
     int i;
+    //char * _Owner name;
 };
 
 int main() 
@@ -1275,7 +1298,62 @@ int main()
     free(p);
 }
 
+
 `;
+sample["Extension - ownership V"] =
+`
+/*  
+  See also: http://thradams.com/cake/ownership.html
+*/
+
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char * _Owner text;
+};
+
+void x_delete(_Implicit struct X * _Owner p)
+{
+    free(p->text);
+    free(p);    
+}
+
+
+int main() {
+   struct X * _Owner p = malloc(sizeof(struct X));
+   p->text = _Move malloc(10);
+   x_delete(p);
+}
+
+`;
+
+sample["Extension - ownership VI"] =
+`
+/*  
+  See also: http://thradams.com/cake/ownership.html
+*/
+
+void free(_Implicit void* _Owner ptr);
+void* _Owner malloc(int size);
+
+struct X
+{    
+    char * _Owner name;
+};
+
+/*
+  To remove this error return 
+    struct X * _Owner 
+  instead   of 
+    void * _Owner.
+*/
+void * _Owner f1(){
+  struct X * _Owner p = malloc(sizeof (struct X));
+  return p;
+}
+`;
+
 
 sample["Extension - _has_att, destroy and free iteraction"] =
 `

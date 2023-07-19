@@ -1617,8 +1617,8 @@ int type_get_struct_num_members(struct struct_or_union_specifier* complete_struc
         {
             struct member_declarator* md = d->member_declarator_list_opt->head;
             while (md)
-            {
-                count += type_get_num_members(&md->declarator->type);
+            {                
+                count += 1;                
                 md = md->next;
             }
         }
@@ -1856,11 +1856,11 @@ int type_get_num_members(const struct type* p_type)
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        return 1;
+        return 0;
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
-        return 1;
+        return 0;
     }
     else if (category == TYPE_CATEGORY_ITSELF)
     {
@@ -1876,12 +1876,12 @@ int type_get_num_members(const struct type* p_type)
             }
             else
             {
-                return 1;
+                return 0;
             }
         }
         else
         {
-            return 1;
+            return 0;
         }
     }
     else if (category == TYPE_CATEGORY_ARRAY)

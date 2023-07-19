@@ -79,6 +79,9 @@ int fill_options(struct options* options,
     options->enabled_warnings_stack[0] = ~0;
     options->enabled_warnings_stack[0] &= ~W_STYLE; //default is OFF
 
+#ifdef __EMSCRIPTEN__
+    options->flow_analysis = true;
+#endif
 
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)

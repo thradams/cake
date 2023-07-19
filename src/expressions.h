@@ -212,4 +212,4 @@ struct expression* owner expression(struct parser_ctx* ctx);
 struct expression* owner constant_expression(struct parser_ctx* ctx);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
-struct declarator* expression_get_declarator(struct expression*, int * p_member_index);
+struct object* expression_get_object(struct expression* p_expression, struct type* p_type);

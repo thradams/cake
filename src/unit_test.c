@@ -133,6 +133,12 @@ void move_not_necessary_on_return(void);
 void explicit_move_not_required(void);
 void error_using_temporary_owner(void);
 void passing_view_to_owner(void);
+void obj_owner_cannot_be_used_in_non_pointer(void);
+void null_ptr_at_end_of_scope(void);
+void pointer_must_be_deleted(void);
+void basic_pointer_check(void);
+void struct_member_missing_free(void);
+void struct_member_free(void);
 
 /*end of forward declarations*/
 
@@ -259,6 +265,12 @@ g_unit_test_success_count = 0;
     explicit_move_not_required();
     error_using_temporary_owner();
     passing_view_to_owner();
+    obj_owner_cannot_be_used_in_non_pointer();
+    null_ptr_at_end_of_scope();
+    pointer_must_be_deleted();
+    basic_pointer_check();
+    struct_member_missing_free();
+    struct_member_free();
 return g_unit_test_error_count;
 
 }

@@ -239,8 +239,7 @@
 </ul>
 <h2 id="toc_0">Command line</h2>
 
-<pre><code>
-cake [options] source1.c source2.c ...
+<pre><code>cake [options] source1.c source2.c ...
 
 SAMPLES
 
@@ -310,7 +309,7 @@ of the input files.</p>
 
 <p>More files..</p>
 
-<pre><code class="language-c">cake c:\project\file1.c c:\project\other\file2.c
+<pre><code>cake c:\project\file1.c c:\project\other\file2.c
 </code></pre>
 
 <p>output</p>
@@ -342,8 +341,7 @@ When the same warning exists in gcc cakes uses the same name if possible.</p>
 
 <p>C89 is the minimum target.</p>
 
-<p>However the ideia if C89 target is NOT suport very old compilers,
-but generate code that can be compiled with C++.</p>
+<p>However the idea if C89 target is NOT support very old compilers, but generate code that can be compiled with C++.</p>
 
 <p>C89 
 <a href="https://port70.net/%7Ensz/c/c89/c89-draft.html">https://port70.net/~nsz/c/c89/c89-draft.html</a></p>
@@ -364,8 +362,7 @@ but generate code that can be compiled with C++.</p>
 <pre><code class="language-c">void f(const char* /*restrict*/ s);
 </code></pre>
 
-<p>The intended use of the restrict qualifier  is to promote optimization,
-removing it will not change the observable behavior.</p>
+<p>The intended use of the restrict qualifier  is to promote optimization, removing it will not change the observable behavior.</p>
 
 <p>C++ does not have standard support for restrict</p>
 
@@ -373,8 +370,7 @@ removing it will not change the observable behavior.</p>
 
 <h3 id="toc_5">C99 Variable-length array (VLA)</h3>
 
-<p>The idea is not implement variable length arrays with automatic 
-storage duration. (__STDC_NO_VLA__ 1). </p>
+<p>The idea is not implement variable length arrays with automatic storage duration. (__STDC_NO_VLA__ 1). </p>
 
 <p>But there are other uses of VLA.</p>
 
@@ -437,12 +433,11 @@ int main() {
 
 <pre><code class="language-c">#include &lt;stdlib.h&gt;
 
-void F(int a[static 5]) 
-{
+void F(int a[static 5]) {
 }
 
-int main() {
-    
+int main() 
+{    
     F(0);
     F(NULL);
     F(nullptr);
@@ -457,13 +452,13 @@ int main() {
     F(c);
 }
 
-
 </code></pre>
 
-<p>&#39;static&#39; is removed when target is &lt; c99.</p>
+<p><code>static</code> is removed when target is &lt; c99.</p>
 
-<p>Cakes verifies that the argument is an array of with equal or more elements.
-Cakes extend this check for arrays without static as well.</p>
+<p>Cakes verifies that the argument is an array of with equal or more elements.</p>
+
+<p>Cakes extend this check for arrays without static as well.</p>
 
 <h3 id="toc_8">C99 Complex and imaginary support</h3>
 
@@ -486,13 +481,12 @@ Cakes extend this check for arrays without static as well.</p>
 <blockquote>
 <p>Cake converts the hexadecimal floating to decimal
 floating point using strtod then snprintf.
-That means this convertion is not precise.</p>
+That means this conversion is not precise.</p>
 </blockquote>
 
 <h3 id="toc_11">C99 Compound literals</h3>
 
-<pre><code class="language-c">
-struct s {
+<pre><code class="language-c">struct s {
   int i;
 };
 
@@ -544,11 +538,8 @@ int f(void) {
 {
   int a[6] = { 0, 0, 15, 0, 29, 0 };
   struct point { int x, y; };
-
   struct point p = { 3, 2 }
-
 }
-
 </code></pre>
 
 <p>N494
@@ -560,9 +551,8 @@ int f(void) {
 
 <h3 id="toc_14">C99 inline functions</h3>
 
-<p>TODO</p>
-
-<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm</a></p>
+<p>TODO
+<a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm</a></p>
 
 <h3 id="toc_15">C99 _Pragma preprocessing operator</h3>
 
@@ -574,9 +564,8 @@ int f(void) {
 
 <h3 id="toc_17">C99 Variadic macros</h3>
 
-<p>Yes. We need to expand the macro when comping to C89.</p>
-
-<p>This is covered by # macro expand.</p>
+<p>Yes. We need to expand the macro when comping to C89.
+This is covered by # macro expand.</p>
 
 <p>Sample:</p>
 
@@ -638,8 +627,7 @@ int main(void)
 </code></pre>
 
 <p>Alternative design - typedef ?
-Considering C23 has bool and the objective of C89 version is to have
-a version that compiles in C++ the best option would be use bool, true, false.</p>
+Considering C23 has bool and the objective of C89 version is to have a version that compiles in C++ the best option would be use bool, true, false.</p>
 
 <h2 id="toc_19">C11 Transformations</h2>
 
@@ -652,7 +640,7 @@ a version that compiles in C++ the best option would be use bool, true, false.</
 
 <h3 id="toc_20">C11 _Static_assert</h3>
 
-<p>When compiling to versions C89, C99 _Static_Assert is removed</p>
+<p>When compiling to versions C89, C99 _Static_Assert is removed.</p>
 
 <p>Alternative design - macro ?</p>
 
@@ -692,23 +680,20 @@ C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function sp
 
 <p>The expression that matches the argument 1.0 is <strong>cbrtl</strong>.</p>
 
-<p>The result of _Generic in C99 will be cbrtl. Because this is inside
-a macro we need to tell the transpiler to expand that macro using 
-pragma expand.</p>
+<p>The result of _Generic in C99 will be cbrtl. Because this is inside a macro we need to tell the transpiler to expand that macro using pragma expand.</p>
 
 <p>N1441
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm</a></p>
 
 <pre><code class="language-c">#include &lt;math.h&gt;
 
-#define cbrt(X) _Generic((X), \
+#define cbrt(X) _Generic((X),    \
                   double: cbrtl, \
-                  float: cbrtf ,\
-                  default: cbrtl  \
+                  float: cbrtf , \
+                  default: cbrtl \
               )(X)
 
 #pragma expand cbrt
-
 
 int main(void)
 {
@@ -722,14 +707,13 @@ int main(void)
 <pre><code class="language-c">
 #include &lt;math.h&gt;
 
-#define cbrt(X) _Generic((X), \
+#define cbrt(X) _Generic((X),    \
                   double: cbrtl, \
-                  float: cbrtf ,\
-                  default: cbrtl  \
+                  float: cbrtf , \
+                  default: cbrtl \
               )(X)
 
 #pragma expand cbrt
-
 
 int main(void)
 {
@@ -740,11 +724,10 @@ int main(void)
 
 <h3 id="toc_25">C11 u8&quot;literals&quot;</h3>
 
-<p>u8 literals are converted to escape sequecences.</p>
+<p>u8 literals are converted to escape sequences.</p>
 
 <pre><code class="language-c">char * s1 = u8&quot;maçã&quot;;
 char * s2 = u8&quot;maca&quot;;
-
 </code></pre>
 
 <p>Becomes in C99, C89</p>
@@ -794,8 +777,7 @@ char * s2 = &quot;maca&quot;;
 
 <p>In C23 static_assert is a keyword and the text message is optional.</p>
 
-<p>Whe comping to C11, static_assert is replaced by _Static_assert
-If the static_assert has only one argument the text becomes &quot;error&quot;.</p>
+<p>Whe comping to C11, static_assert is replaced by it C11 version _Static_assert. If the static_assert has only one argument the text becomes &quot;error&quot;.</p>
 
 <p>N1330
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf</a></p>
@@ -854,12 +836,11 @@ To transform this to previous version we could generate a typedef.</p>
 
 int f(int ) {
 }
-
 </code></pre>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf</a></p>
 
-<p>We need to add a dummy variable name here to convert to &lt; C23</p>
+<p>TODO: But we need to add a dummy variable when compiling to versions C &lt; 23.</p>
 
 <h3 id="toc_35">C23 Digit separators</h3>
 
@@ -1178,7 +1159,7 @@ int main() {
 
 <h3 id="toc_45">C23 Attributes</h3>
 
-<p>Convertion to C11, C99, C89 will just remove the attributes.</p>
+<p>Conversion to C11, C99, C89 will just remove the attributes.</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf</a>
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf</a></p>
@@ -1220,7 +1201,7 @@ int main() {
 
 <p>It is implemented in C23.</p>
 
-<p>Convertion to C11, C99 C89 not defined yet.</p>
+<p>Conversion to C11, C99 C89 not defined yet.</p>
 
 <h3 id="toc_52">C23 __has_include</h3>
 
@@ -1246,7 +1227,7 @@ int main() {
 
 <p>When compiling to versions &lt; 23 it is commented out.</p>
 
-<p>The compiler also ouputs the message on stderr.</p>
+<p>The compiler also outputs the message on stderr.</p>
 
 <pre><code class="language-c">int main()
 {
@@ -1485,7 +1466,7 @@ catch
 
 <h3 id="toc_62">Extension - defer</h3>
 
-<p><em>defer</em> will call the defer statement before the block exit at inverse orden of declaration.</p>
+<p><em>defer</em> will call the defer statement before the block exit at inverse order of declaration.</p>
 
 <pre><code>     defer-statement:
         defer secondary-block
@@ -1624,7 +1605,7 @@ or a goto passes control to a statement outside the loop.</p>
   }
 </code></pre>
 
-<p>Repeat is the same of <code>for(;;)</code>. In cake&#39;s source for instance I have 5 ocorrences of <code>for(;;)</code>.</p>
+<p>Repeat is the same of <code>for(;;)</code>. In cake&#39;s source for instance I have 5 occurrences of <code>for(;;)</code>.</p>
 
 <h3 id="toc_66">Extension #pragma expand</h3>
 

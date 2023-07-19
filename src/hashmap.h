@@ -20,7 +20,7 @@ struct map_entry {
     struct map_entry* owner next;
     unsigned int hash;
     char* owner key;
-    void* view p;
+    void* p;
     enum tag type; /*type of the object pointed by p*/
 };
 
@@ -33,5 +33,27 @@ struct hash_map {
 void hashmap_remove_all(struct hash_map* map);
 void hashmap_destroy(struct hash_map* map);
 struct map_entry* hashmap_find(struct hash_map* map, const char* key);
-void*  owner hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt);
-int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag type);
+void* hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt);
+int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type);
+
+
+struct owner_map_entry {
+    struct owner_map_entry* owner next;
+    unsigned int hash;
+    char* owner key;
+    void* owner p;
+    enum tag type; /*type of the object pointed by p*/
+};
+
+struct owner_hash_map {
+    struct owner_map_entry *owner * owner table;
+    int capacity;
+    int  size;
+};
+
+void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void*));
+void owner_hashmap_destroy(struct owner_hash_map* map, void (*pf)(void*));
+struct owner_map_entry* owner_hashmap_find(struct owner_hash_map* map, const char* key);
+void*  owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, enum tag* p_type_opt);
+int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p, enum tag type);
+

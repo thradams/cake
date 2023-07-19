@@ -1,6 +1,6 @@
 
 
-Under devolvement.
+** Under development.**
 
 # Ownership checks for C
 
@@ -29,9 +29,18 @@ The **_View** qualifier is the default for any variable, indicating that the var
 
 The **_Owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of both the pointed object and its associated memory.
 
+When converting a owner pointer to void*, only the ownership of the memory is moved.
+
+```c
+void * _Owner f1(){
+  struct X * _Owner p = malloc(sizeof (struct X));
+  return p; //error 
+}
+```
+
 Conversely, the **_Obj\_owner** qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies.
 
-For aggregate types, if at least one member has the **_Owner** qualifier, the entire aggregate is considered to be an owner qualified type.
+For struct and unions, if at least one member has the **_Owner** qualifier, the entire type is considered to be an owner qualified type.
 
 Sample:
 
@@ -41,12 +50,12 @@ struct person {
 };
 
 int main(){
-  struct person p1;
+  struct person p1 = {};
   // same as _Owner struct person p1;
 }
 ```
 
-Applying the **_View** qualifier to an aggregate type designates the entire aggregate as a view, regardless of whether it includes members owner qualified.
+Applying the **_View** qualifier to an struct or union type designates the type as a view, regardless of whether it includes members owner qualified.
 
 ```c
 struct person {
@@ -60,16 +69,26 @@ int main(){
 }
 ```
 
-For arrays, if the element of the array is owner qualified the entire array is treated as an owner qualified type.
+Similarly of what happens with structs and unions, if the element of the array is owner qualified the entire array is treated as an owner qualified type.
+  
+Sample:
+
+```c
+int main()
+{
+  struct person a[10] = {};  
+  //a is the owner of 10 struct person
+}
+```
 
 When array types are used in parameters the array is not considered owner qualified type. 
 
 ```c
-void print_array(int n, _Owner int a[n]);
+void print_array(int n, struct person a[10]);
 
 int main()
 {
-  _Owner int a[10];
+  struct person a[10] = {};
   print_array(10, a);
 }
 ```
@@ -77,13 +96,7 @@ int main()
 To qualify array parameters as owner we do:
 
 ```c
-void destroy_array(int n, _Owner int a[_Owner n]);
-
-int main()
-{
-  _Owner int a[10];
-  destroy_array(10, _Move a);
-}
+void destroy_array(int n, struct person a[_Owner 10]);
 ```
 
 
@@ -269,7 +282,7 @@ We can use _Implicit  to make the usage of **_Move** optional. This is useful wh
 void x_destroy(_Implicit struct X * _Obj_owner);
 ```
 
-This can change in the future to use attributes;
+(This can be changed to a attribute in the next version)
 
 
 ### void F(Owner); F(Non-Owner);
@@ -405,10 +418,11 @@ int main(int argc, char* argv[])
 
 ```
 
+
 ## Flow analysis
 
 When owner objects goes out of scope, the flow analysis
-must check if the object has been moved.
+must check if the object has been moved. 
 
 ```
 {
@@ -416,7 +430,7 @@ must check if the object has been moved.
 } //warning variable a not moved/destroyed
 ```
 
-At the final destination, the object will not be moved, then we annotate the function as [[no_ownership_checks]].
+At the final destination, the object will not be moved anymore, then we annotate the function definition as [[no\_ownership\_checks]].
 
 ```c
 [[no_ownership_checks]] free(void * _Owner p)
@@ -424,19 +438,161 @@ At the final destination, the object will not be moved, then we annotate the fun
   //implementation of free....
 }
 ```
+  
+### Sample 1
 
+Simple sample with malloc and free.  
+
+```c
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+int main() {
+   void * _Owner p = malloc(1);
+   //free(p);
+} //compiler will complain c not moved
+```  
+
+### Sample 2  
+
+This sample shows move and returns at f and initialization at main.
+
+
+```c
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  int i;
+};
+
+ struct X * _Owner f() {
+    struct X * _Owner p = malloc(1);
+    struct X * _Owner p2 = _Move p;
+    return p2; /*p2 is moved*/
+}
+
+int main() {
+   struct X * _Owner p = f();
+   //free(p);     
+}
+```
+
+
+### Sample 3
+
+This sample shows that we need to move the struct x at main and also shows that we must implement x_destroy correctly.
+
+```c
+char * _Owner strdup(const char *s);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char *_Owner name;
+};
+
+void x_destroy(_Implicit struct X * _Obj_owner p) {
+  //free(p->name);
+}
+
+int main() {
+   struct X x = {0};
+   x.name = _Move strdup("a");
+   //x_destroy(&x);
+}
+```
+
+### Sample 4
+
+This sample shows that adding a new member name at struct requires we also free at main.
+
+```c
+void free(_Implicit void* _Owner ptr);
+void* _Owner malloc(int size);
+
+struct X
+{
+    int i;
+    //char * _Owner name;
+};
+
+int main() 
+{
+    struct X * _Owner p = malloc(sizeof (struct X));
+    free(p);
+}
+
+```
+  
+### Sample 5
+
+This sample show the implementation of delete.
+
+```c
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char * _Owner text;
+};
+
+void x_delete(_Implicit struct X * _Owner p) {
+    free(p->text);
+    free(p);    
+}
+
+int main() {
+   struct X * _Owner p = malloc(sizeof(struct X));
+   p->text = _Move malloc(10);
+   x_delete(p);
+}
+```
+
+### Sample 6
+This sample show some details when we cast a owner pointer to void*.
+
+```c
+void free(_Implicit void* _Owner ptr);
+void* _Owner malloc(int size);
+
+struct X
+{    
+    char * _Owner name;
+};
+
+/*
+  To remove this error return 
+    struct X * _Owner 
+  instead   of 
+    void * _Owner.
+*/
+void * _Owner f1(){
+  struct X * _Owner p = malloc(sizeof (struct X));
+  return p;
+}
+
+```
 
 ## Grammar
 
 ```c
 New keywords:
-  _Move _Owner _View _Obj_owner 
+  _Move   
+  _Owner   
+  _View   
+  _Obj_owner   
+  _Implicit /*may become attribute*/
 
  type-qualifier:
    ...
    _Owner
    _View
    _Obj_owner   
+
+parameter-declaration:
+  attribute-specifier-sequence opt _Implicit opt                declaration-specifiers declarator  
+
+  attribute-specifier-sequence opt _Implicit opt declaration-specifiers abstract-declarator opt
 
  argument-expression-list:
    move_opt assignment-expression

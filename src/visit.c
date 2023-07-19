@@ -55,17 +55,17 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
 
     token_list_insert_after(&ctx->ast.token_list,
         before_first_token,
-        move &list);
+        move & list);
 
     struct tokenizer_ctx tctx = {0};
     struct token_list list1 = tokenizer(&tctx, "{", "", 0, TK_FLAG_NONE);
     token_list_insert_after(&ctx->ast.token_list,
         before_first_token,
-        move &list1);
+        move & list1);
     struct token_list list2 = tokenizer(&tctx, "}", "", 0, TK_FLAG_NONE);
     token_list_insert_after(&ctx->ast.token_list,
         p_selection_statement->last_token,
-        move &list2);
+        move & list2);
 }
 
 void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, bool hide_tokens)
@@ -356,7 +356,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         print_block_defer(p_defer, &ss, true);
         struct tokenizer_ctx tctx = {0};
         struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, move &l);
+        token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, move & l);
 
 
         if (ctx->tail_block)
@@ -411,7 +411,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     {
         struct tokenizer_ctx tctx = {0};
         struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last_token->prev, move &l);
+        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last_token->prev, move & l);
     }
     //POP
     ctx->tail_block = ctx->tail_block->previous;
@@ -464,7 +464,7 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
             struct token_list list2 = tokenizer(&tctx, "0", NULL, 0, TK_FLAG_NONE);
 
             //inserir na frente
-            token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first_token, move &list2);
+            token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first_token, move & list2);
         }
     }
     else
@@ -511,13 +511,22 @@ static void visit_initializer_list(struct visit_ctx* ctx, struct initializer_lis
 
 static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p_type_qualifier)
 {
-    if (p_type_qualifier->token &&
-        p_type_qualifier->token->type == TK_KEYWORD_RESTRICT)
+    if (p_type_qualifier->token)
     {
-        if (ctx->target < LANGUAGE_C99)
+        if (ctx->target < LANGUAGE_C99 && p_type_qualifier->token->type == TK_KEYWORD_RESTRICT)
         {
             free(p_type_qualifier->token->lexeme);
             p_type_qualifier->token->lexeme = move strdup("/*restrict*/");
+        }
+
+        if (p_type_qualifier->token->type == TK_KEYWORD__OWNER ||
+            p_type_qualifier->token->type == TK_KEYWORD__OBJ_OWNER ||
+            p_type_qualifier->token->type == TK_KEYWORD__VIEW)
+        {
+            char temp[100];
+            snprintf(temp, sizeof temp, "/*%s*/", p_type_qualifier->token->lexeme);
+            free(p_type_qualifier->token->lexeme);
+            p_type_qualifier->token->lexeme = move strdup(temp);
         }
     }
 }
@@ -549,10 +558,11 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
 
         struct tokenizer_ctx tctx = {0};
         struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_specifier_qualifier_list_opt->last_token, move &l2);
+        token_list_insert_after(&ctx->ast.token_list, p_specifier_qualifier_list_opt->last_token, move & l2);
 
         ss_close(&ss);
     }
+
 
     if (p_specifier_qualifier_list_opt == NULL)
         return;
@@ -800,7 +810,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 struct tokenizer_ctx tctx = {0};
                 struct token_list l1 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
 
-                token_list_append_list(&ctx->insert_before_declaration, move &l1);
+                token_list_append_list(&ctx->insert_before_declaration, move & l1);
                 ss_close(&ss);
 
                 for (struct token* current = p_expression->compound_statement->first_token;
@@ -814,11 +824,11 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
 
                 struct token_list l3 = tokenizer(&tctx, "\n\n", NULL, 0, TK_FLAG_NONE);
-                token_list_append_list(&ctx->insert_before_declaration, move &l3);
+                token_list_append_list(&ctx->insert_before_declaration, move & l3);
 
 
                 struct token_list l2 = tokenizer(&tctx, name, NULL, 0, TK_FLAG_FINAL);
-                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move &l2);
+                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l2);
             }
         }
         break;
@@ -849,7 +859,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                     struct tokenizer_ctx tctx = {0};
                     struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
                     l3.head->flags = p_expression->last_token->flags;
-                    token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move &l3);
+                    token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l3);
                 }
             }
 
@@ -900,14 +910,18 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
                 struct tokenizer_ctx tctx = {0};
                 struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move &l3);
+                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l3);
             }
             break;
 
 
 
         case ASSIGNMENT_EXPRESSION:
-            
+            if (p_expression->move_assignment)
+            {
+                free(p_expression->move_assignment->lexeme);
+                p_expression->move_assignment->lexeme = strdup("/*_Move*/");
+            }
             break;
         case CAST_EXPRESSION:
         case MULTIPLICATIVE_EXPRESSION_MULT:
@@ -958,7 +972,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
                 token_list_insert_after(&ctx->ast.token_list,
                     p_expression->last_token,
-                    move &l2);
+                    move & l2);
 
                 token_range_add_flag(p_expression->first_token,
                     p_expression->last_token,
@@ -1043,7 +1057,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 
         struct tokenizer_ctx tctx = {0};
         struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_iteration_statement->secondary_block->last_token->prev, move &l);
+        token_list_insert_after(&ctx->ast.token_list, p_iteration_statement->secondary_block->last_token->prev, move & l);
 
 
         if (ctx->tail_block)
@@ -1256,7 +1270,7 @@ static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_i
     if (ctx->insert_before_block_item.head != NULL)
     {
         //token_list_insert_after(&ctx->ast.token_list, p_statement->first_token->prev, &ctx->insert_before_statement);
-        token_list_insert_after(&ctx->ast.token_list, p_block_item->first_token->prev, move &ctx->insert_before_block_item);
+        token_list_insert_after(&ctx->ast.token_list, p_block_item->first_token->prev, move & ctx->insert_before_block_item);
         ctx->insert_before_block_item.head = NULL;
         ctx->insert_before_block_item.tail = NULL;
     }
@@ -1301,7 +1315,7 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
 
             struct tokenizer_ctx tctx = {0};
             struct token_list list1 = tokenizer(&tctx, ", \"error\"", "", 0, TK_FLAG_NONE);
-            token_list_insert_after(&ctx->ast.token_list, rp, move &list1);
+            token_list_insert_after(&ctx->ast.token_list, rp, move & list1);
         }
         if (strcmp(p_static_assert_declaration->first_token->lexeme, "static_assert") == 0)
         {
@@ -1335,6 +1349,12 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
         while (parameter)
         {
+            if (parameter->implicit_token)
+            {
+                free(parameter->implicit_token->lexeme);
+                parameter->implicit_token->lexeme = strdup("/*_Implicit*/");
+            }
+
             if (parameter->attribute_specifier_sequence_opt)
             {
                 visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt);
@@ -1385,6 +1405,15 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
         struct pointer* p = p_declarator->pointer;
         while (p)
         {
+            if (p->type_qualifier_list_opt)
+            {
+                struct type_qualifier* current = p->type_qualifier_list_opt->head;
+                while (current)
+                {
+                    visit_type_qualifier(ctx, current);
+                    current = current->next;
+                }
+            }
             p = p->pointer;
         }
     }
@@ -1436,7 +1465,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
                 p_declarator->first_token != p_declarator->last_token)
             {
                 l2.head->flags = p_declarator->first_token->flags;
-                token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, move &l2);
+                token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, move & l2);
                 token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_FLAG_HIDE);
             }
             else
@@ -1446,13 +1475,13 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
                 {
                     l2.head->flags = p_declarator->last_token->flags;
                     /*it is a empty declarator, so first_token is not part of declarator it only marks de position*/
-                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token->prev, move &l2);
+                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token->prev, move & l2);
                 }
                 else
                 {
                     l2.head->flags = p_declarator->first_token->flags;
                     /*it is a empty declarator, so first_token is not part of declarator it only marks de position*/
-                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, move &l2);
+                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, move & l2);
                     token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_FLAG_HIDE);
                 }
 
@@ -1485,6 +1514,12 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
         if (p_init_declarator->initializer)
         {
+            if (p_init_declarator->initializer->move_token)
+            {
+                free(p_init_declarator->initializer->move_token->lexeme);
+                p_init_declarator->initializer->move_token->lexeme = strdup("/*_Move*/");                
+            }
+
             if (p_init_declarator->initializer->assignment_expression)
             {
                 visit_expression(ctx, p_init_declarator->initializer->assignment_expression);
@@ -1585,7 +1620,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
         snprintf(buffer, sizeof buffer, " %s", tag);
         struct tokenizer_ctx tctx = {0};
         struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-        token_list_insert_after(&ctx->ast.token_list, first, move &l2);
+        token_list_insert_after(&ctx->ast.token_list, first, move & l2);
     }
 
     if (p_complete)
@@ -1687,7 +1722,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 
             token_list_insert_after(&ctx->ast.token_list,
                 p_enum_specifier->tag_token,
-                move &l2);
+                move & l2);
 
             ss_close(&ss);
         }
@@ -1888,7 +1923,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
 
         token_list_insert_after(&ctx->ast.token_list,
             p_declaration_specifiers->last_token,
-            move &l2);
+            move & l2);
 
         type_destroy(&new_type);
         ss_close(&ss0);
@@ -2023,11 +2058,11 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             {
                 struct tokenizer_ctx tctx = {0};
                 struct token_list list0 = tokenizer(&tctx, "struct ", NULL, 0, TK_FLAG_FINAL);
-                token_list_append_list(&ctx->insert_before_declaration, move &list0);
+                token_list_append_list(&ctx->insert_before_declaration, move & list0);
 
 
                 struct token_list list = tokenizer(&tctx, p_declaration->declaration_specifiers->struct_or_union_specifier->tagtoken->lexeme, NULL, 0, TK_FLAG_FINAL);
-                token_list_append_list(&ctx->insert_before_declaration, move &list);
+                token_list_append_list(&ctx->insert_before_declaration, move & list);
 
 
                 //struct token_list list3 = tokenizer("{", NULL, 0, TK_FLAG_FINAL);
@@ -2046,7 +2081,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 }
 
                 struct token_list list3 = tokenizer(&tctx, ";\n", NULL, 0, TK_FLAG_FINAL);
-                token_list_append_list(&ctx->insert_before_declaration, move &list3);
+                token_list_append_list(&ctx->insert_before_declaration, move & list3);
 
 
                 if (p_declaration->init_declarator_list.head == NULL)
@@ -2091,7 +2126,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             {
                 struct tokenizer_ctx tctx = {0};
                 struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-                token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, move &l);
+                token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, move & l);
             }
             ss_close(&ss);
         }
@@ -2281,7 +2316,7 @@ void visit(struct visit_ctx* ctx)
         if (ctx->insert_before_block_item.head != NULL)
         {
             //token_list_insert_after(&ctx->ast.token_list, p_statement->first_token->prev, &ctx->insert_before_statement);
-            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, move &ctx->insert_before_block_item);
+            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, move & ctx->insert_before_block_item);
             ctx->insert_before_block_item.head = NULL;
             ctx->insert_before_block_item.tail = NULL;
         }
@@ -2292,7 +2327,7 @@ void visit(struct visit_ctx* ctx)
         */
         if (ctx->insert_before_declaration.head != NULL)
         {
-            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, move &ctx->insert_before_declaration);
+            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, move & ctx->insert_before_declaration);
             ctx->insert_before_declaration.head = NULL;
             ctx->insert_before_declaration.tail = NULL;
         }

@@ -1,9 +1,7 @@
 
 ## Command line
 
-
 ```
-
 cake [options] source1.c source2.c ...
 
 SAMPLES
@@ -76,7 +74,7 @@ output:
 
 More files..
 
-```c
+```
 cake c:\project\file1.c c:\project\other\file2.c
 ```
 
@@ -113,8 +111,7 @@ See [warnings](warnings.html)
 
 C89 is the minimum target.
 
-However the ideia if C89 target is NOT suport very old compilers,
-but generate code that can be compiled with C++.
+However the idea if C89 target is NOT support very old compilers, but generate code that can be compiled with C++.
 
 C89 
 https://port70.net/~nsz/c/c89/c89-draft.html
@@ -126,7 +123,7 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n1124.pdf
  #define __STDC_VERSION__ 199901L  //C99
 ```
 
-###  C99 restrict pointers
+### C99 restrict pointers
 
 ```c
 void f(const char* restrict s);
@@ -138,8 +135,7 @@ Becomes in C89
 void f(const char* /*restrict*/ s);
 ```
 
-The intended use of the restrict qualifier  is to promote optimization,
-removing it will not change the observable behavior.
+The intended use of the restrict qualifier  is to promote optimization, removing it will not change the observable behavior.
 
 C++ does not have standard support for restrict
 
@@ -147,9 +143,7 @@ N448
 
 ###  C99 Variable-length array (VLA) 
 
-
-The idea is not implement variable length arrays with automatic 
-storage duration. (\_\_STDC\_NO\_VLA\_\_ 1). 
+The idea is not implement variable length arrays with automatic storage duration. (\_\_STDC\_NO\_VLA\_\_ 1). 
 
 But there are other uses of VLA.
 
@@ -195,8 +189,6 @@ int main() {
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
 
-
-
 ### C99 Flexible array members
 
 ```c
@@ -222,12 +214,11 @@ struct s {
 ```c
 #include <stdlib.h>
 
-void F(int a[static 5]) 
-{
+void F(int a[static 5]) {
 }
 
-int main() {
-    
+int main() 
+{    
     F(0);
     F(NULL);
     F(nullptr);
@@ -242,11 +233,12 @@ int main() {
     F(c);
 }
 
-
 ```
-'static' is removed when target is < c99.
+  
+`static` is removed when target is < c99.
 
 Cakes verifies that the argument is an array of with equal or more elements.
+  
 Cakes extend this check for arrays without static as well.
 
 ### C99 Complex and imaginary support
@@ -268,7 +260,7 @@ double d = 2.000000;
 
 >Cake converts the hexadecimal floating to decimal
 >floating point using strtod then snprintf.
->That means this convertion is not precise.
+>That means this conversion is not precise.
 >
 
 
@@ -276,7 +268,6 @@ double d = 2.000000;
 
 
 ```c
-
 struct s {
   int i;
 };
@@ -330,25 +321,18 @@ int main()
 {
   int a[6] = { 0, 0, 15, 0, 29, 0 };
   struct point { int x, y; };
-
   struct point p = { 3, 2 }
-
 }
-
 ```
 
 N494
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 ### C99 Line comments
-
 When compiling to C89 line comments are converted to comments.
 
-
 ### C99 inline functions
-
 TODO
-
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm
 
 ### C99 _Pragma preprocessing operator
@@ -357,11 +341,9 @@ TODO
 ### C99 \_\_func\_\_ predefined identifier
 Parsed. C89 conversion not implemented yet.
 
-
 ###  C99 Variadic macros
 
 Yes. We need to expand the macro when comping to C89.
-
 This is covered by # macro expand.
 
 Sample:
@@ -427,9 +409,7 @@ int main(void)
 ```
 
 Alternative design - typedef ?
-Considering C23 has bool and the objective of C89 version is to have
-a version that compiles in C++ the best option would be use bool, true, false.
-
+Considering C23 has bool and the objective of C89 version is to have a version that compiles in C++ the best option would be use bool, true, false.
 
 ## C11 Transformations
 
@@ -444,7 +424,7 @@ https://files.lhmouse.com/standards/ISO%20C%20N2176.pdf
 
 ###  C11 \_Static\_assert
 
-When compiling to versions C89, C99 \_Static\_Assert is removed
+When compiling to versions C89, C99 \_Static\_Assert is removed.
 
 Alternative design - macro ?
 
@@ -452,7 +432,6 @@ Alternative design - macro ?
 TODO
 
 ### C11 \_Noreturn
-
 
 ```c
 _Noreturn void f () {
@@ -469,7 +448,6 @@ Expected in C99, C89 (not implemented yet)
 ```
 
 Alternative design - macro ?
-
 
 Note: 
 C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is 
@@ -488,9 +466,7 @@ For instance:
 
 The expression that matches the argument 1.0 is **cbrtl**.
 
-The result of \_Generic in C99 will be cbrtl. Because this is inside
-a macro we need to tell the transpiler to expand that macro using 
-pragma expand.
+The result of \_Generic in C99 will be cbrtl. Because this is inside a macro we need to tell the transpiler to expand that macro using pragma expand.
 
 N1441
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm
@@ -498,14 +474,13 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1441.htm
 ```c
 #include <math.h>
 
-#define cbrt(X) _Generic((X), \
+#define cbrt(X) _Generic((X),    \
                   double: cbrtl, \
-                  float: cbrtf ,\
-                  default: cbrtl  \
+                  float: cbrtf , \
+                  default: cbrtl \
               )(X)
 
 #pragma expand cbrt
-
 
 int main(void)
 {
@@ -520,14 +495,13 @@ Becomes in C99, C89
 
 #include <math.h>
 
-#define cbrt(X) _Generic((X), \
+#define cbrt(X) _Generic((X),    \
                   double: cbrtl, \
-                  float: cbrtf ,\
-                  default: cbrtl  \
+                  float: cbrtf , \
+                  default: cbrtl \
               )(X)
 
 #pragma expand cbrt
-
 
 int main(void)
 {
@@ -538,12 +512,11 @@ int main(void)
 
 ###  C11 u8"literals"
 
-u8 literals are converted to escape sequecences.
+u8 literals are converted to escape sequences.
 
 ```c
 char * s1 = u8"maçã";
 char * s2 = u8"maca";
-
 ```
 
 Becomes in C99, C89
@@ -594,8 +567,7 @@ Not implemented (maybe parsed?)
 ### C23 static\_assert / single-argument static_assert
 In C23 static\_assert is a keyword and the text message is optional.
 
-Whe comping to C11, static\_assert is replaced by \_Static\_assert
-If the static\_assert has only one argument the text becomes "error".
+Whe comping to C11, static\_assert is replaced by it C11 version \_Static\_assert. If the static\_assert has only one argument the text becomes "error".
 
 N1330
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf
@@ -649,19 +621,17 @@ To transform this to previous version we could generate a typedef.
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf
 
 ### C23 Unnamed parameters in function definitions
-
-
+  
 ```c
 int f(int );
 
 int f(int ) {
 }
-
 ```
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf
 
-We need to add a dummy variable name here to convert to < C23
+TODO: But we need to add a dummy variable when compiling to versions C < 23.
 
 ### C23 Digit separators
 
@@ -995,7 +965,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3030.htm
 ###  C23 Attributes
 
 
-Convertion to C11, C99, C89 will just remove the attributes.
+Conversion to C11, C99, C89 will just remove the attributes.
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf
@@ -1037,7 +1007,7 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2956.htm
 
 It is implemented in C23.
 
-Convertion to C11, C99 C89 not defined yet.
+Conversion to C11, C99 C89 not defined yet.
 
 
 ###  C23 \_\_has\_include
@@ -1066,7 +1036,7 @@ Not defined yet
 ###  C23 #warning
 When compiling to versions < 23 it is commented out.
 
-The compiler also ouputs the message on stderr.
+The compiler also outputs the message on stderr.
 
 ```c
 int main()
@@ -1325,7 +1295,7 @@ catch
 
 ###  Extension - defer
 
-*defer* will call the defer statement before the block exit at inverse orden of declaration.
+*defer* will call the defer statement before the block exit at inverse order of declaration.
 
 ```
      defer-statement:
@@ -1469,7 +1439,7 @@ or a goto passes control to a statement outside the loop.
   }
 ```
 
-Repeat is the same of `for(;;)`. In cake's source for instance I have 5 ocorrences of `for(;;)`.
+Repeat is the same of `for(;;)`. In cake's source for instance I have 5 occurrences of `for(;;)`.
 
 
 ### Extension #pragma expand

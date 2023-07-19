@@ -491,26 +491,29 @@ struct initializer
 
 struct initializer* owner initializer(struct parser_ctx* ctx);
 
-/*
-*  object
-   used bt flow analysis
-   object
-   region of data storage in the execution 
-   environment, the contents of which can 
-   represent values
-   
-   value
-   precise meaning of the contents of an object when interpreted as having a specific type
 
-*/
-enum declarator_flags
+enum object_state
 {
-    DECLARATOR_UNINITIALIZED = 0,        
-    DECLARATOR_MUST_DESTROY = 1 << 1,
-    DECLARATOR_MUST_FREE = 1 << 2,
-    DECLARATOR_ZERO = 1 << 3,
-    DECLARATOR_UNKNOWN = 1 << 4,
-    DECLARATOR_NOT_ZERO = 1 << 5,
+    OBJECT_STATE_TRASH = 0,
+    OBJECT_STATE_UNINITIALIZED = 1 << 1,
+    OBJECT_STATE_ZERO = 1 << 3,
+    OBJECT_STATE_UNKNOWN = 1 << 4,
+    OBJECT_STATE_NOT_ZERO = 1 << 5,
+    OBJECT_STATE_MOVED = 1 << 6,
+};
+
+
+/*
+  Used in flow analysis to represent the object instance
+*/
+struct object
+{
+  
+  enum object_state state;    
+  struct object * owner pointed;
+
+  struct object * owner members;
+  int members_size;      
 };
 
 struct declarator
@@ -536,11 +539,10 @@ struct declarator
            
     int num_uses; /*used to show not used warnings*/
     
-    
-    enum declarator_flags * owner p_declarator_flags;    
-    int declarator_flags_size;    
+    /*user by flow analysis*/
+    struct object object;
 
-    /*Já mastiga o tipo dele*/
+    /*final declarator type (after auto, typeof etc)*/
     struct type type;    
 };
 

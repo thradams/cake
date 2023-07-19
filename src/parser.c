@@ -1805,7 +1805,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
                         if (add_specifier(ctx,
                             &p_declaration_specifiers->type_specifier_flags,
                             p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
-                        {
+                        {                            
                             throw;
                         }
 
@@ -2165,21 +2165,8 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         }
         else
         {
-            //TODO JA FEZ ISSO
+            assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
             p_init_declarator->p_declarator->type = move make_type_using_declarator(ctx, p_init_declarator->p_declarator);
-
-            if (type_is_array(&p_init_declarator->p_declarator->type))
-            {
-                if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
-                    p_init_declarator->p_declarator->type.static_array)
-                {
-                    compiler_set_error_with_token(C_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
-                        ctx,
-                        p_init_declarator->p_declarator->first_token,
-                        "static or type qualifiers are not allowed in non-parameter array declarator");
-                }
-            }
-
         }
 
         const char* name = p_init_declarator->p_declarator->name->lexeme;
@@ -2355,6 +2342,29 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     compiler_set_error_with_token(C_MISSING_OWNER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
                 }
             }
+        }
+    }
+
+    if (p_init_declarator->p_declarator)
+    {
+        if (type_is_array(&p_init_declarator->p_declarator->type))
+            if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
+                p_init_declarator->p_declarator->type.static_array)
+            {
+                compiler_set_error_with_token(C_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+                    ctx,
+                    p_init_declarator->p_declarator->first_token,
+                    "static or type qualifiers are not allowed in non-parameter array declarator");
+            }
+
+
+        if (!type_is_pointer(&p_init_declarator->p_declarator->type) &&
+            p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+        {
+            compiler_set_error_with_token(C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+                ctx,
+                p_init_declarator->p_declarator->first_token,
+                "_Obj_owner qualifier can only be used with pointers");
         }
     }
 
@@ -6061,11 +6071,11 @@ int compile(int argc, const char** argv, struct report* report)
         compile_one_file(fullpath, &options, output_file, argc, argv, report);
     }
 
-   
+
     clock_t end_clock = clock();
     double cpu_time_used = ((double) (end_clock - begin_clock)) / CLOCKS_PER_SEC;
     report->no_files = no_files;
-    report->cpu_time_used_sec= cpu_time_used;    
+    report->cpu_time_used_sec = cpu_time_used;
     return 0;
 }
 
@@ -6088,10 +6098,11 @@ struct ast get_ast(struct options* options,
 
 
     ast.token_list = move preprocessor(&prectx, &list, 0);
+    token_list_destroy(&list);
+
     if (prectx.n_errors > 0)
         return ast;
 
-    
     struct parser_ctx ctx = {0};
     ctx.options = *options;
     ctx.p_report = report;
@@ -6099,6 +6110,9 @@ struct ast get_ast(struct options* options,
 
 
     parser_ctx_destroy(&ctx);
+
+    
+
     return ast;
 }
 
@@ -6173,7 +6187,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
             preprocessor_ctx_destroy(&prectx);
 
-
+            token_list_destroy(&tokens);
         }
         else
         {
@@ -7702,9 +7716,127 @@ void passing_view_to_owner()
     assert(report.error_count == 1 && report.last_error == C_MOVE_ASSIGNMENT_OF_NON_OWNER);
 }
 
+void obj_owner_cannot_be_used_in_non_pointer()
+{
+    const char* source
+        =
+        "void f() {\n"
+        "    _Obj_owner int i;\n"
+        "}\n"
+        ;
+    struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.last_error == C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER);
 
-//TODO non owner ... list->tail->next = move pnew;
-// 
+}
+
+void null_ptr_at_end_of_scope()
+{
+    const char* source
+        =
+        "void f() {\n"
+        "    _Owner int * p = 0;\n"
+        "}\n"
+        " ";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+void pointer_must_be_deleted()
+{
+    const char* source
+        =
+        "\n"
+        "int* _Owner  get();\n"
+        "\n"
+        "void f() {\n"
+        "    int * _Owner p = 0;\n"
+        "    p = _Move get();\n"
+        "}\n"
+        " ";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+}
+
+void basic_pointer_check()
+{
+    const char* source
+        =
+        "\n"
+        "int* _Owner  get();\n"
+        "void dtor(int* _Owner p);\n"
+        "\n"
+        "void f(int a)\n"
+        "{\n"
+        "    int* _Owner p = 0;\n"
+        "    p = _Move get();    \n"
+        "    dtor(_Move p);    \n"
+        "}\n"
+        "";
+
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+
+void struct_member_missing_free()
+{
+    const char* source
+        =
+        "\n"
+        "char * _Owner strdup(const char* s);\n"
+        "void free(_Implicit void* _Owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char * _Owner text;\n"
+        "};\n"
+        "\n"
+        "void f(int a)\n"
+        "{\n"
+        "    struct X x = {0};\n"
+        "    x.text = _Move strdup(\"a\");\n"        
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+
+}
+
+
+void struct_member_free()
+{
+    const char* source
+        =
+        "\n"
+        "char * _Owner strdup(const char* s);\n"
+        "void free(_Implicit void* _Owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char * _Owner text;\n"
+        "};\n"
+        "\n"
+        "void f(int a)\n"
+        "{\n"
+        "    struct X x = {0};\n"
+        "    x.text = _Move strdup(\"a\");\n"
+        "    free(x.text);\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
