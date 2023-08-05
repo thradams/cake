@@ -39,7 +39,8 @@ void * _Owner f1(){
 ```
 
 Conversely, the **_Obj\_owner** qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies.
-
+> Design note: Maybe an alternative to **_Obj\_owner** could references for C, but only in function parameters.  
+ 
 For struct and unions, if at least one member has the **_Owner** qualifier, the entire type is considered to be an owner qualified type.
 
 Sample:
@@ -100,36 +101,52 @@ void destroy_array(int n, struct person a[_Owner 10]);
 ```
 
 
-## Initialization
+## Initialization and assignment
 ### Owner = Owner
 
-In this situation we always move the ownership.
+In this situation we always move the ownership and **\_Move** is required.
 
-When assigning from a owner variable we need explicitly add the **_Move** keyword. 
 
-```c
-_Owner T a = _Move b;        //OK
+```c  
+_Owner T b;
+_Owner T a = _Move b;
 ```
+
+```c  
+_Owner T b;
+_Owner T a;
+a = _Move b;
+```
+
 We have the ownership moved from b to a.
 
-When assigning from a function result we don't use **_Move**.
+The exception of the usage of **\_Move** is when initializing from a function result.
 
 ```c
 _Owner T make_owner();
 _Owner T a = make_owner();
 ```
   
+> Design note: The usage of _Move was not required in any way, by the type system or by the flow analysis. The reasoning was to make code more explicit.
 
 ### Owner = Non-owner
-
-We can initialize owner qualified pointer with the null pointer constant.
+  
+This is not allowed.  
+The exception is we can initialize/assign owner pointer to the null pointer constant. 
 
 ```c
 T _Owner * p1 = 0;       //OK
 T _Owner * p2 = NULL;    //OK
 T _Owner * p3 = nullptr; //OK
 ```
-  
+
+```c
+T _Owner * p1;
+p1 = 0; //OK
+```
+
+> Design note: This could be extended for non pointers. The problem is we need a extra annotation to define the "empty" value for non pointers.   
+
 
 ### Non-Owner = Owner  
 
@@ -140,47 +157,49 @@ _Owner T b;
 T a = b;            //OK
 ```
 
-We say "a is a view to b".
-
-We cannot have a view for a object returned by a function.
-
-```c
-T a = make_owner(); //ERROR
-```
-  
-## Assignment
-
-### Owner = Owner
-
-In this situation we always move the ownership. 
-
-When assigning from a function result we need to use  **_Move**.
-
-```c
-a = _Move make_owner();   //OK
-```
-
-
-### Owner = Non-Owner
-We can only assign null pointer constant to owner pointers.
-
-```c
- T * _Owner p;
- p = 0;
-```
-
-### Non-Owner = Owner
-
-Same of initialization, we have a view.
-
 ```c  
 _Owner T b;
 T a;
 a = b;            //OK
 ```
 
+We say "a is a view to b".
 
-## Return
+We cannot have a view for a object with the storage duration shorter than the view.
+
+```c
+T a = make_owner(); //ERROR
+```
+
+```c
+T a;
+a = make_owner(); //ERROR
+```
+  
+```c  
+T global;
+void f()  
+{    
+ _Owner T a;
+  global = a; //ERROR
+}
+```
+
+```c  
+
+void f()  
+{  
+   T v;    
+   {
+      _Owner T a;
+      v = a; //ERROR
+   }
+}
+```  
+
+(The last samples are not implemented yet in cake)
+
+## Returning variables
   
 ### Owner F() return Owner  
 
@@ -232,7 +251,7 @@ T * _Owner F() {
 
 We return a view of the object.
 
-Returning a owner local storage variable is an error.
+Following the general rule that view object duration must be shorter than the owner object, returning a owner local storage variable is an error.
 
 ```c
 T F()
@@ -242,7 +261,7 @@ T F()
 } 
 ```
 
-We can return non local variables. 
+However, we can return non local variables including parameters 
 
 ```c  
 _Owner T global;
@@ -275,30 +294,46 @@ We explicitly use **_Move** on the caller.
   
 ```
 
-
-We can use _Implicit  to make the usage of **_Move** optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is "destroy".
+We can use **\_Implicit**  to make the usage of **_Move** optional.   
+  
+This is useful when the semantics of the function is very clear, for instance if the name of the function is "destroy" "free" etc.  
 
 ```c
 void x_destroy(_Implicit struct X * _Obj_owner);
 ```
 
-(This can be changed to a attribute in the next version)
-
+(This can be changed to a attribute in the future)
+  
+**\_Move** can be used for instance, when inserting items at some container.
+  
+```c  
+list_add(&list, _Move item);
+```  
+  
+Or when the parameter will consume all the input.
+  
+```c  
+p_new_items = _Move process(_Move p_old_items);
+```  
 
 ### void F(Owner); F(Non-Owner);
-We can just use a null pointer constant.
+This is not allowed.  
+The exception is the null pointer constant.
 
 ```c
-  F(0);            //nullptr, NULL, etc.  
+  F(0); //OK  
 ```
 
 ### void F(Non-Owner); F(Owner);
 
-Here, the difference from initialization is that we cannot pass owner object return by a function.
+
+Following the general rule that view object duration must be shorter than the owner object, we cannot pass owner object return by a function.
 
 ```c
   F(make_owner()); //ERROR  
 ```
+  
+But we can pass variables, and the function parameter is a view of the argument.  
 
 ```c
   _Owner T a; 
@@ -314,21 +349,35 @@ Here, the difference from initialization is that we cannot pass owner object ret
 When owner objects goes out of scope, the flow analysis
 must check if the object has been moved. 
 
-```
-{
-  _Owner int a;
-} //warning variable a not moved/destroyed
-```
+###  Algorithm
 
-At the final destination, the object will not be moved anymore, then we annotate the function definition as [[no\_ownership\_checks]].
+Compare these two situations.
 
 ```c
-[[no_ownership_checks]] free(void * _Owner p)
+void f(int condition)
 {
-  //implementation of free....
+    int* _Owner p = malloc(sizeof(int));
+    if (condition)
+        goto end;   
+end:
+   free(p);
 }
 ```
-  
+
+```c
+void f(int condition)
+{
+    int* _Owner p = malloc(sizeof(int));
+    if (condition)
+        goto end;
+    free(p);
+end:
+}
+```
+
+The basic idea of the algorithm is that we need a clear path from the point where variables are moved until the point they leave scope.
+
+
 ### Sample 1
 
 Simple sample with malloc and free.  
