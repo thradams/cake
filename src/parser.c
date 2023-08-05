@@ -7972,6 +7972,28 @@ void missing_destructor()
     assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
 
 }
+void no_warning()
+{
+    const char* source
+        =
+        "void free(_Implicit void * _Owner p);\n"
+        "struct X {\n"
+        "  char * _Owner text;\n"
+        "};\n"
+        "void x_delete(_Implicit struct X * _Owner p)\n"
+        "{\n"
+        "    if (p)\n"
+        "    {\n"
+        "      free(p->text);\n"
+        "      free(p);\n"
+        "    }\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0 );
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
