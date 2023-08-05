@@ -28621,7 +28621,7 @@ static void set_object(
                         {
                             if (member_index < p_object->members.size)
                             {
-                              set_object(&p_member_declarator->declarator->type, &p_object->members.data[member_index], flags);
+                                set_object(&p_member_declarator->declarator->type, &p_object->members.data[member_index], flags);
                             }
                             else
                             {
@@ -28739,19 +28739,24 @@ void visit_object(struct parser_ctx* ctx,
 
         if (type_is_pointer(p_type))
         {
-            char buffer[100];
-            snprintf(buffer, sizeof buffer, "%s", previous_names);
-
-            struct type t2 = type_remove_pointer(p_type);
-            if (t2.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+            if (p_object->state == OBJECT_STATE_UNKNOWN ||
+                p_object->state == OBJECT_STATE_NOT_ZERO)
             {
-                visit_object(ctx,
-                    &t2,
-                    p_object->pointed,
-                    position_token,
-                    buffer);
+                char buffer[100];
+                snprintf(buffer, sizeof buffer, "%s", previous_names);
+
+                struct type t2 = type_remove_pointer(p_type);
+                if (t2.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+                {
+                    visit_object(ctx,
+                        &t2,
+                        p_object->pointed,
+                        position_token,
+                        buffer);
+                }
+                type_destroy(&t2);
             }
-            type_destroy(&t2);
+
         }
         const bool move_not_necessary =
             (p_object->state == OBJECT_STATE_ZERO && type_is_pointer(p_type)) ||
@@ -29458,7 +29463,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     "'%s' is uninitialized ",
                     p_expression->declarator->name->lexeme);
 #endif
-            }
+    }
 
             break;
 
@@ -29685,7 +29690,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-    }
+}
 }
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
