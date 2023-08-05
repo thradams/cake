@@ -71,3 +71,6 @@ dkms.conf
 src/cake
 *.sarif
 /src/.vs/cake
+/.vscode/launch.json
+/.vscode/settings.json
+/.vscode/tasks.json

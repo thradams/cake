@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "libc-header-start.h": "c",
-        "stdarg.h": "c",
-        "types.h": "c",
-        "stubs-64.h": "c",
-        "build.h": "c"
-    }
-}
