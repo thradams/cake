@@ -825,21 +825,24 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
     }
     else if (p_expression->expression_type == POSTFIX_DOT)
     {
+        //TODO return ROOT object!
+
         if (p_expression->left->declarator)
         {
             *p_type = type_dup(&p_expression->type);
-            return &p_expression->left->declarator->object.members[p_expression->member_index];
+            return &p_expression->left->declarator->object.members.data[p_expression->member_index];
         }
     }
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
+        //TODO return ROOT object!
         if (p_expression->left->declarator)
         {
             if (p_expression->left->declarator->object.pointed && 
-                p_expression->left->declarator->object.pointed->members)
+                p_expression->left->declarator->object.pointed->members.size > 0)
             {
                 *p_type = type_dup(&p_expression->type);
-                return &p_expression->left->declarator->object.pointed->members[p_expression->member_index];
+                return &p_expression->left->declarator->object.pointed->members.data[p_expression->member_index];
             }
         }
     }
@@ -1964,7 +1967,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
         {
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
+            new_expression->expression_type = UNARY_EXPRESSION_STATIC_DEBUG;
 
             parser_match(ctx);
 

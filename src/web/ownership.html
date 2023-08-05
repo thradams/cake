@@ -19,7 +19,7 @@
 <a href="#toc_1">New Type qualifiers</a>
 </li>
 <li>
-<a href="#toc_2">Initialization</a>
+<a href="#toc_2">Initialization and assignment</a>
 <ul>
 <li>
 <a href="#toc_3">Owner = Owner</a>
@@ -33,87 +33,76 @@
 </ul>
 </li>
 <li>
-<a href="#toc_6">Assignment</a>
+<a href="#toc_6">Returning variables</a>
 <ul>
 <li>
-<a href="#toc_7">Owner = Owner</a>
+<a href="#toc_7">Owner F() return Owner</a>
 </li>
 <li>
-<a href="#toc_8">Owner = Non-Owner</a>
+<a href="#toc_8">Owner F() return Non-Owner</a>
 </li>
 <li>
-<a href="#toc_9">Non-Owner = Owner</a>
+<a href="#toc_9">Non-Owner F() return Owner</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_10">Return</a>
+<a href="#toc_10">Calling functions</a>
 <ul>
 <li>
-<a href="#toc_11">Owner F() return Owner</a>
+<a href="#toc_11">void F(Owner); F(Owner);</a>
 </li>
 <li>
-<a href="#toc_12">Owner F() return Non-Owner</a>
+<a href="#toc_12">void F(Owner); F(Non-Owner);</a>
 </li>
 <li>
-<a href="#toc_13">Non-Owner F() return Owner</a>
+<a href="#toc_13">void F(Non-Owner); F(Owner);</a>
+</li>
+<li>
+<a href="#toc_14">Type system samples</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_14">Calling functions</a>
+<a href="#toc_15">Flow analysis</a>
 <ul>
 <li>
-<a href="#toc_15">void F(Owner); F(Owner);</a>
+<a href="#toc_16">Algorithm</a>
 </li>
 <li>
-<a href="#toc_16">void F(Owner); F(Non-Owner);</a>
+<a href="#toc_17">Sample 1</a>
 </li>
 <li>
-<a href="#toc_17">void F(Non-Owner); F(Owner);</a>
+<a href="#toc_18">Sample 2</a>
 </li>
 <li>
-<a href="#toc_18">Type system samples</a>
+<a href="#toc_19">Sample 3</a>
+</li>
+<li>
+<a href="#toc_20">Sample 4</a>
+</li>
+<li>
+<a href="#toc_21">Sample 5</a>
+</li>
+<li>
+<a href="#toc_22">Sample 6</a>
+</li>
+<li>
+<a href="#toc_23">Sample 7</a>
+</li>
+<li>
+<a href="#toc_24">Sample 8</a>
+</li>
+<li>
+<a href="#toc_25">Sample 9</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_19">Flow analysis</a>
-<ul>
-<li>
-<a href="#toc_20">Sample 1</a>
+<a href="#toc_26">Grammar</a>
 </li>
 <li>
-<a href="#toc_21">Sample 2</a>
-</li>
-<li>
-<a href="#toc_22">Sample 3</a>
-</li>
-<li>
-<a href="#toc_23">Sample 4</a>
-</li>
-<li>
-<a href="#toc_24">Sample 5</a>
-</li>
-<li>
-<a href="#toc_25">Sample 6</a>
-</li>
-<li>
-<a href="#toc_26">Sample 7</a>
-</li>
-<li>
-<a href="#toc_27">Sample 8</a>
-</li>
-<li>
-<a href="#toc_28">Sample 9</a>
-</li>
-</ul>
-</li>
-<li>
-<a href="#toc_29">Grammar</a>
-</li>
-<li>
-<a href="#toc_30">Checking your source code</a>
+<a href="#toc_27">Checking your source code</a>
 </li>
 </ul>
 </li>
@@ -155,6 +144,10 @@ It consists of two separate implementations. </p>
 </code></pre>
 
 <p>Conversely, the <strong>_Obj_owner</strong> qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies.</p>
+
+<blockquote>
+<p>Design note: Maybe an alternative to <strong>_Obj_owner</strong> could references for C, but only in function parameters.  </p>
+</blockquote>
 
 <p>For struct and unions, if at least one member has the <strong>_Owner</strong> qualifier, the entire type is considered to be an owner qualified type.</p>
 
@@ -210,33 +203,50 @@ int main()
 <pre><code class="language-c">void destroy_array(int n, struct person a[_Owner 10]);
 </code></pre>
 
-<h2 id="toc_2">Initialization</h2>
+<h2 id="toc_2">Initialization and assignment</h2>
 
 <h3 id="toc_3">Owner = Owner</h3>
 
-<p>In this situation we always move the ownership.</p>
+<p>In this situation we always move the ownership and <strong>_Move</strong> is required.</p>
 
-<p>When assigning from a owner variable we need explicitly add the <strong>_Move</strong> keyword. </p>
+<pre><code class="language-c">_Owner T b;
+_Owner T a = _Move b;
+</code></pre>
 
-<pre><code class="language-c">_Owner T a = _Move b;        //OK
+<pre><code class="language-c">_Owner T b;
+_Owner T a;
+a = _Move b;
 </code></pre>
 
 <p>We have the ownership moved from b to a.</p>
 
-<p>When assigning from a function result we don&#39;t use <strong>_Move</strong>.</p>
+<p>The exception of the usage of <strong>_Move</strong> is when initializing from a function result.</p>
 
 <pre><code class="language-c">_Owner T make_owner();
 _Owner T a = make_owner();
 </code></pre>
 
+<blockquote>
+<p>Design note: The usage of _Move was not required in any way, by the type system or by the flow analysis. The reasoning was to make code more explicit.</p>
+</blockquote>
+
 <h3 id="toc_4">Owner = Non-owner</h3>
 
-<p>We can initialize owner qualified pointer with the null pointer constant.</p>
+<p>This is not allowed.<br>
+The exception is we can initialize/assign owner pointer to the null pointer constant. </p>
 
 <pre><code class="language-c">T _Owner * p1 = 0;       //OK
 T _Owner * p2 = NULL;    //OK
 T _Owner * p3 = nullptr; //OK
 </code></pre>
+
+<pre><code class="language-c">T _Owner * p1;
+p1 = 0; //OK
+</code></pre>
+
+<blockquote>
+<p>Design note: This could be extended for non pointers. The problem is we need a extra annotation to define the &quot;empty&quot; value for non pointers.   </p>
+</blockquote>
 
 <h3 id="toc_5">Non-Owner = Owner</h3>
 
@@ -246,44 +256,46 @@ T _Owner * p3 = nullptr; //OK
 T a = b;            //OK
 </code></pre>
 
-<p>We say &quot;a is a view to b&quot;.</p>
-
-<p>We cannot have a view for a object returned by a function.</p>
-
-<pre><code class="language-c">T a = make_owner(); //ERROR
-</code></pre>
-
-<h2 id="toc_6">Assignment</h2>
-
-<h3 id="toc_7">Owner = Owner</h3>
-
-<p>In this situation we always move the ownership. </p>
-
-<p>When assigning from a function result we need to use  <strong>_Move</strong>.</p>
-
-<pre><code class="language-c">a = _Move make_owner();   //OK
-</code></pre>
-
-<h3 id="toc_8">Owner = Non-Owner</h3>
-
-<p>We can only assign null pointer constant to owner pointers.</p>
-
-<pre><code class="language-c"> T * _Owner p;
- p = 0;
-</code></pre>
-
-<h3 id="toc_9">Non-Owner = Owner</h3>
-
-<p>Same of initialization, we have a view.</p>
-
 <pre><code class="language-c">_Owner T b;
 T a;
 a = b;            //OK
 </code></pre>
 
-<h2 id="toc_10">Return</h2>
+<p>We say &quot;a is a view to b&quot;.</p>
 
-<h3 id="toc_11">Owner F() return Owner</h3>
+<p>We cannot have a view for a object with the storage duration shorter than the view.</p>
+
+<pre><code class="language-c">T a = make_owner(); //ERROR
+</code></pre>
+
+<pre><code class="language-c">T a;
+a = make_owner(); //ERROR
+</code></pre>
+
+<pre><code class="language-c">T global;
+void f()  
+{    
+ _Owner T a;
+  global = a; //ERROR
+}
+</code></pre>
+
+<pre><code class="language-c">
+void f()  
+{  
+   T v;    
+   {
+      _Owner T a;
+      v = a; //ERROR
+   }
+}
+</code></pre>
+
+<p>(The last samples are not implemented yet in cake)</p>
+
+<h2 id="toc_6">Returning variables</h2>
+
+<h3 id="toc_7">Owner F() return Owner</h3>
 
 <p>When returning local storage variables we don&#39;t have to use <strong>_Move</strong>.</p>
 
@@ -313,7 +325,7 @@ _Owner T F() {
 <pre><code class="language-c"> F(); //ERROR discarding a owner result   
 </code></pre>
 
-<h3 id="toc_12">Owner F() return Non-Owner</h3>
+<h3 id="toc_8">Owner F() return Non-Owner</h3>
 
 <p>The only possible value is null pointer constant.</p>
 
@@ -322,11 +334,11 @@ _Owner T F() {
 }
 </code></pre>
 
-<h3 id="toc_13">Non-Owner F() return Owner</h3>
+<h3 id="toc_9">Non-Owner F() return Owner</h3>
 
 <p>We return a view of the object.</p>
 
-<p>Returning a owner local storage variable is an error.</p>
+<p>Following the general rule that view object duration must be shorter than the owner object, returning a owner local storage variable is an error.</p>
 
 <pre><code class="language-c">T F()
 {
@@ -335,7 +347,7 @@ _Owner T F() {
 } 
 </code></pre>
 
-<p>We can return non local variables. </p>
+<p>However, we can return non local variables including parameters </p>
 
 <pre><code class="language-c">_Owner T global;
 T F() {
@@ -348,11 +360,11 @@ T F() {
 }
 </code></pre>
 
-<h2 id="toc_14">Calling functions</h2>
+<h2 id="toc_10">Calling functions</h2>
 
 <p>In general the rules are similar of initializing the parameter with the argument. </p>
 
-<h3 id="toc_15">void F(Owner); F(Owner);</h3>
+<h3 id="toc_11">void F(Owner); F(Owner);</h3>
 
 <p>We explicitly use <strong>_Move</strong> on the caller.</p>
 
@@ -365,52 +377,80 @@ T F() {
   
 </code></pre>
 
-<p>We can use <em>Implicit  to make the usage of **</em>Move** optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is &quot;destroy&quot;.</p>
+<p>We can use <strong>_Implicit</strong>  to make the usage of <strong>_Move</strong> optional.   </p>
+
+<p>This is useful when the semantics of the function is very clear, for instance if the name of the function is &quot;destroy&quot; &quot;free&quot; etc.  </p>
 
 <pre><code class="language-c">void x_destroy(_Implicit struct X * _Obj_owner);
 </code></pre>
 
-<p>(This can be changed to a attribute in the next version)</p>
+<p>(This can be changed to a attribute in the future)</p>
 
-<h3 id="toc_16">void F(Owner); F(Non-Owner);</h3>
+<p><strong>_Move</strong> can be used for instance, when inserting items at some container.</p>
 
-<p>We can just use a null pointer constant.</p>
-
-<pre><code class="language-c">  F(0);            //nullptr, NULL, etc.  
+<pre><code class="language-c">list_add(&amp;list, _Move item);
 </code></pre>
 
-<h3 id="toc_17">void F(Non-Owner); F(Owner);</h3>
+<p>Or when the parameter will consume all the input.</p>
 
-<p>Here, the difference from initialization is that we cannot pass owner object return by a function.</p>
+<pre><code class="language-c">p_new_items = _Move process(_Move p_old_items);
+</code></pre>
+
+<h3 id="toc_12">void F(Owner); F(Non-Owner);</h3>
+
+<p>This is not allowed.<br>
+The exception is the null pointer constant.</p>
+
+<pre><code class="language-c">  F(0); //OK  
+</code></pre>
+
+<h3 id="toc_13">void F(Non-Owner); F(Owner);</h3>
+
+<p>Following the general rule that view object duration must be shorter than the owner object, we cannot pass owner object return by a function.</p>
 
 <pre><code class="language-c">  F(make_owner()); //ERROR  
 </code></pre>
+
+<p>But we can pass variables, and the function parameter is a view of the argument.  </p>
 
 <pre><code class="language-c">  _Owner T a; 
   F(a); //OK (view)
 </code></pre>
 
-<h3 id="toc_18">Type system samples</h3>
+<h3 id="toc_14">Type system samples</h3>
 
-<h2 id="toc_19">Flow analysis</h2>
+<h2 id="toc_15">Flow analysis</h2>
 
 <p>When owner objects goes out of scope, the flow analysis
 must check if the object has been moved. </p>
 
-<pre><code>{
-  _Owner int a;
-} //warning variable a not moved/destroyed
-</code></pre>
+<h3 id="toc_16">Algorithm</h3>
 
-<p>At the final destination, the object will not be moved anymore, then we annotate the function definition as [[no_ownership_checks]].</p>
+<p>Compare these two situations.</p>
 
-<pre><code class="language-c">[[no_ownership_checks]] free(void * _Owner p)
+<pre><code class="language-c">void f(int condition)
 {
-  //implementation of free....
+    int* _Owner p = malloc(sizeof(int));
+    if (condition)
+        goto end;   
+end:
+   free(p);
 }
 </code></pre>
 
-<h3 id="toc_20">Sample 1</h3>
+<pre><code class="language-c">void f(int condition)
+{
+    int* _Owner p = malloc(sizeof(int));
+    if (condition)
+        goto end;
+    free(p);
+end:
+}
+</code></pre>
+
+<p>The basic idea of the algorithm is that we need a clear path from the point where variables are moved until the point they leave scope.</p>
+
+<h3 id="toc_17">Sample 1</h3>
 
 <p>Simple sample with malloc and free.  </p>
 
@@ -423,7 +463,7 @@ int main() {
 } //compiler will complain c not moved
 </code></pre>
 
-<h3 id="toc_21">Sample 2</h3>
+<h3 id="toc_18">Sample 2</h3>
 
 <p>This sample shows move and returns at f and initialization at main.</p>
 
@@ -446,7 +486,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_22">Sample 3</h3>
+<h3 id="toc_19">Sample 3</h3>
 
 <p>This sample shows that we need to move the struct x at main and also shows that we must implement x_destroy correctly.</p>
 
@@ -468,7 +508,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_23">Sample 4</h3>
+<h3 id="toc_20">Sample 4</h3>
 
 <p>This sample shows that adding a new member name at struct requires we also free at main.</p>
 
@@ -489,7 +529,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_24">Sample 5</h3>
+<h3 id="toc_21">Sample 5</h3>
 
 <p>This sample show the implementation of delete.</p>
 
@@ -512,7 +552,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_25">Sample 6</h3>
+<h3 id="toc_22">Sample 6</h3>
 
 <p>This sample show some details when we cast a owner pointer to void*.</p>
 
@@ -537,7 +577,7 @@ void * _Owner f1(){
 
 </code></pre>
 
-<h3 id="toc_26">Sample 7</h3>
+<h3 id="toc_23">Sample 7</h3>
 
 <p>This sample shows how _View can be used to implement swap.</p>
 
@@ -574,7 +614,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_27">Sample 8</h3>
+<h3 id="toc_24">Sample 8</h3>
 
 <pre><code class="language-c">void * _Owner calloc(int n, int sz);
 void free(_Implicit void * _Owner);
@@ -630,7 +670,7 @@ int main(int argc, char* argv[])
 
 </code></pre>
 
-<h3 id="toc_28">Sample 9</h3>
+<h3 id="toc_25">Sample 9</h3>
 
 <p>Uncomment /*_Owner*/ in this sample and you will see chain reaction that requires changes to make sure this program is not leaking memory.</p>
 
@@ -652,7 +692,7 @@ int main() {
 
 </code></pre>
 
-<h2 id="toc_29">Grammar</h2>
+<h2 id="toc_26">Grammar</h2>
 
 <pre><code class="language-c">New keywords:
   _Move   
@@ -692,7 +732,7 @@ parameter-declaration:
 
 </code></pre>
 
-<h2 id="toc_30">Checking your source code</h2>
+<h2 id="toc_27">Checking your source code</h2>
 
 <p>I suggest the creation of a header file &quot;ownership.h&quot;</p>
 

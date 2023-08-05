@@ -283,24 +283,7 @@ int get_self_path(char* buffer, int maxsize)
     return 0;
 
 }
-/*
-#include <unistd.h>
-#include <limits.h>
-#include <stdio.h>
-#include <string.h>
 
-int main()
-{
-  char dest[PATH_MAX];
-  memset(dest,0,sizeof(dest)); // readlink does not null terminate!
-  if (readlink("/proc/self/exe", dest, PATH_MAX) == -1) {
-    perror("readlink");
-  } else {
-    printf("%s\n", dest);
-  }
-  return 0;
-}
-*/
 #endif
 
 

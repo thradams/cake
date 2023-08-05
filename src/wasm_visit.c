@@ -320,7 +320,7 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
     case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
         break;
 
-    case UNARY_EXPRESSION_HASHOF_TYPE:
+    case UNARY_EXPRESSION_STATIC_DEBUG:
 
 
         break;

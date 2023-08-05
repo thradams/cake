@@ -2144,7 +2144,7 @@ void delete_macro(implicit struct macro* owner macro);
 
 static void delete_macro_void(void* p)
 {
-    struct macro* p_macro = p;
+    struct macro* owner p_macro = p;
     delete_macro(p_macro);
 }
 
@@ -2327,6 +2327,7 @@ struct macro_expanded
     struct macro_expanded* p_previous;
 };
 
+
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
     struct macro* owner macro = calloc(1, sizeof * macro);
@@ -2335,6 +2336,7 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
     }
     macro->name = move strdup(name);
     owner_hashmap_set(&ctx->macros, name, move macro, 0);
+    
 }
 
 
@@ -2491,10 +2493,10 @@ void delete_macro(implicit struct macro* owner macro)
     {
         token_list_destroy(&macro->replacement_list);
 
-        struct macro_parameter* p = macro->parameters;
+        struct macro_parameter* owner p = macro->parameters;
         while (p)
         {
-            struct macro_parameter* p_next = p->next;
+            struct macro_parameter* owner p_next = move p->next;
             free((void * owner)p->name);
             free(p);
             p = p_next;
@@ -8150,23 +8152,7 @@ int get_self_path(char* buffer, int maxsize)
     return 0;
 
 }
-/*
 
-
-#include <limits.h>
-
-int main()
-{
-  char dest[PATH_MAX];
-  memset(dest,0,sizeof(dest)); // readlink does not null terminate!
-  if (readlink("/proc/self/exe", dest, PATH_MAX) == -1) {
-    perror("readlink");
-  } else {
-    printf("%s\n", dest);
-  }
-  return 0;
-}
-*/
 #endif
 
 
@@ -9432,7 +9418,7 @@ enum expression_type
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
-    UNARY_EXPRESSION_HASHOF_TYPE,
+    UNARY_EXPRESSION_STATIC_DEBUG,
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
@@ -9613,7 +9599,7 @@ struct expression* owner constant_expression(struct parser_ctx* ctx);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
 struct object* expression_get_object(struct expression* p_expression, struct type* p_type);
-
+bool is_null_pointer_constant(const struct expression* expression);
 
 
 //#pragma once
@@ -10103,26 +10089,37 @@ struct initializer* owner initializer(struct parser_ctx* ctx);
 
 enum object_state
 {
-    OBJECT_STATE_TRASH = 0,
-    OBJECT_STATE_UNINITIALIZED = 1 << 1,
-    OBJECT_STATE_ZERO = 1 << 3,
-    OBJECT_STATE_UNKNOWN = 1 << 4,
-    OBJECT_STATE_NOT_ZERO = 1 << 5,
-    OBJECT_STATE_MOVED = 1 << 6,
+    OBJECT_STATE_STRUCT = 0,
+    OBJECT_STATE_UNINITIALIZED,
+    OBJECT_STATE_ZERO,
+    OBJECT_STATE_UNKNOWN,
+    OBJECT_STATE_NOT_ZERO,
+    OBJECT_STATE_MOVED,
+    OBJECT_STATE_NULL_OR_UNINITIALIZED,
 };
 
+const char * object_state_to_string(enum object_state e);
+
+
+struct objects {
+    struct object* owner data;
+    int size;
+    int capacity;
+};
 
 /*
   Used in flow analysis to represent the object instance
 */
 struct object
 {
-  
+  /*
+     state should not be used for struct, unless
+     members_size is zero.
+  */
   enum object_state state;    
   struct object * owner pointed;
 
-  struct object * owner members;
-  int members_size;      
+  struct objects members;      
 };
 
 struct declarator
@@ -11662,21 +11659,24 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
     }
     else if (p_expression->expression_type == POSTFIX_DOT)
     {
+        //TODO return ROOT object!
+
         if (p_expression->left->declarator)
         {
             *p_type = type_dup(&p_expression->type);
-            return &p_expression->left->declarator->object.members[p_expression->member_index];
+            return &p_expression->left->declarator->object.members.data[p_expression->member_index];
         }
     }
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
+        //TODO return ROOT object!
         if (p_expression->left->declarator)
         {
             if (p_expression->left->declarator->object.pointed && 
-                p_expression->left->declarator->object.pointed->members)
+                p_expression->left->declarator->object.pointed->members.size > 0)
             {
                 *p_type = type_dup(&p_expression->type);
-                return &p_expression->left->declarator->object.pointed->members[p_expression->member_index];
+                return &p_expression->left->declarator->object.pointed->members.data[p_expression->member_index];
             }
         }
     }
@@ -12801,7 +12801,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
         {
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_HASHOF_TYPE;
+            new_expression->expression_type = UNARY_EXPRESSION_STATIC_DEBUG;
 
             parser_match(ctx);
 
@@ -17899,6 +17899,7 @@ struct flow_visit_ctx
     struct ast ast;    
     struct flow_defer_scope* owner tail_block;
     struct type* view p_return_type;
+    bool has_jumps;    
 };
 
 
@@ -17959,6 +17960,21 @@ void visit_ctx_destroy(implicit struct visit_ctx* obj_owner ctx);
 
 
 
+
+const char* object_state_to_string(enum object_state e)
+{
+    switch (e)
+    {
+        case OBJECT_STATE_STRUCT: return "";
+        case OBJECT_STATE_UNINITIALIZED: return "UNINITIALIZED";
+        case OBJECT_STATE_ZERO: return "ZERO";
+        case OBJECT_STATE_UNKNOWN: return "UNKNOWN";
+        case OBJECT_STATE_NOT_ZERO: return "NOT_ZERO";
+        case OBJECT_STATE_MOVED: return "MOVED";
+        case OBJECT_STATE_NULL_OR_UNINITIALIZED: return "NULL_OR_UNINITIALIZED";
+    }
+    return "";
+}
 struct defer_statement* owner defer_statement(struct parser_ctx* ctx);
 
 
@@ -18975,6 +18991,7 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
             else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
             else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
+            else if (strcmp("static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
 
             break;
         case 't':
@@ -19030,7 +19047,6 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
             /*TRAITS EXTENSION*/
 
-            else if (strcmp("_static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
             else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
             else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
             else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
@@ -19731,7 +19747,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
                         if (add_specifier(ctx,
                             &p_declaration_specifiers->type_specifier_flags,
                             p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
-                        {                            
+                        {
                             throw;
                         }
 
@@ -22344,7 +22360,7 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
 
             if (p_static_assert_declaration->constant_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
             {
-                if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_HASHOF_TYPE)
+                if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_STATIC_DEBUG)
                 {
                     compiler_set_info_with_token(W_NONE,
                         ctx,
@@ -23557,7 +23573,8 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR_C \
- "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32705\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt"
+ "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
+
 
 #define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
@@ -24037,7 +24054,7 @@ struct ast get_ast(struct options* options,
 
     parser_ctx_destroy(&ctx);
 
-    
+
 
     return ast;
 }
@@ -25274,25 +25291,7 @@ void assignment_of_read_only_object()
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void missing_destructor()
-{
-    const char* source
-        =
-        "struct X {\n"
-        "  _Owner i;\n"
-        "};\n"
-        "void f() {\n"
-        "  const struct X x = {0};\n"
-        "}\n"
-        "";
 
-
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 &&
-        report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
-}
 
 void simple_move()
 {
@@ -25726,13 +25725,14 @@ void struct_member_missing_free()
         "void f(int a)\n"
         "{\n"
         "    struct X x = {0};\n"
-        "    x.text = _Move strdup(\"a\");\n"        
+        "    x.text = _Move strdup(\"a\");\n"
         "}\n"
         "";
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    ////TODO return ROOT object!
 
 }
 
@@ -25760,6 +25760,142 @@ void struct_member_free()
     struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 0);
+
+}
+
+void move_inside_if()
+{
+    const char* source
+        =
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "void f(int c) \n"
+        "{\n"
+        "    int * _Owner p = malloc(sizeof (int));    \n"
+        "    if (c) {\n"
+        "      free(p);\n"
+        "    }\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1);
+}
+
+void goto_same_scope()
+{
+    const char* source
+        =
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "void f(int condition) \n"
+        "{\n"
+        "    int * _Owner p = malloc(sizeof(int));\n"
+        "  \n"
+        "    if (condition)\n"
+        "       goto end;\n"
+        "  end:\n"
+        "    free(p);\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+void jump_labels()
+{
+    const char* source
+        =
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "void f(int condition)\n"
+        "{\n"
+        "    int* _Owner p = malloc(sizeof(int));\n"
+        "\n"
+        "    if (condition)\n"
+        "        goto end;\n"
+        "\n"
+        "    free(p);\n"
+        "end:\n"
+        "\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+}
+
+void owner_if_pattern_1()
+{
+    const char* source
+        =
+        "\n"
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    int* _Owner p = malloc(sizeof(int));\n"
+        "    if (p)\n"
+        "    {\n"
+        "       free(p);     \n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+void owner_if_pattern_2()
+{
+    const char* source
+        =
+        "\n"
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    int* _Owner p = malloc(sizeof(int));\n"
+        "    if (p != 0)\n"
+        "    {\n"
+        "       free(p);     \n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+void missing_destructor()
+{
+    const char* source
+        =
+        "struct X {\n"
+        "  _Owner i;\n"
+        "};\n"
+        "void f() {\n"
+        "  const struct X x = {0};\n"
+        "}\n"
+        "";
+
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
 
 }
 
@@ -26670,7 +26806,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             break;
 
-        case UNARY_EXPRESSION_HASHOF_TYPE:
+        case UNARY_EXPRESSION_STATIC_DEBUG:
 
             if (!ctx->is_second_pass)
             {
@@ -28114,6 +28250,9 @@ void visit(struct visit_ctx* ctx)
 
 
 
+
+#include <limits.h>
+
 struct flow_defer_scope
 {
     struct declarator* declarator; // declarator 
@@ -28139,120 +28278,194 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier);
 
-struct object make_object(struct type* p_type)
+
+int objects_reserve(struct objects* p, int n)
 {
-    struct object obj = {0};
-    obj.members_size = type_get_num_members(p_type);
-    if (obj.members_size > 0)
+    if (n > p->capacity)
     {
-        obj.members = move calloc(obj.members_size, sizeof(struct object));
-    }
-
-    if (type_is_pointer(p_type) && p_type->type_qualifier_flags & (TYPE_QUALIFIER_OWNER | TYPE_QUALIFIER_OBJ_OWNER))
-    {
-        struct type t2 = type_remove_pointer(p_type);
-        struct object* owner p_object = calloc(1, sizeof * p_object);
-
-        p_object->members_size = type_get_num_members(&t2);
-        if (p_object->members_size > 0)
+        if ((size_t) n > (SIZE_MAX / (sizeof(p->data[0]))))
         {
-            p_object->members = move calloc(p_object->members_size, sizeof(struct object));
+            return EOVERFLOW;
         }
 
-        type_destroy(&t2);
-        obj.pointed = move p_object;
-    }
+        void* pnew = realloc(p->data, n * sizeof(p->data[0]));
+        if (pnew == NULL) return ENOMEM;
 
-    return obj;
+        p->data = pnew;
+        p->capacity = n;
+    }
+    return 0;
 }
-#if 0
-static void print_object(struct type* p_type,
-    struct object* p_object,
-    int ident)
+
+int objects_push_back(struct objects* p, const struct object* book)
 {
-
-    //if (p_type->struct_or_union_specifier)
-        //printf("  ");
-    //else
-      //  printf("%d ", *p_index);
-
-    for (int j = 0; j < ident; j++)
+    if (p->size == INT_MAX)
     {
-        printf(" ");
+        return EOVERFLOW;
     }
 
-    printf("%s", p_declarator->name->lexeme);
-
-    for (int j = ident + strlen(p_declarator->name->lexeme); j < 20; j++)
+    if (p->size + 1 > p->capacity)
     {
-        printf(" ");
-    }
-
-
-    if (p_declarator->type.struct_or_union_specifier)
-    {
-        printf("\n");
-
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_declarator->type.struct_or_union_specifier);
-
-
-        struct member_declaration* p_member_declaration =
-            p_struct_or_union_specifier->member_declaration_list.head;
-
-        while (p_member_declaration)
+        int new_capacity = 0;
+        if (p->capacity > (INT_MAX - p->capacity / 2))
         {
-            struct member_declarator* p_member_declarator =
-                p_member_declaration->member_declarator_list_opt->head;
-            if (p_member_declaration->member_declarator_list_opt)
+            /*overflow*/
+            new_capacity = INT_MAX;
+        }
+        else
+        {
+            new_capacity = p->capacity + p->capacity / 2;
+            if (new_capacity < p->size + 1)
             {
-                while (p_member_declarator)
-                {
-                    if (p_member_declarator->declarator)
-                    {
-                        print_object(p_member_declarator->declarator,
-                            object_state,
-                            p_index,
-                            ident + 1);
-
-                    }
-                    p_member_declarator = p_member_declarator->next;
-                }
+                new_capacity = p->size + 1;
             }
-            p_member_declaration = p_member_declaration->next;
+        }
+
+        int error = objects_reserve(p, new_capacity);
+        if (error != 0)
+        {
+            return error;
+        }
+    }
+
+    p->data[p->size] = *book; /*COPIED*/
+
+
+    p->size++;
+
+    return 0;
+}
+struct object_name_list
+{
+    const char* name;
+    struct object_name_list* previous;
+};
+
+static bool has_name(const char* name, struct object_name_list* list)
+{
+    struct object_name_list* p = list;
+
+    while (p)
+    {
+        if (strcmp(p->name, name) == 0)
+        {
+            return true;
+        }
+        p = p->previous;
+    }
+    return false;
+}
+
+
+static struct object make_object_core(struct type* p_type, struct object_name_list* list, int* p_deep)
+{
+    struct object obj = {0};
+    if (p_type->struct_or_union_specifier)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier)
+        {
+            obj.state = OBJECT_STATE_STRUCT;
+
+            struct member_declaration* p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            struct object_name_list l = {0};
+            l.name = p_struct_or_union_specifier->tag_name;
+            l.previous = list;
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            char* tag = NULL;
+                            if (p_member_declarator->declarator->type.struct_or_union_specifier)
+                            {
+                                tag = p_member_declarator->declarator->type.struct_or_union_specifier->tag_name;
+                            }
+                            else if (p_member_declarator->declarator->type.next &&
+                                p_member_declarator->declarator->type.next->struct_or_union_specifier)
+                            {
+                                tag = p_member_declarator->declarator->type.next->struct_or_union_specifier->tag_name;
+
+                            }
+
+                            if (tag && has_name(tag, &l))
+                            {
+                                struct object member_obj = {0};
+                                member_obj.state = OBJECT_STATE_UNINITIALIZED;
+                                objects_push_back(&obj.members, &member_obj);
+                            }
+                            else
+                            {
+                                struct object member_obj = make_object_core(&p_member_declarator->declarator->type, &l, p_deep);
+                                objects_push_back(&obj.members, &member_obj);
+                            }
+
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+        }
+    }
+    else if (type_is_array(p_type))
+    {
+        //p_object->state = flags;
+        //if (p_object->members_size > 0)
+        //{
+        //    //not sure if we instanticate all items of array
+        //    p_object->members[0].state = flags;
+        //}
+    }
+    else if (type_is_pointer(p_type))
+    {
+        obj.state = OBJECT_STATE_UNINITIALIZED;
+
+        if (*p_deep < 2)
+        {
+            struct type t2 = type_remove_pointer(p_type);
+            struct object* owner p_object = calloc(1, sizeof * p_object);
+
+            *p_object = move make_object_core(&t2, list, p_deep);
+            obj.pointed = move p_object;
+
+            type_destroy(&t2);
+            (*p_deep)++;
         }
     }
     else
     {
-
-
-        if (object_state[*p_index] == OBJECT_STATE_UNINITIALIZED)
-            printf("UNINITIALIZED ");
-
-        if (object_state[*p_index] & OBJECT_STATE_ZERO)
-            printf("ZERO ");
-
-        if (object_state[*p_index] & OBJECT_STATE_NOT_ZERO)
-            printf("NOT_ZERO ");
-
-        if (object_state[*p_index] & OBJECT_STATE_UNKNOWN)
-            printf("UNKNOWN ");
-        printf(" ");
-        type_print(&p_declarator->type);
-
-        printf("\n");
-        *p_index = *p_index + 1;
-
+        //assert(p_object->members_size == 0);
+        //p_object->state = flags;
+        obj.state = OBJECT_STATE_UNINITIALIZED;
     }
-}
-#endif
 
-static void set_object(
-    struct type* p_type,
-    struct object* p_object,
-    enum object_state flags)
+    return obj;
+}
+
+static struct object make_object(struct type* p_type)
 {
-    if (p_object == NULL || p_type == NULL)
+    int deep = 0;
+    struct object_name_list list = {.name = ""};
+    return make_object_core(p_type, &list, &deep);
+}
+
+static void print_object(int ident, struct type* p_type, struct object* p_object, const char* previous_names)
+{
+    if (p_object == NULL)
     {
         return;
     }
@@ -28264,21 +28477,134 @@ static void set_object(
 
         if (p_struct_or_union_specifier)
         {
+            if (p_object == NULL)
+            {
+                printf("%*c", ident, ' ');
+                printf("%s %s\n", previous_names, "-");
+                return;
+            }
+            //obj.state = OBJECT_STATE_STRUCT;
+
             struct member_declaration* p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
+            int member_index = 0;
             while (p_member_declaration)
             {
+
+
                 if (p_member_declaration->member_declarator_list_opt)
                 {
                     struct member_declarator* p_member_declarator =
                         p_member_declaration->member_declarator_list_opt->head;
-                    int member_index = 0;
                     while (p_member_declarator)
                     {
                         if (p_member_declarator->declarator)
                         {
-                            set_object(&p_member_declarator->declarator->type, &p_object->members[member_index], flags);
+                            char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "";
+                            char buffer[200] = {0};
+                            if (type_is_pointer(p_type))
+                                snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
+                            else
+                                snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
+
+
+                            print_object(ident + 1, &p_member_declarator->declarator->type,
+                                &p_object->members.data[member_index], buffer);
+
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+        }
+    }
+    else if (type_is_array(p_type))
+    {
+        //p_object->state = flags;
+        //if (p_object->members_size > 0)
+        //{
+        //    //not sure if we instanticate all items of array
+        //    p_object->members[0].state = flags;
+        //}
+    }
+    else if (type_is_pointer(p_type))
+    {
+        struct type t2 = type_remove_pointer(p_type);
+        printf("%*c", ident, ' ');
+        if (p_object)
+        {
+            printf("%s %s\n", previous_names, object_state_to_string(p_object->state));
+            if (p_object->pointed)
+            {
+                char buffer[200] = {0};
+                snprintf(buffer, sizeof buffer, "*(%s)", previous_names);
+
+
+                print_object(ident + 1, &t2, p_object->pointed, buffer);
+            }
+            else
+            {
+                //printf("%s %s\n");
+            }
+        }
+        type_destroy(&t2);
+    }
+    else
+    {
+        printf("%*c", ident, ' ');
+        if (p_object)
+            printf("%s %s\n", previous_names, object_state_to_string(p_object->state));
+    }
+
+
+}
+
+
+static void set_object(
+    struct type* p_type,
+    struct object* p_object,
+    enum object_state flags)
+{
+    if (p_object == NULL || p_type == NULL)
+    {
+        return;
+    }
+
+
+    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier)
+        {
+            struct member_declaration* p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            if (member_index < p_object->members.size)
+                            {
+                              set_object(&p_member_declarator->declarator->type, &p_object->members.data[member_index], flags);
+                            }
+                            else
+                            {
+                                //TODO BUG union?                                
+                            }
                             member_index++;
                         }
                         p_member_declarator = p_member_declarator->next;
@@ -28289,22 +28615,33 @@ static void set_object(
         }
         else
         {
-            assert(p_object->members_size == 0);
+            assert(p_object->members.size == 0);
             p_object->state = flags;
         }
     }
     else if (type_is_array(p_type))
     {
         p_object->state = flags;
-        if (p_object->members_size > 0)
+        if (p_object->members.size > 0)
         {
             //not sure if we instanticate all items of array
-            p_object->members[0].state = flags;
+            p_object->members.data[0].state = flags;
+        }
+    }
+    else if (type_is_pointer(p_type))
+    {
+        p_object->state = flags;
+
+        if (p_object->pointed)
+        {
+            struct type t2 = type_remove_pointer(p_type);
+            set_object(&t2, p_object->pointed, flags);
+            type_destroy(&t2);
         }
     }
     else
     {
-        assert(p_object->members_size == 0);
+        assert(p_object->members.size == 0);
         p_object->state = flags;
     }
 }
@@ -28329,19 +28666,9 @@ void visit_object(struct parser_ctx* ctx,
         return;
     }
 
-    bool move_necessary = !(p_object->state & OBJECT_STATE_ZERO && type_is_pointer(p_type)) &&
-        !(p_object->state & OBJECT_STATE_UNINITIALIZED) &
-        !(p_object->state & OBJECT_STATE_MOVED);
 
-    if (!move_necessary)
-    {
-        if (!type_is_pointer(p_type))
-        {
-            return;
-        }
-    }
 
-    if (p_type->struct_or_union_specifier)
+    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
@@ -28349,16 +28676,17 @@ void visit_object(struct parser_ctx* ctx,
         struct member_declaration* p_member_declaration =
             p_struct_or_union_specifier->member_declaration_list.head;
 
-
+        int member_index = 0;
         while (p_member_declaration)
         {
+
             if (p_member_declaration->member_declarator_list_opt)
             {
                 struct member_declarator* p_member_declarator =
                     p_member_declaration->member_declarator_list_opt->head;
                 while (p_member_declarator)
                 {
-                    int member_index = 0;
+
                     if (p_member_declarator->declarator)
                     {
                         char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "";
@@ -28369,9 +28697,11 @@ void visit_object(struct parser_ctx* ctx,
                             snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
                         visit_object(ctx, &p_member_declarator->declarator->type,
-                            &p_object->members[member_index],
+                            &p_object->members.data[member_index],
                             position_token,
                             buffer);
+
+                        member_index++;
                     }
                     p_member_declarator = p_member_declarator->next;
                 }
@@ -28401,6 +28731,14 @@ void visit_object(struct parser_ctx* ctx,
             }
             type_destroy(&t2);
         }
+        const bool move_not_necessary =
+            (p_object->state == OBJECT_STATE_ZERO && type_is_pointer(p_type)) ||
+            (p_object->state == OBJECT_STATE_UNINITIALIZED) ||
+            (p_object->state == OBJECT_STATE_MOVED) ||
+            (p_object->state == OBJECT_STATE_NULL_OR_UNINITIALIZED && type_is_pointer(p_type));
+
+        const bool move_necessary = !move_not_necessary;
+
 
         if (!(p_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER) &&
             move_necessary)
@@ -28443,6 +28781,8 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
     return found_error;
 }
 
+static bool flow_find_label_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, const char* label);
+
 static bool check_all_defer_until_try(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock,
     struct token* position_token)
 {
@@ -28463,6 +28803,33 @@ static bool check_all_defer_until_try(struct flow_visit_ctx* ctx, struct flow_de
     return found_error;
 }
 
+static bool flow_find_label_block_item_list(struct flow_visit_ctx* ctx, struct block_item_list* p_block_item, const char* label)
+{
+    struct block_item* block_item = p_block_item->head;
+    while (block_item)
+    {
+        if (block_item &&
+            block_item->label &&
+            block_item->label->name &&
+            strcmp(block_item->label->name->lexeme, label) == 0)
+        {
+            /*achou*/
+            return true;
+        }
+        else if (block_item->unlabeled_statement)
+        {
+            if (flow_find_label_unlabeled_statement(ctx, block_item->unlabeled_statement, label))
+            {
+                return true;
+            }
+        }
+
+        block_item = block_item->next;
+    }
+
+    return false;
+}
+
 static bool flow_find_label_statement(struct flow_visit_ctx* ctx, struct statement* statement, const char* label);
 static bool flow_find_label_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, const char* label)
 {
@@ -28470,27 +28837,11 @@ static bool flow_find_label_unlabeled_statement(struct flow_visit_ctx* ctx, stru
     {
         if (p_unlabeled_statement->primary_block->compound_statement)
         {
-            struct block_item* block_item =
-                p_unlabeled_statement->primary_block->compound_statement->block_item_list.head;
-            while (block_item)
+            if (flow_find_label_block_item_list(ctx,
+                &p_unlabeled_statement->primary_block->compound_statement->block_item_list,
+                label))
             {
-                if (block_item &&
-                    block_item->label &&
-                    block_item->label->name &&
-                    strcmp(block_item->label->name->lexeme, label) == 0)
-                {
-                    /*achou*/
-                    return true;
-                }
-                else if (block_item->unlabeled_statement)
-                {
-                    if (flow_find_label_unlabeled_statement(ctx, block_item->unlabeled_statement, label))
-                    {
-                        return true;
-                    }
-                }
-
-                block_item = block_item->next;
+                return true;
             }
         }
         else if (p_unlabeled_statement->primary_block->selection_statement)
@@ -28595,6 +28946,15 @@ static bool flow_find_label_scope(struct flow_visit_ctx* ctx, struct flow_defer_
         if (flow_find_label_statement(ctx, deferblock->p_statement, label))
             return true;
     }
+    else if (deferblock->p_function_body)
+    {
+        if (flow_find_label_block_item_list(ctx,
+            &deferblock->p_function_body->block_item_list,
+            label))
+        {
+            return true;
+        }
+    }
     return false;
 }
 
@@ -28657,6 +29017,38 @@ static bool check_all_defer_until_end(struct flow_visit_ctx* ctx, struct flow_de
     return found_found;
 }
 
+
+static bool set_all_variables(struct flow_visit_ctx* ctx,
+    struct flow_defer_scope* deferblock,
+    enum object_state state)
+{
+    bool found_error = false;
+
+    struct flow_defer_scope* deferchild = deferblock->last_child;
+    while (deferchild != NULL)
+    {
+        if (deferchild->declarator)
+        {
+            struct declarator* p_declarator = deferchild->declarator;
+            set_object(&p_declarator->type, &p_declarator->object, state);
+        }
+        deferchild = deferchild->previous;
+    }
+    return found_error;
+}
+
+static void set_all_until_end(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock, enum object_state state)
+{
+
+    struct flow_defer_scope* p_defer = deferblock;
+    while (p_defer != NULL)
+    {
+        set_all_variables(ctx, p_defer, state);
+        p_defer = p_defer->previous;
+    }
+
+}
+
 static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* p_secondary_block)
 {
     flow_visit_statement(ctx, p_secondary_block->statement);
@@ -28690,13 +29082,63 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
 
     if (ctx->tail_block)
     {
-        //POP
-        ctx->tail_block = ctx->tail_block->previous;
+        //POP        
+        ctx->tail_block = move ctx->tail_block->previous;
     }
+}
+
+static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression)
+{
+    struct object* p_object = NULL;
+    if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+    {
+        if (type_is_pointer(&p_expression->type))
+        {
+            if (p_expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+            {
+                struct type type = {0};
+                p_object = expression_get_object(p_expression, &type);
+                type_destroy(&type);
+            }
+        }
+    }
+    else if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+    {
+        if (p_expression->left->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
+        {
+            if (type_is_pointer(&p_expression->left->type) &&
+                p_expression->left->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+            {
+                if (is_null_pointer_constant(p_expression->right))
+                {
+                    struct type type = {0};
+                    p_object = expression_get_object(p_expression->left, &type);
+                    type_destroy(&type);
+                }
+            }
+        }
+    }
+    return p_object;
 }
 
 static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
+    /*
+       COMMON PATTERN
+
+       //owner is not moved here
+       if (owner)
+       {
+          //goto
+          //label
+          //break;
+          //no address of &owner
+          // no p->owner
+          // &p
+       } //owner is moved here
+
+
+    */
 
     //PUSH
     struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
@@ -28704,18 +29146,68 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     ctx->tail_block = move p_defer;
     p_defer->p_selection_statement2 = p_selection_statement;
 
+
+
+    struct object* p_object = NULL;
+    enum object_state state = 0;
+
+    // (p)
+    // (p != NULL)
+
+    if (p_selection_statement->expression)
+    {
+        p_object = expression_is_comparing_owner_with_null(p_selection_statement->expression);
+        if (p_object)
+        {
+            struct type type = {0};
+            state = p_object->state;
+            type_destroy(&type);
+        }
+    }
+
+
+
+    bool copy = ctx->has_jumps;
+    ctx->has_jumps = false;
     if (p_selection_statement->secondary_block)
         flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
 
 
     check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
 
+    if (p_selection_statement->else_secondary_block_opt)
+        flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
+
+
+    if (ctx->has_jumps ||
+        p_selection_statement->else_secondary_block_opt != NULL)
+    {
+        p_object = NULL;
+    }
+
+
+    ctx->has_jumps = copy || ctx->has_jumps; //restore
 
     //POP
     ctx->tail_block = ctx->tail_block->previous;
 
-    if (p_selection_statement->else_secondary_block_opt)
-        flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
+
+
+    enum object_state state2 = 0;
+    if (p_object)
+    {
+        state2 = p_object->state;
+    }
+
+    set_all_until_end(ctx, ctx->tail_block, OBJECT_STATE_UNKNOWN);
+
+    if (p_object)
+    {
+        if (state2 == OBJECT_STATE_UNINITIALIZED)
+        {
+            p_object->state = OBJECT_STATE_NULL_OR_UNINITIALIZED;
+        }
+    }
 
 
 }
@@ -28897,7 +29389,10 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                         else
                         {
                             /* moving a owner pointer to non void* moves the pointed object too*/
-                            p_argument_object->pointed->state = OBJECT_STATE_MOVED;
+                            if (p_argument_object->pointed)
+                            {
+                                p_argument_object->pointed->state = OBJECT_STATE_MOVED;
+                            }
                         }
                     }
                 }
@@ -28933,11 +29428,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (p_expression->declarator->object.state == OBJECT_STATE_UNINITIALIZED)
             {
                 //TODO inside sizeof(v)  is not an error. :D
+                //TODO function type...
+#if 0
                 compiler_set_warning_with_token(W_UNINITIALZED,
                     ctx->ctx,
                     p_expression->first_token,
                     "'%s' is uninitialized ",
                     p_expression->declarator->name->lexeme);
+#endif
             }
 
             break;
@@ -29036,11 +29534,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             break;
 
-        case UNARY_EXPRESSION_HASHOF_TYPE:
+        case UNARY_EXPRESSION_STATIC_DEBUG:
         {
             compiler_set_info_with_token(W_NONE, ctx->ctx, p_expression->first_token, "");
-            //int index = 0;
-            //print_object(p_expression->declarator, &p_expression->declarator->object, 0);
+            print_object(1, &p_expression->right->declarator->type,
+                &p_expression->right->declarator->object,
+                p_expression->right->declarator->name->lexeme);
         }
         break;
 
@@ -29178,6 +29677,8 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement)
 {
     flow_visit_block_item_list(ctx, &p_compound_statement->block_item_list);
+
+
 }
 
 //
@@ -29228,6 +29729,8 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
 
+    ctx->has_jumps = true;
+
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
         check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
@@ -29273,6 +29776,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
     else if (p_jump_statement->first_token->type == TK_KEYWORD_GOTO)
     {
         check_all_defer_until_label(ctx, ctx->tail_block, p_jump_statement->label->lexeme, p_jump_statement->first_token);
+
+        set_all_until_end(ctx, ctx->tail_block, OBJECT_STATE_UNKNOWN);
     }
     else
     {
@@ -29280,10 +29785,14 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
     }
 }
 
+static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label);
 
 static void flow_visit_labeled_statement(struct flow_visit_ctx* ctx, struct labeled_statement* p_labeled_statement)
 {
-    //p_labeled_statement->label
+    if (p_labeled_statement->label)
+    {
+        flow_visit_label(ctx, p_labeled_statement->label);
+    }
 
     if (p_labeled_statement->statement)
     {
@@ -29358,7 +29867,9 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 {
     //p_label->name
+    set_all_until_end(ctx, ctx->tail_block, OBJECT_STATE_UNKNOWN);
 }
+
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
 {
     if (p_block_item->declaration)
@@ -29443,6 +29954,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         ctx->tail_block->last_child = move p_defer;
 
         p_declarator->object = move make_object(&p_declarator->type);
+        //print_object(0, &p_declarator->type, &p_declarator->object, p_declarator->name->lexeme);
 
         if (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
@@ -29826,12 +30338,15 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
 
     if (p_declaration->function_body)
     {
+
         assert(ctx->p_return_type == NULL);
+        assert(ctx->has_jumps == false);
         struct type type = get_function_return_type(&p_declaration->init_declarator_list.head->p_declarator->type);
         ctx->p_return_type = &type;
         flow_visit_compound_statement(ctx, p_declaration->function_body);
         type_destroy(&type);
         ctx->p_return_type = NULL;
+        ctx->has_jumps = false;
     }
 
 }
@@ -31019,7 +31534,7 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
     case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
         break;
 
-    case UNARY_EXPRESSION_HASHOF_TYPE:
+    case UNARY_EXPRESSION_STATIC_DEBUG:
 
 
         break;

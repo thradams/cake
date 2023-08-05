@@ -899,7 +899,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             break;
 
-        case UNARY_EXPRESSION_HASHOF_TYPE:
+        case UNARY_EXPRESSION_STATIC_DEBUG:
 
             if (!ctx->is_second_pass)
             {

@@ -32,7 +32,7 @@ enum expression_type
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
     UNARY_EXPRESSION_SIZEOF_TYPE,
-    UNARY_EXPRESSION_HASHOF_TYPE,
+    UNARY_EXPRESSION_STATIC_DEBUG,
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
@@ -213,3 +213,4 @@ struct expression* owner constant_expression(struct parser_ctx* ctx);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
 struct object* expression_get_object(struct expression* p_expression, struct type* p_type);
+bool is_null_pointer_constant(const struct expression* expression);

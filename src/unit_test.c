@@ -116,7 +116,6 @@ void simple_no_discard_test2(void);
 void address_of_register(void);
 void return_address_of_local(void);
 void assignment_of_read_only_object(void);
-void missing_destructor(void);
 void simple_move(void);
 void simple_move_error(void);
 void parameter_view(void);
@@ -139,6 +138,12 @@ void pointer_must_be_deleted(void);
 void basic_pointer_check(void);
 void struct_member_missing_free(void);
 void struct_member_free(void);
+void move_inside_if(void);
+void goto_same_scope(void);
+void jump_labels(void);
+void owner_if_pattern_1(void);
+void owner_if_pattern_2(void);
+void missing_destructor(void);
 
 /*end of forward declarations*/
 
@@ -248,7 +253,6 @@ g_unit_test_success_count = 0;
     address_of_register();
     return_address_of_local();
     assignment_of_read_only_object();
-    missing_destructor();
     simple_move();
     simple_move_error();
     parameter_view();
@@ -271,6 +275,12 @@ g_unit_test_success_count = 0;
     basic_pointer_check();
     struct_member_missing_free();
     struct_member_free();
+    move_inside_if();
+    goto_same_scope();
+    jump_labels();
+    owner_if_pattern_1();
+    owner_if_pattern_2();
+    missing_destructor();
 return g_unit_test_error_count;
 
 }

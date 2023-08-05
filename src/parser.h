@@ -494,26 +494,37 @@ struct initializer* owner initializer(struct parser_ctx* ctx);
 
 enum object_state
 {
-    OBJECT_STATE_TRASH = 0,
-    OBJECT_STATE_UNINITIALIZED = 1 << 1,
-    OBJECT_STATE_ZERO = 1 << 3,
-    OBJECT_STATE_UNKNOWN = 1 << 4,
-    OBJECT_STATE_NOT_ZERO = 1 << 5,
-    OBJECT_STATE_MOVED = 1 << 6,
+    OBJECT_STATE_STRUCT = 0,
+    OBJECT_STATE_UNINITIALIZED,
+    OBJECT_STATE_ZERO,
+    OBJECT_STATE_UNKNOWN,
+    OBJECT_STATE_NOT_ZERO,
+    OBJECT_STATE_MOVED,
+    OBJECT_STATE_NULL_OR_UNINITIALIZED,
 };
 
+const char * object_state_to_string(enum object_state e);
+
+
+struct objects {
+    struct object* owner data;
+    int size;
+    int capacity;
+};
 
 /*
   Used in flow analysis to represent the object instance
 */
 struct object
 {
-  
+  /*
+     state should not be used for struct, unless
+     members_size is zero.
+  */
   enum object_state state;    
   struct object * owner pointed;
 
-  struct object * owner members;
-  int members_size;      
+  struct objects members;      
 };
 
 struct declarator

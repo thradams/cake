@@ -105,7 +105,7 @@ void delete_macro(implicit struct macro* owner macro);
 
 static void delete_macro_void(void* p)
 {
-    struct macro* p_macro = p;
+    struct macro* owner p_macro = p;
     delete_macro(p_macro);
 }
 
@@ -288,6 +288,7 @@ struct macro_expanded
     struct macro_expanded* p_previous;
 };
 
+
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
     struct macro* owner macro = calloc(1, sizeof * macro);
@@ -296,6 +297,7 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
     }
     macro->name = move strdup(name);
     owner_hashmap_set(&ctx->macros, name, move macro, 0);
+    
 }
 
 
@@ -452,10 +454,10 @@ void delete_macro(implicit struct macro* owner macro)
     {
         token_list_destroy(&macro->replacement_list);
 
-        struct macro_parameter* p = macro->parameters;
+        struct macro_parameter* owner p = macro->parameters;
         while (p)
         {
-            struct macro_parameter* p_next = p->next;
+            struct macro_parameter* owner p_next = move p->next;
             free((void * owner)p->name);
             free(p);
             p = p_next;

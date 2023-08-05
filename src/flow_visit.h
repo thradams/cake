@@ -16,6 +16,7 @@ struct flow_visit_ctx
     struct ast ast;    
     struct flow_defer_scope* owner tail_block;
     struct type* view p_return_type;
+    bool has_jumps;    
 };
 
 

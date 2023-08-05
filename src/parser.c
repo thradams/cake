@@ -33,6 +33,21 @@
 
 
 
+
+const char* object_state_to_string(enum object_state e)
+{
+    switch (e)
+    {
+        case OBJECT_STATE_STRUCT: return "";
+        case OBJECT_STATE_UNINITIALIZED: return "UNINITIALIZED";
+        case OBJECT_STATE_ZERO: return "ZERO";
+        case OBJECT_STATE_UNKNOWN: return "UNKNOWN";
+        case OBJECT_STATE_NOT_ZERO: return "NOT_ZERO";
+        case OBJECT_STATE_MOVED: return "MOVED";
+        case OBJECT_STATE_NULL_OR_UNINITIALIZED: return "NULL_OR_UNINITIALIZED";
+    }
+    return "";
+}
 struct defer_statement* owner defer_statement(struct parser_ctx* ctx);
 
 
@@ -1049,6 +1064,7 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
             else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
             else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
+            else if (strcmp("static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
 
             break;
         case 't':
@@ -1104,7 +1120,6 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
             /*TRAITS EXTENSION*/
 
-            else if (strcmp("_static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
             else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
             else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
             else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
@@ -1805,7 +1820,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
                         if (add_specifier(ctx,
                             &p_declaration_specifiers->type_specifier_flags,
                             p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
-                        {                            
+                        {
                             throw;
                         }
 
@@ -4418,7 +4433,7 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
 
             if (p_static_assert_declaration->constant_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
             {
-                if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_HASHOF_TYPE)
+                if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_STATIC_DEBUG)
                 {
                     compiler_set_info_with_token(W_NONE,
                         ctx,
@@ -5631,7 +5646,8 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
 #define STR_C \
- "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32705\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt"
+ "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
+
 
 #define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
@@ -6111,7 +6127,7 @@ struct ast get_ast(struct options* options,
 
     parser_ctx_destroy(&ctx);
 
-    
+
 
     return ast;
 }
@@ -7349,25 +7365,7 @@ void assignment_of_read_only_object()
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void missing_destructor()
-{
-    const char* source
-        =
-        "struct X {\n"
-        "  _Owner i;\n"
-        "};\n"
-        "void f() {\n"
-        "  const struct X x = {0};\n"
-        "}\n"
-        "";
 
-
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 &&
-        report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
-}
 
 void simple_move()
 {
@@ -7801,13 +7799,14 @@ void struct_member_missing_free()
         "void f(int a)\n"
         "{\n"
         "    struct X x = {0};\n"
-        "    x.text = _Move strdup(\"a\");\n"        
+        "    x.text = _Move strdup(\"a\");\n"
         "}\n"
         "";
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    ////TODO return ROOT object!
 
 }
 
@@ -7835,6 +7834,142 @@ void struct_member_free()
     struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 0);
+
+}
+
+void move_inside_if()
+{
+    const char* source
+        =
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "void f(int c) \n"
+        "{\n"
+        "    int * _Owner p = malloc(sizeof (int));    \n"
+        "    if (c) {\n"
+        "      free(p);\n"
+        "    }\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1);
+}
+
+void goto_same_scope()
+{
+    const char* source
+        =
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "void f(int condition) \n"
+        "{\n"
+        "    int * _Owner p = malloc(sizeof(int));\n"
+        "  \n"
+        "    if (condition)\n"
+        "       goto end;\n"
+        "  end:\n"
+        "    free(p);\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+void jump_labels()
+{
+    const char* source
+        =
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "void f(int condition)\n"
+        "{\n"
+        "    int* _Owner p = malloc(sizeof(int));\n"
+        "\n"
+        "    if (condition)\n"
+        "        goto end;\n"
+        "\n"
+        "    free(p);\n"
+        "end:\n"
+        "\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+}
+
+void owner_if_pattern_1()
+{
+    const char* source
+        =
+        "\n"
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    int* _Owner p = malloc(sizeof(int));\n"
+        "    if (p)\n"
+        "    {\n"
+        "       free(p);     \n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+void owner_if_pattern_2()
+{
+    const char* source
+        =
+        "\n"
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    int* _Owner p = malloc(sizeof(int));\n"
+        "    if (p != 0)\n"
+        "    {\n"
+        "       free(p);     \n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "";
+    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+void missing_destructor()
+{
+    const char* source
+        =
+        "struct X {\n"
+        "  _Owner i;\n"
+        "};\n"
+        "void f() {\n"
+        "  const struct X x = {0};\n"
+        "}\n"
+        "";
+
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
 
 }
 

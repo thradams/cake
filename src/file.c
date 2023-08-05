@@ -1,11 +1,21 @@
-
-/*  
-  See also: http://thradams.com/cake/ownership.html
-*/
 void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
 
-int main() {
-   void * _Owner p = malloc(1);
-   free(p);
+struct Y {
+  struct X * _Owner x;
+};
+
+void x_delete(_Implicit struct X  * _Owner p);
+
+void f(struct Y * p, int condition)
+{
+     struct X * _Owner x = malloc(1);
+     p->x = _Move x;
+     x = 0;
+
+     if (condition)
+     {
+     }
+
+     x_delete(x);
 }
+ 
