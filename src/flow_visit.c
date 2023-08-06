@@ -510,7 +510,7 @@ void visit_object(struct parser_ctx* ctx,
             compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
                 ctx,
                 p_object->declarator->name,
-                "variable '%s' was not moved/destroyed",
+                "object '%s' was not moved/destroyed",
                 name);
 
             if (p_object->declarator)
