@@ -146,6 +146,7 @@ void owner_if_pattern_2(void);
 void missing_destructor(void);
 void no_warning(void);
 void moved_if_not_null(void);
+void void_ptr_conversion(void);
 
 /*end of forward declarations*/
 
@@ -285,6 +286,7 @@ g_unit_test_success_count = 0;
     missing_destructor();
     no_warning();
     moved_if_not_null();
+    void_ptr_conversion();
 return g_unit_test_error_count;
 
 }

@@ -8019,7 +8019,27 @@ void moved_if_not_null()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
+void void_ptr_conversion()
+{
+    const char* source
+        =
+        "\n"
+        "void free(_Implicit void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "\n"
+        "struct X { char * _Owner name; };\n"
+        "\n"
+        "void * _Owner f1(){\n"
+        "  struct X * _Owner p = malloc(sizeof (struct X));\n"
+        "  return p;\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count != 0 || report.warnings_count != 0);
 
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////     OWNER /////////////////////////////////////////////////////////
