@@ -514,7 +514,7 @@ void visit_object(struct parser_ctx* ctx,
                 name);
 
             if (p_object->declarator)
-                compiler_set_info_with_token(W_NONE, ctx, position_token, "end of scope");
+                compiler_set_info_with_token(W_NONE, ctx, position_token, "end of '%s' scope", name);
 
         }
     }
