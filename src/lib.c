@@ -25918,7 +25918,32 @@ void no_warning()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0 );
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+void moved_if_not_null()
+{
+    const char* source
+        =
+        "void * _Owner malloc(int i);\n"
+        "void free(_Implicit void * _Owner p);\n"
+        "\n"
+        "struct X { int i; };\n"
+        "struct Y { struct X * _Owner p; };\n"
+        "\n"
+        "int main() {\n"
+        "   struct Y y;\n"
+        "   struct X * _Owner p = malloc(sizeof(struct X));\n"
+        "   if (p){\n"
+        "     y.p = _Move p;\n"
+        "   }\n"
+        "  free(y.p);\n"
+        "}\n"
+        "\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28646,7 +28671,7 @@ static void set_object(
         p_object->state = flags;
         if (p_object->members.size > 0)
         {
-            //not sure if we instanticate all items of array
+            //not sure if we instantiate all items of array
             p_object->members.data[0].state = flags;
         }
     }
@@ -29206,8 +29231,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
 
 
-    if (ctx->has_jumps ||
-        p_selection_statement->else_secondary_block_opt != NULL)
+    if (ctx->has_jumps)
     {
         p_object = NULL;
     }
@@ -29230,7 +29254,8 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
     if (p_object)
     {
-        if (state2 == OBJECT_STATE_UNINITIALIZED)
+        if (state2 == OBJECT_STATE_UNINITIALIZED ||
+            state2 == OBJECT_STATE_MOVED)
         {
             p_object->state = OBJECT_STATE_NULL_OR_UNINITIALIZED;
         }

@@ -379,7 +379,7 @@ static void set_object(
         p_object->state = flags;
         if (p_object->members.size > 0)
         {
-            //not sure if we instanticate all items of array
+            //not sure if we instantiate all items of array
             p_object->members.data[0].state = flags;
         }
     }
@@ -939,8 +939,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
 
 
-    if (ctx->has_jumps ||
-        p_selection_statement->else_secondary_block_opt != NULL)
+    if (ctx->has_jumps)
     {
         p_object = NULL;
     }
@@ -963,7 +962,8 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
     if (p_object)
     {
-        if (state2 == OBJECT_STATE_UNINITIALIZED)
+        if (state2 == OBJECT_STATE_UNINITIALIZED ||
+            state2 == OBJECT_STATE_MOVED)
         {
             p_object->state = OBJECT_STATE_NULL_OR_UNINITIALIZED;
         }

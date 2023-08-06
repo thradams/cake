@@ -126,8 +126,7 @@ The exception of the usage of **\_Move** is when initializing from a function re
 _Owner T make_owner();
 _Owner T a = make_owner();
 ```
-  
-> Design note: The usage of _Move was not required in any way, by the type system or by the flow analysis. The reasoning was to make code more explicit.
+
 
 ### Owner = Non-owner
   
@@ -351,6 +350,14 @@ must check if the object has been moved.
 
 ###  Algorithm
 
+> "Caesar's wife must be above suspicion"
+
+Cake employs a straightforward pattern-based algorithm for ownership analysis. This choice is driven by the principle that ownership reasoning should remain clear and uncomplicated.  Complex code, even if accurate, has the potential to raise concerns and demand unnecessary time from programmers during the process of code reviews.
+
+The basic idea of the algorithm is that we need a "clear path" out of suspicious from the point where variables are moved until the point they leave scope. 
+
+"Clear path" means, for instance, that we are not jumping in or out of the code section executed before the end of scope.
+
 Compare these two situations.
 
 ```c
@@ -375,7 +382,30 @@ end:
 }
 ```
 
-The basic idea of the algorithm is that we need a clear path from the point where variables are moved until the point they leave scope.
+The second example, we have a label "end" between free(p) and the end of scope. So this code is suspicious because there is a "jump in" and cake will complain.
+
+The patterns required are under construction.  
+
+One pattern already implemented is:
+
+```c
+ {  
+  if (p){
+      free(p->name);
+      free(p);
+   }
+ } //no complain here.
+```
+
+```c
+ {  
+  T  * _Owner p = malloc(sizeof(T)); 
+  if (p){
+     dest = _Move p;
+   }
+ } //no complain here.
+```
+
 
 
 ### Sample 1

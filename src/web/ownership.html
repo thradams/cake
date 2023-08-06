@@ -226,10 +226,6 @@ a = _Move b;
 _Owner T a = make_owner();
 </code></pre>
 
-<blockquote>
-<p>Design note: The usage of _Move was not required in any way, by the type system or by the flow analysis. The reasoning was to make code more explicit.</p>
-</blockquote>
-
 <h3 id="toc_4">Owner = Non-owner</h3>
 
 <p>This is not allowed.<br>
@@ -426,6 +422,16 @@ must check if the object has been moved. </p>
 
 <h3 id="toc_16">Algorithm</h3>
 
+<blockquote>
+<p>&quot;Caesar&#39;s wife must be above suspicion&quot;</p>
+</blockquote>
+
+<p>Cake employs a straightforward pattern-based algorithm for ownership analysis. This choice is driven by the principle that ownership reasoning should remain clear and uncomplicated.  Complex code, even if accurate, has the potential to raise concerns and demand unnecessary time from programmers during the process of code reviews.</p>
+
+<p>The basic idea of the algorithm is that we need a &quot;clear path&quot; out of suspicious from the point where variables are moved until the point they leave scope. </p>
+
+<p>&quot;Clear path&quot; means, for instance, that we are not jumping in or out of the code section executed before the end of scope.</p>
+
 <p>Compare these two situations.</p>
 
 <pre><code class="language-c">void f(int condition)
@@ -448,7 +454,27 @@ end:
 }
 </code></pre>
 
-<p>The basic idea of the algorithm is that we need a clear path from the point where variables are moved until the point they leave scope.</p>
+<p>The second example, we have a label &quot;end&quot; between free(p) and the end of scope. So this code is suspicious because there is a &quot;jump in&quot; and cake will complain.</p>
+
+<p>The patterns required are under construction.  </p>
+
+<p>One pattern already implemented is:</p>
+
+<pre><code class="language-c"> {  
+  if (p){
+      free(p-&gt;name);
+      free(p);
+   }
+ } //no complain here.
+</code></pre>
+
+<pre><code class="language-c"> {  
+  T  * _Owner p = malloc(sizeof(T)); 
+  if (p){
+     dest = _Move p;
+   }
+ } //no complain here.
+</code></pre>
 
 <h3 id="toc_17">Sample 1</h3>
 

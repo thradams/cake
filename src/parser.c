@@ -7992,7 +7992,32 @@ void no_warning()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0 );
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+void moved_if_not_null()
+{
+    const char* source
+        =
+        "void * _Owner malloc(int i);\n"
+        "void free(_Implicit void * _Owner p);\n"
+        "\n"
+        "struct X { int i; };\n"
+        "struct Y { struct X * _Owner p; };\n"
+        "\n"
+        "int main() {\n"
+        "   struct Y y;\n"
+        "   struct X * _Owner p = malloc(sizeof(struct X));\n"
+        "   if (p){\n"
+        "     y.p = _Move p;\n"
+        "   }\n"
+        "  free(y.p);\n"
+        "}\n"
+        "\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
