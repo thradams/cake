@@ -524,6 +524,9 @@ struct object
   enum object_state state;    
   struct object * owner pointed;
 
+  /*declarator is used only to print the error message*/
+  struct declarator* declarator;
+
   struct objects members;      
 };
 

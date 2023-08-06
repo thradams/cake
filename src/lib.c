@@ -1470,6 +1470,9 @@ void print_line_and_token(const struct token* p_token)
     char nbuffer[20] = {0};
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
+    
+    int offset = 0;
+    bool stop_offset = false;
 
     const struct token* prev = p_token;
     while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
@@ -1479,15 +1482,21 @@ void print_line_and_token(const struct token* p_token)
     const struct token* next = prev;
     while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
     {
+        if (p_token == next)
+            stop_offset = true;
+
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
             if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
             {
+                if (!stop_offset) offset++;
                 printf(" ");
             }
         }
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
+            if (!stop_offset) 
+              offset +=  strlen(next->lexeme);
             printf(DARKGRAY "%s" RESET, next->lexeme);
         }
         else
@@ -1500,7 +1509,7 @@ void print_line_and_token(const struct token* p_token)
     printf(" %*s |", n, " ");
     if (p_token)
     {
-        for (int i = 1; i <= (p_token->col - 1); i++)
+        for (int i = 1; i <= (p_token->col - 1) + offset; i++)
         {
             printf(" ");
         }
@@ -10118,6 +10127,9 @@ struct object
   */
   enum object_state state;    
   struct object * owner pointed;
+
+  /*declarator is used only to print the error message*/
+  struct declarator* declarator;
 
   struct objects members;      
 };
@@ -23572,11 +23584,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR_C \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STR \
+#define STR_E \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 
@@ -28404,9 +28416,11 @@ static bool has_name(const char* name, struct object_name_list* list)
 }
 
 
-static struct object make_object_core(struct type* p_type, struct object_name_list* list, int* p_deep)
+static struct object make_object_core(struct type* p_type, struct object_name_list* list, int* p_deep, struct declarator* declarator)
 {
     struct object obj = {0};
+    obj.declarator = declarator;
+
     if (p_type->struct_or_union_specifier)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
@@ -28450,12 +28464,13 @@ static struct object make_object_core(struct type* p_type, struct object_name_li
                             if (tag && has_name(tag, &l))
                             {
                                 struct object member_obj = {0};
+                                member_obj.declarator = declarator;
                                 member_obj.state = OBJECT_STATE_UNINITIALIZED;
                                 objects_push_back(&obj.members, &member_obj);
                             }
                             else
                             {
-                                struct object member_obj = make_object_core(&p_member_declarator->declarator->type, &l, p_deep);
+                                struct object member_obj = make_object_core(&p_member_declarator->declarator->type, &l, p_deep, declarator);
                                 objects_push_back(&obj.members, &member_obj);
                             }
 
@@ -28486,7 +28501,7 @@ static struct object make_object_core(struct type* p_type, struct object_name_li
             struct type t2 = type_remove_pointer(p_type);
             struct object* owner p_object = calloc(1, sizeof * p_object);
 
-            *p_object = move make_object_core(&t2, list, p_deep);
+            *p_object = move make_object_core(&t2, list, p_deep, declarator);
             obj.pointed = move p_object;
 
             type_destroy(&t2);
@@ -28499,15 +28514,16 @@ static struct object make_object_core(struct type* p_type, struct object_name_li
         //p_object->state = flags;
         obj.state = OBJECT_STATE_UNINITIALIZED;
     }
-
+    obj.declarator = declarator;
     return obj;
 }
 
-static struct object make_object(struct type* p_type)
+static struct object make_object(struct type* p_type, struct declarator* declarator)
 {
+    assert(declarator);
     int deep = 0;
     struct object_name_list list = {.name = ""};
-    return make_object_core(p_type, &list, &deep);
+    return make_object_core(p_type, &list, &deep, declarator);
 }
 
 static void print_object(int ident, struct type* p_type, struct object* p_object, const char* previous_names)
@@ -28797,9 +28813,13 @@ void visit_object(struct parser_ctx* ctx,
         {
             compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
                 ctx,
-                position_token,
+                p_object->declarator->name,
                 "variable '%s' was not moved/destroyed",
                 name);
+
+            if (p_object->declarator)
+                compiler_set_info_with_token(W_NONE, ctx, position_token, "end of scope");
+
         }
     }
 
@@ -29488,7 +29508,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     "'%s' is uninitialized ",
                     p_expression->declarator->name->lexeme);
 #endif
-    }
+            }
 
             break;
 
@@ -29715,8 +29735,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-}
-}
+            }
+    }
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
@@ -30005,7 +30025,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         p_defer->previous = ctx->tail_block->last_child;
         ctx->tail_block->last_child = move p_defer;
 
-        p_declarator->object = move make_object(&p_declarator->type);
+        p_declarator->object = move make_object(&p_declarator->type, p_declarator);
         //print_object(0, &p_declarator->type, &p_declarator->object, p_declarator->name->lexeme);
 
         if (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
@@ -30017,9 +30037,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 struct type t2 = type_remove_pointer(&p_declarator->type);
 
                 struct object* owner p0 = move calloc(1, sizeof * p0);
-                *p0 = move make_object(&t2);
+                *p0 = move make_object(&t2, p_declarator);
                 p_declarator->object.pointed = move p0;
-
                 set_object(&t2, p0, OBJECT_STATE_UNKNOWN);
 
                 type_destroy(&t2);

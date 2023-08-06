@@ -624,6 +624,9 @@ void print_line_and_token(const struct token* p_token)
     char nbuffer[20] = {0};
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
+    
+    int offset = 0;
+    bool stop_offset = false;
 
     const struct token* prev = p_token;
     while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
@@ -633,15 +636,21 @@ void print_line_and_token(const struct token* p_token)
     const struct token* next = prev;
     while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
     {
+        if (p_token == next)
+            stop_offset = true;
+
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
             if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
             {
+                if (!stop_offset) offset++;
                 printf(" ");
             }
         }
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
+            if (!stop_offset) 
+              offset +=  strlen(next->lexeme);
             printf(DARKGRAY "%s" RESET, next->lexeme);
         }
         else
@@ -654,7 +663,7 @@ void print_line_and_token(const struct token* p_token)
     printf(" %*s |", n, " ");
     if (p_token)
     {
-        for (int i = 1; i <= (p_token->col - 1); i++)
+        for (int i = 1; i <= (p_token->col - 1) + offset; i++)
         {
             printf(" ");
         }

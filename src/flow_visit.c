@@ -112,9 +112,11 @@ static bool has_name(const char* name, struct object_name_list* list)
 }
 
 
-static struct object make_object_core(struct type* p_type, struct object_name_list* list, int* p_deep)
+static struct object make_object_core(struct type* p_type, struct object_name_list* list, int* p_deep, struct declarator* declarator)
 {
     struct object obj = {0};
+    obj.declarator = declarator;
+
     if (p_type->struct_or_union_specifier)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
@@ -158,12 +160,13 @@ static struct object make_object_core(struct type* p_type, struct object_name_li
                             if (tag && has_name(tag, &l))
                             {
                                 struct object member_obj = {0};
+                                member_obj.declarator = declarator;
                                 member_obj.state = OBJECT_STATE_UNINITIALIZED;
                                 objects_push_back(&obj.members, &member_obj);
                             }
                             else
                             {
-                                struct object member_obj = make_object_core(&p_member_declarator->declarator->type, &l, p_deep);
+                                struct object member_obj = make_object_core(&p_member_declarator->declarator->type, &l, p_deep, declarator);
                                 objects_push_back(&obj.members, &member_obj);
                             }
 
@@ -194,7 +197,7 @@ static struct object make_object_core(struct type* p_type, struct object_name_li
             struct type t2 = type_remove_pointer(p_type);
             struct object* owner p_object = calloc(1, sizeof * p_object);
 
-            *p_object = move make_object_core(&t2, list, p_deep);
+            *p_object = move make_object_core(&t2, list, p_deep, declarator);
             obj.pointed = move p_object;
 
             type_destroy(&t2);
@@ -207,15 +210,16 @@ static struct object make_object_core(struct type* p_type, struct object_name_li
         //p_object->state = flags;
         obj.state = OBJECT_STATE_UNINITIALIZED;
     }
-
+    obj.declarator = declarator;
     return obj;
 }
 
-static struct object make_object(struct type* p_type)
+static struct object make_object(struct type* p_type, struct declarator* declarator)
 {
+    assert(declarator);
     int deep = 0;
     struct object_name_list list = {.name = ""};
-    return make_object_core(p_type, &list, &deep);
+    return make_object_core(p_type, &list, &deep, declarator);
 }
 
 static void print_object(int ident, struct type* p_type, struct object* p_object, const char* previous_names)
@@ -505,9 +509,13 @@ void visit_object(struct parser_ctx* ctx,
         {
             compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
                 ctx,
-                position_token,
+                p_object->declarator->name,
                 "variable '%s' was not moved/destroyed",
                 name);
+
+            if (p_object->declarator)
+                compiler_set_info_with_token(W_NONE, ctx, position_token, "end of scope");
+
         }
     }
 
@@ -1196,7 +1204,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     "'%s' is uninitialized ",
                     p_expression->declarator->name->lexeme);
 #endif
-    }
+            }
 
             break;
 
@@ -1423,8 +1431,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-}
-}
+            }
+    }
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
@@ -1713,7 +1721,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         p_defer->previous = ctx->tail_block->last_child;
         ctx->tail_block->last_child = move p_defer;
 
-        p_declarator->object = move make_object(&p_declarator->type);
+        p_declarator->object = move make_object(&p_declarator->type, p_declarator);
         //print_object(0, &p_declarator->type, &p_declarator->object, p_declarator->name->lexeme);
 
         if (p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
@@ -1725,9 +1733,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 struct type t2 = type_remove_pointer(&p_declarator->type);
 
                 struct object* owner p0 = move calloc(1, sizeof * p0);
-                *p0 = move make_object(&t2);
+                *p0 = move make_object(&t2, p_declarator);
                 p_declarator->object.pointed = move p0;
-
                 set_object(&t2, p0, OBJECT_STATE_UNKNOWN);
 
                 type_destroy(&t2);
