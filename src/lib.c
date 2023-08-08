@@ -526,7 +526,6 @@ bool style_has_space(const struct token* token);
 bool style_has_one_space(const struct token* token);
 
 
-
 //#pragma once
 
 #ifndef __CAKE__
@@ -14601,7 +14600,7 @@ static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_ex
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_multiplicative_expression(ctx,  ectx);
+            pre_shift_expression(ctx,  ectx);
             if (ctx->n_errors > 0) throw;
 
             if (op == '>')
