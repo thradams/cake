@@ -266,21 +266,30 @@ int main()
 /*run cake on it�s own source*/
 #ifdef BUILD_WINDOWS_MSC
 
+    /*
+      running cake on its own source code
+    */
+
     //-flow-analysis 
     if (system("cake.exe  -flow-analysis -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 
-#ifdef BUILD_LINUX_GCC
-    if (system(RUN OUTPUT " -n "
-                          " -D__x86_64__ "
-                          " -I/usr/include/ "
-                          " -I/usr/include/x86_64-linux-gnu/bits/ "
-                          " -I/usr/lib/gcc/x86_64-linux-gnu/9/include/ "
-                          " -I/usr/include/x86_64-linux-gnu/ " 
-                          HEADER_FILES
-                         SOURCE_FILES) != 0)
-        exit(1);
+#if defined BUILD_LINUX_GCC
+    /*
+      running cake on its own source code
+    */
+    if (system("./cake " 
+               " -D__x86_64__ "
+               " -I/usr/lib/gcc/x86_64-linux-gnu/11/include/ "
+               " -I/usr/local/include/ "
+               " -I/usr/include/x86_64-linux-gnu/ "
+               " -I/usr/include/ "               
+               HEADER_FILES
+               SOURCE_FILES) != 0)
+    {
+       exit(1);
+    }
 #endif
 
 #endif

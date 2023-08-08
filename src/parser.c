@@ -5892,7 +5892,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* owner s2 = format_code(options, s);
-                    free(s);
+                    free( (void* owner) s);
                     s = move s2;
                 }
 
@@ -6231,7 +6231,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
                 /*re-parser ouput and format*/
                 const char* owner s2 = format_code(&options, s);
-                free(s);
+                free((void* owner)s);
                 s = move s2;
             }
 

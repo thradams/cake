@@ -526,6 +526,7 @@ bool style_has_space(const struct token* token);
 bool style_has_one_space(const struct token* token);
 
 
+
 //#pragma once
 
 #ifndef __CAKE__
@@ -1148,9 +1149,6 @@ struct token* token_list_clone_and_add(struct token_list* list, struct token* pn
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source)
 {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wexplicit-move"
-
     //print_list(source);
     //printf("->");
     //print_list(dest);
@@ -1170,14 +1168,10 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
         dest->head = source->head;
     }
     //print_list(dest);
-#pragma CAKE diagnostic pop
 }
 
 void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source)
 {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wexplicit-move"
-
     if (source->head == NULL)
     {
         return;
@@ -1193,7 +1187,6 @@ void token_list_append_list(struct token_list* dest, struct token_list* obj_owne
         source->head->prev = dest->tail;
         dest->tail = source->tail;
     }
-#pragma CAKE diagnostic pop
 }
 
 
@@ -1202,11 +1195,7 @@ struct token* owner clone_token(struct token* p)
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wexplicit-move"
         * token = *p;
-#pragma CAKE diagnostic pop
-
         token->lexeme = move strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
@@ -1987,9 +1976,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2005,9 +1991,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
@@ -17919,6 +17902,9 @@ struct flow_visit_ctx
 void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
 
 #ifdef _WIN32
+#define PATH_SEP "\\"
+#else
+#define PATH_SEP "/"
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
@@ -23828,7 +23814,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* owner s2 = format_code(options, s);
-                    free(s);
+                    free( (void* owner) s);
                     s = move s2;
                 }
 
@@ -24007,7 +23993,8 @@ int compile(int argc, const char** argv, struct report* report)
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
-                strcat(output_file, "\\out");
+                strcat(output_file, PATH_SEP);
+                strcat(output_file, "out");
 
                 strcat(output_file, fullpath + root_dir_len);
 
@@ -24166,7 +24153,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
                 /*re-parser ouput and format*/
                 const char* owner s2 = format_code(&options, s);
-                free(s);
+                free((void* owner)s);
                 s = move s2;
             }
 
@@ -28312,6 +28299,9 @@ void visit(struct visit_ctx* ctx)
 
 #include <limits.h>
 
+
+#include <stdint.h>
+
 struct flow_defer_scope
 {
     struct declarator* declarator; // declarator 
@@ -29221,10 +29211,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
 
     struct object* p_object = NULL;
-    enum object_state state = 0;
 
-    // (p)
-    // (p != NULL)
 
     if (p_selection_statement->expression)
     {
@@ -29232,7 +29219,6 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         if (p_object)
         {
             struct type type = {0};
-            state = p_object->state;
             type_destroy(&type);
         }
     }
@@ -29426,59 +29412,52 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
     struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
 {
-    try
+
+    struct param* p_current_parameter_type = NULL;
+
+    const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
+
+    if (p_param_list)
     {
-        struct param* p_current_parameter_type = NULL;
+        p_current_parameter_type = p_param_list->head;
+    }
 
-        const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
+    int param_num = 1;
+    struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
-        if (p_param_list)
+    while (p_current_argument && p_current_parameter_type)
+    {
+        if (p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
+            p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
         {
-            p_current_parameter_type = p_param_list->head;
-        }
+            struct type argument_object_type = {0};
+            struct object* p_argument_object =
+                expression_get_object(p_current_argument->expression, &argument_object_type);
 
-        int param_num = 1;
-        struct argument_expression* p_current_argument = p_argument_expression_list->head;
-
-        while (p_current_argument && p_current_parameter_type)
-        {
-            if (p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
-                p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+            if (p_argument_object)
             {
-                struct type argument_object_type = {0};
-                struct object* p_argument_object =
-                    expression_get_object(p_current_argument->expression, &argument_object_type);
-
-                if (p_argument_object)
+                set_object(&argument_object_type, p_argument_object, OBJECT_STATE_UNINITIALIZED);
+                if (p_argument_object->pointed)
                 {
-                    set_object(&argument_object_type, p_argument_object, OBJECT_STATE_UNINITIALIZED);
-                    if (p_argument_object->pointed)
+                    if (type_is_void_ptr(&p_current_parameter_type->type))
                     {
-                        if (type_is_void_ptr(&p_current_parameter_type->type))
+                        /* moving a owner pointer to a void* will not move the object */
+                    }
+                    else
+                    {
+                        /* moving a owner pointer to non void* moves the pointed object too*/
+                        if (p_argument_object->pointed)
                         {
-                            /* moving a owner pointer to a void* will not move the object */
-                        }
-                        else
-                        {
-                            /* moving a owner pointer to non void* moves the pointed object too*/
-                            if (p_argument_object->pointed)
-                            {
-                                p_argument_object->pointed->state = OBJECT_STATE_MOVED;
-                            }
+                            p_argument_object->pointed->state = OBJECT_STATE_MOVED;
                         }
                     }
                 }
             }
-
-            p_current_argument = p_current_argument->next;
-            p_current_parameter_type = p_current_parameter_type->next;
-            param_num++;
         }
 
-    }
-    catch
-    {
-        return 1; /*error*/
+        p_current_argument = p_current_argument->next;
+        p_current_parameter_type = p_current_parameter_type->next;
+        param_num++;
     }
 
     return 0;
@@ -29735,8 +29714,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-            }
     }
+}
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
@@ -30338,15 +30317,9 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 
     struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
 
-    struct declaration_specifier* p_constexpr_declaration_specifier = NULL;
+
     while (p_declaration_specifier)
     {
-        if (p_declaration_specifier->storage_class_specifier &&
-            p_declaration_specifier->storage_class_specifier->flags & STORAGE_SPECIFIER_CONSTEXPR)
-        {
-            p_constexpr_declaration_specifier = p_declaration_specifier;
-        }
-
         flow_visit_declaration_specifier(ctx, p_declaration_specifier);
         p_declaration_specifier = p_declaration_specifier->next;
     }

@@ -918,10 +918,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
 
     struct object* p_object = NULL;
-    enum object_state state = 0;
 
-    // (p)
-    // (p != NULL)
 
     if (p_selection_statement->expression)
     {
@@ -929,7 +926,6 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         if (p_object)
         {
             struct type type = {0};
-            state = p_object->state;
             type_destroy(&type);
         }
     }
@@ -1123,59 +1119,52 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
     struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
 {
-    try
+
+    struct param* p_current_parameter_type = NULL;
+
+    const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
+
+    if (p_param_list)
     {
-        struct param* p_current_parameter_type = NULL;
+        p_current_parameter_type = p_param_list->head;
+    }
 
-        const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
+    int param_num = 1;
+    struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
-        if (p_param_list)
+    while (p_current_argument && p_current_parameter_type)
+    {
+        if (p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
+            p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
         {
-            p_current_parameter_type = p_param_list->head;
-        }
+            struct type argument_object_type = {0};
+            struct object* p_argument_object =
+                expression_get_object(p_current_argument->expression, &argument_object_type);
 
-        int param_num = 1;
-        struct argument_expression* p_current_argument = p_argument_expression_list->head;
-
-        while (p_current_argument && p_current_parameter_type)
-        {
-            if (p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
-                p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+            if (p_argument_object)
             {
-                struct type argument_object_type = {0};
-                struct object* p_argument_object =
-                    expression_get_object(p_current_argument->expression, &argument_object_type);
-
-                if (p_argument_object)
+                set_object(&argument_object_type, p_argument_object, OBJECT_STATE_UNINITIALIZED);
+                if (p_argument_object->pointed)
                 {
-                    set_object(&argument_object_type, p_argument_object, OBJECT_STATE_UNINITIALIZED);
-                    if (p_argument_object->pointed)
+                    if (type_is_void_ptr(&p_current_parameter_type->type))
                     {
-                        if (type_is_void_ptr(&p_current_parameter_type->type))
+                        /* moving a owner pointer to a void* will not move the object */
+                    }
+                    else
+                    {
+                        /* moving a owner pointer to non void* moves the pointed object too*/
+                        if (p_argument_object->pointed)
                         {
-                            /* moving a owner pointer to a void* will not move the object */
-                        }
-                        else
-                        {
-                            /* moving a owner pointer to non void* moves the pointed object too*/
-                            if (p_argument_object->pointed)
-                            {
-                                p_argument_object->pointed->state = OBJECT_STATE_MOVED;
-                            }
+                            p_argument_object->pointed->state = OBJECT_STATE_MOVED;
                         }
                     }
                 }
             }
-
-            p_current_argument = p_current_argument->next;
-            p_current_parameter_type = p_current_parameter_type->next;
-            param_num++;
         }
 
-    }
-    catch
-    {
-        return 1; /*error*/
+        p_current_argument = p_current_argument->next;
+        p_current_parameter_type = p_current_parameter_type->next;
+        param_num++;
     }
 
     return 0;
@@ -1432,8 +1421,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-            }
     }
+}
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
@@ -2035,15 +2024,9 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 
     struct declaration_specifier* p_declaration_specifier = p_declaration_specifiers->head;
 
-    struct declaration_specifier* p_constexpr_declaration_specifier = NULL;
+
     while (p_declaration_specifier)
     {
-        if (p_declaration_specifier->storage_class_specifier &&
-            p_declaration_specifier->storage_class_specifier->flags & STORAGE_SPECIFIER_CONSTEXPR)
-        {
-            p_constexpr_declaration_specifier = p_declaration_specifier;
-        }
-
         flow_visit_declaration_specifier(ctx, p_declaration_specifier);
         p_declaration_specifier = p_declaration_specifier->next;
     }
