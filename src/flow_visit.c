@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <limits.h>
+#include <stdint.h>
 #include "flow_visit.h"
 #include "expressions.h"
 #include "ownership.h"

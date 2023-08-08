@@ -1,5 +1,6 @@
 #pragma once
 #include <stdio.h>
+#include <errno.h>
 #include "hashmap.h"
 #include "tokenizer.h"
 #include "expressions.h"

@@ -20,6 +20,9 @@
 
 #ifdef _WIN32
 #include <Windows.h>
+#define PATH_SEP "\\"
+#else
+#define PATH_SEP "/"
 #endif
 
 #if defined _MSC_VER && !defined __POCC__
@@ -6068,7 +6071,8 @@ int compile(int argc, const char** argv, struct report* report)
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
-                strcat(output_file, "\\out");
+                strcat(output_file, PATH_SEP);
+                strcat(output_file, "out");
 
                 strcat(output_file, fullpath + root_dir_len);
 
