@@ -1,12 +1,1 @@
-
-void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
-
-struct X {
-  char * _Owner name;    
-};
-
-int main() {
-   struct X * _Owner p = malloc(sizeof * p);   
-   p = 0;
-} 
+    _Bool b = 1;

@@ -24128,10 +24128,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
     struct ast ast = {0};
     struct options options = {.input = LANGUAGE_CXX};
 
-    struct visit_ctx visit_ctx = {0};
-    visit_ctx.target = options.target;
-
-    //printf("options '%s'\n", pszoptions);
+    struct visit_ctx visit_ctx = {0};    
     try
     {
         if (fill_options(&options, argc, argv) != 0)
@@ -24139,6 +24136,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
             throw;
         }
 
+        visit_ctx.target = options.target;
         prectx.options = options;
         add_standard_macros(&prectx);
 
