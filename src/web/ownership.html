@@ -16,93 +16,65 @@
 <a href="#toc_0">Ownership checks for C</a>
 <ul>
 <li>
-<a href="#toc_1">New Type qualifiers</a>
-</li>
-<li>
-<a href="#toc_2">Initialization and assignment</a>
+<a href="#toc_1">Part I - Type system changes</a>
 <ul>
 <li>
-<a href="#toc_3">Owner = Owner</a>
+<a href="#toc_2">New Type qualifiers</a>
 </li>
 <li>
-<a href="#toc_4">Owner = Non-owner</a>
+<a href="#toc_3">Initialization and assignment</a>
 </li>
 <li>
-<a href="#toc_5">Non-Owner = Owner</a>
+<a href="#toc_4">Returning variables</a>
+</li>
+<li>
+<a href="#toc_5">Calling functions</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_6">Returning variables</a>
+<a href="#toc_6">Part II - Flow analysis</a>
 <ul>
 <li>
-<a href="#toc_7">Owner F() return Owner</a>
+<a href="#toc_7">General idea</a>
 </li>
 <li>
-<a href="#toc_8">Owner F() return Non-Owner</a>
+<a href="#toc_8">Pattern 1</a>
 </li>
 <li>
-<a href="#toc_9">Non-Owner F() return Owner</a>
+<a href="#toc_9">Sample 1</a>
+</li>
+<li>
+<a href="#toc_10">Sample 2</a>
+</li>
+<li>
+<a href="#toc_11">Sample 3</a>
+</li>
+<li>
+<a href="#toc_12">Sample 4</a>
+</li>
+<li>
+<a href="#toc_13">Sample 5</a>
+</li>
+<li>
+<a href="#toc_14">Sample 6</a>
+</li>
+<li>
+<a href="#toc_15">Sample 7</a>
+</li>
+<li>
+<a href="#toc_16">Sample 8</a>
+</li>
+<li>
+<a href="#toc_17">Sample 9</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_10">Calling functions</a>
-<ul>
-<li>
-<a href="#toc_11">void F(Owner); F(Owner);</a>
+<a href="#toc_18">Grammar</a>
 </li>
 <li>
-<a href="#toc_12">void F(Owner); F(Non-Owner);</a>
-</li>
-<li>
-<a href="#toc_13">void F(Non-Owner); F(Owner);</a>
-</li>
-<li>
-<a href="#toc_14">Type system samples</a>
-</li>
-</ul>
-</li>
-<li>
-<a href="#toc_15">Flow analysis</a>
-<ul>
-<li>
-<a href="#toc_16">Algorithm</a>
-</li>
-<li>
-<a href="#toc_17">Sample 1</a>
-</li>
-<li>
-<a href="#toc_18">Sample 2</a>
-</li>
-<li>
-<a href="#toc_19">Sample 3</a>
-</li>
-<li>
-<a href="#toc_20">Sample 4</a>
-</li>
-<li>
-<a href="#toc_21">Sample 5</a>
-</li>
-<li>
-<a href="#toc_22">Sample 6</a>
-</li>
-<li>
-<a href="#toc_23">Sample 7</a>
-</li>
-<li>
-<a href="#toc_24">Sample 8</a>
-</li>
-<li>
-<a href="#toc_25">Sample 9</a>
-</li>
-</ul>
-</li>
-<li>
-<a href="#toc_26">Grammar</a>
-</li>
-<li>
-<a href="#toc_27">Checking your source code</a>
+<a href="#toc_19">Checking your source code</a>
 </li>
 </ul>
 </li>
@@ -120,7 +92,9 @@ It consists of two separate implementations. </p>
 
 <p>By implementing the static ownership check, and using the feature on it&#39;s own source, Cake aims to explore and evaluate the effectiveness of this feature.</p>
 
-<h2 id="toc_1">New Type qualifiers</h2>
+<h2 id="toc_1">Part I - Type system changes</h2>
+
+<h3 id="toc_2">New Type qualifiers</h3>
 
 <pre><code class="language-c">type-qualifier:
   ...
@@ -203,22 +177,27 @@ int main()
 <pre><code class="language-c">void destroy_array(int n, struct person a[_Owner 10]);
 </code></pre>
 
-<h2 id="toc_2">Initialization and assignment</h2>
+<h3 id="toc_3">Initialization and assignment</h3>
 
-<h3 id="toc_3">Owner = Owner</h3>
+<h4>Owner = Owner</h4>
 
-<p>In this situation we always move the ownership and <strong>_Move</strong> is required.</p>
+<p>Because we must have only one owner, in this situation the ownership is moved.  </p>
+
+<p>Although, not necessary, a new keyword <strong>_Move</strong> was added to make this operation more explicit.</p>
 
 <pre><code class="language-c">_Owner T b;
+
+//Initialization
 _Owner T a = _Move b;
 </code></pre>
 
-<pre><code class="language-c">_Owner T b;
+<pre><code class="language-c">
+_Owner T b;
 _Owner T a;
+
+//Assigment
 a = _Move b;
 </code></pre>
-
-<p>We have the ownership moved from b to a.</p>
 
 <p>The exception of the usage of <strong>_Move</strong> is when initializing from a function result.</p>
 
@@ -226,10 +205,11 @@ a = _Move b;
 _Owner T a = make_owner();
 </code></pre>
 
-<h3 id="toc_4">Owner = Non-owner</h3>
+<h4>Owner = Non-owner</h4>
 
-<p>This is not allowed.<br>
-The exception is we can initialize/assign owner pointer to the null pointer constant. </p>
+<p>This is not allowed.  </p>
+
+<p>The exception initialization/assignment of owner pointers to the null pointer constant. </p>
 
 <pre><code class="language-c">T _Owner * p1 = 0;       //OK
 T _Owner * p2 = NULL;    //OK
@@ -241,10 +221,10 @@ p1 = 0; //OK
 </code></pre>
 
 <blockquote>
-<p>Design note: This could be extended for non pointers. The problem is we need a extra annotation to define the &quot;empty&quot; value for non pointers.   </p>
+<p>Design note: This could be extended for non pointers. The problem is we need a extra annotation to define what &quot;empty&quot; means for values other than non pointers. For instance, 0 can be valid index of a owner handle.   </p>
 </blockquote>
 
-<h3 id="toc_5">Non-Owner = Owner</h3>
+<h4>Non-Owner = Owner</h4>
 
 <p>In this situation we always have a view.</p>
 
@@ -289,9 +269,9 @@ void f()
 
 <p>(The last samples are not implemented yet in cake)</p>
 
-<h2 id="toc_6">Returning variables</h2>
+<h3 id="toc_4">Returning variables</h3>
 
-<h3 id="toc_7">Owner F() return Owner</h3>
+<h4>Owner F() return Owner</h4>
 
 <p>When returning local storage variables we don&#39;t have to use <strong>_Move</strong>.</p>
 
@@ -321,7 +301,7 @@ _Owner T F() {
 <pre><code class="language-c"> F(); //ERROR discarding a owner result   
 </code></pre>
 
-<h3 id="toc_8">Owner F() return Non-Owner</h3>
+<h4>Owner F() return Non-Owner</h4>
 
 <p>The only possible value is null pointer constant.</p>
 
@@ -330,7 +310,7 @@ _Owner T F() {
 }
 </code></pre>
 
-<h3 id="toc_9">Non-Owner F() return Owner</h3>
+<h4>Non-Owner F() return Owner</h4>
 
 <p>We return a view of the object.</p>
 
@@ -356,43 +336,37 @@ T F() {
 }
 </code></pre>
 
-<h2 id="toc_10">Calling functions</h2>
+<h3 id="toc_5">Calling functions</h3>
 
 <p>In general the rules are similar of initializing the parameter with the argument. </p>
 
-<h3 id="toc_11">void F(Owner); F(Owner);</h3>
+<h4>void F(Owner); F(Owner);</h4>
 
 <p>We explicitly use <strong>_Move</strong> on the caller.</p>
 
 <pre><code class="language-c">  void F(_Owner T a);
-  
   _Owner T a;
-  
   F(_Move a);      //OK
+</code></pre>
+
+<p>We can use <strong>_Implicit</strong>  to make the usage of <strong>_Move</strong> optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is &quot;destroy&quot; or &quot;free&quot; etc.    </p>
+
+<p>Sample:
+<code>c
+void x_destroy(_Implicit struct X * _Obj_owner);
+</code></p>
+
+<blockquote>
+<p>Not sure if attributes is better for implicit</p>
+</blockquote>
+
+<p>The exception of using <strong>_Move</strong> is when passing the function result directly.</p>
+
+<pre><code class="language-c">  void F(_Owner T a);
   F(make_owner()); //OK
-  
 </code></pre>
 
-<p>We can use <strong>_Implicit</strong>  to make the usage of <strong>_Move</strong> optional.   </p>
-
-<p>This is useful when the semantics of the function is very clear, for instance if the name of the function is &quot;destroy&quot; &quot;free&quot; etc.  </p>
-
-<pre><code class="language-c">void x_destroy(_Implicit struct X * _Obj_owner);
-</code></pre>
-
-<p>(This can be changed to a attribute in the future)</p>
-
-<p><strong>_Move</strong> can be used for instance, when inserting items at some container.</p>
-
-<pre><code class="language-c">list_add(&amp;list, _Move item);
-</code></pre>
-
-<p>Or when the parameter will consume all the input.</p>
-
-<pre><code class="language-c">p_new_items = _Move process(_Move p_old_items);
-</code></pre>
-
-<h3 id="toc_12">void F(Owner); F(Non-Owner);</h3>
+<h4>void F(Owner); F(Non-Owner);</h4>
 
 <p>This is not allowed.<br>
 The exception is the null pointer constant.</p>
@@ -400,7 +374,7 @@ The exception is the null pointer constant.</p>
 <pre><code class="language-c">  F(0); //OK  
 </code></pre>
 
-<h3 id="toc_13">void F(Non-Owner); F(Owner);</h3>
+<h4>void F(Non-Owner); F(Owner);</h4>
 
 <p>Following the general rule that view object duration must be shorter than the owner object, we cannot pass owner object return by a function.</p>
 
@@ -413,22 +387,60 @@ The exception is the null pointer constant.</p>
   F(a); //OK (view)
 </code></pre>
 
-<h3 id="toc_14">Type system samples</h3>
+<h2 id="toc_6">Part II - Flow analysis</h2>
 
-<h2 id="toc_15">Flow analysis</h2>
+<p>Flow analysis is the process of automatic code review that, among other things, ensures that when owner objects goes out of scope they release the resources.
+If this implementation were to be integrated into the C standard in the future, the inclusion of this step could be made optional.</p>
 
-<p>When owner objects goes out of scope, the flow analysis
-must check if the object has been moved. </p>
+<p>If your source has a memory leaks this should be an error or warning? This question may have difference answers, so the suggestion is a compiler flag -safe that if present makes all problems as error, otherwise warnings.<br>
+The problem is that how to ensure all compiler does the same flow analysis in safe mode?</p>
 
-<h3 id="toc_16">Algorithm</h3>
+<h3 id="toc_7">General idea</h3>
 
 <blockquote>
 <p>&quot;Caesar&#39;s wife must be above suspicion&quot;</p>
 </blockquote>
 
-<p>Cake employs a straightforward pattern-based algorithm for ownership analysis. This choice is driven by the principle that ownership reasoning should remain clear and uncomplicated.  Complex code, even if accurate, has the potential to raise concerns and demand unnecessary time from programmers during the process of code reviews.</p>
+<p>The basic idea of the algorithm is that we need a &quot;clear path&quot; out of suspicious from the point where variables are moved until the point they leave scope.
+To accomplish that the choice is a straightforward pattern-based algorithm for ownership analysis.<br>
+This choice is driven by the principle that ownership reasoning should remain clear and uncomplicated.  Complex code, even if correct, has the potential to raise concerns and demand unnecessary time from programmers during code reviews.</p>
 
-<p>The basic idea of the algorithm is that we need a &quot;clear path&quot; out of suspicious from the point where variables are moved until the point they leave scope. </p>
+<p>Some compilers can be smarter than others when checking ownership. This creates a problem that some code can compile in -save mode [1]  in one compiler but not in another. I don&#39;t have a clear answers for that. I can think in some alternatives like warning only, or describing the algorithm that all compilers must follow.  </p>
+
+<p>[1] &quot;save mode&quot; emits an error when a resource is not released for instance, instead of just a warning.</p>
+
+<p>The possible states of each expression can be printed and checked in compile time using  <strong>static_assert</strong> and <strong>static_state</strong>. This is the state used by the flow analysis to emit errors.</p>
+
+<pre><code class="language-c">
+/*enum as used internally by the flow analysis*/  
+enum object_state {
+    OBJECT_STATE_STRUCT = 0,
+    OBJECT_STATE_UNINITIALIZED,
+    OBJECT_STATE_ZERO,
+    OBJECT_STATE_UNKNOWN,
+    OBJECT_STATE_NOT_ZERO,
+    OBJECT_STATE_MOVED,
+    OBJECT_STATE_NULL_OR_MOVED,
+};  
+  
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char * _Owner name;    
+};
+int main() {
+   struct X * _Owner p = malloc(sizeof * p);
+   if (p)
+   {
+       free(p);
+   }
+   static_assert(static_state(p) == OBJECT_STATE_NULL_OR_MOVED);
+   static_debug(p);
+} 
+</code></pre>
+
+<h4>Sample:</h4>
 
 <p>&quot;Clear path&quot; means, for instance, that we are not jumping in or out of the code section executed before the end of scope.</p>
 
@@ -456,27 +468,22 @@ end:
 
 <p>The second example, we have a label &quot;end&quot; between free(p) and the end of scope. So this code is suspicious because there is a &quot;jump in&quot; and cake will complain.</p>
 
-<p>The patterns required are under construction.  </p>
+<p>The patterns required are under construction running flow analysis in the cake source itself. I think this will take time and feedback of more code style is requires to stabilize the pattern rules.</p>
 
-<p>One pattern already implemented is:</p>
+<p>Flow analysis in cake is optional, use -flow-analysis option. (web version has -flow-analysis by default to present the concept without extra step)  </p>
+
+<h3 id="toc_8">Pattern 1</h3>
 
 <pre><code class="language-c"> {  
-  if (p){
-      free(p-&gt;name);
+  if (p /*owner*/ ){  
+      /*...*/      
       free(p);
-   }
- } //no complain here.
+   } /*moved*/  
+   /*p is moved or null*/
+ }
 </code></pre>
 
-<pre><code class="language-c"> {  
-  T  * _Owner p = malloc(sizeof(T)); 
-  if (p){
-     dest = _Move p;
-   }
- } //no complain here.
-</code></pre>
-
-<h3 id="toc_17">Sample 1</h3>
+<h3 id="toc_9">Sample 1</h3>
 
 <p>Simple sample with malloc and free.  </p>
 
@@ -489,7 +496,7 @@ int main() {
 } //compiler will complain c not moved
 </code></pre>
 
-<h3 id="toc_18">Sample 2</h3>
+<h3 id="toc_10">Sample 2</h3>
 
 <p>This sample shows move and returns at f and initialization at main.</p>
 
@@ -512,7 +519,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_19">Sample 3</h3>
+<h3 id="toc_11">Sample 3</h3>
 
 <p>This sample shows that we need to move the struct x at main and also shows that we must implement x_destroy correctly.</p>
 
@@ -534,7 +541,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_20">Sample 4</h3>
+<h3 id="toc_12">Sample 4</h3>
 
 <p>This sample shows that adding a new member name at struct requires we also free at main.</p>
 
@@ -555,7 +562,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_21">Sample 5</h3>
+<h3 id="toc_13">Sample 5</h3>
 
 <p>This sample show the implementation of delete.</p>
 
@@ -578,7 +585,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_22">Sample 6</h3>
+<h3 id="toc_14">Sample 6</h3>
 
 <p>This sample show some details when we cast a owner pointer to void*.</p>
 
@@ -603,7 +610,7 @@ void * _Owner f1(){
 
 </code></pre>
 
-<h3 id="toc_23">Sample 7</h3>
+<h3 id="toc_15">Sample 7</h3>
 
 <p>This sample shows how _View can be used to implement swap.</p>
 
@@ -640,7 +647,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_24">Sample 8</h3>
+<h3 id="toc_16">Sample 8</h3>
 
 <pre><code class="language-c">void * _Owner calloc(int n, int sz);
 void free(_Implicit void * _Owner);
@@ -696,7 +703,7 @@ int main(int argc, char* argv[])
 
 </code></pre>
 
-<h3 id="toc_25">Sample 9</h3>
+<h3 id="toc_17">Sample 9</h3>
 
 <p>Uncomment /*_Owner*/ in this sample and you will see chain reaction that requires changes to make sure this program is not leaking memory.</p>
 
@@ -718,7 +725,7 @@ int main() {
 
 </code></pre>
 
-<h2 id="toc_26">Grammar</h2>
+<h2 id="toc_18">Grammar</h2>
 
 <pre><code class="language-c">New keywords:
   _Move   
@@ -755,10 +762,17 @@ parameter-declaration:
   ...
   return;
   return move_opt expression;  
+  
+static_debug-declaration:
+  static_debug(constant-expression) ;
+
+unary-expression:
+  ...  
+  static_state ( constant-expression)   
 
 </code></pre>
 
-<h2 id="toc_27">Checking your source code</h2>
+<h2 id="toc_19">Checking your source code</h2>
 
 <p>I suggest the creation of a header file &quot;ownership.h&quot;</p>
 

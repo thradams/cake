@@ -302,9 +302,6 @@ struct token* token_list_clone_and_add(struct token_list* list, struct token* pn
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source)
 {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wexplicit-move"
-
     //print_list(source);
     //printf("->");
     //print_list(dest);
@@ -324,14 +321,10 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
         dest->head = source->head;
     }
     //print_list(dest);
-#pragma CAKE diagnostic pop
 }
 
 void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source)
 {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wexplicit-move"
-
     if (source->head == NULL)
     {
         return;
@@ -347,7 +340,6 @@ void token_list_append_list(struct token_list* dest, struct token_list* obj_owne
         source->head->prev = dest->tail;
         dest->tail = source->tail;
     }
-#pragma CAKE diagnostic pop
 }
 
 
@@ -356,11 +348,7 @@ struct token* owner clone_token(struct token* p)
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wexplicit-move"
         * token = *p;
-#pragma CAKE diagnostic pop
-
         token->lexeme = move strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;

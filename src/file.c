@@ -1,21 +1,12 @@
-void * _Owner malloc(int i);
 
-struct Y {
-  struct X * _Owner x;
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char * _Owner name;    
 };
 
-void x_delete(_Implicit struct X  * _Owner p);
-
-void f(struct Y * p, int condition)
-{
-     struct X * _Owner x = malloc(1);
-     p->x = _Move x;
-     x = 0;
-
-     if (condition)
-     {
-     }
-
-     x_delete(x);
-}
- 
+int main() {
+   struct X * _Owner p = malloc(sizeof * p);   
+   p = 0;
+} 

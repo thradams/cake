@@ -44,7 +44,7 @@ const char* object_state_to_string(enum object_state e)
         case OBJECT_STATE_UNKNOWN: return "UNKNOWN";
         case OBJECT_STATE_NOT_ZERO: return "NOT_ZERO";
         case OBJECT_STATE_MOVED: return "MOVED";
-        case OBJECT_STATE_NULL_OR_UNINITIALIZED: return "NULL_OR_UNINITIALIZED";
+        case OBJECT_STATE_NULL_OR_MOVED: return "OBJECT_STATE_NULL_OR_MOVED";
     }
     return "";
 }
@@ -222,6 +222,10 @@ void scope_list_pop(struct scope_list* list)
 
 void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx)
 {
+    if (ctx->sarif_file)
+    {
+        fclose(ctx->sarif_file);
+    }
 
 }
 
@@ -1065,6 +1069,7 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
             else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
             else if (strcmp("static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
+            else if (strcmp("static_state", text) == 0) result = TK_KEYWORD_STATIC_STATE;
 
             break;
         case 't':
@@ -2966,7 +2971,7 @@ struct member_declarator* owner member_declarator(
     if (ctx->current->type == ':')
     {
         parser_match(ctx);
-        p_member_declarator->constant_expression = move constant_expression(ctx);
+        p_member_declarator->constant_expression = move constant_expression(ctx, true);
     }
     return p_member_declarator;
 }
@@ -3416,17 +3421,16 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
        enumerator
         enumerator_list ',' enumerator
      */
+    long long next_enumerator_value = 0;
 
     struct enumerator_list enumeratorlist = {0};
     struct enumerator* owner p_enumerator = NULL;
     try
     {
-
-
-        p_enumerator = move enumerator(ctx, p_enum_specifier);
+        p_enumerator = move enumerator(ctx, p_enum_specifier, &next_enumerator_value);
         if (p_enumerator == NULL) throw;
-        LIST_ADD(&enumeratorlist, p_enumerator);
 
+        LIST_ADD(&enumeratorlist, p_enumerator);
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
@@ -3434,7 +3438,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
 
             if (ctx->current && ctx->current->type != '}')
             {
-                p_enumerator = move enumerator(ctx, p_enum_specifier);
+                p_enumerator = move enumerator(ctx, p_enum_specifier, &next_enumerator_value);
                 if (p_enumerator == NULL) throw;
                 LIST_ADD(&enumeratorlist, p_enumerator);
             }
@@ -3448,7 +3452,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
 }
 
 struct enumerator* owner enumerator(struct parser_ctx* ctx,
-    struct enum_specifier* p_enum_specifier)
+    struct enum_specifier* p_enum_specifier,
+    long long* p_next_enumerator_value)
 {
     //TODO VALUE
     struct enumerator* owner p_enumerator = calloc(1, sizeof(struct enumerator));
@@ -3467,8 +3472,15 @@ struct enumerator* owner enumerator(struct parser_ctx* ctx,
     if (ctx->current->type == '=')
     {
         parser_match(ctx);
-        p_enumerator->constant_expression_opt = move constant_expression(ctx);
+        p_enumerator->constant_expression_opt = move constant_expression(ctx, true);
         p_enumerator->value = constant_value_to_ll(&p_enumerator->constant_expression_opt->constant_value);
+        *p_next_enumerator_value = p_enumerator->value;
+        (*p_next_enumerator_value)++; //TODO overflow  and size check
+    }
+    else
+    {
+        p_enumerator->value = *p_next_enumerator_value;
+        (*p_next_enumerator_value)++; //TODO overflow  and size check
     }
 
     return p_enumerator;
@@ -3487,7 +3499,7 @@ struct alignment_specifier* owner alignment_specifier(struct parser_ctx* ctx)
     }
     else
     {
-        alignment_specifier->constant_expression = move constant_expression(ctx);
+        alignment_specifier->constant_expression = move constant_expression(ctx, true);
     }
     parser_match_tk(ctx, ')');
     return alignment_specifier;
@@ -4370,7 +4382,7 @@ struct designator* owner designator(struct parser_ctx* ctx)
     if (ctx->current->type == '[')
     {
         parser_match_tk(ctx, '[');
-        p_designator->constant_expression_opt = move constant_expression(ctx);
+        p_designator->constant_expression_opt = move constant_expression(ctx, true);
         parser_match_tk(ctx, ']');
     }
     else if (ctx->current->type == '.')
@@ -4405,7 +4417,12 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT);
         parser_match_tk(ctx, '(');
 
-        p_static_assert_declaration->constant_expression = move constant_expression(ctx);
+        /*
+         When flow analysis is enabled static assert is evaluated there
+        */
+        const bool show_error_if_not_constant = !ctx->options.flow_analysis;
+        p_static_assert_declaration->constant_expression = move constant_expression(ctx, show_error_if_not_constant);
+
         if (p_static_assert_declaration->constant_expression == NULL) throw;
 
         if (ctx->current->type == ',')
@@ -4419,28 +4436,31 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         p_static_assert_declaration->last_token = ctx->current;
         parser_match_tk(ctx, ';');
 
-        if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
+        if (!ctx->options.flow_analysis)
         {
-            if (p_static_assert_declaration->string_literal_opt)
+            if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
             {
-                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
-                    p_static_assert_declaration->string_literal_opt->lexeme);
-            }
-            else
-            {
-                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
-            }
-
-            if (p_static_assert_declaration->constant_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
-            {
-                if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_STATIC_DEBUG)
+                if (p_static_assert_declaration->string_literal_opt)
                 {
-                    compiler_set_info_with_token(W_NONE,
-                        ctx,
-                        position, "%llu != %llu",
-                        constant_value_to_ull(&p_static_assert_declaration->constant_expression->left->constant_value),
-                        constant_value_to_ull(&p_static_assert_declaration->constant_expression->right->constant_value)
-                    );
+                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
+                        p_static_assert_declaration->string_literal_opt->lexeme);
+                }
+                else
+                {
+                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
+                }
+
+                if (p_static_assert_declaration->constant_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
+                {
+                    if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_STATIC_DEBUG)
+                    {
+                        compiler_set_info_with_token(W_NONE,
+                            ctx,
+                            position, "%llu != %llu",
+                            constant_value_to_ull(&p_static_assert_declaration->constant_expression->left->constant_value),
+                            constant_value_to_ull(&p_static_assert_declaration->constant_expression->right->constant_value)
+                        );
+                    }
                 }
             }
         }
@@ -4869,7 +4889,7 @@ struct label* owner label(struct parser_ctx* ctx)
     else if (ctx->current->type == TK_KEYWORD_CASE)
     {
         parser_match(ctx);
-        p_label->constant_expression = move constant_expression(ctx);
+        p_label->constant_expression = move constant_expression(ctx, true);
         parser_match_tk(ctx, ':');
     }
     else if (ctx->current->type == TK_KEYWORD_DEFAULT)
@@ -5471,10 +5491,23 @@ void declaration_list_add(struct declaration_list* list, struct declaration* own
     }
     list->tail = p_declaration;
 }
-
-void declaration_list_destroy(struct declaration_list* list)
+void declaration_delete(implicit struct declaration* owner p)
 {
+    if (p)
+    {
 
+    }
+}
+
+void declaration_list_destroy(implicit struct declaration_list* obj_owner list)
+{
+    struct declaration* owner p = move list->head;
+    while (p)
+    {
+        struct declaration* owner next = move p->next;
+        declaration_delete(p);
+        p = move next;
+    }
 }
 
 struct declaration_list translation_unit(struct parser_ctx* ctx)
@@ -5609,8 +5642,8 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
             struct tokenizer_ctx tctx = {0};
             struct token_list l1 = tokenizer(&tctx, buffer, "", 0, TK_FLAG_NONE);
             struct token_list r = preprocessor(prectx, &l1, 0);
-            token_list_clear(&l1);
-            token_list_clear(&r);
+            token_list_destroy(&l1);
+            token_list_destroy(&r);
             continue;
         }
     }
@@ -5645,11 +5678,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR \
+#define STR_C \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STR_E \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 
@@ -5714,14 +5747,15 @@ const char* owner format_code(struct options* options, const char* content)
     struct parser_ctx ctx = {0};
     ctx.options = *options;
     ctx.p_report = &report;
+    struct tokenizer_ctx tctx = {0};
+    struct token_list tokens = {0};
 
     try
     {
         prectx.options = *options;
         append_msvc_include_dir(&prectx);
 
-        struct tokenizer_ctx tctx = {0};
-        struct token_list tokens = tokenizer(&tctx, content, "", 0, TK_FLAG_NONE);
+        tokens = move tokenizer(&tctx, content, "", 0, TK_FLAG_NONE);
         ast.token_list = move preprocessor(&prectx, &tokens, 0);
         if (prectx.n_errors != 0) throw;
 
@@ -5743,6 +5777,8 @@ const char* owner format_code(struct options* options, const char* content)
     {
 
     }
+
+    token_list_destroy(&tokens);
 
     parser_ctx_destroy(&ctx);
     ast_destroy(&ast);
@@ -5792,6 +5828,10 @@ int compile_one_file(const char* file_name,
     const char* owner s = NULL;
 
     struct parser_ctx ctx = {0};
+    struct visit_ctx visit_ctx = {0};
+    struct tokenizer_ctx tctx = {0};
+    struct token_list tokens = {0};
+
     ctx.options = *options;
     ctx.p_report = report;
     char* owner content = NULL;
@@ -5846,13 +5886,10 @@ int compile_one_file(const char* file_name,
             }
         }
 
-        struct tokenizer_ctx tctx = {0};
-        struct token_list tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
-
+        tokens = move tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
 
         ast.token_list = move preprocessor(&prectx, &tokens, 0);
         if (prectx.n_errors > 0) throw;
-
 
         if (options->preprocess_only)
         {
@@ -5875,7 +5912,7 @@ int compile_one_file(const char* file_name,
                     struct format_visit_ctx f = {.ast = ast, .identation = 4};
                     format_visit(&f);
                 }
-                struct visit_ctx visit_ctx = {0};
+
                 visit_ctx.target = options->target;
                 visit_ctx.ast = ast;
                 visit(&visit_ctx);
@@ -5889,7 +5926,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* owner s2 = format_code(options, s);
-                    free(s);
+                    free((void* owner) s);
                     s = move s2;
                 }
 
@@ -5906,6 +5943,8 @@ int compile_one_file(const char* file_name,
                     printf("cannot open output file '%s' - %s\n", out_file_name, get_posix_error_message(errno));
                     throw;
                 }
+
+
             }
         }
     }
@@ -5936,8 +5975,8 @@ int compile_one_file(const char* file_name,
         }
         fclose(ctx.sarif_file);
     }
-
-
+    token_list_destroy(&tokens);
+    visit_ctx_destroy(&visit_ctx);
     parser_ctx_destroy(&ctx);
     free((char* owner) s);
     free(content);
@@ -6068,7 +6107,7 @@ int compile(int argc, const char** argv, struct report* report)
                 realpath(argv[i], fullpath);
 
                 strcpy(output_file, root_dir);
-                strcat(output_file, "\\out");
+                strcat(output_file, "/out");
 
                 strcat(output_file, fullpath + root_dir_len);
 
@@ -6114,20 +6153,18 @@ struct ast get_ast(struct options* options,
 
 
     ast.token_list = move preprocessor(&prectx, &list, 0);
+
+    if (prectx.n_errors == 0)
+    {
+        struct parser_ctx ctx = {0};
+        ctx.options = *options;
+        ctx.p_report = report;
+        ast.declaration_list = move parse(&ctx, &ast.token_list);
+        parser_ctx_destroy(&ctx);
+    }
+
     token_list_destroy(&list);
-
-    if (prectx.n_errors > 0)
-        return ast;
-
-    struct parser_ctx ctx = {0};
-    ctx.options = *options;
-    ctx.p_report = report;
-    ast.declaration_list = move parse(&ctx, &ast.token_list);
-
-
-    parser_ctx_destroy(&ctx);
-
-
+    preprocessor_ctx_destroy(&prectx);
 
     return ast;
 }
@@ -6204,6 +6241,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
             preprocessor_ctx_destroy(&prectx);
 
             token_list_destroy(&tokens);
+            token_list_destroy(&token_list);
         }
         else
         {
@@ -6227,7 +6265,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
                 /*re-parser ouput and format*/
                 const char* owner s2 = format_code(&options, s);
-                free(s);
+                free((void* owner)s);
                 s = move s2;
             }
 
@@ -6237,6 +6275,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
     {
     }
 
+    preprocessor_ctx_destroy(&prectx);
     visit_ctx_destroy(&visit_ctx);
     ast_destroy(&ast);
 
@@ -8019,15 +8058,186 @@ void moved_if_not_null()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
-void void_ptr_conversion()
+
+void struct_moved()
+{
+    const char* source
+        =
+        "void free(_Implicit void * _Owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char * _Owner name;\n"
+        "};\n"
+        "\n"
+        "void x_destroy(_Implicit struct X * _Obj_owner p);\n"
+        "\n"
+        "struct Y {\n"
+        "  struct X x;\n"
+        "};\n"
+        "\n"
+        "void y_destroy(struct Y * _Obj_owner p) {\n"
+        "   x_destroy(&p->x);\n"
+        "}\n"
+        ;
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+
+void scope_error()
+{
+    const char* source
+        =
+        "void * _Owner malloc(int i);\n"
+        "void free(_Implicit void* _Owner p);\n"
+        "\n"
+        "int main() {\n"
+        "    try\n"
+        "    {\n"
+        "         if (1)\n"
+        "         {\n"
+        "             char * _Owner s = malloc(1);\n"
+        "             free(s);\n"
+        "         }\n"
+        "         else\n"
+        "         {\n"
+        "            throw;\n"
+        "         }\n"
+        "    }\n"
+        "    catch\n"
+        "    {\n"
+        "    }\n"
+        "}";
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+
+void void_destroy()
+{
+    /*TODO moving to void* requires object is moved before*/
+    const char* source
+        =
+        "void * _Owner malloc(int i);\n"
+        "void free(_Implicit void * _Owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char * _Owner name;    \n"
+        "};\n"
+        "\n"
+        "int main() {\n"
+        "   struct X * _Owner p = malloc(sizeof * p);\n"
+        "   free(p);   \n"
+        "} \n"
+        ;
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.warnings_count == 0);
+}
+
+void void_destroy_ok()
+{
+    /*TODO moving to void* requires object is moved before*/
+    const char* source
+        =
+        "void * _Owner malloc(int i);\n"
+        "void free(_Implicit void * _Owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char * _Owner name;    \n"
+        "};\n"
+        "\n"
+        "int main() {\n"
+        "   struct X * _Owner p = malloc(sizeof * p);\n"
+        "   free(p->name);\n"
+        "   free(p);   \n"
+        "} \n"
+        ;
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+
+void moving_owner_pointer()
 {
     const char* source
         =
         "\n"
-        "void free(_Implicit void* _Owner ptr);\n"
+        "void * _Owner malloc(int i);\n"
+        "void free(_Implicit void * _Owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char * _Owner name;    \n"
+        "};\n"
+        "\n"
+        "void x_delete(_Implicit struct X * _Owner p)\n"
+        "{\n"
+        "  if (p) {\n"
+        "      free(p->name);\n"
+        "      free(p);\n"
+        "  }\n"
+        "}\n"
+        "\n"
+        "int main() {\n"
+        "   struct X * _Owner p = malloc(sizeof * p);   \n"
+        "   x_delete(p);      \n"
+        "} \n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+
+void moving_owner_pointer_missing()
+{
+    const char* source
+        =
+        "\n"
+        "void * _Owner malloc(int i);\n"
+        "void free(_Implicit void * _Owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char * _Owner name;    \n"
+        "};\n"
+        "\n"
+        "void x_delete(_Implicit struct X * _Owner p)\n"
+        "{\n"
+        "  if (p) {\n"
+        "      //free(p->name);\n"
+        "      free(p);\n"
+        "  }\n"
+        "}\n"
+        "\n"
+        "int main() {\n"
+        "   struct X * _Owner p = malloc(sizeof * p);   \n"
+        "   x_delete(p);      \n"
+        "} \n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.warnings_count == 0);
+}
+
+void error()
+{
+    const char* source
+        =
+        "\n"
         "void* _Owner malloc(int size);\n"
         "\n"
-        "struct X { char * _Owner name; };\n"
+        "struct X {    \n"
+        "    char * _Owner name;\n"
+        "};\n"
         "\n"
         "void * _Owner f1(){\n"
         "  struct X * _Owner p = malloc(sizeof (struct X));\n"
@@ -8037,9 +8247,32 @@ void void_ptr_conversion()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count != 0 || report.warnings_count != 0);
-
+    assert(report.error_count == 1 && report.warnings_count == 0);
 }
+
+void setting_owner_pointer_to_null()
+{
+    const char* source
+        =
+        "\n"
+        "void * _Owner malloc(int i);\n"
+        "void free(_Implicit void * _Owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char * _Owner name;    \n"
+        "};\n"
+        "\n"
+        "int main() {\n"
+        "   struct X * _Owner p = malloc(sizeof * p);   \n"
+        "   p = 0;\n"
+        "} \n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 3 && report.warnings_count == 0);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////     OWNER /////////////////////////////////////////////////////////

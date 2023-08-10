@@ -1,5 +1,6 @@
 #pragma once
 #include <stdio.h>
+#include <errno.h>
 #include "hashmap.h"
 #include "tokenizer.h"
 #include "expressions.h"
@@ -337,7 +338,7 @@ struct declaration
 
     struct declaration* owner next;
 };
-
+void declaration_delete(implicit struct declaration* owner p);
 struct declaration*  owner external_declaration(struct parser_ctx* ctx);
 
 struct atomic_type_specifier
@@ -500,7 +501,7 @@ enum object_state
     OBJECT_STATE_UNKNOWN,
     OBJECT_STATE_NOT_ZERO,
     OBJECT_STATE_MOVED,
-    OBJECT_STATE_NULL_OR_UNINITIALIZED,
+    OBJECT_STATE_NULL_OR_MOVED,
 };
 
 const char * object_state_to_string(enum object_state e);
@@ -1187,7 +1188,7 @@ struct enumerator
     long long value;    
 };
 
-struct enumerator* owner enumerator(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier);
+struct enumerator* owner enumerator(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier, long long *p_enumerator_value);
 
 struct attribute_argument_clause
 {
@@ -1223,7 +1224,7 @@ struct declaration_list
 };
 
 struct declaration_list translation_unit(struct parser_ctx* ctx);
-void declaration_list_destroy(struct declaration_list* list);
+void declaration_list_destroy(implicit struct declaration_list* obj_owner list);
 
 struct label
 {

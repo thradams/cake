@@ -109,7 +109,7 @@ static void delete_macro_void(void* p)
     delete_macro(p_macro);
 }
 
-void preprocessor_ctx_destroy(struct preprocessor_ctx* p)
+void preprocessor_ctx_destroy(implicit struct preprocessor_ctx* obj_owner p)
 {
     owner_hashmap_destroy(&p->macros, delete_macro_void);
 }
@@ -4232,6 +4232,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD_SIGNED: return "TK_KEYWORD_SIGNED";
         case TK_KEYWORD_SIZEOF: return "TK_KEYWORD_SIZEOF";
         case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG";
+        case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE";
         case TK_KEYWORD_STATIC: return "TK_KEYWORD_STATIC";
         case TK_KEYWORD_STRUCT: return "TK_KEYWORD_STRUCT";
         case TK_KEYWORD_SWITCH: return "TK_KEYWORD_SWITCH";

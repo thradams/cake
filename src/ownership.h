@@ -24,5 +24,5 @@ char * _Owner strdup( const char *str1 );
 #define obj_owner
 #define move
 #define view
-
+#define static_debug(x)
 #endif

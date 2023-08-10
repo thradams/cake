@@ -146,7 +146,14 @@ void owner_if_pattern_2(void);
 void missing_destructor(void);
 void no_warning(void);
 void moved_if_not_null(void);
-void void_ptr_conversion(void);
+void struct_moved(void);
+void scope_error(void);
+void void_destroy(void);
+void void_destroy_ok(void);
+void moving_owner_pointer(void);
+void moving_owner_pointer_missing(void);
+void error(void);
+void setting_owner_pointer_to_null(void);
 
 /*end of forward declarations*/
 
@@ -286,7 +293,14 @@ g_unit_test_success_count = 0;
     missing_destructor();
     no_warning();
     moved_if_not_null();
-    void_ptr_conversion();
+    struct_moved();
+    scope_error();
+    void_destroy();
+    void_destroy_ok();
+    moving_owner_pointer();
+    moving_owner_pointer_missing();
+    error();
+    setting_owner_pointer_to_null();
 return g_unit_test_error_count;
 
 }

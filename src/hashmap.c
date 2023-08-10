@@ -37,7 +37,7 @@ void hashmap_remove_all(struct hash_map* map)
     }
 }
 
-void hashmap_destroy(struct hash_map* map)
+void hashmap_destroy(implicit struct hash_map* obj_owner map)
 {
     hashmap_remove_all(map);
 }

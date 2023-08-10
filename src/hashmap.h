@@ -31,7 +31,7 @@ struct hash_map {
 };
 
 void hashmap_remove_all(struct hash_map* map);
-void hashmap_destroy(struct hash_map* map);
+void hashmap_destroy(implicit struct hash_map* obj_owner map);
 struct map_entry* hashmap_find(struct hash_map* map, const char* key);
 void* hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt);
 int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type);

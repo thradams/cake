@@ -13,7 +13,9 @@ The second implementation revolves around flow analysis, ensuring that owned res
   
 By implementing the static ownership check, and using the feature on it's own source, Cake aims to explore and evaluate the effectiveness of this feature.
   
-## New Type qualifiers
+## Part I - Type system changes  
+
+### New Type qualifiers
 
 ```c
 type-qualifier:
@@ -101,24 +103,28 @@ void destroy_array(int n, struct person a[_Owner 10]);
 ```
 
 
-## Initialization and assignment
-### Owner = Owner
+### Initialization and assignment
+#### Owner = Owner
 
-In this situation we always move the ownership and **\_Move** is required.
-
+Because we must have only one owner, in this situation the ownership is moved.  
+  
+Although, not necessary, a new keyword **_Move** was added to make this operation more explicit.
 
 ```c  
 _Owner T b;
+
+//Initialization
 _Owner T a = _Move b;
 ```
 
 ```c  
+
 _Owner T b;
 _Owner T a;
+
+//Assigment
 a = _Move b;
 ```
-
-We have the ownership moved from b to a.
 
 The exception of the usage of **\_Move** is when initializing from a function result.
 
@@ -128,10 +134,11 @@ _Owner T a = make_owner();
 ```
 
 
-### Owner = Non-owner
+#### Owner = Non-owner
   
 This is not allowed.  
-The exception is we can initialize/assign owner pointer to the null pointer constant. 
+
+The exception initialization/assignment of owner pointers to the null pointer constant. 
 
 ```c
 T _Owner * p1 = 0;       //OK
@@ -144,10 +151,10 @@ T _Owner * p1;
 p1 = 0; //OK
 ```
 
-> Design note: This could be extended for non pointers. The problem is we need a extra annotation to define the "empty" value for non pointers.   
+> Design note: This could be extended for non pointers. The problem is we need a extra annotation to define what "empty" means for values other than non pointers. For instance, 0 can be valid index of a owner handle.   
 
 
-### Non-Owner = Owner  
+#### Non-Owner = Owner  
 
 In this situation we always have a view.
 
@@ -198,9 +205,9 @@ void f()
 
 (The last samples are not implemented yet in cake)
 
-## Returning variables
+### Returning variables
   
-### Owner F() return Owner  
+#### Owner F() return Owner  
 
 When returning local storage variables we don't have to use **_Move**.
 
@@ -235,7 +242,7 @@ When returning a owner type, the called cannot discard the result.
 ```
 
 
-### Owner F() return Non-Owner
+#### Owner F() return Non-Owner
 
 The only possible value is null pointer constant.
 
@@ -246,7 +253,7 @@ T * _Owner F() {
 ```
 
 
-### Non-Owner F() return Owner
+#### Non-Owner F() return Owner
 
 We return a view of the object.
 
@@ -276,46 +283,39 @@ T F(_Owner T arg) {
 ```
 
 
-## Calling functions
+### Calling functions
 In general the rules are similar of initializing the parameter with the argument. 
 
-### void F(Owner); F(Owner);
+#### void F(Owner); F(Owner);
 
 We explicitly use **_Move** on the caller.
 
 ```c
   void F(_Owner T a);
-  
   _Owner T a;
-  
   F(_Move a);      //OK
-  F(make_owner()); //OK
-  
 ```
 
-We can use **\_Implicit**  to make the usage of **_Move** optional.   
-  
-This is useful when the semantics of the function is very clear, for instance if the name of the function is "destroy" "free" etc.  
+We can use **\_Implicit**  to make the usage of **_Move** optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is "destroy" or "free" etc.    
 
+Sample:
 ```c
 void x_destroy(_Implicit struct X * _Obj_owner);
 ```
 
-(This can be changed to a attribute in the future)
-  
-**\_Move** can be used for instance, when inserting items at some container.
-  
-```c  
-list_add(&list, _Move item);
-```  
-  
-Or when the parameter will consume all the input.
-  
-```c  
-p_new_items = _Move process(_Move p_old_items);
-```  
+ > Not sure if attributes is better for implicit
 
-### void F(Owner); F(Non-Owner);
+The exception of using **_Move** is when passing the function result directly.
+  
+```c
+  void F(_Owner T a);
+  F(make_owner()); //OK
+```
+
+
+  
+
+#### void F(Owner); F(Non-Owner);
 This is not allowed.  
 The exception is the null pointer constant.
 
@@ -323,8 +323,7 @@ The exception is the null pointer constant.
   F(0); //OK  
 ```
 
-### void F(Non-Owner); F(Owner);
-
+#### void F(Non-Owner); F(Owner);
 
 Following the general rule that view object duration must be shorter than the owner object, we cannot pass owner object return by a function.
 
@@ -340,21 +339,59 @@ But we can pass variables, and the function parameter is a view of the argument.
 ```
 
 
-### Type system samples
+## Part II - Flow analysis
+Flow analysis is the process of automatic code review that, among other things, ensures that when owner objects goes out of scope they release the resources.
+If this implementation were to be integrated into the C standard in the future, the inclusion of this step could be made optional.
+
+If your source has a memory leaks this should be an error or warning? This question may have difference answers, so the suggestion is a compiler flag -safe that if present makes all problems as error, otherwise warnings.    
+The problem is that how to ensure all compiler does the same flow analysis in safe mode?
 
 
-## Flow analysis
-
-When owner objects goes out of scope, the flow analysis
-must check if the object has been moved. 
-
-###  Algorithm
+###  General idea
 
 > "Caesar's wife must be above suspicion"
 
-Cake employs a straightforward pattern-based algorithm for ownership analysis. This choice is driven by the principle that ownership reasoning should remain clear and uncomplicated.  Complex code, even if accurate, has the potential to raise concerns and demand unnecessary time from programmers during the process of code reviews.
+The basic idea of the algorithm is that we need a "clear path" out of suspicious from the point where variables are moved until the point they leave scope.
+To accomplish that the choice is a straightforward pattern-based algorithm for ownership analysis.   
+This choice is driven by the principle that ownership reasoning should remain clear and uncomplicated.  Complex code, even if correct, has the potential to raise concerns and demand unnecessary time from programmers during code reviews.
 
-The basic idea of the algorithm is that we need a "clear path" out of suspicious from the point where variables are moved until the point they leave scope. 
+Some compilers can be smarter than others when checking ownership. This creates a problem that some code can compile in -save mode [1]  in one compiler but not in another. I don't have a clear answers for that. I can think in some alternatives like warning only, or describing the algorithm that all compilers must follow.  
+  
+[1] "save mode" emits an error when a resource is not released for instance, instead of just a warning.
+
+The possible states of each expression can be printed and checked in compile time using  **static\_assert** and **static_state**. This is the state used by the flow analysis to emit errors.
+  
+```c  
+
+/*enum as used internally by the flow analysis*/  
+enum object_state {
+    OBJECT_STATE_STRUCT = 0,
+    OBJECT_STATE_UNINITIALIZED,
+    OBJECT_STATE_ZERO,
+    OBJECT_STATE_UNKNOWN,
+    OBJECT_STATE_NOT_ZERO,
+    OBJECT_STATE_MOVED,
+    OBJECT_STATE_NULL_OR_MOVED,
+};  
+  
+void * _Owner malloc(int i);
+void free(_Implicit void * _Owner p);
+
+struct X {
+  char * _Owner name;    
+};
+int main() {
+   struct X * _Owner p = malloc(sizeof * p);
+   if (p)
+   {
+       free(p);
+   }
+   static_assert(static_state(p) == OBJECT_STATE_NULL_OR_MOVED);
+   static_debug(p);
+} 
+```
+
+#### Sample:
 
 "Clear path" means, for instance, that we are not jumping in or out of the code section executed before the end of scope.
 
@@ -384,26 +421,21 @@ end:
 
 The second example, we have a label "end" between free(p) and the end of scope. So this code is suspicious because there is a "jump in" and cake will complain.
 
-The patterns required are under construction.  
+The patterns required are under construction running flow analysis in the cake source itself. I think this will take time and feedback of more code style is requires to stabilize the pattern rules.
 
-One pattern already implemented is:
+Flow analysis in cake is optional, use -flow-analysis option. (web version has -flow-analysis by default to present the concept without extra step)  
+
+### Pattern 1
+
 
 ```c
  {  
-  if (p){
-      free(p->name);
+  if (p /*owner*/ ){  
+      /*...*/      
       free(p);
-   }
- } //no complain here.
-```
-
-```c
- {  
-  T  * _Owner p = malloc(sizeof(T)); 
-  if (p){
-     dest = _Move p;
-   }
- } //no complain here.
+   } /*moved*/  
+   /*p is moved or null*/
+ }
 ```
 
 
@@ -698,6 +730,13 @@ parameter-declaration:
   ...
   return;
   return move_opt expression;  
+  
+static_debug-declaration:
+  static_debug(constant-expression) ;
+
+unary-expression:
+  ...  
+  static_state ( constant-expression)   
 
 ```
 
@@ -734,6 +773,5 @@ char * _Owner strdup( const char *str1 );
 ```
 
 Then include this header on the top of your files and just run cake.
-
 
 
