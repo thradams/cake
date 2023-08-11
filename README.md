@@ -143,6 +143,9 @@ https://hackaday.com/2022/09/13/c23-programming-for-everyone/
 You can contribute by trying out cake, reporting bugs, and giving feedback.
 
 Have a suggestion for C?
+  
+DISCORD SERVER
+https://discord.gg/mtfw8qVw
 
 # Status?
 
