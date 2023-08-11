@@ -2376,6 +2376,15 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 }
             }
         }
+        else
+        {
+            if (p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+            {
+                //TODO const pode
+                //compiler_set_error_with_token(C_MISSING_OWNER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+            }
+        }
+
     }
 
     if (p_init_declarator->p_declarator)
@@ -8165,7 +8174,7 @@ void void_destroy()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
 void void_destroy_ok()
@@ -8268,6 +8277,7 @@ void error()
         "\n"
         "void * _Owner f1(){\n"
         "  struct X * _Owner p = malloc(sizeof (struct X));\n"
+        "  p->name = malloc(1);"
         "  return p;\n"
         "}\n"
         "";
@@ -8297,7 +8307,7 @@ void setting_owner_pointer_to_null()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 2 && report.warnings_count == 0);
+    assert(report.error_count == 1 && report.warnings_count == 0);
 }
 void while_not_null()
 {

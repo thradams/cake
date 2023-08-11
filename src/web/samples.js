@@ -755,8 +755,8 @@ int main() {
 `;
 
 
-sample["Extension"]=[];   
-sample["Extension"]["try catch throw"] =
+sample["Extensions"]=[];   
+sample["Extensions"]["try catch throw"] =
 `
 #include <stdio.h>
 
@@ -782,7 +782,7 @@ int main()
 `;
 
 
-sample["Extension"]["try catch throw II"] =
+sample["Extensions"]["try catch throw II"] =
 `
 #include <stdio.h>
 
@@ -811,7 +811,7 @@ int main()
 
 `;
 
-sample["Extension"]["defer inside try blocks"] =
+sample["Extensions"]["defer inside try blocks"] =
     `
 #include <stdio.h>
 
@@ -842,7 +842,7 @@ int main()
 
 `;
 
-sample["Extension"]["defer with breaks III"] =
+sample["Extensions"]["defer with breaks III"] =
     `
 
 #include <stdio.h>
@@ -872,7 +872,7 @@ int main()
 `;
 
 
-sample["Extension"]["defer with breaks IV"] =
+sample["Extensions"]["defer with breaks IV"] =
     `
 
 #include <stdio.h>
@@ -894,7 +894,7 @@ int main()
 `;
 
 
-sample["Extension"]["defer with return V"] =
+sample["Extensions"]["defer with return V"] =
     `
 
 #include <stdio.h>
@@ -916,7 +916,7 @@ int main()
 `;
 
 
-sample["Extension"]["defer goto VI"] =
+sample["Extensions"]["defer goto VI"] =
     `
 
 #include <stdio.h>
@@ -938,7 +938,7 @@ int main()
 
 `;
 
-sample["Extension"]["if with initialization (Like C++17)"] =
+sample["Extensions"]["if with initialization (Like C++17)"] =
     `
 #include <stdio.h>
 
@@ -953,7 +953,7 @@ int main()
 }
 `;
 
-sample["Extension"]["repeat"] =
+sample["Extensions"]["repeat"] =
 `
 int main()
 {
@@ -963,7 +963,7 @@ int main()
 }
 `;
 
-sample["Extension"]["Literal function (lambda) I"] =
+sample["Extensions"]["Literal function (lambda) I"] =
 `
 /*simple lambda*/
 #include <stdio.h>
@@ -975,7 +975,7 @@ int main()
 }
 `;
 
-sample["Extension"]["Literal function (lambdas)"] =
+sample["Extensions"]["Literal function (lambdas)"] =
     `
 #include <stdio.h>
 #include <stdlib.h>
@@ -1030,7 +1030,7 @@ int main()
 
 `;
 
-sample["Extension"]["typeof + lambdas"] =
+sample["Extensions"]["typeof + lambdas"] =
 `
 /* Use -fo option to format output*/
 
@@ -1049,7 +1049,7 @@ int main()
 `;
 
 
-sample["Extension"]["line slicing checks"] =
+sample["Extensions"]["line slicing checks"] =
 `
 
 #define M\\
@@ -1076,7 +1076,7 @@ int main()
 
 
 
-sample["Extension"]["pragma warning"] =
+sample["Extensions"]["pragma warning"] =
 `
 enum E1 { A };
 enum E2 { B };
@@ -1094,7 +1094,7 @@ int main() {
 
 `;
 
-sample["Extension"]["Traits"] =
+sample["Extensions"]["Traits"] =
     `
 
 /*
@@ -1126,7 +1126,7 @@ int main()
 }
 `;
 
-sample["Extension"]["type expression"] =
+sample["Extensions"]["type expression"] =
     `
 int a[2];
 static_assert( a == (int[2])  );
@@ -1150,8 +1150,8 @@ int main()
 static_assert( _is_function(main) && (typeof(main())) == (int) );
 
 `;
-sample["ownership"]=[];
-sample["ownership"]["ownership I"] =
+sample["Ownership (experimental)"]=[];
+sample["Ownership (experimental)"]["ownership I"] =
 `
 /*  
   See also: http://thradams.com/cake/ownership.html
@@ -1162,47 +1162,48 @@ sample["ownership"]["ownership I"] =
 
 int main() {
    void * owner p = malloc(1);
-   //free(p);  /*fix me*/
+   //free(p);  /*FIX ME*/
 }
 
 `;
 
-sample["ownership"]["ownership II"] =
+sample["Ownership (experimental)"]["ownership II"] =
 `
 /* 
   See also: http://thradams.com/cake/ownership.html
 */
 
-void * owner malloc(int i);
-void free(implicit void * owner p);
+#define _OWNERSHIP_ 
+#include <stdlib.h>
 
 struct X {
   int i;
 };
 
  struct X * owner f() {
-    struct X * owner p = malloc(1);
-    struct X * owner p2 = _Move p;
-    return p2; /*p2 is moved*/
+    struct X * owner p = malloc(1);    
+    return p;
 }
 
 int main() {
    struct X * owner p = f();
-   //free(p);     
+   //free(p);  /*FIX ME*/
 }
 
 
 
 `;
 
-sample["ownership"]["ownership III"] =
+sample["Ownership (experimental)"]["ownership III"] =
 `
 
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
-char * owner strdup(const char *s);
-void free(implicit void * owner p);
+
+#define _OWNERSHIP_ 
+#include <stdlib.h>
+#include <string.h>
 
 struct X {
   char *owner name;
@@ -1210,30 +1211,30 @@ struct X {
 
 void x_destroy(implicit struct X * obj_owner p) 
 {
-  //free(p->name);
+  //free(p->name); /*FIX ME*/
 }
 
 int main() {
    struct X x = {0};
-   x.name = _Move strdup("a");
-   //x_destroy(&x);
+   x.name = move strdup("a");
+   //x_destroy(&x); /*FIX ME*/
 }
 
 `;
 
-sample["ownership"]["ownership IV"] =
+sample["Ownership (experimental)"]["ownership IV"] =
 `
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
 
-void free(implicit void* owner ptr);
-void* owner malloc(int size);
+#define _OWNERSHIP_ 
+#include <stdlib.h>
 
 struct X
 {
     int i;
-    //char * owner name;
+    //char * owner name; /*TRY*/
 };
 
 int main() 
@@ -1241,17 +1242,17 @@ int main()
     struct X * owner p = malloc(sizeof (struct X));
     free(p);
 }
-
-
 `;
-sample["ownership"]["ownership V"] =
+
+sample["Ownership (experimental)"]["ownership V"] =
 `
+
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
 
-void * owner malloc(int i);
-void free(implicit void * owner p);
+#define _OWNERSHIP_ 
+#include <stdlib.h>
 
 struct X {
   char * owner text;
@@ -1259,48 +1260,54 @@ struct X {
 
 void x_delete(implicit struct X * owner p)
 {
-    free(p->text);
-    free(p);    
+    if (p)
+    {
+      free(p->text);
+      free(p);    
+    }
 }
 
-
-int main() {
+int main() {   
    struct X * owner p = malloc(sizeof(struct X));
-   p->text = _Move malloc(10);
+      
+   p->text = move malloc(10);
+
    x_delete(p);
 }
 
+
 `;
 
-sample["ownership"]["ownership VI"] =
+sample["Ownership (experimental)"]["ownership VI"] =
 `
+
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
 
-void free(implicit void* owner ptr);
-void* owner malloc(int size);
+#define _OWNERSHIP_ 
+#include <stdlib.h>
+#include <string.h>
 
-struct X
-{    
+struct X {    
     char * owner name;
 };
 
 /*
-  To remove this error return 
-    struct X * owner 
-  instead   of 
-    void * owner.
+  FIX ME, changing 'void * owner' to 'struct X * owner'  
 */
 void * owner f1(){
   struct X * owner p = malloc(sizeof (struct X));
+  p->name = move strdup("hi");
   return p;
 }
+
+
 `;
 
 
 
-sample["ownership"]["ownership VII"] =
+sample["Ownership (experimental)"]["ownership VII"] =
 `
 /*  
   This sample shows how view can be used to implement swap.
@@ -1336,15 +1343,18 @@ int main()
 }
 `;
 
-sample["ownership"]["ownership VIII"] =
+sample["Ownership (experimental)"]["ownership VIII"] =
 `
 
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
 
-char * owner strdup(const char *s);
-void free(implicit void * owner p);
+#define _OWNERSHIP_ 
+#include <stdlib.h>
+#include <string.h>
+
+/*TRY FIX THIS CODE*/
 
 struct X {
   char * text;

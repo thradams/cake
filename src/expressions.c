@@ -840,6 +840,15 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
                 return &p_obj->pointed->members.data[p_expression->member_index];
         }
     }
+    else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
+    {        
+        if (p_type)
+            *p_type = type_dup(&p_expression->type);
+        return NULL;
+
+    }
+    if (p_type)
+            *p_type = type_dup(&p_expression->type);
     return NULL;
 }
 
@@ -1610,8 +1619,8 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
         ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
         //
-        
-        
+
+
         ctx->current->type == TK_KEYWORD_IS_SAME ||
         ctx->current->type == TK_KEYWORD_ATTR_ADD ||
         ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
@@ -1939,8 +1948,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             new_expression->type = move type_make_int_bool_like();
             p_expression_node = move new_expression;
         }
-       
-        
+
+
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);

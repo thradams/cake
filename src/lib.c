@@ -8261,8 +8261,23 @@ static const char* file_assert_h =
 "\n"
 "";
 
-static const char* file_stdio_h
-=
+#define  _OWNERSHIP__STR "\n"\
+ "#ifdef _OWNERSHIP_\n"\
+ "#define IMPLICIT _Implicit\n"\
+ "#define OWNER _Owner\n"\
+ "#define OBJ_OWNER _Obj_owner\n"\
+ "#define VIEW _View\n"\
+ "#else\n"\
+ "#define IMPLICIT \n"\
+ "#define OWNER\n"\
+ "#define OBJ_OWNER\n"\
+ "#define VIEW \n"\
+ "#endif\n"\
+ "\n"
+
+
+static const char* file_stdio_h =
+_OWNERSHIP__STR
 "#pragma once\n"
 "typedef long long fpos_t;\n"
 "typedef int FILE;\n"
@@ -8277,10 +8292,10 @@ static const char* file_stdio_h
 "int rename(const char* old, const char* news);\n"
 "FILE* tmpfile(void);\n"
 "char* tmpnam(char* s);\n"
-"int fclose(FILE* stream);\n"
+"int fclose(IMPLICIT FILE* OWNER stream);\n"
 "int fflush(FILE* stream);\n"
-"FILE* fopen(const char* restrict filename, const char* restrict mode);\n"
-"FILE* freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
+"FILE* OWNER fopen(const char* restrict filename, const char* restrict mode);\n"
+"FILE* OWNER freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
 "void setbuf(FILE* restrict stream, char* restrict buf);\n"
 "int setvbuf(FILE* restrict stream, char* restrict buf, int mode, size_t size);\n"
 "int fprintf(FILE* restrict stream, const char* restrict format, ...);\n"
@@ -8322,8 +8337,7 @@ static const char* file_stdio_h
 "#endif\n"
 "";
 
-static const char* file_errno_h
-=
+static const char* file_errno_h =
 "#pragma once\n"
 "\n"
 "int* _errno(void);\n"
@@ -8414,86 +8428,82 @@ static const char* file_errno_h
 "\n"
 "";
 
-static const char* file_string_h
-=
-"\n"
-"typedef int errno_t;\n"
-"typedef unsigned long long size_t;\n"
-"typedef unsigned long long rsize_t;\n"
-"typedef unsigned short wchar_t;\n"
-"\n"
-"\n"
-"void* memchr(void const* _Buf, int _Val, size_t _MaxCount);\n"
-"int memcmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
-"void* memcpy(void* _Dst, void const* _Src, size_t _Size);\n"
-"void* memmove(void* _Dst, void const* _Src, size_t _Size);\n"
-"void* memset(void* _Dst, int _Val, size_t _Size);\n"
-"char* strchr(char const* _Str, int _Val);\n"
-"char* strrchr(char const* _Str, int _Ch);\n"
-"char* strstr(char const* _Str, char const* _SubStr);\n"
-"wchar_t* wcschr(wchar_t const* _Str, wchar_t _Ch);\n"
-"wchar_t* wcsrchr(wchar_t const* _Str, wchar_t _Ch);\n"
-"wchar_t* wcsstr(wchar_t const* _Str, wchar_t const* _SubStr);\n"
-"static __inline errno_t memcpy_s(void* const _Destination, rsize_t const _DestinationSize, void const* const _Source, rsize_t const _SourceSize);\n"
-"static __inline errno_t memmove_s(void* const _Destination, rsize_t const _DestinationSize, void const* const _Source, rsize_t const _SourceSize);\n"
-"int _memicmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
-"void* memccpy(void* _Dst, void const* _Src, int _Val, size_t _Size);\n"
-"int memicmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
-"errno_t wcscat_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source);\n"
-"errno_t wcscpy_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source);\n"
-"errno_t wcsncat_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source, rsize_t _MaxCount);\n"
-"errno_t wcsncpy_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source, rsize_t _MaxCount);\n"
-"wchar_t* wcstok_s(wchar_t* _String, wchar_t const* _Delimiter, wchar_t** _Context);\n"
-"wchar_t* _wcsdup(wchar_t const* _String);\n"
-"wchar_t* wcscat(wchar_t* _Destination, wchar_t const* _Source); int wcscmp(wchar_t const* _String1, wchar_t const* _String2);\n"
-"wchar_t* wcscpy(wchar_t* _Destination, wchar_t const* _Source); size_t wcscspn(wchar_t const* _String, wchar_t const* _Control);\n"
-"size_t wcslen(wchar_t const* _String);\n"
-"size_t wcsnlen(wchar_t const* _Source, size_t _MaxCount);\n"
-"static __inline size_t wcsnlen_s(wchar_t const* _Source, size_t _MaxCount);\n"
-"wchar_t* wcsncat(wchar_t* _Destination, wchar_t const* _Source, size_t _Count);\n"
-"int wcsncmp(wchar_t const* _String1, wchar_t const* _String2, size_t _MaxCount);\n"
-"wchar_t* wcsncpy(wchar_t* _Destination, wchar_t const* _Source, size_t _Count);\n"
-"wchar_t* wcspbrk(wchar_t const* _String, wchar_t const* _Control);\n"
-"size_t wcsspn(wchar_t const* _String, wchar_t const* _Control);\n"
-"wchar_t* wcstok(wchar_t* _String, wchar_t const* _Delimiter, wchar_t** _Context);\n"
-"size_t wcsxfrm(wchar_t* _Destination, wchar_t const* _Source, size_t _MaxCount);\n"
-"int wcscoll(wchar_t const* _String1, wchar_t const* _String2);\n"
-"wchar_t* wcsdup(wchar_t const* _String);\n"
-"int wcsicmp(wchar_t const* _String1, wchar_t const* _String2);\n"
-"int wcsnicmp(wchar_t const* _String1, wchar_t const* _String2, size_t _MaxCount);\n"
-"wchar_t* wcsnset(wchar_t* _String, wchar_t _Value, size_t _MaxCount);\n"
-"wchar_t* wcsrev(wchar_t* _String);\n"
-"wchar_t* wcsset(wchar_t* _String, wchar_t _Value);\n"
-"wchar_t* wcslwr(wchar_t* _String); wchar_t* wcsupr(wchar_t* _String); \n"
-"int wcsicoll(wchar_t const* _String1, wchar_t const* _String2);\n"
-"char* strtok_s(char* _String, char const* _Delimiter, char** _Context); \n"
-"void* _memccpy(void* _Dst, void const* _Src, int _Val, size_t _MaxCount);\n"
-"char* strcat(char* _Destination, char const* _Source);\n"
-"int strcmp(char const* _Str1, char const* _Str2);\n"
-"\n"
-"int strcoll(char const* _String1, char const* _String2);\n"
-"char* strerror(int _ErrorMessage);\n"
-"\n"
-"size_t strlen(char const* _Str);\n"
-"\n"
-"char* strncat(char* _Destination, char const* _Source, size_t _Count);\n"
-"int strncmp(char const* _Str1, char const* _Str2, size_t _MaxCount);\n"
-"char* strncpy(char* _Destination, char const* _Source, size_t _Count);\n"
-"size_t strnlen(char const* _String, size_t _MaxCount);\n"
-"static __inline size_t strnlen_s(char const* _String, size_t _MaxCount);\n"
-"char* strpbrk(char const* _Str, char const* _Control);\n"
-"size_t strspn(char const* _Str, char const* _Control);\n"
-"char* strtok(char* _String, char const* _Delimiter); \n"
-"char* strdup(char const* _String);\n"
-"int strcmpi(char const* _String1, char const* _String2);\n"
-"int stricmp(char const* _String1, char const* _String2);\n"
-"char* strlwr(char* _String);\n"
-"int strnicmp(char const* _String1, char const* _String2, size_t _MaxCount);\n"
-"char* strnset(char* _String, int _Value, size_t _MaxCount);\n"
-"char* strrev(char* _String);\n"
-"char* strset(char* _String, int _Value); char* strupr(char* _String);\n"
-"\n"
-"";
+
+
+static const char* file_string_h =
+ _OWNERSHIP__STR
+ " \n"
+ "typedef int errno_t;\n"
+ "typedef unsigned long long size_t;\n"
+ "typedef unsigned long long rsize_t;\n"
+ "typedef unsigned short wchar_t;\n"
+ "void* memchr(void const* _Buf, int _Val, size_t _MaxCount);\n"
+ "int memcmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
+ "void* memcpy(void* _Dst, void const* _Src, size_t _Size);\n"
+ "void* memmove(void* _Dst, void const* _Src, size_t _Size);\n"
+ "void* memset(void* _Dst, int _Val, size_t _Size);\n"
+ "char* strchr(char const* _Str, int _Val);\n"
+ "char* strrchr(char const* _Str, int _Ch);\n"
+ "char* strstr(char const* _Str, char const* _SubStr);\n"
+ "wchar_t* wcschr(wchar_t const* _Str, wchar_t _Ch);\n"
+ "wchar_t* wcsrchr(wchar_t const* _Str, wchar_t _Ch);\n"
+ "wchar_t* wcsstr(wchar_t const* _Str, wchar_t const* _SubStr);\n"
+ "static __inline errno_t memcpy_s(void* const _Destination, rsize_t const _DestinationSize, void const* const _Source, rsize_t const _SourceSize);\n"
+ "static __inline errno_t memmove_s(void* const _Destination, rsize_t const _DestinationSize, void const* const _Source, rsize_t const _SourceSize);\n"
+ "int _memicmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
+ "void* memccpy(void* _Dst, void const* _Src, int _Val, size_t _Size);\n"
+ "int memicmp(void const* _Buf1, void const* _Buf2, size_t _Size);\n"
+ "errno_t wcscat_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source);\n"
+ "errno_t wcscpy_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source);\n"
+ "errno_t wcsncat_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source, rsize_t _MaxCount);\n"
+ "errno_t wcsncpy_s(wchar_t* _Destination, rsize_t _SizeInWords, wchar_t const* _Source, rsize_t _MaxCount);\n"
+ "wchar_t* wcstok_s(wchar_t* _String, wchar_t const* _Delimiter, wchar_t** _Context);\n"
+ "wchar_t* _wcsdup(wchar_t const* _String);\n"
+ "wchar_t* wcscat(wchar_t* _Destination, wchar_t const* _Source); int wcscmp(wchar_t const* _String1, wchar_t const* _String2);\n"
+ "wchar_t* wcscpy(wchar_t* _Destination, wchar_t const* _Source); size_t wcscspn(wchar_t const* _String, wchar_t const* _Control);\n"
+ "size_t wcslen(wchar_t const* _String);\n"
+ "size_t wcsnlen(wchar_t const* _Source, size_t _MaxCount);\n"
+ "static __inline size_t wcsnlen_s(wchar_t const* _Source, size_t _MaxCount);\n"
+ "wchar_t* wcsncat(wchar_t* _Destination, wchar_t const* _Source, size_t _Count);\n"
+ "int wcsncmp(wchar_t const* _String1, wchar_t const* _String2, size_t _MaxCount);\n"
+ "wchar_t* wcsncpy(wchar_t* _Destination, wchar_t const* _Source, size_t _Count);\n"
+ "wchar_t* wcspbrk(wchar_t const* _String, wchar_t const* _Control);\n"
+ "size_t wcsspn(wchar_t const* _String, wchar_t const* _Control);\n"
+ "wchar_t* wcstok(wchar_t* _String, wchar_t const* _Delimiter, wchar_t** _Context);\n"
+ "size_t wcsxfrm(wchar_t* _Destination, wchar_t const* _Source, size_t _MaxCount);\n"
+ "int wcscoll(wchar_t const* _String1, wchar_t const* _String2);\n"
+ "wchar_t* wcsdup(wchar_t const* _String);\n"
+ "int wcsicmp(wchar_t const* _String1, wchar_t const* _String2);\n"
+ "int wcsnicmp(wchar_t const* _String1, wchar_t const* _String2, size_t _MaxCount);\n"
+ "wchar_t* wcsnset(wchar_t* _String, wchar_t _Value, size_t _MaxCount);\n"
+ "wchar_t* wcsrev(wchar_t* _String);\n"
+ "wchar_t* wcsset(wchar_t* _String, wchar_t _Value);\n"
+ "wchar_t* wcslwr(wchar_t* _String); wchar_t* wcsupr(wchar_t* _String);\n"
+ "int wcsicoll(wchar_t const* _String1, wchar_t const* _String2);\n"
+ "char* strtok_s(char* _String, char const* _Delimiter, char** _Context);\n"
+ "void* _memccpy(void* _Dst, void const* _Src, int _Val, size_t _MaxCount);\n"
+ "char* strcat(char* _Destination, char const* _Source);\n"
+ "int strcmp(char const* _Str1, char const* _Str2);\n"
+ "int strcoll(char const* _String1, char const* _String2);\n"
+ "char* strerror(int _ErrorMessage);\n"
+ "size_t strlen(char const* _Str);\n"
+ "char* strncat(char* _Destination, char const* _Source, size_t _Count);\n"
+ "int strncmp(char const* _Str1, char const* _Str2, size_t _MaxCount);\n"
+ "char* strncpy(char* _Destination, char const* _Source, size_t _Count);\n"
+ "size_t strnlen(char const* _String, size_t _MaxCount);\n"
+ "static __inline size_t strnlen_s(char const* _String, size_t _MaxCount);\n"
+ "char* strpbrk(char const* _Str, char const* _Control);\n"
+ "size_t strspn(char const* _Str, char const* _Control);\n"
+ "char* strtok(char* _String, char const* _Delimiter);\n"
+ "char* OWNER strdup(char const* _String);\n"
+ "int strcmpi(char const* _String1, char const* _String2);\n"
+ "int stricmp(char const* _String1, char const* _String2);\n"
+ "char* strlwr(char* _String);\n"
+ "int strnicmp(char const* _String1, char const* _String2, size_t _MaxCount);\n"
+ "char* strnset(char* _String, int _Value, size_t _MaxCount);\n"
+ "char* strrev(char* _String);\n"
+ "char* strset(char* _String, int _Value); char* strupr(char* _String);";
+
 
 static const char* file_math_h
 =
@@ -8709,20 +8719,7 @@ static const char* file_math_h
 "";
 
 static const char* file_stdlib_h =
- "\n"
- "#ifdef _OWNERSHIP_\n"
- "#define IMPLICIT _Implicit\n"
- "#define OWNER _Owner\n"
- "#define OBJ_OWNER _Obj_owner\n"
- "#define VIEW _View\n"
- "#else\n"
- "#define IMPLICIT \n"
- "#define OWNER\n"
- "#define OBJ_OWNER\n"
- "#define VIEW \n"
- "#endif\n"
- "\n"
- "\n"
+ _OWNERSHIP__STR
  "typedef long long fpos_t;\n"
  "typedef unsigned size_t;\n"
  "\n"
@@ -11699,6 +11696,15 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
                 return &p_obj->pointed->members.data[p_expression->member_index];
         }
     }
+    else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
+    {        
+        if (p_type)
+            *p_type = type_dup(&p_expression->type);
+        return NULL;
+
+    }
+    if (p_type)
+            *p_type = type_dup(&p_expression->type);
     return NULL;
 }
 
@@ -12469,8 +12475,8 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
         ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
         //
-        
-        
+
+
         ctx->current->type == TK_KEYWORD_IS_SAME ||
         ctx->current->type == TK_KEYWORD_ATTR_ADD ||
         ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
@@ -12798,8 +12804,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             new_expression->type = move type_make_int_bool_like();
             p_expression_node = move new_expression;
         }
-       
-        
+
+
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
@@ -20339,6 +20345,15 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 }
             }
         }
+        else
+        {
+            if (p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+            {
+                //TODO const pode
+                //compiler_set_error_with_token(C_MISSING_OWNER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+            }
+        }
+
     }
 
     if (p_init_declarator->p_declarator)
@@ -26127,7 +26142,7 @@ void void_destroy()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
 void void_destroy_ok()
@@ -26230,6 +26245,7 @@ void error()
         "\n"
         "void * _Owner f1(){\n"
         "  struct X * _Owner p = malloc(sizeof (struct X));\n"
+        "  p->name = malloc(1);"
         "  return p;\n"
         "}\n"
         "";
@@ -26259,7 +26275,7 @@ void setting_owner_pointer_to_null()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 2 && report.warnings_count == 0);
+    assert(report.error_count == 1 && report.warnings_count == 0);
 }
 void while_not_null()
 {
@@ -29256,7 +29272,27 @@ void move_object(struct parser_ctx* ctx,
         if (bool_source_zero_value) //TODO pointers?
             set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_ZERO);
         else
-            set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_UNKNOWN);
+        {
+            if (type_is_void_ptr(p_source_obj_type))
+            {
+                /*
+                 assuming it is from malloc realloc
+                 struct X * owner p = malloc(sizeof(struct X));
+                  p->text = move malloc(10);
+                  TODO should me annotate???? uninitialized?
+                */
+                /*
+                  pointer is unkown but the pointed object is uninitialized
+                */
+                set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_UNINITIALIZED);
+                p_dest_obj_opt->state = OBJECT_STATE_UNKNOWN; /*pointer itself is unkown*/
+            }
+            else 
+            {
+                set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_UNKNOWN);
+            }
+
+        }
 
     }
 }

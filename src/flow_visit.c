@@ -590,7 +590,27 @@ void move_object(struct parser_ctx* ctx,
         if (bool_source_zero_value) //TODO pointers?
             set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_ZERO);
         else
-            set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_UNKNOWN);
+        {
+            if (type_is_void_ptr(p_source_obj_type))
+            {
+                /*
+                 assuming it is from malloc realloc
+                 struct X * owner p = malloc(sizeof(struct X));
+                  p->text = move malloc(10);
+                  TODO should me annotate???? uninitialized?
+                */
+                /*
+                  pointer is unkown but the pointed object is uninitialized
+                */
+                set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_UNINITIALIZED);
+                p_dest_obj_opt->state = OBJECT_STATE_UNKNOWN; /*pointer itself is unkown*/
+            }
+            else 
+            {
+                set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_UNKNOWN);
+            }
+
+        }
 
     }
 }
