@@ -20,3 +20,14 @@ body {
         font-size: 2em;
         border-bottom: 1px solid hsla(210,18%,87%,1);
     }
+
+
+
+
+
+
+select {
+  color: #333;
+  background-color: #ffffff;
+  border: 1px solid #cccccc;
+}

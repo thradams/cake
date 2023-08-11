@@ -20,22 +20,22 @@ By implementing the static ownership check, and using the feature on it's own so
 ```c
 type-qualifier:
   ...
-  _Owner
-  _View
-  _Obj_owner   
+  _Owner or owner
+  _View or view
+  _Bbj_owner  or obj_owner
 ```
 
-The **_Owner** qualifier can be used when declaring a variable to indicate that its value represents a reference to a resource that must be released exclusively through that reference.
+The **owner** qualifier can be used when declaring a variable to indicate that its value represents a reference to a resource that must be released exclusively through that reference.
 
-The **_View** qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it. View qualified object does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.
+The **view** qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it. View qualified object does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.
 
-The **_Owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of both the pointed object and its associated memory.
+The **owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of both the pointed object and its associated memory.
 
 When converting a owner pointer to void*, only the ownership of the memory is moved.
 
 ```c
-void * _Owner f1(){
-  struct X * _Owner p = malloc(sizeof (struct X));
+void * owner f1(){
+  struct X * owner p = malloc(sizeof (struct X));
   return p; //error 
 }
 ```
@@ -43,32 +43,32 @@ void * _Owner f1(){
 Conversely, the **_Obj\_owner** qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies.
 > Design note: Maybe an alternative to **_Obj\_owner** could references for C, but only in function parameters.  
  
-For struct and unions, if at least one member has the **_Owner** qualifier, the entire type is considered to be an owner qualified type.
+For struct and unions, if at least one member has the **owner** qualifier, the entire type is considered to be an owner qualified type.
 
 Sample:
 
 ```c
 struct person {
-  char * _Owner name;
+  char * owner name;
 };
 
 int main(){
   struct person p1 = {};
-  // same as _Owner struct person p1;
+  // same as owner struct person p1;
 }
 ```
 
-Applying the **_View** qualifier to an struct or union type designates the type as a view, regardless of whether it includes members owner qualified.
+Applying the **view** qualifier to an struct or union type designates the type as a view, regardless of whether it includes members owner qualified.
 
 ```c
 struct person {
-  char * _Owner name;
+  char * owner name;
 };
 
 int main(){
-  _View struct person p2;
-   //p2      is _View qualified  
-   //p2.name is _View qualified
+  view struct person p2;
+   //p2      is view qualified  
+   //p2.name is view qualified
 }
 ```
 
@@ -99,7 +99,7 @@ int main()
 To qualify array parameters as owner we do:
 
 ```c
-void destroy_array(int n, struct person a[_Owner 10]);
+void destroy_array(int n, struct person a[owner 10]);
 ```
 
 
@@ -108,46 +108,53 @@ void destroy_array(int n, struct person a[_Owner 10]);
 
 Because we must have only one owner, in this situation the ownership is moved.  
   
-Although, not necessary, a new keyword **_Move** was added to make this operation more explicit.
+Although, not necessary, a new keyword **move** was added to make this operation more explicit.
 
 ```c  
-_Owner T b;
+owner T b;
 
 //Initialization
-_Owner T a = _Move b;
+owner T a = move b;
 ```
 
 ```c  
 
-_Owner T b;
-_Owner T a;
+owner T b;
+owner T a;
 
 //Assigment
-a = _Move b;
+a = move b;
 ```
 
-The exception of the usage of **\_Move** is when initializing from a function result.
+The exception of the usage of **\move** is when initializing from a function result.
 
 ```c
-_Owner T make_owner();
-_Owner T a = make_owner();
+owner T make_owner();
+owner T a = make_owner();
 ```
 
+In assignments from functions we need to use **move**.
+  
+```c  
+a = move make_owner();  
+```
+
+This reminds us about the end of lifetime of a.
 
 #### Owner = Non-owner
   
 This is not allowed.  
 
-The exception initialization/assignment of owner pointers to the null pointer constant. 
+The exception is the initialization/assignment of owner pointers to the null pointer constant. 
 
 ```c
-T _Owner * p1 = 0;       //OK
-T _Owner * p2 = NULL;    //OK
-T _Owner * p3 = nullptr; //OK
+T owner * p1 = 0;       //OK
+T owner * p2 = NULL;    //OK
+T owner * p3 = nullptr; //OK
 ```
 
 ```c
-T _Owner * p1;
+T owner * p1;
 p1 = 0; //OK
 ```
 
@@ -159,19 +166,19 @@ p1 = 0; //OK
 In this situation we always have a view.
 
 ```c  
-_Owner T b;
+owner T b;
 T a = b;            //OK
 ```
 
 ```c  
-_Owner T b;
+owner T b;
 T a;
 a = b;            //OK
 ```
 
 We say "a is a view to b".
 
-We cannot have a view for a object with the storage duration shorter than the view.
+We cannot have a view for a owner objects with the storage duration shorter than the view.
 
 ```c
 T a = make_owner(); //ERROR
@@ -186,7 +193,7 @@ a = make_owner(); //ERROR
 T global;
 void f()  
 {    
- _Owner T a;
+ owner T a;
   global = a; //ERROR
 }
 ```
@@ -197,7 +204,7 @@ void f()
 {  
    T v;    
    {
-      _Owner T a;
+      owner T a;
       v = a; //ERROR
    }
 }
@@ -209,33 +216,33 @@ void f()
   
 #### Owner F() return Owner  
 
-When returning local storage variables we don't have to use **_Move**.
+When returning local storage variables we don't use **move**.
 
 ```c
-_Owner T F() {
-   _Owner T local;
+owner T F() {
+   owner T local;
    return local; //OK   
 }
 ```
 
-When returning non local storage variables (including function parameters) we need to use **_Move.**
+When returning non local storage variables (including function parameters) we need to use **move.**
 
 ```c  
-_Owner T global;
-_Owner T F() {
+owner T global;
+owner T F() {
    return global;       //ERROR
-   return _Move global; //OK   
+   return move global; //OK   
 }
 ```
 
 ```c  
-_Owner T F(_Owner T arg) {
+owner T F(owner T arg) {
    return arg;       //ERROR
-   return _Move arg; //OK   
+   return move arg; //OK   
 }
 ```
 
-When returning a owner type, the called cannot discard the result.
+When returning a owner type, the caller cannot discard the result.
 
 ```c  
  F(); //ERROR discarding a owner result   
@@ -247,7 +254,7 @@ When returning a owner type, the called cannot discard the result.
 The only possible value is null pointer constant.
 
 ```c  
-T * _Owner F() {
+T * owner F() {
   return 0;        // OK, or nullptr or (void*)0)
 }
 ```
@@ -262,7 +269,7 @@ Following the general rule that view object duration must be shorter than the ow
 ```c
 T F()
 {
-    _Owner T local;
+    owner T local;
     return local; //ERROR    
 } 
 ```
@@ -270,14 +277,14 @@ T F()
 However, we can return non local variables including parameters 
 
 ```c  
-_Owner T global;
+owner T global;
 T F() {
    return global;       //OK (view)
 }
 ```
 
 ```c  
-T F(_Owner T arg) {
+T F(owner T arg) {
    return arg;         //OK (view)
 }
 ```
@@ -288,30 +295,29 @@ In general the rules are similar of initializing the parameter with the argument
 
 #### void F(Owner); F(Owner);
 
-We explicitly use **_Move** on the caller.
+We explicitly use **move** on the caller.
 
 ```c
-  void F(_Owner T a);
-  _Owner T a;
-  F(_Move a);      //OK
+  void F(owner T a);
+  owner T a;
+  F(move a);      //OK
 ```
 
-We can use **\_Implicit**  to make the usage of **_Move** optional. This is useful when the semantics of the function is very clear, for instance if the name of the function is "destroy" or "free" etc.    
+We can use **\implicit**  to make the usage of **move** optional. This is useful when the semantics of the function is clear looking at it name, for instance, if the name of the function is "destroy" or "free" etc.    
 
 Sample:
 ```c
-void x_destroy(_Implicit struct X * _Obj_owner);
+void x_destroy(implicit struct X * obj_owner);
 ```
 
- > Not sure if attributes is better for implicit
+ > Attributes are begin considered for implicit
 
-The exception of using **_Move** is when passing the function result directly.
+The exception of using **move** is when passing the function result directly.
   
 ```c
-  void F(_Owner T a);
+  void F(owner T a);
   F(make_owner()); //OK
 ```
-
 
   
 
@@ -334,392 +340,82 @@ Following the general rule that view object duration must be shorter than the ow
 But we can pass variables, and the function parameter is a view of the argument.  
 
 ```c
-  _Owner T a; 
+  owner T a; 
   F(a); //OK (view)
 ```
 
 
 ## Part II - Flow analysis
-Flow analysis is the process of automatic code review that, among other things, ensures that when owner objects goes out of scope they release the resources.
-If this implementation were to be integrated into the C standard in the future, the inclusion of this step could be made optional.
 
-If your source has a memory leaks this should be an error or warning? This question may have difference answers, so the suggestion is a compiler flag -safe that if present makes all problems as error, otherwise warnings.    
-The problem is that how to ensure all compiler does the same flow analysis in safe mode?
-
-
-###  General idea
-
-> "Caesar's wife must be above suspicion"
-
-The basic idea of the algorithm is that we need a "clear path" out of suspicious from the point where variables are moved until the point they leave scope.
-To accomplish that the choice is a straightforward pattern-based algorithm for ownership analysis.   
-This choice is driven by the principle that ownership reasoning should remain clear and uncomplicated.  Complex code, even if correct, has the potential to raise concerns and demand unnecessary time from programmers during code reviews.
-
-Some compilers can be smarter than others when checking ownership. This creates a problem that some code can compile in -save mode [1]  in one compiler but not in another. I don't have a clear answers for that. I can think in some alternatives like warning only, or describing the algorithm that all compilers must follow.  
+The objective of flow analysis is to ensure that __when an owner object goes out of scope or when it is assigned it does not owns any resources__.
   
-[1] "save mode" emits an error when a resource is not released for instance, instead of just a warning.
-
-The possible states of each expression can be printed and checked in compile time using  **static\_assert** and **static_state**. This is the state used by the flow analysis to emit errors.
+Not having resources means that the object is in one of these states:
   
-```c  
+ - uninitialized
+ - moved
+ - zero (for owner pointers)  
+ - or any combination (zero or moved state)
 
-/*enum as used internally by the flow analysis*/  
-enum object_state {
-    OBJECT_STATE_STRUCT = 0,
+The other possible states are:  
+
+- unknown
+- unknown but not zero
+  
+We can print (**static\_debug**) or check (**static\_state**)these states in compile time.
+
+Sample:
+
+```c
+enum object_state
+{
+    /*reserved*/ = 0,
     OBJECT_STATE_UNINITIALIZED,
     OBJECT_STATE_ZERO,
     OBJECT_STATE_UNKNOWN,
     OBJECT_STATE_NOT_ZERO,
     OBJECT_STATE_MOVED,
     OBJECT_STATE_NULL_OR_MOVED,
-};  
-  
-void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
-
-struct X {
-  char * _Owner name;    
 };
-int main() {
-   struct X * _Owner p = malloc(sizeof * p);
-   if (p)
-   {
-       free(p);
-   }
-   static_assert(static_state(p) == OBJECT_STATE_NULL_OR_MOVED);
-   static_debug(p);
-} 
-```
-
-#### Sample:
-
-"Clear path" means, for instance, that we are not jumping in or out of the code section executed before the end of scope.
-
-Compare these two situations.
-
-```c
-void f(int condition)
-{
-    int* _Owner p = malloc(sizeof(int));
-    if (condition)
-        goto end;   
-end:
-   free(p);
-}
-```
-
-```c
-void f(int condition)
-{
-    int* _Owner p = malloc(sizeof(int));
-    if (condition)
-        goto end;
-    free(p);
-end:
-}
-```
-
-The second example, we have a label "end" between free(p) and the end of scope. So this code is suspicious because there is a "jump in" and cake will complain.
-
-The patterns required are under construction running flow analysis in the cake source itself. I think this will take time and feedback of more code style is requires to stabilize the pattern rules.
-
-Flow analysis in cake is optional, use -flow-analysis option. (web version has -flow-analysis by default to present the concept without extra step)  
-
-### Pattern 1
-
-
-```c
- {  
-  if (p /*owner*/ ){  
-      /*...*/      
-      free(p);
-   } /*moved*/  
-   /*p is moved or null*/
- }
-```
-
-
-
-### Sample 1
-
-Simple sample with malloc and free.  
-
-```c
-void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
-
-int main() {
-   void * _Owner p = malloc(1);
-   //free(p);
-} //compiler will complain c not moved
-```  
-
-### Sample 2  
-
-This sample shows move and returns at f and initialization at main.
-
-
-```c
-void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
-
-struct X {
-  int i;
-};
-
- struct X * _Owner f() {
-    struct X * _Owner p = malloc(1);
-    struct X * _Owner p2 = _Move p;
-    return p2; /*p2 is moved*/
-}
-
-int main() {
-   struct X * _Owner p = f();
-   //free(p);     
-}
-```
-
-
-### Sample 3
-
-This sample shows that we need to move the struct x at main and also shows that we must implement x_destroy correctly.
-
-```c
-char * _Owner strdup(const char *s);
-void free(_Implicit void * _Owner p);
-
-struct X {
-  char *_Owner name;
-};
-
-void x_destroy(_Implicit struct X * _Obj_owner p) {
-  //free(p->name);
-}
-
-int main() {
-   struct X x = {0};
-   x.name = _Move strdup("a");
-   //x_destroy(&x);
-}
-```
-
-### Sample 4
-
-This sample shows that adding a new member name at struct requires we also free at main.
-
-```c
-void free(_Implicit void* _Owner ptr);
-void* _Owner malloc(int size);
-
-struct X
-{
-    int i;
-    //char * _Owner name;
-};
-
-int main() 
-{
-    struct X * _Owner p = malloc(sizeof (struct X));
-    free(p);
-}
-
-```
-  
-### Sample 5
-
-This sample show the implementation of delete.
-
-```c
-void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
-
-struct X {
-  char * _Owner text;
-};
-
-void x_delete(_Implicit struct X * _Owner p) {
-    free(p->text);
-    free(p);    
-}
-
-int main() {
-   struct X * _Owner p = malloc(sizeof(struct X));
-   p->text = _Move malloc(10);
-   x_delete(p);
-}
-```
-
-### Sample 6
-This sample show some details when we cast a owner pointer to void*.
-
-```c
-void free(_Implicit void* _Owner ptr);
-void* _Owner malloc(int size);
-
-struct X
-{    
-    char * _Owner name;
-};
-
-/*
-  To remove this error return 
-    struct X * _Owner 
-  instead   of 
-    void * _Owner.
-*/
-void * _Owner f1(){
-  struct X * _Owner p = malloc(sizeof (struct X));
-  return p;
-}
-
-```
-
-### Sample 7
-
-This sample shows how _View can be used to implement swap.
-
-```c
-/*    
-  See also: http://thradams.com/cake/ownership.html
-*/
-
-void free(_Implicit void * _Owner p);
-
-struct person {
-  char * _Owner name;
-};  
-
-void person_swap(_View struct person * a,  
-                 _View struct person * b) 
-{
-   _View struct person temp = *a;
-   *a = *b;
-   *b = temp;
-}
-
-void person_destroy(_Implicit struct person * _Obj_owner p) {
-  free(p->name);
-}
 
 int main()
 {
-   struct person p1 = {};
-   struct person p2 = {};
-   
-   person_swap(&p1, &p2);
-   person_destroy(&p1);
-   person_destroy(&p2);
+  void * owner p = 0;  
+  static_assert(static_state(p) == OBJECT_STATE_ZERO);  
+  static_debug(p);
 }
 ```
 
-### Sample 8
+So, cake is close to the point were rules are checked and the problem now is just about getting the static state correct.
 
 
-```c
-void * _Owner calloc(int n, int sz);
-void free(_Implicit void * _Owner);
-#define NULL ((void*) 0)
-
-struct book {
-     char* _Owner title;
-     struct book* _Owner next;
-};
-
-void book_destroy(_Implicit struct book* _Obj_owner book) {
-     free(book->title);
-}
- 
-
-struct books {
-    struct book* _Owner head, *tail;
-};
-
-
-void books_push_back(struct books* books, struct book* _Owner new_book)
-{
-   if (books->tail == NULL) {
-      books->head = _Move new_book;
-   }
-   else {
-      books->tail->next = _Move new_book;
-   }
-   books->tail = new_book;
-}
-
-void books_destroy(_Implicit struct books* _Obj_owner books)
-{
-    struct book* _Owner it = books->head;
-    while (it != NULL) {
-        struct book* _Owner next = _Move it->next;
-        book_destroy(it);
-        free(it);
-        it = _Move next;
-    }
-}
-
-int main(int argc, char* argv[])
-{
-    struct books list = { 0 };
-    struct book* _Owner b1 = calloc(1, sizeof(struct book));
-    if (b1)
-    {
-        books_push_back(&list, _Move b1);
-    }
-    books_destroy(&list);
-}
-
-```
-
-### Sample 9
-
-Uncomment /\*_Owner\*/ in this sample and you will see chain reaction that requires changes to make sure this program is not leaking memory.
-
-```c
-/*  
-  See also: http://thradams.com/cake/ownership.html
-*/
-
-char * /*_Owner*/ strdup(const char *s);
-void free(_Implicit void * _Owner p);
-
-struct X {
-  char * text;
-};
-
-int main() {
-   struct X x = {};
-   x.text = strdup("a");
-}
-
-```
 ## Grammar
 
 ```c
 New keywords:
-  _Move   
-  _Owner   
-  _View   
-  _Obj_owner   
-  _Implicit /*may become attribute*/
+  'move'   
+  'owner'   
+  'view'   
+  'obj_owner'   
+  'implicit'
 
  type-qualifier:
    ...
-   _Owner
-   _View
-   _Obj_owner   
+   'owner'
+   'view'
+   'obj_owner'
 
 parameter-declaration:
-  attribute-specifier-sequence opt _Implicit opt                declaration-specifiers declarator  
+  attribute-specifier-sequence opt 'implicit' opt declaration-specifiers declarator  
 
-  attribute-specifier-sequence opt _Implicit opt declaration-specifiers abstract-declarator opt
+  attribute-specifier-sequence opt 'implicit' opt declaration-specifiers abstract-declarator opt
 
  argument-expression-list:
-   move_opt assignment-expression
+   'move' opt assignment-expression
    argument-expression-list , assignment-expression
 
  init-declarator:
    declarator
-   declarator = move_opt initializer
+   declarator = 'move' opt initializer
 
  assignment-operator:
   = 
@@ -728,15 +424,19 @@ parameter-declaration:
 
  jump-statement:
   ...
-  return;
-  return move_opt expression;  
-  
+  'return';
+  'return' 'move' opt expression;  
+ 
 static_debug-declaration:
-  static_debug(constant-expression) ;
+  'static_debug' (constant-expression) ;
 
-unary-expression:
-  ...  
-  static_state ( constant-expression)   
+static_state-declaration:
+  'static_state' (constant-expression, literal ) ;
+
+static-declaration:  /*where static-assert is used today*/
+ static_assert-declaration
+ static_debug-declaration
+ static_state-declaration
 
 ```
 
@@ -748,18 +448,18 @@ I suggest the creation of a header file "ownership.h"
 #pragma once
 
 #ifdef __CAKE__
-#define implicit _Implicit
-#define owner _Owner
-#define obj_owner _Obj_owner
-#define move _Move
-#define view _View
+#define implicit implicit
+#define owner owner
+#define obj_owner obj_owner
+#define move move
+#define view view
   
-void* _Owner calloc(int nmemb, int size);
-void free(_Implicit void* _Owner ptr);
-void* _Owner malloc(int size);
-void* _Owner realloc(void* _Owner ptr, int size);
-char * _Owner strdup( const char *src );
-char * _Owner strdup( const char *str1 );
+void* owner calloc(int nmemb, int size);
+void free(implicit void* owner ptr);
+void* owner malloc(int size);
+void* owner realloc(void* owner ptr, int size);
+char * owner strdup( const char *src );
+char * owner strdup( const char *str1 );
 
 #else
 #define implicit

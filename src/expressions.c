@@ -1610,8 +1610,8 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
         ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
         //
-        ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
-        ctx->current->type == TK_KEYWORD_STATIC_STATE ||
+        
+        
         ctx->current->type == TK_KEYWORD_IS_SAME ||
         ctx->current->type == TK_KEYWORD_ATTR_ADD ||
         ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
@@ -1775,7 +1775,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                             new_expression->right->first_token,
                             "address of register variable 'x' requested",
                             new_expression->right->declarator->name->lexeme);
-                }
+                    }
                     else
                     {
                         compiler_set_error_with_token(C_ADDRESS_OF_REGISTER,
@@ -1784,10 +1784,10 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                             "address of register variable requested - declarator?");
                     }
 
-            }
+                }
 
                 new_expression->type = move type_add_pointer(&new_expression->right->type);
-        }
+            }
             else
             {
                 compiler_set_error_with_token(C_INVALID_TOKEN,
@@ -1797,7 +1797,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = move new_expression;
-    }
+        }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             parser_match(ctx);
@@ -1939,32 +1939,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             new_expression->type = move type_make_int_bool_like();
             p_expression_node = move new_expression;
         }
-        else if (ctx->current->type == TK_KEYWORD_STATIC_DEBUG)
-        {
-            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_STATIC_DEBUG;
-
-            parser_match(ctx);
-
-            new_expression->right = move unary_expression(ctx);
-            if (new_expression->right == NULL) throw;
-            new_expression->type = move make_void_type();
-            p_expression_node = move new_expression;
-        }
-        else if (ctx->current->type == TK_KEYWORD_STATIC_STATE)
-        {
-            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_STATIC_STATE;
-
-            parser_match(ctx);
-
-            new_expression->right = move unary_expression(ctx);
-            if (new_expression->right == NULL) throw;
-            new_expression->type = move make_void_type();
-            p_expression_node = move new_expression;
-        }
+       
+        
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
@@ -1992,13 +1968,13 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             p_expression_node = move postfix_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
-}
+    }
     catch
     {
     }
 
     return p_expression_node;
-    }
+}
 
 struct expression* owner cast_expression(struct parser_ctx* ctx)
 {
@@ -2579,6 +2555,30 @@ static void check_diferent_enuns(struct parser_ctx* ctx,
     }
 
 }
+void expression_evaluate_equal_not_equal(const struct expression* left,
+    const struct expression* right,
+    struct expression* result,
+    int op)
+{
+    assert(op == '==' || op == '!=');
+    result->constant_value =
+        constant_value_op(&left->constant_value, &right->constant_value, op);
+
+    if (left->constant_value.type == TYPE_EMPTY ||
+        right->constant_value.type == TYPE_EMPTY)
+    {
+        if (op == '==')
+        {
+            result->constant_value =
+                make_constant_value_ll(type_is_same(&left->type, &right->type, true));
+        }
+        else
+        {
+            result->constant_value =
+                make_constant_value_ll(!type_is_same(&left->type, &right->type, true));
+        }
+    }
+}
 
 struct expression* owner equality_expression(struct parser_ctx* ctx)
 {
@@ -2622,37 +2622,23 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
 
             check_diferent_enuns(ctx, operator_token, new_expression->left, new_expression->right);
 
-
             new_expression->first_token = operator_token;
 
             if (operator_token->type == '==')
             {
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
-                new_expression->constant_value =
-                    constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '==');
-
-                if (new_expression->left->constant_value.type == TYPE_EMPTY ||
-                    new_expression->right->constant_value.type == TYPE_EMPTY)
-                {
-                    new_expression->constant_value =
-                        make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
-                }
+                expression_evaluate_equal_not_equal(new_expression->left,
+                    new_expression->right,
+                    new_expression,
+                    '==');
             }
             else if (operator_token->type == '!=')
             {
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
-
-                new_expression->constant_value =
-                    constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
-
-
-                if (new_expression->left->constant_value.type == TYPE_EMPTY ||
-                    new_expression->right->constant_value.type == TYPE_EMPTY)
-                {
-                    new_expression->constant_value = make_constant_value_ll
-                    (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));
-
-                }
+                expression_evaluate_equal_not_equal(new_expression->left,
+                    new_expression->right,
+                    new_expression,
+                    '!=');
             }
             else
             {
@@ -3285,8 +3271,8 @@ struct expression* owner constant_expression(struct parser_ctx* ctx, bool show_e
     struct expression* owner p_expression = conditional_expression(ctx);
 
 
-    if (show_error_if_not_constant && 
-        p_expression && 
+    if (show_error_if_not_constant &&
+        p_expression &&
         !constant_value_is_valid(&p_expression->constant_value))
     {
         compiler_set_error_with_token(C_EXPECTED_CONSTANT_EXPRESSION, ctx, ctx->current, "expected constant expression");
@@ -3325,7 +3311,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
     }
 
     if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-        return true;    
+        return true;
 
     return true;
 }

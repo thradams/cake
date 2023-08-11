@@ -31,9 +31,8 @@ enum expression_type
 
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
-    UNARY_EXPRESSION_SIZEOF_TYPE,
-    UNARY_EXPRESSION_STATIC_DEBUG,
-    UNARY_EXPRESSION_STATIC_STATE,
+    UNARY_EXPRESSION_SIZEOF_TYPE,    
+    
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
@@ -215,3 +214,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
 struct object* expression_get_object(struct expression* p_expression, struct type* p_type);
 bool is_null_pointer_constant(const struct expression* expression);
+void expression_evaluate_equal_not_equal(const struct expression* left,
+    const struct expression* right,
+    struct expression* result,
+    int op);

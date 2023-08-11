@@ -44,7 +44,7 @@ const char* object_state_to_string(enum object_state e)
         case OBJECT_STATE_UNKNOWN: return "UNKNOWN";
         case OBJECT_STATE_NOT_ZERO: return "NOT_ZERO";
         case OBJECT_STATE_MOVED: return "MOVED";
-        case OBJECT_STATE_NULL_OR_MOVED: return "OBJECT_STATE_NULL_OR_MOVED";
+        case OBJECT_STATE_ZERO_OR_MOVED: return "OBJECT_STATE_NULL_OR_MOVED";
     }
     return "";
 }
@@ -953,7 +953,9 @@ bool first_of_static_assert_declaration(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    return ctx->current->type == TK_KEYWORD__STATIC_ASSERT;
+    return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
+        ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
+        ctx->current->type == TK_KEYWORD_STATIC_STATE;
 }
 
 bool first_of_attribute_specifier(struct parser_ctx* ctx)
@@ -1047,10 +1049,20 @@ enum token_type is_keyword(const char* text)
             if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
             else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
             else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
+            else if (strcmp("implicit", text) == 0) result = TK_KEYWORD__IMPLICIT; /*extension*/
+            break;
+        case 'm':
+            if (strcmp("move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
             break;
         case 'n':
             if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
             break;
+
+        case 'o':
+            if (strcmp("owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            break;
+
         case 'l':
             if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
             break;
@@ -1088,6 +1100,7 @@ enum token_type is_keyword(const char* text)
         case 'v':
             if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
             else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
+            else if (strcmp("view", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
             break;
         case 'w':
             if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
@@ -2565,7 +2578,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
     catch
     {
     }
-    
+
     return p_typeof_specifier;
 }
 
@@ -4414,7 +4427,10 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
 
         p_static_assert_declaration->first_token = ctx->current;
         struct token* position = ctx->current;
-        parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT);
+
+
+        parser_match(ctx); // TK_KEYWORD__STATIC_ASSERT || TK_KEYWORD_STATIC_DEBUG || TK_KEYWORD_STATIC_STATE
+
         parser_match_tk(ctx, '(');
 
         /*
@@ -4422,7 +4438,6 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         */
         const bool show_error_if_not_constant = !ctx->options.flow_analysis;
         p_static_assert_declaration->constant_expression = move constant_expression(ctx, show_error_if_not_constant);
-
         if (p_static_assert_declaration->constant_expression == NULL) throw;
 
         if (ctx->current->type == ',')
@@ -4436,33 +4451,29 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         p_static_assert_declaration->last_token = ctx->current;
         parser_match_tk(ctx, ';');
 
-        if (!ctx->options.flow_analysis)
+        if (position->type == TK_KEYWORD__STATIC_ASSERT)
         {
-            if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
+            if (!ctx->options.flow_analysis)
             {
-                if (p_static_assert_declaration->string_literal_opt)
+                if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
                 {
-                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
-                        p_static_assert_declaration->string_literal_opt->lexeme);
-                }
-                else
-                {
-                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
-                }
-
-                if (p_static_assert_declaration->constant_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
-                {
-                    if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_STATIC_DEBUG)
+                    if (p_static_assert_declaration->string_literal_opt)
                     {
-                        compiler_set_info_with_token(W_NONE,
-                            ctx,
-                            position, "%llu != %llu",
-                            constant_value_to_ull(&p_static_assert_declaration->constant_expression->left->constant_value),
-                            constant_value_to_ull(&p_static_assert_declaration->constant_expression->right->constant_value)
-                        );
+                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
+                            p_static_assert_declaration->string_literal_opt->lexeme);
                     }
+                    else
+                    {
+                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
+                    }
+
+
                 }
             }
+        }
+        else
+        {
+
         }
     }
     catch
@@ -6211,7 +6222,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
     struct ast ast = {0};
     struct options options = {.input = LANGUAGE_CXX};
 
-    struct visit_ctx visit_ctx = {0};    
+    struct visit_ctx visit_ctx = {0};
     try
     {
         if (fill_options(&options, argc, argv) != 0)
@@ -6826,12 +6837,28 @@ void expand_test()
 void expand_test2()
 {
 
-    char* src2 =
-        "typedef char* A;"
-        "typedef const A* B; "
-        "static_assert(_is_same(typeof(B), char * const *));";
+    const char* source
+        =
+        "\n"
+        "\n"
+        "typedef char* A;\n"
+        "typedef const A* B; \n"
+        "static_assert(_Generic(typeof(B), char * const * : 1));\n"
+        "\n"
+        "typedef const int T;\n"
+        "T i;\n"
+        "static_assert(_Generic(typeof(i), const int : 1));\n"
+        "\n"
+        "const T i2;\n"
+        "static_assert(_Generic(typeof(i2), const int : 1));\n"
+        "\n"
+        "typedef  int T3;\n"
+        "const T3 i3;\n"
+        "static_assert(_Generic(typeof(i3), const int : 1));\n"
+        "";
 
-    assert(compile_without_errors(src2));
+
+    assert(compile_without_errors(source));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -7234,11 +7261,13 @@ void register_struct_member()
 void address_of_const()
 {
     const char* source =
-        "int main()\n"
-        "{    \n"
-        "    const int i;\n"
-        "    static_assert(_is_const(&i));   \n"
-        "}";
+        "const int i;\n"
+        "static_assert(_Generic(&i, const int * : 1 ));\n"
+        "\n"
+        "const int * const p;\n"
+        "static_assert(_Generic(&p, const int *  const * : 1 ));\n"
+        "";
+
     assert(compile_without_errors(source));
 }
 
@@ -8268,7 +8297,77 @@ void setting_owner_pointer_to_null()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 3 && report.warnings_count == 0);
+    assert(report.error_count == 2 && report.warnings_count == 0);
+}
+void while_not_null()
+{
+    const char* source
+        =
+        "struct item  {\n"
+        "    struct item * _Owner next;\n"
+        "}\n"
+        "void item_delete(_Implicit struct item * _Owner p);\n"
+        "\n"
+        "struct list {\n"
+        "    struct item * _Owner head;\n"
+        "    struct item * tail;\n"
+        "};\n"
+        "int main()\n"
+        "{\n"
+        "    struct list list = {0};\n"
+        "    struct item * _Owner p = _Move list.head;\n"
+        "    while (p){\n"
+        "      struct item * _Owner next = _Move p->next;\n"
+        "      item_delete(p);\n"
+        "      p = _Move next;\n"
+        "  }  \n"
+        "}";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+
+void if_state()
+{
+    const char* source
+        =
+        "\n"
+        "int* _Owner make();\n"
+        "\n"
+        "void f(int condition)\n"
+        "{\n"
+        "  int * _Owner p = 0;\n"
+        "  static_state(p, \"zero\");\n"
+        "  \n"
+        "  if (condition)\n"
+        "  {\n"
+        "       static_state(p, \"zero\");   \n"
+        "       p = move make();\n"
+        "       static_state(p, \"unknown\");\n"
+        "  }\n"
+        "  else\n"
+        "  {\n"
+        "    static_state(p, \"zero\");\n"
+        "  }\n"
+        "}\n"
+        "";
+    assert(compile_without_errors(source));
+}
+
+void error_owner()
+{
+const char* source
+ =
+ "void * f();\n"
+ "int main() {\n"
+ "   void * _Owner p = f();   \n"
+ "}\n"
+ ;
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////

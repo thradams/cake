@@ -154,6 +154,9 @@ void moving_owner_pointer(void);
 void moving_owner_pointer_missing(void);
 void error(void);
 void setting_owner_pointer_to_null(void);
+void while_not_null(void);
+void if_state(void);
+void error_owner(void);
 
 /*end of forward declarations*/
 
@@ -301,6 +304,9 @@ g_unit_test_success_count = 0;
     moving_owner_pointer_missing();
     error();
     setting_owner_pointer_to_null();
+    while_not_null();
+    if_state();
+    error_owner();
 return g_unit_test_error_count;
 
 }

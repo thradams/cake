@@ -52,6 +52,10 @@
         <option>Select...</option>
     </select>
 
+    <select id="sample" onchange="OnChangeSelectionSample(this.value)">
+        <option>Select...</option>
+    </select>
+
 
     <button onclick="OnCompileButton()">Compile To</button>
 
@@ -105,11 +109,11 @@
 
         //monta a lista com exemplos
         var se = document.getElementById("samples");
-        for (var i in sample) {
+        //var se2 = document.getElementById("sample");
+        for (var area in sample) {
             var o = document.createElement('option');
-            o.textContent = i;
-            o.value = i;
-
+            o.textContent = area;
+            o.value = area;
             se.appendChild(o);
         }
 
@@ -259,9 +263,26 @@
             outputEditor.setValue(ot);
         }
 
-
+        function OnChangeSelectionSample(index)
+        {
+            var area = document.getElementById("samples").value;
+            
+            var source = sample[area][index];
+            inputEditor.setValue(source, -1);
+            outputEditor.setValue("");
+        }
         function OnChangeSelection(index) {
-            inputEditor.setValue(sample[index], -1);
+            var samples = sample[index];
+            var se2 = document.getElementById("sample");
+            se2.innerText = "";
+
+        for (var i in samples) {
+            var o = document.createElement('option');
+            o.textContent = i;
+            o.value = i;
+            se2.appendChild(o);
+        }
+        OnChangeSelectionSample(Object.keys(sample[index])[0]);
         }
 
     </script>

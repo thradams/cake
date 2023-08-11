@@ -899,21 +899,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             break;
 
-        case UNARY_EXPRESSION_STATIC_DEBUG:
-
-            if (!ctx->is_second_pass)
-            {
-                token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
-
-                char buffer[30] = {0};
-                snprintf(buffer, sizeof buffer, "%llu", constant_value_to_ull(&p_expression->constant_value));
-
-                struct tokenizer_ctx tctx = {0};
-                struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l3);
-            }
-            break;
-
+        
 
 
         case ASSIGNMENT_EXPRESSION:

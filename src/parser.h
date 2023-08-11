@@ -170,6 +170,18 @@ struct static_assert_declaration
        "static_assert" ( constant-expression , string-literal ) ;
        "static_assert" ( constant-expression ) ;
     */
+
+    /*
+      I am keeping the name static_assert_declaration but better is
+      
+      static_declaration:
+       static_assert_declaration
+       static_debug_declaration
+
+      extension:
+      "static_debug" ( constant-expression ) ;      
+      "static_debug" ( constant-expression , string-literal) ;      
+    */
     
     struct token*  first_token;
     struct token*  last_token;
@@ -501,7 +513,7 @@ enum object_state
     OBJECT_STATE_UNKNOWN,
     OBJECT_STATE_NOT_ZERO,
     OBJECT_STATE_MOVED,
-    OBJECT_STATE_NULL_OR_MOVED,
+    OBJECT_STATE_ZERO_OR_MOVED,
 };
 
 const char * object_state_to_string(enum object_state e);

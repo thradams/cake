@@ -8708,50 +8708,54 @@ static const char* file_math_h
 "long double scalbl(long double __x, long double __n);\n"
 "";
 
-static const char* file_stdlib_h
-=
-"\n"
-"#pragma once\n"
-"\n"
-"typedef long long fpos_t;\n"
-"typedef int size_t;\n"
-"typedef int wchar_t;\n"
-"\n"
-"[[nodiscard]] double atof(const char* nptr);\n"
-"[[nodiscard]] int atoi(const char* nptr);\n"
-"[[nodiscard]] long int atol(const char* nptr);\n"
-"[[nodiscard]] long long int atoll(const char* nptr);\n"
-"\n"
-"double strtod(const char* restrict nptr, char** restrict endptr);\n"
-"float strtof(const char* restrict nptr, char** restrict endptr);\n"
-"long double strtold(const char* restrict nptr, char** restrict endptr);\n"
-"long int strtol(const char* restrict nptr, char** restrict endptr, int base);\n"
-"long long int strtoll(const char* restrict nptr, char** restrict endptr, int base);\n"
-"unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int base);\n"
-"unsigned long long int strtoull(const char* restrict nptr, char** restrict endptr, int base);\n"
-"int rand(void);\n"
-"void srand(unsigned int seed);\n"
-"void* aligned_alloc(size_t alignment, size_t size);\n"
-"[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
-"void free(void* ptr);\n"
-"\n"
-"[[nodiscard]] void* malloc(size_t size);\n"
-"[[nodiscard]] void* realloc(void* ptr, size_t size);\n"
-"\n"
-"[[noreturn]] void abort(void);\n"
-"int atexit(void (*func)(void));\n"
-"int at_quick_exit(void (*func)(void));\n"
-"[[noreturn]] void exit(int status);\n"
-"[[noreturn]] void _Exit(int status);\n"
-"char* getenv(const char* name);\n"
-"[[noreturn]] void quick_exit(int status);\n"
-"int system(const char* string);\n"
-"\n"
-"#ifndef NULL\n"
-"#define NULL ((void*)0)\n"
-"#endif\n"
-"\n"
-"";
+static const char* file_stdlib_h =
+ "\n"
+ "#ifdef _OWNERSHIP_\n"
+ "#define IMPLICIT _Implicit\n"
+ "#define OWNER _Owner\n"
+ "#define OBJ_OWNER _Obj_owner\n"
+ "#define VIEW _View\n"
+ "#else\n"
+ "#define IMPLICIT \n"
+ "#define OWNER\n"
+ "#define OBJ_OWNER\n"
+ "#define VIEW \n"
+ "#endif\n"
+ "\n"
+ "\n"
+ "typedef long long fpos_t;\n"
+ "typedef unsigned size_t;\n"
+ "\n"
+ "typedef int wchar_t;\n"
+ "[[nodiscard]] double atof(const char* nptr);\n"
+ "[[nodiscard]] int atoi(const char* nptr);\n"
+ "[[nodiscard]] long int atol(const char* nptr);\n"
+ "[[nodiscard]] long long int atoll(const char* nptr);\n"
+ "double strtod(const char* restrict nptr, char** restrict endptr);\n"
+ "float strtof(const char* restrict nptr, char** restrict endptr);\n"
+ "long double strtold(const char* restrict nptr, char** restrict endptr);\n"
+ "long int strtol(const char* restrict nptr, char** restrict endptr, int base);\n"
+ "long long int strtoll(const char* restrict nptr, char** restrict endptr, int base);\n"
+ "unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int base);\n"
+ "unsigned long long int strtoull(const char* restrict nptr, char** restrict endptr, int base);\n"
+ "int rand(void);\n"
+ "void srand(unsigned int seed);\n"
+ "void* aligned_alloc(size_t alignment, size_t size);\n"
+ "[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
+ "void free(IMPLICIT void* OWNER ptr);\n"
+ "[[nodiscard]] void* OWNER malloc(size_t size);\n"
+ "[[nodiscard]] void* OWNER realloc(void* ptr, size_t size);\n"
+ "[[noreturn]] void abort(void);\n"
+ "int atexit(void (*func)(void));\n"
+ "int at_quick_exit(void (*func)(void));\n"
+ "[[noreturn]] void exit(int status);\n"
+ "[[noreturn]] void _Exit(int status);\n"
+ "char* getenv(const char* name);\n"
+ "[[noreturn]] void quick_exit(int status);\n"
+ "int system(const char* string);";
+
+
+
 
 char* read_file(const char* path)
 {
@@ -9383,6 +9387,9 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
 void type_visit_to_mark_anonymous(struct type* p_type);
 
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
+void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator);
+
+
 void print_type_declarator(struct osstream* ss, const struct type* p_type);
 void type_remove_names(struct type* p_type);
 const struct type* type_get_specifer_part(const struct type* p_type);
@@ -9416,9 +9423,8 @@ enum expression_type
 
 
     UNARY_EXPRESSION_SIZEOF_EXPRESSION,
-    UNARY_EXPRESSION_SIZEOF_TYPE,
-    UNARY_EXPRESSION_STATIC_DEBUG,
-    UNARY_EXPRESSION_STATIC_STATE,
+    UNARY_EXPRESSION_SIZEOF_TYPE,    
+    
     UNARY_EXPRESSION_TRAITS,
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
@@ -9600,6 +9606,10 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
 struct object* expression_get_object(struct expression* p_expression, struct type* p_type);
 bool is_null_pointer_constant(const struct expression* expression);
+void expression_evaluate_equal_not_equal(const struct expression* left,
+    const struct expression* right,
+    struct expression* result,
+    int op);
 
 
 //#pragma once
@@ -9763,6 +9773,18 @@ struct static_assert_declaration
      static_assert-declaration:
        "static_assert" ( constant-expression , string-literal ) ;
        "static_assert" ( constant-expression ) ;
+    */
+
+    /*
+      I am keeping the name static_assert_declaration but better is
+      
+      static_declaration:
+       static_assert_declaration
+       static_debug_declaration
+
+      extension:
+      "static_debug" ( constant-expression ) ;      
+      "static_debug" ( constant-expression , string-literal) ;      
     */
     
     struct token*  first_token;
@@ -10095,7 +10117,7 @@ enum object_state
     OBJECT_STATE_UNKNOWN,
     OBJECT_STATE_NOT_ZERO,
     OBJECT_STATE_MOVED,
-    OBJECT_STATE_NULL_OR_MOVED,
+    OBJECT_STATE_ZERO_OR_MOVED,
 };
 
 const char * object_state_to_string(enum object_state e);
@@ -12447,8 +12469,8 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
         ctx->current->type == TK_KEYWORD_IS_INTEGRAL ||
         //
-        ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
-        ctx->current->type == TK_KEYWORD_STATIC_STATE ||
+        
+        
         ctx->current->type == TK_KEYWORD_IS_SAME ||
         ctx->current->type == TK_KEYWORD_ATTR_ADD ||
         ctx->current->type == TK_KEYWORD_ATTR_REMOVE ||
@@ -12612,7 +12634,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                             new_expression->right->first_token,
                             "address of register variable 'x' requested",
                             new_expression->right->declarator->name->lexeme);
-                }
+                    }
                     else
                     {
                         compiler_set_error_with_token(C_ADDRESS_OF_REGISTER,
@@ -12621,10 +12643,10 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                             "address of register variable requested - declarator?");
                     }
 
-            }
+                }
 
                 new_expression->type = move type_add_pointer(&new_expression->right->type);
-        }
+            }
             else
             {
                 compiler_set_error_with_token(C_INVALID_TOKEN,
@@ -12634,7 +12656,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = move new_expression;
-    }
+        }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             parser_match(ctx);
@@ -12776,32 +12798,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             new_expression->type = move type_make_int_bool_like();
             p_expression_node = move new_expression;
         }
-        else if (ctx->current->type == TK_KEYWORD_STATIC_DEBUG)
-        {
-            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_STATIC_DEBUG;
-
-            parser_match(ctx);
-
-            new_expression->right = move unary_expression(ctx);
-            if (new_expression->right == NULL) throw;
-            new_expression->type = move make_void_type();
-            p_expression_node = move new_expression;
-        }
-        else if (ctx->current->type == TK_KEYWORD_STATIC_STATE)
-        {
-            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            new_expression->first_token = ctx->current;
-            new_expression->expression_type = UNARY_EXPRESSION_STATIC_STATE;
-
-            parser_match(ctx);
-
-            new_expression->right = move unary_expression(ctx);
-            if (new_expression->right == NULL) throw;
-            new_expression->type = move make_void_type();
-            p_expression_node = move new_expression;
-        }
+       
+        
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
@@ -12829,13 +12827,13 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             p_expression_node = move postfix_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
-}
+    }
     catch
     {
     }
 
     return p_expression_node;
-    }
+}
 
 struct expression* owner cast_expression(struct parser_ctx* ctx)
 {
@@ -13416,6 +13414,30 @@ static void check_diferent_enuns(struct parser_ctx* ctx,
     }
 
 }
+void expression_evaluate_equal_not_equal(const struct expression* left,
+    const struct expression* right,
+    struct expression* result,
+    int op)
+{
+    assert(op == '==' || op == '!=');
+    result->constant_value =
+        constant_value_op(&left->constant_value, &right->constant_value, op);
+
+    if (left->constant_value.type == TYPE_EMPTY ||
+        right->constant_value.type == TYPE_EMPTY)
+    {
+        if (op == '==')
+        {
+            result->constant_value =
+                make_constant_value_ll(type_is_same(&left->type, &right->type, true));
+        }
+        else
+        {
+            result->constant_value =
+                make_constant_value_ll(!type_is_same(&left->type, &right->type, true));
+        }
+    }
+}
 
 struct expression* owner equality_expression(struct parser_ctx* ctx)
 {
@@ -13459,37 +13481,23 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
 
             check_diferent_enuns(ctx, operator_token, new_expression->left, new_expression->right);
 
-
             new_expression->first_token = operator_token;
 
             if (operator_token->type == '==')
             {
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
-                new_expression->constant_value =
-                    constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '==');
-
-                if (new_expression->left->constant_value.type == TYPE_EMPTY ||
-                    new_expression->right->constant_value.type == TYPE_EMPTY)
-                {
-                    new_expression->constant_value =
-                        make_constant_value_ll(type_is_same(&new_expression->left->type, &new_expression->right->type, true));
-                }
+                expression_evaluate_equal_not_equal(new_expression->left,
+                    new_expression->right,
+                    new_expression,
+                    '==');
             }
             else if (operator_token->type == '!=')
             {
                 new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
-
-                new_expression->constant_value =
-                    constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '!=');
-
-
-                if (new_expression->left->constant_value.type == TYPE_EMPTY ||
-                    new_expression->right->constant_value.type == TYPE_EMPTY)
-                {
-                    new_expression->constant_value = make_constant_value_ll
-                    (!type_is_same(&new_expression->left->type, &new_expression->right->type, true));
-
-                }
+                expression_evaluate_equal_not_equal(new_expression->left,
+                    new_expression->right,
+                    new_expression,
+                    '!=');
             }
             else
             {
@@ -14122,8 +14130,8 @@ struct expression* owner constant_expression(struct parser_ctx* ctx, bool show_e
     struct expression* owner p_expression = conditional_expression(ctx);
 
 
-    if (show_error_if_not_constant && 
-        p_expression && 
+    if (show_error_if_not_constant &&
+        p_expression &&
         !constant_value_is_valid(&p_expression->constant_value))
     {
         compiler_set_error_with_token(C_EXPECTED_CONSTANT_EXPRESSION, ctx, ctx->current, "expected constant expression");
@@ -14162,7 +14170,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
     }
 
     if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-        return true;    
+        return true;
 
     return true;
 }
@@ -16316,7 +16324,6 @@ struct type type_add_pointer(const struct type* p_type)
     r.category = TYPE_CATEGORY_POINTER;
 
     r.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
-    r.type_qualifier_flags = p_type->type_qualifier_flags;
 
     return r;
 }
@@ -17357,6 +17364,43 @@ void type_visit_to_mark_anonymous(struct type* p_type)
 }
 
 
+void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+{
+    struct struct_or_union_specifier* p_struct_or_union_specifier = NULL;
+    enum type_qualifier_flags type_qualifier_flags = 0;
+    if (pdeclarator->declaration_specifiers)
+    {
+        type_qualifier_flags = pdeclarator->declaration_specifiers->type_qualifier_flags;
+        p_struct_or_union_specifier = pdeclarator->declaration_specifiers->struct_or_union_specifier;
+    }
+    else if (pdeclarator->specifier_qualifier_list)
+    {
+        type_qualifier_flags = pdeclarator->specifier_qualifier_list->type_qualifier_flags;
+        p_struct_or_union_specifier = pdeclarator->specifier_qualifier_list->struct_or_union_specifier;
+    }
+
+    p_type->type_qualifier_flags |= type_qualifier_flags;
+
+    if (type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    {
+        /*
+        * struct X { char *_Owner name; };
+        * _View struct X x;
+        */
+    }
+    else if (p_struct_or_union_specifier)
+    {
+        struct struct_or_union_specifier* p = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
+        if (p && p->is_owner)
+        {
+            p_type->type_qualifier_flags |= TYPE_QUALIFIER_OWNER;
+        }
+    }
+
+
+}
+
+
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
     struct struct_or_union_specifier* p_struct_or_union_specifier = NULL;
@@ -17745,9 +17789,11 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         *p_nt = move nt;
 
 
-
-
-        type_set_qualifiers_using_declarator(p_nt, pdeclarator);
+        /*
+          maybe typedef already has const qualifier
+          so we cannot override
+        */
+        type_merge_qualifiers_using_declarator(p_nt, pdeclarator);
 
         if (list.tail)
             list.tail->next = move p_nt;
@@ -17961,7 +18007,7 @@ const char* object_state_to_string(enum object_state e)
         case OBJECT_STATE_UNKNOWN: return "UNKNOWN";
         case OBJECT_STATE_NOT_ZERO: return "NOT_ZERO";
         case OBJECT_STATE_MOVED: return "MOVED";
-        case OBJECT_STATE_NULL_OR_MOVED: return "OBJECT_STATE_NULL_OR_MOVED";
+        case OBJECT_STATE_ZERO_OR_MOVED: return "OBJECT_STATE_NULL_OR_MOVED";
     }
     return "";
 }
@@ -18870,7 +18916,9 @@ bool first_of_static_assert_declaration(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    return ctx->current->type == TK_KEYWORD__STATIC_ASSERT;
+    return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
+        ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
+        ctx->current->type == TK_KEYWORD_STATIC_STATE;
 }
 
 bool first_of_attribute_specifier(struct parser_ctx* ctx)
@@ -18964,10 +19012,20 @@ enum token_type is_keyword(const char* text)
             if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
             else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
             else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
+            else if (strcmp("implicit", text) == 0) result = TK_KEYWORD__IMPLICIT; /*extension*/
+            break;
+        case 'm':
+            if (strcmp("move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
             break;
         case 'n':
             if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
             break;
+
+        case 'o':
+            if (strcmp("owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            break;
+
         case 'l':
             if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
             break;
@@ -19005,6 +19063,7 @@ enum token_type is_keyword(const char* text)
         case 'v':
             if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
             else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
+            else if (strcmp("view", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
             break;
         case 'w':
             if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
@@ -20482,7 +20541,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
     catch
     {
     }
-    
+
     return p_typeof_specifier;
 }
 
@@ -22331,7 +22390,10 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
 
         p_static_assert_declaration->first_token = ctx->current;
         struct token* position = ctx->current;
-        parser_match_tk(ctx, TK_KEYWORD__STATIC_ASSERT);
+
+
+        parser_match(ctx); // TK_KEYWORD__STATIC_ASSERT || TK_KEYWORD_STATIC_DEBUG || TK_KEYWORD_STATIC_STATE
+
         parser_match_tk(ctx, '(');
 
         /*
@@ -22339,7 +22401,6 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         */
         const bool show_error_if_not_constant = !ctx->options.flow_analysis;
         p_static_assert_declaration->constant_expression = move constant_expression(ctx, show_error_if_not_constant);
-
         if (p_static_assert_declaration->constant_expression == NULL) throw;
 
         if (ctx->current->type == ',')
@@ -22353,33 +22414,29 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         p_static_assert_declaration->last_token = ctx->current;
         parser_match_tk(ctx, ';');
 
-        if (!ctx->options.flow_analysis)
+        if (position->type == TK_KEYWORD__STATIC_ASSERT)
         {
-            if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
+            if (!ctx->options.flow_analysis)
             {
-                if (p_static_assert_declaration->string_literal_opt)
+                if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
                 {
-                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
-                        p_static_assert_declaration->string_literal_opt->lexeme);
-                }
-                else
-                {
-                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
-                }
-
-                if (p_static_assert_declaration->constant_expression->expression_type == EQUALITY_EXPRESSION_EQUAL)
-                {
-                    if (p_static_assert_declaration->constant_expression->left->expression_type == UNARY_EXPRESSION_STATIC_DEBUG)
+                    if (p_static_assert_declaration->string_literal_opt)
                     {
-                        compiler_set_info_with_token(W_NONE,
-                            ctx,
-                            position, "%llu != %llu",
-                            constant_value_to_ull(&p_static_assert_declaration->constant_expression->left->constant_value),
-                            constant_value_to_ull(&p_static_assert_declaration->constant_expression->right->constant_value)
-                        );
+                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
+                            p_static_assert_declaration->string_literal_opt->lexeme);
                     }
+                    else
+                    {
+                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
+                    }
+
+
                 }
             }
+        }
+        else
+        {
+
         }
     }
     catch
@@ -24128,7 +24185,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
     struct ast ast = {0};
     struct options options = {.input = LANGUAGE_CXX};
 
-    struct visit_ctx visit_ctx = {0};    
+    struct visit_ctx visit_ctx = {0};
     try
     {
         if (fill_options(&options, argc, argv) != 0)
@@ -24742,12 +24799,28 @@ void expand_test()
 void expand_test2()
 {
 
-    char* src2 =
-        "typedef char* A;"
-        "typedef const A* B; "
-        "static_assert(_is_same(typeof(B), char * const *));";
+    const char* source
+        =
+        "\n"
+        "\n"
+        "typedef char* A;\n"
+        "typedef const A* B; \n"
+        "static_assert(_Generic(typeof(B), char * const * : 1));\n"
+        "\n"
+        "typedef const int T;\n"
+        "T i;\n"
+        "static_assert(_Generic(typeof(i), const int : 1));\n"
+        "\n"
+        "const T i2;\n"
+        "static_assert(_Generic(typeof(i2), const int : 1));\n"
+        "\n"
+        "typedef  int T3;\n"
+        "const T3 i3;\n"
+        "static_assert(_Generic(typeof(i3), const int : 1));\n"
+        "";
 
-    assert(compile_without_errors(src2));
+
+    assert(compile_without_errors(source));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -25150,11 +25223,13 @@ void register_struct_member()
 void address_of_const()
 {
     const char* source =
-        "int main()\n"
-        "{    \n"
-        "    const int i;\n"
-        "    static_assert(_is_const(&i));   \n"
-        "}";
+        "const int i;\n"
+        "static_assert(_Generic(&i, const int * : 1 ));\n"
+        "\n"
+        "const int * const p;\n"
+        "static_assert(_Generic(&p, const int *  const * : 1 ));\n"
+        "";
+
     assert(compile_without_errors(source));
 }
 
@@ -26184,7 +26259,77 @@ void setting_owner_pointer_to_null()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 3 && report.warnings_count == 0);
+    assert(report.error_count == 2 && report.warnings_count == 0);
+}
+void while_not_null()
+{
+    const char* source
+        =
+        "struct item  {\n"
+        "    struct item * _Owner next;\n"
+        "}\n"
+        "void item_delete(_Implicit struct item * _Owner p);\n"
+        "\n"
+        "struct list {\n"
+        "    struct item * _Owner head;\n"
+        "    struct item * tail;\n"
+        "};\n"
+        "int main()\n"
+        "{\n"
+        "    struct list list = {0};\n"
+        "    struct item * _Owner p = _Move list.head;\n"
+        "    while (p){\n"
+        "      struct item * _Owner next = _Move p->next;\n"
+        "      item_delete(p);\n"
+        "      p = _Move next;\n"
+        "  }  \n"
+        "}";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+
+void if_state()
+{
+    const char* source
+        =
+        "\n"
+        "int* _Owner make();\n"
+        "\n"
+        "void f(int condition)\n"
+        "{\n"
+        "  int * _Owner p = 0;\n"
+        "  static_state(p, \"zero\");\n"
+        "  \n"
+        "  if (condition)\n"
+        "  {\n"
+        "       static_state(p, \"zero\");   \n"
+        "       p = move make();\n"
+        "       static_state(p, \"unknown\");\n"
+        "  }\n"
+        "  else\n"
+        "  {\n"
+        "    static_state(p, \"zero\");\n"
+        "  }\n"
+        "}\n"
+        "";
+    assert(compile_without_errors(source));
+}
+
+void error_owner()
+{
+const char* source
+ =
+ "void * f();\n"
+ "int main() {\n"
+ "   void * _Owner p = f();   \n"
+ "}\n"
+ ;
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27094,21 +27239,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             break;
 
-        case UNARY_EXPRESSION_STATIC_DEBUG:
-
-            if (!ctx->is_second_pass)
-            {
-                token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
-
-                char buffer[30] = {0};
-                snprintf(buffer, sizeof buffer, "%llu", constant_value_to_ull(&p_expression->constant_value));
-
-                struct tokenizer_ctx tctx = {0};
-                struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l3);
-            }
-            break;
-
+        
 
 
         case ASSIGNMENT_EXPRESSION:
@@ -29048,7 +29179,7 @@ void visit_object(struct parser_ctx* ctx,
             (p_object->state == OBJECT_STATE_ZERO && type_is_pointer(p_type)) ||
             (p_object->state == OBJECT_STATE_UNINITIALIZED) ||
             (p_object->state == OBJECT_STATE_MOVED) ||
-            (p_object->state == OBJECT_STATE_NULL_OR_MOVED && type_is_pointer(p_type));
+            (p_object->state == OBJECT_STATE_ZERO_OR_MOVED && type_is_pointer(p_type));
 
         const bool move_necessary = !move_not_necessary;
 
@@ -29080,46 +29211,20 @@ void move_object(struct parser_ctx* ctx,
     struct token* error_position,
     bool bool_source_zero_value)
 {
-    if (bool_source_zero_value &&
-        type_is_pointer(p_dest_obj_type) &&
-        p_dest_obj_opt)
-    {  
-        /*
-          struct X * _Owner p = malloc(sizeof * p);   
-          p = 0;
-        */
-        struct type t2 = type_remove_pointer(p_dest_obj_type);
+    if (p_dest_obj_opt)
+    {
         visit_object(ctx,
-            &t2,
-            p_dest_obj_opt->pointed,
+            p_dest_obj_type,
+            p_dest_obj_opt,
             error_position,
             "");
-        //p_source_obj_opt->state = OBJECT_STATE_MOVED;
-        type_destroy(&t2);
-
-        return;
     }
+
 
     if (type_is_pointer(p_source_obj_type))
     {
         if (type_is_void_ptr(p_dest_obj_type))
         {
-            /*
-            void free(_Implicit void * _Owner p);
-
-            struct X {
-                char * _Owner name;
-            };
-
-            int main() {
-                struct X * _Owner p = malloc(sizeof * p);
-                free(p); //name must be free before
-            }
-            */
-
-            /*
-              pointed object must have been moved before
-            */
             if (p_source_obj_opt)
             {
                 struct type t2 = type_remove_pointer(p_source_obj_type);
@@ -29593,9 +29698,6 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     ctx->has_jumps = copy || ctx->has_jumps; //restore
 
 
-
-
-
     enum object_state state2 = 0;
     if (p_object)
     {
@@ -29609,7 +29711,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         if (state2 == OBJECT_STATE_UNINITIALIZED ||
             state2 == OBJECT_STATE_MOVED)
         {
-            p_object->state = OBJECT_STATE_NULL_OR_MOVED;
+            p_object->state = OBJECT_STATE_ZERO_OR_MOVED;
         }
     }
 
@@ -29924,30 +30026,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             break;
 
-        case UNARY_EXPRESSION_STATIC_DEBUG:
-        {
-            compiler_set_info_with_token(W_NONE, ctx->ctx, p_expression->first_token, "static_debug");
 
-            struct type t = {0};
-            struct object* p_obj = expression_get_object(p_expression->right, &t);
 
-            print_object(1, &t, p_obj, "");
 
-            type_destroy(&t);
-        }
-        break;
 
-        case UNARY_EXPRESSION_STATIC_STATE:
-        {
-            struct type t = {0};
-            struct object* p_obj = expression_get_object(p_expression->right, &t);
-            if (p_obj)
-            {
-                p_expression->constant_value = make_constant_value_ull(p_obj->state);
-            }
-            type_destroy(&t);
-        }
-        break;
 
 
         case ASSIGNMENT_EXPRESSION:
@@ -29996,16 +30078,20 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 flow_visit_expression(ctx, p_expression->left);
                 flow_visit_expression(ctx, p_expression->right);
-                p_expression->constant_value =
-                    constant_value_op(&p_expression->left->constant_value, &p_expression->right->constant_value, '==');
+                expression_evaluate_equal_not_equal(p_expression->left,
+                    p_expression->right,
+                    p_expression,
+                    '==');
             }
             break;
 
         case EQUALITY_EXPRESSION_NOT_EQUAL:
             flow_visit_expression(ctx, p_expression->left);
             flow_visit_expression(ctx, p_expression->right);
-            p_expression->constant_value =
-                constant_value_op(&p_expression->left->constant_value, &p_expression->right->constant_value, '!=');
+            expression_evaluate_equal_not_equal(p_expression->left,
+                p_expression->right,
+                p_expression,
+                '!=');
             break;
 
         case AND_EXPRESSION:
@@ -30083,6 +30169,23 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
 static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
 
+    struct object* p_object = NULL;
+    bool copy = ctx->has_jumps;
+    ctx->has_jumps = false;
+
+    if (p_iteration_statement->first_token->type == TK_KEYWORD_WHILE)
+    {
+        if (p_iteration_statement->expression1)
+        {
+            p_object = expression_is_comparing_owner_with_null(p_iteration_statement->expression1);
+            // if (p_object)
+             //{/
+               //  struct type type = {0};
+ //                type_destroy(&type);
+             //}
+        }
+    }
+
 
     if (p_iteration_statement->declaration)
     {
@@ -30117,8 +30220,13 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
             //POP
             ctx->tail_block = ctx->tail_block->previous;
         }
+    }
+    bool had_jumps = ctx->has_jumps;
 
-
+    ctx->has_jumps = copy || ctx->has_jumps; //restore
+    if (p_object && !had_jumps)
+    {
+        p_object->state = OBJECT_STATE_ZERO;
     }
 }
 
@@ -30291,22 +30399,86 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
         p_block_item = p_block_item->next;
     }
 }
+enum object_state parse_string_state(const char* s)
+{
+    if (strcmp(s, "\"zero\"") == 0)
+        return OBJECT_STATE_ZERO;
+    if (strcmp(s, "\"not zero\"") == 0)
+        return OBJECT_STATE_NOT_ZERO;
+
+    if (strcmp(s, "\"uninitialized\"") == 0)
+        return OBJECT_STATE_UNINITIALIZED;
+
+    if (strcmp(s, "\"unknown\"") == 0)
+        return OBJECT_STATE_UNKNOWN;
+
+    if (strcmp(s, "\"moved\"") == 0)
+        return OBJECT_STATE_MOVED;
+
+    if (strcmp(s, "\"zero or moved\"") == 0)
+        return OBJECT_STATE_ZERO_OR_MOVED;
+
+
+    return OBJECT_STATE_STRUCT;
+
+}
 
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
     flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
 
-    if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
+    if (p_static_assert_declaration->first_token->type == TK_KEYWORD__STATIC_ASSERT)
     {
-        if (p_static_assert_declaration->string_literal_opt)
+        if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
         {
-            compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "_Static_assert failed %s\n",
-                p_static_assert_declaration->string_literal_opt->lexeme);
+            if (p_static_assert_declaration->string_literal_opt)
+            {
+                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "_Static_assert failed %s\n",
+                    p_static_assert_declaration->string_literal_opt->lexeme);
+            }
+            else
+            {
+                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_assert failed");
+            }
         }
-        else
+    }
+    else  if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
+    {
+        compiler_set_info_with_token(W_NONE, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
+
+        struct type t = {0};
+        struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
+
+        print_object(1, &t, p_obj, "");
+
+        type_destroy(&t);
+    }
+    else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
+    {
+        struct type t = {0};
+        struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
+        if (p_obj)
         {
-            compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_assert failed");
+            if (p_static_assert_declaration->string_literal_opt)
+            {
+                enum object_state e =
+                    parse_string_state(p_static_assert_declaration->string_literal_opt->lexeme);
+                if (e != OBJECT_STATE_STRUCT)
+                {
+                    if (e != p_obj->state)
+                    {
+                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+                    }
+                }
+                else
+                {
+                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                }
+            }
+
         }
+        type_destroy(&t);
+
     }
 }
 
@@ -30422,6 +30594,8 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                 {
                     flow_visit_bracket_initializer_list(ctx,
                         p_init_declarator->initializer->braced_initializer);
+
+                    //set zero
                 }
             }
         }
@@ -30437,23 +30611,27 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
             if (p_init_declarator->initializer &&
                 p_init_declarator->initializer->assignment_expression)
             {
-                set_object(&p_init_declarator->p_declarator->type,
-                    &p_init_declarator->p_declarator->object,
-                    OBJECT_STATE_UNKNOWN);
+                struct type right_object_type = {0};
+                struct object* p_right_object =
+                    expression_get_object(p_init_declarator->initializer->assignment_expression, &right_object_type);
 
-                if (p_init_declarator->initializer->assignment_expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+
+                //set_object(&p_init_declarator->p_declarator->type,
+                    //&p_init_declarator->p_declarator->object,
+                    //OB/JECT_STATE_UNKNOWN);
+
+                if (p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
                 {
-                    /*
-                       If the right side is owner that means it is moved
-                    */
-                    struct type right_object_type = {0};
-                    struct object* p_right_object =
-                        expression_get_object(p_init_declarator->initializer->assignment_expression, &right_object_type);
+                    bool bool_source_zero_value = constant_value_is_valid(&p_init_declarator->initializer->assignment_expression->constant_value) &&
+                        constant_value_to_ull(&p_init_declarator->initializer->assignment_expression->constant_value) == 0;
 
-                    if (p_right_object)
-                    {
-                        set_object(&right_object_type, p_right_object, OBJECT_STATE_MOVED);
-                    }
+                    move_object(ctx->ctx, p_right_object, &right_object_type,
+                        &p_init_declarator->p_declarator->object,
+                        &p_init_declarator->p_declarator->type,
+                        p_init_declarator->p_declarator->name,
+                        bool_source_zero_value);
+
+
                 }
             }
             else  if (p_init_declarator->initializer &&
@@ -31935,12 +32113,7 @@ static void wasm_visit_expression(struct wasm_visit_ctx* ctx, struct expression*
     case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
         break;
 
-    case UNARY_EXPRESSION_STATIC_DEBUG:
-
-
-        break;
-
-
+    
     case CAST_EXPRESSION:
     case ASSIGNMENT_EXPRESSION:
     case MULTIPLICATIVE_EXPRESSION_MULT:

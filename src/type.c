@@ -1395,7 +1395,6 @@ struct type type_add_pointer(const struct type* p_type)
     r.category = TYPE_CATEGORY_POINTER;
 
     r.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
-    r.type_qualifier_flags = p_type->type_qualifier_flags;
 
     return r;
 }
@@ -2433,6 +2432,43 @@ void type_visit_to_mark_anonymous(struct type* p_type)
 }
 
 
+void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
+{
+    struct struct_or_union_specifier* p_struct_or_union_specifier = NULL;
+    enum type_qualifier_flags type_qualifier_flags = 0;
+    if (pdeclarator->declaration_specifiers)
+    {
+        type_qualifier_flags = pdeclarator->declaration_specifiers->type_qualifier_flags;
+        p_struct_or_union_specifier = pdeclarator->declaration_specifiers->struct_or_union_specifier;
+    }
+    else if (pdeclarator->specifier_qualifier_list)
+    {
+        type_qualifier_flags = pdeclarator->specifier_qualifier_list->type_qualifier_flags;
+        p_struct_or_union_specifier = pdeclarator->specifier_qualifier_list->struct_or_union_specifier;
+    }
+
+    p_type->type_qualifier_flags |= type_qualifier_flags;
+
+    if (type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    {
+        /*
+        * struct X { char *_Owner name; };
+        * _View struct X x;
+        */
+    }
+    else if (p_struct_or_union_specifier)
+    {
+        struct struct_or_union_specifier* p = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
+        if (p && p->is_owner)
+        {
+            p_type->type_qualifier_flags |= TYPE_QUALIFIER_OWNER;
+        }
+    }
+
+
+}
+
+
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
     struct struct_or_union_specifier* p_struct_or_union_specifier = NULL;
@@ -2821,9 +2857,11 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         *p_nt = move nt;
 
 
-
-
-        type_set_qualifiers_using_declarator(p_nt, pdeclarator);
+        /*
+          maybe typedef already has const qualifier
+          so we cannot override
+        */
+        type_merge_qualifiers_using_declarator(p_nt, pdeclarator);
 
         if (list.tail)
             list.tail->next = move p_nt;

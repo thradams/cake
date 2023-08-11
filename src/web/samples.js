@@ -1,6 +1,7 @@
 ﻿var sample = {};
 
-sample["C99 _Bool"] =
+sample["C99"] = [];
+sample["C99"]["_Bool"] =
 `
  /*
     _Bool type was introduced in C99 as built-in type used 
@@ -19,7 +20,7 @@ int main(void)
 }
 `;
 
-sample["C99 Hexadecimal floating constants"] =
+sample["C99"][" Hexadecimal floating constants"] =
 `
 const double d = 0x1p+1;
 const double dmax = 0x1.fffffffffffffp+1023;
@@ -30,7 +31,7 @@ const double dmin = 0x1p-1022;
 */
 `;
 
-sample["C99 (int a[static])"] =
+sample["C99"]["int a[static]"] =
 `
 #include <stdlib.h>
 
@@ -41,7 +42,9 @@ void F(int a[static 5])
 void F(int a[static const 5]) 
 {
     static_assert((typeof(a)) == (int * const));
-    a = 1;
+    
+    /*cake extention,array arguments cannot be modified*/
+    //a = 1;  /*try*/
 }
 
 
@@ -52,7 +55,7 @@ int main() {
     F(nullptr);
 
     int a[] = {1, 2, 3};    
-    F(a);
+    //F(a); /*try*/
     
     int b[] = { 1, 2, 3 , 4, 5};
     F(b);
@@ -63,7 +66,7 @@ int main() {
 
 `;
 
-sample["C99 __VA_ARGS__"] =
+sample["C99"][" __VA_ARGS__"] =
 `
 #include <stdio.h>
 
@@ -79,8 +82,8 @@ int main()
 
 `;
 
-
-sample["C11 _Generic"] =
+sample["C11"]=[];
+sample["C11"]["_Generic"] =
     `
 #include <math.h>
 
@@ -116,7 +119,7 @@ int main(void)
 
 `;
 
-sample["C11 _Static_assert"] =
+sample["C11"]["_Static_assert"] =
 `
 /*
    _Static_assert provides a mechanism for compile-time assertion 
@@ -134,7 +137,7 @@ int main()
 `;
 
 
-sample["C11 _Noreturn"] =
+sample["C11"]["_Noreturn"] =
     `
 #include <stdio.h>
 #include <stdlib.h>
@@ -147,7 +150,7 @@ _Noreturn void not_coming_back(void)
 }
 `;
 
-sample["C11 u8 literals"] =
+sample["C11"]["u8 literals"] =
 `
 /*
 * cake input source code encode is always utf8
@@ -169,7 +172,7 @@ int main()
 }
 `;
 
-sample["C11 _Alignof / C23 alignof"] =
+sample["C11"]["_Alignof / C23 alignof"] =
 `
 struct X
 {
@@ -190,8 +193,8 @@ int main(void)
 
 `;
 
-
-sample["C23 Digit Separator"] =
+sample["C23"]=[]
+sample["C23"]["Digit Separator"] =
 `
 #define M 1000'00
 
@@ -212,7 +215,7 @@ int main()
 
 `;
 
-sample["C23 Binary Literal"] =
+sample["C23"]["Binary Literal"] =
 `
 #define X  0b1010
 
@@ -230,7 +233,7 @@ int main()
 `;
 
 
-sample["C23 static_assert"] =
+sample["C23"]["static_assert"] =
 `
 /*
    C23 added the alternative keyword static_assert for 
@@ -251,7 +254,7 @@ int main()
 `;
 
 
-sample["C23 #elifdef  #elifndef"] =
+sample["C23"]["#elifdef  #elifndef"] =
 `
 /*
   C23 preprocessing directives elifdef and elifndef N2645
@@ -273,7 +276,7 @@ _Static_assert(VERSION == 2, "");
 `;
 
 
-sample["C23 __VA_OPT__"] =
+sample["C23"]["__VA_OPT__"] =
 `
 /*
   __VA_OPT__ lets you optionally insert tokens depending on
@@ -318,7 +321,7 @@ H5C(H5A())          // replaced by ab
 
 `;
 
-sample["C23 _has_include|__has_embed|__has_c_attribute"] =
+sample["C23"]["_has_include|__has_embed|__has_c_attribute"] =
 `
 
 #if __has_include(<stdio.h>)
@@ -349,7 +352,7 @@ sample["C23 _has_include|__has_embed|__has_c_attribute"] =
 */
 `;
 
-sample["C23 #embed"] =
+sample["C23"]["#embed"] =
 `
 #include <stdio.h>
 
@@ -377,7 +380,7 @@ int main()
 */
 `;
 
-sample["C23 #warning"] =
+sample["C23"]["#warning"] =
     `
 #include <stdio.h>
 
@@ -390,7 +393,7 @@ int main()
 }
 `;
 
-sample["C23 empty initializer"] =
+sample["C23"]["empty initializer"] =
     `
 int main()
 {
@@ -408,7 +411,7 @@ int main()
 
 `;
 
-sample["C23 typeof / typeof_unqual"] =
+sample["C23"]["typeof / typeof_unqual"] =
 `
 #include <stdlib.h>
 
@@ -492,7 +495,7 @@ int f5(){
 `;
 
 
-sample["C23 auto"] =
+sample["C23"]["auto"] =
 `
 
 
@@ -547,7 +550,7 @@ int main()
 `;
 
 
-sample["C23 bool true false"] =
+sample["C23"]["bool true false"] =
  `
 /*
   C23 introduced keyword bool as alternative to _Bool and 
@@ -577,7 +580,7 @@ int main()
 }
 `;
 
-sample["C23 nullptr"] =
+sample["C23"]["nullptr"] =
 `
 
 #include <stdlib.h>
@@ -611,7 +614,7 @@ int F()
 `;
 
 
-sample["C23 [[maybe_unused]] "] =
+sample["C23"]["[[maybe_unused]] "] =
 `
 
 void f( [[maybe_unused]] int arg1, int arg2)
@@ -625,7 +628,7 @@ void f( [[maybe_unused]] int arg1, int arg2)
 `;
 
 
-sample["C23 [[deprecated]] "] =
+sample["C23"]["[[deprecated]] "] =
 `
 [[deprecated]] void f2() {
 }
@@ -646,7 +649,7 @@ int main(void) {
 }
 `;
 
-sample["C23 [[nodiscard]] "] =
+sample["C23"]["[[nodiscard]] "] =
 `
 
 #include <stdlib.h>
@@ -676,7 +679,7 @@ void call(void) {
 
 `;
 
-sample["C23 [[fallthrough]] "] =
+sample["C23"]["[[fallthrough]] "] =
 `
 /*
    IS NOT IMPLEMENTED YET
@@ -715,7 +718,7 @@ void f(int n) {
 
 
 
-sample["C23 constexpr"] =
+sample["C23"]["constexpr"] =
 `
 #include <stdio.h>
 
@@ -737,7 +740,7 @@ int main()
 }
 `;
 
-sample["C23 enum"] =
+sample["C23"]["enum"] =
     `
 
 enum X : short {
@@ -752,45 +755,8 @@ int main() {
 `;
 
 
-sample["Extension _Hashof"] =
-`
-struct X {
-    int a[10];
-  
-    /*uncomment the next line*/
-    //char * text;
-};
-
-void x_destroy(struct X* p);
-
-int main()
-{
-    struct X x = {};
-    x_destroy(&x);
-}
-
-void x_destroy(struct X* p)
-{
-    static_assert(_Hashof(struct X) == 283780300);
-}
-
-void x_print(struct X* p)
-{
-    static_assert(_Hashof(struct X) == 283780300);
-}
-
-struct X x_clone(const struct X* p)
-{
-  struct X x = *p;
-  static_assert(_Hashof(struct X) == 283780300);
-  return x;
-}
-
-`
-;
-
-   
-sample["Extension try catch throw"] =
+sample["Extension"]=[];   
+sample["Extension"]["try catch throw"] =
 `
 #include <stdio.h>
 
@@ -816,7 +782,7 @@ int main()
 `;
 
 
-sample["Extension try catch throw II"] =
+sample["Extension"]["try catch throw II"] =
 `
 #include <stdio.h>
 
@@ -845,7 +811,7 @@ int main()
 
 `;
 
-sample["Extension defer inside try blocks"] =
+sample["Extension"]["defer inside try blocks"] =
     `
 #include <stdio.h>
 
@@ -876,7 +842,7 @@ int main()
 
 `;
 
-sample["Extension defer with breaks III"] =
+sample["Extension"]["defer with breaks III"] =
     `
 
 #include <stdio.h>
@@ -906,7 +872,7 @@ int main()
 `;
 
 
-sample["Extension defer with breaks IV"] =
+sample["Extension"]["defer with breaks IV"] =
     `
 
 #include <stdio.h>
@@ -928,7 +894,7 @@ int main()
 `;
 
 
-sample["Extension defer with return V"] =
+sample["Extension"]["defer with return V"] =
     `
 
 #include <stdio.h>
@@ -950,7 +916,7 @@ int main()
 `;
 
 
-sample["Extension defer goto VI"] =
+sample["Extension"]["defer goto VI"] =
     `
 
 #include <stdio.h>
@@ -972,7 +938,7 @@ int main()
 
 `;
 
-sample["Extension if with initialization (Like C++17)"] =
+sample["Extension"]["if with initialization (Like C++17)"] =
     `
 #include <stdio.h>
 
@@ -987,7 +953,7 @@ int main()
 }
 `;
 
-sample["Extension repeat"] =
+sample["Extension"]["repeat"] =
 `
 int main()
 {
@@ -997,7 +963,7 @@ int main()
 }
 `;
 
-sample["Extension Literal function (lambda) I"] =
+sample["Extension"]["Literal function (lambda) I"] =
 `
 /*simple lambda*/
 #include <stdio.h>
@@ -1009,7 +975,7 @@ int main()
 }
 `;
 
-sample["Extension Literal function (lambdas)"] =
+sample["Extension"]["Literal function (lambdas)"] =
     `
 #include <stdio.h>
 #include <stdlib.h>
@@ -1064,7 +1030,7 @@ int main()
 
 `;
 
-sample["Extension typeof + lambdas"] =
+sample["Extension"]["typeof + lambdas"] =
 `
 /* Use -fo option to format output*/
 
@@ -1082,22 +1048,8 @@ int main()
 }
 `;
 
-sample["little of semantics analysis"] =
-`
-int main()
-{
-    int a = 1;
-    *a = 2; //error
 
-    struct X { int i; }x;
-    x.j = 1;
-   
-}
-
-`;
-
-
-sample["line slicing checks"] =
+sample["Extension"]["line slicing checks"] =
 `
 
 #define M\\
@@ -1122,19 +1074,9 @@ int main()
 
 `;
 
-sample["little of static analysis"] =
-    `
-int main()
-{
-    int a = 1;
-    if (a)
-    {
-       int a = 2;
-    }   
-}
-`;
 
-sample["pragma warning"] =
+
+sample["Extension"]["pragma warning"] =
 `
 enum E1 { A };
 enum E2 { B };
@@ -1152,7 +1094,7 @@ int main() {
 
 `;
 
-sample["Extension - Traits"] =
+sample["Extension"]["Traits"] =
     `
 
 /*
@@ -1184,7 +1126,7 @@ int main()
 }
 `;
 
-sample["Extension - type expression"] =
+sample["Extension"]["type expression"] =
     `
 int a[2];
 static_assert( a == (int[2])  );
@@ -1208,42 +1150,44 @@ int main()
 static_assert( _is_function(main) && (typeof(main())) == (int) );
 
 `;
-
-sample["Extension - ownership I"] =
+sample["ownership"]=[];
+sample["ownership"]["ownership I"] =
 `
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
-void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
+
+#define _OWNERSHIP_ 
+#include <stdlib.h>
 
 int main() {
-   void * _Owner p = malloc(1);
-   //free(p);
+   void * owner p = malloc(1);
+   //free(p);  /*fix me*/
 }
+
 `;
 
-sample["Extension - ownership II"] =
+sample["ownership"]["ownership II"] =
 `
 /* 
   See also: http://thradams.com/cake/ownership.html
 */
 
-void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
+void * owner malloc(int i);
+void free(implicit void * owner p);
 
 struct X {
   int i;
 };
 
- struct X * _Owner f() {
-    struct X * _Owner p = malloc(1);
-    struct X * _Owner p2 = _Move p;
+ struct X * owner f() {
+    struct X * owner p = malloc(1);
+    struct X * owner p2 = _Move p;
     return p2; /*p2 is moved*/
 }
 
 int main() {
-   struct X * _Owner p = f();
+   struct X * owner p = f();
    //free(p);     
 }
 
@@ -1251,20 +1195,20 @@ int main() {
 
 `;
 
-sample["Extension - ownership III"] =
+sample["ownership"]["ownership III"] =
 `
 
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
-char * _Owner strdup(const char *s);
-void free(_Implicit void * _Owner p);
+char * owner strdup(const char *s);
+void free(implicit void * owner p);
 
 struct X {
-  char *_Owner name;
+  char *owner name;
 };
 
-void x_destroy(_Implicit struct X * _Obj_owner p) 
+void x_destroy(implicit struct X * obj_owner p) 
 {
   //free(p->name);
 }
@@ -1277,43 +1221,43 @@ int main() {
 
 `;
 
-sample["Extension - ownership IV"] =
+sample["ownership"]["ownership IV"] =
 `
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
 
-void free(_Implicit void* _Owner ptr);
-void* _Owner malloc(int size);
+void free(implicit void* owner ptr);
+void* owner malloc(int size);
 
 struct X
 {
     int i;
-    //char * _Owner name;
+    //char * owner name;
 };
 
 int main() 
 {
-    struct X * _Owner p = malloc(sizeof (struct X));
+    struct X * owner p = malloc(sizeof (struct X));
     free(p);
 }
 
 
 `;
-sample["Extension - ownership V"] =
+sample["ownership"]["ownership V"] =
 `
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
 
-void * _Owner malloc(int i);
-void free(_Implicit void * _Owner p);
+void * owner malloc(int i);
+void free(implicit void * owner p);
 
 struct X {
-  char * _Owner text;
+  char * owner text;
 };
 
-void x_delete(_Implicit struct X * _Owner p)
+void x_delete(implicit struct X * owner p)
 {
     free(p->text);
     free(p);    
@@ -1321,63 +1265,63 @@ void x_delete(_Implicit struct X * _Owner p)
 
 
 int main() {
-   struct X * _Owner p = malloc(sizeof(struct X));
+   struct X * owner p = malloc(sizeof(struct X));
    p->text = _Move malloc(10);
    x_delete(p);
 }
 
 `;
 
-sample["Extension - ownership VI"] =
+sample["ownership"]["ownership VI"] =
 `
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
 
-void free(_Implicit void* _Owner ptr);
-void* _Owner malloc(int size);
+void free(implicit void* owner ptr);
+void* owner malloc(int size);
 
 struct X
 {    
-    char * _Owner name;
+    char * owner name;
 };
 
 /*
   To remove this error return 
-    struct X * _Owner 
+    struct X * owner 
   instead   of 
-    void * _Owner.
+    void * owner.
 */
-void * _Owner f1(){
-  struct X * _Owner p = malloc(sizeof (struct X));
+void * owner f1(){
+  struct X * owner p = malloc(sizeof (struct X));
   return p;
 }
 `;
 
 
 
-sample["Extension - ownership VII"] =
+sample["ownership"]["ownership VII"] =
 `
 /*  
-  This sample shows how _View can be used to implement swap.
+  This sample shows how view can be used to implement swap.
   See also: http://thradams.com/cake/ownership.html
 */
 
-void free(_Implicit void * _Owner p);
+void free(implicit void * owner p);
 
 struct person {
-  char * _Owner name;
+  char * owner name;
 };  
 
-void person_swap(_View struct person * a,  
-                 _View struct person * b) 
+void person_swap(view struct person * a,  
+                 view struct person * b) 
 {
-   _View struct person temp = *a;
+   view struct person temp = *a;
    *a = *b;
    *b = temp;
 }
 
-void person_destroy(_Implicit struct person * _Obj_owner p) {
+void person_destroy(implicit struct person * obj_owner p) {
   free(p->name);
 }
 
@@ -1392,15 +1336,15 @@ int main()
 }
 `;
 
-sample["Extension - ownership VIII"] =
+sample["ownership"]["ownership VIII"] =
 `
 
 /*  
   See also: http://thradams.com/cake/ownership.html
 */
 
-char * _Owner strdup(const char *s);
-void free(_Implicit void * _Owner p);
+char * owner strdup(const char *s);
+void free(implicit void * owner p);
 
 struct X {
   char * text;
