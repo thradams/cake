@@ -2565,7 +2565,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
     catch
     {
     }
-
+    
     return p_typeof_specifier;
 }
 

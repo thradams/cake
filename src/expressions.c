@@ -3325,7 +3325,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
     }
 
     if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-        return true;
+        return true;    
 
     return true;
 }

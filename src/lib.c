@@ -14162,7 +14162,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
     }
 
     if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-        return true;
+        return true;    
 
     return true;
 }
@@ -20482,7 +20482,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
     catch
     {
     }
-
+    
     return p_typeof_specifier;
 }
 

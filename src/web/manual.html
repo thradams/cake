@@ -919,7 +919,7 @@ int main()
 
 <h3 id="toc_38">C23 Make false and true first-class language features</h3>
 
-<p>When compiling to C89 bool is replaced by int true by 1 and false 0. 
+<p>When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0. 
 (I am considering adding an extra header file in C89 with bool definition.)</p>
 
 <p>When compiling to C99 and C11 bool is replaced with <strong>_Bool</strong>, true is replaced with <code>((_Bool)1)</code> 

@@ -713,7 +713,7 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
 ### C23 Make false and true first-class language features
 
-When compiling to C89 bool is replaced by int true by 1 and false 0. 
+When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0. 
 (I am considering adding an extra header file in C89 with bool definition.)
 
 When compiling to C99 and C11 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)` 
