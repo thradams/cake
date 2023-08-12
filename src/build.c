@@ -188,7 +188,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
         "<body>\n"
         "    <article style=\"max-width: 40em; margin:auto\">\n"
         "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"playground.html\">Playground</a></p>\n"
-        "<h1>Cake</h1>\n";
+        "<h1>Cake - C23 and Beyond</h1>\n";
 
     FILE *f2 = fopen(outfile /*"./web/index.html"*/, "w");
     if (f2)
