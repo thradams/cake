@@ -605,7 +605,7 @@ void move_object(struct parser_ctx* ctx,
                 set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_UNINITIALIZED);
                 p_dest_obj_opt->state = OBJECT_STATE_UNKNOWN; /*pointer itself is unkown*/
             }
-            else 
+            else
             {
                 set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_UNKNOWN);
             }
@@ -1427,25 +1427,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 
         case EQUALITY_EXPRESSION_EQUAL:
-            // static_state requires we recompute expressions
-            if (p_expression->left && p_expression->right)
-            {
-                flow_visit_expression(ctx, p_expression->left);
-                flow_visit_expression(ctx, p_expression->right);
-                expression_evaluate_equal_not_equal(p_expression->left,
-                    p_expression->right,
-                    p_expression,
-                    '==');
-            }
+            flow_visit_expression(ctx, p_expression->left);
+            flow_visit_expression(ctx, p_expression->right);
+
             break;
 
         case EQUALITY_EXPRESSION_NOT_EQUAL:
             flow_visit_expression(ctx, p_expression->left);
-            flow_visit_expression(ctx, p_expression->right);
-            expression_evaluate_equal_not_equal(p_expression->left,
-                p_expression->right,
-                p_expression,
-                '!=');
+            flow_visit_expression(ctx, p_expression->right);            
             break;
 
         case AND_EXPRESSION:
@@ -1781,22 +1770,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 {
     flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
 
-    if (p_static_assert_declaration->first_token->type == TK_KEYWORD__STATIC_ASSERT)
-    {
-        if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
-        {
-            if (p_static_assert_declaration->string_literal_opt)
-            {
-                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "_Static_assert failed %s\n",
-                    p_static_assert_declaration->string_literal_opt->lexeme);
-            }
-            else
-            {
-                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_assert failed");
-            }
-        }
-    }
-    else  if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
+    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
     {
         compiler_set_info_with_token(W_NONE, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
@@ -1832,7 +1806,6 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         }
         type_destroy(&t);
-
     }
 }
 

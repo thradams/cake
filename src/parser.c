@@ -4462,28 +4462,20 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
 
         if (position->type == TK_KEYWORD__STATIC_ASSERT)
         {
-            if (!ctx->options.flow_analysis)
+            if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
             {
-                if (!constant_value_to_bool(&p_static_assert_declaration->constant_expression->constant_value))
+                if (p_static_assert_declaration->string_literal_opt)
                 {
-                    if (p_static_assert_declaration->string_literal_opt)
-                    {
-                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
-                            p_static_assert_declaration->string_literal_opt->lexeme);
-                    }
-                    else
-                    {
-                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
-                    }
-
-
+                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
+                        p_static_assert_declaration->string_literal_opt->lexeme);
+                }
+                else
+                {
+                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
                 }
             }
         }
-        else
-        {
 
-        }
     }
     catch
     {}
@@ -8367,13 +8359,13 @@ void if_state()
 
 void error_owner()
 {
-const char* source
- =
- "void * f();\n"
- "int main() {\n"
- "   void * _Owner p = f();   \n"
- "}\n"
- ;
+    const char* source
+        =
+        "void * f();\n"
+        "int main() {\n"
+        "   void * _Owner p = f();   \n"
+        "}\n"
+        ;
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
