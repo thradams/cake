@@ -108,13 +108,7 @@ int main(void)
     const int * const p2;
     static_assert(_Generic(p2, const int *: 1));
 
-    static_assert(_Generic("abc",  char *: 1));
-
-    /* Extension type argument */
-    static_assert(_Generic(int, int : 1));
-    static_assert(_Generic(typeof(p), const int * const: 1));
-
-    static_assert(_Generic(typeof("abc"), char [4]: 1));
+    static_assert(_Generic("abc",  char *: 1));    
 }
 
 `;
@@ -756,6 +750,23 @@ int main() {
 
 
 sample["Extensions"]=[];   
+sample["Extensions"]["_Generic(type-name)"] =
+`
+/*
+  cake accepts type-name on _Generic expression 
+*/
+int main(void)
+{
+    const int * const p;
+    static_assert(_Generic(p, const int * : 1 ));
+    static_assert(_Generic(typeof(p), const int * const: 1));
+  
+    static_assert(_Generic(int, int : 1));    
+    static_assert(_Generic(typeof("abc"), char [4]: 1));
+}
+
+`;
+
 sample["Extensions"]["try catch throw"] =
 `
 #include <stdio.h>
@@ -1095,12 +1106,7 @@ int main() {
 `;
 
 sample["Extensions"]["Traits"] =
-    `
-
-/*
-  These type traits are based on C++ version
-  https://en.cppreference.com/w/cpp/header/type_traits
-*/
+`
 
 int main()
 {

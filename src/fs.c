@@ -855,6 +855,7 @@ static const char* file_stdlib_h =
  "typedef long long fpos_t;\n"
  "typedef unsigned size_t;\n"
  "\n"
+ "#define NULL ((void*)0)\n"
  "typedef int wchar_t;\n"
  "[[nodiscard]] double atof(const char* nptr);\n"
  "[[nodiscard]] int atoi(const char* nptr);\n"
