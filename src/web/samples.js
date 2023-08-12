@@ -964,7 +964,7 @@ int main()
 }
 `;
 
-sample["Extensions"]["repeat"] =
+sample["Extensions"]["repeat statement"] =
 `
 int main()
 {
@@ -1132,7 +1132,7 @@ int main()
 }
 `;
 
-sample["Extensions"]["type expression"] =
+sample["Extensions"]["(Type) expression"] =
     `
 int a[2];
 static_assert( a == (int[2])  );
