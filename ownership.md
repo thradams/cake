@@ -366,27 +366,30 @@ We can print (**static\_debug**) or check (**static\_state**)these states in com
 Sample:
 
 ```c
-enum object_state
-{
-    /*reserved*/ = 0,
-    OBJECT_STATE_UNINITIALIZED,
-    OBJECT_STATE_ZERO,
-    OBJECT_STATE_UNKNOWN,
-    OBJECT_STATE_NOT_ZERO,
-    OBJECT_STATE_MOVED,
-    OBJECT_STATE_NULL_OR_MOVED,
-};
-
 int main()
 {
+  int * i;  
+  static_state(p, "uninitialized");   
+
   void * owner p = 0;  
-  static_assert(static_state(p) == OBJECT_STATE_ZERO);  
+  static_state(p, "zero");  
   static_debug(p);
 }
 ```
 
-So, cake is close to the point were rules are checked and the problem now is just about getting the static state correct.
+A common initialization of heap allocated objects is using malloc/calloc.
 
+```c
+struct X {    
+    char * owner name;
+};
+
+int main() {
+  struct X * owner p = malloc(sizeof (struct X));
+  p->name = move strdup("hi");
+}
+```
+How to known that p->name was not holding resources? The semantics of malloc (returning a non initialized memory) must be understood. malloc/calloc will be especial cases where compiler will have the built in semantic. In  other situations is expect the programmer to silence the error.
 
 ## Grammar
 

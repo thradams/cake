@@ -8751,8 +8751,18 @@ static const char* file_stdlib_h =
  "[[noreturn]] void quick_exit(int status);\n"
  "int system(const char* string);";
 
-
-
+static const char* file_stddef_h =
+ "\n"
+ "typedef long int ptrdiff_t;\n"
+ "typedef long unsigned int size_t;\n"
+ "typedef int wchar_t;\n"
+ "typedef struct {\n"
+ "  long long __max_align_ll;\n"
+ "  long double __max_align_ld;\n"
+ "} max_align_t;\n"
+ "\n"
+ "typedef typeof(nullptr) nullptr_t;\n"
+ "\n";
 
 char* read_file(const char* path)
 {
@@ -8760,6 +8770,8 @@ char* read_file(const char* path)
         return strdup(file_stdio_h);
     else if (strcmp(path, "stdlib.h") == 0)
         return strdup(file_stdlib_h);
+    else if (strcmp(path, "stddef.h") == 0)
+        return strdup(file_stddef_h);
     else if (strcmp(path, "math.h") == 0)
         return strdup(file_math_h);
     else if (strcmp(path, "errno.h") == 0)
@@ -23667,11 +23679,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR_C \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STR \
+#define STR_E \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 

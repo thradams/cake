@@ -883,8 +883,18 @@ static const char* file_stdlib_h =
  "[[noreturn]] void quick_exit(int status);\n"
  "int system(const char* string);";
 
-
-
+static const char* file_stddef_h =
+ "\n"
+ "typedef long int ptrdiff_t;\n"
+ "typedef long unsigned int size_t;\n"
+ "typedef int wchar_t;\n"
+ "typedef struct {\n"
+ "  long long __max_align_ll;\n"
+ "  long double __max_align_ld;\n"
+ "} max_align_t;\n"
+ "\n"
+ "typedef typeof(nullptr) nullptr_t;\n"
+ "\n";
 
 char* read_file(const char* path)
 {
@@ -892,6 +902,8 @@ char* read_file(const char* path)
         return strdup(file_stdio_h);
     else if (strcmp(path, "stdlib.h") == 0)
         return strdup(file_stdlib_h);
+    else if (strcmp(path, "stddef.h") == 0)
+        return strdup(file_stddef_h);
     else if (strcmp(path, "math.h") == 0)
         return strdup(file_math_h);
     else if (strcmp(path, "errno.h") == 0)
