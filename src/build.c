@@ -271,7 +271,9 @@ int main()
     */
 
     //-flow-analysis 
-    if (system("cake.exe  -flow-analysis -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    //-nullchecks
+
+    if (system("cake.exe  -flow-analysis  -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 

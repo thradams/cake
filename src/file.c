@@ -1,5 +1,22 @@
-int main()
-{
-static_assert((2 + 2) % 3 == 1, "Whoa dude, you knew!");
-_Static_assert(2 + 2 * 2 == 6, "Lucky guess!?");
+
+#pragma nullchecks
+
+void * owner malloc(int sz);
+void free(void * owner opt p);
+
+void f1(int *p){}
+void f2(int * opt p){}
+
+int main(int i) {   
+    int * owner p = malloc(1);
+    if (p)
+    {
+      f1(p);
+    }
+    f1(p);
+    f2(p);
+    free(p);
 }
+
+
+

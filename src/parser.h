@@ -508,16 +508,20 @@ struct initializer* owner initializer(struct parser_ctx* ctx);
 enum object_state
 {
     OBJECT_STATE_STRUCT = 0,
-    OBJECT_STATE_UNINITIALIZED,
-    OBJECT_STATE_ZERO,
-    OBJECT_STATE_UNKNOWN,
-    OBJECT_STATE_NOT_ZERO,
-    OBJECT_STATE_MOVED,
-    OBJECT_STATE_ZERO_OR_MOVED,
+    OBJECT_STATE_UNINITIALIZED = 1 << 0,        
+    OBJECT_STATE_NULL = 1 << 1,
+    OBJECT_STATE_NOT_NULL = 1 << 2,
+    OBJECT_STATE_MOVED = 1 << 3
 };
 
-const char * object_state_to_string(enum object_state e);
+void object_state_to_string(enum object_state e);
 
+struct object_state_stack
+{
+    enum object_state * owner data;
+    int size;
+    int capacity;
+};
 
 struct objects {
     struct object* owner data;
@@ -541,6 +545,7 @@ struct object
   struct declarator* declarator;
 
   struct objects members;      
+  struct object_state_stack object_state_stack;
 };
 
 struct declarator
@@ -558,8 +563,9 @@ struct declarator
     struct direct_declarator*  owner direct_declarator;
 
     
-    struct declaration_specifiers* view declaration_specifiers; //aponta para este cara
-    struct specifier_qualifier_list* view specifier_qualifier_list; //aponta
+    struct declaration_specifiers* view declaration_specifiers;
+    struct specifier_qualifier_list* view specifier_qualifier_list;
+
     struct token* name; //shortcut
 
     struct compound_statement* view function_body;
@@ -665,6 +671,7 @@ struct pointer
     */
     struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
     struct type_qualifier_list* owner type_qualifier_list_opt;
+
     struct pointer* owner pointer;
 };
 

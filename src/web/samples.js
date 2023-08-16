@@ -35,9 +35,6 @@ sample["C99"]["int a[static]"] =
 `
 #include <stdlib.h>
 
-void F(int a[static 5]) 
-{
-}
 
 void F(int a[static const 5]) 
 {
@@ -1375,4 +1372,33 @@ int main() {
 
 `;
 
+sample["Ownership (experimental)"]["ownership IX"] =
+`
 
+#define _OWNERSHIP_ 
+#include <stdlib.h>
+#include <string.h>
+
+void f( void * owner p);
+
+struct X {
+   char * owner name;
+}
+int main() {   
+   struct X * owner p = malloc(sizeof(struct X));
+   if (p) {
+     p->name = move strdup("a");
+
+     /*
+        This sample shows that when we cast to void* we lose information
+        and we may have a resource leak.
+     */
+     f(move p);
+     
+     /*
+        If the programer knows the code is safe the error can be removed with a cast.        
+     */
+     //f(move (void * owner) p); /*TRY*/
+   }
+}
+`;

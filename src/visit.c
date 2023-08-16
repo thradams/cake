@@ -58,11 +58,11 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         move & list);
 
     struct tokenizer_ctx tctx = {0};
-    struct token_list list1 = tokenizer(&tctx, "{", "", 0, TK_FLAG_NONE);
+    struct token_list list1 = tokenizer(&tctx, "{", "", 0, TK_FLAG_FINAL);
     token_list_insert_after(&ctx->ast.token_list,
         before_first_token,
         move & list1);
-    struct token_list list2 = tokenizer(&tctx, "}", "", 0, TK_FLAG_NONE);
+    struct token_list list2 = tokenizer(&tctx, "}", "", 0, TK_FLAG_FINAL);
     token_list_insert_after(&ctx->ast.token_list,
         p_selection_statement->last_token,
         move & list2);
@@ -459,9 +459,10 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
         {
             assert(p_bracket_initializer_list->first_token->type == '{');
 
+            const int level = p_bracket_initializer_list->first_token->level;
             //Criar token 0
             struct tokenizer_ctx tctx = {0};
-            struct token_list list2 = tokenizer(&tctx, "0", NULL, 0, TK_FLAG_NONE);
+            struct token_list list2 = tokenizer(&tctx, "0", NULL, level, TK_FLAG_FINAL);
 
             //inserir na frente
             token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first_token, move & list2);
@@ -550,14 +551,17 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
     // tem que refazer
     if (p_specifier_qualifier_list_opt->type_specifier_flags & TYPE_SPECIFIER_TYPEOF)
     {
+        const int level = p_specifier_qualifier_list_opt->first_token->level;
+
         token_range_add_flag(p_specifier_qualifier_list_opt->first_token,
             p_specifier_qualifier_list_opt->last_token, TK_FLAG_HIDE);
 
         struct osstream ss = {0};
         print_type(&ss, type_get_specifer_part(p_type));
 
+        
         struct tokenizer_ctx tctx = {0};
-        struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
+        struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_FINAL);
         token_list_insert_after(&ctx->ast.token_list, p_specifier_qualifier_list_opt->last_token, move & l2);
 
         ss_close(&ss);
@@ -634,9 +638,12 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
 
     if (ctx->target < LANGUAGE_C11)
     {
+        /*let's hide everything first*/
         token_range_add_flag(p_generic_selection->first_token, p_generic_selection->last_token, TK_FLAG_HIDE);
+
         if (p_generic_selection->p_view_selected_expression)
         {
+            /*then let's show up the selected expression*/
             token_range_remove_flag(p_generic_selection->p_view_selected_expression->first_token,
                 p_generic_selection->p_view_selected_expression->last_token,
                 TK_FLAG_HIDE);
@@ -851,16 +858,14 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             if (ctx->target < LANGUAGE_C11)
             {
-                if (p_expression->first_token->level == 0)
-                {
-                    token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
-                    char buffer[30] = {0};
-                    snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
-                    struct tokenizer_ctx tctx = {0};
-                    struct token_list l3 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
-                    l3.head->flags = p_expression->last_token->flags;
-                    token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l3);
-                }
+                const int level = p_expression->first_token->level;
+                token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
+                char buffer[30] = {0};
+                snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
+                struct tokenizer_ctx tctx = {0};
+                struct token_list l3 = tokenizer(&tctx, buffer, NULL, level, TK_FLAG_FINAL);
+                l3.head->flags = p_expression->last_token->flags;
+                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l3);
             }
 
             if (p_expression->right)
@@ -899,16 +904,10 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             break;
 
-        
+
 
 
         case ASSIGNMENT_EXPRESSION:
-            if (p_expression->move_assignment)
-            {
-                free(p_expression->move_assignment->lexeme);
-                p_expression->move_assignment->lexeme = strdup("/*_Move*/");
-            }
-            break;
         case CAST_EXPRESSION:
         case MULTIPLICATIVE_EXPRESSION_MULT:
         case MULTIPLICATIVE_EXPRESSION_DIV:
@@ -941,6 +940,15 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             {
                 visit_type_name(ctx, p_expression->type_name);
             }
+
+
+            //a = move b
+            if (p_expression->move_assignment)
+            {
+                free(p_expression->move_assignment->lexeme);
+                p_expression->move_assignment->lexeme = move strdup("/*_Move*/");
+            }
+
             break;
 
         case UNARY_EXPRESSION_TRAITS:
@@ -949,11 +957,11 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             {
                 struct tokenizer_ctx tctx = {0};
                 struct token_list l2 = {0};
-
+                
                 if (constant_value_to_bool(&p_expression->constant_value))
-                    l2 = move tokenizer(&tctx, "1", NULL, 0, TK_FLAG_NONE);
+                    l2 = move tokenizer(&tctx, "1", NULL, 0, TK_FLAG_FINAL);
                 else
-                    l2 = move tokenizer(&tctx, "0", NULL, 0, TK_FLAG_NONE);
+                    l2 = move tokenizer(&tctx, "0", NULL, 0, TK_FLAG_FINAL);
 
 
                 token_list_insert_after(&ctx->ast.token_list,
@@ -1278,19 +1286,10 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
 
     if (ctx->target < LANGUAGE_C11)
     {
-        /*
-        * Vamos apagar a parte do static assert. Não adianta so commentar
-        * pq poderia ter um comentario dentro. (so se verificar que nao tem)
-        */
-        for (struct token* p = p_static_assert_declaration->first_token;
-            p != p_static_assert_declaration->last_token->next;
-            p = p->next)
-        {
-            /*
-             Se eu colocar como sendo macro expanded vai esconder
-            */
-            p->flags |= TK_FLAG_MACRO_EXPANDED;
-        }
+        /*let's hide everything first*/
+        token_range_add_flag(p_static_assert_declaration->first_token,
+            p_static_assert_declaration->last_token,
+            TK_FLAG_HIDE);
     }
     else if (ctx->target == LANGUAGE_C11)
     {
@@ -1300,7 +1299,7 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
             rp = previous_parser_token(rp);
 
             struct tokenizer_ctx tctx = {0};
-            struct token_list list1 = tokenizer(&tctx, ", \"error\"", "", 0, TK_FLAG_NONE);
+            struct token_list list1 = tokenizer(&tctx, ", \"error\"", "", 0, TK_FLAG_FINAL);
             token_list_insert_after(&ctx->ast.token_list, rp, move & list1);
         }
         if (strcmp(p_static_assert_declaration->first_token->lexeme, "static_assert") == 0)
@@ -1437,13 +1436,18 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
 
         type_remove_names(&new_type);
         if (p_declarator->name)
+        {
+            free(new_type.name_opt);
             new_type.name_opt = move strdup(p_declarator->name->lexeme);
+        }
+
         print_type_declarator(&ss, &new_type);
 
         if (ss.c_str != NULL)
         {
+            const int level = p_declarator->first_token->level;
             struct tokenizer_ctx tctx = {0};
-            struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
+            struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_FINAL);
 
 
             /*let's hide the old declarator*/
@@ -1503,7 +1507,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             if (p_init_declarator->initializer->move_token)
             {
                 free(p_init_declarator->initializer->move_token->lexeme);
-                p_init_declarator->initializer->move_token->lexeme = strdup("/*_Move*/");                
+                p_init_declarator->initializer->move_token->lexeme = strdup("/*_Move*/");
             }
 
             if (p_init_declarator->initializer->assignment_expression)
@@ -1605,7 +1609,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
         char buffer[200] = {0};
         snprintf(buffer, sizeof buffer, " %s", tag);
         struct tokenizer_ctx tctx = {0};
-        struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_NONE);
+        struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
         token_list_insert_after(&ctx->ast.token_list, first, move & l2);
     }
 
@@ -1904,12 +1908,11 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         const struct type* p = type_get_specifer_part(&new_type);
         print_type_qualifier_specifiers(&ss0, p);
 
+        const int level = p_declaration_specifiers->last_token->level;
         struct tokenizer_ctx tctx = {0};
-        struct token_list l2 = tokenizer(&tctx, ss0.c_str, NULL, 0, TK_FLAG_NONE);
+        struct token_list l2 = tokenizer(&tctx, ss0.c_str, NULL, level, TK_FLAG_FINAL);
 
-        token_list_insert_after(&ctx->ast.token_list,
-            p_declaration_specifiers->last_token,
-            move & l2);
+        token_list_insert_after(&ctx->ast.token_list, p_declaration_specifiers->last_token, move & l2);
 
         type_destroy(&new_type);
         ss_close(&ss0);
@@ -1998,6 +2001,9 @@ static bool is_last_item_return(struct compound_statement* p_compound_statement)
 
 static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration)
 {
+
+  
+
     if (p_declaration->static_assert_declaration)
     {
         visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
@@ -2150,6 +2156,24 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             /*functions with lambdas requires two phases*/
             ctx->is_second_pass = true;
             visit_compound_statement(ctx, p_declaration->function_body);
+        }
+    }
+
+
+    /*
+       In direct mode, we hide non used declarations (just to make the result smaller)
+    */
+    if (ctx->hide_non_used_declarations &&
+        p_declaration->init_declarator_list.head)
+    {        
+        if (p_declaration->init_declarator_list.head->p_declarator &&
+            p_declaration->init_declarator_list.head->p_declarator->num_uses == 0 &&
+            p_declaration->init_declarator_list.head->p_declarator->function_body == NULL)
+        {
+            /*
+              transformations must keep first_token and last_token correct - updated 
+            */
+            token_range_add_flag(p_declaration->first_token, p_declaration->last_token, TK_FLAG_HIDE);
         }
     }
 }

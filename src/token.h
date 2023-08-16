@@ -157,6 +157,7 @@ enum token_type
     TK_KEYWORD__VIEW,
     TK_KEYWORD__MOVE,
     TK_KEYWORD__IMPLICIT,
+    TK_KEYWORD__OPT, 
 
     /*extension compile time functions*/
     TK_KEYWORD_STATIC_DEBUG, /*extension*/
@@ -260,7 +261,7 @@ void stream_match(struct stream* stream);
 
 #define LIST_ADD(list, pnew)\
 do {\
-    void* owner pitem = move (pnew);\
+    void* owner pitem = move (void* owner) (pnew);\
     if ((list)->head == NULL)\
     {\
         (list)->head = move pitem;\

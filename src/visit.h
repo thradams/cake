@@ -27,6 +27,7 @@ struct visit_ctx
     bool has_lambda;
 
     bool is_inside_lambda;
+    bool hide_non_used_declarations;
 
     /*these indexes are used to generate unique names at file scope*/
     int capture_index;    

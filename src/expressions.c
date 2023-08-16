@@ -815,7 +815,10 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
     }
     else if (p_expression->expression_type == CAST_EXPRESSION)
     {
-        return expression_get_object(p_expression->left, p_type);
+        if (p_type)
+                *p_type = type_dup(&p_expression->type);
+
+        return expression_get_object(p_expression->left, NULL);
     }
     else if (p_expression->expression_type == POSTFIX_DOT)
     {
@@ -1279,7 +1282,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             else if (ctx->current->type == '(')
             {
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
-                p_expression_node_new->first_token = ctx->current;
+                p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
                 p_expression_node_new->left = move p_expression_node;
 
@@ -2643,7 +2646,7 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
             }
             else if (operator_token->type == '!=')
             {
-                new_expression->expression_type = EQUALITY_EXPRESSION_EQUAL;
+                new_expression->expression_type = EQUALITY_EXPRESSION_NOT_EQUAL;
                 expression_evaluate_equal_not_equal(new_expression->left,
                     new_expression->right,
                     new_expression,

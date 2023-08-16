@@ -202,6 +202,12 @@ struct options
     */
     bool no_output;
     
+    /* 
+    -nullchecks
+     
+    */
+    bool null_checks;
+
     /*
       -o filename
       defines the ouputfile when 1 file is used

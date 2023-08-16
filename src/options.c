@@ -166,6 +166,14 @@ int fill_options(struct options* options,
             options->nodiscard_is_default = true;
             continue;
         }
+        
+        if (strcmp(argv[i], "-nullchecks") == 0)
+        {
+            options->null_checks = true;
+            continue;
+        }
+
+        
 
         //
         if (strcmp(argv[i], "-style=cake") == 0)

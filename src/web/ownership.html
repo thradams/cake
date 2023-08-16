@@ -57,6 +57,8 @@ It consists of two separate implementations. </p>
 
 <p>By implementing the static ownership check, and using the feature on it&#39;s own source, Cake aims to explore and evaluate the effectiveness of this feature.</p>
 
+<p>Once you experience checked coded, there&#39;s no turning back!</p>
+
 <h2 id="toc_1">Part I - Type system changes</h2>
 
 <h3 id="toc_2">New Type qualifiers</h3>
@@ -492,5 +494,26 @@ char * owner strdup( const char *str1 );
 </code></pre>
 
 <p>Then include this header on the top of your files and just run cake.</p>
+
+<p>The way I am thinking is..</p>
+
+<p>I have variables, for instance  </p>
+
+<p>int a = 1;<br>
+int b = 2;
+int c = 3;  </p>
+
+<p>if (condition) {<br>
+  a = 4;<br>
+  b = 5;<br>
+}
+else {<br>
+  a = 6;<br>
+  c = 7;<br>
+}    </p>
+
+<p>// a is 4 or 6<br>
+// b is 2 or 5<br>
+// c is 3 or 7  </p>
 </body></html>  msvc
    

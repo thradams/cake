@@ -176,7 +176,7 @@ void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void*))
     }
 }
 
-void owner_hashmap_destroy(struct owner_hash_map* map, void (*pf)(void*))
+void owner_hashmap_destroy(implicit struct owner_hash_map* obj_owner map, void (*pf)(void*))
 {
     owner_hashmap_remove_all(map, pf );
 }

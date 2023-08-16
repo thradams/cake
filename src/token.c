@@ -71,11 +71,11 @@ void token_range_add_flag(struct token* first, struct token* last, enum token_fl
     }
 }
 
-struct token* token_list_pop_back(struct token_list* list)
+struct token* owner token_list_pop_back(struct token_list* list)
 {
     if (list->head == NULL)
         return NULL;
-
+    
     struct token* p = list->tail;
     if (list->head == list->tail)
     {
@@ -93,7 +93,7 @@ struct token* token_list_pop_back(struct token_list* list)
     }
     p->next = NULL;
     p->prev = NULL;
-    return p;
+    return (struct token* owner) p;
 }
 
 void token_list_pop_front(struct token_list* list)
@@ -302,25 +302,20 @@ struct token* token_list_clone_and_add(struct token_list* list, struct token* pn
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source)
 {
-    //print_list(source);
-    //printf("->");
-    //print_list(dest);
     if (source->head == NULL)
     {
         return;
     }
     if (dest->head == NULL)
     {
-        dest->head = source->head;
+        dest->head = move source->head;
         dest->tail = source->tail;
     }
     else
     {
-        //dest->tail = source->head;
-        source->tail->next = dest->head;
-        dest->head = source->head;
+        source->tail->next = move dest->head;
+        dest->head = move source->head;
     }
-    //print_list(dest);
 }
 
 void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source)
@@ -331,12 +326,12 @@ void token_list_append_list(struct token_list* dest, struct token_list* obj_owne
     }
     if (dest->head == NULL)
     {
-        dest->head = source->head;
+        dest->head = move source->head;
         dest->tail = source->tail;
     }
     else
     {
-        dest->tail->next = source->head;
+        dest->tail->next = move  source->head;
         source->head->prev = dest->tail;
         dest->tail = source->tail;
     }

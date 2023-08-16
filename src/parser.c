@@ -34,20 +34,45 @@
 
 
 
-const char* object_state_to_string(enum object_state e)
+
+void object_state_to_string(enum object_state e)
 {
-    switch (e)
+    bool  first = true;
+
+    printf("(");
+    if (e & OBJECT_STATE_UNINITIALIZED)
     {
-        case OBJECT_STATE_STRUCT: return "";
-        case OBJECT_STATE_UNINITIALIZED: return "UNINITIALIZED";
-        case OBJECT_STATE_ZERO: return "ZERO";
-        case OBJECT_STATE_UNKNOWN: return "UNKNOWN";
-        case OBJECT_STATE_NOT_ZERO: return "NOT_ZERO";
-        case OBJECT_STATE_MOVED: return "MOVED";
-        case OBJECT_STATE_ZERO_OR_MOVED: return "OBJECT_STATE_NULL_OR_MOVED";
+        if (first) first = false; else printf(" ");
+        printf("uninitialized");
     }
-    return "";
+
+
+    if (e & OBJECT_STATE_NOT_NULL && 
+        e & OBJECT_STATE_NULL)
+    {
+        if (first) first = false; else printf(" ");
+        printf("maybe-null");
+    }
+    else if (e & OBJECT_STATE_NOT_NULL)
+    {
+        if (first) first = false; else printf(" ");
+        printf("not-null");
+    }
+    else if (e & OBJECT_STATE_NULL)
+    {
+        if (first) first = false; else printf(" ");
+        printf("null");
+    }
+
+    if (e & OBJECT_STATE_MOVED)
+    {
+        if (first) first = false; else printf(" ");
+        printf("moved");
+    }
+
+    printf(")");
 }
+
 struct defer_statement* owner defer_statement(struct parser_ctx* ctx);
 
 
@@ -233,6 +258,9 @@ void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx)
 
 void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
+    if (p_token->level > 0)
+        return;
+
     ctx->p_report->error_count++;
     ctx->p_report->last_error = error;
     char buffer[200] = {0};
@@ -636,7 +664,8 @@ bool first_of_type_qualifier_token(struct token* p_token)
         /*extensions*/
         p_token->type == TK_KEYWORD__OWNER ||
         p_token->type == TK_KEYWORD__OBJ_OWNER ||
-        p_token->type == TK_KEYWORD__VIEW;
+        p_token->type == TK_KEYWORD__VIEW ||
+        p_token->type == TK_KEYWORD__OPT;
 
     //__fastcall
     //__stdcall
@@ -1061,6 +1090,7 @@ enum token_type is_keyword(const char* text)
         case 'o':
             if (strcmp("owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
             else if (strcmp("obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            else if (strcmp("opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
             break;
 
         case 'l':
@@ -1155,6 +1185,7 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
 
             else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
             else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
             else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
             else if (strcmp("_Move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
@@ -1575,6 +1606,13 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
         {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
+        }
+        
+        if (ctx->current && strcmp(ctx->current->lexeme, "nullchecks") == 0)
+        {
+            ctx->current = ctx->current->next;
+            pragma_skip_blanks(ctx);
+            ctx->options.null_checks = true;
         }
 
         if (ctx->current && strcmp(ctx->current->lexeme, "diagnostic") == 0)
@@ -3568,6 +3606,11 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
         case TK_KEYWORD__OWNER:
             p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
             break;
+
+        case TK_KEYWORD__OPT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
+        break;
+
         case TK_KEYWORD__OBJ_OWNER:
             p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
             break;
@@ -3898,7 +3941,7 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
             if (p_pointer == NULL) throw;
             p = move p_pointer;
             parser_match(ctx);
-
+            
             p_pointer->attribute_specifier_sequence_opt =
                 move attribute_specifier_sequence_opt(ctx);
 
@@ -3906,6 +3949,7 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
             {
                 p_pointer->type_qualifier_list_opt = move type_qualifier_list(ctx);
             }
+
 
             while (ctx->current != NULL && ctx->current->type == '*')
             {
@@ -5690,11 +5734,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR \
+#define STR_C \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STR_E \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 
@@ -5926,6 +5970,8 @@ int compile_one_file(const char* file_name,
                 }
 
                 visit_ctx.target = options->target;
+                visit_ctx.hide_non_used_declarations = options->direct_compilation;
+
                 visit_ctx.ast = ast;
                 visit(&visit_ctx);
 
@@ -5945,7 +5991,9 @@ int compile_one_file(const char* file_name,
                 FILE* out = fopen(out_file_name, "w");
                 if (out)
                 {
-                    fprintf(out, "%s", s);
+                    if (s)
+                        fprintf(out, "%s", s);
+
                     fclose(out);
                     //printf("%-30s ", path);
                 }
@@ -6232,6 +6280,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
         }
 
         visit_ctx.target = options.target;
+        visit_ctx.hide_non_used_declarations = options.direct_compilation;
         prectx.options = options;
         add_standard_macros(&prectx);
 
@@ -7796,7 +7845,7 @@ void obj_owner_cannot_be_used_in_non_pointer()
 
 }
 
-void null_ptr_at_end_of_scope()
+void ownership_flow_test_null_ptr_at_end_of_scope()
 {
     const char* source
         =
@@ -7810,7 +7859,7 @@ void null_ptr_at_end_of_scope()
     assert(report.error_count == 0);
 }
 
-void pointer_must_be_deleted()
+void ownership_flow_test_pointer_must_be_deleted()
 {
     const char* source
         =
@@ -7828,7 +7877,7 @@ void pointer_must_be_deleted()
     assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
 }
 
-void basic_pointer_check()
+void ownership_flow_test_basic_pointer_check()
 {
     const char* source
         =
@@ -7851,7 +7900,7 @@ void basic_pointer_check()
 }
 
 
-void struct_member_missing_free()
+void ownership_flow_test_struct_member_missing_free()
 {
     const char* source
         =
@@ -7878,7 +7927,7 @@ void struct_member_missing_free()
 }
 
 
-void struct_member_free()
+void ownership_flow_test_struct_member_free()
 {
     const char* source
         =
@@ -7904,7 +7953,7 @@ void struct_member_free()
 
 }
 
-void move_inside_if()
+void ownership_flow_test_move_inside_if()
 {
     const char* source
         =
@@ -7925,7 +7974,7 @@ void move_inside_if()
     assert(report.error_count == 1);
 }
 
-void goto_same_scope()
+void ownership_flow_test_goto_same_scope()
 {
     const char* source
         =
@@ -7948,7 +7997,7 @@ void goto_same_scope()
     assert(report.error_count == 0);
 }
 
-void jump_labels()
+void ownership_flow_test_jump_labels()
 {
     const char* source
         =
@@ -7973,7 +8022,7 @@ void jump_labels()
     assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
 }
 
-void owner_if_pattern_1()
+void ownership_flow_test_owner_if_pattern_1()
 {
     const char* source
         =
@@ -7996,7 +8045,7 @@ void owner_if_pattern_1()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 0);
 }
-void owner_if_pattern_2()
+void ownership_flow_test_owner_if_pattern_2()
 {
     const char* source
         =
@@ -8020,7 +8069,7 @@ void owner_if_pattern_2()
     assert(report.error_count == 0);
 }
 
-void missing_destructor()
+void ownership_flow_test_missing_destructor()
 {
     const char* source
         =
@@ -8039,7 +8088,7 @@ void missing_destructor()
     assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
 
 }
-void no_warning()
+void ownership_flow_test_no_warning()
 {
     const char* source
         =
@@ -8061,7 +8110,7 @@ void no_warning()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
-void moved_if_not_null()
+void ownership_flow_test_moved_if_not_null()
 {
     const char* source
         =
@@ -8087,7 +8136,7 @@ void moved_if_not_null()
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
-void struct_moved()
+void ownership_flow_test_struct_moved()
 {
     const char* source
         =
@@ -8114,7 +8163,7 @@ void struct_moved()
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
-void scope_error()
+void ownership_flow_test_scope_error()
 {
     const char* source
         =
@@ -8145,7 +8194,7 @@ void scope_error()
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
-void void_destroy()
+void ownership_flow_test_void_destroy()
 {
     /*TODO moving to void* requires object is moved before*/
     const char* source
@@ -8169,7 +8218,7 @@ void void_destroy()
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
-void void_destroy_ok()
+void ownership_flow_test_void_destroy_ok()
 {
     /*TODO moving to void* requires object is moved before*/
     const char* source
@@ -8194,7 +8243,7 @@ void void_destroy_ok()
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
-void moving_owner_pointer()
+void ownership_flow_test_moving_owner_pointer()
 {
     const char* source
         =
@@ -8225,7 +8274,7 @@ void moving_owner_pointer()
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
-void moving_owner_pointer_missing()
+void ownership_flow_test_moving_owner_pointer_missing()
 {
     const char* source
         =
@@ -8256,7 +8305,7 @@ void moving_owner_pointer_missing()
     assert(report.error_count == 1 && report.warnings_count == 0);
 }
 
-void error()
+void ownership_flow_test_error()
 {
     const char* source
         =
@@ -8279,7 +8328,7 @@ void error()
     assert(report.error_count == 1 && report.warnings_count == 0);
 }
 
-void setting_owner_pointer_to_null()
+void ownership_flow_test_setting_owner_pointer_to_null()
 {
     const char* source
         =
@@ -8301,7 +8350,7 @@ void setting_owner_pointer_to_null()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 && report.warnings_count == 0);
 }
-void while_not_null()
+void ownership_flow_test_while_not_null()
 {
     const char* source
         =
@@ -8330,34 +8379,44 @@ void while_not_null()
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
-void if_state()
+void ownership_flow_test_if_state()
 {
     const char* source
         =
         "\n"
         "int* _Owner make();\n"
+        "void free(implicit int * owner p);\n"
+        "\n"
         "\n"
         "void f(int condition)\n"
         "{\n"
         "  int * _Owner p = 0;\n"
-        "  static_state(p, \"zero\");\n"
+        "  static_state(p, \"null\");\n"
         "  \n"
         "  if (condition)\n"
         "  {\n"
-        "       static_state(p, \"zero\");   \n"
+        "       static_state(p, \"null\");   \n"
         "       p = move make();\n"
-        "       static_state(p, \"unknown\");\n"
+        "       static_state(p, \"maybe-null\");\n"
         "  }\n"
         "  else\n"
         "  {\n"
-        "    static_state(p, \"zero\");\n"
+        "    static_state(p, \"null\");\n"
         "  }\n"
+        "  free(p);\n"
         "}\n"
+        "\n"
         "";
-    assert(compile_without_errors(source));
+
+
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 }
 
-void error_owner()
+void ownership_types_test_error_owner()
 {
     const char* source
         =
@@ -8366,11 +8425,36 @@ void error_owner()
         "   void * _Owner p = f();   \n"
         "}\n"
         ;
+    struct options options = {.input = LANGUAGE_C99};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.warnings_count == 0);
+}
+
+void ownership_flow_test_if_variant()
+{
+    const char* source
+        =
+        "\n"
+        "void * owner f();\n"
+        "void free(implicit void *owner p);\n"
+        "int main() {\n"
+        "   void * _Owner p = f();   \n"
+        "   if (p)\n"
+        "   {\n"
+        "       free(p);\n"
+        "       p = f();   \n"
+        "   }\n"
+        "}\n"
+        "\n"
+        "";
+
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    assert(report.error_count == 1 && report.warnings_count == 0);
 }
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////

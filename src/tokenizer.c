@@ -109,9 +109,24 @@ static void delete_macro_void(void* p)
     delete_macro(p_macro);
 }
 
+void include_dir_list_destroy(implicit struct include_dir_list * obj_owner list)
+{
+    struct include_dir* owner p = move list->head;
+    while (p)
+    {
+        struct include_dir* owner next = move p->next;
+        free(p->path);
+        free(p);
+        p = move next;
+    }
+}
+
 void preprocessor_ctx_destroy(implicit struct preprocessor_ctx* obj_owner p)
 {
     owner_hashmap_destroy(&p->macros, delete_macro_void);
+    include_dir_list_destroy(&p->include_dir);
+    hashmap_destroy(&p->pragma_once_map);
+    token_list_destroy(&p->input_list);
 }
 
 struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
@@ -236,6 +251,7 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
     }
     else
     {
+        assert(list->tail->next == NULL);
         list->tail->next = move p_new_include_dir;
         list->tail = p_new_include_dir;
     }
@@ -297,7 +313,7 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
     }
     macro->name = move strdup(name);
     owner_hashmap_set(&ctx->macros, name, move macro, 0);
-    
+
 }
 
 
@@ -305,8 +321,9 @@ struct macro_argument
 {
     const char* owner name;
     struct token_list tokens;
-    struct macro_argument* owner next;
+    struct macro_argument* owner next; /*linked list*/
 };
+
 
 
 struct token_list copy_replacement_list(struct token_list* list);
@@ -384,6 +401,20 @@ struct macro_argument_list
     struct macro_argument* tail;
 };
 
+void macro_argument_list_destroy(struct macro_argument_list* list)
+{
+   token_list_destroy(&list->tokens);
+   struct macro_argument* owner p = move list->head;
+   while(p)
+   {
+       struct macro_argument* owner next = move p->next;
+       free(p->name);
+       token_list_destroy(&p->tokens);
+       free(p);
+       p = move next;
+   }
+}
+
 void print_macro_arguments(struct macro_argument_list* arguments)
 {
     struct macro_argument* p_argument = arguments->head;
@@ -458,12 +489,12 @@ void delete_macro(implicit struct macro* owner macro)
         while (p)
         {
             struct macro_parameter* owner p_next = move p->next;
-            free((void * owner)p->name);
+            free((void* owner)p->name);
             free(p);
             p = p_next;
         }
 
-        free((void * owner) macro->name);
+        free((void* owner) macro->name);
         free(macro);
     }
 }
@@ -1153,7 +1184,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         {
             preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
             throw;
-    }
+        }
 
         const char* pch = textfile;
 #endif
@@ -1213,7 +1244,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 #ifdef MOCKFILES   
         free(textfile);
 #endif
-}
+    }
     catch
     {
     }
@@ -1283,10 +1314,10 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         struct token* owner p_first = NULL;
         if (filename_opt != NULL)
         {
-            const char* bof = "";
-            p_first = move new_token(bof, bof + 1, TK_BEGIN_OF_FILE);
+            const char * begin = filename_opt;
+            const char * end = filename_opt + strlen(filename_opt);
+            p_first = move new_token(begin, end, TK_BEGIN_OF_FILE);
             p_first->level = level;
-            p_first->lexeme = move strdup(filename_opt);
             token_list_add(&list, move p_first);
         }
 
@@ -2884,7 +2915,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     }
 
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
-
+                }
+                else if (strcmp(input_list->head->lexeme, "nullchecks") == 0)
+                {
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
+                    skip_blanks_level(ctx, &r, input_list, level);
+                   ctx->options.null_checks = true;
                 }
 
                 if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
@@ -3685,6 +3721,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
           pp-tokens_opt new-line
     */
     struct token_list r = {0};
+    
     try
     {
         while (input_list->head &&
@@ -3937,7 +3974,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
     catch
     {
     }
-
+    
     return r;
 }
 
@@ -4070,7 +4107,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     snprintf(datastr, sizeof datastr, "#define __DATE__ \"%s %2d %d\"\n", mon[tm->tm_mon], tm->tm_mday, tm->tm_year + 1900);
     struct token_list l1 = tokenizer(&tctx, datastr, "__DATE__ macro inclusion", 0, TK_FLAG_NONE);
     struct token_list tl1 = preprocessor(ctx, &l1, 0);
-    
+
     token_list_destroy(&tl1);
     token_list_destroy(&l1);
 
@@ -4078,7 +4115,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
     snprintf(timestr, sizeof timestr, "#define __TIME__ \"%02d:%02d:%02d\"\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
     struct token_list l2 = tokenizer(&tctx, timestr, "__TIME__ macro inclusion", 0, TK_FLAG_NONE);
     struct token_list tl2 = preprocessor(ctx, &l2, 0);
-    
+
     token_list_destroy(&tl2);
     token_list_destroy(&l2);
 
@@ -4377,6 +4414,18 @@ const char* owner get_code_as_we_see(struct token_list* list, bool remove_commen
 const char* owner get_code_as_compiler_see(struct token_list* list)
 {
     struct osstream ss = {0};
+
+
+    const char* str
+        =
+        "/*\n"
+        "  This output is intended for direct compilation.\n"
+        "  Non used declarations may be removed.\n"
+        "*/\n"
+        "\n"
+        "";
+    ss_fprintf(&ss, "%s", str);
+
     struct token* current = list->head;
     while (current != list->tail->next)
     {
@@ -5700,6 +5749,6 @@ int test_line_continuation()
 
 
     return 0;
-    }
+}
 
 #endif

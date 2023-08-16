@@ -60,13 +60,14 @@
     <button onclick="OnCompileButton()">Compile To</button>
 
 
-    <select id="outtype" style="margin-left:auto;margin-right: 10px">
+    <select id="outtype" style="margin-left:auto;margin-right: 10px">        
         <option value="-1">C89 (ANSI C)</option>
         <option value="1">C99</option>
         <option value="2">C11</option>
         <option value="3">C23</option>
         <option value="4">C23 + extensions</option>
-        <option value="0">Preprocess only</option>
+        <option value="0">Preprocess only</option>        
+        <!--<option value="-2">C89 -direct-compilation</option>-->
     </select>
 
     <label>Options</label><input type="text" id="options" />
@@ -246,6 +247,8 @@
 
             if (outputLanguage == 0)
                 options += " -E ";
+            //else if (outputLanguage == -2)
+            //    options += " -target=c89 -direct-compilation ";
             else if (outputLanguage == -1)
                 options += " -target=c89 ";
             else if (outputLanguage == 1)

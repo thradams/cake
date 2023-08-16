@@ -90,7 +90,9 @@ enum type_qualifier_flags
     /*ownership extensions*/
     TYPE_QUALIFIER_OWNER = 1 << 4,    
     TYPE_QUALIFIER_OBJ_OWNER = 1 << 5,   
-    TYPE_QUALIFIER_VIEW = 1 << 6
+    TYPE_QUALIFIER_VIEW = 1 << 6,
+    TYPE_QUALIFIER_OPT = 1 << 7,
+    TYPE_QUALIFIER_NOT_NULL = 1 << 8,
 };
 
 enum storage_class_specifier_flags

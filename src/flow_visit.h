@@ -17,8 +17,9 @@ struct flow_visit_ctx
     struct flow_defer_scope* owner tail_block;
     struct type* view p_return_type;
     bool has_jumps;    
+    struct jump_statement* view p_last_jump_statement;
 };
 
 
-//void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
+
 void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_declaration);

@@ -12,6 +12,10 @@ The first implementation focuses on introducing the concept of an owner qualifie
 The second implementation revolves around flow analysis, ensuring that owned resources are appropriately released when necessary.   
   
 By implementing the static ownership check, and using the feature on it's own source, Cake aims to explore and evaluate the effectiveness of this feature.
+
+  
+Once you experience checked coded, there's no turning back!
+
   
 ## Part I - Type system changes  
 
@@ -478,3 +482,27 @@ char * owner strdup( const char *str1 );
 Then include this header on the top of your files and just run cake.
 
 
+
+
+The way I am thinking is..
+
+I have variables, for instance  
+
+int a = 1;  
+int b = 2;
+int c = 3;  
+
+if (condition) {  
+  a = 4;    
+  b = 5;  
+}
+else {    
+  a = 6;  
+  c = 7;  
+}    
+  
+// a is 4 or 6  
+// b is 2 or 5  
+// c is 3 or 7  
+
+  

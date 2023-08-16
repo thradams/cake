@@ -370,7 +370,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
     keywords: words(cKeywords),
       types: words(cTypes + "inline throw defer bool _Complex _Bool float_t double_t intptr_t intmax_t " +
                  "int8_t int16_t int32_t int64_t uintptr_t uintmax_t uint8_t uint16_t " +
-                 "uint32_t uint64_t restrict implicit view owner obj_owner move _Implicit _View _Owner _Move _Obj_owner  _Noreturn _Generic static_debug static_state"),
+                 "uint32_t uint64_t restrict opt implicit view owner obj_owner move _Implicit _View _Owner _Move _Obj_owner  _Noreturn _Generic static_debug static_state"),
     blockKeywords: words("try case do else for if switch while struct repeat"),
     defKeywords: words("struct"),
     typeFirstDefinitions: true,
