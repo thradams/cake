@@ -26426,10 +26426,11 @@ void ownership_flow_test_error()
         "\n"
         "void * _Owner f1(){\n"
         "  struct X * _Owner p = malloc(sizeof (struct X));\n"
-        "  p->name = malloc(1);"
+        "  p->name = move malloc(1);  \n"
         "  return p;\n"
         "}\n"
         "";
+
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
@@ -26543,19 +26544,18 @@ void ownership_flow_test_if_variant()
 {
     const char* source
         =
-        "\n"
         "void * owner f();\n"
         "void free(implicit void *owner p);\n"
         "int main() {\n"
-        "   void * _Owner p = f();   \n"
+        "   void * _Owner p = move f();   \n"
         "   if (p)\n"
         "   {\n"
         "       free(p);\n"
-        "       p = f();   \n"
+        "       p = move f();   \n"
         "   }\n"
         "}\n"
-        "\n"
         "";
+
 
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};

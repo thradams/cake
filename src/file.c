@@ -1,21 +1,12 @@
-void * owner malloc(int sz);
-void free(explicit void * owner opt p);
 
+void* _Owner malloc(int size);
 
-void f(int i) {   
-    void * owner p = 0;
-    if (i)
-    {
-        if (i)
-        {
-            p = move malloc(1);
-        }
-        else
-        {
-            p = move malloc(1);
-        }     
-    }
-    
-    free(p);
+struct X {    
+    char * _Owner name;
+};
+
+void * _Owner f1(){
+  struct X * _Owner p = malloc(sizeof (struct X));
+  p->name = move malloc(1);  
+  return p;
 }
-
