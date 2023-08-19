@@ -390,7 +390,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
     if (w != W_NONE)
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
-}
+    }
     else
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s\n" RESET, buffer);
@@ -533,7 +533,7 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
         fprintf(ctx->sarif_file, "   }\n");
     }
 
-    }
+}
 
 
 void print_scope(struct scope_list* e)
@@ -2116,9 +2116,9 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
         if (!flow_analysis)
         {
             /*let's disable ownership type error*/
-           ctx->options.disable_ownership_errors = true;
+            ctx->options.disable_ownership_errors = true;
         }
-        
+
         p_declaration->function_body = move function_body(ctx);
 
         ctx->options.disable_ownership_errors = disable_ownership_errors; /*restore*/
@@ -8508,7 +8508,7 @@ void ownership_flow_test_two_ifs()
     const char* source
         =
         "void * owner malloc(int sz);\n"
-        "void free(void * owner opt p);\n"
+        "void free(implicit void * owner opt p);\n"
         "\n"
         "\n"
         "void f(int i) {   \n"
@@ -8517,21 +8517,23 @@ void ownership_flow_test_two_ifs()
         "    {\n"
         "        if (i)\n"
         "        {\n"
-        "            p = malloc(1);\n"
+        "            p = move malloc(1);\n"
         "        }\n"
         "        else\n"
         "        {\n"
-        "            p = malloc(1);\n"
+        "            p = move malloc(1);\n"
         "        }     \n"
         "    }\n"
         "    \n"
         "    free(p);\n"
         "}\n"
+        "\n"
         "";
-     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count ==  0 && report.warnings_count == 0);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////

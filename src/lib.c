@@ -18472,7 +18472,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
     if (w != W_NONE)
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
-}
+    }
     else
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s\n" RESET, buffer);
@@ -18615,7 +18615,7 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
         fprintf(ctx->sarif_file, "   }\n");
     }
 
-    }
+}
 
 
 void print_scope(struct scope_list* e)
@@ -20198,9 +20198,9 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
         if (!flow_analysis)
         {
             /*let's disable ownership type error*/
-           ctx->options.disable_ownership_errors = true;
+            ctx->options.disable_ownership_errors = true;
         }
-        
+
         p_declaration->function_body = move function_body(ctx);
 
         ctx->options.disable_ownership_errors = disable_ownership_errors; /*restore*/
@@ -26589,7 +26589,7 @@ void ownership_flow_test_two_ifs()
     const char* source
         =
         "void * owner malloc(int sz);\n"
-        "void free(void * owner opt p);\n"
+        "void free(implicit void * owner opt p);\n"
         "\n"
         "\n"
         "void f(int i) {   \n"
@@ -26598,21 +26598,23 @@ void ownership_flow_test_two_ifs()
         "    {\n"
         "        if (i)\n"
         "        {\n"
-        "            p = malloc(1);\n"
+        "            p = move malloc(1);\n"
         "        }\n"
         "        else\n"
         "        {\n"
-        "            p = malloc(1);\n"
+        "            p = move malloc(1);\n"
         "        }     \n"
         "    }\n"
         "    \n"
         "    free(p);\n"
         "}\n"
+        "\n"
         "";
-     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count ==  0 && report.warnings_count == 0);
+    assert(report.error_count == 0 && report.warnings_count == 0);
 
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29898,23 +29900,43 @@ static int push_copy_of_all_objects(struct flow_visit_ctx* ctx, struct flow_defe
 }
 
 struct visit_objects {
-    struct flow_defer_scope* deferchild;
+    struct flow_defer_scope* current;
+    struct flow_defer_scope* next_child;
 };
 
 struct object* visit_objects_next(struct visit_objects* visit_objects)
 {
     struct object* p = NULL;
-    while (visit_objects->deferchild && visit_objects->deferchild->declarator == NULL)
+    while (visit_objects->next_child && visit_objects->next_child->declarator == NULL)
     {
-        visit_objects->deferchild = visit_objects->deferchild->previous;
+        visit_objects->next_child = visit_objects->next_child->previous;
     }
 
-    if (visit_objects->deferchild && visit_objects->deferchild->declarator)
+    if (visit_objects->next_child && visit_objects->next_child->declarator)
     {
-        struct declarator* p_declarator = visit_objects->deferchild->declarator;
+        struct declarator* p_declarator = visit_objects->next_child->declarator;
         p = &p_declarator->object;
-        visit_objects->deferchild = visit_objects->deferchild->previous;
+        visit_objects->next_child = visit_objects->next_child->previous;
     }
+
+    if (visit_objects->next_child == NULL)
+    {
+        if (visit_objects->current)
+        {
+            visit_objects->current = visit_objects->current->previous;
+            if (visit_objects->current)
+            {
+                visit_objects->next_child = visit_objects->current->last_child;
+                return visit_objects_next(visit_objects);
+            }
+        }
+        else
+        {
+            visit_objects->current = NULL;
+            visit_objects->next_child = NULL;
+        }
+    }
+
     return p;
 }
 
@@ -30324,7 +30346,9 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         /*
           lets copy the state before if
         */
-        struct visit_objects v1 = {.deferchild = ctx->tail_block->last_child};
+        struct visit_objects v1 = {.current = ctx->tail_block,
+                                   .next_child = ctx->tail_block->last_child};
+
         struct object* p_object = visit_objects_next(&v1);
         while (p_object)
         {
@@ -30370,7 +30394,10 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
     /*let's make a copy of the state we left true branch*/
     int true_branch_state_index = 0;
-    struct visit_objects v1 = {.deferchild = ctx->tail_block->last_child};
+
+    struct visit_objects v1 = {.current = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child};
+
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
     {
@@ -30461,7 +30488,9 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
             }
         }
     }
-    struct visit_objects v2 = {.deferchild = ctx->tail_block->last_child};
+    struct visit_objects v2 = {.current = ctx->tail_block,
+                                       .next_child = ctx->tail_block->last_child};
+
     p_object = visit_objects_next(&v2);
     while (p_object)
     {
