@@ -17,7 +17,7 @@ void free(_Implicit void* _Owner ptr);
 [[nodiscard]] void* _Owner realloc(void* _Owner ptr, int size);
 [[nodiscard]] char * _Owner strdup( const char *src );
 char * _Owner strdup( const char *str1 );
-
+#define unchecked "unchecked"
 #else
 #define implicit
 #define owner
@@ -25,4 +25,6 @@ char * _Owner strdup( const char *str1 );
 #define move
 #define view
 #define static_debug(x)
+#define unchecked
 #endif
+

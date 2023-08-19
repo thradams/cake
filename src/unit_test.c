@@ -158,6 +158,8 @@ void ownership_flow_test_while_not_null(void);
 void ownership_flow_test_if_state(void);
 void ownership_types_test_error_owner(void);
 void ownership_flow_test_if_variant(void);
+void check_leaks_on_else_block(void);
+void ownership_flow_test_two_ifs(void);
 
 /*end of forward declarations*/
 
@@ -309,6 +311,8 @@ g_unit_test_success_count = 0;
     ownership_flow_test_if_state();
     ownership_types_test_error_owner();
     ownership_flow_test_if_variant();
+    check_leaks_on_else_block();
+    ownership_flow_test_two_ifs();
 return g_unit_test_error_count;
 
 }

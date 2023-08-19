@@ -10,9 +10,9 @@ struct defer_scope
     struct iteration_statement* p_iteration_statement; //for do while
     struct statement* p_statement; //
     struct compound_statement* p_function_body;
-    struct defer_scope* lastchild;
+    struct defer_scope* owner lastchild;
 
-    struct defer_scope* previous;
+    struct defer_scope* owner previous;
 };
 
 struct visit_ctx
@@ -37,7 +37,7 @@ struct visit_ctx
     struct token_list insert_before_block_item;
     view struct ast ast;
     enum language_version target;
-    struct defer_scope* tail_block;
+    struct defer_scope* owner tail_block;
 };
 
 void visit(struct visit_ctx* ctx);

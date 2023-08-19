@@ -33,8 +33,7 @@ enum warning {
     W_DISCARDED_QUALIFIERS = 1 << 15,
     W_DECLARATOR_STATE = 1 << 16,
     W_UNINITIALZED  = 1 << 17,
-    W_NON_OWNER_ASSIGN = 1 << 18,
-    W_EXPLICIT_MOVE = 1 << 19,    
+    
     W_RETURN_LOCAL_ADDR = 1 << 20,
     
 };
@@ -85,9 +84,7 @@ enum error
     C_MISSING_ENUM_TAG_NAME,
     C_MULTIPLE_DEFINITION_ENUM,
     C_STATIC_ASSERT_FAILED,
-    C_ATTR_UNBALANCED,
-    C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
-    C_FREE_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+    C_ATTR_UNBALANCED,    
     C_UNEXPECTED_END_OF_FILE,
     C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK,
     C_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
@@ -103,13 +100,22 @@ enum error
     C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
     C_MACRO_INVALID_ARG,
     C_MISSING_MACRO_ARGUMENT,
-    C_NON_OWNER_MOVE,
-    C_MISSING_OWNER,
-    C_NOT_OWNER,
-    C_USING_TEMPORARY_OWNER,
-    C_MOVE_ASSIGNMENT_OF_NON_OWNER,
     C_ADDRESS_OF_REGISTER,
+    C_OWNERSHIP_NON_OWNER_MOVE,
+    
+    /*ownership type system errors*/
+    C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+    C_OWNERSHIP_NOT_OWNER,
+    C_OWNERSHIP_USING_TEMPORARY_OWNER,
+    C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+    C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
+    C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
+    
+    /*flow analysis errors*/
+    C_OWNERSHIP_FLOW_MISSING_DTOR,    
 };
+
+bool is_ownership_error(enum error e);
 
 enum style
 {
@@ -175,6 +181,7 @@ struct options
     */
     bool preprocess_only;
 
+    bool disable_ownership_errors;
     /*
       -rm
       -direct-compilation

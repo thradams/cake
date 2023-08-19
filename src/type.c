@@ -723,7 +723,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             }
             else
             {
-                compiler_set_warning_with_token(W_EXPLICIT_MOVE, ctx,
+                compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED, ctx,
                     current_argument->expression->first_token,
                     "parameter %d requires explicit move", param_num);
             }
@@ -734,7 +734,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 if (!(current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
                 {
 
-                    compiler_set_error_with_token(C_NOT_OWNER, ctx,
+                    compiler_set_error_with_token(C_OWNERSHIP_NOT_OWNER, ctx,
                         current_argument->expression->first_token,
                         "parameter %d requires a owner type",
                         param_num);
@@ -749,7 +749,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 if (current_argument->expression->type.next &&
                     !(current_argument->expression->type.next->type_qualifier_flags & TYPE_QUALIFIER_OWNER))
                 {
-                    compiler_set_error_with_token(C_NOT_OWNER, ctx,
+                    compiler_set_error_with_token(C_OWNERSHIP_NOT_OWNER, ctx,
                         current_argument->expression->first_token,
                         "parameter %d requires a pointer to owner object",
                         param_num);
@@ -757,7 +757,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             }
             else
             {
-                compiler_set_error_with_token(C_NOT_OWNER, ctx,
+                compiler_set_error_with_token(C_OWNERSHIP_NOT_OWNER, ctx,
                     current_argument->expression->first_token,
                     "parameter %d requires a pointer to owner type",
                     param_num);
@@ -945,7 +945,7 @@ continuation:
                 {
                     if (!(paramer_type->attributes_flags & CAKE_ATTRIBUTE_IMPLICT))
                     {
-                        compiler_set_warning_with_token(W_EXPLICIT_MOVE,
+                        compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
                             ctx,
                             current_argument->expression->first_token,
                             "explicit move required");
@@ -959,7 +959,7 @@ continuation:
             //owner = non-owner
             if (!is_null_pointer_constant)
             {
-                compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token,
                     "passing a view argument to a owner parameter");
@@ -975,7 +975,7 @@ continuation:
             if (paramer_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
             {
                 //non owner = (owner) f()
-                compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                     ctx,
                     current_argument->expression->first_token,
                     "cannot move a temporary owner to non-owner");
@@ -985,7 +985,7 @@ continuation:
             if (explicit_move)
             {
                 //non owner = _Move owner ERROR
-                compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                     ctx,
                     current_argument->expression->first_token,
                     "trying to move to a non owner");
@@ -998,7 +998,7 @@ continuation:
             {
                 if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
                 {
-                    compiler_set_error_with_token(C_USING_TEMPORARY_OWNER,
+                    compiler_set_error_with_token(C_OWNERSHIP_USING_TEMPORARY_OWNER,
                         ctx,
                         current_argument->expression->first_token,
                         "passing a temporary owner to a view");
@@ -1016,7 +1016,7 @@ continuation:
             //p = f();
           //  if (!(t1.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
             //{
-              //  compiler_set_error_with_token(C_MISSING_OWNER, ctx, right->first_token, "left type must be owner qualified ");
+              //  compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
             //}
     //    }
     //}
@@ -1061,7 +1061,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!is_null_pointer_constant)
         {
-            compiler_set_warning_with_token(W_NON_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
+            compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
             goto continuation;
         }
     }
@@ -1227,7 +1227,7 @@ continuation:
                 {
                     if (!explicit_move)
                     {
-                        compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                        compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                             ctx,
                             right->first_token,
                             "external or parameter requires explicit move");
@@ -1241,7 +1241,7 @@ continuation:
                 // * ok if external or param
                 if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
                 {
-                    compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                         ctx,
                         right->first_token,
                         "returning a owner variable to a non owner result");
@@ -1261,7 +1261,7 @@ continuation:
                 else
                 {
                     //returning a non owning variable to owner
-                    compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                         ctx,
                         right->first_token,
                         "returning a non owner variable to a owner");
@@ -1283,7 +1283,7 @@ continuation:
                 //owner = owner
                 if (!explicit_move)
                 {
-                    compiler_set_warning_with_token(W_EXPLICIT_MOVE,
+                    compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
                         ctx,
                         right->first_token,
                         "explicit move required");
@@ -1294,7 +1294,7 @@ continuation:
                 //owner = non-owner
                 if (!is_null_pointer_constant)
                 {
-                    compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                         ctx,
                         right->first_token,
                         "move assignment needs a owner type on right side");
@@ -1310,7 +1310,7 @@ continuation:
                 if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
                 {
                     //non owner = (owner) f()
-                    compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                         ctx,
                         right->first_token,
                         "cannot move a temporary owner to non-owner");
@@ -1320,7 +1320,7 @@ continuation:
                 if (explicit_move)
                 {
                     //non owner = _Move owner ERROR
-                    compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                         ctx,
                         right->first_token,
                         "trying to move to a non owner");
@@ -1333,7 +1333,7 @@ continuation:
                 if (explicit_move)
                 {
                     //non owner = _Move non owner ERROR
-                    compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                         ctx,
                         right->first_token,
                         "try to move to a non owner");
@@ -1348,7 +1348,7 @@ continuation:
             //p = f();
             if (!(left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER))
             {
-                compiler_set_error_with_token(C_MISSING_OWNER, ctx, right->first_token, "left type must be owner qualified ");
+                compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
             }
         }
     }

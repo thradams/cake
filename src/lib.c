@@ -20,7 +20,7 @@ void free(_Implicit void* _Owner ptr);
 [[nodiscard]] void* _Owner realloc(void* _Owner ptr, int size);
 [[nodiscard]] char * _Owner strdup( const char *src );
 char * _Owner strdup( const char *str1 );
-
+#define unchecked "unchecked"
 #else
 #define implicit
 #define owner
@@ -28,7 +28,9 @@ char * _Owner strdup( const char *str1 );
 #define move
 #define view
 #define static_debug(x)
+#define unchecked
 #endif
+
 
 
 
@@ -578,8 +580,7 @@ enum warning {
     W_DISCARDED_QUALIFIERS = 1 << 15,
     W_DECLARATOR_STATE = 1 << 16,
     W_UNINITIALZED  = 1 << 17,
-    W_NON_OWNER_ASSIGN = 1 << 18,
-    W_EXPLICIT_MOVE = 1 << 19,    
+    
     W_RETURN_LOCAL_ADDR = 1 << 20,
     
 };
@@ -630,9 +631,7 @@ enum error
     C_MISSING_ENUM_TAG_NAME,
     C_MULTIPLE_DEFINITION_ENUM,
     C_STATIC_ASSERT_FAILED,
-    C_ATTR_UNBALANCED,
-    C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
-    C_FREE_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+    C_ATTR_UNBALANCED,    
     C_UNEXPECTED_END_OF_FILE,
     C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK,
     C_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
@@ -648,13 +647,22 @@ enum error
     C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
     C_MACRO_INVALID_ARG,
     C_MISSING_MACRO_ARGUMENT,
-    C_NON_OWNER_MOVE,
-    C_MISSING_OWNER,
-    C_NOT_OWNER,
-    C_USING_TEMPORARY_OWNER,
-    C_MOVE_ASSIGNMENT_OF_NON_OWNER,
     C_ADDRESS_OF_REGISTER,
+    C_OWNERSHIP_NON_OWNER_MOVE,
+    
+    /*ownership type system errors*/
+    C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+    C_OWNERSHIP_NOT_OWNER,
+    C_OWNERSHIP_USING_TEMPORARY_OWNER,
+    C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+    C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
+    C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
+    
+    /*flow analysis errors*/
+    C_OWNERSHIP_FLOW_MISSING_DTOR,    
 };
+
+bool is_ownership_error(enum error e);
 
 enum style
 {
@@ -720,6 +728,7 @@ struct options
     */
     bool preprocess_only;
 
+    bool disable_ownership_errors;
     /*
       -rm
       -direct-compilation
@@ -925,7 +934,7 @@ void token_range_add_flag(struct token* first, struct token* last, enum token_fl
     }
 }
 
-struct token* owner token_list_pop_back(struct token_list* list)
+struct token* owner token_list_pop_back(struct token_list* list) unchecked
 {
     if (list->head == NULL)
         return NULL;
@@ -950,7 +959,7 @@ struct token* owner token_list_pop_back(struct token_list* list)
     return (struct token* owner) p;
 }
 
-void token_list_pop_front(struct token_list* list)
+void token_list_pop_front(struct token_list* list) unchecked
 {
     if (list->head == NULL)
         return;
@@ -972,12 +981,12 @@ void token_list_pop_front(struct token_list* list)
     token_delete(p);    
 }
 
-struct token* owner token_list_pop_front_get(struct token_list* list)
+struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
 {
     if (list->head == NULL)
         return NULL;
 
-    struct token* owner p = move list->head;
+    struct token* p = list->head;
 
     if (list->head == list->tail)
     {
@@ -994,10 +1003,14 @@ struct token* owner token_list_pop_front_get(struct token_list* list)
     return p;
 }
 
-void token_delete(implicit struct token* owner p)
+void token_delete(implicit struct token* owner p) unchecked
 {
     if (p)
     {
+        /*
+         * ownership warning here is about the p->next 
+         * we need a way to remove only this especific warning
+        */
         free(p->lexeme);
         free(p);
     }
@@ -1074,7 +1087,7 @@ char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
     return cstr;
 }
 
-void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* obj_owner append_list)
+void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* obj_owner append_list) unchecked
 {
     if (append_list->head == NULL)
         return;
@@ -1105,7 +1118,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
 }
 
-struct token* token_list_add(struct token_list* list, struct token* owner pnew)
+struct token* token_list_add(struct token_list* list, struct token* owner pnew) unchecked
 {
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);
@@ -1154,7 +1167,7 @@ struct token* token_list_clone_and_add(struct token_list* list, struct token* pn
     return token_list_add(list, move clone);
 }
 
-void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source)
+void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source) unchecked
 {
     if (source->head == NULL)
     {
@@ -1172,7 +1185,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     }
 }
 
-void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source)
+void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source) unchecked
 {
     if (source->head == NULL)
     {
@@ -1197,7 +1210,7 @@ struct token* owner clone_token(struct token* p)
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-        * token = *p;
+        * token = move *p;
         token->lexeme = move strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
@@ -8846,6 +8859,22 @@ char* read_file(const char* path)
 
 
 
+bool is_ownership_error(enum error e)
+{
+    switch (e)
+    {
+        case C_OWNERSHIP_MISSING_OWNER_QUALIFIER:
+        case C_OWNERSHIP_NOT_OWNER:
+        case C_OWNERSHIP_USING_TEMPORARY_OWNER:
+        case C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER:
+        case C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED:
+        case C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN:
+        case C_OWNERSHIP_FLOW_MISSING_DTOR:
+            return true;
+    }
+    return false;
+}
+
 static struct w {
     enum warning w;
     const char* name;
@@ -8864,8 +8893,6 @@ s_warnings[] = {
     {W_STYLE, "style"},
     {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"},
     {W_UNINITIALZED, "uninitialized"},
-    {W_NON_OWNER_ASSIGN, "owner-assign"},
-    {W_EXPLICIT_MOVE, "explicit-move"},
     {W_RETURN_LOCAL_ADDR, "return-local-addr"}
 };
 
@@ -8931,7 +8958,7 @@ int fill_options(struct options* options,
         if (argv[i][0] != '-')
             continue;
 
-        if (argv[i][1] == 'I'|| 
+        if (argv[i][1] == 'I' ||
             argv[i][1] == 'D')
         {
             /*
@@ -8969,9 +8996,9 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-sarif") == 0)
         {
             options->sarif_output = true;
-            continue; 
+            continue;
         }
-        
+
         if (strcmp(argv[i], "-flow-analysis") == 0)
         {
             options->flow_analysis = true;
@@ -8990,7 +9017,7 @@ int fill_options(struct options* options,
             options->direct_compilation = true;
             continue;
         }
-     
+
         if (strcmp(argv[i], "-fi") == 0)
         {
             options->format_input = true;
@@ -9008,14 +9035,14 @@ int fill_options(struct options* options,
             options->nodiscard_is_default = true;
             continue;
         }
-        
+
         if (strcmp(argv[i], "-nullchecks") == 0)
         {
             options->null_checks = true;
             continue;
         }
 
-        
+
 
         //
         if (strcmp(argv[i], "-style=cake") == 0)
@@ -9099,7 +9126,7 @@ int fill_options(struct options* options,
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
             enum warning  w = 0;
-            
+
             if (disable_warning)
                 w = get_warning_flag(argv[i] + 5);
             else
@@ -9111,7 +9138,7 @@ int fill_options(struct options* options,
                 return 1;
             }
 
-            
+
             if (disable_warning)
             {
                 options->enabled_warnings_stack[0] &= ~w;
@@ -15742,7 +15769,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             }
             else
             {
-                compiler_set_warning_with_token(W_EXPLICIT_MOVE, ctx,
+                compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED, ctx,
                     current_argument->expression->first_token,
                     "parameter %d requires explicit move", param_num);
             }
@@ -15753,7 +15780,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 if (!(current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
                 {
 
-                    compiler_set_error_with_token(C_NOT_OWNER, ctx,
+                    compiler_set_error_with_token(C_OWNERSHIP_NOT_OWNER, ctx,
                         current_argument->expression->first_token,
                         "parameter %d requires a owner type",
                         param_num);
@@ -15768,7 +15795,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 if (current_argument->expression->type.next &&
                     !(current_argument->expression->type.next->type_qualifier_flags & TYPE_QUALIFIER_OWNER))
                 {
-                    compiler_set_error_with_token(C_NOT_OWNER, ctx,
+                    compiler_set_error_with_token(C_OWNERSHIP_NOT_OWNER, ctx,
                         current_argument->expression->first_token,
                         "parameter %d requires a pointer to owner object",
                         param_num);
@@ -15776,7 +15803,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             }
             else
             {
-                compiler_set_error_with_token(C_NOT_OWNER, ctx,
+                compiler_set_error_with_token(C_OWNERSHIP_NOT_OWNER, ctx,
                     current_argument->expression->first_token,
                     "parameter %d requires a pointer to owner type",
                     param_num);
@@ -15964,7 +15991,7 @@ continuation:
                 {
                     if (!(paramer_type->attributes_flags & CAKE_ATTRIBUTE_IMPLICT))
                     {
-                        compiler_set_warning_with_token(W_EXPLICIT_MOVE,
+                        compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
                             ctx,
                             current_argument->expression->first_token,
                             "explicit move required");
@@ -15978,7 +16005,7 @@ continuation:
             //owner = non-owner
             if (!is_null_pointer_constant)
             {
-                compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token,
                     "passing a view argument to a owner parameter");
@@ -15994,7 +16021,7 @@ continuation:
             if (paramer_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
             {
                 //non owner = (owner) f()
-                compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                     ctx,
                     current_argument->expression->first_token,
                     "cannot move a temporary owner to non-owner");
@@ -16004,7 +16031,7 @@ continuation:
             if (explicit_move)
             {
                 //non owner = _Move owner ERROR
-                compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                     ctx,
                     current_argument->expression->first_token,
                     "trying to move to a non owner");
@@ -16017,7 +16044,7 @@ continuation:
             {
                 if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
                 {
-                    compiler_set_error_with_token(C_USING_TEMPORARY_OWNER,
+                    compiler_set_error_with_token(C_OWNERSHIP_USING_TEMPORARY_OWNER,
                         ctx,
                         current_argument->expression->first_token,
                         "passing a temporary owner to a view");
@@ -16035,7 +16062,7 @@ continuation:
             //p = f();
           //  if (!(t1.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
             //{
-              //  compiler_set_error_with_token(C_MISSING_OWNER, ctx, right->first_token, "left type must be owner qualified ");
+              //  compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
             //}
     //    }
     //}
@@ -16080,7 +16107,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!is_null_pointer_constant)
         {
-            compiler_set_warning_with_token(W_NON_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
+            compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
             goto continuation;
         }
     }
@@ -16246,7 +16273,7 @@ continuation:
                 {
                     if (!explicit_move)
                     {
-                        compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                        compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                             ctx,
                             right->first_token,
                             "external or parameter requires explicit move");
@@ -16260,7 +16287,7 @@ continuation:
                 // * ok if external or param
                 if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
                 {
-                    compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                         ctx,
                         right->first_token,
                         "returning a owner variable to a non owner result");
@@ -16280,7 +16307,7 @@ continuation:
                 else
                 {
                     //returning a non owning variable to owner
-                    compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                         ctx,
                         right->first_token,
                         "returning a non owner variable to a owner");
@@ -16302,7 +16329,7 @@ continuation:
                 //owner = owner
                 if (!explicit_move)
                 {
-                    compiler_set_warning_with_token(W_EXPLICIT_MOVE,
+                    compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
                         ctx,
                         right->first_token,
                         "explicit move required");
@@ -16313,7 +16340,7 @@ continuation:
                 //owner = non-owner
                 if (!is_null_pointer_constant)
                 {
-                    compiler_set_error_with_token(C_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                         ctx,
                         right->first_token,
                         "move assignment needs a owner type on right side");
@@ -16329,7 +16356,7 @@ continuation:
                 if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
                 {
                     //non owner = (owner) f()
-                    compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                         ctx,
                         right->first_token,
                         "cannot move a temporary owner to non-owner");
@@ -16339,7 +16366,7 @@ continuation:
                 if (explicit_move)
                 {
                     //non owner = _Move owner ERROR
-                    compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                         ctx,
                         right->first_token,
                         "trying to move to a non owner");
@@ -16352,7 +16379,7 @@ continuation:
                 if (explicit_move)
                 {
                     //non owner = _Move non owner ERROR
-                    compiler_set_error_with_token(C_NON_OWNER_MOVE,
+                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                         ctx,
                         right->first_token,
                         "try to move to a non owner");
@@ -16367,7 +16394,7 @@ continuation:
             //p = f();
             if (!(left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER))
             {
-                compiler_set_error_with_token(C_MISSING_OWNER, ctx, right->first_token, "left type must be owner qualified ");
+                compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
             }
         }
     }
@@ -18052,9 +18079,9 @@ struct defer_scope
     struct iteration_statement* p_iteration_statement; //for do while
     struct statement* p_statement; //
     struct compound_statement* p_function_body;
-    struct defer_scope* lastchild;
+    struct defer_scope* owner lastchild;
 
-    struct defer_scope* previous;
+    struct defer_scope* owner previous;
 };
 
 struct visit_ctx
@@ -18079,7 +18106,7 @@ struct visit_ctx
     struct token_list insert_before_block_item;
     view struct ast ast;
     enum language_version target;
-    struct defer_scope* tail_block;
+    struct defer_scope* owner tail_block;
 };
 
 void visit(struct visit_ctx* ctx);
@@ -18102,7 +18129,7 @@ void object_state_to_string(enum object_state e)
     }
 
 
-    if (e & OBJECT_STATE_NOT_NULL && 
+    if (e & OBJECT_STATE_NOT_NULL &&
         e & OBJECT_STATE_NULL)
     {
         if (first) first = false; else printf(" ");
@@ -18310,11 +18337,16 @@ void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx)
 }
 
 
-
 void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     if (p_token->level > 0)
         return;
+
+    if (ctx->options.disable_ownership_errors && is_ownership_error(error))
+    {
+        return;
+    }
+
 
     ctx->p_report->error_count++;
     ctx->p_report->last_error = error;
@@ -18440,7 +18472,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
     if (w != W_NONE)
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
-    }
+}
     else
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s\n" RESET, buffer);
@@ -18583,7 +18615,7 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
         fprintf(ctx->sarif_file, "   }\n");
     }
 
-}
+    }
 
 
 void print_scope(struct scope_list* e)
@@ -19662,7 +19694,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
         }
-        
+
         if (ctx->current && strcmp(ctx->current->lexeme, "nullchecks") == 0)
         {
             ctx->current = ctx->current->next;
@@ -20015,6 +20047,7 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt /*SINK*/,
     bool can_be_function_definition,
     bool* is_function_definition,
+    bool* flow_analysis,
     enum storage_class_specifier_flags default_storage_class_specifier_flags
 )
 {
@@ -20071,6 +20104,16 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
                 if (can_be_function_definition)
                     *is_function_definition = true;
             }
+            else if (ctx->current->type == TK_STRING_LITERAL &&
+                strcmp(ctx->current->lexeme, "\"unchecked\"") == 0)
+            {
+                parser_match(ctx);
+                if (can_be_function_definition)
+                    *is_function_definition = true;
+                if (flow_analysis)
+                    *flow_analysis = false;
+
+            }
             else
                 parser_match_tk(ctx, ';');
         }
@@ -20112,7 +20155,8 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
 
     bool is_function_definition = false;
-    struct declaration* owner p_declaration = declaration_core(ctx, move p_attribute_specifier_sequence_opt, true, &is_function_definition, STORAGE_SPECIFIER_EXTERN);
+    bool flow_analysis = true;
+    struct declaration* owner p_declaration = declaration_core(ctx, move p_attribute_specifier_sequence_opt, true, &is_function_definition, &flow_analysis, STORAGE_SPECIFIER_EXTERN);
     if (is_function_definition)
     {
 
@@ -20150,12 +20194,21 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
         check_func_open_brace_style(ctx, ctx->current);
 
-        //o function_prototype_scope era um block_scope
+        bool disable_ownership_errors = ctx->options.disable_ownership_errors;
+        if (!flow_analysis)
+        {
+            /*let's disable ownership type error*/
+           ctx->options.disable_ownership_errors = true;
+        }
+        
         p_declaration->function_body = move function_body(ctx);
+
+        ctx->options.disable_ownership_errors = disable_ownership_errors; /*restore*/
+
         p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
 
-        if (ctx->options.flow_analysis)
+        if (ctx->options.flow_analysis && flow_analysis)
         {
             /*
              Now we have the full function AST let´s visit to analise
@@ -20211,7 +20264,8 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
 )
 {
     bool is_function_definition;
-    return declaration_core(ctx, move p_attribute_specifier_sequence_opt, false, &is_function_definition, storage_specifier_flags);
+    bool flow_analysis;
+    return declaration_core(ctx, move p_attribute_specifier_sequence_opt, false, &is_function_definition, &flow_analysis, storage_specifier_flags);
 }
 
 
@@ -20465,7 +20519,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 //type * p = f();
                 if (!(p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
                 {
-                    compiler_set_error_with_token(C_MISSING_OWNER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+                    compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
                 }
             }
         }
@@ -20474,7 +20528,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             if (p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
             {
                 //TODO const pode
-                //compiler_set_error_with_token(C_MISSING_OWNER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+                //compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
             }
         }
 
@@ -21664,7 +21718,7 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 
         case TK_KEYWORD__OPT:
             p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
-        break;
+            break;
 
         case TK_KEYWORD__OBJ_OWNER:
             p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
@@ -21996,7 +22050,7 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
             if (p_pointer == NULL) throw;
             p = move p_pointer;
             parser_match(ctx);
-            
+
             p_pointer->attribute_specifier_sequence_opt =
                 move attribute_specifier_sequence_opt(ctx);
 
@@ -25562,7 +25616,7 @@ void simple_move_error()
     struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 &&
-        report.last_error == C_MOVE_ASSIGNMENT_OF_NON_OWNER);
+        report.last_error == C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER);
 }
 
 void parameter_view()
@@ -25701,7 +25755,7 @@ void error_on_non_owner_move()
     struct options options = {.input = LANGUAGE_C99};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_NON_OWNER_MOVE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_NON_OWNER_MOVE);
 }
 
 void move_required_on_assignment_owner()
@@ -25722,7 +25776,7 @@ void move_required_on_assignment_owner()
     struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.warnings_count == 1 && report.last_warning == W_EXPLICIT_MOVE);
+    assert(report.error_count == 1);
 }
 
 void no_explicit_move_required()
@@ -25861,7 +25915,7 @@ void error_using_temporary_owner()
     struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_USING_TEMPORARY_OWNER);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_USING_TEMPORARY_OWNER);
 
 }
 
@@ -25881,7 +25935,7 @@ void passing_view_to_owner()
     struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_MOVE_ASSIGNMENT_OF_NON_OWNER);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER);
 }
 
 void obj_owner_cannot_be_used_in_non_pointer()
@@ -25928,7 +25982,7 @@ void ownership_flow_test_pointer_must_be_deleted()
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
 }
 
 void ownership_flow_test_basic_pointer_check()
@@ -25975,7 +26029,7 @@ void ownership_flow_test_struct_member_missing_free()
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
     ////TODO return ROOT object!
 
 }
@@ -26073,7 +26127,7 @@ void ownership_flow_test_jump_labels()
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
 }
 
 void ownership_flow_test_owner_if_pattern_1()
@@ -26139,7 +26193,7 @@ void ownership_flow_test_missing_destructor()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
 
 }
 void ownership_flow_test_no_warning()
@@ -26508,8 +26562,59 @@ void ownership_flow_test_if_variant()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 && report.warnings_count == 0);
 }
+void check_leaks_on_else_block()
+{
+    const char* source
+        =
+        "void * owner malloc(int sz);\n"
+        "\n"
+        "void f(int i) {   \n"
+        "        if (i){\n"
+        "        }   \n"
+        "        else {\n"
+        "            int * owner p3 = malloc(1);\n"
+        "        }\n"
+        "}\n"
+        ;
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.warnings_count == 0);
+}
 
 
+void ownership_flow_test_two_ifs()
+{
+    const char* source
+        =
+        "void * owner malloc(int sz);\n"
+        "void free(void * owner opt p);\n"
+        "\n"
+        "\n"
+        "void f(int i) {   \n"
+        "    void * owner p = 0;\n"
+        "    if (i)\n"
+        "    {\n"
+        "        if (i)\n"
+        "        {\n"
+        "            p = malloc(1);\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            p = malloc(1);\n"
+        "        }     \n"
+        "    }\n"
+        "    \n"
+        "    free(p);\n"
+        "}\n"
+        "";
+     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count ==  0 && report.warnings_count == 0);
+
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////     OWNER /////////////////////////////////////////////////////////
@@ -26830,19 +26935,14 @@ static void visit_secondary_block(struct visit_ctx* ctx, struct secondary_block*
 
 static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
-
-
     if (!ctx->is_second_pass)
     {
-
         //adiciona como filho do ultimo bloco
         struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->defer_statement = p_defer_statement;
 
-
-        p_defer->previous = ctx->tail_block->lastchild;
-        ctx->tail_block->lastchild = p_defer;
-
+        p_defer->previous = move ctx->tail_block->lastchild;
+        ctx->tail_block->lastchild = move p_defer;
 
         if (p_defer_statement->secondary_block)
         {
@@ -26861,8 +26961,8 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
     if (!ctx->is_second_pass)
     {
         struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
+        p_defer->previous = move ctx->tail_block;
+        ctx->tail_block = move p_defer;
         p_defer->p_try_statement = p_try_statement;
 
         if (p_try_statement->secondary_block)
@@ -26880,7 +26980,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         if (ctx->tail_block)
         {
             //POP
-            ctx->tail_block = ctx->tail_block->previous;
+            ctx->tail_block = move ctx->tail_block->previous;
         }
 
         free(p_try_statement->first_token->lexeme);
@@ -26915,8 +27015,8 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
 
     //PUSH
     struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-    p_defer->previous = ctx->tail_block;
-    ctx->tail_block = p_defer;
+    p_defer->previous = move ctx->tail_block;
+    ctx->tail_block = move p_defer;
     p_defer->p_selection_statement2 = p_selection_statement;
 
     if (p_selection_statement->secondary_block)
@@ -26932,7 +27032,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
         token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last_token->prev, move & l);
     }
     //POP
-    ctx->tail_block = ctx->tail_block->previous;
+    ctx->tail_block = move ctx->tail_block->previous;
 
     if (p_selection_statement->else_secondary_block_opt)
         visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
@@ -27557,8 +27657,8 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
     if (p_iteration_statement->secondary_block)
     {
         struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
+        p_defer->previous = move ctx->tail_block;
+        ctx->tail_block = move p_defer;
         p_defer->p_iteration_statement = p_iteration_statement;
 
         visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -27575,7 +27675,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
         if (ctx->tail_block)
         {
             //POP
-            ctx->tail_block = ctx->tail_block->previous;
+            ctx->tail_block = move ctx->tail_block->previous;
         }
 
         ss_close(&ss);
@@ -28025,7 +28125,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
             if (p_init_declarator->initializer->move_token)
             {
                 free(p_init_declarator->initializer->move_token->lexeme);
-                p_init_declarator->initializer->move_token->lexeme = strdup("/*_Move*/");
+                p_init_declarator->initializer->move_token->lexeme = move strdup("/*_Move*/");
             }
 
             if (p_init_declarator->initializer->assignment_expression)
@@ -28648,20 +28748,21 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
 
         /*delete all defer memory*/
-        struct defer_scope* p_block = ctx->tail_block;
+        struct defer_scope* owner p_block = move ctx->tail_block;
         while (p_block != NULL)
         {
-            struct defer_scope* deferchild = p_block->lastchild;
+
+            struct defer_scope* owner deferchild = move p_block->lastchild;
             while (deferchild != NULL)
             {
-                struct defer_scope* prev = deferchild->previous;
-                free((struct defer_scope* owner) deferchild);
-                deferchild = prev;
+                struct defer_scope* owner prev = move deferchild->previous;
+                free(deferchild);
+                deferchild = move prev;
             }
 
-            struct defer_scope* prev_block = p_block->previous;
-            free((struct defer_scope* owner) p_block);
-            p_block = prev_block;
+            struct defer_scope* owner prev_block = move p_block->previous;
+            free(p_block);
+            p_block = move prev_block;
         }
 
 
@@ -28770,7 +28871,7 @@ int visit_tokens(struct visit_ctx* ctx)
                 else if (current->next && strcmp(current->next->lexeme, "elifndef") == 0)
                 {
                     free(current->next->lexeme);
-                    current->lexeme = move strdup("elif ! defined ");
+                    current->next->lexeme = move strdup("elif ! defined ");
                     current = current->next->next;
                     continue;
                 }
@@ -29535,7 +29636,7 @@ void visit_object(struct parser_ctx* ctx,
             *  describing each part we will just say that the object should
             *  have been moved.
             */
-            compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+            compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 p_object->declarator->name,
                 "object '%s' was not moved/destroyed",
@@ -29668,16 +29769,16 @@ void visit_object(struct parser_ctx* ctx,
             {
                 if (type_is_pointer(p_type))
                 {
-                    compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         p_object->declarator->name,
                         "memory pointed by '%s' was not released.",
                         name);
-                    
+
                 }
                 else
                 {
-                    compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         p_object->declarator->name,
                         "object '%s' was not moved/destroyed",
@@ -29708,7 +29809,7 @@ void move_object(struct parser_ctx* ctx,
             p_dest_obj_type,
             p_dest_obj_opt,
             error_position,
-            "");
+            p_dest_obj_opt->declarator->name->lexeme);
     }
 
 
@@ -29723,7 +29824,7 @@ void move_object(struct parser_ctx* ctx,
                     &t2,
                     p_source_obj_opt->pointed,
                     error_position,
-                    "");
+                    p_source_obj_opt->declarator->name->lexeme);
                 p_source_obj_opt->state = OBJECT_STATE_MOVED;
                 type_destroy(&t2);
             }
@@ -30220,7 +30321,9 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     int state_index_before_if = 0;
     if (p_selection_statement->secondary_block)
     {
-
+        /*
+          lets copy the state before if
+        */
         struct visit_objects v1 = {.deferchild = ctx->tail_block->last_child};
         struct object* p_object = visit_objects_next(&v1);
         while (p_object)
@@ -30246,14 +30349,9 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         p_defer->previous = ctx->tail_block;
         ctx->tail_block = move p_defer;
         p_defer->p_selection_statement2 = p_selection_statement;
-
         flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
-
-
         check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
-
-        //POP
-        ctx->tail_block = ctx->tail_block->previous;
+        ctx->tail_block = ctx->tail_block->previous; //POP
     }
 
     bool was_last_statement_inside_true_branch_return = false;
@@ -30298,7 +30396,16 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         }
 
         //nao tem else block eh o mesmo que ter vazio.
+        //flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
+
+        struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
+        p_defer->previous = ctx->tail_block;
+        ctx->tail_block = move p_defer;
+        p_defer->p_selection_statement2 = p_selection_statement;
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
+        check_defer_and_variables(ctx, p_defer, p_selection_statement->else_secondary_block_opt->last_token);
+        ctx->tail_block = ctx->tail_block->previous; //POP
+
     }
     else
     {
@@ -30360,6 +30467,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     {
         if (p_object->object_state_stack.data == NULL)
         {
+            assert(false);
             //ops!
             p_object = visit_objects_next(&v2);
             continue;
@@ -30581,7 +30689,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 if (p_argument_object &&
                     p_argument_object->state & OBJECT_STATE_NULL)
                 {
-                    compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
@@ -30640,9 +30748,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     ctx->ctx,
                     p_expression->first_token,
                     "'%s' is uninitialized ",
-                    p_expression->declarator->name->lexeme);
+                    p_expression->declarator->object_name->lexeme);
 #endif
-    }
+            }
 
             break;
 
@@ -30850,7 +30958,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-}
+    }
 }
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
@@ -31135,7 +31243,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
         struct type t = {0};
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
 
-        print_object(1, &t, p_obj, "");
+        print_object(1, &t, p_obj, p_obj->declarator->name->lexeme);
 
         type_destroy(&t);
     }

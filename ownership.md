@@ -352,20 +352,9 @@ But we can pass variables, and the function parameter is a view of the argument.
 ## Part II - Flow analysis
 
 The objective of flow analysis is to ensure that __when an owner object goes out of scope or when it is assigned it does not owns any resources__.
-  
-Not having resources means that the object is in one of these states:
-  
- - uninitialized
- - moved
- - zero (for owner pointers)  
- - or any combination (zero or moved state)
-
-The other possible states are:  
-
-- unknown
-- unknown but not zero
-  
-We can print (**static\_debug**) or check (**static\_state**)these states in compile time.
+ 
+We can print the object state as seen by flow analysis using **static\_debug**.  
+We also can assert some specific state using **static\_state**.
 
 Sample:
 
@@ -376,12 +365,13 @@ int main()
   static_state(p, "uninitialized");   
 
   void * owner p = 0;  
-  static_state(p, "zero");  
+  static_state(p, "null");  
   static_debug(p);
 }
 ```
 
-A common initialization of heap allocated objects is using malloc/calloc.
+### malloc/calloc 
+A common initialization is.
 
 ```c
 struct X {    
@@ -393,7 +383,32 @@ int main() {
   p->name = move strdup("hi");
 }
 ```
-How to known that p->name was not holding resources? The semantics of malloc (returning a non initialized memory) must be understood. malloc/calloc will be especial cases where compiler will have the built in semantic. In  other situations is expect the programmer to silence the error.
+
+We must track that object `p->name` does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known. Because this is a common pattern I want to undertand this without extra annotation so semantics of malloc/realloc will be built in. 
+
+### Disabling ownership checks  
+  
+We add "unchecked" at function definition before `{`.  
+
+```c
+void f() "unchecked" 
+{  
+}
+```
+
+Disabling some parts
+
+```c
+void token_delete(implicit struct token* owner p)
+{
+    if (p)
+    {
+        free(p->lexeme);
+        free(p); //warning next not deleted
+    }
+}
+```
+
 
 ## Grammar
 

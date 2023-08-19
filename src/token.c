@@ -71,7 +71,7 @@ void token_range_add_flag(struct token* first, struct token* last, enum token_fl
     }
 }
 
-struct token* owner token_list_pop_back(struct token_list* list)
+struct token* owner token_list_pop_back(struct token_list* list) unchecked
 {
     if (list->head == NULL)
         return NULL;
@@ -96,7 +96,7 @@ struct token* owner token_list_pop_back(struct token_list* list)
     return (struct token* owner) p;
 }
 
-void token_list_pop_front(struct token_list* list)
+void token_list_pop_front(struct token_list* list) unchecked
 {
     if (list->head == NULL)
         return;
@@ -118,12 +118,12 @@ void token_list_pop_front(struct token_list* list)
     token_delete(p);    
 }
 
-struct token* owner token_list_pop_front_get(struct token_list* list)
+struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
 {
     if (list->head == NULL)
         return NULL;
 
-    struct token* owner p = move list->head;
+    struct token* p = list->head;
 
     if (list->head == list->tail)
     {
@@ -140,10 +140,14 @@ struct token* owner token_list_pop_front_get(struct token_list* list)
     return p;
 }
 
-void token_delete(implicit struct token* owner p)
+void token_delete(implicit struct token* owner p) unchecked
 {
     if (p)
     {
+        /*
+         * ownership warning here is about the p->next 
+         * we need a way to remove only this especific warning
+        */
         free(p->lexeme);
         free(p);
     }
@@ -220,7 +224,7 @@ char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
     return cstr;
 }
 
-void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* obj_owner append_list)
+void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* obj_owner append_list) unchecked
 {
     if (append_list->head == NULL)
         return;
@@ -251,7 +255,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
 }
 
-struct token* token_list_add(struct token_list* list, struct token* owner pnew)
+struct token* token_list_add(struct token_list* list, struct token* owner pnew) unchecked
 {
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);
@@ -300,7 +304,7 @@ struct token* token_list_clone_and_add(struct token_list* list, struct token* pn
     return token_list_add(list, move clone);
 }
 
-void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source)
+void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source) unchecked
 {
     if (source->head == NULL)
     {
@@ -318,7 +322,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     }
 }
 
-void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source)
+void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source) unchecked
 {
     if (source->head == NULL)
     {
@@ -343,7 +347,7 @@ struct token* owner clone_token(struct token* p)
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-        * token = *p;
+        * token = move *p;
         token->lexeme = move strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;

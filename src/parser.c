@@ -47,7 +47,7 @@ void object_state_to_string(enum object_state e)
     }
 
 
-    if (e & OBJECT_STATE_NOT_NULL && 
+    if (e & OBJECT_STATE_NOT_NULL &&
         e & OBJECT_STATE_NULL)
     {
         if (first) first = false; else printf(" ");
@@ -255,11 +255,16 @@ void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx)
 }
 
 
-
 void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
     if (p_token->level > 0)
         return;
+
+    if (ctx->options.disable_ownership_errors && is_ownership_error(error))
+    {
+        return;
+    }
+
 
     ctx->p_report->error_count++;
     ctx->p_report->last_error = error;
@@ -385,7 +390,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
     if (w != W_NONE)
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
-    }
+}
     else
     {
         printf(LIGHTMAGENTA "warning: " WHITE "%s\n" RESET, buffer);
@@ -528,7 +533,7 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
         fprintf(ctx->sarif_file, "   }\n");
     }
 
-}
+    }
 
 
 void print_scope(struct scope_list* e)
@@ -1607,7 +1612,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
         }
-        
+
         if (ctx->current && strcmp(ctx->current->lexeme, "nullchecks") == 0)
         {
             ctx->current = ctx->current->next;
@@ -1960,6 +1965,7 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt /*SINK*/,
     bool can_be_function_definition,
     bool* is_function_definition,
+    bool* flow_analysis,
     enum storage_class_specifier_flags default_storage_class_specifier_flags
 )
 {
@@ -2016,6 +2022,16 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
                 if (can_be_function_definition)
                     *is_function_definition = true;
             }
+            else if (ctx->current->type == TK_STRING_LITERAL &&
+                strcmp(ctx->current->lexeme, "\"unchecked\"") == 0)
+            {
+                parser_match(ctx);
+                if (can_be_function_definition)
+                    *is_function_definition = true;
+                if (flow_analysis)
+                    *flow_analysis = false;
+
+            }
             else
                 parser_match_tk(ctx, ';');
         }
@@ -2057,7 +2073,8 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
 
     bool is_function_definition = false;
-    struct declaration* owner p_declaration = declaration_core(ctx, move p_attribute_specifier_sequence_opt, true, &is_function_definition, STORAGE_SPECIFIER_EXTERN);
+    bool flow_analysis = true;
+    struct declaration* owner p_declaration = declaration_core(ctx, move p_attribute_specifier_sequence_opt, true, &is_function_definition, &flow_analysis, STORAGE_SPECIFIER_EXTERN);
     if (is_function_definition)
     {
 
@@ -2095,12 +2112,21 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
         check_func_open_brace_style(ctx, ctx->current);
 
-        //o function_prototype_scope era um block_scope
+        bool disable_ownership_errors = ctx->options.disable_ownership_errors;
+        if (!flow_analysis)
+        {
+            /*let's disable ownership type error*/
+           ctx->options.disable_ownership_errors = true;
+        }
+        
         p_declaration->function_body = move function_body(ctx);
+
+        ctx->options.disable_ownership_errors = disable_ownership_errors; /*restore*/
+
         p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
 
-        if (ctx->options.flow_analysis)
+        if (ctx->options.flow_analysis && flow_analysis)
         {
             /*
              Now we have the full function AST let´s visit to analise
@@ -2156,7 +2182,8 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
 )
 {
     bool is_function_definition;
-    return declaration_core(ctx, move p_attribute_specifier_sequence_opt, false, &is_function_definition, storage_specifier_flags);
+    bool flow_analysis;
+    return declaration_core(ctx, move p_attribute_specifier_sequence_opt, false, &is_function_definition, &flow_analysis, storage_specifier_flags);
 }
 
 
@@ -2410,7 +2437,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 //type * p = f();
                 if (!(p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
                 {
-                    compiler_set_error_with_token(C_MISSING_OWNER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+                    compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
                 }
             }
         }
@@ -2419,7 +2446,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             if (p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
             {
                 //TODO const pode
-                //compiler_set_error_with_token(C_MISSING_OWNER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+                //compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
             }
         }
 
@@ -3609,7 +3636,7 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 
         case TK_KEYWORD__OPT:
             p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
-        break;
+            break;
 
         case TK_KEYWORD__OBJ_OWNER:
             p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
@@ -3941,7 +3968,7 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
             if (p_pointer == NULL) throw;
             p = move p_pointer;
             parser_match(ctx);
-            
+
             p_pointer->attribute_specifier_sequence_opt =
                 move attribute_specifier_sequence_opt(ctx);
 
@@ -7508,7 +7535,7 @@ void simple_move_error()
     struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 &&
-        report.last_error == C_MOVE_ASSIGNMENT_OF_NON_OWNER);
+        report.last_error == C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER);
 }
 
 void parameter_view()
@@ -7647,7 +7674,7 @@ void error_on_non_owner_move()
     struct options options = {.input = LANGUAGE_C99};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_NON_OWNER_MOVE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_NON_OWNER_MOVE);
 }
 
 void move_required_on_assignment_owner()
@@ -7668,7 +7695,7 @@ void move_required_on_assignment_owner()
     struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.warnings_count == 1 && report.last_warning == W_EXPLICIT_MOVE);
+    assert(report.error_count == 1);
 }
 
 void no_explicit_move_required()
@@ -7807,7 +7834,7 @@ void error_using_temporary_owner()
     struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_USING_TEMPORARY_OWNER);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_USING_TEMPORARY_OWNER);
 
 }
 
@@ -7827,7 +7854,7 @@ void passing_view_to_owner()
     struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_MOVE_ASSIGNMENT_OF_NON_OWNER);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER);
 }
 
 void obj_owner_cannot_be_used_in_non_pointer()
@@ -7874,7 +7901,7 @@ void ownership_flow_test_pointer_must_be_deleted()
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
 }
 
 void ownership_flow_test_basic_pointer_check()
@@ -7921,7 +7948,7 @@ void ownership_flow_test_struct_member_missing_free()
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
     ////TODO return ROOT object!
 
 }
@@ -8019,7 +8046,7 @@ void ownership_flow_test_jump_labels()
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
 }
 
 void ownership_flow_test_owner_if_pattern_1()
@@ -8085,7 +8112,7 @@ void ownership_flow_test_missing_destructor()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE);
+    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
 
 }
 void ownership_flow_test_no_warning()
@@ -8454,8 +8481,59 @@ void ownership_flow_test_if_variant()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 && report.warnings_count == 0);
 }
+void check_leaks_on_else_block()
+{
+    const char* source
+        =
+        "void * owner malloc(int sz);\n"
+        "\n"
+        "void f(int i) {   \n"
+        "        if (i){\n"
+        "        }   \n"
+        "        else {\n"
+        "            int * owner p3 = malloc(1);\n"
+        "        }\n"
+        "}\n"
+        ;
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1 && report.warnings_count == 0);
+}
 
 
+void ownership_flow_test_two_ifs()
+{
+    const char* source
+        =
+        "void * owner malloc(int sz);\n"
+        "void free(void * owner opt p);\n"
+        "\n"
+        "\n"
+        "void f(int i) {   \n"
+        "    void * owner p = 0;\n"
+        "    if (i)\n"
+        "    {\n"
+        "        if (i)\n"
+        "        {\n"
+        "            p = malloc(1);\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
+        "            p = malloc(1);\n"
+        "        }     \n"
+        "    }\n"
+        "    \n"
+        "    free(p);\n"
+        "}\n"
+        "";
+     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count ==  0 && report.warnings_count == 0);
+
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////     OWNER /////////////////////////////////////////////////////////

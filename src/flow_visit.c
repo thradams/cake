@@ -667,7 +667,7 @@ void visit_object(struct parser_ctx* ctx,
             *  describing each part we will just say that the object should
             *  have been moved.
             */
-            compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+            compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 p_object->declarator->name,
                 "object '%s' was not moved/destroyed",
@@ -800,16 +800,16 @@ void visit_object(struct parser_ctx* ctx,
             {
                 if (type_is_pointer(p_type))
                 {
-                    compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         p_object->declarator->name,
                         "memory pointed by '%s' was not released.",
                         name);
-                    
+
                 }
                 else
                 {
-                    compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         p_object->declarator->name,
                         "object '%s' was not moved/destroyed",
@@ -840,7 +840,7 @@ void move_object(struct parser_ctx* ctx,
             p_dest_obj_type,
             p_dest_obj_opt,
             error_position,
-            "");
+            p_dest_obj_opt->declarator->name->lexeme);
     }
 
 
@@ -855,7 +855,7 @@ void move_object(struct parser_ctx* ctx,
                     &t2,
                     p_source_obj_opt->pointed,
                     error_position,
-                    "");
+                    p_source_obj_opt->declarator->name->lexeme);
                 p_source_obj_opt->state = OBJECT_STATE_MOVED;
                 type_destroy(&t2);
             }
@@ -1352,7 +1352,9 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     int state_index_before_if = 0;
     if (p_selection_statement->secondary_block)
     {
-
+        /*
+          lets copy the state before if
+        */
         struct visit_objects v1 = {.deferchild = ctx->tail_block->last_child};
         struct object* p_object = visit_objects_next(&v1);
         while (p_object)
@@ -1378,14 +1380,9 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         p_defer->previous = ctx->tail_block;
         ctx->tail_block = move p_defer;
         p_defer->p_selection_statement2 = p_selection_statement;
-
         flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
-
-
         check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
-
-        //POP
-        ctx->tail_block = ctx->tail_block->previous;
+        ctx->tail_block = ctx->tail_block->previous; //POP
     }
 
     bool was_last_statement_inside_true_branch_return = false;
@@ -1430,7 +1427,16 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         }
 
         //nao tem else block eh o mesmo que ter vazio.
+        //flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
+
+        struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
+        p_defer->previous = ctx->tail_block;
+        ctx->tail_block = move p_defer;
+        p_defer->p_selection_statement2 = p_selection_statement;
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
+        check_defer_and_variables(ctx, p_defer, p_selection_statement->else_secondary_block_opt->last_token);
+        ctx->tail_block = ctx->tail_block->previous; //POP
+
     }
     else
     {
@@ -1492,6 +1498,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     {
         if (p_object->object_state_stack.data == NULL)
         {
+            assert(false);
             //ops!
             p_object = visit_objects_next(&v2);
             continue;
@@ -1713,7 +1720,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 if (p_argument_object &&
                     p_argument_object->state & OBJECT_STATE_NULL)
                 {
-                    compiler_set_error_with_token(C_DESTRUCTOR_MUST_BE_CALLED_BEFORE_END_OF_SCOPE,
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
@@ -1772,9 +1779,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     ctx->ctx,
                     p_expression->first_token,
                     "'%s' is uninitialized ",
-                    p_expression->declarator->name->lexeme);
+                    p_expression->declarator->object_name->lexeme);
 #endif
-    }
+            }
 
             break;
 
@@ -1982,7 +1989,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-}
+    }
 }
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
@@ -2267,7 +2274,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
         struct type t = {0};
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
 
-        print_object(1, &t, p_obj, "");
+        print_object(1, &t, p_obj, p_obj->declarator->name->lexeme);
 
         type_destroy(&t);
     }

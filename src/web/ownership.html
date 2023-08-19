@@ -34,12 +34,20 @@
 </li>
 <li>
 <a href="#toc_6">Part II - Flow analysis</a>
+<ul>
+<li>
+<a href="#toc_7">malloc/calloc</a>
 </li>
 <li>
-<a href="#toc_7">Grammar</a>
+<a href="#toc_8">Disabling ownership checks</a>
+</li>
+</ul>
 </li>
 <li>
-<a href="#toc_8">Checking your source code</a>
+<a href="#toc_9">Grammar</a>
+</li>
+<li>
+<a href="#toc_10">Checking your source code</a>
 </li>
 </ul>
 </li>
@@ -365,23 +373,8 @@ The exception is the null pointer constant.</p>
 
 <p>The objective of flow analysis is to ensure that <strong>when an owner object goes out of scope or when it is assigned it does not owns any resources</strong>.</p>
 
-<p>Not having resources means that the object is in one of these states:</p>
-
-<ul>
-<li>uninitialized</li>
-<li>moved</li>
-<li>zero (for owner pointers)<br></li>
-<li>or any combination (zero or moved state)</li>
-</ul>
-
-<p>The other possible states are:  </p>
-
-<ul>
-<li>unknown</li>
-<li>unknown but not zero</li>
-</ul>
-
-<p>We can print (<strong>static_debug</strong>) or check (<strong>static_state</strong>)these states in compile time.</p>
+<p>We can print the object state as seen by flow analysis using <strong>static_debug</strong>.<br>
+We also can assert some specific state using <strong>static_state</strong>.</p>
 
 <p>Sample:</p>
 
@@ -391,12 +384,14 @@ The exception is the null pointer constant.</p>
   static_state(p, &quot;uninitialized&quot;);   
 
   void * owner p = 0;  
-  static_state(p, &quot;zero&quot;);  
+  static_state(p, &quot;null&quot;);  
   static_debug(p);
 }
 </code></pre>
 
-<p>A common initialization of heap allocated objects is using malloc/calloc.</p>
+<h3 id="toc_7">malloc/calloc</h3>
+
+<p>A common initialization is.</p>
 
 <pre><code class="language-c">struct X {    
     char * owner name;
@@ -408,9 +403,30 @@ int main() {
 }
 </code></pre>
 
-<p>How to known that p-&gt;name was not holding resources? The semantics of malloc (returning a non initialized memory) must be understood. malloc/calloc will be especial cases where compiler will have the built in semantic. In  other situations is expect the programmer to silence the error.</p>
+<p>We must track that object <code>p-&gt;name</code> does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known. Because this is a common pattern I want to undertand this without extra annotation so semantics of malloc/realloc will be built in. </p>
 
-<h2 id="toc_7">Grammar</h2>
+<h3 id="toc_8">Disabling ownership checks</h3>
+
+<p>We add &quot;unchecked&quot; at function definition before <code>{</code>.  </p>
+
+<pre><code class="language-c">void f() &quot;unchecked&quot; 
+{  
+}
+</code></pre>
+
+<p>Disabling some parts</p>
+
+<pre><code class="language-c">void token_delete(implicit struct token* owner p)
+{
+    if (p)
+    {
+        free(p-&gt;lexeme);
+        free(p); //warning next not deleted
+    }
+}
+</code></pre>
+
+<h2 id="toc_9">Grammar</h2>
 
 <pre><code class="language-c">New keywords:
   &#39;move&#39;   
@@ -461,7 +477,7 @@ static-declaration:  /*where static-assert is used today*/
 
 </code></pre>
 
-<h2 id="toc_8">Checking your source code</h2>
+<h2 id="toc_10">Checking your source code</h2>
 
 <p>I suggest the creation of a header file &quot;ownership.h&quot;</p>
 

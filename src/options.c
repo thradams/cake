@@ -4,6 +4,22 @@
 #include <stdio.h>
 #include <assert.h>
 
+bool is_ownership_error(enum error e)
+{
+    switch (e)
+    {
+        case C_OWNERSHIP_MISSING_OWNER_QUALIFIER:
+        case C_OWNERSHIP_NOT_OWNER:
+        case C_OWNERSHIP_USING_TEMPORARY_OWNER:
+        case C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER:
+        case C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED:
+        case C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN:
+        case C_OWNERSHIP_FLOW_MISSING_DTOR:
+            return true;
+    }
+    return false;
+}
+
 static struct w {
     enum warning w;
     const char* name;
@@ -22,8 +38,6 @@ s_warnings[] = {
     {W_STYLE, "style"},
     {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"},
     {W_UNINITIALZED, "uninitialized"},
-    {W_NON_OWNER_ASSIGN, "owner-assign"},
-    {W_EXPLICIT_MOVE, "explicit-move"},
     {W_RETURN_LOCAL_ADDR, "return-local-addr"}
 };
 
@@ -89,7 +103,7 @@ int fill_options(struct options* options,
         if (argv[i][0] != '-')
             continue;
 
-        if (argv[i][1] == 'I'|| 
+        if (argv[i][1] == 'I' ||
             argv[i][1] == 'D')
         {
             /*
@@ -127,9 +141,9 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-sarif") == 0)
         {
             options->sarif_output = true;
-            continue; 
+            continue;
         }
-        
+
         if (strcmp(argv[i], "-flow-analysis") == 0)
         {
             options->flow_analysis = true;
@@ -148,7 +162,7 @@ int fill_options(struct options* options,
             options->direct_compilation = true;
             continue;
         }
-     
+
         if (strcmp(argv[i], "-fi") == 0)
         {
             options->format_input = true;
@@ -166,14 +180,14 @@ int fill_options(struct options* options,
             options->nodiscard_is_default = true;
             continue;
         }
-        
+
         if (strcmp(argv[i], "-nullchecks") == 0)
         {
             options->null_checks = true;
             continue;
         }
 
-        
+
 
         //
         if (strcmp(argv[i], "-style=cake") == 0)
@@ -257,7 +271,7 @@ int fill_options(struct options* options,
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
             enum warning  w = 0;
-            
+
             if (disable_warning)
                 w = get_warning_flag(argv[i] + 5);
             else
@@ -269,7 +283,7 @@ int fill_options(struct options* options,
                 return 1;
             }
 
-            
+
             if (disable_warning)
             {
                 options->enabled_warnings_stack[0] &= ~w;
