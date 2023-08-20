@@ -6468,16 +6468,6 @@ const char* owner get_code_as_compiler_see(struct token_list* list)
     struct osstream ss = {0};
 
 
-    const char* str
-        =
-        "/*\n"
-        "  This output is intended for direct compilation.\n"
-        "  Non used declarations may be removed.\n"
-        "*/\n"
-        "\n"
-        "";
-    ss_fprintf(&ss, "%s", str);
-
     struct token* current = list->head;
     while (current != list->tail->next)
     {

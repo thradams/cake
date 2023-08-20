@@ -59,13 +59,11 @@
 <p>The static ownership check is an experimental feature for Cake.
 It consists of two separate implementations. </p>
 
-<p>The first implementation focuses on introducing the concept of an owner qualifier in the type system. </p>
+<p>The first part focuses on introducing the concept of an owner qualifier in the type system. </p>
 
-<p>The second implementation revolves around flow analysis, ensuring that owned resources are appropriately released when necessary.   </p>
+<p>The second part requires flow analysis, ensuring that owned resources are appropriately released when necessary.   </p>
 
-<p>By implementing the static ownership check, and using the feature on it&#39;s own source, Cake aims to explore and evaluate the effectiveness of this feature.</p>
-
-<p>Once you experience checked coded, there&#39;s no turning back!</p>
+<p>By implementing the static ownership check, and using the feature on it&#39;s own source, Cake aims to explore and evaluate the effectiveness of this feature.  </p>
 
 <h2 id="toc_1">Part I - Type system changes</h2>
 
@@ -78,25 +76,40 @@ It consists of two separate implementations. </p>
   _Bbj_owner  or obj_owner
 </code></pre>
 
+<blockquote>
+<p>The exactly name of the new keywords still not defined. It can be something like <code>_Owner</code> or just <code>owner</code>. In any case my suggestion is to have macros that can help transiting from one compiler that  has ownership analysis to another without, just making empty macros. </p>
+</blockquote>
+
 <p>The <strong>owner</strong> qualifier can be used when declaring a variable to indicate that its value represents a reference to a resource that must be released exclusively through that reference.</p>
 
-<p>The <strong>view</strong> qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it. View qualified object does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.</p>
+<p>The <strong>view</strong> qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it. View qualified objects does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.</p>
 
-<p>The <strong>owner</strong> qualifier, when used with a pointer, indicates that the pointer assumes ownership of both the pointed object and its associated memory.</p>
+<p>The <strong>owner</strong> qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory. For this reason, when converting a owner pointer to <code>void*</code>, only the ownership of the memory is moved.</p>
 
-<p>When converting a owner pointer to void*, only the ownership of the memory is moved.</p>
+<p>For instance,  </p>
 
 <pre><code class="language-c">void * owner f1(){
   struct X * owner p = malloc(sizeof (struct X));
-  return p; //error 
+  p-&gt;name = strdup(&quot;a&quot;);
+  return p; 
 }
 </code></pre>
 
-<p>Conversely, the <strong>_Obj_owner</strong> qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies.</p>
+<p>Returning a <code>void *</code> may leak <code>p-&gt;name</code> so we need a explicit cast <code>return (void * owner) p</code> if we want to do that.</p>
 
-<blockquote>
-<p>Design note: Maybe an alternative to <strong>_Obj_owner</strong> could references for C, but only in function parameters.  </p>
-</blockquote>
+<p>The <strong>_Obj_owner</strong> qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies. It is generally used in destructors.  </p>
+
+<pre><code class="language-c">void x_destroy(implicit struct X * obj_owner p) {  
+  //p is the onwer of struct X but it is not 
+  //the owner of the memory X occupies.
+}  
+
+int main() {  
+  struct X x = {};
+  ...  
+  x_destroy(&amp;x);  
+}
+</code></pre>
 
 <p>For struct and unions, if at least one member has the <strong>owner</strong> qualifier, the entire type is considered to be an owner qualified type.</p>
 
@@ -108,7 +121,8 @@ It consists of two separate implementations. </p>
 
 int main(){
   struct person p1 = {};
-  // same as owner struct person p1;
+  // same as 
+  // owner struct person p1;
 }
 </code></pre>
 
@@ -152,46 +166,50 @@ int main()
 <pre><code class="language-c">void destroy_array(int n, struct person a[owner 10]);
 </code></pre>
 
+<p>The most common usage of <strong>owner</strong> will be pointers. However the qualified can be applied for any type. One reason is because we can use other types as references to resources, for instance.</p>
+
+<pre><code class="language-c">owner int handle = make_resource();
+release_resource(handle);
+</code></pre>
+
+<p>But pointers have the additional advantage of having a natural zero semantics. What is the empty value for handle for instance?</p>
+
 <h3 id="toc_3">Initialization and assignment</h3>
 
 <h4>Owner = Owner</h4>
 
-<p>Because we must have only one owner, in this situation the ownership is moved.  </p>
+<p>Because we must have only one owner for each resourse, in this situation the ownership is always moved.  </p>
 
 <p>Although, not necessary, a new keyword <strong>move</strong> was added to make this operation more explicit.</p>
 
-<pre><code class="language-c">owner T b;
-
-//Initialization
-owner T a = move b;
+<pre><code class="language-c">owner T a = move b;
 </code></pre>
 
-<pre><code class="language-c">
-owner T b;
+<pre><code class="language-c">owner T b;
 owner T a;
 
-//Assigment
 a = move b;
 </code></pre>
 
 <p>The exception of the usage of <strong>\move</strong> is when initializing from a function result.</p>
 
-<pre><code class="language-c">owner T make_owner();
-owner T a = make_owner();
+<pre><code class="language-c">T* owner  make_owner();
+T * owner  a = make_owner();
 </code></pre>
+
+<p>Note: I have considered to make <strong>owner</strong> optional when initializing from function results because we cannot have a view object if the function returns an owner pointer.
+<code>c
+T * a = make_owner();
+</code></p>
 
 <p>In assignments from functions we need to use <strong>move</strong>.</p>
 
 <pre><code class="language-c">a = move make_owner();  
 </code></pre>
 
-<p>This reminds us about the end of lifetime of a.</p>
-
 <h4>Owner = Non-owner</h4>
 
-<p>This is not allowed.  </p>
-
-<p>The exception is the initialization/assignment of owner pointers to the null pointer constant. </p>
+<p>This is not allowed. The exception is the initialization/assignment of owner pointers to the null pointer constant. </p>
 
 <pre><code class="language-c">T owner * p1 = 0;       //OK
 T owner * p2 = NULL;    //OK
@@ -221,30 +239,29 @@ a = b;            //OK
 
 <p>We say &quot;a is a view to b&quot;.</p>
 
-<p>We cannot have a view for a owner objects with the storage duration shorter than the view.</p>
+<p>We cannot have a view for a owner objects with the storage duration shorter than the view object.</p>
 
-<pre><code class="language-c">T a = make_owner(); //ERROR
+<pre><code class="language-c">T a = make_owner(); //error a cannot be a view
 </code></pre>
 
 <pre><code class="language-c">T a;
-a = make_owner(); //ERROR
+a = make_owner(); //error a cannot be a view
 </code></pre>
 
 <pre><code class="language-c">T global;
 void f()  
 {    
- owner T a;
-  global = a; //ERROR
+  owner T a;
+  global = a; //error global duration is bigger than a
 }
 </code></pre>
 
-<pre><code class="language-c">
-void f()  
+<pre><code class="language-c">void f()  
 {  
    T v;    
    {
       owner T a;
-      v = a; //ERROR
+      v = a; //error v duration is bigger than a
    }
 }
 </code></pre>
@@ -371,10 +388,9 @@ The exception is the null pointer constant.</p>
 
 <h2 id="toc_6">Part II - Flow analysis</h2>
 
-<p>The objective of flow analysis is to ensure that <strong>when an owner object goes out of scope or when it is assigned it does not owns any resources</strong>.</p>
+<p>The objective of flow analysis is to ensure that <strong>when an owner object goes out of scope or before assignment it does not owns any resources</strong>.</p>
 
-<p>We can print the object state as seen by flow analysis using <strong>static_debug</strong>.<br>
-We also can assert some specific state using <strong>static_state</strong>.</p>
+<p>We can print the object state as seen by flow analysis using <strong>static_debug</strong>. We also can assert some specific state using <strong>static_state</strong>.</p>
 
 <p>Sample:</p>
 
@@ -403,23 +419,24 @@ int main() {
 }
 </code></pre>
 
-<p>We must track that object <code>p-&gt;name</code> does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known. Because this is a common pattern I want to undertand this without extra annotation so semantics of malloc/realloc will be built in. </p>
+<p>We must track that object <code>p-&gt;name</code> does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known.  For this particular case the semantics of malloc/calloc will be built-in; So the static analyzer will know malloc returns a uninitialized memory and calloc return a zeroed memory.</p>
 
 <h3 id="toc_8">Disabling ownership checks</h3>
 
-<p>We add &quot;unchecked&quot; at function definition before <code>{</code>.  </p>
+<p>Some functions can have a intricate logic of pointers and instead of trying to adapt the logic we know is correct, we can just annotate &quot;unchecked&quot; at function definition.  </p>
 
-<pre><code class="language-c">void f() &quot;unchecked&quot; 
-{  
+<pre><code class="language-c">void f() &quot;unchecked&quot; {  
 }
 </code></pre>
 
-<p>Disabling some parts</p>
+<p>This is also expected to be used with a macro, so compiler without ownership checks will just ignore.</p>
+
+<p>In some case, we need to disable just some parts of the code and not the entire function.</p>
 
 <pre><code class="language-c">void token_delete(implicit struct token* owner p)
 {
-    if (p)
-    {
+    if (p) {
+        [[already_released]] p-&gt;next;
         free(p-&gt;lexeme);
         free(p); //warning next not deleted
     }
@@ -475,6 +492,7 @@ static-declaration:  /*where static-assert is used today*/
  static_debug-declaration
  static_state-declaration
 
+TODO &quot;unchecked&quot;
 </code></pre>
 
 <h2 id="toc_10">Checking your source code</h2>

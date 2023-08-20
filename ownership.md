@@ -7,15 +7,11 @@
 The static ownership check is an experimental feature for Cake.
 It consists of two separate implementations. 
 
-The first implementation focuses on introducing the concept of an owner qualifier in the type system. 
+The first part focuses on introducing the concept of an owner qualifier in the type system. 
 
-The second implementation revolves around flow analysis, ensuring that owned resources are appropriately released when necessary.   
+The second part requires flow analysis, ensuring that owned resources are appropriately released when necessary.   
   
-By implementing the static ownership check, and using the feature on it's own source, Cake aims to explore and evaluate the effectiveness of this feature.
-
-  
-Once you experience checked coded, there's no turning back!
-
+By implementing the static ownership check, and using the feature on it's own source, Cake aims to explore and evaluate the effectiveness of this feature.  
   
 ## Part I - Type system changes  
 
@@ -29,23 +25,40 @@ type-qualifier:
   _Bbj_owner  or obj_owner
 ```
 
+> The exactly name of the new keywords still not defined. It can be something like `_Owner` or just `owner`. In any case my suggestion is to have macros that can help transiting from one compiler that  has ownership analysis to another without, just making empty macros. 
+
 The **owner** qualifier can be used when declaring a variable to indicate that its value represents a reference to a resource that must be released exclusively through that reference.
 
-The **view** qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it. View qualified object does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.
+The **view** qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it. View qualified objects does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.
 
-The **owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of both the pointed object and its associated memory.
-
-When converting a owner pointer to void*, only the ownership of the memory is moved.
+The **owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory. For this reason, when converting a owner pointer to `void*`, only the ownership of the memory is moved.
+  
+For instance,  
 
 ```c
 void * owner f1(){
   struct X * owner p = malloc(sizeof (struct X));
-  return p; //error 
+  p->name = strdup("a");
+  return p; 
 }
 ```
+  
+Returning a `void *` may leak `p->name` so we need a explicit cast `return (void * owner) p` if we want to do that.
 
-Conversely, the **_Obj\_owner** qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies.
-> Design note: Maybe an alternative to **_Obj\_owner** could references for C, but only in function parameters.  
+The **_Obj\_owner** qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies. It is generally used in destructors.  
+  
+```c    
+void x_destroy(implicit struct X * obj_owner p) {  
+  //p is the onwer of struct X but it is not 
+  //the owner of the memory X occupies.
+}  
+
+int main() {  
+  struct X x = {};
+  ...  
+  x_destroy(&x);  
+}
+``` 
  
 For struct and unions, if at least one member has the **owner** qualifier, the entire type is considered to be an owner qualified type.
 
@@ -58,7 +71,8 @@ struct person {
 
 int main(){
   struct person p1 = {};
-  // same as owner struct person p1;
+  // same as 
+  // owner struct person p1;
 }
 ```
 
@@ -106,35 +120,44 @@ To qualify array parameters as owner we do:
 void destroy_array(int n, struct person a[owner 10]);
 ```
 
+The most common usage of **owner** will be pointers. However the qualified can be applied for any type. One reason is because we can use other types as references to resources, for instance.
+
+```c  
+owner int handle = make_resource();
+release_resource(handle);
+```
+  
+But pointers have the additional advantage of having a natural zero semantics. What is the empty value for handle for instance?
+
 
 ### Initialization and assignment
 #### Owner = Owner
 
-Because we must have only one owner, in this situation the ownership is moved.  
+Because we must have only one owner for each resourse, in this situation the ownership is always moved.  
   
 Although, not necessary, a new keyword **move** was added to make this operation more explicit.
 
 ```c  
-owner T b;
-
-//Initialization
 owner T a = move b;
 ```
 
 ```c  
-
 owner T b;
 owner T a;
 
-//Assigment
 a = move b;
 ```
 
 The exception of the usage of **\move** is when initializing from a function result.
 
 ```c
-owner T make_owner();
-owner T a = make_owner();
+T* owner  make_owner();
+T * owner  a = make_owner();
+```
+  
+Note: I have considered to make **owner** optional when initializing from function results because we cannot have a view object if the function returns an owner pointer.
+```c
+T * a = make_owner();
 ```
 
 In assignments from functions we need to use **move**.
@@ -143,13 +166,11 @@ In assignments from functions we need to use **move**.
 a = move make_owner();  
 ```
 
-This reminds us about the end of lifetime of a.
+
 
 #### Owner = Non-owner
   
-This is not allowed.  
-
-The exception is the initialization/assignment of owner pointers to the null pointer constant. 
+This is not allowed. The exception is the initialization/assignment of owner pointers to the null pointer constant. 
 
 ```c
 T owner * p1 = 0;       //OK
@@ -182,34 +203,33 @@ a = b;            //OK
 
 We say "a is a view to b".
 
-We cannot have a view for a owner objects with the storage duration shorter than the view.
+We cannot have a view for a owner objects with the storage duration shorter than the view object.
 
 ```c
-T a = make_owner(); //ERROR
+T a = make_owner(); //error a cannot be a view
 ```
 
 ```c
 T a;
-a = make_owner(); //ERROR
+a = make_owner(); //error a cannot be a view
 ```
   
 ```c  
 T global;
 void f()  
 {    
- owner T a;
-  global = a; //ERROR
+  owner T a;
+  global = a; //error global duration is bigger than a
 }
 ```
 
 ```c  
-
 void f()  
 {  
    T v;    
    {
       owner T a;
-      v = a; //ERROR
+      v = a; //error v duration is bigger than a
    }
 }
 ```  
@@ -351,10 +371,9 @@ But we can pass variables, and the function parameter is a view of the argument.
 
 ## Part II - Flow analysis
 
-The objective of flow analysis is to ensure that __when an owner object goes out of scope or when it is assigned it does not owns any resources__.
+The objective of flow analysis is to ensure that __when an owner object goes out of scope or before assignment it does not owns any resources__.
  
-We can print the object state as seen by flow analysis using **static\_debug**.  
-We also can assert some specific state using **static\_state**.
+We can print the object state as seen by flow analysis using **static\_debug**. We also can assert some specific state using **static\_state**.
 
 Sample:
 
@@ -384,25 +403,26 @@ int main() {
 }
 ```
 
-We must track that object `p->name` does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known. Because this is a common pattern I want to undertand this without extra annotation so semantics of malloc/realloc will be built in. 
+We must track that object `p->name` does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known.  For this particular case the semantics of malloc/calloc will be built-in; So the static analyzer will know malloc returns a uninitialized memory and calloc return a zeroed memory.
 
 ### Disabling ownership checks  
   
-We add "unchecked" at function definition before `{`.  
+Some functions can have a intricate logic of pointers and instead of trying to adapt the logic we know is correct, we can just annotate "unchecked" at function definition.  
 
 ```c
-void f() "unchecked" 
-{  
+void f() "unchecked" {  
 }
 ```
+  
+This is also expected to be used with a macro, so compiler without ownership checks will just ignore.
 
-Disabling some parts
+In some case, we need to disable just some parts of the code and not the entire function.
 
 ```c
 void token_delete(implicit struct token* owner p)
 {
-    if (p)
-    {
+    if (p) {
+        [[already_released]] p->next;
         free(p->lexeme);
         free(p); //warning next not deleted
     }
@@ -460,6 +480,7 @@ static-declaration:  /*where static-assert is used today*/
  static_debug-declaration
  static_state-declaration
 
+TODO "unchecked"
 ```
 
 ## Checking your source code
