@@ -174,14 +174,13 @@ struct expression;
 
 void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
-    struct expression* right,
-    bool move_assignment,
+    struct expression* right,    
     bool return_assignment);
 
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
-void type_destroy(implicit struct type* obj_owner p_type);
+void type_destroy( struct type* obj_owner p_type);
 
 
 

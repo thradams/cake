@@ -1,26 +1,23 @@
-void* owner make();
-void free(implicit void* owner p);
+void *owner malloc(int i);
+void free(void  *owner);
 
-void f(condition)
+struct node {
+ struct node* owner next;
+};
+
+struct list {
+  struct node * owner head;
+  struct node * tail;
+};
+
+
+void list_destroy(struct list* obj_owner list)
 {
-    void* owner p = make();
-
-
-    switch (condition)
-    {
-        case 1:
-        {
-            free(p);
-        }
-        break;
-        case 2:
-        {
-            free(p);
-        }
-        break;
-
-        default:
-            free(p);
-            break;
-    }        
+  struct node * owner p = list->head;
+  while (p) {
+      struct node *  owner next = p->next;
+      free(p);
+      p = next;
+  }
+  //static_debug(p);
 }

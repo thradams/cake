@@ -395,13 +395,11 @@ static const char* file_assert_h =
 
 #define  _OWNERSHIP__STR "\n"\
  "#ifdef _OWNERSHIP_\n"\
- "#define IMPLICIT _Implicit\n"\
- "#define OWNER _Owner\n"\
+  "#define OWNER _Owner\n"\
  "#define OBJ_OWNER _Obj_owner\n"\
  "#define VIEW _View\n"\
  "#else\n"\
- "#define IMPLICIT \n"\
- "#define OWNER\n"\
+  "#define OWNER\n"\
  "#define OBJ_OWNER\n"\
  "#define VIEW \n"\
  "#endif\n"\
@@ -424,7 +422,7 @@ _OWNERSHIP__STR
 "int rename(const char* old, const char* news);\n"
 "FILE* tmpfile(void);\n"
 "char* tmpnam(char* s);\n"
-"int fclose(IMPLICIT FILE* OWNER stream);\n"
+"int fclose(FILE* OWNER stream);\n"
 "int fflush(FILE* stream);\n"
 "FILE* OWNER fopen(const char* restrict filename, const char* restrict mode);\n"
 "FILE* OWNER freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
@@ -872,7 +870,7 @@ static const char* file_stdlib_h =
  "void srand(unsigned int seed);\n"
  "void* aligned_alloc(size_t alignment, size_t size);\n"
  "[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
- "void free(IMPLICIT void* OWNER ptr);\n"
+ "void free(void* OWNER ptr);\n"
  "[[nodiscard]] void* OWNER malloc(size_t size);\n"
  "[[nodiscard]] void* OWNER realloc(void* ptr, size_t size);\n"
  "[[noreturn]] void abort(void);\n"

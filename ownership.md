@@ -130,6 +130,8 @@ release_resource(handle);
 But pointers have the additional advantage of having a natural zero semantics.
 What is the empty value for handle for instance?
 
+Obs:
+owner pointer to function should be error.
 
 ### Initialization and assignment
 #### Owner = Owner

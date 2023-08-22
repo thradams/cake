@@ -37,6 +37,7 @@ enum expression_type
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
     UNARY_EXPRESSION_ALIGNOF,
+    UNARY_EXPRESSION_ASSERT,
 
     UNARY_EXPRESSION_INCREMENT,
     UNARY_EXPRESSION_DECREMENT,
@@ -193,7 +194,6 @@ struct expression
     /*token used in _add_attr, _has_attr, _del_attr, return*/
     struct token* contract_arg_token;
 
-    struct token* move_assignment;
 
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* declarator;
@@ -206,7 +206,7 @@ struct expression
     struct expression* owner left;
     struct expression* owner right;
 };
-void expression_delete(implicit struct expression* owner);
+void expression_delete( struct expression* owner);
 
 struct expression* owner assignment_expression(struct parser_ctx* ctx);
 struct expression* owner expression(struct parser_ctx* ctx);

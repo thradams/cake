@@ -7,25 +7,18 @@
 
 
 #ifdef __CAKE__
-#define implicit _Implicit
-#define owner _Owner
-#define obj_owner _Obj_owner
-#define move _Move
-#define view _View
+void* owner calloc(int nmemb, int size);
+void free(void* owner ptr);
+void* owner malloc(int size);
+void* owner realloc(void* owner ptr, int size);
+ char * owner strdup( const char *src );
+int fclose(FILE* owner _Stream);
 
-
-[[nodiscard]] void* _Owner calloc(int nmemb, int size);
-void free(_Implicit void* _Owner ptr);
-[[nodiscard]] void* _Owner malloc(int size);
-[[nodiscard]] void* _Owner realloc(void* _Owner ptr, int size);
-[[nodiscard]] char * _Owner strdup( const char *src );
-char * _Owner strdup( const char *str1 );
+char * owner strdup( const char *str1 );
 #define unchecked "unchecked"
 #else
-#define implicit
 #define owner
 #define obj_owner
-#define move
 #define view
 #define static_debug(x)
 #define unchecked
@@ -179,7 +172,7 @@ struct osstream
 };
 
 
-void ss_close(implicit struct osstream * obj_owner stream);
+void ss_close( struct osstream * obj_owner stream);
 
 int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args);
 int ss_fprintf(struct osstream* stream, const char* fmt, ...);
@@ -224,7 +217,7 @@ struct hash_map {
 };
 
 void hashmap_remove_all(struct hash_map* map);
-void hashmap_destroy(implicit struct hash_map* obj_owner map);
+void hashmap_destroy( struct hash_map* obj_owner map);
 struct map_entry* hashmap_find(struct hash_map* map, const char* key);
 void* hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt);
 int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type);
@@ -244,8 +237,8 @@ struct owner_hash_map {
     int  size;
 };
 
-void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void*));
-void owner_hashmap_destroy(implicit struct owner_hash_map* obj_owner map, void (*pf)(void*));
+void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner ));
+void owner_hashmap_destroy( struct owner_hash_map* obj_owner map, void (*pf)(void*));
 struct owner_map_entry* owner_hashmap_find(struct owner_hash_map* map, const char* key);
 void*  owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, enum tag* p_type_opt);
 int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p, enum tag type);
@@ -410,9 +403,7 @@ enum token_type
     /*cake extension*/
     TK_KEYWORD__OWNER, 
     TK_KEYWORD__OBJ_OWNER, 
-    TK_KEYWORD__VIEW,
-    TK_KEYWORD__MOVE,
-    TK_KEYWORD__IMPLICIT,
+    TK_KEYWORD__VIEW,    
     TK_KEYWORD__OPT, 
 
     /*extension compile time functions*/
@@ -475,7 +466,7 @@ struct token
     struct token* prev;
 };
 
-void token_delete(implicit struct token* owner p);
+void token_delete( struct token* owner p);
 
 struct token_list
 {
@@ -499,8 +490,8 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
-void print_line_and_token(const struct token* p_token);
-void print_position(const char* path, int line, int col);
+void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_format);
+void print_position(const char* path, int line, int col, bool msvc_format);
 struct stream
 {
     const char* source;
@@ -517,14 +508,14 @@ void stream_match(struct stream* stream);
 
 #define LIST_ADD(list, pnew)\
 do {\
-    void* owner pitem = move (void* owner) (pnew);\
+    void* owner pitem = (void* owner) (pnew);\
     if ((list)->head == NULL)\
     {\
-        (list)->head = move pitem;\
+        (list)->head = pitem;\
         (list)->tail = pitem;\
     } else \
     {\
-        (list)->tail->next = move pitem;\
+        (list)->tail->next = pitem;\
         (list)->tail = pitem;\
     }\
 } while(0)
@@ -658,7 +649,7 @@ enum error
     C_OWNERSHIP_NOT_OWNER,
     C_OWNERSHIP_USING_TEMPORARY_OWNER,
     C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-    C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
+    
     C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
     
     /*flow analysis errors*/
@@ -765,6 +756,8 @@ struct options
     */
     bool null_checks;
 
+    bool visual_studio_ouput_format;
+
     /*
       -o filename
       defines the ouputfile when 1 file is used
@@ -815,7 +808,7 @@ struct preprocessor_ctx
     int n_warnings;
     int n_errors;    
 };
-void preprocessor_ctx_destroy(implicit struct preprocessor_ctx* obj_owner p);
+void preprocessor_ctx_destroy( struct preprocessor_ctx* obj_owner p);
 
 void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
@@ -838,7 +831,7 @@ struct token_list  copy_replacement_list(struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source);
 void print_list(struct token_list* list);
-void token_list_destroy(implicit struct token_list* obj_owner list);
+void token_list_destroy( struct token_list* obj_owner list);
 bool token_is_blank(struct token* p);
 struct token* owner token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);
@@ -941,7 +934,7 @@ struct token* owner token_list_pop_back(struct token_list* list) unchecked
 {
     if (list->head == NULL)
         return NULL;
-    
+
     struct token* p = list->tail;
     if (list->head == list->tail)
     {
@@ -967,7 +960,7 @@ void token_list_pop_front(struct token_list* list) unchecked
     if (list->head == NULL)
         return;
 
-    struct token* owner p = move list->head;
+    struct token* owner p = list->head;
 
     if (list->head == list->tail)
     {
@@ -976,12 +969,12 @@ void token_list_pop_front(struct token_list* list) unchecked
     }
     else
     {
-        list->head = move list->head->next;
+        list->head = list->head->next;
     }
     p->next = NULL;
     p->prev = NULL;
 
-    token_delete(p);    
+    token_delete(p);
 }
 
 struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
@@ -998,7 +991,7 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     }
     else
     {
-        list->head = move list->head->next;
+        list->head = list->head->next;
     }
     p->next = NULL;
     p->prev = NULL;
@@ -1006,12 +999,12 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     return p;
 }
 
-void token_delete(implicit struct token* owner p) unchecked
+void token_delete(struct token* owner p) unchecked
 {
     if (p)
     {
         /*
-         * ownership warning here is about the p->next 
+         * ownership warning here is about the p->next
          * we need a way to remove only this especific warning
         */
         free(p->lexeme);
@@ -1032,14 +1025,14 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     }
 }
 
-void token_list_destroy(implicit struct token_list* obj_owner list)
+void token_list_destroy(struct token_list* obj_owner list)
 {
-    struct token* owner p = move list->head;
+    struct token* owner p = list->head;
     while (p)
     {
-        struct token* owner next = move p->next;
+        struct token* owner next = p->next;
         token_delete(p);
-        p = move next;
+        p = next;
     }
 }
 
@@ -1082,7 +1075,7 @@ char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    char* owner cstr = move ss.c_str;
+    char* owner cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -1097,15 +1090,15 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
 
     if (after == NULL)
     {
-        append_list->tail->next = move token_list->head;
+        append_list->tail->next = token_list->head;
         token_list->head->prev = append_list->tail;
 
-        token_list->head = move append_list->head;
+        token_list->head = append_list->head;
         append_list->head->prev = NULL;
     }
     else
     {
-        struct token* owner follow = move after->next;
+        struct token* owner follow = after->next;
         if (token_list->tail == after)
         {
             token_list->tail = append_list->tail;
@@ -1113,9 +1106,9 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         else if (token_list->head == after)
         {
         }
-        append_list->tail->next = move follow;
+        append_list->tail->next = follow;
         follow->prev = append_list->tail;
-        after->next = move append_list->head;
+        after->next = append_list->head;
         append_list->head->prev = after;
 
     }
@@ -1132,14 +1125,14 @@ struct token* token_list_add(struct token_list* list, struct token* owner pnew) 
     {
         pnew->prev = NULL;
         pnew->next = NULL;
-        list->head = move pnew;
+        list->head = pnew;
         list->tail = pnew;
         //pnew->prev = list->tail;
     }
     else
     {
         pnew->prev = list->tail;
-        list->tail->next = move pnew;
+        list->tail->next = pnew;
         list->tail = pnew;
     }
     assert(list->tail->next == NULL);
@@ -1167,7 +1160,7 @@ bool token_is_blank(struct token* p)
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
     struct token* owner clone = clone_token(pnew);
-    return token_list_add(list, move clone);
+    return token_list_add(list, clone);
 }
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source) unchecked
@@ -1178,13 +1171,13 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     }
     if (dest->head == NULL)
     {
-        dest->head = move source->head;
+        dest->head = source->head;
         dest->tail = source->tail;
     }
     else
     {
-        source->tail->next = move dest->head;
-        dest->head = move source->head;
+        source->tail->next = dest->head;
+        dest->head = source->head;
     }
 }
 
@@ -1196,12 +1189,12 @@ void token_list_append_list(struct token_list* dest, struct token_list* obj_owne
     }
     if (dest->head == NULL)
     {
-        dest->head = move source->head;
+        dest->head = source->head;
         dest->tail = source->tail;
     }
     else
     {
-        dest->tail->next = move  source->head;
+        dest->tail->next = source->head;
         source->head->prev = dest->tail;
         dest->tail = source->tail;
     }
@@ -1213,8 +1206,8 @@ struct token* owner clone_token(struct token* p)
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-        * token = move *p;
-        token->lexeme = move strdup(p->lexeme);
+        *token = *p;
+        token->lexeme = strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
     }
@@ -1227,12 +1220,12 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     struct token_list r = {0};
 
     struct token* before_first = first->prev;
-    struct token* owner after_last = move last->next;
+    struct token* owner after_last = last->next;
 
-    before_first->next = move after_last;
+    before_first->next = after_last;
     after_last->prev = before_first;
 
-    r.head = move (struct token* owner)first;
+    r.head = (struct token* owner)first;
     first->prev = NULL;
     r.tail = last;
     last->next = NULL;
@@ -1245,7 +1238,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 void token_list_remove(struct token_list* list, struct token* first, struct token* last)
 {
     struct token_list r = token_list_remove_get(list, first, last);
-    token_list_destroy(&r);    
+    token_list_destroy(&r);
 }
 
 
@@ -1454,30 +1447,35 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");
 }
 
-void print_position(const char* path, int line, int col)
+void print_position(const char* path, int line, int col, bool visual_studio_ouput_format)
 {
-    //GCC format
-    printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
 
-    //MSVC format
-#if 0
-    printf(WHITE "%s(%d,%d): ", path ? path : "<>", line, col);
-#endif
-
+    if (visual_studio_ouput_format)
+    {
+        //MSVC format
+        printf("%s(%d,%d): ", path ? path : "<>", line, col);
+    }
+    else
+    {
+        //GCC format
+        printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+    }
 }
 
-void print_line_and_token(const struct token* p_token)
+void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_format)
 {
     if (p_token == NULL)
         return;
 
     int line = p_token->line;
-    printf(LIGHTGRAY);
+
+    if (!visual_studio_ouput_format)
+        printf(LIGHTGRAY);
 
     char nbuffer[20] = {0};
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
-    
+
     int offset = 0;
     bool stop_offset = false;
 
@@ -1502,9 +1500,14 @@ void print_line_and_token(const struct token* p_token)
         }
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
-            if (!stop_offset) 
-              offset +=  strlen(next->lexeme);
-            printf(DARKGRAY "%s" RESET, next->lexeme);
+            if (!stop_offset)
+                offset += strlen(next->lexeme);
+
+            if (!visual_studio_ouput_format)
+                printf(DARKGRAY "%s" RESET, next->lexeme);
+            else
+                printf("%s", next->lexeme);
+
         }
         else
             printf("%s", next->lexeme);
@@ -1512,7 +1515,10 @@ void print_line_and_token(const struct token* p_token)
         next = next->next;
     }
     printf("\n");
-    printf(LIGHTGRAY);
+
+    if (!visual_studio_ouput_format)
+        printf(LIGHTGRAY);
+
     printf(" %*s |", n, " ");
     if (p_token)
     {
@@ -1522,7 +1528,8 @@ void print_line_and_token(const struct token* p_token)
         }
     }
 
-    printf(LIGHTGREEN);
+    if (!visual_studio_ouput_format)
+        printf(LIGHTGREEN);
 
     printf("^");
 
@@ -1533,7 +1540,9 @@ void print_line_and_token(const struct token* p_token)
         p++;
     }
 
-    printf(RESET);
+    if (!visual_studio_ouput_format)
+        printf(RESET);
+
     printf("\n");
 }
 
@@ -1578,14 +1587,14 @@ void hashmap_remove_all(struct hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* pentry = move map->table[i];
+            struct map_entry* owner pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct map_entry* owner p_entry_current = move pentry;
-                pentry = pentry->next;
-                free(p_entry_current->key);
-                free(p_entry_current);
+                struct map_entry* owner next = pentry->next;                
+                free(pentry->key);
+                free(pentry);
+                pentry = next;
             }
         }
  
@@ -1595,9 +1604,10 @@ void hashmap_remove_all(struct hash_map* map)
     }
 }
 
-void hashmap_destroy(implicit struct hash_map* obj_owner map)
+void hashmap_destroy( struct hash_map* obj_owner map)
 {
     hashmap_remove_all(map);
+    assert(map->table == NULL);
 }
 
 struct map_entry* hashmap_find(struct hash_map* map, const char* key)
@@ -1627,21 +1637,21 @@ void * view hashmap_remove(struct hash_map* map, const char* key, enum tag * p_t
     if (map->table != NULL)
     {
         const unsigned int hash = string_hash(key);
-        struct map_entry* owner * pp_entry = &map->table[hash % map->capacity];
-        struct map_entry* owner p_entry = *pp_entry;
+        struct map_entry* * pp_entry = &map->table[hash % map->capacity];
+        struct map_entry* p_entry = *pp_entry;
 
-        for (; p_entry != NULL; p_entry = move p_entry->next)
+        for (; p_entry != NULL; p_entry = p_entry->next)
         {
             if ((p_entry->hash == hash) && (strcmp(p_entry->key, key) == 0))
             {
-                *pp_entry = move p_entry->next;
+                *pp_entry = p_entry->next;
 
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* view p = move p_entry->p;
-                free(p_entry->key);
-                free(p_entry);
+                void* view p = p_entry->p;
+                free((void* owner)p_entry->key);
+                free((void* owner)p_entry);
                 
                 return p;
             }
@@ -1664,7 +1674,7 @@ int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag ty
             map->capacity = 1000;
         }
 
-        map->table = move calloc(map->capacity, sizeof(map->table[0]));
+        map->table = calloc(map->capacity, sizeof(map->table[0]));
     }
 
     if (map->table != NULL)
@@ -1688,9 +1698,9 @@ int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag ty
             p_new_entry->hash = hash;
             p_new_entry->p = p;
             p_new_entry->type = type;
-            p_new_entry->key = move strdup(key);
-            p_new_entry->next = move map->table[index];
-            map->table[index] = move p_new_entry;
+            p_new_entry->key = strdup(key);
+            p_new_entry->next = map->table[index];
+            map->table[index] = p_new_entry;
             map->size++;
             result = 0;
         }
@@ -1710,21 +1720,24 @@ int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag ty
 
 
 
-void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void*))
+void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner p))
 {
     if (map->table != NULL)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct owner_map_entry* pentry = move map->table[i];
+            struct owner_map_entry* owner pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct owner_map_entry* owner p_entry_current = move pentry;                
-                pentry = pentry->next;
-                pf(p_entry_current->p);
-                free(p_entry_current->key);
-                free(p_entry_current);
+                struct owner_map_entry* owner next = pentry->next;                
+                
+                pf(pentry->p); //TODO
+
+                free(pentry->key);
+                free(pentry);
+
+                pentry = next;
             }
         }
 
@@ -1734,9 +1747,10 @@ void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void*))
     }
 }
 
-void owner_hashmap_destroy(implicit struct owner_hash_map* obj_owner map, void (*pf)(void*))
+void owner_hashmap_destroy( struct owner_hash_map* obj_owner map, void (*pf)(void* owner))
 {
     owner_hashmap_remove_all(map, pf );
+    assert(map->table == NULL);
 }
 
 struct owner_map_entry* owner_hashmap_find(struct owner_hash_map* map, const char* key)
@@ -1766,21 +1780,21 @@ void * owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, e
     if (map->table != NULL)
     {
         const unsigned int hash = string_hash(key);
-        struct owner_map_entry* owner * pp_entry = &map->table[hash % map->capacity];
-        struct owner_map_entry* owner p_entry = *pp_entry;
+        struct owner_map_entry* * pp_entry = &map->table[hash % map->capacity];
+        struct owner_map_entry* p_entry = *pp_entry;
 
-        for (; p_entry != NULL; p_entry = move p_entry->next)
+        for (; p_entry != NULL; p_entry = p_entry->next)
         {
             if ((p_entry->hash == hash) && (strcmp(p_entry->key, key) == 0))
             {
-                *pp_entry = move p_entry->next;
+                *pp_entry = p_entry->next;
 
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* view p = move p_entry->p;
+                void* owner p = p_entry->p;
                 free(p_entry->key);
-                free(p_entry);
+                free((void  * owner)p_entry);
                 
                 return p;
             }
@@ -1803,7 +1817,7 @@ int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p
             map->capacity = 1000;
         }
 
-        map->table = move calloc(map->capacity, sizeof(map->table[0]));
+        map->table = calloc(map->capacity, sizeof(map->table[0]));
     }
 
     if (map->table != NULL)
@@ -1827,9 +1841,9 @@ int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p
             p_new_entry->hash = hash;
             p_new_entry->p = p;
             p_new_entry->type = type;
-            p_new_entry->key = move strdup(key);
-            p_new_entry->next = move map->table[index];
-            map->table[index] = move p_new_entry;
+            p_new_entry->key = strdup(key);
+            p_new_entry->next = map->table[index];
+            map->table[index] = p_new_entry;
             map->size++;
             result = 0;
         }
@@ -2156,7 +2170,7 @@ struct macro
 };
 
 
-void delete_macro(implicit struct macro* owner macro);
+void delete_macro( struct macro* owner macro);
 
 static void delete_macro_void(void* p)
 {
@@ -2164,19 +2178,19 @@ static void delete_macro_void(void* p)
     delete_macro(p_macro);
 }
 
-void include_dir_list_destroy(implicit struct include_dir_list* obj_owner list)
+void include_dir_list_destroy( struct include_dir_list* obj_owner list)
 {
-    struct include_dir* owner p = move list->head;
+    struct include_dir* owner p = list->head;
     while (p)
     {
-        struct include_dir* owner next = move p->next;
+        struct include_dir* owner next = p->next;
         free(p->path);
         free(p);
-        p = move next;
+        p = next;
     }
 }
 
-void preprocessor_ctx_destroy(implicit struct preprocessor_ctx* obj_owner p)
+void preprocessor_ctx_destroy( struct preprocessor_ctx* obj_owner p)
 {
     owner_hashmap_destroy(&p->macros, delete_macro_void);
     include_dir_list_destroy(&p->include_dir);
@@ -2196,7 +2210,7 @@ static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    print_position(stream->path, stream->line, stream->col);
+    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format);
     printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 #endif
 }
@@ -2212,7 +2226,7 @@ static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stre
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
-    print_position(stream->path, stream->line, stream->col);
+    print_position(stream->path, stream->line, stream->col, ctx->options.visual_studio_ouput_format);
     printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
 #endif
 }
@@ -2221,7 +2235,7 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
 {
 #ifndef TEST
     if (p_token)
-        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
     char buffer[200] = {0};
     va_list args;
@@ -2231,7 +2245,7 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
 
     printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 
-    print_line_and_token(p_token);
+    print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 #endif
 
 }
@@ -2256,7 +2270,7 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
 #ifndef TEST
 
     if (p_token)
-        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
     char buffer[200] = {0};
     va_list args;
@@ -2266,7 +2280,7 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
 
     printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
 
-    print_line_and_token(p_token);
+    print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 #endif
 
 }
@@ -2278,7 +2292,7 @@ void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx
 #ifndef TEST
 
     if (p_token)
-        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
     char buffer[200] = {0};
     va_list args;
@@ -2288,7 +2302,7 @@ void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx
 
     printf(LIGHTRED"error: " WHITE "%s\n", buffer);
 
-    print_line_and_token(p_token);
+    print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 #endif
 }
 
@@ -2298,16 +2312,16 @@ void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path)
 {
     struct include_dir* owner p_new_include_dir = calloc(1, sizeof * p_new_include_dir);
-    p_new_include_dir->path = move strdup(path);
+    p_new_include_dir->path = strdup(path);
     if (list->head == NULL)
     {
-        list->head = move p_new_include_dir;
+        list->head = p_new_include_dir;
         list->tail = p_new_include_dir;
     }
     else
     {
         assert(list->tail->next == NULL);
-        list->tail->next = move p_new_include_dir;
+        list->tail->next = p_new_include_dir;
         list->tail = p_new_include_dir;
     }
     return list->tail;
@@ -2365,8 +2379,8 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
     struct macro* owner macro = calloc(1, sizeof * macro);
     if (macro != NULL)
     {
-        macro->name = move strdup(name);
-        owner_hashmap_set(&ctx->macros, name, move (void* owner) macro, 0);
+        macro->name = strdup(name);
+        owner_hashmap_set(&ctx->macros, name, (void* owner) macro, 0);
     }
 }
 
@@ -2439,9 +2453,9 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
     {
         /*nunca eh vazio..se for ele colocar um TK_PLACEMARKER*/
         struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
-        p_new_token->lexeme = move strdup("");
+        p_new_token->lexeme = strdup("");
         p_new_token->type = TK_PLACEMARKER;
-        token_list_add(&list, move p_new_token);
+        token_list_add(&list, p_new_token);
     }
     //print_list(&list);
     return list;
@@ -2458,14 +2472,14 @@ struct macro_argument_list
 void macro_argument_list_destroy(struct macro_argument_list* list)
 {
     token_list_destroy(&list->tokens);
-    struct macro_argument* owner p = move list->head;
+    struct macro_argument* owner p = list->head;
     while (p)
     {
-        struct macro_argument* owner next = move p->next;
+        struct macro_argument* owner next = p->next;
         free(p->name);
         token_list_destroy(&p->tokens);
         free(p);
-        p = move next;
+        p = next;
     }
 }
 
@@ -2504,14 +2518,14 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
     assert(pnew->next == NULL);
     if (list->head == NULL)
     {
-        list->head = move pnew;
+        list->head = pnew;
         assert(list->tail == NULL);
         list->tail = pnew;
     }
     else
     {
         assert(list->tail->next == NULL);
-        list->tail->next = move pnew;
+        list->tail->next = pnew;
         list->tail = pnew;
     }
 }
@@ -2537,17 +2551,17 @@ void print_macro(struct macro* macro)
 
 void macro_parameters_delete(struct macro_parameter* owner parameters)
 {
-    struct macro_parameter* owner p = move parameters;
+    struct macro_parameter* owner p = parameters;
     while (p)
     {
-        struct macro_parameter* owner p_next = move p->next;
+        struct macro_parameter* owner p_next = p->next;
         free((void* owner)p->name);
         free(p);
-        p = move p_next;
+        p = p_next;
     }
 }
 
-void delete_macro(implicit struct macro* owner macro)
+void delete_macro( struct macro* owner macro)
 {
     if (macro)
     {
@@ -2556,10 +2570,10 @@ void delete_macro(implicit struct macro* owner macro)
         struct macro_parameter* owner p = macro->parameters;
         while (p)
         {
-            struct macro_parameter* owner p_next = move p->next;
+            struct macro_parameter* owner p_next = p->next;
             free((void* owner)p->name);
             free(p);
-            p = move p_next;
+            p = p_next;
         }
 
         free((void* owner) macro->name);
@@ -2908,7 +2922,7 @@ struct token* owner new_token(const char* lexeme_head, const char* lexeme_tail, 
 {
     struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
     size_t sz = lexeme_tail - lexeme_head;
-    p_new_token->lexeme = move calloc(sz + 1, sizeof(char));
+    p_new_token->lexeme = calloc(sz + 1, sizeof(char));
     p_new_token->type = type;
     strncpy(p_new_token->lexeme, lexeme_head, sz);
     return p_new_token;
@@ -3057,7 +3071,7 @@ struct token* owner string_literal(struct tokenizer_ctx* ctx, struct stream* str
                 stream_match(stream);
         }
         stream_match(stream);
-        p_new_token = move new_token(start, stream->current, TK_STRING_LITERAL);
+        p_new_token = new_token(start, stream->current, TK_STRING_LITERAL);
     }
     catch
     {
@@ -3280,7 +3294,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
                 p_new_token->token_origin = NULL;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
 
                 if (count > 0 && count % 25 == 0)
                 {
@@ -3291,8 +3305,8 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
                     p_new3->token_origin = NULL;
                     p_new3->line = line;
                     p_new3->col = col;
-                    token_list_add(&list, move p_new3);
-                }
+                    token_list_add(&list, p_new3);
+                }                
             }
 
             char buffer[30];
@@ -3304,7 +3318,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
             p_new_token->token_origin = NULL;
             p_new_token->line = line;
             p_new_token->col = col;
-            token_list_add(&list, move p_new_token);
+            token_list_add(&list, p_new_token);
 
 
             count++;
@@ -3324,7 +3338,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
     p_new_token->token_origin = NULL;
     p_new_token->line = line;
     p_new_token->col = col;
-    token_list_add(&list, move p_new_token);
+    token_list_add(&list, p_new_token);
 
     if (file) fclose(file);
 
@@ -3384,9 +3398,9 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         {
             const char* begin = filename_opt;
             const char* end = filename_opt + strlen(filename_opt);
-            p_first = move new_token(begin, end, TK_BEGIN_OF_FILE);
+            p_first = new_token(begin, end, TK_BEGIN_OF_FILE);
             p_first->level = level;
-            token_list_add(&list, move p_first);
+            token_list_add(&list, p_first);
         }
 
 
@@ -3418,7 +3432,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
 
@@ -3444,7 +3458,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);;
+                token_list_add(&list, p_new_token);;
                 new_line = false;
                 has_space = false;
                 set_sliced_flag(&stream, p_new_token);
@@ -3463,7 +3477,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
                 set_sliced_flag(&stream, p_new_token);
@@ -3481,7 +3495,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
                 if (set_sliced_flag(&stream, p_new_token))
@@ -3512,7 +3526,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 /*bNewLine = false;*/ //deixa assim
                 has_space = true;
                 set_sliced_flag(&stream, p_new_token);
@@ -3541,7 +3555,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
                 set_sliced_flag(&stream, p_new_token);
@@ -3585,7 +3599,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
 
@@ -3611,7 +3625,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->line = line;
                 p_new_token->col = col;
                 p_new_token->type = TK_PREPROCESSOR_LINE;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
                 set_sliced_flag(&stream, p_new_token);
@@ -3640,7 +3654,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
                 set_sliced_flag(&stream, p_new_token);
@@ -3660,7 +3674,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
                 set_sliced_flag(&stream, p_new_token);
@@ -3678,7 +3692,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, move p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
 
@@ -3755,7 +3769,7 @@ struct token_list group_opt(struct preprocessor_ctx* ctx, struct token_list* inp
             else
             {
                 struct token_list r2 = group_part(ctx, input_list, is_active, level);
-                token_list_append_list(&r, move & r2);
+                token_list_append_list(&r, & r2);
                 if (ctx->n_errors > 0) throw;
             }
         }
@@ -3924,14 +3938,14 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 free(p_new_token->lexeme);
                 if (macro)
                 {
-                    p_new_token->lexeme = move strdup("1");
+                    p_new_token->lexeme = strdup("1");
                 }
                 else
                 {
-                    p_new_token->lexeme = move strdup("0");
+                    p_new_token->lexeme = strdup("0");
                 }
 
-                token_list_add(&r, move p_new_token);
+                token_list_add(&r, p_new_token);
 
                 if (has_parentesis)
                 {
@@ -3988,10 +4002,10 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
-                p_new_token->lexeme = move strdup(has_include ? "1" : "0");
+                p_new_token->lexeme = strdup(has_include ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
-                token_list_add(&r, move p_new_token);
+                token_list_add(&r, p_new_token);
                 token_list_pop_front(input_list); //pop )
             }
             else if (input_list->head->type == TK_IDENTIFIER &&
@@ -4046,15 +4060,15 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
-                p_new_token->lexeme = move strdup(has_c_attribute ? "1" : "0");
+                p_new_token->lexeme = strdup(has_c_attribute ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
-                token_list_add(&r, move p_new_token);
+                token_list_add(&r, p_new_token);
                 token_list_pop_front(input_list); //pop )
             }
             else
             {
-                token_list_add(&r, move token_list_pop_front_get(input_list));
+                token_list_add(&r, token_list_pop_front_get(input_list));
             }
         }
     }
@@ -4084,7 +4098,7 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token
             if (macro)
             {
                 free(p_new_token->lexeme);
-                p_new_token->lexeme = move strdup("1");
+                p_new_token->lexeme = strdup("1");
             }
             else
             {
@@ -4108,10 +4122,10 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token
                 else
                 {
                     free(p_new_token->lexeme);
-                    p_new_token->lexeme = move strdup("0");
+                    p_new_token->lexeme = strdup("0");
                 }
             }
-            token_list_add(&list2, move p_new_token);
+            token_list_add(&list2, p_new_token);
         }
         else
         {
@@ -4127,7 +4141,7 @@ struct token_list ignore_preprocessor_line(struct token_list* input_list)
     struct token_list r = {0};
     while (input_list->head->type != TK_NEWLINE)
     {
-        token_list_add(&r, move token_list_pop_front_get(input_list));
+        token_list_add(&r, token_list_pop_front_get(input_list));
     }
     return r;
 }
@@ -4145,7 +4159,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct token_list r = {0};
     while (input_list->head && input_list->head->type != TK_NEWLINE)
     {
-        token_list_add(&r, move token_list_pop_front_get(input_list));
+        token_list_add(&r, token_list_pop_front_get(input_list));
 
         /*
           We call preprocessor that emmit warnings if line continuation
@@ -4155,7 +4169,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         */
         r.tail->flags &= ~TK_FLAG_LINE_CONTINUATION;
     }
-    *output_list = move r;
+    *output_list = r;
 
 
     struct token_list list1 = copy_replacement_list(&r);
@@ -4177,13 +4191,13 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     //printf("\n");
 
     /*aonde defined has_c_aatribute sao transformados em constantes*/
-    struct token_list list3 = process_defined(ctx, move & list2);
+    struct token_list list3 = process_defined(ctx, & list2);
 
     //printf("apos remove defined\n");
     //print_list(&list3);
     //printf("\n");
 
-    struct token_list list4 = process_identifiers(ctx, move & list3);
+    struct token_list list4 = process_identifiers(ctx, & list3);
 
     //printf("apos remover identificadores restantes\n");
     //print_list(&list4);
@@ -4194,7 +4208,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     struct preprocessor_ctx pre_ctx = {0};
 
     //struct parser_ctx parser_ctx = { 0 };
-    pre_ctx.input_list = move list4;
+    pre_ctx.input_list = list4;
     pre_ctx.current = list4.head;
     //pre_skip_blanks(&parser_ctx);
 
@@ -4306,12 +4320,12 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             {
                 struct token_list r0 = {0};
                 *p_result = preprocessor_constant_expression(ctx, &r0, input_list, level);
-                token_list_append_list(&r, move & r0);
+                token_list_append_list(&r, & r0);
             }
             else
             {
                 struct token_list r0 = ignore_preprocessor_line(input_list);
-                token_list_append_list(&r, move & r0);
+                token_list_append_list(&r, & r0);
             }
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
@@ -4322,7 +4336,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
             throw;
         }
         struct token_list r2 = group_opt(ctx, input_list, is_active && *p_result, level);
-        token_list_append_list(&r, move & r2);
+        token_list_append_list(&r, & r2);
     }
     catch
     {
@@ -4357,14 +4371,14 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
             struct token_list r0 = {0};
             result = preprocessor_constant_expression(ctx, &r0, input_list, level);
 
-            token_list_append_list(&r, move & r0);
+            token_list_append_list(&r, & r0);
 
 
         }
         else
         {
             struct token_list r0 = ignore_preprocessor_line(input_list);
-            token_list_append_list(&r, move & r0);
+            token_list_append_list(&r, & r0);
         }
     }
     else if (strcmp(input_list->head->lexeme, "elifdef") == 0)
@@ -4393,7 +4407,7 @@ struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* in
     skip_blanks(ctx, &r, input_list);
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
     struct token_list r2 = group_opt(ctx, input_list, is_active && *p_elif_result, level);
-    token_list_append_list(&r, move & r2);
+    token_list_append_list(&r, & r2);
     return r;
 }
 
@@ -4408,7 +4422,7 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
     bool already_found_elif_true = false;
     bool elif_result = false;
     struct token_list r2 = elif_group(ctx, input_list, is_active, level, &elif_result);
-    token_list_append_list(&r, move & r2);
+    token_list_append_list(&r, & r2);
     if (elif_result)
         already_found_elif_true = true;
     if (input_list->head->type == TK_PREPROCESSOR_LINE &&
@@ -4423,7 +4437,7 @@ struct token_list elif_groups(struct preprocessor_ctx* ctx, struct token_list* i
           Depois que acha 1 true already_found_elif_true os outros sao false.
         */
         struct token_list r3 = elif_groups(ctx, input_list, is_active && !already_found_elif_true, level, &elif_result);
-        token_list_append_list(&r, move & r3);
+        token_list_append_list(&r, & r3);
         if (elif_result)
             already_found_elif_true = true;
     }
@@ -4450,7 +4464,7 @@ struct token_list else_group(struct preprocessor_ctx* ctx, struct token_list* in
     match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
     struct token_list r2 = group_opt(ctx, input_list, is_active, level);
-    token_list_append_list(&r, move & r2);
+    token_list_append_list(&r, & r2);
 
     return r;
 }
@@ -4488,7 +4502,7 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
         struct token_list r2 = if_group(ctx, input_list, is_active, level, &if_result);
         if (ctx->n_errors > 0) throw;
 
-        token_list_append_list(&r, move & r2);
+        token_list_append_list(&r, & r2);
         bool elif_result = false;
         if (input_list->head->type == TK_PREPROCESSOR_LINE && (
             preprocessor_token_ahead_is_identifier(input_list->head, "elif") ||
@@ -4496,19 +4510,19 @@ struct token_list if_section(struct preprocessor_ctx* ctx, struct token_list* in
             preprocessor_token_ahead_is_identifier(input_list->head, "elifndef")))
         {
             struct token_list r3 = elif_groups(ctx, input_list, is_active && !if_result, level, &elif_result);
-            token_list_append_list(&r, move & r3);
+            token_list_append_list(&r, & r3);
         }
         if (input_list->head->type == TK_PREPROCESSOR_LINE &&
             preprocessor_token_ahead_is_identifier(input_list->head, "else"))
         {
             struct token_list r4 = else_group(ctx, input_list, is_active && !if_result && !elif_result, level);
-            token_list_append_list(&r, move & r4);
+            token_list_append_list(&r, & r4);
         }
 
         if (ctx->n_errors > 0) throw;
 
         struct token_list r5 = endif_line(ctx, input_list, level);
-        token_list_append_list(&r, move & r5);
+        token_list_append_list(&r, & r5);
     }
     catch
     {
@@ -4528,8 +4542,8 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
     skip_blanks(ctx, &r, input_list);
 
     struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-    p_macro_parameter->name = move strdup(input_list->head->lexeme);
-    macro->parameters = move p_macro_parameter;
+    p_macro_parameter->name = strdup(input_list->head->lexeme);
+    macro->parameters = p_macro_parameter;
 
     struct macro_parameter* p_last_parameter = p_macro_parameter;
 
@@ -4545,9 +4559,9 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
             break;
         }
 
-        struct macro_parameter* owner p_new_macro_parameter = move calloc(1, sizeof * p_new_macro_parameter);
-        p_new_macro_parameter->name = move strdup(input_list->head->lexeme);
-        p_last_parameter->next = move p_new_macro_parameter;
+        struct macro_parameter* owner p_new_macro_parameter = calloc(1, sizeof * p_new_macro_parameter);
+        p_new_macro_parameter->name = strdup(input_list->head->lexeme);
+        p_last_parameter->next = p_new_macro_parameter;
         p_last_parameter = p_new_macro_parameter;
 
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
@@ -4572,7 +4586,7 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
 
     assert(macro->replacement_list.head == NULL);
     struct token_list copy = copy_replacement_list(&r);
-    token_list_append_list(&macro->replacement_list, move & copy);
+    token_list_append_list(&macro->replacement_list, & copy);
     return r;
 }
 
@@ -4613,7 +4627,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
         {
             //se nao esta ativo eh ignorado
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
-            token_list_append_list(&r, move & r7);
+            token_list_append_list(&r, & r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
             return r;
         }
@@ -4674,7 +4688,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 free((void* owner)content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
-                token_list_append_list(&r, move & list2);
+                token_list_append_list(&r, & list2);
             }
             else
             {
@@ -4704,7 +4718,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 p_list = &discard0;
 
                 free(ptoken->lexeme);
-                ptoken->lexeme = move strdup(" ");
+                ptoken->lexeme = strdup(" ");
 
             }
 
@@ -4767,7 +4781,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token_list list = embed_tokenizer(ctx, fullpath, nlevel, f);
 
 
-            token_list_append_list(&r, move & list);
+            token_list_append_list(&r, & list);
             token_list_destroy(&discard0);
 
 
@@ -4815,8 +4829,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                       // input_list->head->line);
             }
 
-            macro->name = move strdup(input_list->head->lexeme);
-            owner_hashmap_set(&ctx->macros, input_list->head->lexeme, move macro, 0);
+            macro->name = strdup(input_list->head->lexeme);
+            owner_hashmap_set(&ctx->macros, input_list->head->lexeme, macro, 0);
 
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //nome da macro
@@ -4835,8 +4849,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (input_list->head->type == '...')
                 {
                     struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                    p_macro_parameter->name = move strdup("__VA_ARGS__");
-                    macro->parameters = move p_macro_parameter;
+                    p_macro_parameter->name = strdup("__VA_ARGS__");
+                    macro->parameters = p_macro_parameter;
 
                     // assert(false);
                     match_token_level(&r, input_list, '...', level, ctx); //nome da macro
@@ -4851,19 +4865,19 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 else
                 {
                     struct token_list r3 = identifier_list(ctx, macro, input_list, level);
-                    token_list_append_list(&r, move & r3);
+                    token_list_append_list(&r, & r3);
                     skip_blanks_level(ctx, &r, input_list, level);
                     if (input_list->head->type == '...')
                     {
                         struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                        p_macro_parameter->name = move strdup("__VA_ARGS__");
+                        p_macro_parameter->name = strdup("__VA_ARGS__");
                         struct macro_parameter* p_last = macro->parameters;
                         assert(p_last != NULL);
                         while (p_last->next)
                         {
                             p_last = p_last->next;
                         }
-                        p_last->next = move p_macro_parameter;
+                        p_last->next = p_macro_parameter;
 
                         match_token_level(&r, input_list, '...', level, ctx);
                     }
@@ -4877,7 +4891,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             skip_blanks_level(ctx, &r, input_list, level);
             struct token_list r4 = replacement_list(ctx, macro, input_list, level);
-            token_list_append_list(&r, move & r4);
+            token_list_append_list(&r, & r4);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
             if (strcmp(macro->name, "assert") == 0)
@@ -4891,8 +4905,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 macro_parameters_delete(macro->parameters);
 
                 struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                p_macro_parameter->name = move strdup("__VA_ARGS__");
-                macro->parameters = move p_macro_parameter;
+                p_macro_parameter->name = strdup("__VA_ARGS__");
+                macro->parameters = p_macro_parameter;
 
                 token_list_destroy(&macro->replacement_list);
                 struct tokenizer_ctx tctx = {0};
@@ -4933,7 +4947,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//line
             struct token_list r5 = pp_tokens_opt(ctx, input_list, level);
-            token_list_append_list(&r, move & r5);
+            token_list_append_list(&r, & r5);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
         else if (strcmp(input_list->head->lexeme, "error") == 0)
@@ -4945,7 +4959,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//error
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
             preprocessor_set_error_with_token(C_PREPROCESSOR_ERROR_DIRECTIVE, ctx, input_list->head, "#error");
-            token_list_append_list(&r, move & r6);
+            token_list_append_list(&r, & r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
 
@@ -4960,13 +4974,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 /*insert comment before #*/
                 free(ptoken->lexeme);
-                ptoken->lexeme = move strdup("//#");
+                ptoken->lexeme = strdup("//#");
             }
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
 
             struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
             preprocessor_set_warning_with_token(W_NONE, ctx, input_list->head, "#warning");
-            token_list_append_list(&r, move & r6);
+            token_list_append_list(&r, & r6);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
         else if (strcmp(input_list->head->lexeme, "pragma") == 0)
@@ -5069,7 +5083,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
-            token_list_append_list(&r, move & r7);
+            token_list_append_list(&r, & r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
         }
     }
@@ -5120,14 +5134,14 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             if (macro->parameters != NULL)
             {
                 struct macro_argument* owner p_argument = calloc(1, sizeof(struct macro_argument));
-                p_argument->name = move strdup(p_current_parameter->name);
-                argument_list_add(&macro_argument_list, move p_argument);
+                p_argument->name = strdup(p_current_parameter->name);
+                argument_list_add(&macro_argument_list, p_argument);
             }
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
             return macro_argument_list;
         }
         struct macro_argument* owner p_argument = calloc(1, sizeof(struct macro_argument));
-        p_argument->name = move strdup(p_current_parameter->name);
+        p_argument->name = strdup(p_current_parameter->name);
         while (input_list->head != NULL)
         {
             if (input_list->head->type == '(')
@@ -5142,7 +5156,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 if (count == 0)
                 {
                     match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
-                    argument_list_add(&macro_argument_list, move p_argument);
+                    argument_list_add(&macro_argument_list, p_argument);
                     p_current_parameter = p_current_parameter->next;
 
                     if (p_current_parameter != NULL)
@@ -5150,9 +5164,9 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                         if (strcmp(p_current_parameter->name, "__VA_ARGS__") == 0)
                         {
                             //adicionamos este argumento como sendo vazio
-                            p_argument = move calloc(1, sizeof(struct macro_argument));
-                            p_argument->name = move strdup(p_current_parameter->name);
-                            argument_list_add(&macro_argument_list, move p_argument);
+                            p_argument = calloc(1, sizeof(struct macro_argument));
+                            p_argument->name = strdup(p_current_parameter->name);
+                            argument_list_add(&macro_argument_list, p_argument);
                         }
                         else
                         {
@@ -5180,16 +5194,16 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 else //if (count == 1)
                 {
                     match_token_level(&macro_argument_list.tokens, input_list, ',', level, ctx);
-                    argument_list_add(&macro_argument_list, move p_argument);
+                    argument_list_add(&macro_argument_list, p_argument);
                     p_argument = NULL; /*tem mais?*/
-                    p_argument = move calloc(1, sizeof(struct macro_argument));
+                    p_argument = calloc(1, sizeof(struct macro_argument));
                     p_current_parameter = p_current_parameter->next;
                     if (p_current_parameter == NULL)
                     {
                         preprocessor_set_error_with_token(C_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
                         throw;
                     }
-                    p_argument->name = move strdup(p_current_parameter->name);
+                    p_argument->name = strdup(p_current_parameter->name);
                 }
 
 
@@ -5282,9 +5296,9 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             else
             {
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
-                p_new_token->lexeme = move strdup("");
+                p_new_token->lexeme = strdup("");
                 p_new_token->type = TK_PLACEMARKER;
-                token_list_add(&newlist, move p_new_token);
+                token_list_add(&newlist, p_new_token);
                 newlist.head->flags = r.tail->flags;
             }
             /*
@@ -5293,7 +5307,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             token_list_pop_back(&r);
 
             /*adiciona novo token no fim do r*/
-            token_list_append_list(&r, move & newlist);
+            token_list_append_list(&r, & newlist);
 
             ss_close(&ss);
 
@@ -5424,10 +5438,10 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                         throw;
                     }
                     struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
-                    p_new_token->lexeme = move s;
+                    p_new_token->lexeme = s;
                     p_new_token->type = TK_STRING_LITERAL;
                     p_new_token->flags = flags;
-                    token_list_add(&r, move p_new_token);
+                    token_list_add(&r, p_new_token);
                     continue;
                 }
                 else if (r.tail != NULL && r.tail->type == '##')
@@ -5435,7 +5449,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     //estou parametro e anterior era ##
                     token_list_pop_front(input_list);
                     struct token_list argumentlist = copy_argument_list(p_argument);
-                    token_list_append_list(&r, move & argumentlist);
+                    token_list_append_list(&r, & argumentlist);
                 }
                 else if (input_list->head->next && input_list->head->next->type == '##')
                 {
@@ -5449,7 +5463,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     {
                         argumentlist.head->flags = flags;
                     }
-                    token_list_append_list(&r, move & argumentlist);
+                    token_list_append_list(&r, & argumentlist);
                     // ja passa o ## tambem
                     prematch(&r, input_list);
                 }
@@ -5468,7 +5482,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     /*depois reescan vai corrigir level*/
                     struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
                     if (ctx->n_errors > 0) throw;
-                    token_list_append_list(&r, move & r4);
+                    token_list_append_list(&r, & r4);
                     
                     assert(argumentlist.head == NULL);
                     assert(argumentlist.tail == NULL);
@@ -5579,7 +5593,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
                 {
                     r3.head->flags = flags;
                 }
-                token_list_append_list_at_beginning(&new_list, move & r3);
+                token_list_append_list_at_beginning(&new_list, & r3);
             }
             else
             {
@@ -5784,7 +5798,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
             struct token_list r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level);
             if (ctx->n_errors > 0) throw;
 
-            token_list_append_list(&r, move & r2);
+            token_list_append_list(&r, & r2);
         }
         else
         {
@@ -5792,7 +5806,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
             struct token_list r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level);
             if (ctx->n_errors > 0) throw;
 
-            token_list_append_list(&r, move & r3);
+            token_list_append_list(&r, & r3);
         }
     }
     catch
@@ -5910,7 +5924,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 //seta nos tokens expandidos da onde eles vieram
                 token_list_set_file(&start_macro, start_token->token_origin, start_token->line, start_token->col);
 
-                token_list_append_list_at_beginning(input_list, move & start_macro);
+                token_list_append_list_at_beginning(input_list, & start_macro);
 
                 if (ctx->flags & PREPROCESSOR_CTX_FLAGS_ONLY_FINAL)
                 {
@@ -5918,7 +5932,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 else
                 {
                     if (level == 0 || INCLUDE_ALL)
-                        token_list_append_list(&r, move & arguments.tokens);
+                        token_list_append_list(&r, & arguments.tokens);
                 }
 
                 //print_tokens(r.head);
@@ -5947,7 +5961,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             {
                                 if (level == 0 || INCLUDE_ALL)
                                 {
-                                    token_list_append_list(&r, move & arguments2.tokens);
+                                    token_list_append_list(&r, & arguments2.tokens);
                                 }
                             }
 
@@ -5962,7 +5976,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             {
                                 r3.head->flags = flags2;
                             }
-                            token_list_append_list_at_beginning(input_list, move & r3);
+                            token_list_append_list_at_beginning(input_list, & r3);
                         }
                     }
                 }
@@ -6122,7 +6136,7 @@ struct token_list preprocessor(struct preprocessor_ctx* ctx, struct token_list* 
     }
 
     struct token_list g = group_opt(ctx, input_list, true /*active*/, level);
-    token_list_append_list(&r, move & g);
+    token_list_append_list(&r, & g);
     return r;
 }
 
@@ -6493,7 +6507,7 @@ const char* owner get_code_as_we_see(struct token_list* list, bool remove_commen
         current = current->next;
     }
 
-    const char* owner cstr = move ss.c_str;
+    const char* owner cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -7890,7 +7904,7 @@ void ss_clear(struct osstream* stream)
 }
 
 
-void ss_close(implicit struct osstream * obj_owner stream)
+void ss_close( struct osstream * obj_owner stream)
 {
     free(stream->c_str);    
 }
@@ -7900,10 +7914,10 @@ static int reserve(struct osstream* stream, int size)
     int errorcode = 0;
     if (size > stream->capacity)
     {
-        void* owner pnew = realloc(move stream->c_str, (size + 1) * sizeof(char));
+        void* owner pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
-            stream->c_str = move pnew;
+            stream->c_str = pnew;
             stream->capacity = size;
             stream->c_str[size] = 0;
         }
@@ -8356,13 +8370,11 @@ static const char* file_assert_h =
 
 #define  _OWNERSHIP__STR "\n"\
  "#ifdef _OWNERSHIP_\n"\
- "#define IMPLICIT _Implicit\n"\
- "#define OWNER _Owner\n"\
+  "#define OWNER _Owner\n"\
  "#define OBJ_OWNER _Obj_owner\n"\
  "#define VIEW _View\n"\
  "#else\n"\
- "#define IMPLICIT \n"\
- "#define OWNER\n"\
+  "#define OWNER\n"\
  "#define OBJ_OWNER\n"\
  "#define VIEW \n"\
  "#endif\n"\
@@ -8385,7 +8397,7 @@ _OWNERSHIP__STR
 "int rename(const char* old, const char* news);\n"
 "FILE* tmpfile(void);\n"
 "char* tmpnam(char* s);\n"
-"int fclose(IMPLICIT FILE* OWNER stream);\n"
+"int fclose(FILE* OWNER stream);\n"
 "int fflush(FILE* stream);\n"
 "FILE* OWNER fopen(const char* restrict filename, const char* restrict mode);\n"
 "FILE* OWNER freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
@@ -8833,7 +8845,7 @@ static const char* file_stdlib_h =
  "void srand(unsigned int seed);\n"
  "void* aligned_alloc(size_t alignment, size_t size);\n"
  "[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
- "void free(IMPLICIT void* OWNER ptr);\n"
+ "void free(void* OWNER ptr);\n"
  "[[nodiscard]] void* OWNER malloc(size_t size);\n"
  "[[nodiscard]] void* OWNER realloc(void* ptr, size_t size);\n"
  "[[noreturn]] void abort(void);\n"
@@ -8895,8 +8907,7 @@ bool is_ownership_error(enum error e)
         case C_OWNERSHIP_MISSING_OWNER_QUALIFIER:
         case C_OWNERSHIP_NOT_OWNER:
         case C_OWNERSHIP_USING_TEMPORARY_OWNER:
-        case C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER:
-        case C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED:
+        case C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER:        
         case C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN:
         case C_OWNERSHIP_FLOW_MISSING_DTOR:
             return true;
@@ -8975,7 +8986,10 @@ int fill_options(struct options* options,
        default at this moment is same as -Wall
     */
     options->enabled_warnings_stack[0] = ~0;
-    options->enabled_warnings_stack[0] &= ~W_STYLE; //default is OFF
+    options->enabled_warnings_stack[0] &= ~(W_STYLE | W_UNUSED_PARAMETER | W_UNUSED_VARIABLE); //default is OFF
+    
+    
+    options->visual_studio_ouput_format = true;
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;
@@ -9422,14 +9436,13 @@ struct expression;
 
 void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
-    struct expression* right,
-    bool move_assignment,
+    struct expression* right,    
     bool return_assignment);
 
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
-void type_destroy(implicit struct type* obj_owner p_type);
+void type_destroy( struct type* obj_owner p_type);
 
 
 
@@ -9556,6 +9569,7 @@ enum expression_type
     UNARY_EXPRESSION_IS_SAME,
     UNARY_DECLARATOR_ATTRIBUTE_EXPR,
     UNARY_EXPRESSION_ALIGNOF,
+    UNARY_EXPRESSION_ASSERT,
 
     UNARY_EXPRESSION_INCREMENT,
     UNARY_EXPRESSION_DECREMENT,
@@ -9712,7 +9726,6 @@ struct expression
     /*token used in _add_attr, _has_attr, _del_attr, return*/
     struct token* contract_arg_token;
 
-    struct token* move_assignment;
 
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* declarator;
@@ -9725,7 +9738,7 @@ struct expression
     struct expression* owner left;
     struct expression* owner right;
 };
-void expression_delete(implicit struct expression* owner);
+void expression_delete( struct expression* owner);
 
 struct expression* owner assignment_expression(struct parser_ctx* ctx);
 struct expression* owner expression(struct parser_ctx* ctx);
@@ -9755,7 +9768,7 @@ struct scope
     struct scope* previous;        
 };
 
-void scope_destroy(implicit struct scope* obj_owner p);
+void scope_destroy( struct scope* obj_owner p);
 
 struct scope_list
 {
@@ -9811,7 +9824,7 @@ struct parser_ctx
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx);
+void parser_ctx_destroy( struct parser_ctx* obj_owner ctx);
 
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
@@ -9924,20 +9937,6 @@ struct static_assert_declaration
 struct static_assert_declaration* owner static_assert_declaration(struct parser_ctx* ctx);
 void static_assert_declaration_delete(struct static_assert_declaration* owner p);
 
-struct assert_declaration
-{
-    /*
-     assert-declaration:
-       "static_assert" (expression) ;     
-    */
-
-    struct token*  first_token;
-    struct token*  last_token;
-    struct expression* owner expression;    
-};
-
-struct assert_declaration* owner assert_declaration(struct parser_ctx* ctx);
-void assert_declaration_delete(implicit struct assert_declaration* owner p);
 
 struct attribute_specifier_sequence
 {
@@ -9953,7 +9952,7 @@ struct attribute_specifier_sequence
     struct attribute_specifier* tail;
 };
 struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(struct parser_ctx* ctx);
-void attribute_specifier_sequence_delete(implicit struct attribute_specifier_sequence* owner p);
+void attribute_specifier_sequence_delete( struct attribute_specifier_sequence* owner p);
 
 struct attribute_specifier
 {
@@ -9968,6 +9967,8 @@ struct attribute_specifier
 };
 
 struct attribute_specifier*  owner attribute_specifier(struct parser_ctx* ctx);
+void attribute_specifier_delete( struct attribute_specifier*  owner p);
+
 struct attribute* attribute(struct parser_ctx* ctx);
 
 
@@ -9988,6 +9989,7 @@ struct storage_class_specifier
 };
 
 struct storage_class_specifier* owner storage_class_specifier(struct parser_ctx* ctx);
+void storage_class_specifier_delete(struct storage_class_specifier* owner p);
 
 struct function_specifier
 {
@@ -9999,7 +10001,7 @@ struct function_specifier
     struct token* token;
 };
 struct function_specifier*  owner function_specifier(struct parser_ctx* ctx);
-
+void function_specifier_delete(struct function_specifier*  owner p);
 
 struct typeof_specifier_argument
 {
@@ -10072,9 +10074,9 @@ struct init_declarator_list
 };
 
 struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
-    struct declaration_specifiers* p_declaration_specifiers,
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt
-    );
+    struct declaration_specifiers* p_declaration_specifiers);
+
+void init_declarator_list_destroy(struct init_declarator_list * obj_owner p);
 
 struct declaration
 {
@@ -10088,7 +10090,7 @@ struct declaration
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     
     struct static_assert_declaration* owner static_assert_declaration;
-    struct assert_declaration* owner assert_declaration;
+    
 
     struct declaration_specifiers* owner declaration_specifiers;
     struct init_declarator_list init_declarator_list;
@@ -10101,7 +10103,7 @@ struct declaration
 
     struct declaration* owner next;
 };
-void declaration_delete(implicit struct declaration* owner p);
+void declaration_delete( struct declaration* owner p);
 struct declaration*  owner external_declaration(struct parser_ctx* ctx);
 
 struct atomic_type_specifier
@@ -10131,7 +10133,8 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx,
     struct enum_specifier*  p_enum_specifier
     );
 
-
+void enumerator_list_destroy(struct enum_specifier*  obj_owner p_enum_specifier);
+    
 struct enum_specifier
 {
     /*
@@ -10156,6 +10159,7 @@ struct enum_specifier
 };
 
 struct enum_specifier*  owner enum_specifier(struct parser_ctx*);
+void enum_specifier_delete(struct enum_specifier*  owner p);
 
 struct member_declaration_list
 {
@@ -10172,6 +10176,8 @@ struct member_declaration_list
 };
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+void member_declaration_list_destroy(struct member_declaration_list * obj_owner);
+
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
 
 struct struct_or_union_specifier
@@ -10212,6 +10218,8 @@ struct struct_or_union_specifier
 };
 
 struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_ctx* ctx);
+void struct_or_union_specifier_delete(struct struct_or_union_specifier* owner p);
+
 bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_struct_or_union_specifier);
 struct struct_or_union_specifier* view get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier);
 
@@ -10228,9 +10236,9 @@ struct init_declarator
     struct init_declarator* owner next;    
 };
 
+void init_declarator_delete(struct init_declarator*  owner p);
 struct init_declarator*  owner init_declarator(struct parser_ctx* ctx,
-    struct declaration_specifiers* p_declaration_specifiers,
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt
+    struct declaration_specifiers* p_declaration_specifiers
     );
 
 struct initializer
@@ -10245,7 +10253,7 @@ struct initializer
     struct braced_initializer*  owner braced_initializer;
     struct expression*  owner assignment_expression;
     struct initializer* owner next;
-    struct token * move_token;
+    
     /*
        cake extension
        int * p = [[cake::move]] p2;
@@ -10254,6 +10262,7 @@ struct initializer
 };
 
 struct initializer* owner initializer(struct parser_ctx* ctx);
+void initializer_delete(struct initializer* owner p);
 
 
 enum object_state
@@ -10341,6 +10350,7 @@ struct declarator* owner declarator(struct parser_ctx* ctx,
     bool abstract_acceptable,
     struct token** pptokenname);
 
+void declarator_delete(struct declarator* owner p);
 struct array_declarator
 {
     /*
@@ -10474,8 +10484,7 @@ struct type_name*  owner type_name(struct parser_ctx* ctx);
 void print_type_name(struct osstream* ss, struct type_name* p);
 
 struct argument_expression
-{
-    struct token * move_token;
+{    
     struct expression* owner expression;
     struct argument_expression* owner next;
 };
@@ -10509,6 +10518,7 @@ struct type_specifier_qualifier
     struct type_specifier_qualifier* owner next;
 };
 struct type_specifier_qualifier*  owner type_specifier_qualifier(struct parser_ctx* ctx);
+void type_specifier_qualifier_delete(struct type_specifier_qualifier*  owner p);
 
 
 struct specifier_qualifier_list
@@ -10632,7 +10642,7 @@ struct block_item_list
 };
 
 struct block_item_list block_item_list(struct parser_ctx* ctx);
-
+void block_item_list_destroy( struct block_item_list * obj_owner p);
 
 struct compound_statement
 {
@@ -10646,6 +10656,7 @@ struct compound_statement
     struct block_item_list block_item_list;
 };
 struct compound_statement*  owner compound_statement(struct parser_ctx* ctx);
+void compound_statement_delete( struct compound_statement*  owner p);
 
 struct defer_statement
 {
@@ -10657,6 +10668,8 @@ struct defer_statement
     struct token* last_token;
     struct secondary_block* owner secondary_block;
 };
+
+void defer_statement_delete(struct defer_statement * owner p);
 
 struct try_statement
 {   
@@ -10675,6 +10688,7 @@ struct try_statement
 };
 
 struct try_statement*  owner try_statement(struct parser_ctx* ctx);
+void try_statement_delete(struct try_statement*  owner p);
 
 struct selection_statement
 {
@@ -10687,6 +10701,7 @@ struct selection_statement
 
     /*C++ 17 if with initialization extension*/
     struct init_declarator* owner init_declarator;
+    struct declaration_specifiers* owner declaration_specifiers;
 
     struct expression* owner expression;
     struct secondary_block* owner secondary_block;
@@ -10698,7 +10713,7 @@ struct selection_statement
 };
 
 struct selection_statement*  owner selection_statement(struct parser_ctx* ctx);
-
+void selection_statement_delete(struct selection_statement* owner p);
 struct iteration_statement
 {
     /*
@@ -10721,6 +10736,7 @@ struct iteration_statement
 };
 
 struct iteration_statement*  owner iteration_statement(struct parser_ctx* ctx);
+void iteration_statement_delete(struct iteration_statement*owner p);
 
 struct jump_statement
 {
@@ -10736,11 +10752,12 @@ struct jump_statement
     struct token* first_token;
     struct token* last_token;
     struct expression* owner expression_opt;
-    struct token* token_move;
+    
     int try_catch_block_index;
 };
 
 struct jump_statement*  owner jump_statement(struct parser_ctx* ctx);
+void jump_statement_delete(struct jump_statement*  owner p);
 
 struct expression_statement
 {
@@ -10755,6 +10772,7 @@ struct expression_statement
 };
 
 struct expression_statement*  owner expression_statement(struct parser_ctx* ctx);
+void expression_statement_delete(struct expression_statement*  owner p);
 
 struct block_item
 {
@@ -10773,6 +10791,7 @@ struct block_item
 };
 
 struct block_item*  owner block_item(struct parser_ctx* ctx);
+void block_item_delete( struct block_item*  owner p);
 
 struct compound_statement*  owner function_body(struct parser_ctx* ctx);
 
@@ -10821,6 +10840,8 @@ struct primary_block
     struct try_statement* owner try_statement;
 };
 
+void primary_block_delete(struct primary_block * owner p);
+
 struct secondary_block
 {
     /*
@@ -10831,6 +10852,8 @@ struct secondary_block
     struct token* view last_token;
     struct statement* owner statement;
 };
+
+void secondary_block_delete(struct secondary_block * owner p);
 
 struct unlabeled_statement
 {
@@ -10847,6 +10870,7 @@ struct unlabeled_statement
 };
 
 struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx);
+void unlabeled_statement_delete( struct unlabeled_statement* owner p);
 
 struct labeled_statement
 {
@@ -10858,6 +10882,7 @@ struct labeled_statement
     struct statement* owner statement;
 };
 struct labeled_statement* owner labeled_statement(struct parser_ctx* ctx);
+void labeled_statement_delete(struct labeled_statement * owner p);
 
 struct statement
 {    
@@ -10870,6 +10895,7 @@ struct statement
     struct unlabeled_statement* owner unlabeled_statement;
 };
 struct statement* owner statement(struct parser_ctx* ctx);
+void statement_delete(struct statement* owner p);
 
 struct designator_list
 {
@@ -10916,14 +10942,15 @@ struct attribute_token
     struct token* token;
 };
 struct attribute_token* owner attribute_token(struct parser_ctx* ctx);
-
+void attribute_token_delete(struct attribute_token* owner p);
 struct attribute
 {
     enum attribute_flags  attributes_flags;
     struct attribute_token* owner attribute_token;
     struct attribute_argument_clause* owner attribute_argument_clause;
-    struct attribute_specifier* owner next;
+    struct attribute* owner next;
 };
+void attribute_delete(struct attribute * owner p);
 
 struct attribute_list
 {
@@ -10932,6 +10959,7 @@ struct attribute_list
     struct attribute* tail;
 };
 struct attribute_list* owner attribute_list(struct parser_ctx* ctx);
+void attribute_list_destroy( struct attribute_list* obj_owner p);
 
 struct enumerator
 {
@@ -10971,8 +10999,15 @@ struct attribute_argument_clause
 };
 
 struct attribute_argument_clause* owner attribute_argument_clause(struct parser_ctx* ctx);
+void attribute_argument_clause_delete(struct attribute_argument_clause* owner p);
 
 bool first_of_attribute(struct parser_ctx* ctx);
+
+struct balanced_token
+{
+    struct token * token;
+    struct balanced_token* owner next;
+};
 
 struct balanced_token_sequence
 {
@@ -10980,6 +11015,7 @@ struct balanced_token_sequence
     struct balanced_token* tail;
 };
 struct balanced_token_sequence* owner balanced_token_sequence_opt(struct parser_ctx* ctx);
+void balanced_token_sequence_delete(struct balanced_token_sequence* owner p);
 
 bool is_first_of_conditional_expression(struct parser_ctx* ctx);
 bool first_of_type_name(struct parser_ctx* ctx);
@@ -10994,7 +11030,7 @@ struct declaration_list
 };
 
 struct declaration_list translation_unit(struct parser_ctx* ctx);
-void declaration_list_destroy(implicit struct declaration_list* obj_owner list);
+void declaration_list_destroy( struct declaration_list* obj_owner list);
 
 struct label
 {
@@ -11009,6 +11045,7 @@ struct label
 };
 
 struct label* owner label(struct parser_ctx* ctx);
+void label_delete( struct label* owner p);
 
 struct ast
 {
@@ -11018,7 +11055,7 @@ struct ast
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
-void ast_destroy(implicit struct ast* obj_owner ast);
+void ast_destroy( struct ast* obj_owner ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
@@ -11566,7 +11603,7 @@ struct generic_association* owner generic_association(struct parser_ctx* ctx)
     struct generic_association* owner p_generic_association = NULL;
     try
     {
-        p_generic_association = move calloc(1, sizeof * p_generic_association);
+        p_generic_association = calloc(1, sizeof * p_generic_association);
         if (p_generic_association == NULL)
             throw;
         p_generic_association->first_token = ctx->current;
@@ -11580,15 +11617,15 @@ struct generic_association* owner generic_association(struct parser_ctx* ctx)
         }
         else if (first_of_type_name(ctx))
         {
-            p_generic_association->p_type_name = move type_name(ctx);
-            p_generic_association->type = move make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);
+            p_generic_association->p_type_name = type_name(ctx);
+            p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);
         }
         else
         {
             compiler_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "unexpected");
         }
         parser_match_tk(ctx, ':');
-        p_generic_association->expression = move assignment_expression(ctx);
+        p_generic_association->expression = assignment_expression(ctx);
     }
     catch{
     }
@@ -11602,7 +11639,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
     try
     {
         struct generic_association* owner p_generic_association =
-            move generic_association(ctx);
+            generic_association(ctx);
 
         if (p_generic_association == NULL) throw;
 
@@ -11644,7 +11681,7 @@ struct generic_selection* owner generic_selection(struct parser_ctx* ctx)
     struct generic_selection* owner p_generic_selection = NULL;
     try
     {
-        p_generic_selection = move calloc(1, sizeof * p_generic_selection);
+        p_generic_selection = calloc(1, sizeof * p_generic_selection);
         if (p_generic_selection == NULL)
             throw;
 
@@ -11658,16 +11695,16 @@ struct generic_selection* owner generic_selection(struct parser_ctx* ctx)
         if (first_of_type_name(ctx))
         {
             /*extension*/
-            p_generic_selection->type_name = move type_name(ctx);
+            p_generic_selection->type_name = type_name(ctx);
         }
         else
         {
-            p_generic_selection->expression = move assignment_expression(ctx);
+            p_generic_selection->expression = assignment_expression(ctx);
         }
 
         parser_match_tk(ctx, ',');
 
-        p_generic_selection->generic_assoc_list = move generic_association_list(ctx);
+        p_generic_selection->generic_assoc_list = generic_association_list(ctx);
 
 
         struct type lvalue_type = {0};
@@ -11681,7 +11718,7 @@ struct generic_selection* owner generic_selection(struct parser_ctx* ctx)
 
             if (expression_is_subjected_to_lvalue_conversion(p_generic_selection->expression))
             {
-                lvalue_type = move type_lvalue_conversion(&p_generic_selection->expression->type);
+                lvalue_type = type_lvalue_conversion(&p_generic_selection->expression->type);
                 p_type = &lvalue_type;
             }
 
@@ -11884,7 +11921,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
     {
         if (ctx->current->type == TK_IDENTIFIER)
         {
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
 
             if (p_expression_node == NULL) throw;
 
@@ -11899,7 +11936,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
                 p_expression_node->constant_value = make_constant_value_ll(p_enumerator->value);
 
-                p_expression_node->type = move type_make_enumerator(p_enumerator->enum_specifier);
+                p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
 
             }
             else if (p_entry &&
@@ -11926,7 +11963,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
 
-                p_expression_node->type = move type_dup(&p_declarator->type);
+                p_expression_node->type = type_dup(&p_declarator->type);
                 if (p_init_declarator)
                 {
                     if (p_init_declarator->p_declarator &&
@@ -11952,14 +11989,14 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                 const char* funcname =
                     ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
 
-                p_expression_node = move calloc(1, sizeof * p_expression_node);
+                p_expression_node = calloc(1, sizeof * p_expression_node);
                 if (p_expression_node == NULL) throw;
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
 
-                p_expression_node->type = move type_make_literal_string(strlen(funcname) + 1, TYPE_SPECIFIER_CHAR);
+                p_expression_node->type = type_make_literal_string(strlen(funcname) + 1, TYPE_SPECIFIER_CHAR);
             }
             else
             {
@@ -11970,7 +12007,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_STRING_LITERAL)
         {
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
@@ -11987,7 +12024,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                     char_type = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
             }
 
-            p_expression_node->type = move type_make_literal_string(string_literal_byte_size(ctx->current->lexeme), char_type);
+            p_expression_node->type = type_make_literal_string(string_literal_byte_size(ctx->current->lexeme), char_type);
 
             parser_match(ctx);
 
@@ -12003,7 +12040,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
         {
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             bool over = false;
@@ -12018,7 +12055,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            p_expression_node->type = move type_make_int();
+            p_expression_node->type = type_make_int();
             p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
 
             parser_match(ctx);
@@ -12027,7 +12064,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == TK_KEYWORD_TRUE ||
             ctx->current->type == TK_KEYWORD_FALSE)
         {
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
@@ -12046,7 +12083,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_NULLPTR)
         {
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PREDEFINED_CONSTANT;
@@ -12065,7 +12102,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         }
         else if (is_integer_or_floating_constant(ctx->current->type))
         {
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->first_token = ctx->current;
@@ -12076,19 +12113,19 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD__GENERIC)
         {
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
             p_expression_node->first_token = ctx->current;
 
             p_expression_node->expression_type = PRIMARY_EXPRESSION_GENERIC;
 
-            p_expression_node->generic_selection = move generic_selection(ctx);
+            p_expression_node->generic_selection = generic_selection(ctx);
 
             p_expression_node->last_token = p_expression_node->generic_selection->last_token;
 
             if (p_expression_node->generic_selection->p_view_selected_expression)
             {
-                p_expression_node->type = move type_dup(&p_expression_node->generic_selection->p_view_selected_expression->type);
+                p_expression_node->type = type_dup(&p_expression_node->generic_selection->p_view_selected_expression->type);
 
                 p_expression_node->constant_value = p_expression_node->generic_selection->p_view_selected_expression->constant_value;
             }
@@ -12100,7 +12137,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == '(')
         {
             parser_match(ctx);
-            p_expression_node = move expression(ctx);
+            p_expression_node = expression(ctx);
             if (p_expression_node == NULL) throw;
             parser_match_tk(ctx, ')');
         }
@@ -12137,7 +12174,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
      argument-expression-list: (extended)
       assignment-expression
       move assignment-expression
-      argument-expression-ctx , move assignment-expression
+      argument-expression-ctx , assignment-expression
       argument-expression-ctx , assignment-expression
     */
 
@@ -12146,17 +12183,11 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
 
     try
     {
-        p_argument_expression = move calloc(1, sizeof(struct argument_expression));
+        p_argument_expression = calloc(1, sizeof(struct argument_expression));
         if (p_argument_expression == NULL) throw;
 
 
-        if (ctx->current->type == TK_KEYWORD__MOVE) /*extension*/
-        {
-            p_argument_expression->move_token = ctx->current;
-            parser_match(ctx);
-        }
-
-        p_argument_expression->expression = move assignment_expression(ctx);
+        p_argument_expression->expression = assignment_expression(ctx);
         LIST_ADD(&list, p_argument_expression);
 
         while (ctx->current->type == ',')
@@ -12167,13 +12198,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
             struct argument_expression* owner p_argument_expression_2 = calloc(1, sizeof * p_argument_expression_2);
             if (p_argument_expression_2 == NULL) throw;
 
-            if (ctx->current->type == TK_KEYWORD__MOVE) /*extension*/
-            {
-                p_argument_expression_2->move_token = ctx->current;
-                parser_match(ctx);
-            }
-
-            p_argument_expression_2->expression = move assignment_expression(ctx);
+            p_argument_expression_2->expression = assignment_expression(ctx);
             if (p_argument_expression_2->expression == NULL) throw;
 
             LIST_ADD(&list, p_argument_expression_2);
@@ -12264,7 +12289,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
-                p_expression_node_new->left = move p_expression_node;
+                p_expression_node_new->left = p_expression_node;
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
@@ -12276,28 +12301,28 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
 
                 if (type_is_pointer(&p_expression_node->type))
                 {
-                    p_expression_node_new->type = move type_remove_pointer(&p_expression_node->type);
+                    p_expression_node_new->type = type_remove_pointer(&p_expression_node->type);
 
                 }
                 else if (type_is_array(&p_expression_node->type))
                 {
-                    p_expression_node_new->type = move get_array_item_type(&p_expression_node->type);
+                    p_expression_node_new->type = get_array_item_type(&p_expression_node->type);
                 }
 
                 parser_match(ctx);
                 /*contem a expresao de dentro do  [ ] */
-                p_expression_node_new->right = move expression(ctx);
+                p_expression_node_new->right = expression(ctx);
                 if (p_expression_node_new->right == NULL) throw;
 
                 parser_match_tk(ctx, ']');
-                p_expression_node = move p_expression_node_new;
+                p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '(')
             {
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
-                p_expression_node_new->left = move p_expression_node;
+                p_expression_node_new->left = p_expression_node;
 
 
                 if (!type_is_function_or_function_pointer(&p_expression_node->type))
@@ -12309,24 +12334,24 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                     throw;
                 }
 
-                p_expression_node_new->type = move get_function_return_type(&p_expression_node->type);
+                p_expression_node_new->type = get_function_return_type(&p_expression_node->type);
 
                 parser_match(ctx);
                 if (ctx->current->type != ')')
                 {
-                    p_expression_node_new->argument_expression_list = move argument_expression_list(ctx);
+                    p_expression_node_new->argument_expression_list = argument_expression_list(ctx);
                 }
                 parser_match_tk(ctx, ')');
                 compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list);
                 p_expression_node_new->last_token = ctx->previous;
-                p_expression_node = move p_expression_node_new;
+                p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '.')
             {
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
-                p_expression_node_new->left = move p_expression_node;
+                p_expression_node_new->left = p_expression_node;
 
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
 
@@ -12345,7 +12370,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         {
                             p_expression_node_new->member_index = member_index;
 
-                            p_expression_node_new->type = move make_type_using_declarator(ctx, p_member_declarator->declarator);
+                            p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
 
                             fix_member_type(&p_expression_node_new->type,
                                 &p_expression_node_new->left->type,
@@ -12375,14 +12400,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         "structure or union required");
                 }
                 //todo apontar pro nome?
-                p_expression_node = move p_expression_node_new;
+                p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '->')
             {
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
-                p_expression_node_new->left = move p_expression_node;
+                p_expression_node_new->left = p_expression_node;
 
 
                 parser_match(ctx);
@@ -12393,11 +12418,11 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                     if (type_is_array(&p_expression_node->type))
                     {
                         compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "using '->' in array as pointer to struct");
-                        item_type = move get_array_item_type(&p_expression_node->type);
+                        item_type = get_array_item_type(&p_expression_node->type);
                     }
                     else
                     {
-                        item_type = move type_remove_pointer(&p_expression_node->type);
+                        item_type = type_remove_pointer(&p_expression_node->type);
                     }
 
                     if (type_is_struct_or_union(&item_type))
@@ -12414,7 +12439,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                             if (p_member_declarator)
                             {
                                 p_expression_node_new->member_index = member_index;
-                                p_expression_node_new->type = move make_type_using_declarator(ctx, p_member_declarator->declarator);
+                                p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
                                 fix_arrow_member_type(&p_expression_node_new->type, &p_expression_node_new->left->type, &p_expression_node_new->type);
                             }
                             else
@@ -12455,27 +12480,27 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         "structure or union required");
                 }
 
-                p_expression_node = move p_expression_node_new;
+                p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '++')
             {
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
-                p_expression_node_new->left = move p_expression_node;
-                p_expression_node_new->type = move type_dup(&p_expression_node->type);
+                p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
-                p_expression_node = move p_expression_node_new;
+                p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '--')
             {
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
-                p_expression_node_new->left = move p_expression_node;
-                p_expression_node_new->type = move type_dup(&p_expression_node->type);
+                p_expression_node_new->left = p_expression_node;
+                p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
-                p_expression_node = move p_expression_node_new;
+                p_expression_node = p_expression_node_new;
             }
             else
             {
@@ -12487,7 +12512,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
     {
     }
 
-    return move p_expression_node;
+    return p_expression_node;
 }
 
 struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, struct type_name* owner p_type_name)
@@ -12505,7 +12530,7 @@ struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, st
 
     try
     {
-        p_expression_node = move calloc(1, sizeof * p_expression_node);
+        p_expression_node = calloc(1, sizeof * p_expression_node);
         if (p_expression_node == NULL) throw;
 
         assert(p_expression_node->type_name == NULL);
@@ -12513,8 +12538,8 @@ struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, st
         p_expression_node->first_token = previous_parser_token(p_type_name->first_token);
         assert(p_expression_node->first_token->type == '(');
 
-        p_expression_node->type_name = move p_type_name;
-        p_expression_node->type = move make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+        p_expression_node->type_name = p_type_name;
+        p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
 
 
         if (type_is_function(&p_type_name->declarator->type))
@@ -12525,19 +12550,19 @@ struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, st
                 &p_expression_node->type_name->declarator->direct_declarator->function_declarator->parameters_scope;
 
             scope_list_push(&ctx->scopes, parameters_scope);
-            p_expression_node->compound_statement = move function_body(ctx);
+            p_expression_node->compound_statement = function_body(ctx);
             scope_list_pop(&ctx->scopes);
 
         }
         else
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
-            p_expression_node->braced_initializer = move braced_initializer(ctx);
+            p_expression_node->braced_initializer = braced_initializer(ctx);
         }
 
         p_expression_node->last_token = ctx->previous;
 
-        p_expression_node = move postfix_expression_tail(ctx, move p_expression_node);
+        p_expression_node = postfix_expression_tail(ctx, p_expression_node);
         if (p_expression_node == NULL) throw;
 
     }
@@ -12572,15 +12597,15 @@ struct expression* owner postfix_expression(struct parser_ctx* ctx)
         if (first_of_type_name_ahead(ctx)) //aqui preciso ver se nao eh primary
         {
             assert(false); //este caso esta pegando lá dentro deo cast expression.
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->first_token = ctx->current;
             parser_match_tk(ctx, '(');
-            p_expression_node->type_name = move type_name(ctx);
+            p_expression_node->type_name = type_name(ctx);
             if (p_expression_node->type_name == NULL) throw;
 
-            p_expression_node->type = move make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+            p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
             parser_match_tk(ctx, ')');
             //printf("\n");
             //print_type(&p_expression_node->type);
@@ -12589,7 +12614,7 @@ struct expression* owner postfix_expression(struct parser_ctx* ctx)
             if (is_function_type)
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
-                p_expression_node->compound_statement = move compound_statement(ctx);
+                p_expression_node->compound_statement = compound_statement(ctx);
                 if (p_expression_node->compound_statement == NULL) throw;
 
                 p_expression_node->last_token = p_expression_node->compound_statement->last_token;
@@ -12597,17 +12622,17 @@ struct expression* owner postfix_expression(struct parser_ctx* ctx)
             else
             {
                 p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
-                p_expression_node->braced_initializer = move braced_initializer(ctx);
+                p_expression_node->braced_initializer = braced_initializer(ctx);
                 p_expression_node->last_token = ctx->current;
             }
         }
         else
         {
-            p_expression_node = move primary_expression(ctx);
+            p_expression_node = primary_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
 
-        p_expression_node = move postfix_expression_tail(ctx, move p_expression_node);
+        p_expression_node = postfix_expression_tail(ctx, p_expression_node);
         if (p_expression_node == NULL) throw;
     }
     catch
@@ -12629,6 +12654,8 @@ bool is_first_of_compiler_function(struct parser_ctx* ctx)
         ctx->current->type == TK_KEYWORD_IS_POINTER ||
         ctx->current->type == TK_KEYWORD_IS_ARRAY ||
         ctx->current->type == TK_KEYWORD_IS_FUNCTION ||
+
+        ctx->current->type == TK_KEYWORD_ASSERT ||
 
         ctx->current->type == TK_KEYWORD_IS_SCALAR ||
         ctx->current->type == TK_KEYWORD_IS_ARITHMETIC ||
@@ -12691,11 +12718,11 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             else
                 new_expression->expression_type = UNARY_EXPRESSION_DECREMENT;
             parser_match(ctx);
-            new_expression->right = move unary_expression(ctx);
+            new_expression->right = unary_expression(ctx);
             if (new_expression->right == NULL) throw;
 
-            new_expression->type = move type_dup(&new_expression->right->type);
-            p_expression_node = move new_expression;
+            new_expression->type = type_dup(&new_expression->right->type);
+            p_expression_node = new_expression;
         }
         else if (ctx->current != NULL &&
             (ctx->current->type == '&'
@@ -12719,7 +12746,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "don't use spaces");
             }
 
-            new_expression->right = move cast_expression(ctx);
+            new_expression->right = cast_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             new_expression->last_token = new_expression->right->last_token;
@@ -12730,14 +12757,14 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
                 //same as v == 0
 
-                new_expression->type = move type_make_int_bool_like();
+                new_expression->type = type_make_int_bool_like();
             }
             else if (op == '~')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_BITNOT;
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
-                new_expression->type = move type_dup(&new_expression->right->type);
+                new_expression->type = type_dup(&new_expression->right->type);
                 new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
             }
             else if (op == '-')
@@ -12746,7 +12773,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
-                new_expression->type = move type_dup(&new_expression->right->type);
+                new_expression->type = type_dup(&new_expression->right->type);
                 new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
             }
             else if (op == '+')
@@ -12755,7 +12782,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
-                new_expression->type = move type_dup(&new_expression->right->type);
+                new_expression->type = type_dup(&new_expression->right->type);
                 new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
             }
             else if (op == '*')
@@ -12768,7 +12795,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                         op_position,
                         "indirection requires pointer operand");
                 }
-                new_expression->type = move type_remove_pointer(&new_expression->right->type);
+                new_expression->type = type_remove_pointer(&new_expression->right->type);
             }
             else if (op == '&')
             {
@@ -12811,7 +12838,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
                 }
 
-                new_expression->type = move type_add_pointer(&new_expression->right->type);
+                new_expression->type = type_add_pointer(&new_expression->right->type);
             }
             else
             {
@@ -12821,7 +12848,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                     "invalid token");
                 throw;
             }
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
@@ -12831,9 +12858,9 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             {
                 new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_TYPE;
                 parser_match_tk(ctx, '(');
-                new_expression->type_name = move type_name(ctx);
+                new_expression->type_name = type_name(ctx);
 
-                new_expression->type = move type_make_int();
+                new_expression->type = type_make_int();
 
                 parser_match_tk(ctx, ')');
                 new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type));
@@ -12841,7 +12868,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                new_expression->right = move unary_expression(ctx);
+                new_expression->right = unary_expression(ctx);
                 if (new_expression->right == NULL) throw;
 
 
@@ -12850,8 +12877,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
             }
 
-            new_expression->type = move type_make_size_t();
-            p_expression_node = move new_expression;
+            new_expression->type = type_make_size_t();
+            p_expression_node = new_expression;
         }
         else if (
             ctx->current->type == TK_KEYWORD_IS_LVALUE ||
@@ -12877,7 +12904,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             if (first_of_type_name_ahead(ctx))
             {
                 parser_match_tk(ctx, '(');
-                new_expression->type_name = move type_name(ctx);
+                new_expression->type_name = type_name(ctx);
                 new_expression->last_token = ctx->current;
                 parser_match_tk(ctx, ')');
                 p_type = &new_expression->type_name->declarator->type;
@@ -12886,7 +12913,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             {
 
 
-                new_expression->right = move unary_expression(ctx);
+                new_expression->right = unary_expression(ctx);
                 if (new_expression->right == NULL) throw;
 
                 p_type = &new_expression->right->type;
@@ -12940,8 +12967,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             }
 
 
-            new_expression->type = move type_make_int_bool_like();
-            p_expression_node = move new_expression;
+            new_expression->type = type_make_int_bool_like();
+            p_expression_node = new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD_IS_SAME)
         {
@@ -12950,9 +12977,9 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             new_expression->expression_type = UNARY_EXPRESSION_IS_SAME;
             parser_match_tk(ctx, '(');
-            new_expression->type_name = move type_name(ctx);
+            new_expression->type_name = type_name(ctx);
             parser_match_tk(ctx, ',');
-            new_expression->type_name2 = move  type_name(ctx);
+            new_expression->type_name2 = type_name(ctx);
             parser_match_tk(ctx, ')');
 
             new_expression->constant_value =
@@ -12961,11 +12988,22 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                         &new_expression->type_name2->declarator->type, true));
 
 
-            new_expression->type = move type_make_int_bool_like();
-            p_expression_node = move new_expression;
+            new_expression->type = type_make_int_bool_like();
+            p_expression_node = new_expression;
         }
+        else if (ctx->current->type == TK_KEYWORD_ASSERT)
+        {
+             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
 
+            new_expression->expression_type = UNARY_EXPRESSION_ASSERT;
+            new_expression->first_token = ctx->current;
 
+            parser_match(ctx);
+            parser_match_tk(ctx, '(');
+            new_expression->right = expression(ctx);
+            parser_match_tk(ctx, ')');
+            return new_expression;
+        }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
@@ -12975,14 +13013,14 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
             parser_match(ctx);
             parser_match_tk(ctx, '(');
-            new_expression->type_name = move type_name(ctx);
-            new_expression->type = move make_type_using_declarator(ctx, new_expression->type_name->declarator);
+            new_expression->type_name = type_name(ctx);
+            new_expression->type = make_type_using_declarator(ctx, new_expression->type_name->declarator);
             parser_match_tk(ctx, ')');
 
             new_expression->constant_value = make_constant_value_ll(type_get_alignof(&new_expression->type));
 
-            new_expression->type = move type_make_int();
-            p_expression_node = move new_expression;
+            new_expression->type = type_make_int();
+            p_expression_node = new_expression;
             new_expression->last_token = ctx->previous;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNAS)
@@ -12990,7 +13028,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
         }
         else //if (is_first_of_primary_expression(ctx))
         {
-            p_expression_node = move postfix_expression(ctx);
+            p_expression_node = postfix_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
     }
@@ -13016,18 +13054,18 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
     {
         if (first_of_type_name_ahead(ctx))
         {
-            p_expression_node = move calloc(1, sizeof * p_expression_node);
+            p_expression_node = calloc(1, sizeof * p_expression_node);
             if (p_expression_node == NULL) throw;
 
             p_expression_node->first_token = ctx->current;
             p_expression_node->expression_type = CAST_EXPRESSION;
             parser_match_tk(ctx, '(');
-            p_expression_node->type_name = move type_name(ctx);
+            p_expression_node->type_name = type_name(ctx);
             if (p_expression_node->type_name == NULL)
                 throw;
 
 
-            p_expression_node->type = move type_dup(&p_expression_node->type_name->type);
+            p_expression_node->type = type_dup(&p_expression_node->type_name->type);
 
             //type_set_int(&ctx->result_type);
             //print_type_name(p_cast_expression->type_name);
@@ -13038,18 +13076,18 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
             {
                 // Achar que era um cast_expression foi um engano...
                 // porque apareceu o { então é compound literal que eh postfix.
-                struct expression* owner new_expression = postfix_expression_type_name(ctx, move p_expression_node->type_name);
+                struct expression* owner new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name);
 
 
                 free(p_expression_node);
-                p_expression_node = move new_expression;
+                p_expression_node = new_expression;
             }
             else if (is_first_of_unary_expression(ctx))
             {
-                p_expression_node->left = move cast_expression(ctx);
+                p_expression_node->left = cast_expression(ctx);
                 if (p_expression_node->left == NULL) throw;
                 p_expression_node->constant_value = p_expression_node->left->constant_value;
-                p_expression_node->type = move make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
                 if (type_is_floating_point(&p_expression_node->type))
                 {
                     p_expression_node->constant_value =
@@ -13071,13 +13109,13 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
             }
             else
             {
-                p_expression_node->type = move make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
                 p_expression_node->constant_value.type = TYPE_EMPTY;
             }
         }
         else if (is_first_of_unary_expression(ctx))
         {
-            p_expression_node = move unary_expression(ctx);
+            p_expression_node = unary_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
         else
@@ -13109,7 +13147,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
     struct expression* owner p_expression_node = NULL;
     try
     {
-        p_expression_node = move cast_expression(ctx);
+        p_expression_node = cast_expression(ctx);
         if (p_expression_node == NULL) throw;
 
         while (ctx->current != NULL &&
@@ -13122,8 +13160,8 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
 
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            new_expression->left = move p_expression_node;
-            new_expression->right = move cast_expression(ctx);
+            new_expression->left = p_expression_node;
+            new_expression->right = cast_expression(ctx);
 
             if (new_expression->left == NULL ||
                 new_expression->right == NULL)
@@ -13204,7 +13242,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            p_expression_node = move  new_expression;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -13227,7 +13265,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
 
     try
     {
-        p_expression_node = move multiplicative_expression(ctx);
+        p_expression_node = multiplicative_expression(ctx);
         if (p_expression_node == NULL) throw;
 
 
@@ -13238,14 +13276,14 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             struct token* operator_position = ctx->current;
 
             assert(new_expression == NULL);
-            new_expression = move calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof * new_expression);
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            new_expression->left = move p_expression_node;
+            new_expression->left = p_expression_node;
 
             static int count = 0;
             count++;
-            new_expression->right = move multiplicative_expression(ctx);
+            new_expression->right = multiplicative_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             if (!type_is_scalar(&new_expression->left->type))
@@ -13292,12 +13330,12 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                             if (left_category == TYPE_CATEGORY_ARRAY)
                             {
                                 struct type t = get_array_item_type(&new_expression->left->type);
-                                new_expression->type = move type_add_pointer(&t);
+                                new_expression->type = type_add_pointer(&t);
                                 type_destroy(&t);
                             }
                             else
                             {
-                                new_expression->type = move type_dup(&new_expression->left->type);
+                                new_expression->type = type_dup(&new_expression->left->type);
                             }
                         }
                         else
@@ -13311,11 +13349,11 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                         {
                             if (right_category == TYPE_CATEGORY_ARRAY)
                             {
-                                new_expression->type = move get_array_item_type(&new_expression->right->type);
+                                new_expression->type = get_array_item_type(&new_expression->right->type);
                             }
                             else
                             {
-                                new_expression->type = move type_dup(&new_expression->right->type);
+                                new_expression->type = type_dup(&new_expression->right->type);
                             }
                         }
                         else
@@ -13368,7 +13406,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                                 compiler_set_error_with_token(C_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, "incompatible pointer types");
                             }
 
-                            new_expression->type = move type_make_int();
+                            new_expression->type = type_make_int();
                             type_destroy(&t1);
                             type_destroy(&t2);
                         }
@@ -13377,7 +13415,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                             if (type_is_integer(&new_expression->right->type))
                             {
                                 //- the left operand is a pointer to a complete object typeand the right operand has integer type.
-                                new_expression->type = move type_dup(&new_expression->left->type);
+                                new_expression->type = type_dup(&new_expression->left->type);
                             }
                             else
                             {
@@ -13396,7 +13434,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
 
 
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
         }
     }
@@ -13428,7 +13466,7 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
     struct expression* owner p_expression_node = NULL;
     try
     {
-        p_expression_node = move additive_expression(ctx);
+        p_expression_node = additive_expression(ctx);
         if (p_expression_node == NULL) throw;
 
         while (ctx->current != NULL &&
@@ -13438,8 +13476,8 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            new_expression->left = move p_expression_node;
-            new_expression->right = move multiplicative_expression(ctx);
+            new_expression->left = p_expression_node;
+            new_expression->right = multiplicative_expression(ctx);
             if (new_expression->left == NULL || new_expression->right == NULL)
             {
                 throw;
@@ -13466,7 +13504,7 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -13491,7 +13529,7 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
     struct expression* owner new_expression = NULL;
     try
     {
-        p_expression_node = move shift_expression(ctx);
+        p_expression_node = shift_expression(ctx);
         if (p_expression_node == NULL) throw;
 
 
@@ -13502,14 +13540,14 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
                 ctx->current->type == '<='))
         {
             assert(new_expression == NULL);
-            new_expression = move calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
             enum token_type op = ctx->current->type;
             parser_match(ctx);
-            new_expression->left = move p_expression_node;
+            new_expression->left = p_expression_node;
 
-            new_expression->right = move shift_expression(ctx);
+            new_expression->right = shift_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             if (op == '>')
@@ -13533,9 +13571,9 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
             new_expression->constant_value =
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, op);
 
-            new_expression->type = move type_make_int_bool_like();
+            new_expression->type = type_make_int_bool_like();
 
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
             new_expression = NULL;/*MOVED*/
         }
     }
@@ -13627,7 +13665,7 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
 
     try
     {
-        p_expression_node = move relational_expression(ctx);
+        p_expression_node = relational_expression(ctx);
         if (p_expression_node == NULL) throw;
 
 
@@ -13636,13 +13674,13 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
                 ctx->current->type == '!='))
         {
             assert(new_expression == NULL);
-            new_expression = move calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
             struct  token* operator_token = ctx->current;
             parser_match(ctx);
-            new_expression->left = move p_expression_node;
-            new_expression->right = move relational_expression(ctx);
+            new_expression->left = p_expression_node;
+            new_expression->right = relational_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             check_diferent_enuns(ctx, operator_token, new_expression->left, new_expression->right);
@@ -13669,8 +13707,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
             {
                 assert(false);
             }
-            new_expression->type = move type_make_int_bool_like();
-            p_expression_node = move new_expression;
+            new_expression->type = type_make_int_bool_like();
+            p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
         }
     }
@@ -13693,7 +13731,7 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
 
     try
     {
-        p_expression_node = move equality_expression(ctx);
+        p_expression_node = equality_expression(ctx);
         if (p_expression_node == NULL)
             throw;
 
@@ -13702,12 +13740,12 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
             parser_match(ctx);
 
             assert(new_expression == NULL);
-            new_expression = move calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = AND_EXPRESSION;
-            new_expression->left = move p_expression_node;
-            new_expression->right = move equality_expression(ctx);
+            new_expression->left = p_expression_node;
+            new_expression->right = equality_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             new_expression->constant_value =
@@ -13721,7 +13759,7 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
             new_expression = NULL; /*MOVED*/
         }
     }
@@ -13744,7 +13782,7 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
 
     try
     {
-        p_expression_node = move and_expression(ctx);
+        p_expression_node = and_expression(ctx);
         if (p_expression_node == NULL) throw;
 
         while (ctx->current != NULL &&
@@ -13753,12 +13791,12 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
             parser_match(ctx);
 
             assert(new_expression == NULL);
-            new_expression = move calloc(1, sizeof * new_expression);
+            new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
-            new_expression->left = move p_expression_node;
-            new_expression->right = move and_expression(ctx);
+            new_expression->left = p_expression_node;
+            new_expression->right = and_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             new_expression->constant_value =
@@ -13772,7 +13810,7 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
             new_expression = NULL;
         }
     }
@@ -13794,7 +13832,7 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
     struct expression* owner p_expression_node = NULL;
     try
     {
-        p_expression_node = move exclusive_or_expression(ctx);
+        p_expression_node = exclusive_or_expression(ctx);
         if (p_expression_node == NULL) throw;
 
         while (ctx->current != NULL &&
@@ -13805,8 +13843,8 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
-            new_expression->left = move p_expression_node;
-            new_expression->right = move exclusive_or_expression(ctx);
+            new_expression->left = p_expression_node;
+            new_expression->right = exclusive_or_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             new_expression->constant_value =
@@ -13820,7 +13858,7 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
                 compiler_set_error_with_token(C_INVALID_TYPE, ctx, ctx->current, "invalid types inclusive or expression");
                 throw;
             }
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -13840,7 +13878,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
     struct expression* owner p_expression_node = NULL;
     try
     {
-        p_expression_node = move inclusive_or_expression(ctx);
+        p_expression_node = inclusive_or_expression(ctx);
         if (p_expression_node == NULL) throw;
 
         while (ctx->current != NULL &&
@@ -13851,8 +13889,8 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = INCLUSIVE_AND_EXPRESSION;
-            new_expression->left = move p_expression_node;
-            new_expression->right = move inclusive_or_expression(ctx);
+            new_expression->left = p_expression_node;
+            new_expression->right = inclusive_or_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             new_expression->constant_value =
@@ -13867,7 +13905,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
                 compiler_set_error_with_token(C_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
                 throw;
             }
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -13887,7 +13925,7 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
     struct expression* owner p_expression_node = NULL;
     try
     {
-        p_expression_node = move logical_and_expression(ctx);
+        p_expression_node = logical_and_expression(ctx);
         if (p_expression_node == NULL) throw;
 
         while (ctx->current != NULL &&
@@ -13898,8 +13936,8 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             if (new_expression == NULL) throw;
 
             new_expression->expression_type = LOGICAL_OR_EXPRESSION;
-            new_expression->left = move p_expression_node;
-            new_expression->right = move logical_and_expression(ctx);
+            new_expression->left = p_expression_node;
+            new_expression->right = logical_and_expression(ctx);
             if (new_expression->right == NULL) throw;
 
 
@@ -13919,9 +13957,9 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->type = move type_make_int_bool_like();
+            new_expression->type = type_make_int_bool_like();
 
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -13950,7 +13988,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
     struct expression* owner p_expression_node = NULL;
     try
     {
-        p_expression_node = move conditional_expression(ctx);
+        p_expression_node = conditional_expression(ctx);
         if (p_expression_node == NULL) throw;
 
         while (ctx->current != NULL &&
@@ -13975,13 +14013,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
 
             new_expression->first_token = ctx->current;
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
-            new_expression->left = move p_expression_node;
-
-            if (ctx->current->type == TK_KEYWORD__MOVE)
-            {
-                new_expression->move_assignment = ctx->current;
-                parser_match(ctx);
-            }
+            new_expression->left = p_expression_node;
 
             enum type_category category =
                 type_get_category(&new_expression->left->type);
@@ -14008,15 +14040,15 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
                 //compiler_set_error_with_token(C_LVALUE_ASSIGNMENT, ctx, ctx->current, "lvalue assignment");
             }
 
-            new_expression->right = move assignment_expression(ctx);
+            new_expression->right = assignment_expression(ctx);
             if (new_expression->right == NULL) throw;
 
             if (op_token->type == '=')
             {
-                check_assigment(ctx, &new_expression->left->type, new_expression->right, new_expression->move_assignment != NULL, false);
+                check_assigment(ctx, &new_expression->left->type, new_expression->right, false);
             }
 
-            new_expression->type = move type_dup(&new_expression->right->type);
+            new_expression->type = type_dup(&new_expression->right->type);
             new_expression->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_LVALUE;
 
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
@@ -14025,7 +14057,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
 
             check_diferent_enuns(ctx, op_token, new_expression->left, new_expression->right);
 
-            p_expression_node = move new_expression;
+            p_expression_node = new_expression;
         }
     }
     catch
@@ -14034,7 +14066,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-void expression_delete(implicit struct expression* owner p)
+void expression_delete(struct expression* owner p)
 {
     if (p)
     {
@@ -14055,7 +14087,7 @@ struct expression* owner expression(struct parser_ctx* ctx)
     struct expression* owner p_expression_node = NULL;
     try
     {
-        p_expression_node = move assignment_expression(ctx);
+        p_expression_node = assignment_expression(ctx);
         if (p_expression_node == NULL) throw;
 
         if (ctx->current->type == ',')
@@ -14068,18 +14100,18 @@ struct expression* owner expression(struct parser_ctx* ctx)
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
-                p_expression_node_new->left = move p_expression_node;
+                p_expression_node_new->left = p_expression_node;
 
-                p_expression_node_new->right = move expression(ctx);
+                p_expression_node_new->right = expression(ctx);
                 if (p_expression_node_new->right == NULL) throw;
 
-                p_expression_node = move p_expression_node_new;
+                p_expression_node = p_expression_node_new;
             }
 
             if (p_expression_node->right == NULL) throw;
 
             /*same type of the last expression*/
-            p_expression_node->type = move type_dup(&p_expression_node->right->type);
+            p_expression_node->type = type_dup(&p_expression_node->right->type);
         }
     }
     catch
@@ -14116,7 +14148,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
     struct type right_type = {0};
     try
     {
-        p_expression_node = move logical_or_expression(ctx);
+        p_expression_node = logical_or_expression(ctx);
         if (p_expression_node == NULL) throw;
 
 
@@ -14125,16 +14157,16 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             struct expression* owner p_conditional_expression = calloc(1, sizeof * p_conditional_expression);
             p_conditional_expression->first_token = ctx->current;
             p_conditional_expression->expression_type = CONDITIONAL_EXPRESSION;
-            p_conditional_expression->condition_expr = move p_expression_node;
-            p_expression_node = move p_conditional_expression;
+            p_conditional_expression->condition_expr = p_expression_node;
+            p_expression_node = p_conditional_expression;
 
             parser_match(ctx); //?
 
-            p_conditional_expression->left = move expression(ctx);
+            p_conditional_expression->left = expression(ctx);
             if (p_conditional_expression->left == NULL) throw;
 
             parser_match(ctx); //:
-            p_conditional_expression->right = move conditional_expression(ctx);
+            p_conditional_expression->right = conditional_expression(ctx);
             if (p_conditional_expression->right == NULL) throw;
 
 
@@ -14143,14 +14175,14 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
                 if (constant_value_to_bool(&p_conditional_expression->condition_expr->constant_value))
                 {
                     /*this is an extensions.. in constant expression we can mix types!*/
-                    p_conditional_expression->type = move type_dup(&p_conditional_expression->left->type);
+                    p_conditional_expression->type = type_dup(&p_conditional_expression->left->type);
                     p_conditional_expression->constant_value = p_conditional_expression->left->constant_value;
                     goto continuation;
                 }
                 else
                 {
                     /*this is an extensions.. in constant expression we can mix types!*/
-                    p_conditional_expression->type = move type_dup(&p_conditional_expression->right->type);
+                    p_conditional_expression->type = type_dup(&p_conditional_expression->right->type);
                     p_conditional_expression->constant_value = p_conditional_expression->right->constant_value;
                     goto continuation;
                 }
@@ -14158,20 +14190,20 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
 
             if (expression_is_subjected_to_lvalue_conversion(p_conditional_expression->left))
             {
-                left_type = move type_lvalue_conversion(&p_conditional_expression->left->type);
+                left_type = type_lvalue_conversion(&p_conditional_expression->left->type);
             }
             else
             {
-                left_type = move type_dup(&p_conditional_expression->left->type);
+                left_type = type_dup(&p_conditional_expression->left->type);
             }
 
             if (expression_is_subjected_to_lvalue_conversion(p_conditional_expression->right))
             {
-                right_type = move type_lvalue_conversion(&p_conditional_expression->right->type);
+                right_type = type_lvalue_conversion(&p_conditional_expression->right->type);
             }
             else
             {
-                right_type = move type_dup(&p_conditional_expression->right->type);
+                right_type = type_dup(&p_conditional_expression->right->type);
             }
 
             /*The first operand shall have scalar type*/
@@ -15308,7 +15340,7 @@ struct type type_convert_to(const struct type* p_type, enum language_version tar
             struct type t = make_void_ptr_type();
             if (p_type->name_opt)
             {
-                t.name_opt = move strdup(p_type->name_opt);
+                t.name_opt = strdup(p_type->name_opt);
             }
             return t;
         }
@@ -15516,7 +15548,7 @@ enum type_category type_get_category(const struct type* p_type)
     return p_type->category;
 }
 
-void type_destroy(implicit struct type* obj_owner p_type)
+void type_destroy( struct type* obj_owner p_type)
 {
     //TODO
 }
@@ -15810,44 +15842,15 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct type* paramer_type,
     int param_num)
 {
-    //see also check_assigment
-    bool explicit_move = false;
-    if (current_argument->move_token)
-    {
-        explicit_move = true;
-    }
 
     if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
         paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
     {
 
-        if (current_argument->move_token == NULL &&
-            !(paramer_type->attributes_flags & CAKE_ATTRIBUTE_IMPLICT))
-        {
-            if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
-            {
-                //function result does not need
-            }
-            else
-            {
-                compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED, ctx,
-                    current_argument->expression->first_token,
-                    "parameter %d requires explicit move", param_num);
-            }
 
 
-            if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-            {
-                if (!(current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
-                {
+       
 
-                    compiler_set_error_with_token(C_OWNERSHIP_NOT_OWNER, ctx,
-                        current_argument->expression->first_token,
-                        "parameter %d requires a owner type",
-                        param_num);
-                }
-            }
-        }
 
         if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
         {
@@ -15886,20 +15889,20 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
     if (type_is_array(paramer_type))
     {
-        parameter_type_converted = move  type_lvalue_conversion(paramer_type);
+        parameter_type_converted =  type_lvalue_conversion(paramer_type);
     }
     else
     {
-        parameter_type_converted = move  type_dup(paramer_type);
+        parameter_type_converted =  type_dup(paramer_type);
     }
 
     if (expression_is_subjected_to_lvalue_conversion(current_argument->expression))
     {
-        argument_type_converted = move type_lvalue_conversion(argument_type);
+        argument_type_converted = type_lvalue_conversion(argument_type);
     }
     else
     {
-        argument_type_converted = move type_dup(argument_type);
+        argument_type_converted = type_dup(argument_type);
     }
 
 
@@ -15984,20 +15987,20 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                     current_argument->expression->first_token,
                     " passing null as array");
             }
-            parameter_type_converted = move  type_lvalue_conversion(paramer_type);
+            parameter_type_converted =  type_lvalue_conversion(paramer_type);
         }
         else
         {
-            parameter_type_converted = move  type_dup(paramer_type);
+            parameter_type_converted =  type_dup(paramer_type);
         }
 
         if (expression_is_subjected_to_lvalue_conversion(current_argument->expression))
         {
-            argument_type_converted = move type_lvalue_conversion(argument_type);
+            argument_type_converted = type_lvalue_conversion(argument_type);
         }
         else
         {
-            argument_type_converted = move type_dup(argument_type);
+            argument_type_converted = type_dup(argument_type);
         }
 
 
@@ -16046,20 +16049,7 @@ continuation:
         if (current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
         {
             //owner = owner
-            if (!explicit_move)
-            {
-                if (!(current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN))
-                {
-                    if (!(paramer_type->attributes_flags & CAKE_ATTRIBUTE_IMPLICT))
-                    {
-                        compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
-                            ctx,
-                            current_argument->expression->first_token,
-                            "explicit move required");
-                    }
-                }
-
-            }
+            
         }
         else
         {
@@ -16088,15 +16078,7 @@ continuation:
                     "cannot move a temporary owner to non-owner");
             }
 
-
-            if (explicit_move)
-            {
-                //non owner = _Move owner ERROR
-                compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
-                    ctx,
-                    current_argument->expression->first_token,
-                    "trying to move to a non owner");
-            }
+            
         }
         else
         {
@@ -16135,8 +16117,7 @@ continuation:
 
 void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
-    struct expression* right,
-    bool explicit_move,
+    struct expression* right,    
     bool return_assignment)
 {
 
@@ -16155,11 +16136,11 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (expression_is_subjected_to_lvalue_conversion(right))
     {
-        lvalue_right_type = move type_lvalue_conversion(p_right_type);
+        lvalue_right_type = type_lvalue_conversion(p_right_type);
     }
     else
     {
-        lvalue_right_type = move type_dup(p_right_type);
+        lvalue_right_type = type_dup(p_right_type);
     }
 
 
@@ -16253,11 +16234,11 @@ void check_assigment(struct parser_ctx* ctx,
                     right->first_token,
                     " passing null as array");
             }
-            t2 = move type_lvalue_conversion(left_type);
+            t2 = type_lvalue_conversion(left_type);
         }
         else
         {
-            t2 = move type_dup(left_type);
+            t2 = type_dup(left_type);
         }
 
 
@@ -16329,17 +16310,7 @@ continuation:
                 // * non explicit if param or external
                 // ok if external
 
-                if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER ||
-                    right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN)
-                {
-                    if (!explicit_move)
-                    {
-                        compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                            ctx,
-                            right->first_token,
-                            "external or parameter requires explicit move");
-                    }
-                }
+                
 
             }
             else
@@ -16388,13 +16359,7 @@ continuation:
             if (right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
             {
                 //owner = owner
-                if (!explicit_move)
-                {
-                    compiler_set_error_with_token(C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
-                        ctx,
-                        right->first_token,
-                        "explicit move required");
-                }
+                
             }
             else
             {
@@ -16424,27 +16389,13 @@ continuation:
                 }
 
 
-                if (explicit_move)
-                {
-                    //non owner = _Move owner ERROR
-                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
-                        ctx,
-                        right->first_token,
-                        "trying to move to a non owner");
-                }
+                
             }
             else
             {
                 //non owner = non owner
 
-                if (explicit_move)
-                {
-                    //non owner = _Move non owner ERROR
-                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
-                        ctx,
-                        right->first_token,
-                        "try to move to a non owner");
-                }
+                
             }
         }
     }
@@ -16494,11 +16445,11 @@ struct type type_add_pointer(const struct type* p_type)
     struct type r = type_dup(p_type);
 
     struct type* owner p = calloc(1, sizeof(struct type));
-    *p = move r;
+    *p = r;
 
     memset(&r, 0, sizeof r);
 
-    r.next = move p;
+    r.next = p;
     r.category = TYPE_CATEGORY_POINTER;
 
     r.storage_class_specifier_flags = p_type->storage_class_specifier_flags;
@@ -16515,7 +16466,7 @@ struct type type_remove_pointer(const struct type* p_type)
     assert(r.next);
     if (r.next)
     {
-        r = move * r.next;
+        r = * r.next;
     }
 
 
@@ -16529,7 +16480,7 @@ struct type get_array_item_type(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
 
-    r = move * r.next;
+    r = * r.next;
     return r;
 }
 
@@ -16649,9 +16600,9 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
         if (rank_right < 0) throw;
 
         if (rank_left >= rank_right)
-            *out = move type_dup(p_type1);
+            *out = type_dup(p_type1);
         else
-            *out = move type_dup(p_type2);
+            *out = type_dup(p_type2);
 
         /*
            The result of expression +,- * / etc are not lvalue
@@ -16673,11 +16624,11 @@ struct type type_dup(const struct type* p_type)
     while (p)
     {
         struct type* owner p_new = calloc(1, sizeof(struct type));
-        *p_new = move * p;
+        *p_new = * p;
         p_new->next = NULL;
 
         if (p->name_opt)
-            p_new->name_opt = move strdup(p->name_opt);
+            p_new->name_opt = strdup(p->name_opt);
 
         if (p->category == TYPE_CATEGORY_FUNCTION)
         {
@@ -16688,14 +16639,14 @@ struct type type_dup(const struct type* p_type)
             while (p_param)
             {
                 struct param* owner p_new_param = calloc(1, sizeof * p_new_param);
-                p_new_param->type = move type_dup(&p_param->type);
+                p_new_param->type = type_dup(&p_param->type);
 
                 LIST_ADD(&p_new->params, p_new_param);
                 p_param = p_param->next;
             }
         }
 
-        type_list_push_back(&l, move p_new);
+        type_list_push_back(&l, p_new);
         p = p->next;
     }
     return *l.head;
@@ -17328,7 +17279,7 @@ struct type make_void_ptr_type()
     struct type* owner p = calloc(1, sizeof * p);
     p->category = TYPE_CATEGORY_ITSELF;
     p->type_specifier_flags = TYPE_SPECIFIER_VOID;
-    t.next = move p;
+    t.next = p;
 
     return t;
 }
@@ -17366,7 +17317,7 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
     struct type* owner p2 = calloc(1, sizeof(struct type));
     p2->category = TYPE_CATEGORY_ITSELF;
     p2->type_specifier_flags = chartype;
-    t.next = move p2;
+    t.next = p2;
     return t;
 }
 
@@ -17694,13 +17645,13 @@ void type_list_push_front(struct type_list* books, struct type* owner new_book)
 
     if (books->head == NULL)
     {
-        books->head = move new_book;
+        books->head = new_book;
         books->tail = new_book;
     }
     else
     {
-        new_book->next = move books->head;
-        books->head = move new_book;
+        new_book->next = books->head;
+        books->head = new_book;
     }
 }
 
@@ -17713,15 +17664,15 @@ void type_list_push_back(struct type_list* type_list, struct type* owner new_boo
     if (type_list->tail == NULL)
     {
         assert(type_list->head == NULL);
-        type_list->head = move new_book;
+        type_list->head = new_book;
     }
     else
     {
         assert(type_list->tail->next == NULL);
-        type_list->tail->next = move new_book;
+        type_list->tail->next = new_book;
     }
 
-    type_list->tail = new_book;    
+    type_list->tail = new_book;
 }
 
 void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* pdeclarator, char** ppname, struct type_list* list);
@@ -17763,7 +17714,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             while (p)
             {
                 struct param* owner p_new_param = calloc(1, sizeof(struct param));
-                p_new_param->type = move type_dup(&p->declarator->type);
+                p_new_param->type = type_dup(&p->declarator->type);
                 assert(p->declarator->type.category != TYPE_CATEGORY_NONE);
                 LIST_ADD(&p_func->params, p_new_param);
                 p = p->next;
@@ -17771,7 +17722,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
         }
 
 
-        type_list_push_back(list, move p_func);
+        type_list_push_back(list, p_func);
     }
     else if (pdirectdeclarator->array_declarator)
     {
@@ -17801,7 +17752,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             p->type_qualifier_flags = pdirectdeclarator->array_declarator->type_qualifier_list_opt->flags;
         }
 
-        type_list_push_back(list, move p);
+        type_list_push_back(list, p);
 
         // if (pdirectdeclarator->name_opt)
          //{
@@ -17836,7 +17787,7 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
             p_flat->attributes_flags |= pointer->attribute_specifier_sequence_opt->attributes_flags;
         }
         p_flat->category = TYPE_CATEGORY_POINTER;
-        type_list_push_front(&pointers, move p_flat); /*invertido*/
+        type_list_push_front(&pointers, p_flat); /*invertido*/
         pointer = pointer->pointer;
     }
 
@@ -17855,10 +17806,10 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
 
     while (pointers.head)
     {
-        struct type* owner p = move pointers.head;
+        struct type* owner p = pointers.head;
         pointers.head = pointers.head->next;
         p->next = NULL;//
-        type_list_push_back(list, move p);
+        type_list_push_back(list, p);
     }
 
 }
@@ -17935,7 +17886,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             type_dup(&declarator_get_typeof_specifier(pdeclarator)->type);
 
         struct type* owner p_nt = calloc(1, sizeof(struct type));
-        *p_nt = move nt;
+        *p_nt = nt;
 
         bool head = list.head != NULL;
 
@@ -17944,11 +17895,11 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         if (list.tail)
         {
-            list.tail->next = move p_nt;
+            list.tail->next = p_nt;
         }
         else
         {
-            type_list_push_back(&list, move p_nt);
+            type_list_push_back(&list, p_nt);
         }
     }
     else if (declarator_get_typedef_declarator(pdeclarator))
@@ -17960,7 +17911,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             type_dup(&p_typedef_declarator->type);
 
         struct type* owner p_nt = calloc(1, sizeof(struct type));
-        *p_nt = move nt;
+        *p_nt = nt;
 
 
         /*
@@ -17972,11 +17923,11 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         if (list.tail)
         {
             assert(list.tail->next == 0);
-            list.tail->next = move p_nt;
+            list.tail->next = p_nt;
         }
         else
         {
-            type_list_push_back(&list, move p_nt);
+            type_list_push_back(&list, p_nt);
         }
     }
     else
@@ -17999,7 +17950,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
 
 
-        type_list_push_back(&list, move p);
+        type_list_push_back(&list, p);
 
         type_set_storage_specifiers_using_declarator(list.head, pdeclarator);
 
@@ -18026,7 +17977,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             if (!type_is_void(list.head->next))
             {
                 list.head->next->attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_FUNC_RESULT;
-}
+            }
         }
     }
 #endif
@@ -18034,7 +17985,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     if (pdeclarator->name)
     {
         free((void* owner) list.head->name_opt);
-        list.head->name_opt = move strdup(pdeclarator->name->lexeme);
+        list.head->name_opt = strdup(pdeclarator->name->lexeme);
     }
     return *list.head;
 }
@@ -18170,7 +18121,7 @@ struct visit_ctx
 };
 
 void visit(struct visit_ctx* ctx);
-void visit_ctx_destroy(implicit struct visit_ctx* obj_owner ctx);
+void visit_ctx_destroy( struct visit_ctx* obj_owner ctx);
 
 
 
@@ -18217,6 +18168,14 @@ void object_state_to_string(enum object_state e)
 
 struct defer_statement* owner defer_statement(struct parser_ctx* ctx);
 
+void defer_statement_delete(struct defer_statement* owner p)
+{
+    if (p)
+    {
+        secondary_block_delete(p->secondary_block);
+        free(p);
+    }
+}
 
 static int s_anonymous_struct_count = 0;
 
@@ -18334,7 +18293,7 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
 int printf_nothing(const char* fmt, ...) { return 0; }
 #endif
 
-void scope_destroy(implicit struct scope* obj_owner p)
+void scope_destroy(struct scope* obj_owner p)
 {
     hashmap_destroy(&p->tags);
     hashmap_destroy(&p->variables);
@@ -18387,7 +18346,7 @@ void scope_list_pop(struct scope_list* list)
 }
 
 
-void parser_ctx_destroy(implicit struct parser_ctx* obj_owner ctx)
+void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 {
     if (ctx->sarif_file)
     {
@@ -18415,17 +18374,24 @@ void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, con
 #ifndef TEST
 
     if (p_token)
-        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
 
     va_list args;
     va_start(args, fmt);
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
+    if (ctx->options.visual_studio_ouput_format)
+    {
+        printf("error: " "%s\n", buffer);
+    }
+    else
+    {
+        printf(LIGHTRED "error: " WHITE "%s\n", buffer);
 
-    printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+    }
 
-    print_line_and_token(p_token);
+    print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 #endif
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
@@ -18521,7 +18487,8 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
     char buffer[200] = {0};
 
 #ifndef TEST
-    print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
+
+    print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
 
     va_list args;
@@ -18531,13 +18498,28 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 
     if (w != W_NONE)
     {
-        printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+        if (ctx->options.visual_studio_ouput_format)
+        {
+            printf("warning: " "%s [" "-W%s" "]\n", buffer, get_warning_name(w));
+        }
+        else
+        {
+            printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+        }
+
     }
     else
     {
-        printf(LIGHTMAGENTA "warning: " WHITE "%s\n" RESET, buffer);
+        if (ctx->options.visual_studio_ouput_format)
+        {
+            printf("warning: " "%s\n", buffer);
+        }
+        else
+        {
+            printf(LIGHTMAGENTA "warning: " WHITE "%s\n" RESET, buffer);
+        }
     }
-    print_line_and_token(p_token);
+    print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 #endif
 
     if (ctx->sarif_file)
@@ -18616,15 +18598,23 @@ void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const 
     char buffer[200] = {0};
 
 #ifndef TEST
-    print_position(p_token->token_origin->lexeme, p_token->line, p_token->col);
+    print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
     va_list args;
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
-    print_line_and_token(p_token);
+    if (ctx->options.visual_studio_ouput_format)
+    {
+        printf("note: " "%s\n", buffer);
+    }
+    else
+    {
+        printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+    }
+
+    print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 #endif // !TEST
 
 
@@ -19123,14 +19113,6 @@ bool first_of_declaration_specifier(struct parser_ctx* ctx)
 }
 
 
-bool first_of_assert_declaration(struct parser_ctx* ctx)
-{
-    if (ctx->current == NULL)
-        return false;
-
-    return ctx->current->type == TK_KEYWORD_ASSERT;
-}
-
 bool first_of_static_assert_declaration(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
@@ -19233,10 +19215,6 @@ enum token_type is_keyword(const char* text)
             if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
             else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
             else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
-            else if (strcmp("implicit", text) == 0) result = TK_KEYWORD__IMPLICIT; /*extension*/
-            break;
-        case 'm':
-            if (strcmp("move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
             break;
         case 'n':
             if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
@@ -19343,8 +19321,6 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
             else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
             else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
-            else if (strcmp("_Move", text) == 0) result = TK_KEYWORD__MOVE; /*extension*/
-            else if (strcmp("_Implicit", text) == 0) result = TK_KEYWORD__IMPLICIT; /*extension*/
 
 
             break;
@@ -19896,9 +19872,13 @@ void print_declaration_specifiers(struct osstream* ss, struct declaration_specif
     {
 
         if (p_declaration_specifiers->enum_specifier->tag_token)
+        {
             ss_fprintf(ss, "enum %s", p_declaration_specifiers->enum_specifier->tag_token->lexeme);
+        }
         else
+        {
             assert(false);
+        }
     }
     else if (p_declaration_specifiers->struct_or_union_specifier)
     {
@@ -19985,10 +19965,10 @@ void declaration_specifiers_delete(struct declaration_specifiers* owner p)
 {
     if (p)
     {
-        struct declaration_specifier* owner item = move p->head;
+        struct declaration_specifier* owner item = p->head;
         while (item)
         {
-            struct declaration_specifier* owner next = move item->next;
+            struct declaration_specifier* owner next = item->next;
             item->next = NULL;
             declaration_specifier_delete(item);
             item = next;
@@ -20048,6 +20028,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
                             &p_declaration_specifiers->type_specifier_flags,
                             p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
                         {
+                            declaration_specifier_delete(p_declaration_specifier);
                             throw;
                         }
 
@@ -20145,7 +20126,7 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
 
     struct declaration* owner p_declaration = calloc(1, sizeof(struct declaration));
 
-    p_declaration->p_attribute_specifier_sequence_opt = move p_attribute_specifier_sequence_opt;
+    p_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
 
     p_declaration->first_token = ctx->current;
 
@@ -20158,18 +20139,14 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
 
     if (first_of_static_assert_declaration(ctx))
     {
-        p_declaration->static_assert_declaration = move static_assert_declaration(ctx);
-    }
-    else if (first_of_assert_declaration(ctx))
-    {
-        p_declaration->assert_declaration = move assert_declaration(ctx);
+        p_declaration->static_assert_declaration = static_assert_declaration(ctx);
     }
     else
     {
 
         if (first_of_declaration_specifier(ctx))
         {
-            p_declaration->declaration_specifiers = move declaration_specifiers(ctx, default_storage_class_specifier_flags);
+            p_declaration->declaration_specifiers = declaration_specifiers(ctx, default_storage_class_specifier_flags);
 
             if (p_declaration->p_attribute_specifier_sequence_opt)
             {
@@ -20179,9 +20156,8 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
 
             if (ctx->current->type != ';')
             {
-                p_declaration->init_declarator_list = move init_declarator_list(ctx,
-                    p_declaration->declaration_specifiers,
-                    p_declaration->p_attribute_specifier_sequence_opt);
+                p_declaration->init_declarator_list = init_declarator_list(ctx,
+                    p_declaration->declaration_specifiers);
             }
 
 
@@ -20239,12 +20215,12 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
     */
 
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt =
-        move attribute_specifier_sequence_opt(ctx);
+        attribute_specifier_sequence_opt(ctx);
 
 
     bool is_function_definition = false;
     bool flow_analysis = true;
-    struct declaration* owner p_declaration = declaration_core(ctx, move p_attribute_specifier_sequence_opt, true, &is_function_definition, &flow_analysis, STORAGE_SPECIFIER_EXTERN);
+    struct declaration* owner p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, &flow_analysis, STORAGE_SPECIFIER_EXTERN);
     if (is_function_definition)
     {
 
@@ -20289,7 +20265,8 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
             ctx->options.disable_ownership_errors = true;
         }
 
-        p_declaration->function_body = move function_body(ctx);
+        assert(p_declaration->function_body == NULL);
+        p_declaration->function_body = function_body(ctx);
 
         ctx->options.disable_ownership_errors = disable_ownership_errors; /*restore*/
 
@@ -20353,7 +20330,7 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
 {
     bool is_function_definition;
     bool flow_analysis;
-    return declaration_core(ctx, move p_attribute_specifier_sequence_opt, false, &is_function_definition, &flow_analysis, storage_specifier_flags);
+    return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, &flow_analysis, storage_specifier_flags);
 }
 
 
@@ -20366,6 +20343,9 @@ void declaration_specifier_delete(struct declaration_specifier* owner p)
 {
     if (p)
     {
+        free(p->function_specifier);
+        type_specifier_qualifier_delete(p->type_specifier_qualifier);
+        free(p->storage_class_specifier);
         assert(p->next == NULL);
         free(p);
     }
@@ -20379,15 +20359,15 @@ struct declaration_specifier* owner declaration_specifier(struct parser_ctx* ctx
     struct declaration_specifier* owner p_declaration_specifier = calloc(1, sizeof * p_declaration_specifier);
     if (first_of_storage_class_specifier(ctx))
     {
-        p_declaration_specifier->storage_class_specifier = move storage_class_specifier(ctx);
+        p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
     }
     else if (first_of_type_specifier_qualifier(ctx))
     {
-        p_declaration_specifier->type_specifier_qualifier = move type_specifier_qualifier(ctx);
+        p_declaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx);
     }
     else if (first_of_function_specifier(ctx))
     {
-        p_declaration_specifier->function_specifier = move function_specifier(ctx);
+        p_declaration_specifier->function_specifier = function_specifier(ctx);
     }
     else
     {
@@ -20396,10 +20376,18 @@ struct declaration_specifier* owner declaration_specifier(struct parser_ctx* ctx
     return p_declaration_specifier;
 }
 
-
+void init_declarator_delete(struct init_declarator* owner p)
+{
+    if (p)
+    {
+        initializer_delete(p->initializer);
+        declarator_delete(p->p_declarator);
+        assert(p->next == NULL);
+        free(p);
+    }
+}
 struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
-    struct declaration_specifiers* p_declaration_specifiers,
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt)
+    struct declaration_specifiers* p_declaration_specifiers)
 {
     /*
      init-declarator:
@@ -20411,7 +20399,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
     {
 
         struct token* tkname = 0;
-        p_init_declarator->p_declarator = move declarator(ctx,
+        p_init_declarator->p_declarator = declarator(ctx,
             NULL,
             p_declaration_specifiers,
             false,
@@ -20442,7 +20430,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         else
         {
             assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
-            p_init_declarator->p_declarator->type = move make_type_using_declarator(ctx, p_init_declarator->p_declarator);
+            p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
         }
 
         const char* name = p_init_declarator->p_declarator->name->lexeme;
@@ -20521,16 +20509,10 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         {
             parser_match(ctx);
 
-            struct token* move_token = NULL;
-            if (ctx->current->type == TK_KEYWORD__MOVE)
-            {
-                move_token = ctx->current;
-                parser_match(ctx);
 
-            }
 
-            p_init_declarator->initializer = move initializer(ctx);
-            p_init_declarator->initializer->move_token = move_token;
+            p_init_declarator->initializer = initializer(ctx);
+
 
 
 
@@ -20565,7 +20547,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
 
                     if (p_init_declarator->initializer->assignment_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
                     {
-                        t = move type_dup(&p_init_declarator->initializer->assignment_expression->type);
+                        t = type_dup(&p_init_declarator->initializer->assignment_expression->type);
                     }
                     else
                     {
@@ -20575,7 +20557,8 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     }
 
                     type_remove_names(&t);
-                    t.name_opt = move strdup(p_init_declarator->p_declarator->name->lexeme);
+                    assert(t.name_opt == NULL);
+                    t.name_opt = strdup(p_init_declarator->p_declarator->name->lexeme);
 
                     type_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
                     //storage qualifiers?
@@ -20656,9 +20639,20 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
     return p_init_declarator;
 }
 
+void init_declarator_list_destroy(struct init_declarator_list* obj_owner p)
+{
+    struct init_declarator* owner item = p->head;
+    while (item)
+    {
+        struct init_declarator* owner next = item->next;
+        item->next = NULL;
+        init_declarator_delete(item);
+        item = next;
+    }
+}
+
 struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
-    struct declaration_specifiers* p_declaration_specifiers,
-    struct attribute_specifier_sequence* p_attribute_specifier_sequence_opt)
+    struct declaration_specifiers* p_declaration_specifiers)
 {
     /*
     init-declarator-list:
@@ -20670,9 +20664,8 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
 
     try
     {
-        p_init_declarator = move init_declarator(ctx,
-            p_declaration_specifiers,
-            p_attribute_specifier_sequence_opt);
+        p_init_declarator = init_declarator(ctx,p_declaration_specifiers);
+
         if (p_init_declarator == NULL) throw;
         LIST_ADD(&init_declarator_list, p_init_declarator);
         p_init_declarator = NULL; /*MOVED*/
@@ -20680,7 +20673,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
         while (ctx->current != NULL && ctx->current->type == ',')
         {
             parser_match(ctx);
-            p_init_declarator = move init_declarator(ctx, p_declaration_specifiers, p_attribute_specifier_sequence_opt);
+            p_init_declarator = init_declarator(ctx, p_declaration_specifiers);
             if (p_init_declarator == NULL) throw;
             LIST_ADD(&init_declarator_list, p_init_declarator);
             p_init_declarator = NULL; /*MOVED*/
@@ -20691,6 +20684,14 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     }
 
     return init_declarator_list;
+}
+
+void storage_class_specifier_delete(struct storage_class_specifier* owner p)
+{
+    if (p)
+    {
+        free(p);
+    }
 }
 
 struct storage_class_specifier* owner storage_class_specifier(struct parser_ctx* ctx)
@@ -20753,11 +20754,11 @@ struct typeof_specifier_argument* owner typeof_specifier_argument(struct parser_
     {
         if (first_of_type_name(ctx))
         {
-            new_typeof_specifier_argument->type_name = move type_name(ctx);
+            new_typeof_specifier_argument->type_name = type_name(ctx);
         }
         else
         {
-            new_typeof_specifier_argument->expression = move expression(ctx);
+            new_typeof_specifier_argument->expression = expression(ctx);
             if (new_typeof_specifier_argument->expression == NULL) throw;
 
             //declarator_type_clear_name(new_typeof_specifier_argument->expression->type.declarator_type);
@@ -20783,7 +20784,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
     struct typeof_specifier* owner p_typeof_specifier = NULL;
     try
     {
-        p_typeof_specifier = move calloc(1, sizeof(struct typeof_specifier));
+        p_typeof_specifier = calloc(1, sizeof(struct typeof_specifier));
         if (p_typeof_specifier == NULL) throw;
 
         p_typeof_specifier->first_token = ctx->current;
@@ -20792,16 +20793,16 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
         parser_match(ctx);
         if (parser_match_tk(ctx, '(') != 0) throw;
 
-        p_typeof_specifier->typeof_specifier_argument = move typeof_specifier_argument(ctx);
+        p_typeof_specifier->typeof_specifier_argument = typeof_specifier_argument(ctx);
         if (p_typeof_specifier->typeof_specifier_argument == NULL) throw;
 
         if (p_typeof_specifier->typeof_specifier_argument->expression)
         {
-            p_typeof_specifier->type = move type_dup(&p_typeof_specifier->typeof_specifier_argument->expression->type);
+            p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->expression->type);
         }
         else if (p_typeof_specifier->typeof_specifier_argument->type_name)
         {
-            p_typeof_specifier->type = move type_dup(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
+            p_typeof_specifier->type = type_dup(&p_typeof_specifier->typeof_specifier_argument->type_name->declarator->type);
         }
 
         if (p_typeof_specifier->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
@@ -20998,25 +20999,25 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
     {
         p_type_specifier->token = ctx->current;
         p_type_specifier->flags = TYPE_SPECIFIER_TYPEOF;
-        p_type_specifier->typeof_specifier = move typeof_specifier(ctx);
+        p_type_specifier->typeof_specifier = typeof_specifier(ctx);
     }
     else if (first_of_atomic_type_specifier(ctx))
     {
         p_type_specifier->token = ctx->current;
         p_type_specifier->flags = TYPE_SPECIFIER_ATOMIC;
-        p_type_specifier->atomic_type_specifier = move atomic_type_specifier(ctx);
+        p_type_specifier->atomic_type_specifier = atomic_type_specifier(ctx);
     }
     else if (first_of_struct_or_union(ctx))
     {
         p_type_specifier->token = ctx->current;
         p_type_specifier->flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-        p_type_specifier->struct_or_union_specifier = move struct_or_union_specifier(ctx);
+        p_type_specifier->struct_or_union_specifier = struct_or_union_specifier(ctx);
     }
     else if (first_of_enum_specifier(ctx))
     {
         p_type_specifier->token = ctx->current;
         p_type_specifier->flags = TYPE_SPECIFIER_ENUM;
-        p_type_specifier->enum_specifier = move enum_specifier(ctx);
+        p_type_specifier->enum_specifier = enum_specifier(ctx);
     }
     else if (ctx->current->type == TK_IDENTIFIER)
     {
@@ -21067,6 +21068,16 @@ bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_s
         get_complete_struct_or_union_specifier(p_struct_or_union_specifier) != NULL;
 }
 
+void struct_or_union_specifier_delete(struct struct_or_union_specifier* owner p)
+{
+    if (p)
+    {
+        member_declaration_list_destroy(&p->member_declaration_list);
+        attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
+        free(p);
+    }
+}
+
 struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_ctx* ctx)
 {
     struct struct_or_union_specifier* owner p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
@@ -21083,7 +21094,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
     }
 
     p_struct_or_union_specifier->attribute_specifier_sequence_opt =
-        move attribute_specifier_sequence_opt(ctx);
+        attribute_specifier_sequence_opt(ctx);
 
     struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
 
@@ -21166,7 +21177,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
 
         struct token* firsttoken = ctx->current;
         parser_match(ctx);
-        p_struct_or_union_specifier->member_declaration_list = move member_declaration_list(ctx, p_struct_or_union_specifier);
+        p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
         p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
         p_struct_or_union_specifier->last_token = ctx->current;
         p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
@@ -21217,11 +21228,11 @@ struct member_declarator* owner member_declarator(
 
     struct token* p_token_name = NULL;
 
-    p_member_declarator->declarator = move declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/NULL, false, &p_token_name);
+    p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/NULL, false, &p_token_name);
     p_member_declarator->declarator->name = p_token_name;
     p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
-    p_member_declarator->declarator->type = move make_type_using_declarator(ctx, p_member_declarator->declarator);
+    p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
 
     /*extension*/
     if (p_member_declarator->declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
@@ -21236,7 +21247,7 @@ struct member_declarator* owner member_declarator(
     if (ctx->current->type == ':')
     {
         parser_match(ctx);
-        p_member_declarator->constant_expression = move constant_expression(ctx, true);
+        p_member_declarator->constant_expression = constant_expression(ctx, true);
     }
     return p_member_declarator;
 }
@@ -21257,6 +21268,11 @@ struct member_declarator_list* owner member_declarator_list(
 }
 
 
+void member_declaration_list_destroy(struct member_declaration_list* obj_owner p)
+{
+
+}
+
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration_list list = {0};
@@ -21267,7 +21283,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
 
     try
     {
-        p_member_declaration = move member_declaration(ctx,
+        p_member_declaration = member_declaration(ctx,
             p_struct_or_union_specifier);
 
         if (p_member_declaration == NULL) throw;
@@ -21276,7 +21292,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
 
         while (ctx->current && ctx->current->type != '}')
         {
-            p_member_declaration = move member_declaration(ctx, p_struct_or_union_specifier);
+            p_member_declaration = member_declaration(ctx, p_struct_or_union_specifier);
             if (p_member_declaration == NULL) throw;
             LIST_ADD(&list, p_member_declaration);
             p_member_declaration = NULL; /*MOVED*/
@@ -21296,16 +21312,16 @@ struct member_declaration* owner member_declaration(struct parser_ctx* ctx, stru
     //static_assert_declaration
     if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
     {
-        p_member_declaration->static_assert_declaration = move static_assert_declaration(ctx);
+        p_member_declaration->static_assert_declaration = static_assert_declaration(ctx);
     }
     else
     {
-        p_member_declaration->p_attribute_specifier_sequence_opt = move attribute_specifier_sequence_opt(ctx);
+        p_member_declaration->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
-        p_member_declaration->specifier_qualifier_list = move specifier_qualifier_list(ctx);
+        p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
         if (ctx->current->type != ';')
         {
-            p_member_declaration->member_declarator_list_opt = move member_declarator_list(ctx,
+            p_member_declaration->member_declarator_list_opt = member_declarator_list(ctx,
                 p_struct_or_union_specifier,
                 p_member_declaration->specifier_qualifier_list);
         }
@@ -21442,6 +21458,7 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
                     &p_specifier_qualifier_list->type_specifier_flags,
                     p_type_specifier_qualifier->type_specifier->flags) != 0)
                 {
+                    type_specifier_qualifier_delete(p_type_specifier_qualifier);
                     throw;
                 }
 
@@ -21472,7 +21489,7 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
             }
 
             LIST_ADD(p_specifier_qualifier_list, p_type_specifier_qualifier);
-            p_specifier_qualifier_list->p_attribute_specifier_sequence = move attribute_specifier_sequence_opt(ctx);
+            p_specifier_qualifier_list->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
         }
     }
     catch
@@ -21484,6 +21501,16 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
     return p_specifier_qualifier_list;
 }
 
+void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner p)
+{
+    if (p)
+    {
+        free(p->type_qualifier);
+        free(p->alignment_specifier);
+        free(p->type_specifier);
+        free(p);
+    }
+}
 struct type_specifier_qualifier* owner type_specifier_qualifier(struct parser_ctx* ctx)
 {
     struct type_specifier_qualifier* owner type_specifier_qualifier = calloc(1, sizeof * type_specifier_qualifier);
@@ -21492,15 +21519,15 @@ struct type_specifier_qualifier* owner type_specifier_qualifier(struct parser_ct
     //alignment_specifier
     if (first_of_type_specifier(ctx))
     {
-        type_specifier_qualifier->type_specifier = move type_specifier(ctx);
+        type_specifier_qualifier->type_specifier = type_specifier(ctx);
     }
     else if (first_of_type_qualifier(ctx))
     {
-        type_specifier_qualifier->type_qualifier = move type_qualifier(ctx);
+        type_specifier_qualifier->type_qualifier = type_qualifier(ctx);
     }
     else if (first_of_alignment_specifier(ctx))
     {
-        type_specifier_qualifier->alignment_specifier = move alignment_specifier(ctx);
+        type_specifier_qualifier->alignment_specifier = alignment_specifier(ctx);
     }
     else
     {
@@ -21510,6 +21537,13 @@ struct type_specifier_qualifier* owner type_specifier_qualifier(struct parser_ct
 }
 
 
+void enum_specifier_delete(struct enum_specifier* owner p)
+{
+    if (p)
+    {
+        free(p);
+    }
+}
 struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
 {
     /*
@@ -21530,13 +21564,13 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
     struct enum_specifier* owner p_enum_specifier = NULL;
     try
     {
-        p_enum_specifier = move calloc(1, sizeof * p_enum_specifier);
+        p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
 
         p_enum_specifier->first_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_ENUM);
 
         p_enum_specifier->attribute_specifier_sequence_opt =
-            move attribute_specifier_sequence_opt(ctx);
+            attribute_specifier_sequence_opt(ctx);
 
 
         struct enum_specifier* p_previous_tag_in_this_scope = NULL;
@@ -21552,7 +21586,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
         {
             /*C23*/
             parser_match(ctx);
-            p_enum_specifier->specifier_qualifier_list = move specifier_qualifier_list(ctx);
+            p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
         }
 
         if (ctx->current->type == '{')
@@ -21564,7 +21598,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
             p_enum_specifier->complete_enum_specifier = p_enum_specifier;
 
             parser_match_tk(ctx, '{');
-            p_enum_specifier->enumerator_list = move enumerator_list(ctx, p_enum_specifier);
+            p_enum_specifier->enumerator_list = enumerator_list(ctx, p_enum_specifier);
             if (ctx->current->type == ',')
             {
                 parser_match(ctx);
@@ -21679,6 +21713,14 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
     return p_enum_specifier;
 }
 
+void enumerator_list_destroy(struct enum_specifier* obj_owner p_enum_specifier)
+{
+    if (p_enum_specifier)
+    {
+        free(p_enum_specifier);
+    }
+}
+
 struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier)
 {
 
@@ -21692,7 +21734,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
     struct enumerator* owner p_enumerator = NULL;
     try
     {
-        p_enumerator = move enumerator(ctx, p_enum_specifier, &next_enumerator_value);
+        p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value);
         if (p_enumerator == NULL) throw;
 
         LIST_ADD(&enumeratorlist, p_enumerator);
@@ -21703,7 +21745,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
 
             if (ctx->current && ctx->current->type != '}')
             {
-                p_enumerator = move enumerator(ctx, p_enum_specifier, &next_enumerator_value);
+                p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value);
                 if (p_enumerator == NULL) throw;
                 LIST_ADD(&enumeratorlist, p_enumerator);
             }
@@ -21729,7 +21771,7 @@ struct enumerator* owner enumerator(struct parser_ctx* ctx,
 
     parser_match_tk(ctx, TK_IDENTIFIER);
 
-    p_enumerator->attribute_specifier_sequence_opt = move attribute_specifier_sequence_opt(ctx);
+    p_enumerator->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
     p_enumerator->token = name;
     hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, p_enumerator, TAG_TYPE_ENUMERATOR);
@@ -21737,7 +21779,7 @@ struct enumerator* owner enumerator(struct parser_ctx* ctx,
     if (ctx->current->type == '=')
     {
         parser_match(ctx);
-        p_enumerator->constant_expression_opt = move constant_expression(ctx, true);
+        p_enumerator->constant_expression_opt = constant_expression(ctx, true);
         p_enumerator->value = constant_value_to_ll(&p_enumerator->constant_expression_opt->constant_value);
         *p_next_enumerator_value = p_enumerator->value;
         (*p_next_enumerator_value)++; //TODO overflow  and size check
@@ -21760,11 +21802,11 @@ struct alignment_specifier* owner alignment_specifier(struct parser_ctx* ctx)
     parser_match_tk(ctx, '(');
     if (first_of_type_name(ctx))
     {
-        alignment_specifier->type_name = move type_name(ctx);
+        alignment_specifier->type_name = type_name(ctx);
     }
     else
     {
-        alignment_specifier->constant_expression = move constant_expression(ctx, true);
+        alignment_specifier->constant_expression = constant_expression(ctx, true);
     }
     parser_match_tk(ctx, ')');
     return alignment_specifier;
@@ -21779,7 +21821,7 @@ struct atomic_type_specifier* owner atomic_type_specifier(struct parser_ctx* ctx
     p->token = ctx->current;
     parser_match_tk(ctx, TK_KEYWORD__ATOMIC);
     parser_match_tk(ctx, '(');
-    p->type_name = move type_name(ctx);
+    p->type_name = type_name(ctx);
     parser_match_tk(ctx, ')');
     return p;
 }
@@ -21846,6 +21888,14 @@ struct type_qualifier* owner type_qualifier_opt(struct parser_ctx* ctx)
 }
 
 
+void function_specifier_delete(struct function_specifier* owner p)
+{
+    if (p)
+    {
+        free(p);
+    }
+}
+
 struct function_specifier* owner function_specifier(struct parser_ctx* ctx)
 {
     if (ctx->current->type == TK_KEYWORD__NORETURN)
@@ -21856,7 +21906,7 @@ struct function_specifier* owner function_specifier(struct parser_ctx* ctx)
     struct function_specifier* owner p_function_specifier = NULL;
     try
     {
-        p_function_specifier = move calloc(1, sizeof * p_function_specifier);
+        p_function_specifier = calloc(1, sizeof * p_function_specifier);
         if (p_function_specifier == NULL) throw;
 
         p_function_specifier->token = ctx->current;
@@ -21870,7 +21920,13 @@ struct function_specifier* owner function_specifier(struct parser_ctx* ctx)
     return p_function_specifier;
 }
 
-
+void declarator_delete(struct declarator* owner p)
+{
+    if (p)
+    {
+        free(p);
+    }
+}
 struct declarator* owner declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* p_specifier_qualifier_list,
     struct declaration_specifiers* p_declaration_specifiers,
@@ -21883,8 +21939,8 @@ struct declarator* owner declarator(struct parser_ctx* ctx,
     */
     struct declarator* owner p_declarator = calloc(1, sizeof(struct declarator));
     p_declarator->first_token = ctx->current;
-    p_declarator->pointer = move pointer_opt(ctx);
-    p_declarator->direct_declarator = move direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
+    p_declarator->pointer = pointer_opt(ctx);
+    p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
 
     if (ctx->current != p_declarator->first_token)
     {
@@ -21954,7 +22010,7 @@ struct direct_declarator* owner direct_declarator(struct parser_ctx* ctx,
 
 
             parser_match(ctx);
-            p_direct_declarator->p_attribute_specifier_sequence_opt = move attribute_specifier_sequence_opt(ctx);
+            p_direct_declarator->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
         }
         else if (ctx->current->type == '(')
         {
@@ -21970,7 +22026,7 @@ struct direct_declarator* owner direct_declarator(struct parser_ctx* ctx,
 
                 parser_match(ctx);
 
-                p_direct_declarator->declarator = move declarator(ctx,
+                p_direct_declarator->declarator = declarator(ctx,
                     p_specifier_qualifier_list,
                     p_declaration_specifiers,
                     abstract_acceptable,
@@ -21989,13 +22045,13 @@ struct direct_declarator* owner direct_declarator(struct parser_ctx* ctx,
 
             if (ctx->current->type == '[')
             {
-                p_direct_declarator2->array_declarator = move array_declarator(move p_direct_declarator, ctx);
+                p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx);
             }
             else
             {
-                p_direct_declarator2->function_declarator = move function_declarator(move p_direct_declarator, ctx);
+                p_direct_declarator2->function_declarator = function_declarator(p_direct_declarator, ctx);
             }
-            p_direct_declarator = move p_direct_declarator2;
+            p_direct_declarator = p_direct_declarator2;
         }
     }
     catch
@@ -22029,10 +22085,10 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
     struct array_declarator* owner p_array_declarator = NULL;
     try
     {
-        p_array_declarator = move calloc(1, sizeof * p_array_declarator);
+        p_array_declarator = calloc(1, sizeof * p_array_declarator);
         if (p_array_declarator == NULL) throw;
 
-        p_array_declarator->direct_declarator = move p_direct_declarator;
+        p_array_declarator->direct_declarator = p_direct_declarator;
         parser_match_tk(ctx, '[');
 
         bool has_static = false;
@@ -22045,7 +22101,7 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
 
         if (first_of_type_qualifier(ctx))
         {
-            p_array_declarator->type_qualifier_list_opt = move type_qualifier_list(ctx);
+            p_array_declarator->type_qualifier_list_opt = type_qualifier_list(ctx);
         }
 
         if (!has_static)
@@ -22061,7 +22117,7 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
         {
             //tem que ter..
 
-            p_array_declarator->assignment_expression = move assignment_expression(ctx);
+            p_array_declarator->assignment_expression = assignment_expression(ctx);
             if (p_array_declarator->assignment_expression == NULL) throw;
         }
         else
@@ -22073,7 +22129,7 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
             }
             else if (ctx->current->type != ']')
             {
-                p_array_declarator->assignment_expression = move assignment_expression(ctx);
+                p_array_declarator->assignment_expression = assignment_expression(ctx);
                 if (p_array_declarator->assignment_expression == NULL) throw;
             }
             else
@@ -22106,7 +22162,7 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
     //direct_declarator '(' parameter_type_list_opt ')'
 
 
-    p_function_declarator->direct_declarator = move p_direct_declarator;
+    p_function_declarator->direct_declarator = p_direct_declarator;
     p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
     p_function_declarator->parameters_scope.variables.capacity = 5;
     p_function_declarator->parameters_scope.tags.capacity = 1;
@@ -22119,7 +22175,7 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
     parser_match_tk(ctx, '(');
     if (ctx->current->type != ')')
     {
-        p_function_declarator->parameter_type_list_opt = move parameter_type_list(ctx);
+        p_function_declarator->parameter_type_list_opt = parameter_type_list(ctx);
     }
     parser_match_tk(ctx, ')');
 
@@ -22142,23 +22198,23 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
     {
         while (ctx->current != NULL && ctx->current->type == '*')
         {
-            p_pointer = move calloc(1, sizeof(struct pointer));
+            p_pointer = calloc(1, sizeof(struct pointer));
             if (p_pointer == NULL) throw;
-            p = move p_pointer;
+            p = p_pointer;
             parser_match(ctx);
 
             p_pointer->attribute_specifier_sequence_opt =
-                move attribute_specifier_sequence_opt(ctx);
+                attribute_specifier_sequence_opt(ctx);
 
             if (first_of_type_qualifier(ctx))
             {
-                p_pointer->type_qualifier_list_opt = move type_qualifier_list(ctx);
+                p_pointer->type_qualifier_list_opt = type_qualifier_list(ctx);
             }
 
 
             while (ctx->current != NULL && ctx->current->type == '*')
             {
-                p_pointer->pointer = move pointer_opt(ctx);
+                p_pointer->pointer = pointer_opt(ctx);
                 if (p_pointer->pointer == NULL)
                     throw;
             }
@@ -22184,11 +22240,11 @@ struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
 
     try
     {
-        p_type_qualifier_list = move calloc(1, sizeof(struct type_qualifier_list));
+        p_type_qualifier_list = calloc(1, sizeof(struct type_qualifier_list));
         if (p_type_qualifier_list == NULL) throw;
 
 
-        p_type_qualifier = move type_qualifier(ctx);
+        p_type_qualifier = type_qualifier(ctx);
         if (p_type_qualifier == NULL) throw;
 
         p_type_qualifier_list->flags |= p_type_qualifier->flags;
@@ -22197,7 +22253,7 @@ struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
 
         while (ctx->current != NULL && first_of_type_qualifier(ctx))
         {
-            p_type_qualifier = move type_qualifier(ctx);
+            p_type_qualifier = type_qualifier(ctx);
             if (p_type_qualifier == NULL) throw;
 
             p_type_qualifier_list->flags |= p_type_qualifier->flags;
@@ -22218,7 +22274,7 @@ struct parameter_type_list* owner parameter_type_list(struct parser_ctx* ctx)
     struct parameter_type_list* owner p_parameter_type_list = calloc(1, sizeof(struct parameter_type_list));
     //parameter_list
     //parameter_list ',' '...'
-    p_parameter_type_list->parameter_list = move parameter_list(ctx);
+    p_parameter_type_list->parameter_list = parameter_list(ctx);
 
     if (p_parameter_type_list->parameter_list->head ==
         p_parameter_type_list->parameter_list->tail)
@@ -22251,10 +22307,10 @@ struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
     struct parameter_declaration* owner p_parameter_declaration = NULL;
     try
     {
-        p_parameter_list = move calloc(1, sizeof(struct parameter_list));
+        p_parameter_list = calloc(1, sizeof(struct parameter_list));
         if (p_parameter_list == NULL) throw;
 
-        p_parameter_declaration = move parameter_declaration(ctx);
+        p_parameter_declaration = parameter_declaration(ctx);
         if (p_parameter_declaration == NULL) throw;
 
         LIST_ADD(p_parameter_list, p_parameter_declaration);
@@ -22269,7 +22325,7 @@ struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
                 break;
             }
 
-            p_parameter_declaration = move parameter_declaration(ctx);
+            p_parameter_declaration = parameter_declaration(ctx);
             if (p_parameter_declaration == NULL) throw;
 
             LIST_ADD(p_parameter_list, p_parameter_declaration);
@@ -22287,23 +22343,18 @@ struct parameter_declaration* owner parameter_declaration(struct parser_ctx* ctx
 {
     struct parameter_declaration* owner p_parameter_declaration = calloc(1, sizeof(struct parameter_declaration));
 
-    if (ctx->current->type == TK_KEYWORD__IMPLICIT)
-    {
-        p_parameter_declaration->implicit_token = ctx->current;
-        parser_match(ctx);
-    }
 
     p_parameter_declaration->attribute_specifier_sequence_opt =
-        move attribute_specifier_sequence_opt(ctx);
+        attribute_specifier_sequence_opt(ctx);
 
-    p_parameter_declaration->declaration_specifiers = move declaration_specifiers(ctx, STORAGE_SPECIFIER_PARAMETER);
+    p_parameter_declaration->declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_PARAMETER);
 
 
     //talvez no ctx colocar um flag que esta em argumentos
     //TODO se tiver uma struct tag novo...
     //warning: declaration of 'struct X' will not be visible outside of this function [-Wvisibility]
     struct token* p_token_name = 0;
-    p_parameter_declaration->declarator = move declarator(ctx,
+    p_parameter_declaration->declarator = declarator(ctx,
         /*specifier_qualifier_list*/NULL,
         p_parameter_declaration->declaration_specifiers,
         true/*can be abstract*/,
@@ -22314,14 +22365,10 @@ struct parameter_declaration* owner parameter_declaration(struct parser_ctx* ctx
 
     p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
-    p_parameter_declaration->declarator->type = move make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+    p_parameter_declaration->declarator->type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
-        /*
-          we keep only function type so lets move implict flag to type
-          void free( [[cake::implicit]] void *owner p) {}
-        */
         p_parameter_declaration->declarator->type.attributes_flags |=
             p_parameter_declaration->attribute_specifier_sequence_opt->attributes_flags;
     }
@@ -22377,7 +22424,7 @@ struct specifier_qualifier_list* owner copy(struct declaration_specifiers* p_dec
 
 
                 p_type_qualifier->token = p_declaration_specifier->type_specifier_qualifier->type_qualifier->token;
-                p_specifier_qualifier->type_qualifier = move p_type_qualifier;
+                p_specifier_qualifier->type_qualifier = p_type_qualifier;
             }
             else if (p_declaration_specifier->type_specifier_qualifier->type_specifier)
             {
@@ -22389,7 +22436,7 @@ struct specifier_qualifier_list* owner copy(struct declaration_specifiers* p_dec
                 assert(p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier == NULL);
 
                 p_type_specifier->token = p_declaration_specifier->type_specifier_qualifier->type_specifier->token;
-                p_specifier_qualifier->type_specifier = move p_type_specifier;
+                p_specifier_qualifier->type_specifier = p_type_specifier;
             }
 
             LIST_ADD(p_specifier_qualifier_list, p_specifier_qualifier);
@@ -22492,20 +22539,20 @@ struct type_name* owner type_name(struct parser_ctx* ctx)
     p_type_name->first_token = ctx->current;
 
 
-    p_type_name->specifier_qualifier_list = move specifier_qualifier_list(ctx);
+    p_type_name->specifier_qualifier_list = specifier_qualifier_list(ctx);
 
 
-    p_type_name->declarator = move declarator(ctx,
+    p_type_name->declarator = declarator(ctx,
         p_type_name->specifier_qualifier_list,//??
         /*declaration_specifiers*/ NULL,
         true /*DEVE SER TODO*/,
         NULL);
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
-    p_type_name->declarator->type = move make_type_using_declarator(ctx, p_type_name->declarator);
+    p_type_name->declarator->type = make_type_using_declarator(ctx, p_type_name->declarator);
 
 
     p_type_name->last_token = ctx->current->prev;
-    p_type_name->type = move type_dup(&p_type_name->declarator->type);
+    p_type_name->type = type_dup(&p_type_name->declarator->type);
 
 
     return p_type_name;
@@ -22524,13 +22571,21 @@ struct braced_initializer* owner braced_initializer(struct parser_ctx* ctx)
     parser_match_tk(ctx, '{');
     if (ctx->current->type != '}')
     {
-        p_bracket_initializer_list->initializer_list = move initializer_list(ctx);
+        p_bracket_initializer_list->initializer_list = initializer_list(ctx);
     }
     parser_match_tk(ctx, '}');
     return p_bracket_initializer_list;
 }
 
 
+void initializer_delete(struct initializer* owner p)
+{
+    if (p)
+    {
+        //p->designation
+        free(p);
+    }
+}
 
 struct initializer* owner initializer(struct parser_ctx* ctx)
 {
@@ -22546,14 +22601,14 @@ struct initializer* owner initializer(struct parser_ctx* ctx)
 
     if (ctx->current->type == '{')
     {
-        p_initializer->braced_initializer = move braced_initializer(ctx);
+        p_initializer->braced_initializer = braced_initializer(ctx);
     }
     else
     {
         p_initializer->p_attribute_specifier_sequence_opt =
-            move attribute_specifier_sequence_opt(ctx);
+            attribute_specifier_sequence_opt(ctx);
 
-        p_initializer->assignment_expression = move assignment_expression(ctx);
+        p_initializer->assignment_expression = assignment_expression(ctx);
     }
     return p_initializer;
 }
@@ -22575,11 +22630,13 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
     struct designation* owner p_designation = NULL;
     if (first_of_designator(ctx))
     {
-        p_designation = move designation(ctx);
+        p_designation = designation(ctx);
     }
     struct initializer* owner p_initializer = initializer(ctx);
 
-    p_initializer->designation = move p_designation;
+    assert(p_initializer->designation == NULL);
+    p_initializer->designation = p_designation;
+
     LIST_ADD(p_initializer_list, p_initializer);
     p_initializer_list->size++;
 
@@ -22591,11 +22648,11 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
 
         if (first_of_designator(ctx))
         {
-            p_initializer->designation = move designation(ctx);
+            p_initializer->designation = designation(ctx);
         }
         struct initializer* owner p_initializer2 = initializer(ctx);
 
-        p_initializer2->designation = move p_designation;
+        p_initializer2->designation = p_designation;
         LIST_ADD(p_initializer_list, p_initializer2);
         p_initializer_list->size++;
     }
@@ -22608,7 +22665,7 @@ struct designation* owner designation(struct parser_ctx* ctx)
 {
     //designator_list '='
     struct designation* owner p_designation = calloc(1, sizeof(struct designation));
-    p_designation->designator_list = move designator_list(ctx);
+    p_designation->designator_list = designator_list(ctx);
     parser_match_tk(ctx, '=');
     return p_designation;
 }
@@ -22621,17 +22678,17 @@ struct designator_list* owner designator_list(struct parser_ctx* ctx)
     struct designator* owner p_designator = NULL;
     try
     {
-        p_designator_list = move calloc(1, sizeof(struct designator_list));
+        p_designator_list = calloc(1, sizeof(struct designator_list));
         if (p_designator_list == NULL) throw;
 
-        p_designator = move designator(ctx);
+        p_designator = designator(ctx);
         if (p_designator == NULL) throw;
         LIST_ADD(p_designator_list, p_designator);
         p_designator = NULL; /*MOVED*/
 
         while (ctx->current != NULL && first_of_designator(ctx))
         {
-            p_designator = move designator(ctx);
+            p_designator = designator(ctx);
             if (p_designator == NULL) throw;
             LIST_ADD(p_designator_list, p_designator);
             p_designator = NULL; /*MOVED*/
@@ -22653,7 +22710,7 @@ struct designator* owner designator(struct parser_ctx* ctx)
     if (ctx->current->type == '[')
     {
         parser_match_tk(ctx, '[');
-        p_designator->constant_expression_opt = move constant_expression(ctx, true);
+        p_designator->constant_expression_opt = constant_expression(ctx, true);
         parser_match_tk(ctx, ']');
     }
     else if (ctx->current->type == '.')
@@ -22662,44 +22719,6 @@ struct designator* owner designator(struct parser_ctx* ctx)
         parser_match_tk(ctx, TK_IDENTIFIER);
     }
     return p_designator;
-}
-
-
-void assert_declaration_delete(implicit struct assert_declaration* owner p)
-{
-    if (p)
-    {
-        expression_delete(p->expression);
-    }
-}
-struct assert_declaration* owner assert_declaration(struct parser_ctx* ctx)
-{
-
-    /*
-     assert-declaration:
-      "assert" (expression) ;
-    */
-
-    struct assert_declaration* owner p_assert_declaration = NULL;
-    try
-    {
-        p_assert_declaration = move calloc(1, sizeof(struct assert_declaration));
-        if (p_assert_declaration == NULL) throw;
-
-        p_assert_declaration->first_token = ctx->current;
-        parser_match(ctx); // TK_KEYWORD_ASSERT
-        parser_match_tk(ctx, '(');
-
-        p_assert_declaration->expression = move expression(ctx);
-        if (p_assert_declaration->expression == NULL) throw;
-
-        parser_match_tk(ctx, ')');
-        p_assert_declaration->last_token = ctx->current;
-        parser_match_tk(ctx, ';');
-    }
-    catch
-    {}
-    return p_assert_declaration;
 }
 
 
@@ -22724,7 +22743,7 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
     struct static_assert_declaration* owner p_static_assert_declaration = NULL;
     try
     {
-        p_static_assert_declaration = move calloc(1, sizeof(struct static_assert_declaration));
+        p_static_assert_declaration = calloc(1, sizeof(struct static_assert_declaration));
         if (p_static_assert_declaration == NULL) throw;
 
         p_static_assert_declaration->first_token = ctx->current;
@@ -22739,7 +22758,7 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
          When flow analysis is enabled static assert is evaluated there
         */
         const bool show_error_if_not_constant = !ctx->options.flow_analysis;
-        p_static_assert_declaration->constant_expression = move constant_expression(ctx, show_error_if_not_constant);
+        p_static_assert_declaration->constant_expression = constant_expression(ctx, show_error_if_not_constant);
         if (p_static_assert_declaration->constant_expression == NULL) throw;
 
         if (ctx->current->type == ',')
@@ -22775,11 +22794,11 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
     return p_static_assert_declaration;
 }
 
-void attribute_specifier_sequence_delete(implicit struct attribute_specifier_sequence* owner p)
+void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner p)
 {
     if (p)
-    {
-        //struct attribute_specifier* owner head;
+    {        
+        free(p);
     }
 }
 
@@ -22789,7 +22808,7 @@ struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(stru
 
     if (first_of_attribute_specifier(ctx))
     {
-        p_attribute_specifier_sequence = move calloc(1, sizeof(struct attribute_specifier_sequence));
+        p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
 
         p_attribute_specifier_sequence->first_token = ctx->current;
 
@@ -22823,6 +22842,15 @@ struct attribute_specifier_sequence* owner attribute_specifier_sequence(struct p
 }
 
 
+void attribute_specifier_delete(struct attribute_specifier* owner p)
+{
+    if (p)
+    {
+        attribute_list_destroy(p->attribute_list);
+        assert(p->next == NULL);
+        free(p);
+    }
+}
 struct attribute_specifier* owner attribute_specifier(struct parser_ctx* ctx)
 {
     struct attribute_specifier* owner p_attribute_specifier = calloc(1, sizeof(struct attribute_specifier));
@@ -22832,7 +22860,7 @@ struct attribute_specifier* owner attribute_specifier(struct parser_ctx* ctx)
     //'[' '[' attribute_list ']' ']'
     parser_match_tk(ctx, '[');
     parser_match_tk(ctx, '[');
-    p_attribute_specifier->attribute_list = move attribute_list(ctx);
+    p_attribute_specifier->attribute_list = attribute_list(ctx);
     parser_match_tk(ctx, ']');
     p_attribute_specifier->last_token = ctx->current;
     parser_match_tk(ctx, ']');
@@ -22840,6 +22868,27 @@ struct attribute_specifier* owner attribute_specifier(struct parser_ctx* ctx)
 }
 
 
+void attribute_delete(struct attribute* owner p)
+{
+    if (p)
+    {
+        attribute_token_delete(p->attribute_token);
+        attribute_argument_clause_delete(p->attribute_argument_clause);
+        assert(p->next == NULL);
+        free(p);
+    }
+}
+void attribute_list_destroy(struct attribute_list* obj_owner p)
+{
+    struct attribute* owner item = p->head;
+    while (item)
+    {
+        struct attribute* owner next = item->next;
+        item->next = NULL;
+        attribute_delete(item);
+        item = next;
+    }
+}
 
 struct attribute_list* owner attribute_list(struct parser_ctx* ctx)
 {
@@ -22875,16 +22924,23 @@ struct attribute* owner attribute(struct parser_ctx* ctx)
 {
     struct attribute* owner p_attribute = calloc(1, sizeof(struct attribute));
     //attribute_token attribute_argument_clause_opt
-    p_attribute->attribute_token = move attribute_token(ctx);
+    p_attribute->attribute_token = attribute_token(ctx);
     p_attribute->attributes_flags = p_attribute->attribute_token->attributes_flags;
     if (ctx->current->type == '(') //first
     {
-        p_attribute->attribute_argument_clause = move attribute_argument_clause(ctx);
+        p_attribute->attribute_argument_clause = attribute_argument_clause(ctx);
     }
     return p_attribute;
 }
 
 
+void attribute_token_delete(struct attribute_token* owner p)
+{
+    if (p)
+    {        
+        free(p);
+    }
+}
 struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
 {
     struct attribute_token* owner p_attribute_token = calloc(1, sizeof(struct attribute_token));
@@ -22937,14 +22993,9 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
         parser_match(ctx);
         if (is_cake_attr)
         {
-            //if (strcmp(ctx->current->lexeme, "implicit") == 0)
-            //{
-              //  p_attribute_token->attributes_flags = CAKE_ATTRIBUTE_IMPLICT;
-            //}
-            //else
-            {
-                compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
-            }
+
+            compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
+
         }
         parser_match_tk(ctx, TK_IDENTIFIER);
     }
@@ -22964,18 +23015,39 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
 }
 
 
-
+void attribute_argument_clause_delete(struct attribute_argument_clause* owner p)
+{
+    if (p)
+    {
+        balanced_token_sequence_delete(p->p_balanced_token_sequence);
+        free(p);
+    }
+}
 struct attribute_argument_clause* owner attribute_argument_clause(struct parser_ctx* ctx)
 {
     struct attribute_argument_clause* owner p_attribute_argument_clause = calloc(1, sizeof(struct attribute_argument_clause));
     //'(' balanced_token_sequence_opt ')'
     parser_match_tk(ctx, '(');
-    p_attribute_argument_clause->p_balanced_token_sequence = move balanced_token_sequence_opt(ctx);
+    p_attribute_argument_clause->p_balanced_token_sequence = balanced_token_sequence_opt(ctx);
     parser_match_tk(ctx, ')');
     return p_attribute_argument_clause;
 }
 
 
+void balanced_token_sequence_delete(struct balanced_token_sequence* owner p)
+{
+    if (p)
+    {     
+        struct balanced_token* owner item = p->head;
+        while (item)
+        {
+            struct balanced_token* owner next = item->next;            
+            free(item);
+            item = next;
+        }
+        free(p);
+    }
+}
 struct balanced_token_sequence* owner balanced_token_sequence_opt(struct parser_ctx* ctx)
 {
     struct balanced_token_sequence* owner p_balanced_token_sequence = calloc(1, sizeof(struct balanced_token_sequence));
@@ -23020,17 +23092,25 @@ struct balanced_token_sequence* owner balanced_token_sequence_opt(struct parser_
     return p_balanced_token_sequence;
 }
 
-
+void statement_delete(struct statement* owner p)
+{
+    if (p)
+    {
+        labeled_statement_delete(p->labeled_statement);
+        unlabeled_statement_delete(p->unlabeled_statement);
+        free(p);
+    }
+}
 struct statement* owner statement(struct parser_ctx* ctx)
 {
     struct statement* owner p_statement = calloc(1, sizeof(struct statement));
     if (first_of_labeled_statement(ctx))
     {
-        p_statement->labeled_statement = move labeled_statement(ctx);
+        p_statement->labeled_statement = labeled_statement(ctx);
     }
     else
     {
-        p_statement->unlabeled_statement = move unlabeled_statement(ctx);
+        p_statement->unlabeled_statement = unlabeled_statement(ctx);
     }
 
     return p_statement;
@@ -23042,23 +23122,23 @@ struct primary_block* owner primary_block(struct parser_ctx* ctx)
     struct primary_block* owner p_primary_block = calloc(1, sizeof(struct primary_block));
     if (first_of_compound_statement(ctx))
     {
-        p_primary_block->compound_statement = move compound_statement(ctx);
+        p_primary_block->compound_statement = compound_statement(ctx);
     }
     else if (first_of_selection_statement(ctx))
     {
-        p_primary_block->selection_statement = move  selection_statement(ctx);
+        p_primary_block->selection_statement = selection_statement(ctx);
     }
     else if (first_of_iteration_statement(ctx))
     {
-        p_primary_block->iteration_statement = move iteration_statement(ctx);
+        p_primary_block->iteration_statement = iteration_statement(ctx);
     }
     else if (ctx->current->type == TK_KEYWORD_DEFER)
     {
-        p_primary_block->defer_statement = move defer_statement(ctx);
+        p_primary_block->defer_statement = defer_statement(ctx);
     }
     else if (ctx->current->type == TK_KEYWORD_TRY)
     {
-        p_primary_block->try_statement = move try_statement(ctx);
+        p_primary_block->try_statement = try_statement(ctx);
     }
     else
     {
@@ -23076,7 +23156,7 @@ struct secondary_block* owner secondary_block(struct parser_ctx* ctx)
     p_secondary_block->first_token = ctx->current;
 
 
-    p_secondary_block->statement = move statement(ctx);
+    p_secondary_block->statement = statement(ctx);
 
     p_secondary_block->last_token = ctx->previous;
 
@@ -23085,6 +23165,26 @@ struct secondary_block* owner secondary_block(struct parser_ctx* ctx)
     return p_secondary_block;
 }
 
+void secondary_block_delete(struct secondary_block* owner p)
+{
+    if (p)
+    {
+        statement_delete(p->statement);
+        free(p);
+    }
+}
+void primary_block_delete(struct primary_block* owner p)
+{
+    if (p)
+    {
+        compound_statement_delete(p->compound_statement);
+        defer_statement_delete(p->defer_statement);
+        iteration_statement_delete(p->iteration_statement);
+        selection_statement_delete(p->selection_statement);
+        try_statement_delete(p->try_statement);
+        free(p);
+    }
+}
 bool first_of_primary_block(struct parser_ctx* ctx)
 {
     if (first_of_compound_statement(ctx) ||
@@ -23099,6 +23199,16 @@ bool first_of_primary_block(struct parser_ctx* ctx)
     return false;
 }
 
+void unlabeled_statement_delete(struct unlabeled_statement* owner p)
+{
+    if (p)
+    {
+        expression_statement_delete(p->expression_statement);
+        jump_statement_delete(p->jump_statement);
+        primary_block_delete(p->primary_block);
+        free(p);
+    }
+}
 struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
 {
     /*
@@ -23111,15 +23221,15 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
 
     if (first_of_primary_block(ctx))
     {
-        p_unlabeled_statement->primary_block = move primary_block(ctx);
+        p_unlabeled_statement->primary_block = primary_block(ctx);
     }
     else if (first_of_jump_statement(ctx))
     {
-        p_unlabeled_statement->jump_statement = move jump_statement(ctx);
+        p_unlabeled_statement->jump_statement = jump_statement(ctx);
     }
     else
     {
-        p_unlabeled_statement->expression_statement = move expression_statement(ctx);
+        p_unlabeled_statement->expression_statement = expression_statement(ctx);
         if (p_unlabeled_statement->expression_statement)
         {
             if (p_unlabeled_statement->expression_statement->expression_opt)
@@ -23172,7 +23282,8 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                     p_unlabeled_statement->expression_statement->expression_opt->expression_type != POSTFIX_DECREMENT &&
                     p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_INCREMENT &&
                     p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_DECREMENT &&
-                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_DECLARATOR_ATTRIBUTE_EXPR)
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_DECLARATOR_ATTRIBUTE_EXPR &&
+                    p_unlabeled_statement->expression_statement->expression_opt->expression_type != UNARY_EXPRESSION_ASSERT)
                 {
                     if (ctx->current &&
                         ctx->current->level == 0)
@@ -23189,6 +23300,15 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
 
     return p_unlabeled_statement;
 }
+
+void label_delete(struct label* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->constant_expression);
+        free(p);
+    }
+}
 struct label* owner label(struct parser_ctx* ctx)
 {
     struct label* owner p_label = calloc(1, sizeof(struct label));
@@ -23201,7 +23321,7 @@ struct label* owner label(struct parser_ctx* ctx)
     else if (ctx->current->type == TK_KEYWORD_CASE)
     {
         parser_match(ctx);
-        p_label->constant_expression = move constant_expression(ctx, true);
+        p_label->constant_expression = constant_expression(ctx, true);
         parser_match_tk(ctx, ':');
     }
     else if (ctx->current->type == TK_KEYWORD_DEFAULT)
@@ -23215,13 +23335,31 @@ struct label* owner label(struct parser_ctx* ctx)
     return p_label;
 }
 
+void labeled_statement_delete(struct labeled_statement* owner p)
+{
+    if (p)
+    {
+        label_delete(p->label);
+        statement_delete(p->statement);
+        free(p);
+    }
+}
 struct labeled_statement* owner labeled_statement(struct parser_ctx* ctx)
 {
     struct labeled_statement* owner p_labeled_statement = calloc(1, sizeof(struct labeled_statement));
     //label statement
-    p_labeled_statement->label = move label(ctx);
-    p_labeled_statement->statement = move statement(ctx);
+    p_labeled_statement->label = label(ctx);
+    p_labeled_statement->statement = statement(ctx);
     return p_labeled_statement;
+}
+
+void compound_statement_delete(struct compound_statement* owner p)
+{
+    if (p)
+    {
+        block_item_list_destroy(&p->block_item_list);
+        free(p);
+    }
 }
 
 struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
@@ -23236,7 +23374,7 @@ struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
 
     if (ctx->current->type != '}')
     {
-        p_compound_statement->block_item_list = move block_item_list(ctx);
+        p_compound_statement->block_item_list = block_item_list(ctx);
     }
 
     p_compound_statement->last_token = ctx->current;
@@ -23300,6 +23438,17 @@ struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
+void block_item_list_destroy(struct block_item_list* obj_owner list)
+{
+    struct block_item* owner item = list->head;
+    while (item)
+    {
+        struct block_item* owner next = item->next;
+        item->next = NULL;
+        block_item_delete(item);
+        item = next;
+    }
+}
 struct block_item_list block_item_list(struct parser_ctx* ctx)
 {
     /*
@@ -23311,14 +23460,14 @@ struct block_item_list block_item_list(struct parser_ctx* ctx)
     struct block_item* owner p_block_item = NULL;
     try
     {
-        p_block_item = move block_item(ctx);
+        p_block_item = block_item(ctx);
         if (p_block_item == NULL) throw;
         LIST_ADD(&block_item_list, p_block_item);
         p_block_item = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type != '}') //follow
         {
-            p_block_item = move block_item(ctx);
+            p_block_item = block_item(ctx);
             if (p_block_item == NULL) throw;
             LIST_ADD(&block_item_list, p_block_item);
             p_block_item = NULL; /*MOVED*/
@@ -23329,6 +23478,18 @@ struct block_item_list block_item_list(struct parser_ctx* ctx)
     }
 
     return block_item_list;
+}
+
+void block_item_delete(struct block_item* owner p)
+{
+    if (p)
+    {
+        declaration_delete(p->declaration);
+        label_delete(p->label);
+        unlabeled_statement_delete(p->unlabeled_statement);
+        assert(p->next == NULL);
+        free(p);
+    }
 }
 
 struct block_item* owner block_item(struct parser_ctx* ctx)
@@ -23344,7 +23505,7 @@ struct block_item* owner block_item(struct parser_ctx* ctx)
     * so it is better to parse it in advance.
     */
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt =
-        move attribute_specifier_sequence_opt(ctx);
+        attribute_specifier_sequence_opt(ctx);
 
     p_block_item->first_token = ctx->current;
 
@@ -23382,10 +23543,9 @@ assembly-instruction-list:
             parser_match(ctx);
     }
     else if (first_of_declaration_specifier(ctx) ||
-        first_of_static_assert_declaration(ctx) ||
-        first_of_assert_declaration(ctx))
+        first_of_static_assert_declaration(ctx))
     {
-        p_block_item->declaration = move declaration(ctx, move p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+        p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
 
         p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
 
@@ -23402,11 +23562,11 @@ assembly-instruction-list:
     else if (first_of_label(ctx))
     {
         //so identifier confunde com expression
-        p_block_item->label = move label(ctx);
+        p_block_item->label = label(ctx);
     }
     else
     {
-        p_block_item->unlabeled_statement = move unlabeled_statement(ctx);
+        p_block_item->unlabeled_statement = unlabeled_statement(ctx);
     }
     /*
                                            declaration-specifiers init-declarator-list_opt;
@@ -23426,10 +23586,21 @@ assembly-instruction-list:
     attribute-specifier-sequenceopt case constant-expression :
     attribute-specifier-sequenceopt default :
     */
+
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
     return p_block_item;
 }
 
 
+void try_statement_delete(struct try_statement* owner p)
+{
+    if (p)
+    {
+        secondary_block_delete(p->catch_secondary_block_opt);
+        secondary_block_delete(p->secondary_block);
+        free(p);
+    }
+}
 struct try_statement* owner try_statement(struct parser_ctx* ctx)
 {
     struct try_statement* owner p_try_statement = calloc(1, sizeof(struct try_statement));
@@ -23443,7 +23614,7 @@ struct try_statement* owner try_statement(struct parser_ctx* ctx)
     p_try_statement->try_catch_block_index = ctx->try_catch_block_index;
     parser_match_tk(ctx, TK_KEYWORD_TRY);
 
-    p_try_statement->secondary_block = move secondary_block(ctx);
+    p_try_statement->secondary_block = secondary_block(ctx);
     /*retores the previous one*/
     ctx->p_current_try_statement_opt = try_statement_copy_opt;
 
@@ -23453,13 +23624,25 @@ struct try_statement* owner try_statement(struct parser_ctx* ctx)
         p_try_statement->catch_token_opt = ctx->current;
         parser_match(ctx);
 
-        p_try_statement->catch_secondary_block_opt = move secondary_block(ctx);
+        p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
     }
     p_try_statement->last_token = ctx->previous;
 
     return p_try_statement;
 }
 
+void selection_statement_delete(struct selection_statement* owner p)
+{
+    if (p)
+    {
+        secondary_block_delete(p->else_secondary_block_opt);
+        init_declarator_delete(p->init_declarator);
+        secondary_block_delete(p->secondary_block);
+        declaration_specifiers_delete(p->declaration_specifiers);
+        expression_delete(p->expression);
+        free(p);
+    }
+}
 struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
 {
     /*
@@ -23497,14 +23680,14 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         parser_match_tk(ctx, '(');
         if (first_of_declaration_specifier(ctx))
         {
-            struct declaration_specifiers* owner p_declaration_specifiers = move declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
-            struct init_declarator_list list = init_declarator_list(ctx, p_declaration_specifiers, NULL);
-            p_selection_statement->init_declarator = move list.head; //only one
+            p_selection_statement->declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+            struct init_declarator_list list = init_declarator_list(ctx, p_selection_statement->declaration_specifiers);
+            p_selection_statement->init_declarator = list.head; //only one
             parser_match_tk(ctx, ';');
         }
 
 
-        p_selection_statement->expression = move expression(ctx);
+        p_selection_statement->expression = expression(ctx);
 
         if (constant_value_is_valid(&p_selection_statement->expression->constant_value))
         {
@@ -23520,7 +23703,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
 
         parser_match_tk(ctx, ')');
 
-        p_selection_statement->secondary_block = move secondary_block(ctx);
+        p_selection_statement->secondary_block = secondary_block(ctx);
 
         if (ctx->current)
         {
@@ -23528,7 +23711,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
             {
                 p_selection_statement->else_token_opt = ctx->current;
                 parser_match(ctx);
-                p_selection_statement->else_secondary_block_opt = move secondary_block(ctx);
+                p_selection_statement->else_secondary_block_opt = secondary_block(ctx);
             }
         }
         else
@@ -23541,10 +23724,10 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         parser_match(ctx);
         parser_match_tk(ctx, '(');
 
-        p_selection_statement->expression = move expression(ctx);
+        p_selection_statement->expression = expression(ctx);
         parser_match_tk(ctx, ')');
 
-        p_selection_statement->secondary_block = move secondary_block(ctx);
+        p_selection_statement->secondary_block = secondary_block(ctx);
 
     }
     else
@@ -23569,12 +23752,24 @@ struct defer_statement* owner  defer_statement(struct parser_ctx* ctx)
     {
         p_defer_statement->first_token = ctx->current;
         parser_match(ctx);
-        p_defer_statement->secondary_block = move secondary_block(ctx);
+        p_defer_statement->secondary_block = secondary_block(ctx);
         p_defer_statement->last_token = ctx->previous;
     }
     return p_defer_statement;
 }
 
+void iteration_statement_delete(struct iteration_statement* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->expression0);
+        expression_delete(p->expression1);
+        expression_delete(p->expression2);
+        declaration_delete(p->declaration);
+        secondary_block_delete(p->secondary_block);
+        free(p);
+    }
+}
 struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
 {
     /*
@@ -23585,32 +23780,34 @@ struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
       for ( declaration expressionopt ; expressionopt ) statement
     */
     struct iteration_statement* owner  p_iteration_statement = calloc(1, sizeof(struct iteration_statement));
+
+
     p_iteration_statement->first_token = ctx->current;
     if (ctx->current->type == TK_KEYWORD_DO)
     {
         parser_match(ctx);
-        p_iteration_statement->secondary_block = move secondary_block(ctx);
+        p_iteration_statement->secondary_block = secondary_block(ctx);
         p_iteration_statement->second_token = ctx->current;
         parser_match_tk(ctx, TK_KEYWORD_WHILE);
         parser_match_tk(ctx, '(');
 
-        p_iteration_statement->expression1 = move expression(ctx);
+        p_iteration_statement->expression1 = expression(ctx);
         parser_match_tk(ctx, ')');
         parser_match_tk(ctx, ';');
     }
     else if (ctx->current->type == TK_KEYWORD_REPEAT)
     {
         parser_match(ctx);
-        p_iteration_statement->secondary_block = move secondary_block(ctx);
+        p_iteration_statement->secondary_block = secondary_block(ctx);
     }
     else if (ctx->current->type == TK_KEYWORD_WHILE)
     {
         parser_match(ctx);
         parser_match_tk(ctx, '(');
 
-        p_iteration_statement->expression1 = move expression(ctx);
+        p_iteration_statement->expression1 = expression(ctx);
         parser_match_tk(ctx, ')');
-        p_iteration_statement->secondary_block = move secondary_block(ctx);
+        p_iteration_statement->secondary_block = secondary_block(ctx);
     }
     else if (ctx->current->type == TK_KEYWORD_FOR)
     {
@@ -23621,21 +23818,18 @@ struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
             struct scope for_scope = {0};
             scope_list_push(&ctx->scopes, &for_scope);
 
-            struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt =
-                move attribute_specifier_sequence_opt(ctx);
-
-            p_iteration_statement->declaration = move declaration(ctx, move p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+            p_iteration_statement->declaration = declaration(ctx, NULL, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
             if (ctx->current->type != ';')
             {
-                p_iteration_statement->expression1 = move expression(ctx);
+                p_iteration_statement->expression1 = expression(ctx);
             }
             parser_match_tk(ctx, ';');
             if (ctx->current->type != ')')
-                p_iteration_statement->expression2 = move expression(ctx);
+                p_iteration_statement->expression2 = expression(ctx);
 
             parser_match_tk(ctx, ')');
 
-            p_iteration_statement->secondary_block = move secondary_block(ctx);
+            p_iteration_statement->secondary_block = secondary_block(ctx);
 
             scope_list_pop(&ctx->scopes);
 
@@ -23651,19 +23845,28 @@ struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
             */
 
             if (ctx->current->type != ';')
-                p_iteration_statement->expression0 = move expression(ctx);
+                p_iteration_statement->expression0 = expression(ctx);
             parser_match_tk(ctx, ';');
             if (ctx->current->type != ';')
-                p_iteration_statement->expression1 = move expression(ctx);
+                p_iteration_statement->expression1 = expression(ctx);
             parser_match_tk(ctx, ';');
             if (ctx->current->type != ')')
-                p_iteration_statement->expression2 = move expression(ctx);
+                p_iteration_statement->expression2 = expression(ctx);
             parser_match_tk(ctx, ')');
 
-            p_iteration_statement->secondary_block = move secondary_block(ctx);
+            p_iteration_statement->secondary_block = secondary_block(ctx);
         }
     }
     return p_iteration_statement;
+}
+
+void jump_statement_delete(struct jump_statement* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->expression_opt);
+        free(p);
+    }
 }
 struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
 {
@@ -23716,15 +23919,10 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
         const struct token* const p_return_token = ctx->current;
         parser_match(ctx);
 
-        if (ctx->current->type == TK_KEYWORD__MOVE)
-        {
-            p_jump_statement->token_move = ctx->current;
-            parser_match(ctx);
-        }
 
         if (ctx->current->type != ';')
         {
-            p_jump_statement->expression_opt = move expression(ctx);
+            p_jump_statement->expression_opt = expression(ctx);
 
 
             if (p_jump_statement->expression_opt)
@@ -23750,7 +23948,6 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
                         check_assigment(ctx,
                             &return_type,
                             p_jump_statement->expression_opt,
-                            p_jump_statement->token_move != NULL,
                             true);
 
                     }
@@ -23770,6 +23967,16 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
     return p_jump_statement;
 }
 
+void expression_statement_delete(struct expression_statement* owner p)
+{
+    if (p)
+    {
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        expression_delete(p->expression_opt);
+        free(p);
+    }
+}
+
 struct expression_statement* owner expression_statement(struct parser_ctx* ctx)
 {
     struct expression_statement* owner p_expression_statement = calloc(1, sizeof(struct expression_statement));
@@ -23780,11 +23987,11 @@ struct expression_statement* owner expression_statement(struct parser_ctx* ctx)
     */
 
     p_expression_statement->p_attribute_specifier_sequence_opt =
-        move attribute_specifier_sequence_opt(ctx);
+        attribute_specifier_sequence_opt(ctx);
 
     if (ctx->current->type != ';')
     {
-        p_expression_statement->expression_opt = move expression(ctx);
+        p_expression_statement->expression_opt = expression(ctx);
     }
 
     parser_match_tk(ctx, ';');
@@ -23796,39 +24003,43 @@ void declaration_list_add(struct declaration_list* list, struct declaration* own
 {
     if (list->head == NULL)
     {
-        list->head = move p_declaration;
+        list->head = p_declaration;
     }
     else
     {
-        list->tail->next = move p_declaration;
+        assert(list->tail->next == NULL);
+        list->tail->next = p_declaration;
     }
     list->tail = p_declaration;
 }
 
-void declaration_delete(implicit struct declaration* owner p)
+void declaration_delete(struct declaration* owner p)
 {
     if (p)
     {
-        assert_declaration_delete(p->assert_declaration);
+
         attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
         static_assert_declaration_delete(p->static_assert_declaration);
 
         declaration_specifiers_delete(p->declaration_specifiers);
 
+        compound_statement_delete(p->function_body);
+
+        init_declarator_list_destroy(&p->init_declarator_list);
         assert(p->next == NULL);
         free(p);
     }
 }
 
-void declaration_list_destroy(implicit struct declaration_list* obj_owner list)
+void declaration_list_destroy(struct declaration_list* obj_owner list)
 {
-    struct declaration* owner p = move list->head;
+    struct declaration* owner p = list->head;
     while (p)
     {
-        struct declaration* owner next = move p->next;
+        struct declaration* owner next = p->next;
         p->next = NULL;
         declaration_delete(p);
-        p = move next;
+        p = next;
     }
 }
 
@@ -23842,7 +24053,7 @@ struct declaration_list translation_unit(struct parser_ctx* ctx)
     */
     while (ctx->current != NULL)
     {
-        declaration_list_add(&declaration_list, move external_declaration(ctx));
+        declaration_list_add(&declaration_list, external_declaration(ctx));
     }
     return declaration_list;
 }
@@ -24077,12 +24288,12 @@ const char* owner format_code(struct options* options, const char* content)
         prectx.options = *options;
         append_msvc_include_dir(&prectx);
 
-        tokens = move tokenizer(&tctx, content, "", 0, TK_FLAG_NONE);
-        ast.token_list = move preprocessor(&prectx, &tokens, 0);
+        tokens = tokenizer(&tctx, content, "", 0, TK_FLAG_NONE);
+        ast.token_list = preprocessor(&prectx, &tokens, 0);
         if (prectx.n_errors != 0) throw;
 
 
-        ast.declaration_list = move parse(&ctx, &ast.token_list);
+        ast.declaration_list = parse(&ctx, &ast.token_list);
         if (report.error_count > 0) throw;
 
         struct format_visit_ctx visit_ctx = {0};
@@ -24090,9 +24301,9 @@ const char* owner format_code(struct options* options, const char* content)
         format_visit(&visit_ctx);
 
         if (options->direct_compilation)
-            s = move get_code_as_compiler_see(&visit_ctx.ast.token_list);
+            s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
         else
-            s = move get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
+            s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
     }
     catch
@@ -24172,7 +24383,7 @@ int compile_one_file(const char* file_name,
 
 
 
-        content = move read_file(file_name);
+        content = read_file(file_name);
         if (content == NULL)
         {
             report->error_count++;
@@ -24185,7 +24396,7 @@ int compile_one_file(const char* file_name,
             char sarif_file_name[260];
             strcpy(sarif_file_name, file_name);
             strcat(sarif_file_name, ".sarif");
-            ctx.sarif_file = move(FILE * owner) fopen(sarif_file_name, "w");
+            ctx.sarif_file = (FILE * owner) fopen(sarif_file_name, "w");
             if (ctx.sarif_file)
             {
                 const char* begin_sarif =
@@ -24208,9 +24419,9 @@ int compile_one_file(const char* file_name,
             }
         }
 
-        tokens = move tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
+        tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
 
-        ast.token_list = move preprocessor(&prectx, &tokens, 0);
+        ast.token_list = preprocessor(&prectx, &tokens, 0);
         if (prectx.n_errors > 0) throw;
 
         if (options->preprocess_only)
@@ -24222,7 +24433,7 @@ int compile_one_file(const char* file_name,
         else
         {
 
-            ast.declaration_list = move parse(&ctx, &ast.token_list);
+            ast.declaration_list = parse(&ctx, &ast.token_list);
             if (report->error_count > 0) throw;
 
             //ast_wasm_visit(&ast);
@@ -24242,16 +24453,16 @@ int compile_one_file(const char* file_name,
                 visit(&visit_ctx);
 
                 if (options->direct_compilation)
-                    s = move get_code_as_compiler_see(&visit_ctx.ast.token_list);
+                    s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
                 else
-                    s = move get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
+                    s = get_code_as_we_see(&visit_ctx.ast.token_list, options->remove_comments);
 
                 if (options->format_ouput)
                 {
                     /*re-parser ouput and format*/
                     const char* owner s2 = format_code(options, s);
                     free((void* owner) s);
-                    s = move s2;
+                    s = s2;
                 }
 
                 FILE* out = fopen(out_file_name, "w");
@@ -24478,14 +24689,14 @@ struct ast get_ast(struct options* options,
     add_standard_macros(&prectx);
 
 
-    ast.token_list = move preprocessor(&prectx, &list, 0);
+    ast.token_list = preprocessor(&prectx, &list, 0);
 
     if (prectx.n_errors == 0)
     {
         struct parser_ctx ctx = {0};
         ctx.options = *options;
         ctx.p_report = report;
-        ast.declaration_list = move parse(&ctx, &ast.token_list);
+        ast.declaration_list = parse(&ctx, &ast.token_list);
         parser_ctx_destroy(&ctx);
     }
 
@@ -24560,7 +24771,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
             struct token_list token_list = preprocessor(&prectx, &tokens, 0);
             if (prectx.n_errors == 0)
             {
-                s = move print_preprocessed_to_string2(token_list.head);
+                s = print_preprocessed_to_string2(token_list.head);
             }
 
             preprocessor_ctx_destroy(&prectx);
@@ -24571,7 +24782,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
         else
         {
 
-            ast = move get_ast(&options, "source", content, report);
+            ast = get_ast(&options, "source", content, report);
             if (report->error_count > 0) throw;
 
             visit_ctx.ast = ast;
@@ -24579,11 +24790,11 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
             if (options.direct_compilation)
             {
-                s = move get_code_as_compiler_see(&visit_ctx.ast.token_list);
+                s = get_code_as_compiler_see(&visit_ctx.ast.token_list);
             }
             else
             {
-                s = move get_code_as_we_see(&visit_ctx.ast.token_list, options.remove_comments);
+                s = get_code_as_we_see(&visit_ctx.ast.token_list, options.remove_comments);
             }
             if (options.format_ouput)
             {
@@ -24591,7 +24802,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
                 /*re-parser ouput and format*/
                 const char* owner s2 = format_code(&options, s);
                 free((void* owner)s);
-                s = move s2;
+                s = s2;
             }
 
         }
@@ -24616,7 +24827,7 @@ char* CompileText(const char* pszoptions, const char* content)
     return  (char*) compile_source(pszoptions, content, &report);
 }
 
-void ast_destroy(implicit struct ast* obj_owner ast)
+void ast_destroy(struct ast* obj_owner ast)
 {
     token_list_destroy(&ast->token_list);
     declaration_list_destroy(&ast->declaration_list);
@@ -25881,7 +26092,7 @@ void correct_move_assigment()
         "\n"
         "    struct X x1;\n"
         "    struct X x2;\n"
-        "    x1 = _Move x2; //ok\n"
+        "    x1 = x2; //ok\n"
         "\n"
         "}";
     struct options options = {.input = LANGUAGE_C99};
@@ -25890,51 +26101,8 @@ void correct_move_assigment()
     assert(report.error_count == 0);
 }
 
-void error_on_non_owner_move()
-{
-    const char* source
-        =
-        "\n"
-        "struct Y { \n"
-        "    int i;\n"
-        "};\n"
-        "\n"
-        "struct X { \n"
-        "    char * _Owner name;\n"
-        "};\n"
-        "\n"
-        "int main()\n"
-        "{\n"
-        "    struct Y y1;\n"
-        "    struct Y y2;\n"
-        "    y1 = _Move y2;" //error
-        "}\n";
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_NON_OWNER_MOVE);
-}
 
-void move_required_on_assignment_owner()
-{
-    const char* source
-        =
-        "\n"
-        "struct X { \n"
-        "    char * _Owner name;\n"
-        "};\n"
-        "\n"
-        "int main()\n"
-        "{\n"
-        "    struct X x1;\n"
-        "    struct X x2;    \n"
-        "    x1 = x2;\n" /*not ok*/
-        "}\n";
-    struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1);
-}
+
 
 void no_explicit_move_required()
 {
@@ -26080,7 +26248,7 @@ void passing_view_to_owner()
 {
     const char* source
         =
-        "void destroy(_Implicit _Owner int i);\n"
+        "void destroy(_Owner int i);\n"
         "\n"
         "int main()\n"
         "{\n"
@@ -26133,7 +26301,7 @@ void ownership_flow_test_pointer_must_be_deleted()
         "\n"
         "void f() {\n"
         "    int * _Owner p = 0;\n"
-        "    p = _Move get();\n"
+        "    p = get();\n"
         "}\n"
         " ";
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
@@ -26153,8 +26321,8 @@ void ownership_flow_test_basic_pointer_check()
         "void f(int a)\n"
         "{\n"
         "    int* _Owner p = 0;\n"
-        "    p = _Move get();    \n"
-        "    dtor(_Move p);    \n"
+        "    p = get();    \n"
+        "    dtor(p);    \n"
         "}\n"
         "";
 
@@ -26171,7 +26339,7 @@ void ownership_flow_test_struct_member_missing_free()
         =
         "\n"
         "char * _Owner strdup(const char* s);\n"
-        "void free(_Implicit void* _Owner p);\n"
+        "void free(void* _Owner p);\n"
         "\n"
         "struct X {\n"
         "  char * _Owner text;\n"
@@ -26180,7 +26348,7 @@ void ownership_flow_test_struct_member_missing_free()
         "void f(int a)\n"
         "{\n"
         "    struct X x = {0};\n"
-        "    x.text = _Move strdup(\"a\");\n"
+        "    x.text = strdup(\"a\");\n"
         "}\n"
         "";
     struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
@@ -26198,7 +26366,7 @@ void ownership_flow_test_struct_member_free()
         =
         "\n"
         "char * _Owner strdup(const char* s);\n"
-        "void free(_Implicit void* _Owner p);\n"
+        "void free(void* _Owner p);\n"
         "\n"
         "struct X {\n"
         "  char * _Owner text;\n"
@@ -26207,7 +26375,7 @@ void ownership_flow_test_struct_member_free()
         "void f(int a)\n"
         "{\n"
         "    struct X x = {0};\n"
-        "    x.text = _Move strdup(\"a\");\n"
+        "    x.text = strdup(\"a\");\n"
         "    free(x.text);\n"
         "}\n"
         "";
@@ -26222,7 +26390,7 @@ void ownership_flow_test_move_inside_if()
 {
     const char* source
         =
-        "void free(_Implicit void* _Owner ptr);\n"
+        "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
         "void f(int c) \n"
@@ -26243,7 +26411,7 @@ void ownership_flow_test_goto_same_scope()
 {
     const char* source
         =
-        "void free(_Implicit void* _Owner ptr);\n"
+        "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
         "void f(int condition) \n"
@@ -26266,7 +26434,7 @@ void ownership_flow_test_jump_labels()
 {
     const char* source
         =
-        "void free(_Implicit void* _Owner ptr);\n"
+        "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
         "void f(int condition)\n"
@@ -26292,7 +26460,7 @@ void ownership_flow_test_owner_if_pattern_1()
     const char* source
         =
         "\n"
-        "void free(_Implicit void* _Owner ptr);\n"
+        "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
         "int main()\n"
@@ -26315,7 +26483,7 @@ void ownership_flow_test_owner_if_pattern_2()
     const char* source
         =
         "\n"
-        "void free(_Implicit void* _Owner ptr);\n"
+        "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
         "int main()\n"
@@ -26357,11 +26525,11 @@ void ownership_flow_test_no_warning()
 {
     const char* source
         =
-        "void free(_Implicit void * _Owner p);\n"
+        "void free( void * _Owner p);\n"
         "struct X {\n"
         "  char * _Owner text;\n"
         "};\n"
-        "void x_delete(_Implicit struct X * _Owner p)\n"
+        "void x_delete( struct X * _Owner p)\n"
         "{\n"
         "    if (p)\n"
         "    {\n"
@@ -26380,7 +26548,7 @@ void ownership_flow_test_moved_if_not_null()
     const char* source
         =
         "void * _Owner malloc(int i);\n"
-        "void free(_Implicit void * _Owner p);\n"
+        "void free( void * _Owner p);\n"
         "\n"
         "struct X { int i; };\n"
         "struct Y { struct X * _Owner p; };\n"
@@ -26389,7 +26557,7 @@ void ownership_flow_test_moved_if_not_null()
         "   struct Y y;\n"
         "   struct X * _Owner p = malloc(sizeof(struct X));\n"
         "   if (p){\n"
-        "     y.p = _Move p;\n"
+        "     y.p = p;\n"
         "   }\n"
         "  free(y.p);\n"
         "}\n"
@@ -26405,13 +26573,13 @@ void ownership_flow_test_struct_moved()
 {
     const char* source
         =
-        "void free(_Implicit void * _Owner p);\n"
+        "void free( void * _Owner p);\n"
         "\n"
         "struct X {\n"
         "  char * _Owner name;\n"
         "};\n"
         "\n"
-        "void x_destroy(_Implicit struct X * _Obj_owner p);\n"
+        "void x_destroy( struct X * _Obj_owner p);\n"
         "\n"
         "struct Y {\n"
         "  struct X x;\n"
@@ -26433,7 +26601,7 @@ void ownership_flow_test_scope_error()
     const char* source
         =
         "void * _Owner malloc(int i);\n"
-        "void free(_Implicit void* _Owner p);\n"
+        "void free( void* _Owner p);\n"
         "\n"
         "int main() {\n"
         "    try\n"
@@ -26465,7 +26633,7 @@ void ownership_flow_test_void_destroy()
     const char* source
         =
         "void * _Owner malloc(int i);\n"
-        "void free(_Implicit void * _Owner p);\n"
+        "void free( void * _Owner p);\n"
         "\n"
         "struct X {\n"
         "  char * _Owner name;    \n"
@@ -26489,7 +26657,7 @@ void ownership_flow_test_void_destroy_ok()
     const char* source
         =
         "void * _Owner malloc(int i);\n"
-        "void free(_Implicit void * _Owner p);\n"
+        "void free( void * _Owner p);\n"
         "\n"
         "struct X {\n"
         "  char * _Owner name;    \n"
@@ -26514,13 +26682,13 @@ void ownership_flow_test_moving_owner_pointer()
         =
         "\n"
         "void * _Owner malloc(int i);\n"
-        "void free(_Implicit void * _Owner p);\n"
+        "void free( void * _Owner p);\n"
         "\n"
         "struct X {\n"
         "  char * _Owner name;    \n"
         "};\n"
         "\n"
-        "void x_delete(_Implicit struct X * _Owner p)\n"
+        "void x_delete( struct X * _Owner p)\n"
         "{\n"
         "  if (p) {\n"
         "      free(p->name);\n"
@@ -26545,13 +26713,13 @@ void ownership_flow_test_moving_owner_pointer_missing()
         =
         "\n"
         "void * _Owner malloc(int i);\n"
-        "void free(_Implicit void * _Owner p);\n"
+        "void free( void * _Owner p);\n"
         "\n"
         "struct X {\n"
         "  char * _Owner name;    \n"
         "};\n"
         "\n"
-        "void x_delete(_Implicit struct X * _Owner p)\n"
+        "void x_delete( struct X * _Owner p)\n"
         "{\n"
         "  if (p) {\n"
         "      //free(p->name);\n"
@@ -26583,7 +26751,7 @@ void ownership_flow_test_error()
         "\n"
         "void * _Owner f1(){\n"
         "  struct X * _Owner p = malloc(sizeof (struct X));\n"
-        "  p->name = move malloc(1);  \n"
+        "  p->name = malloc(1);  \n"
         "  return p;\n"
         "}\n"
         "";
@@ -26600,7 +26768,7 @@ void ownership_flow_test_setting_owner_pointer_to_null()
         =
         "\n"
         "void * _Owner malloc(int i);\n"
-        "void free(_Implicit void * _Owner p);\n"
+        "void free( void * _Owner p);\n"
         "\n"
         "struct X {\n"
         "  char * _Owner name;    \n"
@@ -26623,7 +26791,7 @@ void ownership_flow_test_while_not_null()
         "struct item  {\n"
         "    struct item * _Owner next;\n"
         "}\n"
-        "void item_delete(_Implicit struct item * _Owner p);\n"
+        "void item_delete( struct item * _Owner p);\n"
         "\n"
         "struct list {\n"
         "    struct item * _Owner head;\n"
@@ -26632,11 +26800,11 @@ void ownership_flow_test_while_not_null()
         "int main()\n"
         "{\n"
         "    struct list list = {0};\n"
-        "    struct item * _Owner p = _Move list.head;\n"
+        "    struct item * _Owner p = list.head;\n"
         "    while (p){\n"
-        "      struct item * _Owner next = _Move p->next;\n"
+        "      struct item * _Owner next = p->next;\n"
         "      item_delete(p);\n"
-        "      p = _Move next;\n"
+        "      p = next;\n"
         "  }  \n"
         "}";
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
@@ -26651,7 +26819,7 @@ void ownership_flow_test_if_state()
         =
         "\n"
         "int* _Owner make();\n"
-        "void free(implicit int * owner p);\n"
+        "void free(int * owner p);\n"
         "\n"
         "\n"
         "void f(int condition)\n"
@@ -26662,7 +26830,7 @@ void ownership_flow_test_if_state()
         "  if (condition)\n"
         "  {\n"
         "       static_state(p, \"null\");   \n"
-        "       p = move make();\n"
+        "       p = make();\n"
         "       static_state(p, \"maybe-null\");\n"
         "  }\n"
         "  else\n"
@@ -26702,13 +26870,13 @@ void ownership_flow_test_if_variant()
     const char* source
         =
         "void * owner f();\n"
-        "void free(implicit void *owner p);\n"
+        "void free( void *owner p);\n"
         "int main() {\n"
-        "   void * _Owner p = move f();   \n"
+        "   void * _Owner p = f();   \n"
         "   if (p)\n"
         "   {\n"
         "       free(p);\n"
-        "       p = move f();   \n"
+        "       p = f();   \n"
         "   }\n"
         "}\n"
         "";
@@ -26746,7 +26914,7 @@ void ownership_flow_test_two_ifs()
     const char* source
         =
         "void * owner malloc(int sz);\n"
-        "void free(implicit void * owner opt p);\n"
+        "void free( void * owner opt p);\n"
         "\n"
         "\n"
         "void f(int i) {   \n"
@@ -26755,11 +26923,11 @@ void ownership_flow_test_two_ifs()
         "    {\n"
         "        if (i)\n"
         "        {\n"
-        "            p = move malloc(1);\n"
+        "            p =  malloc(1);\n"
         "        }\n"
         "        else\n"
         "        {\n"
-        "            p = move malloc(1);\n"
+        "            p = malloc(1);\n"
         "        }     \n"
         "    }\n"
         "    \n"
@@ -26779,7 +26947,7 @@ void ownership_no_name_parameter()
 {
     const char* source
         =
-        "void free(implicit void * owner){ }\n"
+        "void free( void * owner){ }\n"
         "";
 
     struct options options = {.input = LANGUAGE_C99};
@@ -26794,7 +26962,7 @@ void ownership_flow_switch_case()
     const char* source
         =
         "void* owner make();\n"
-        "void free(implicit void* owner p);\n"
+        "void free( void* owner p);\n"
         "\n"
         "void f(condition)\n"
         "{\n"
@@ -26824,8 +26992,49 @@ void ownership_flow_switch_case()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
+void state_inner_objects_preserved()
+{
+    const char* source
+        =
+        "void *owner malloc(int i);\n"
+        "void free(void  *owner);\n"
+        "\n"
+        "struct X{\n"
+        "  char * owner name;\n"
+        "};\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    struct X * owner p = malloc(sizeof(struct X));    \n"
+        "    if (p)\n"
+        "    {\n"
+        "        p->name = malloc(1);\n"
+        "    }\n"
+        "    else \n"
+        "    {        \n"
+        "        p->name = malloc(1);\n"
+        "    }\n"
+        "    free(p->name);\n"
+        "    free(p);\n"
+        "}";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
 
-
+//TODO make test with
+// f(void (*pf)(void* owner p)){}
+// 
+void owner_parameter()
+{
+    const char* source = "void f(void (*pf)(void* owner p)){}";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+// 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////     OWNER /////////////////////////////////////////////////////////
@@ -26841,7 +27050,7 @@ void ownership_flow_switch_case()
 
 
 
-void visit_ctx_destroy(implicit struct visit_ctx* obj_owner ctx)
+void visit_ctx_destroy( struct visit_ctx* obj_owner ctx)
 {
     //ctx->
 }
@@ -26889,17 +27098,17 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
 
     token_list_insert_after(&ctx->ast.token_list,
         before_first_token,
-        move & list);
+        & list);
 
     struct tokenizer_ctx tctx = {0};
     struct token_list list1 = tokenizer(&tctx, "{", "", 0, TK_FLAG_FINAL);
     token_list_insert_after(&ctx->ast.token_list,
         before_first_token,
-        move & list1);
+         & list1);
     struct token_list list2 = tokenizer(&tctx, "}", "", 0, TK_FLAG_FINAL);
     token_list_insert_after(&ctx->ast.token_list,
         p_selection_statement->last_token,
-        move & list2);
+         & list2);
 }
 
 void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, bool hide_tokens)
@@ -27152,8 +27361,8 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
         struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->defer_statement = p_defer_statement;
 
-        p_defer->previous = move ctx->tail_block->lastchild;
-        ctx->tail_block->lastchild = move p_defer;
+        p_defer->previous = ctx->tail_block->lastchild;
+        ctx->tail_block->lastchild = p_defer;
 
         if (p_defer_statement->secondary_block)
         {
@@ -27172,8 +27381,8 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
     if (!ctx->is_second_pass)
     {
         struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = move ctx->tail_block;
-        ctx->tail_block = move p_defer;
+        p_defer->previous = ctx->tail_block;
+        ctx->tail_block = p_defer;
         p_defer->p_try_statement = p_try_statement;
 
         if (p_try_statement->secondary_block)
@@ -27185,17 +27394,17 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         print_block_defer(p_defer, &ss, true);
         struct tokenizer_ctx tctx = {0};
         struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, move & l);
+        token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, & l);
 
 
         if (ctx->tail_block)
         {
             //POP
-            ctx->tail_block = move ctx->tail_block->previous;
+            ctx->tail_block = ctx->tail_block->previous;
         }
 
         free(p_try_statement->first_token->lexeme);
-        p_try_statement->first_token->lexeme = move strdup("if (1) /*try*/");
+        p_try_statement->first_token->lexeme = strdup("if (1) /*try*/");
 
 
         char buffer[50] = {0};
@@ -27205,7 +27414,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
             snprintf(buffer, sizeof buffer, "else _catch_label_%d:", p_try_statement->try_catch_block_index);
 
             free(p_try_statement->catch_token_opt->lexeme);
-            p_try_statement->catch_token_opt->lexeme = move strdup(buffer);
+            p_try_statement->catch_token_opt->lexeme = strdup(buffer);
 
             visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
         }
@@ -27213,7 +27422,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         {
             snprintf(buffer, sizeof buffer, "} else {_catch_label_%d:;}", p_try_statement->try_catch_block_index);
             free(p_try_statement->last_token->lexeme);
-            p_try_statement->last_token->lexeme = move strdup(buffer);
+            p_try_statement->last_token->lexeme = strdup(buffer);
         }
 
         ss_close(&ss);
@@ -27226,8 +27435,8 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
 
     //PUSH
     struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-    p_defer->previous = move ctx->tail_block;
-    ctx->tail_block = move p_defer;
+    p_defer->previous = ctx->tail_block;
+    ctx->tail_block = p_defer;
     p_defer->p_selection_statement2 = p_selection_statement;
 
     if (p_selection_statement->secondary_block)
@@ -27240,10 +27449,10 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     {
         struct tokenizer_ctx tctx = {0};
         struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last_token->prev, move & l);
+        token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last_token->prev, & l);
     }
     //POP
-    ctx->tail_block = move ctx->tail_block->previous;
+    ctx->tail_block = ctx->tail_block->previous;
 
     if (p_selection_statement->else_secondary_block_opt)
         visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
@@ -27294,7 +27503,7 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
             struct token_list list2 = tokenizer(&tctx, "0", NULL, level, TK_FLAG_FINAL);
 
             //inserir na frente
-            token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first_token, move & list2);
+            token_list_insert_after(&ctx->ast.token_list, p_bracket_initializer_list->first_token, & list2);
         }
     }
     else
@@ -27346,7 +27555,7 @@ static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p
         if (ctx->target < LANGUAGE_C99 && p_type_qualifier->token->type == TK_KEYWORD_RESTRICT)
         {
             free(p_type_qualifier->token->lexeme);
-            p_type_qualifier->token->lexeme = move strdup("/*restrict*/");
+            p_type_qualifier->token->lexeme = strdup("/*restrict*/");
         }
 
         if (p_type_qualifier->token->type == TK_KEYWORD__OWNER ||
@@ -27356,7 +27565,7 @@ static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p
             char temp[100];
             snprintf(temp, sizeof temp, "/*%s*/", p_type_qualifier->token->lexeme);
             free(p_type_qualifier->token->lexeme);
-            p_type_qualifier->token->lexeme = move strdup(temp);
+            p_type_qualifier->token->lexeme = strdup(temp);
         }
     }
 }
@@ -27391,7 +27600,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
         
         struct tokenizer_ctx tctx = {0};
         struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_specifier_qualifier_list_opt->last_token, move & l2);
+        token_list_insert_after(&ctx->ast.token_list, p_specifier_qualifier_list_opt->last_token, & l2);
 
         ss_close(&ss);
     }
@@ -27502,7 +27711,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                     ss_fprintf(&ss, "((%s)%s)", ss0.c_str, p_expression->first_token->lexeme);
 
                     free(p_expression->first_token->lexeme);
-                    p_expression->first_token->lexeme = move ss.c_str;
+                    p_expression->first_token->lexeme = ss.c_str;
                     ss.c_str = NULL; /*MOVED*/
                     ss_close(&ss);
                     ss_close(&ss0);
@@ -27533,7 +27742,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
                     ss_fprintf(&ss1, "((%s)%s)", ss.c_str, buffer);
 
-                    p_expression->first_token->lexeme = move ss1.c_str;
+                    p_expression->first_token->lexeme = ss1.c_str;
                     ss1.c_str = NULL;// MOVED
                     p_expression->expression_type = PRIMARY_EXPRESSION_NUMBER;
 
@@ -27558,7 +27767,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 if (ctx->target < LANGUAGE_C2X)
                 {
                     free(p_expression->first_token->lexeme);
-                    p_expression->first_token->lexeme = move strdup("((void*)0)");
+                    p_expression->first_token->lexeme = strdup("((void*)0)");
                 }
             }
             else if (p_expression->first_token &&
@@ -27567,12 +27776,12 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 if (ctx->target < LANGUAGE_C99)
                 {
                     free(p_expression->first_token->lexeme);
-                    p_expression->first_token->lexeme = move strdup("1");
+                    p_expression->first_token->lexeme = strdup("1");
                 }
                 else if (ctx->target < LANGUAGE_C2X)
                 {
                     free(p_expression->first_token->lexeme);
-                    p_expression->first_token->lexeme = move strdup("((_Bool)1)");
+                    p_expression->first_token->lexeme = strdup("((_Bool)1)");
                 }
             }
             else if (p_expression->first_token &&
@@ -27581,12 +27790,12 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 if (ctx->target < LANGUAGE_C99)
                 {
                     free(p_expression->first_token->lexeme);
-                    p_expression->first_token->lexeme = move strdup("0");
+                    p_expression->first_token->lexeme = strdup("0");
                 }
                 else if (ctx->target < LANGUAGE_C2X)
                 {
                     free(p_expression->first_token->lexeme);
-                    p_expression->first_token->lexeme = move strdup("((_Bool)0)");
+                    p_expression->first_token->lexeme = strdup("((_Bool)0)");
                 }
             }
             break;
@@ -27635,7 +27844,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
 
                 free((void* owner)p_expression->type_name->declarator->type.name_opt);
-                p_expression->type_name->declarator->type.name_opt = move strdup(name);
+                p_expression->type_name->declarator->type.name_opt = strdup(name);
 
                 struct osstream ss0 = {0};
                 print_type(&ss0, &p_expression->type_name->declarator->type);
@@ -27646,7 +27855,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 struct tokenizer_ctx tctx = {0};
                 struct token_list l1 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
 
-                token_list_append_list(&ctx->insert_before_declaration, move & l1);
+                token_list_append_list(&ctx->insert_before_declaration, & l1);
                 ss_close(&ss);
 
                 for (struct token* current = p_expression->compound_statement->first_token;
@@ -27660,11 +27869,11 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
 
                 struct token_list l3 = tokenizer(&tctx, "\n\n", NULL, 0, TK_FLAG_NONE);
-                token_list_append_list(&ctx->insert_before_declaration, move & l3);
+                token_list_append_list(&ctx->insert_before_declaration, & l3);
 
 
                 struct token_list l2 = tokenizer(&tctx, name, NULL, 0, TK_FLAG_FINAL);
-                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l2);
+                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, & l2);
             }
         }
         break;
@@ -27694,7 +27903,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 struct tokenizer_ctx tctx = {0};
                 struct token_list l3 = tokenizer(&tctx, buffer, NULL, level, TK_FLAG_FINAL);
                 l3.head->flags = p_expression->last_token->flags;
-                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, move & l3);
+                token_list_insert_after(&ctx->ast.token_list, p_expression->last_token, & l3);
             }
 
             if (p_expression->right)
@@ -27771,13 +27980,6 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             }
 
 
-            //a = move b
-            if (p_expression->move_assignment)
-            {
-                free(p_expression->move_assignment->lexeme);
-                p_expression->move_assignment->lexeme = move strdup("/*_Move*/");
-            }
-
             break;
 
         case UNARY_EXPRESSION_TRAITS:
@@ -27788,14 +27990,14 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 struct token_list l2 = {0};
                 
                 if (constant_value_to_bool(&p_expression->constant_value))
-                    l2 = move tokenizer(&tctx, "1", NULL, 0, TK_FLAG_FINAL);
+                    l2 = tokenizer(&tctx, "1", NULL, 0, TK_FLAG_FINAL);
                 else
-                    l2 = move tokenizer(&tctx, "0", NULL, 0, TK_FLAG_FINAL);
+                    l2 = tokenizer(&tctx, "0", NULL, 0, TK_FLAG_FINAL);
 
 
                 token_list_insert_after(&ctx->ast.token_list,
                     p_expression->last_token,
-                    move & l2);
+                     & l2);
 
                 token_range_add_flag(p_expression->first_token,
                     p_expression->last_token,
@@ -27862,14 +28064,14 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
     if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
     {
         free(p_iteration_statement->first_token->lexeme);
-        p_iteration_statement->first_token->lexeme = move strdup("for(;;)/*repeat*/");
+        p_iteration_statement->first_token->lexeme = strdup("for(;;)/*repeat*/");
     }
 
     if (p_iteration_statement->secondary_block)
     {
         struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = move ctx->tail_block;
-        ctx->tail_block = move p_defer;
+        p_defer->previous = ctx->tail_block;
+        ctx->tail_block = p_defer;
         p_defer->p_iteration_statement = p_iteration_statement;
 
         visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -27880,13 +28082,13 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 
         struct tokenizer_ctx tctx = {0};
         struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, p_iteration_statement->secondary_block->last_token->prev, move & l);
+        token_list_insert_after(&ctx->ast.token_list, p_iteration_statement->secondary_block->last_token->prev, & l);
 
 
         if (ctx->tail_block)
         {
             //POP
-            ctx->tail_block = move ctx->tail_block->previous;
+            ctx->tail_block = ctx->tail_block->previous;
         }
 
         ss_close(&ss);
@@ -27911,7 +28113,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "}");
 
             free(p_jump_statement->first_token->lexeme);
-            p_jump_statement->first_token->lexeme = move ss.c_str;
+            p_jump_statement->first_token->lexeme = ss.c_str;
 
 
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
@@ -27922,7 +28124,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             struct osstream ss = {0};
             ss_fprintf(&ss, "goto _catch_label_%d", p_jump_statement->try_catch_block_index);
             free(p_jump_statement->first_token->lexeme);
-            p_jump_statement->first_token->lexeme = move ss.c_str; /*MOVED*/
+            p_jump_statement->first_token->lexeme = ss.c_str; /*MOVED*/
         }
 
         ss_close(&ss0);
@@ -27939,11 +28141,11 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "return");
             free(p_jump_statement->first_token->lexeme);
 
-            p_jump_statement->first_token->lexeme = move ss.c_str;
+            p_jump_statement->first_token->lexeme = ss.c_str;
             ss.c_str = NULL; /*MOVED*/
 
             free(p_jump_statement->last_token->lexeme);
-            p_jump_statement->last_token->lexeme = move strdup(";}");
+            p_jump_statement->last_token->lexeme = strdup(";}");
             ss_close(&ss);
         }
         ss_close(&ss0);
@@ -27961,7 +28163,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "break;");
             ss_fprintf(&ss, "}");
             free(p_jump_statement->first_token->lexeme);
-            p_jump_statement->first_token->lexeme = move ss.c_str;
+            p_jump_statement->first_token->lexeme = ss.c_str;
             ss.c_str = NULL;
 
             p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
@@ -27981,10 +28183,10 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             ss_fprintf(&ss, "{ %s ", ss0.c_str);
             ss_fprintf(&ss, "goto");
             free(p_jump_statement->first_token->lexeme);
-            p_jump_statement->first_token->lexeme = move ss.c_str;
+            p_jump_statement->first_token->lexeme = ss.c_str;
             ss.c_str = NULL; /*MOVED*/
             free(p_jump_statement->last_token->lexeme);
-            p_jump_statement->last_token->lexeme = move strdup(";}");
+            p_jump_statement->last_token->lexeme = strdup(";}");
             ss_close(&ss);
         }
 
@@ -28093,7 +28295,7 @@ static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_i
     if (ctx->insert_before_block_item.head != NULL)
     {
         //token_list_insert_after(&ctx->ast.token_list, p_statement->first_token->prev, &ctx->insert_before_statement);
-        token_list_insert_after(&ctx->ast.token_list, p_block_item->first_token->prev, move & ctx->insert_before_block_item);
+        token_list_insert_after(&ctx->ast.token_list, p_block_item->first_token->prev, & ctx->insert_before_block_item);
         ctx->insert_before_block_item.head = NULL;
         ctx->insert_before_block_item.tail = NULL;
     }
@@ -28129,19 +28331,19 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
 
             struct tokenizer_ctx tctx = {0};
             struct token_list list1 = tokenizer(&tctx, ", \"error\"", "", 0, TK_FLAG_FINAL);
-            token_list_insert_after(&ctx->ast.token_list, rp, move & list1);
+            token_list_insert_after(&ctx->ast.token_list, rp, & list1);
         }
         if (strcmp(p_static_assert_declaration->first_token->lexeme, "static_assert") == 0)
         {
             /*C23 has static_assert but C11 _Static_assert*/
             free(p_static_assert_declaration->first_token->lexeme);
-            p_static_assert_declaration->first_token->lexeme = move strdup("_Static_assert");
+            p_static_assert_declaration->first_token->lexeme = strdup("_Static_assert");
         }
     }
     else
     {
         free(p_static_assert_declaration->first_token->lexeme);
-        p_static_assert_declaration->first_token->lexeme = move strdup("static_assert");
+        p_static_assert_declaration->first_token->lexeme = strdup("static_assert");
     }
 }
 
@@ -28267,7 +28469,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
         if (p_declarator->name)
         {
             free(new_type.name_opt);
-            new_type.name_opt = move strdup(p_declarator->name->lexeme);
+            new_type.name_opt = strdup(p_declarator->name->lexeme);
         }
 
         print_type_declarator(&ss, &new_type);
@@ -28284,7 +28486,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
                 p_declarator->first_token != p_declarator->last_token)
             {
                 l2.head->flags = p_declarator->first_token->flags;
-                token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, move & l2);
+                token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, & l2);
                 token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_FLAG_HIDE);
             }
             else
@@ -28294,13 +28496,13 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
                 {
                     l2.head->flags = p_declarator->last_token->flags;
                     /*it is a empty declarator, so first_token is not part of declarator it only marks de position*/
-                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token->prev, move & l2);
+                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token->prev, & l2);
                 }
                 else
                 {
                     l2.head->flags = p_declarator->first_token->flags;
                     /*it is a empty declarator, so first_token is not part of declarator it only marks de position*/
-                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, move & l2);
+                    token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, & l2);
                     token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_FLAG_HIDE);
                 }
 
@@ -28333,12 +28535,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
         if (p_init_declarator->initializer)
         {
-            if (p_init_declarator->initializer->move_token)
-            {
-                free(p_init_declarator->initializer->move_token->lexeme);
-                p_init_declarator->initializer->move_token->lexeme = move strdup("/*_Move*/");
-            }
-
             if (p_init_declarator->initializer->assignment_expression)
             {
                 visit_expression(ctx, p_init_declarator->initializer->assignment_expression);
@@ -28439,7 +28635,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
         snprintf(buffer, sizeof buffer, " %s", tag);
         struct tokenizer_ctx tctx = {0};
         struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
-        token_list_insert_after(&ctx->ast.token_list, first, move & l2);
+        token_list_insert_after(&ctx->ast.token_list, first, & l2);
     }
 
     if (p_complete)
@@ -28458,7 +28654,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 ctx->capture_index++;
 
                 free(p_complete->tagtoken->lexeme);
-                p_complete->tagtoken->lexeme = move strdup(newtag);
+                p_complete->tagtoken->lexeme = strdup(newtag);
                 p_complete->visit_moved = 1;
             }
         }
@@ -28472,7 +28668,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 if (p_struct_or_union_specifier != p_complete)
                 {
                     free(p_struct_or_union_specifier->tagtoken->lexeme);
-                    p_struct_or_union_specifier->tagtoken->lexeme = move strdup(p_complete->tagtoken->lexeme);
+                    p_struct_or_union_specifier->tagtoken->lexeme = strdup(p_complete->tagtoken->lexeme);
                 }
             }
         }
@@ -28541,7 +28737,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 
             token_list_insert_after(&ctx->ast.token_list,
                 p_enum_specifier->tag_token,
-                move & l2);
+                 & l2);
 
             ss_close(&ss);
         }
@@ -28588,7 +28784,7 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
         if (ctx->target < LANGUAGE_C99)
         {
             free(p_type_specifier->token->lexeme);
-            p_type_specifier->token->lexeme = move strdup("unsigned char");
+            p_type_specifier->token->lexeme = strdup("unsigned char");
         }
         else
         {
@@ -28597,13 +28793,13 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
                 if (strcmp(p_type_specifier->token->lexeme, "bool") == 0)
                 {
                     free(p_type_specifier->token->lexeme);
-                    p_type_specifier->token->lexeme = move strdup("_Bool");
+                    p_type_specifier->token->lexeme = strdup("_Bool");
                 }
             }
             else
             {
                 free(p_type_specifier->token->lexeme);
-                p_type_specifier->token->lexeme = move strdup("bool");
+                p_type_specifier->token->lexeme = strdup("bool");
             }
         }
     }
@@ -28644,7 +28840,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
             if (ctx->target < LANGUAGE_C11)
             {
                 free(p_declaration_specifier->function_specifier->token->lexeme);
-                p_declaration_specifier->function_specifier->token->lexeme = move strdup("/*[[noreturn]]*/");
+                p_declaration_specifier->function_specifier->token->lexeme = strdup("/*[[noreturn]]*/");
             }
             else if (ctx->target == LANGUAGE_C11)
             {
@@ -28654,7 +28850,7 @@ static void visit_declaration_specifier(struct visit_ctx* ctx, struct declaratio
             {
                 /*use attributes*/
                 free(p_declaration_specifier->function_specifier->token->lexeme);
-                p_declaration_specifier->function_specifier->token->lexeme = move strdup("[[noreturn]]");
+                p_declaration_specifier->function_specifier->token->lexeme = strdup("[[noreturn]]");
             }
 
         }
@@ -28732,7 +28928,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         struct type new_type = {0};
 
         if (p_type_opt)
-            new_type = move type_convert_to(p_type_opt, ctx->target);
+            new_type = type_convert_to(p_type_opt, ctx->target);
 
         const struct type* p = type_get_specifer_part(&new_type);
         print_type_qualifier_specifiers(&ss0, p);
@@ -28741,7 +28937,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         struct tokenizer_ctx tctx = {0};
         struct token_list l2 = tokenizer(&tctx, ss0.c_str, NULL, level, TK_FLAG_FINAL);
 
-        token_list_insert_after(&ctx->ast.token_list, p_declaration_specifiers->last_token, move & l2);
+        token_list_insert_after(&ctx->ast.token_list, p_declaration_specifiers->last_token, & l2);
 
         type_destroy(&new_type);
         ss_close(&ss0);
@@ -28803,7 +28999,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
             }
 
             free(p_constexpr_declaration_specifier->storage_class_specifier->token->lexeme);
-            p_constexpr_declaration_specifier->storage_class_specifier->token->lexeme = move ss.c_str;
+            p_constexpr_declaration_specifier->storage_class_specifier->token->lexeme = ss.c_str;
             ss.c_str = NULL; /*MOVED*/
             ss_close(&ss);
         }
@@ -28879,11 +29075,11 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             {
                 struct tokenizer_ctx tctx = {0};
                 struct token_list list0 = tokenizer(&tctx, "struct ", NULL, 0, TK_FLAG_FINAL);
-                token_list_append_list(&ctx->insert_before_declaration, move & list0);
+                token_list_append_list(&ctx->insert_before_declaration, & list0);
 
 
                 struct token_list list = tokenizer(&tctx, p_declaration->declaration_specifiers->struct_or_union_specifier->tagtoken->lexeme, NULL, 0, TK_FLAG_FINAL);
-                token_list_append_list(&ctx->insert_before_declaration, move & list);
+                token_list_append_list(&ctx->insert_before_declaration, & list);
 
 
                 //struct token_list list3 = tokenizer("{", NULL, 0, TK_FLAG_FINAL);
@@ -28902,7 +29098,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 }
 
                 struct token_list list3 = tokenizer(&tctx, ";\n", NULL, 0, TK_FLAG_FINAL);
-                token_list_append_list(&ctx->insert_before_declaration, move & list3);
+                token_list_append_list(&ctx->insert_before_declaration, & list3);
 
 
                 if (p_declaration->init_declarator_list.head == NULL)
@@ -28947,7 +29143,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             {
                 struct tokenizer_ctx tctx = {0};
                 struct token_list l = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_FINAL);
-                token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, move & l);
+                token_list_insert_after(&ctx->ast.token_list, p_declaration->function_body->last_token->prev, & l);
             }
             ss_close(&ss);
         }
@@ -28959,21 +29155,21 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
 
 
         /*delete all defer memory*/
-        struct defer_scope* owner p_block = move ctx->tail_block;
+        struct defer_scope* owner p_block = ctx->tail_block;
         while (p_block != NULL)
         {
 
-            struct defer_scope* owner deferchild = move p_block->lastchild;
+            struct defer_scope* owner deferchild = p_block->lastchild;
             while (deferchild != NULL)
             {
-                struct defer_scope* owner prev = move deferchild->previous;
+                struct defer_scope* owner prev = deferchild->previous;
                 free(deferchild);
-                deferchild = move prev;
+                deferchild = prev;
             }
 
-            struct defer_scope* owner prev_block = move p_block->previous;
+            struct defer_scope* owner prev_block = p_block->previous;
             free(p_block);
-            p_block = move prev_block;
+            p_block = prev_block;
         }
 
 
@@ -29032,7 +29228,7 @@ int visit_literal_string(struct visit_ctx* ctx, struct token* current)
         }
 
         free(current->lexeme);
-        current->lexeme = move ss.c_str;
+        current->lexeme = ss.c_str;
         ss.c_str = NULL;
         ss_close(&ss);
     }
@@ -29061,7 +29257,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     //TODO  check /* inside
                     ss_fprintf(&ss, "/*%s*/", current->lexeme + 2);
                     free(current->lexeme);
-                    current->lexeme = move ss.c_str;
+                    current->lexeme = ss.c_str;
                 }
             }
             else if (current->type == TK_PREPROCESSOR_LINE)
@@ -29075,14 +29271,14 @@ int visit_tokens(struct visit_ctx* ctx)
                 if (current->next && strcmp(current->next->lexeme, "elifdef") == 0)
                 {
                     free(current->next->lexeme);
-                    current->next->lexeme = move strdup("elif defined ");
+                    current->next->lexeme = strdup("elif defined ");
                     current = current->next->next;
                     continue;
                 }
                 else if (current->next && strcmp(current->next->lexeme, "elifndef") == 0)
                 {
                     free(current->next->lexeme);
-                    current->next->lexeme = move strdup("elif ! defined ");
+                    current->next->lexeme = strdup("elif ! defined ");
                     current = current->next->next;
                     continue;
                 }
@@ -29105,7 +29301,7 @@ int visit_tokens(struct visit_ctx* ctx)
                 char buffer[33 + 2] = {'0', 'x'};
                 snprintf(buffer, sizeof buffer, "0x%x", value);
                 free(current->lexeme);
-                current->lexeme = move strdup(buffer);
+                current->lexeme = strdup(buffer);
             }
             else if (current->type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT)
             {
@@ -29121,7 +29317,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     snprintf(buffer, sizeof buffer, "%Lg", d);
 
                     free(current->lexeme);
-                    current->lexeme = move strdup(buffer);
+                    current->lexeme = strdup(buffer);
                 }
             }
             else if (current->type == TK_COMPILER_DECIMAL_CONSTANT ||
@@ -29156,7 +29352,7 @@ void visit(struct visit_ctx* ctx)
         if (ctx->insert_before_block_item.head != NULL)
         {
             //token_list_insert_after(&ctx->ast.token_list, p_statement->first_token->prev, &ctx->insert_before_statement);
-            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, move & ctx->insert_before_block_item);
+            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, & ctx->insert_before_block_item);
             ctx->insert_before_block_item.head = NULL;
             ctx->insert_before_block_item.tail = NULL;
         }
@@ -29167,7 +29363,7 @@ void visit(struct visit_ctx* ctx)
         */
         if (ctx->insert_before_declaration.head != NULL)
         {
-            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, move & ctx->insert_before_declaration);
+            token_list_insert_after(&ctx->ast.token_list, p_declaration->first_token->prev, & ctx->insert_before_declaration);
             ctx->insert_before_declaration.head = NULL;
             ctx->insert_before_declaration.tail = NULL;
         }
@@ -29431,8 +29627,8 @@ static struct object make_object_core(struct type* p_type, struct object_name_li
             if (type_is_struct_or_union(&t2))
             {
                 struct object* owner p_object = calloc(1, sizeof * p_object);
-                *p_object = move make_object_core(&t2, list, deep + 1, declarator);
-                obj.pointed = move p_object;
+                *p_object = make_object_core(&t2, list, deep + 1, declarator);
+                obj.pointed = p_object;
             }
 
             type_destroy(&t2);
@@ -29455,14 +29651,52 @@ static struct object make_object(struct type* p_type, struct declarator* declara
     return make_object_core(p_type, &list, 0, declarator);
 }
 
-static void object_push_copy_state(struct object* object)
+static int object_push_copy_current_state(struct object* object)
 {
+    int index = object->object_state_stack.size;
     object_state_stack_push_back(&object->object_state_stack, object->state);
+
+    if (object->pointed)
+    {
+        object_push_copy_current_state(object->pointed);
+    }
+
     for (int i = 0; i < object->members.size; i++)
     {
-        object_push_copy_state(&object->members.data[i]);
+        object_push_copy_current_state(&object->members.data[i]);
+    }
+    return index;
+}
+
+static void object_push_copy_state(struct object* object, int state_to_copy)
+{
+    object_state_stack_push_back(&object->object_state_stack, object->object_state_stack.data[state_to_copy]);
+
+    if (object->pointed)
+    {
+        object_push_copy_state(object->pointed, state_to_copy);
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_push_copy_state(&object->members.data[i], state_to_copy);
     }
 }
+
+static void object_restore_state(struct object* object, int state_to_restore)
+{
+    object->state = object->object_state_stack.data[state_to_restore];
+    if (object->pointed)
+    {
+        object_restore_state(object->pointed, state_to_restore);
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_restore_state(&object->members.data[i], state_to_restore);
+    }
+}
+
 enum object_state state_merge(enum object_state before, enum object_state after)
 {
     enum object_state e = before | after;
@@ -30068,7 +30302,7 @@ void move_object(struct parser_ctx* ctx,
                 /*
                  assuming it is from malloc realloc
                  struct X * owner p = malloc(sizeof(struct X));
-                  p->text = move malloc(10);
+                  p->text = malloc(10);
                   TODO should me annotate???? uninitialized?
                 */
                 /*
@@ -30087,29 +30321,6 @@ void move_object(struct parser_ctx* ctx,
     }
 }
 
-static int push_copy_of_all_objects(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock)
-{
-    int index = 0;
-
-
-    struct flow_defer_scope* deferchild = deferblock->last_child;
-    while (deferchild != NULL)
-    {
-        if (deferchild->defer_statement)
-        {
-
-        }
-        else if (deferchild->declarator)
-        {
-            struct declarator* p_declarator = deferchild->declarator;
-            object_push_copy_state(&p_declarator->object);
-            index = p_declarator->object.object_state_stack.size - 1;
-
-        }
-        deferchild = deferchild->previous;
-    }
-    return index;
-}
 
 struct visit_objects {
     struct flow_defer_scope* current;
@@ -30456,7 +30667,7 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
     p_defer->defer_statement = p_defer_statement;
     p_defer->previous = ctx->tail_block->last_child;
-    ctx->tail_block->last_child = move p_defer;
+    ctx->tail_block->last_child = p_defer;
 
     /*
       We are not going to visit the secondary block here because
@@ -30468,7 +30679,7 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
 {
     struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
     p_defer->previous = ctx->tail_block;
-    ctx->tail_block = move p_defer;
+    ctx->tail_block = p_defer;
     p_defer->p_try_statement = p_try_statement;
 
     if (p_try_statement->secondary_block)
@@ -30479,7 +30690,7 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
     if (ctx->tail_block)
     {
         //POP        
-        ctx->tail_block = move ctx->tail_block->previous;
+        ctx->tail_block = ctx->tail_block->previous;
     }
 }
 
@@ -30553,6 +30764,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     bool copy = ctx->has_jumps;
     ctx->has_jumps = false;
     int state_index_before_if = 0;
+    
     if (p_selection_statement->secondary_block)
     {
         /*
@@ -30564,8 +30776,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         struct object* p_object = visit_objects_next(&v1);
         while (p_object)
         {
-            state_index_before_if = p_object->object_state_stack.size;
-            object_push_copy_state(p_object);
+            state_index_before_if = object_push_copy_current_state(p_object);
             p_object = visit_objects_next(&v1);
         };
 
@@ -30583,7 +30794,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
-        ctx->tail_block = move p_defer;
+        ctx->tail_block = p_defer;
         p_defer->p_selection_statement2 = p_selection_statement;
         flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
         check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
@@ -30613,9 +30824,12 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
     {
-        true_branch_state_index = p_object->object_state_stack.size;
-        object_push_copy_state(p_object);
-        p_object->state = p_object->object_state_stack.data[state_index_before_if];
+        /*make a copy of the state left true-branch */
+        true_branch_state_index = object_push_copy_current_state(p_object);
+
+        /*restores the state before if*/
+        object_restore_state(p_object, state_index_before_if);
+
         p_object = visit_objects_next(&v1);
     };
 
@@ -30639,7 +30853,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
-        ctx->tail_block = move p_defer;
+        ctx->tail_block = p_defer;
         p_defer->p_selection_statement2 = p_selection_statement;
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
         check_defer_and_variables(ctx, p_defer, p_selection_statement->else_secondary_block_opt->last_token);
@@ -31064,6 +31278,40 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
             break;
 
+        case UNARY_EXPRESSION_ASSERT:
+
+            if (p_expression->right)
+            {
+                flow_visit_expression(ctx, p_expression->right);
+
+                struct object* p_object_compared_with_null = NULL;
+
+                if (p_expression->right)
+                {
+                    p_object_compared_with_null = expression_is_comparing_owner_with_null(p_expression->right);
+                }
+
+                struct object* p_object_compared_with_not_null = NULL;
+                if (p_expression->right)
+                {
+                    p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_expression->right);
+                }
+
+                if (p_object_compared_with_null)
+                {
+                    //if (p == 0) {  p is null }
+                    p_object_compared_with_null->state = OBJECT_STATE_NULL;
+                }
+
+                if (p_object_compared_with_not_null)
+                {
+                    //if (p != 0) {  p is not null }
+                    p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
+                }
+            }
+
+            break;
+
         case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
         case UNARY_EXPRESSION_SIZEOF_TYPE:
         case UNARY_EXPRESSION_INCREMENT:
@@ -31220,22 +31468,16 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 {
 
     struct object* p_object_compared_with_not_null = NULL;
-    bool copy = ctx->has_jumps;
-    ctx->has_jumps = false;
+    //bool copy = ctx->has_jumps;
+    //ctx->has_jumps = false;
 
     if (p_iteration_statement->first_token->type == TK_KEYWORD_WHILE)
     {
         if (p_iteration_statement->expression1)
         {
             p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_iteration_statement->expression1);
-            // if (p_object)
-             //{/
-               //  struct type type = {0};
- //                type_destroy(&type);
-             //}
         }
     }
-
 
     if (p_iteration_statement->declaration)
     {
@@ -31257,27 +31499,106 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
     {
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
-        ctx->tail_block = move p_defer;
+        ctx->tail_block = p_defer;
         p_defer->p_iteration_statement = p_iteration_statement;
+
+
+        ////////////////////////////////////////////////////////////////////////////
+        struct visit_objects v1 = {.current = ctx->tail_block,
+                                   .next_child = ctx->tail_block->last_child};
+        int state_index_before_while = 0;
+
+        /*lets make a copy of the state we have before while*/
+        struct object* p_object = visit_objects_next(&v1);
+        while (p_object)
+        {
+            state_index_before_while = object_push_copy_current_state(p_object);
+            p_object = visit_objects_next(&v1);
+        };
+        ////////////////////////////////////////////////////////////////////////////
+
+
+
+        if (p_object_compared_with_not_null)
+        {
+            //if (p != 0) {  p is not null }
+            p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
+        }
 
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
-
         if (ctx->tail_block)
         {
-            //POP
-            ctx->tail_block = ctx->tail_block->previous;
+            ctx->tail_block = ctx->tail_block->previous; //POP
+        }
+
+        bool was_last_statement_inside_true_branch_return = false;
+        if (ctx->p_last_jump_statement)
+        {
+            //TODO gotos etc...
+            was_last_statement_inside_true_branch_return =
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
+        }
+
+        
+
+        struct visit_objects v3 = {.current = ctx->tail_block,
+                                       .next_child = ctx->tail_block->last_child};
+
+        //merge all states before while and after.
+
+        p_object = visit_objects_next(&v3);
+        while (p_object)
+        {
+            if (p_object->object_state_stack.data == NULL)
+            {
+                assert(false);
+                //ops!
+                p_object = visit_objects_next(&v3);
+                continue;
+            }
+            enum object_state before_if = p_object->object_state_stack.data[state_index_before_while];
+            enum object_state after_true_branch = p_object->state;
+
+
+            if (was_last_statement_inside_true_branch_return)
+            {
+
+            }
+            else
+            {
+                if (after_true_branch != before_if)
+                {
+                    //changed inside while-loop
+                    p_object->state = state_merge(before_if, after_true_branch);
+                }
+            }
+
+            p_object->object_state_stack.size--; //pop
+            
+            p_object = visit_objects_next(&v3);
+        };
+
+        if (was_last_statement_inside_true_branch_return)
+        {
+            if (p_object_compared_with_not_null)
+            {
+                //while (p) { return; }
+                p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
+            }
+        }
+        else
+        {
+            if (p_object_compared_with_not_null)
+            {
+                p_object_compared_with_not_null->state = OBJECT_STATE_NULL;                    
+            }
         }
     }
-    bool had_jumps = ctx->has_jumps;
 
-    ctx->has_jumps = copy || ctx->has_jumps; //restore
-    if (p_object_compared_with_not_null && !had_jumps)
-    {
-        p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
-    }
+
 }
 
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
@@ -31473,36 +31794,6 @@ enum object_state parse_string_state(const char* s)
 }
 
 
-static void flow_visit_assert_declaration(struct flow_visit_ctx* ctx, struct assert_declaration* p_assert_declaration)
-{
-    flow_visit_expression(ctx, p_assert_declaration->expression);
-    struct object* p_object_compared_with_null = NULL;
-
-    if (p_assert_declaration->expression)
-    {
-        p_object_compared_with_null = expression_is_comparing_owner_with_null(p_assert_declaration->expression);
-    }
-
-    struct object* p_object_compared_with_not_null = NULL;
-    if (p_assert_declaration->expression)
-    {
-        p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_assert_declaration->expression);
-    }
-
-    if (p_object_compared_with_null)
-    {
-        //if (p == 0) {  p is null }
-        p_object_compared_with_null->state = OBJECT_STATE_NULL;
-    }
-
-    if (p_object_compared_with_not_null)
-    {
-        //if (p != 0) {  p is not null }
-        p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
-    }
-}
-
-
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
     flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
@@ -31595,9 +31886,9 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->declarator = p_declarator;
         p_defer->previous = ctx->tail_block->last_child;
-        ctx->tail_block->last_child = move p_defer;
+        ctx->tail_block->last_child = p_defer;
 
-        p_declarator->object = move make_object(&p_declarator->type, p_declarator);
+        p_declarator->object = make_object(&p_declarator->type, p_declarator);
         //print_object(0, &p_declarator->type, &p_declarator->object, p_declarator->name->lexeme);
 
         if (p_declarator->declaration_specifiers &&
@@ -31626,9 +31917,9 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
             {
                 struct type t2 = type_remove_pointer(&p_declarator->type);
 
-                struct object* owner p0 = move calloc(1, sizeof * p0);
-                *p0 = move make_object(&t2, p_declarator);
-                p_declarator->object.pointed = move p0;
+                struct object* owner p0 = calloc(1, sizeof * p0);
+                *p0 = make_object(&t2, p_declarator);
+                p_declarator->object.pointed = p0;
                 set_object(&t2, p0, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
 
                 type_destroy(&t2);
@@ -31687,7 +31978,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
             //int members = type_get_num_members(&p_init_declarator->p_declarator->type);
 
             //assert(p_init_declarator->p_declarator->object.state == NULL);
-            //p_init_declarator->p_declarator->object.state = move calloc(members, sizeof(enum object_state));
+            //p_init_declarator->p_declarator->object.state = calloc(members, sizeof(enum object_state));
             //p_init_declarator->p_declarator->object.size = members;
 
             if (p_init_declarator->initializer &&
@@ -31968,10 +32259,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
     }
-    if (p_declaration->assert_declaration)
-    {
-        flow_visit_assert_declaration(ctx, p_declaration->assert_declaration);
-    }
+
 
     if (p_declaration->p_attribute_specifier_sequence_opt)
     {
@@ -32024,7 +32312,7 @@ void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_decla
 
     assert(ctx->tail_block == NULL);
     struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-    ctx->tail_block = move p_defer;
+    ctx->tail_block = p_defer;
     p_defer->p_function_body = p_declaration->function_body;
 
 
@@ -32039,21 +32327,21 @@ void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_decla
 
 
     /*delete all defer memory*/
-    struct flow_defer_scope* owner p_block = move ctx->tail_block;
+    struct flow_defer_scope* owner p_block = ctx->tail_block;
     while (p_block != NULL)
     {
-        struct flow_defer_scope* owner deferchild = move p_block->last_child;
+        struct flow_defer_scope* owner deferchild = p_block->last_child;
         while (deferchild != NULL)
         {
-            struct flow_defer_scope* owner prev = move deferchild->previous;
+            struct flow_defer_scope* owner prev = deferchild->previous;
             free(deferchild);
-            deferchild = move prev;
+            deferchild = prev;
         }
 
 
-        struct flow_defer_scope* owner prev_block = move p_block->previous;
+        struct flow_defer_scope* owner prev_block = p_block->previous;
         free(p_block);
-        p_block = move prev_block;
+        p_block = prev_block;
     }
 
 
@@ -32545,7 +32833,7 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
 
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
-                previous_token->lexeme = move strdup(blanks);
+                previous_token->lexeme = strdup(blanks);
 
                 struct token* previous_previous_token =
                     previous_token->prev;
@@ -32554,7 +32842,7 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
                 {
                     struct tokenizer_ctx tctx = { 0 };
                     struct token_list list = tokenizer(&tctx, "\n", NULL, 0, TK_FLAG_NONE);
-                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, move &list);
+                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);
                 }
             }
             else if (previous_token->type != TK_NEWLINE)
@@ -32571,7 +32859,7 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
 
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list list = tokenizer(&tctx, blanks, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, previous_token, move &list);
+                token_list_insert_after(&ctx->ast.token_list, previous_token, &list);
             }
         }
     }
@@ -32600,7 +32888,7 @@ void ajust_if_begin(struct token* token, struct format_visit_ctx* ctx)
 
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
-                previous_token->lexeme = move strdup(blanks);
+                previous_token->lexeme = strdup(blanks);
             }
         }
     }

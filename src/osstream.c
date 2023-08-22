@@ -19,7 +19,7 @@ void ss_clear(struct osstream* stream)
 }
 
 
-void ss_close(implicit struct osstream * obj_owner stream)
+void ss_close( struct osstream * obj_owner stream)
 {
     free(stream->c_str);    
 }
@@ -29,10 +29,10 @@ static int reserve(struct osstream* stream, int size)
     int errorcode = 0;
     if (size > stream->capacity)
     {
-        void* owner pnew = realloc(move stream->c_str, (size + 1) * sizeof(char));
+        void* owner pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
-            stream->c_str = move pnew;
+            stream->c_str = pnew;
             stream->capacity = size;
             stream->c_str[size] = 0;
         }

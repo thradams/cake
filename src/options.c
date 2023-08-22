@@ -11,8 +11,7 @@ bool is_ownership_error(enum error e)
         case C_OWNERSHIP_MISSING_OWNER_QUALIFIER:
         case C_OWNERSHIP_NOT_OWNER:
         case C_OWNERSHIP_USING_TEMPORARY_OWNER:
-        case C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER:
-        case C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED:
+        case C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER:        
         case C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN:
         case C_OWNERSHIP_FLOW_MISSING_DTOR:
             return true;
@@ -91,7 +90,10 @@ int fill_options(struct options* options,
        default at this moment is same as -Wall
     */
     options->enabled_warnings_stack[0] = ~0;
-    options->enabled_warnings_stack[0] &= ~W_STYLE; //default is OFF
+    options->enabled_warnings_stack[0] &= ~(W_STYLE | W_UNUSED_PARAMETER | W_UNUSED_VARIABLE); //default is OFF
+    
+    
+    options->visual_studio_ouput_format = true;
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;

@@ -27,7 +27,7 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
 
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
-                previous_token->lexeme = move strdup(blanks);
+                previous_token->lexeme = strdup(blanks);
 
                 struct token* previous_previous_token =
                     previous_token->prev;
@@ -36,7 +36,7 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
                 {
                     struct tokenizer_ctx tctx = { 0 };
                     struct token_list list = tokenizer(&tctx, "\n", NULL, 0, TK_FLAG_NONE);
-                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, move &list);
+                    token_list_insert_after(&ctx->ast.token_list, previous_previous_token, &list);
                 }
             }
             else if (previous_token->type != TK_NEWLINE)
@@ -53,7 +53,7 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
 
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list list = tokenizer(&tctx, blanks, NULL, 0, TK_FLAG_NONE);
-                token_list_insert_after(&ctx->ast.token_list, previous_token, move &list);
+                token_list_insert_after(&ctx->ast.token_list, previous_token, &list);
             }
         }
     }
@@ -82,7 +82,7 @@ void ajust_if_begin(struct token* token, struct format_visit_ctx* ctx)
 
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
-                previous_token->lexeme = move strdup(blanks);
+                previous_token->lexeme = strdup(blanks);
             }
         }
     }

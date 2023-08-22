@@ -122,8 +122,6 @@ void parameter_view(void);
 void move_from_extern(void);
 void owner_type_test(void);
 void correct_move_assigment(void);
-void error_on_non_owner_move(void);
-void move_required_on_assignment_owner(void);
 void no_explicit_move_required(void);
 void no_explicit_move_with_function_result(void);
 void cannot_ignore_owner_result(void);
@@ -162,6 +160,8 @@ void check_leaks_on_else_block(void);
 void ownership_flow_test_two_ifs(void);
 void ownership_no_name_parameter(void);
 void ownership_flow_switch_case(void);
+void state_inner_objects_preserved(void);
+void owner_parameter(void);
 
 /*end of forward declarations*/
 
@@ -277,8 +277,6 @@ g_unit_test_success_count = 0;
     move_from_extern();
     owner_type_test();
     correct_move_assigment();
-    error_on_non_owner_move();
-    move_required_on_assignment_owner();
     no_explicit_move_required();
     no_explicit_move_with_function_result();
     cannot_ignore_owner_result();
@@ -317,6 +315,8 @@ g_unit_test_success_count = 0;
     ownership_flow_test_two_ifs();
     ownership_no_name_parameter();
     ownership_flow_switch_case();
+    state_inner_objects_preserved();
+    owner_parameter();
 return g_unit_test_error_count;
 
 }

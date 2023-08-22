@@ -41,7 +41,7 @@ struct preprocessor_ctx
     int n_warnings;
     int n_errors;    
 };
-void preprocessor_ctx_destroy(implicit struct preprocessor_ctx* obj_owner p);
+void preprocessor_ctx_destroy( struct preprocessor_ctx* obj_owner p);
 
 void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
@@ -64,7 +64,7 @@ struct token_list  copy_replacement_list(struct token_list* list);
 
 void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source);
 void print_list(struct token_list* list);
-void token_list_destroy(implicit struct token_list* obj_owner list);
+void token_list_destroy( struct token_list* obj_owner list);
 bool token_is_blank(struct token* p);
 struct token* owner token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);

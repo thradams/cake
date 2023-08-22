@@ -157,9 +157,7 @@ enum token_type
     /*cake extension*/
     TK_KEYWORD__OWNER, 
     TK_KEYWORD__OBJ_OWNER, 
-    TK_KEYWORD__VIEW,
-    TK_KEYWORD__MOVE,
-    TK_KEYWORD__IMPLICIT,
+    TK_KEYWORD__VIEW,    
     TK_KEYWORD__OPT, 
 
     /*extension compile time functions*/
@@ -222,7 +220,7 @@ struct token
     struct token* prev;
 };
 
-void token_delete(implicit struct token* owner p);
+void token_delete( struct token* owner p);
 
 struct token_list
 {
@@ -246,8 +244,8 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
-void print_line_and_token(const struct token* p_token);
-void print_position(const char* path, int line, int col);
+void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_format);
+void print_position(const char* path, int line, int col, bool msvc_format);
 struct stream
 {
     const char* source;
@@ -264,14 +262,14 @@ void stream_match(struct stream* stream);
 
 #define LIST_ADD(list, pnew)\
 do {\
-    void* owner pitem = move (void* owner) (pnew);\
+    void* owner pitem = (void* owner) (pnew);\
     if ((list)->head == NULL)\
     {\
-        (list)->head = move pitem;\
+        (list)->head = pitem;\
         (list)->tail = pitem;\
     } else \
     {\
-        (list)->tail->next = move pitem;\
+        (list)->tail->next = pitem;\
         (list)->tail = pitem;\
     }\
 } while(0)

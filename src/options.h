@@ -108,7 +108,7 @@ enum error
     C_OWNERSHIP_NOT_OWNER,
     C_OWNERSHIP_USING_TEMPORARY_OWNER,
     C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-    C_OWNERSHIP_EXPLICIT_MOVE_REQUIRED,
+    
     C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
     
     /*flow analysis errors*/
@@ -214,6 +214,8 @@ struct options
      
     */
     bool null_checks;
+
+    bool visual_studio_ouput_format;
 
     /*
       -o filename

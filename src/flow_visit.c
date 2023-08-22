@@ -251,8 +251,8 @@ static struct object make_object_core(struct type* p_type, struct object_name_li
             if (type_is_struct_or_union(&t2))
             {
                 struct object* owner p_object = calloc(1, sizeof * p_object);
-                *p_object = move make_object_core(&t2, list, deep + 1, declarator);
-                obj.pointed = move p_object;
+                *p_object = make_object_core(&t2, list, deep + 1, declarator);
+                obj.pointed = p_object;
             }
 
             type_destroy(&t2);
@@ -275,14 +275,52 @@ static struct object make_object(struct type* p_type, struct declarator* declara
     return make_object_core(p_type, &list, 0, declarator);
 }
 
-static void object_push_copy_state(struct object* object)
+static int object_push_copy_current_state(struct object* object)
 {
+    int index = object->object_state_stack.size;
     object_state_stack_push_back(&object->object_state_stack, object->state);
+
+    if (object->pointed)
+    {
+        object_push_copy_current_state(object->pointed);
+    }
+
     for (int i = 0; i < object->members.size; i++)
     {
-        object_push_copy_state(&object->members.data[i]);
+        object_push_copy_current_state(&object->members.data[i]);
+    }
+    return index;
+}
+
+static void object_push_copy_state(struct object* object, int state_to_copy)
+{
+    object_state_stack_push_back(&object->object_state_stack, object->object_state_stack.data[state_to_copy]);
+
+    if (object->pointed)
+    {
+        object_push_copy_state(object->pointed, state_to_copy);
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_push_copy_state(&object->members.data[i], state_to_copy);
     }
 }
+
+static void object_restore_state(struct object* object, int state_to_restore)
+{
+    object->state = object->object_state_stack.data[state_to_restore];
+    if (object->pointed)
+    {
+        object_restore_state(object->pointed, state_to_restore);
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_restore_state(&object->members.data[i], state_to_restore);
+    }
+}
+
 enum object_state state_merge(enum object_state before, enum object_state after)
 {
     enum object_state e = before | after;
@@ -888,7 +926,7 @@ void move_object(struct parser_ctx* ctx,
                 /*
                  assuming it is from malloc realloc
                  struct X * owner p = malloc(sizeof(struct X));
-                  p->text = move malloc(10);
+                  p->text = malloc(10);
                   TODO should me annotate???? uninitialized?
                 */
                 /*
@@ -907,29 +945,6 @@ void move_object(struct parser_ctx* ctx,
     }
 }
 
-static int push_copy_of_all_objects(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock)
-{
-    int index = 0;
-
-
-    struct flow_defer_scope* deferchild = deferblock->last_child;
-    while (deferchild != NULL)
-    {
-        if (deferchild->defer_statement)
-        {
-
-        }
-        else if (deferchild->declarator)
-        {
-            struct declarator* p_declarator = deferchild->declarator;
-            object_push_copy_state(&p_declarator->object);
-            index = p_declarator->object.object_state_stack.size - 1;
-
-        }
-        deferchild = deferchild->previous;
-    }
-    return index;
-}
 
 struct visit_objects {
     struct flow_defer_scope* current;
@@ -1276,7 +1291,7 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
     p_defer->defer_statement = p_defer_statement;
     p_defer->previous = ctx->tail_block->last_child;
-    ctx->tail_block->last_child = move p_defer;
+    ctx->tail_block->last_child = p_defer;
 
     /*
       We are not going to visit the secondary block here because
@@ -1288,7 +1303,7 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
 {
     struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
     p_defer->previous = ctx->tail_block;
-    ctx->tail_block = move p_defer;
+    ctx->tail_block = p_defer;
     p_defer->p_try_statement = p_try_statement;
 
     if (p_try_statement->secondary_block)
@@ -1299,7 +1314,7 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
     if (ctx->tail_block)
     {
         //POP        
-        ctx->tail_block = move ctx->tail_block->previous;
+        ctx->tail_block = ctx->tail_block->previous;
     }
 }
 
@@ -1373,6 +1388,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     bool copy = ctx->has_jumps;
     ctx->has_jumps = false;
     int state_index_before_if = 0;
+    
     if (p_selection_statement->secondary_block)
     {
         /*
@@ -1384,8 +1400,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         struct object* p_object = visit_objects_next(&v1);
         while (p_object)
         {
-            state_index_before_if = p_object->object_state_stack.size;
-            object_push_copy_state(p_object);
+            state_index_before_if = object_push_copy_current_state(p_object);
             p_object = visit_objects_next(&v1);
         };
 
@@ -1403,7 +1418,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
-        ctx->tail_block = move p_defer;
+        ctx->tail_block = p_defer;
         p_defer->p_selection_statement2 = p_selection_statement;
         flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
         check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
@@ -1433,9 +1448,12 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
     {
-        true_branch_state_index = p_object->object_state_stack.size;
-        object_push_copy_state(p_object);
-        p_object->state = p_object->object_state_stack.data[state_index_before_if];
+        /*make a copy of the state left true-branch */
+        true_branch_state_index = object_push_copy_current_state(p_object);
+
+        /*restores the state before if*/
+        object_restore_state(p_object, state_index_before_if);
+
         p_object = visit_objects_next(&v1);
     };
 
@@ -1459,7 +1477,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
 
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
-        ctx->tail_block = move p_defer;
+        ctx->tail_block = p_defer;
         p_defer->p_selection_statement2 = p_selection_statement;
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
         check_defer_and_variables(ctx, p_defer, p_selection_statement->else_secondary_block_opt->last_token);
@@ -1884,6 +1902,40 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
             break;
 
+        case UNARY_EXPRESSION_ASSERT:
+
+            if (p_expression->right)
+            {
+                flow_visit_expression(ctx, p_expression->right);
+
+                struct object* p_object_compared_with_null = NULL;
+
+                if (p_expression->right)
+                {
+                    p_object_compared_with_null = expression_is_comparing_owner_with_null(p_expression->right);
+                }
+
+                struct object* p_object_compared_with_not_null = NULL;
+                if (p_expression->right)
+                {
+                    p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_expression->right);
+                }
+
+                if (p_object_compared_with_null)
+                {
+                    //if (p == 0) {  p is null }
+                    p_object_compared_with_null->state = OBJECT_STATE_NULL;
+                }
+
+                if (p_object_compared_with_not_null)
+                {
+                    //if (p != 0) {  p is not null }
+                    p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
+                }
+            }
+
+            break;
+
         case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
         case UNARY_EXPRESSION_SIZEOF_TYPE:
         case UNARY_EXPRESSION_INCREMENT:
@@ -2040,22 +2092,16 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 {
 
     struct object* p_object_compared_with_not_null = NULL;
-    bool copy = ctx->has_jumps;
-    ctx->has_jumps = false;
+    //bool copy = ctx->has_jumps;
+    //ctx->has_jumps = false;
 
     if (p_iteration_statement->first_token->type == TK_KEYWORD_WHILE)
     {
         if (p_iteration_statement->expression1)
         {
             p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_iteration_statement->expression1);
-            // if (p_object)
-             //{/
-               //  struct type type = {0};
- //                type_destroy(&type);
-             //}
         }
     }
-
 
     if (p_iteration_statement->declaration)
     {
@@ -2077,27 +2123,106 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
     {
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
-        ctx->tail_block = move p_defer;
+        ctx->tail_block = p_defer;
         p_defer->p_iteration_statement = p_iteration_statement;
+
+
+        ////////////////////////////////////////////////////////////////////////////
+        struct visit_objects v1 = {.current = ctx->tail_block,
+                                   .next_child = ctx->tail_block->last_child};
+        int state_index_before_while = 0;
+
+        /*lets make a copy of the state we have before while*/
+        struct object* p_object = visit_objects_next(&v1);
+        while (p_object)
+        {
+            state_index_before_while = object_push_copy_current_state(p_object);
+            p_object = visit_objects_next(&v1);
+        };
+        ////////////////////////////////////////////////////////////////////////////
+
+
+
+        if (p_object_compared_with_not_null)
+        {
+            //if (p != 0) {  p is not null }
+            p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
+        }
 
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
 
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
-
         if (ctx->tail_block)
         {
-            //POP
-            ctx->tail_block = ctx->tail_block->previous;
+            ctx->tail_block = ctx->tail_block->previous; //POP
+        }
+
+        bool was_last_statement_inside_true_branch_return = false;
+        if (ctx->p_last_jump_statement)
+        {
+            //TODO gotos etc...
+            was_last_statement_inside_true_branch_return =
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
+        }
+
+        
+
+        struct visit_objects v3 = {.current = ctx->tail_block,
+                                       .next_child = ctx->tail_block->last_child};
+
+        //merge all states before while and after.
+
+        p_object = visit_objects_next(&v3);
+        while (p_object)
+        {
+            if (p_object->object_state_stack.data == NULL)
+            {
+                assert(false);
+                //ops!
+                p_object = visit_objects_next(&v3);
+                continue;
+            }
+            enum object_state before_if = p_object->object_state_stack.data[state_index_before_while];
+            enum object_state after_true_branch = p_object->state;
+
+
+            if (was_last_statement_inside_true_branch_return)
+            {
+
+            }
+            else
+            {
+                if (after_true_branch != before_if)
+                {
+                    //changed inside while-loop
+                    p_object->state = state_merge(before_if, after_true_branch);
+                }
+            }
+
+            p_object->object_state_stack.size--; //pop
+            
+            p_object = visit_objects_next(&v3);
+        };
+
+        if (was_last_statement_inside_true_branch_return)
+        {
+            if (p_object_compared_with_not_null)
+            {
+                //while (p) { return; }
+                p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
+            }
+        }
+        else
+        {
+            if (p_object_compared_with_not_null)
+            {
+                p_object_compared_with_not_null->state = OBJECT_STATE_NULL;                    
+            }
         }
     }
-    bool had_jumps = ctx->has_jumps;
 
-    ctx->has_jumps = copy || ctx->has_jumps; //restore
-    if (p_object_compared_with_not_null && !had_jumps)
-    {
-        p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
-    }
+
 }
 
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
@@ -2293,36 +2418,6 @@ enum object_state parse_string_state(const char* s)
 }
 
 
-static void flow_visit_assert_declaration(struct flow_visit_ctx* ctx, struct assert_declaration* p_assert_declaration)
-{
-    flow_visit_expression(ctx, p_assert_declaration->expression);
-    struct object* p_object_compared_with_null = NULL;
-
-    if (p_assert_declaration->expression)
-    {
-        p_object_compared_with_null = expression_is_comparing_owner_with_null(p_assert_declaration->expression);
-    }
-
-    struct object* p_object_compared_with_not_null = NULL;
-    if (p_assert_declaration->expression)
-    {
-        p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_assert_declaration->expression);
-    }
-
-    if (p_object_compared_with_null)
-    {
-        //if (p == 0) {  p is null }
-        p_object_compared_with_null->state = OBJECT_STATE_NULL;
-    }
-
-    if (p_object_compared_with_not_null)
-    {
-        //if (p != 0) {  p is not null }
-        p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
-    }
-}
-
-
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
     flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
@@ -2415,9 +2510,9 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->declarator = p_declarator;
         p_defer->previous = ctx->tail_block->last_child;
-        ctx->tail_block->last_child = move p_defer;
+        ctx->tail_block->last_child = p_defer;
 
-        p_declarator->object = move make_object(&p_declarator->type, p_declarator);
+        p_declarator->object = make_object(&p_declarator->type, p_declarator);
         //print_object(0, &p_declarator->type, &p_declarator->object, p_declarator->name->lexeme);
 
         if (p_declarator->declaration_specifiers &&
@@ -2446,9 +2541,9 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
             {
                 struct type t2 = type_remove_pointer(&p_declarator->type);
 
-                struct object* owner p0 = move calloc(1, sizeof * p0);
-                *p0 = move make_object(&t2, p_declarator);
-                p_declarator->object.pointed = move p0;
+                struct object* owner p0 = calloc(1, sizeof * p0);
+                *p0 = make_object(&t2, p_declarator);
+                p_declarator->object.pointed = p0;
                 set_object(&t2, p0, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
 
                 type_destroy(&t2);
@@ -2507,7 +2602,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
             //int members = type_get_num_members(&p_init_declarator->p_declarator->type);
 
             //assert(p_init_declarator->p_declarator->object.state == NULL);
-            //p_init_declarator->p_declarator->object.state = move calloc(members, sizeof(enum object_state));
+            //p_init_declarator->p_declarator->object.state = calloc(members, sizeof(enum object_state));
             //p_init_declarator->p_declarator->object.size = members;
 
             if (p_init_declarator->initializer &&
@@ -2788,10 +2883,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
     }
-    if (p_declaration->assert_declaration)
-    {
-        flow_visit_assert_declaration(ctx, p_declaration->assert_declaration);
-    }
+
 
     if (p_declaration->p_attribute_specifier_sequence_opt)
     {
@@ -2844,7 +2936,7 @@ void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_decla
 
     assert(ctx->tail_block == NULL);
     struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-    ctx->tail_block = move p_defer;
+    ctx->tail_block = p_defer;
     p_defer->p_function_body = p_declaration->function_body;
 
 
@@ -2859,21 +2951,21 @@ void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_decla
 
 
     /*delete all defer memory*/
-    struct flow_defer_scope* owner p_block = move ctx->tail_block;
+    struct flow_defer_scope* owner p_block = ctx->tail_block;
     while (p_block != NULL)
     {
-        struct flow_defer_scope* owner deferchild = move p_block->last_child;
+        struct flow_defer_scope* owner deferchild = p_block->last_child;
         while (deferchild != NULL)
         {
-            struct flow_defer_scope* owner prev = move deferchild->previous;
+            struct flow_defer_scope* owner prev = deferchild->previous;
             free(deferchild);
-            deferchild = move prev;
+            deferchild = prev;
         }
 
 
-        struct flow_defer_scope* owner prev_block = move p_block->previous;
+        struct flow_defer_scope* owner prev_block = p_block->previous;
         free(p_block);
-        p_block = move prev_block;
+        p_block = prev_block;
     }
 
 

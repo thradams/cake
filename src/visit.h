@@ -41,4 +41,4 @@ struct visit_ctx
 };
 
 void visit(struct visit_ctx* ctx);
-void visit_ctx_destroy(implicit struct visit_ctx* obj_owner ctx);
+void visit_ctx_destroy( struct visit_ctx* obj_owner ctx);

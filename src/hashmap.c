@@ -20,14 +20,14 @@ void hashmap_remove_all(struct hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* pentry = move map->table[i];
+            struct map_entry* owner pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct map_entry* owner p_entry_current = move pentry;
-                pentry = pentry->next;
-                free(p_entry_current->key);
-                free(p_entry_current);
+                struct map_entry* owner next = pentry->next;                
+                free(pentry->key);
+                free(pentry);
+                pentry = next;
             }
         }
  
@@ -37,9 +37,10 @@ void hashmap_remove_all(struct hash_map* map)
     }
 }
 
-void hashmap_destroy(implicit struct hash_map* obj_owner map)
+void hashmap_destroy( struct hash_map* obj_owner map)
 {
     hashmap_remove_all(map);
+    assert(map->table == NULL);
 }
 
 struct map_entry* hashmap_find(struct hash_map* map, const char* key)
@@ -69,21 +70,21 @@ void * view hashmap_remove(struct hash_map* map, const char* key, enum tag * p_t
     if (map->table != NULL)
     {
         const unsigned int hash = string_hash(key);
-        struct map_entry* owner * pp_entry = &map->table[hash % map->capacity];
-        struct map_entry* owner p_entry = *pp_entry;
+        struct map_entry* * pp_entry = &map->table[hash % map->capacity];
+        struct map_entry* p_entry = *pp_entry;
 
-        for (; p_entry != NULL; p_entry = move p_entry->next)
+        for (; p_entry != NULL; p_entry = p_entry->next)
         {
             if ((p_entry->hash == hash) && (strcmp(p_entry->key, key) == 0))
             {
-                *pp_entry = move p_entry->next;
+                *pp_entry = p_entry->next;
 
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* view p = move p_entry->p;
-                free(p_entry->key);
-                free(p_entry);
+                void* view p = p_entry->p;
+                free((void* owner)p_entry->key);
+                free((void* owner)p_entry);
                 
                 return p;
             }
@@ -106,7 +107,7 @@ int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag ty
             map->capacity = 1000;
         }
 
-        map->table = move calloc(map->capacity, sizeof(map->table[0]));
+        map->table = calloc(map->capacity, sizeof(map->table[0]));
     }
 
     if (map->table != NULL)
@@ -130,9 +131,9 @@ int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag ty
             p_new_entry->hash = hash;
             p_new_entry->p = p;
             p_new_entry->type = type;
-            p_new_entry->key = move strdup(key);
-            p_new_entry->next = move map->table[index];
-            map->table[index] = move p_new_entry;
+            p_new_entry->key = strdup(key);
+            p_new_entry->next = map->table[index];
+            map->table[index] = p_new_entry;
             map->size++;
             result = 0;
         }
@@ -152,21 +153,24 @@ int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag ty
 
 
 
-void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void*))
+void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner p))
 {
     if (map->table != NULL)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct owner_map_entry* pentry = move map->table[i];
+            struct owner_map_entry* owner pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct owner_map_entry* owner p_entry_current = move pentry;                
-                pentry = pentry->next;
-                pf(p_entry_current->p);
-                free(p_entry_current->key);
-                free(p_entry_current);
+                struct owner_map_entry* owner next = pentry->next;                
+                
+                pf(pentry->p); //TODO
+
+                free(pentry->key);
+                free(pentry);
+
+                pentry = next;
             }
         }
 
@@ -176,9 +180,10 @@ void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void*))
     }
 }
 
-void owner_hashmap_destroy(implicit struct owner_hash_map* obj_owner map, void (*pf)(void*))
+void owner_hashmap_destroy( struct owner_hash_map* obj_owner map, void (*pf)(void* owner))
 {
     owner_hashmap_remove_all(map, pf );
+    assert(map->table == NULL);
 }
 
 struct owner_map_entry* owner_hashmap_find(struct owner_hash_map* map, const char* key)
@@ -208,21 +213,21 @@ void * owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, e
     if (map->table != NULL)
     {
         const unsigned int hash = string_hash(key);
-        struct owner_map_entry* owner * pp_entry = &map->table[hash % map->capacity];
-        struct owner_map_entry* owner p_entry = *pp_entry;
+        struct owner_map_entry* * pp_entry = &map->table[hash % map->capacity];
+        struct owner_map_entry* p_entry = *pp_entry;
 
-        for (; p_entry != NULL; p_entry = move p_entry->next)
+        for (; p_entry != NULL; p_entry = p_entry->next)
         {
             if ((p_entry->hash == hash) && (strcmp(p_entry->key, key) == 0))
             {
-                *pp_entry = move p_entry->next;
+                *pp_entry = p_entry->next;
 
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* view p = move p_entry->p;
+                void* owner p = p_entry->p;
                 free(p_entry->key);
-                free(p_entry);
+                free((void  * owner)p_entry);
                 
                 return p;
             }
@@ -245,7 +250,7 @@ int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p
             map->capacity = 1000;
         }
 
-        map->table = move calloc(map->capacity, sizeof(map->table[0]));
+        map->table = calloc(map->capacity, sizeof(map->table[0]));
     }
 
     if (map->table != NULL)
@@ -269,9 +274,9 @@ int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p
             p_new_entry->hash = hash;
             p_new_entry->p = p;
             p_new_entry->type = type;
-            p_new_entry->key = move strdup(key);
-            p_new_entry->next = move map->table[index];
-            map->table[index] = move p_new_entry;
+            p_new_entry->key = strdup(key);
+            p_new_entry->next = map->table[index];
+            map->table[index] = p_new_entry;
             map->size++;
             result = 0;
         }

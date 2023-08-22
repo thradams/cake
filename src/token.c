@@ -75,7 +75,7 @@ struct token* owner token_list_pop_back(struct token_list* list) unchecked
 {
     if (list->head == NULL)
         return NULL;
-    
+
     struct token* p = list->tail;
     if (list->head == list->tail)
     {
@@ -101,7 +101,7 @@ void token_list_pop_front(struct token_list* list) unchecked
     if (list->head == NULL)
         return;
 
-    struct token* owner p = move list->head;
+    struct token* owner p = list->head;
 
     if (list->head == list->tail)
     {
@@ -110,12 +110,12 @@ void token_list_pop_front(struct token_list* list) unchecked
     }
     else
     {
-        list->head = move list->head->next;
+        list->head = list->head->next;
     }
     p->next = NULL;
     p->prev = NULL;
 
-    token_delete(p);    
+    token_delete(p);
 }
 
 struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
@@ -132,7 +132,7 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     }
     else
     {
-        list->head = move list->head->next;
+        list->head = list->head->next;
     }
     p->next = NULL;
     p->prev = NULL;
@@ -140,12 +140,12 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     return p;
 }
 
-void token_delete(implicit struct token* owner p) unchecked
+void token_delete(struct token* owner p) unchecked
 {
     if (p)
     {
         /*
-         * ownership warning here is about the p->next 
+         * ownership warning here is about the p->next
          * we need a way to remove only this especific warning
         */
         free(p->lexeme);
@@ -166,14 +166,14 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     }
 }
 
-void token_list_destroy(implicit struct token_list* obj_owner list)
+void token_list_destroy(struct token_list* obj_owner list)
 {
-    struct token* owner p = move list->head;
+    struct token* owner p = list->head;
     while (p)
     {
-        struct token* owner next = move p->next;
+        struct token* owner next = p->next;
         token_delete(p);
-        p = move next;
+        p = next;
     }
 }
 
@@ -216,7 +216,7 @@ char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    char* owner cstr = move ss.c_str;
+    char* owner cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -231,15 +231,15 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
 
     if (after == NULL)
     {
-        append_list->tail->next = move token_list->head;
+        append_list->tail->next = token_list->head;
         token_list->head->prev = append_list->tail;
 
-        token_list->head = move append_list->head;
+        token_list->head = append_list->head;
         append_list->head->prev = NULL;
     }
     else
     {
-        struct token* owner follow = move after->next;
+        struct token* owner follow = after->next;
         if (token_list->tail == after)
         {
             token_list->tail = append_list->tail;
@@ -247,9 +247,9 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         else if (token_list->head == after)
         {
         }
-        append_list->tail->next = move follow;
+        append_list->tail->next = follow;
         follow->prev = append_list->tail;
-        after->next = move append_list->head;
+        after->next = append_list->head;
         append_list->head->prev = after;
 
     }
@@ -266,14 +266,14 @@ struct token* token_list_add(struct token_list* list, struct token* owner pnew) 
     {
         pnew->prev = NULL;
         pnew->next = NULL;
-        list->head = move pnew;
+        list->head = pnew;
         list->tail = pnew;
         //pnew->prev = list->tail;
     }
     else
     {
         pnew->prev = list->tail;
-        list->tail->next = move pnew;
+        list->tail->next = pnew;
         list->tail = pnew;
     }
     assert(list->tail->next == NULL);
@@ -301,7 +301,7 @@ bool token_is_blank(struct token* p)
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
     struct token* owner clone = clone_token(pnew);
-    return token_list_add(list, move clone);
+    return token_list_add(list, clone);
 }
 
 void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source) unchecked
@@ -312,13 +312,13 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     }
     if (dest->head == NULL)
     {
-        dest->head = move source->head;
+        dest->head = source->head;
         dest->tail = source->tail;
     }
     else
     {
-        source->tail->next = move dest->head;
-        dest->head = move source->head;
+        source->tail->next = dest->head;
+        dest->head = source->head;
     }
 }
 
@@ -330,12 +330,12 @@ void token_list_append_list(struct token_list* dest, struct token_list* obj_owne
     }
     if (dest->head == NULL)
     {
-        dest->head = move source->head;
+        dest->head = source->head;
         dest->tail = source->tail;
     }
     else
     {
-        dest->tail->next = move  source->head;
+        dest->tail->next = source->head;
         source->head->prev = dest->tail;
         dest->tail = source->tail;
     }
@@ -347,8 +347,8 @@ struct token* owner clone_token(struct token* p)
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-        * token = move *p;
-        token->lexeme = move strdup(p->lexeme);
+        *token = *p;
+        token->lexeme = strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
     }
@@ -361,12 +361,12 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     struct token_list r = {0};
 
     struct token* before_first = first->prev;
-    struct token* owner after_last = move last->next;
+    struct token* owner after_last = last->next;
 
-    before_first->next = move after_last;
+    before_first->next = after_last;
     after_last->prev = before_first;
 
-    r.head = move (struct token* owner)first;
+    r.head = (struct token* owner)first;
     first->prev = NULL;
     r.tail = last;
     last->next = NULL;
@@ -379,7 +379,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 void token_list_remove(struct token_list* list, struct token* first, struct token* last)
 {
     struct token_list r = token_list_remove_get(list, first, last);
-    token_list_destroy(&r);    
+    token_list_destroy(&r);
 }
 
 
@@ -588,30 +588,35 @@ void print_tokens_html(struct token* p_token)
     printf("\n</pre>");
 }
 
-void print_position(const char* path, int line, int col)
+void print_position(const char* path, int line, int col, bool visual_studio_ouput_format)
 {
-    //GCC format
-    printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
 
-    //MSVC format
-#if 0
-    printf(WHITE "%s(%d,%d): ", path ? path : "<>", line, col);
-#endif
-
+    if (visual_studio_ouput_format)
+    {
+        //MSVC format
+        printf("%s(%d,%d): ", path ? path : "<>", line, col);
+    }
+    else
+    {
+        //GCC format
+        printf(WHITE "%s:%d:%d: ", path ? path : "<>", line, col);
+    }
 }
 
-void print_line_and_token(const struct token* p_token)
+void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_format)
 {
     if (p_token == NULL)
         return;
 
     int line = p_token->line;
-    printf(LIGHTGRAY);
+
+    if (!visual_studio_ouput_format)
+        printf(LIGHTGRAY);
 
     char nbuffer[20] = {0};
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
-    
+
     int offset = 0;
     bool stop_offset = false;
 
@@ -636,9 +641,14 @@ void print_line_and_token(const struct token* p_token)
         }
         if (next->flags & TK_FLAG_MACRO_EXPANDED)
         {
-            if (!stop_offset) 
-              offset +=  strlen(next->lexeme);
-            printf(DARKGRAY "%s" RESET, next->lexeme);
+            if (!stop_offset)
+                offset += strlen(next->lexeme);
+
+            if (!visual_studio_ouput_format)
+                printf(DARKGRAY "%s" RESET, next->lexeme);
+            else
+                printf("%s", next->lexeme);
+
         }
         else
             printf("%s", next->lexeme);
@@ -646,7 +656,10 @@ void print_line_and_token(const struct token* p_token)
         next = next->next;
     }
     printf("\n");
-    printf(LIGHTGRAY);
+
+    if (!visual_studio_ouput_format)
+        printf(LIGHTGRAY);
+
     printf(" %*s |", n, " ");
     if (p_token)
     {
@@ -656,7 +669,8 @@ void print_line_and_token(const struct token* p_token)
         }
     }
 
-    printf(LIGHTGREEN);
+    if (!visual_studio_ouput_format)
+        printf(LIGHTGREEN);
 
     printf("^");
 
@@ -667,6 +681,8 @@ void print_line_and_token(const struct token* p_token)
         p++;
     }
 
-    printf(RESET);
+    if (!visual_studio_ouput_format)
+        printf(RESET);
+
     printf("\n");
 }

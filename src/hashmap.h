@@ -31,7 +31,7 @@ struct hash_map {
 };
 
 void hashmap_remove_all(struct hash_map* map);
-void hashmap_destroy(implicit struct hash_map* obj_owner map);
+void hashmap_destroy( struct hash_map* obj_owner map);
 struct map_entry* hashmap_find(struct hash_map* map, const char* key);
 void* hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt);
 int hashmap_set(struct hash_map* map, const char* key, void* p, enum tag type);
@@ -51,8 +51,8 @@ struct owner_hash_map {
     int  size;
 };
 
-void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void*));
-void owner_hashmap_destroy(implicit struct owner_hash_map* obj_owner map, void (*pf)(void*));
+void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner ));
+void owner_hashmap_destroy( struct owner_hash_map* obj_owner map, void (*pf)(void*));
 struct owner_map_entry* owner_hashmap_find(struct owner_hash_map* map, const char* key);
 void*  owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, enum tag* p_type_opt);
 int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p, enum tag type);
