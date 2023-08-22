@@ -816,7 +816,7 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
     else if (p_expression->expression_type == CAST_EXPRESSION)
     {
         if (p_type)
-                *p_type = type_dup(&p_expression->type);
+            *p_type = type_dup(&p_expression->type);
 
         return expression_get_object(p_expression->left, NULL);
     }
@@ -844,14 +844,14 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
         }
     }
     else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
-    {        
+    {
         if (p_type)
             *p_type = type_dup(&p_expression->type);
         return NULL;
 
     }
     if (p_type)
-            *p_type = type_dup(&p_expression->type);
+        *p_type = type_dup(&p_expression->type);
     return NULL;
 }
 
@@ -3021,6 +3021,18 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
+void expression_delete(implicit struct expression* owner p)
+{
+    if (p)
+    {
+        //        struct type_name* owner type_name; 
+          //  struct type_name* owner type_name2; /*is_same*/
+            //struct braced_initializer* owner braced_initializer;
+            //struct compound_statement* owner compound_statement; //function literal (lambda)
+            //struct generic_selection* owner generic_selection; //_Generic
+
+    }
+}
 struct expression* owner expression(struct parser_ctx* ctx)
 {
     /*expression:

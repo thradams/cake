@@ -109,7 +109,7 @@ static void delete_macro_void(void* p)
     delete_macro(p_macro);
 }
 
-void include_dir_list_destroy(implicit struct include_dir_list * obj_owner list)
+void include_dir_list_destroy(implicit struct include_dir_list* obj_owner list)
 {
     struct include_dir* owner p = move list->head;
     while (p)
@@ -308,12 +308,11 @@ struct macro_expanded
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
     struct macro* owner macro = calloc(1, sizeof * macro);
-    if (macro == NULL)
+    if (macro != NULL)
     {
+        macro->name = move strdup(name);
+        owner_hashmap_set(&ctx->macros, name, move (void* owner) macro, 0);
     }
-    macro->name = move strdup(name);
-    owner_hashmap_set(&ctx->macros, name, move macro, 0);
-
 }
 
 
@@ -403,16 +402,16 @@ struct macro_argument_list
 
 void macro_argument_list_destroy(struct macro_argument_list* list)
 {
-   token_list_destroy(&list->tokens);
-   struct macro_argument* owner p = move list->head;
-   while(p)
-   {
-       struct macro_argument* owner next = move p->next;
-       free(p->name);
-       token_list_destroy(&p->tokens);
-       free(p);
-       p = move next;
-   }
+    token_list_destroy(&list->tokens);
+    struct macro_argument* owner p = move list->head;
+    while (p)
+    {
+        struct macro_argument* owner next = move p->next;
+        free(p->name);
+        token_list_destroy(&p->tokens);
+        free(p);
+        p = move next;
+    }
 }
 
 void print_macro_arguments(struct macro_argument_list* arguments)
@@ -451,10 +450,12 @@ void argument_list_add(struct macro_argument_list* list, struct macro_argument* 
     if (list->head == NULL)
     {
         list->head = move pnew;
+        assert(list->tail == NULL);
         list->tail = pnew;
     }
     else
     {
+        assert(list->tail->next == NULL);
         list->tail->next = move pnew;
         list->tail = pnew;
     }
@@ -479,6 +480,18 @@ void print_macro(struct macro* macro)
     print_list(&macro->replacement_list);
 }
 
+void macro_parameters_delete(struct macro_parameter* owner parameters)
+{
+    struct macro_parameter* owner p = move parameters;
+    while (p)
+    {
+        struct macro_parameter* owner p_next = move p->next;
+        free((void* owner)p->name);
+        free(p);
+        p = move p_next;
+    }
+}
+
 void delete_macro(implicit struct macro* owner macro)
 {
     if (macro)
@@ -491,7 +504,7 @@ void delete_macro(implicit struct macro* owner macro)
             struct macro_parameter* owner p_next = move p->next;
             free((void* owner)p->name);
             free(p);
-            p = p_next;
+            p = move p_next;
         }
 
         free((void* owner) macro->name);
@@ -1314,8 +1327,8 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         struct token* owner p_first = NULL;
         if (filename_opt != NULL)
         {
-            const char * begin = filename_opt;
-            const char * end = filename_opt + strlen(filename_opt);
+            const char* begin = filename_opt;
+            const char* end = filename_opt + strlen(filename_opt);
             p_first = move new_token(begin, end, TK_BEGIN_OF_FILE);
             p_first->level = level;
             token_list_add(&list, move p_first);
@@ -2461,7 +2474,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
 
     struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
     p_macro_parameter->name = move strdup(input_list->head->lexeme);
-    macro->parameters = p_macro_parameter;
+    macro->parameters = move p_macro_parameter;
 
     struct macro_parameter* p_last_parameter = p_macro_parameter;
 
@@ -2812,6 +2825,26 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             token_list_append_list(&r, move & r4);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
+            if (strcmp(macro->name, "assert") == 0)
+            {
+                // TODO create option for this?
+                // Cake overrides the definition of macro to be 
+                // #define assert(...) assert(__VA_ARGS__)
+                // and assert is a keyword. The reason is the send
+                // information to the static analyzer
+
+                macro_parameters_delete(macro->parameters);
+
+                struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                p_macro_parameter->name = move strdup("__VA_ARGS__");
+                macro->parameters = move p_macro_parameter;
+
+                token_list_destroy(&macro->replacement_list);
+                struct tokenizer_ctx tctx = {0};
+
+                macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
+            }
+
             if (macro_name_token)
                 naming_convention_macro(ctx, macro_name_token);
         }
@@ -2920,7 +2953,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
                     skip_blanks_level(ctx, &r, input_list, level);
-                   ctx->options.null_checks = true;
+                    ctx->options.null_checks = true;
                 }
 
                 if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
@@ -3381,6 +3414,9 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
                     if (ctx->n_errors > 0) throw;
                     token_list_append_list(&r, move & r4);
+                    
+                    assert(argumentlist.head == NULL);
+                    assert(argumentlist.tail == NULL);
                 }
             }
             else
@@ -3721,7 +3757,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
           pp-tokens_opt new-line
     */
     struct token_list r = {0};
-    
+
     try
     {
         while (input_list->head &&
@@ -3974,7 +4010,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
     catch
     {
     }
-    
+
     return r;
 }
 

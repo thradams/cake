@@ -206,6 +206,7 @@ struct expression
     struct expression* owner left;
     struct expression* owner right;
 };
+void expression_delete(implicit struct expression* owner);
 
 struct expression* owner assignment_expression(struct parser_ctx* ctx);
 struct expression* owner expression(struct parser_ctx* ctx);

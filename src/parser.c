@@ -981,6 +981,13 @@ bool first_of_declaration_specifier(struct parser_ctx* ctx)
 }
 
 
+bool first_of_assert_declaration(struct parser_ctx* ctx)
+{
+    if (ctx->current == NULL)
+        return false;
+
+    return ctx->current->type == TK_KEYWORD_ASSERT;
+}
 
 bool first_of_static_assert_declaration(struct parser_ctx* ctx)
 {
@@ -1046,6 +1053,7 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
             else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
             else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+            else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
             break;
         case 'b':
             if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
@@ -1831,6 +1839,22 @@ int add_specifier(struct parser_ctx* ctx,
     return 0;
 }
 
+void declaration_specifiers_delete(struct declaration_specifiers* owner p)
+{
+    if (p)
+    {
+        struct declaration_specifier* owner item = move p->head;
+        while (item)
+        {
+            struct declaration_specifier* owner next = move item->next;
+            item->next = NULL;
+            declaration_specifier_delete(item);
+            item = next;
+        }
+        free(p);
+    }
+}
+
 struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* ctx,
     enum storage_class_specifier_flags default_storage_flag)
 {
@@ -1993,6 +2017,10 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
     if (first_of_static_assert_declaration(ctx))
     {
         p_declaration->static_assert_declaration = move static_assert_declaration(ctx);
+    }
+    else if (first_of_assert_declaration(ctx))
+    {
+        p_declaration->assert_declaration = move assert_declaration(ctx);
     }
     else
     {
@@ -2192,6 +2220,14 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
 //declaration-specifier declaration-specifiers
 
 
+void declaration_specifier_delete(struct declaration_specifier* owner p)
+{
+    if (p)
+    {
+        assert(p->next == NULL);
+        free(p);
+    }
+}
 
 struct declaration_specifier* owner declaration_specifier(struct parser_ctx* ctx)
 {
@@ -4487,8 +4523,52 @@ struct designator* owner designator(struct parser_ctx* ctx)
 }
 
 
+void assert_declaration_delete(implicit struct assert_declaration* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->expression);
+    }
+}
+struct assert_declaration* owner assert_declaration(struct parser_ctx* ctx)
+{
+
+    /*
+     assert-declaration:
+      "assert" (expression) ;
+    */
+
+    struct assert_declaration* owner p_assert_declaration = NULL;
+    try
+    {
+        p_assert_declaration = move calloc(1, sizeof(struct assert_declaration));
+        if (p_assert_declaration == NULL) throw;
+
+        p_assert_declaration->first_token = ctx->current;
+        parser_match(ctx); // TK_KEYWORD_ASSERT
+        parser_match_tk(ctx, '(');
+
+        p_assert_declaration->expression = move expression(ctx);
+        if (p_assert_declaration->expression == NULL) throw;
+
+        parser_match_tk(ctx, ')');
+        p_assert_declaration->last_token = ctx->current;
+        parser_match_tk(ctx, ';');
+    }
+    catch
+    {}
+    return p_assert_declaration;
+}
 
 
+void static_assert_declaration_delete(struct static_assert_declaration* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->constant_expression);
+        free(p);
+    }
+}
 
 struct static_assert_declaration* owner static_assert_declaration(struct parser_ctx* ctx)
 {
@@ -4553,6 +4633,13 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
     return p_static_assert_declaration;
 }
 
+void attribute_specifier_sequence_delete(implicit struct attribute_specifier_sequence* owner p)
+{
+    if (p)
+    {
+        //struct attribute_specifier* owner head;
+    }
+}
 
 struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(struct parser_ctx* ctx)
 {
@@ -5153,7 +5240,8 @@ assembly-instruction-list:
             parser_match(ctx);
     }
     else if (first_of_declaration_specifier(ctx) ||
-        first_of_static_assert_declaration(ctx))
+        first_of_static_assert_declaration(ctx) ||
+        first_of_assert_declaration(ctx))
     {
         p_block_item->declaration = move declaration(ctx, move p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
 
@@ -5574,11 +5662,19 @@ void declaration_list_add(struct declaration_list* list, struct declaration* own
     }
     list->tail = p_declaration;
 }
+
 void declaration_delete(implicit struct declaration* owner p)
 {
     if (p)
     {
+        assert_declaration_delete(p->assert_declaration);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        static_assert_declaration_delete(p->static_assert_declaration);
 
+        declaration_specifiers_delete(p->declaration_specifiers);
+
+        assert(p->next == NULL);
+        free(p);
     }
 }
 
@@ -5588,6 +5684,7 @@ void declaration_list_destroy(implicit struct declaration_list* obj_owner list)
     while (p)
     {
         struct declaration* owner next = move p->next;
+        p->next = NULL;
         declaration_delete(p);
         p = move next;
     }
@@ -8536,6 +8633,58 @@ void ownership_flow_test_two_ifs()
     assert(report.error_count == 0 && report.warnings_count == 0);
 
 }
+
+void ownership_no_name_parameter()
+{
+    const char* source
+        =
+        "void free(implicit void * owner){ }\n"
+        "";
+
+    struct options options = {.input = LANGUAGE_C99};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1);
+
+}
+
+void ownership_flow_switch_case()
+{
+    const char* source
+        =
+        "void* owner make();\n"
+        "void free(implicit void* owner p);\n"
+        "\n"
+        "void f(condition)\n"
+        "{\n"
+        "    void* owner p = make();\n"
+        "\n"
+        "\n"
+        "    switch (condition)\n"
+        "    {\n"
+        "        case 1:\n"
+        "        {\n"
+        "            free(p);\n"
+        "        }\n"
+        "        break;\n"
+        "        case 2:\n"
+        "        {\n"
+        "            free(p);\n"
+        "        }\n"
+        "        break;\n"
+        "\n"
+        "        default:\n"
+        "            free(p);\n"
+        "            break;\n"
+        "    }        \n"
+        "}";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0 && report.warnings_count == 0);
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////     OWNER /////////////////////////////////////////////////////////

@@ -1,12 +1,26 @@
+void* owner make();
+void free(implicit void* owner p);
 
-void* _Owner malloc(int size);
+void f(condition)
+{
+    void* owner p = make();
 
-struct X {    
-    char * _Owner name;
-};
 
-void * _Owner f1(){
-  struct X * _Owner p = malloc(sizeof (struct X));
-  p->name = move malloc(1);  
-  return p;
+    switch (condition)
+    {
+        case 1:
+        {
+            free(p);
+        }
+        break;
+        case 2:
+        {
+            free(p);
+        }
+        break;
+
+        default:
+            free(p);
+            break;
+    }        
 }

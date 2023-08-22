@@ -1421,6 +1421,7 @@ struct type type_remove_pointer(const struct type* p_type)
 struct type get_array_item_type(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
+
     r = move * r.next;
     return r;
 }
@@ -1616,8 +1617,8 @@ int type_get_struct_num_members(struct struct_or_union_specifier* complete_struc
         {
             struct member_declarator* md = d->member_declarator_list_opt->head;
             while (md)
-            {                
-                count += 1;                
+            {
+                count += 1;
                 md = md->next;
             }
         }
@@ -2594,21 +2595,23 @@ void type_list_push_front(struct type_list* books, struct type* owner new_book)
 }
 
 
-void type_list_push_back(struct type_list* books, struct type* owner new_book)
+void type_list_push_back(struct type_list* type_list, struct type* owner new_book)
 {
-    assert(books != NULL);
+    assert(type_list != NULL);
     assert(new_book != NULL);
-    //assert(new_book->next == NULL);
 
-    if (books->tail == NULL)
+    if (type_list->tail == NULL)
     {
-        books->head = move new_book;
+        assert(type_list->head == NULL);
+        type_list->head = move new_book;
     }
     else
     {
-        books->tail->next = move new_book;
+        assert(type_list->tail->next == NULL);
+        type_list->tail->next = move new_book;
     }
-    books->tail = new_book;
+
+    type_list->tail = new_book;    
 }
 
 void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* pdeclarator, char** ppname, struct type_list* list);
@@ -2740,14 +2743,12 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
         }
     }
 
-    if (pointers.head)
+    while (pointers.head)
     {
-        struct type* owner p = pointers.head;
-        while (p)
-        {
-            type_list_push_back(list, move p);
-            p = move p->next;
-        }
+        struct type* owner p = move pointers.head;
+        pointers.head = pointers.head->next;
+        p->next = NULL;//
+        type_list_push_back(list, move p);
     }
 
 }
@@ -2826,24 +2827,19 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         struct type* owner p_nt = calloc(1, sizeof(struct type));
         *p_nt = move nt;
 
-
-
         bool head = list.head != NULL;
 
         if (head)
             type_set_qualifiers_using_declarator(list.head, pdeclarator);
 
         if (list.tail)
+        {
             list.tail->next = move p_nt;
+        }
         else
         {
             type_list_push_back(&list, move p_nt);
         }
-
-        //if (!head)
-          //type_set_qualifiers_using_declarator(list.head, pdeclarator);
-
-
     }
     else if (declarator_get_typedef_declarator(pdeclarator))
     {
@@ -2864,7 +2860,10 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         type_merge_qualifiers_using_declarator(p_nt, pdeclarator);
 
         if (list.tail)
+        {
+            assert(list.tail->next == 0);
             list.tail->next = move p_nt;
+        }
         else
         {
             type_list_push_back(&list, move p_nt);
@@ -2917,9 +2916,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             if (!type_is_void(list.head->next))
             {
                 list.head->next->attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_FUNC_RESULT;
-            }
 }
-}
+        }
+    }
 #endif
 
     if (pdeclarator->name)

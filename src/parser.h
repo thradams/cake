@@ -131,7 +131,7 @@ struct declaration_specifier
 };
 
 struct declaration_specifier* owner declaration_specifier(struct parser_ctx* ctx);
-
+void declaration_specifier_delete(struct declaration_specifier* owner p);
 
 struct declaration_specifiers
 {
@@ -162,6 +162,7 @@ struct declaration_specifiers
 
 void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p);
 struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
+void declaration_specifiers_delete(struct declaration_specifiers* owner p);
 
 struct static_assert_declaration
 {
@@ -189,6 +190,22 @@ struct static_assert_declaration
     struct token*  string_literal_opt;
 };
 struct static_assert_declaration* owner static_assert_declaration(struct parser_ctx* ctx);
+void static_assert_declaration_delete(struct static_assert_declaration* owner p);
+
+struct assert_declaration
+{
+    /*
+     assert-declaration:
+       "static_assert" (expression) ;     
+    */
+
+    struct token*  first_token;
+    struct token*  last_token;
+    struct expression* owner expression;    
+};
+
+struct assert_declaration* owner assert_declaration(struct parser_ctx* ctx);
+void assert_declaration_delete(implicit struct assert_declaration* owner p);
 
 struct attribute_specifier_sequence
 {
@@ -204,6 +221,7 @@ struct attribute_specifier_sequence
     struct attribute_specifier* tail;
 };
 struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(struct parser_ctx* ctx);
+void attribute_specifier_sequence_delete(implicit struct attribute_specifier_sequence* owner p);
 
 struct attribute_specifier
 {
@@ -338,6 +356,7 @@ struct declaration
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     
     struct static_assert_declaration* owner static_assert_declaration;
+    struct assert_declaration* owner assert_declaration;
 
     struct declaration_specifiers* owner declaration_specifiers;
     struct init_declarator_list init_declarator_list;

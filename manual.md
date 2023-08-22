@@ -1591,6 +1591,19 @@ See [ownership](ownership.html)
 and the lvalue conversion will not happen, allowing 
 more precise (with qualifiers) type match.
 
+### Extension assert declaration
+
+When assert is defined as macro, it is overrided. The justification is
+that cake wants to do static analysis on 3 party headers.
+
+```c
+ int main()
+{
+    assert(1 == 1);
+}
+```
+
+
 ## Versions
 
 0.5.1 Versioning started

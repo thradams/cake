@@ -231,10 +231,13 @@
 <li>
 <a href="#toc_70">Extension typename on _Generic</a>
 </li>
+<li>
+<a href="#toc_71">Extension assert declaration</a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_71">Versions</a>
+<a href="#toc_72">Versions</a>
 </li>
 </ul>
 <h2 id="toc_0">Command line</h2>
@@ -1744,7 +1747,18 @@ See <a href="ownership.html">ownership</a></p>
 <p>and the lvalue conversion will not happen, allowing 
 more precise (with qualifiers) type match.</p>
 
-<h2 id="toc_71">Versions</h2>
+<h3 id="toc_71">Extension assert declaration</h3>
+
+<p>When assert is defined as macro, it is overrided. The justification is
+that cake wants to do static analysis on 3 party headers.</p>
+
+<pre><code class="language-c"> int main()
+{
+    assert(1 == 1);
+}
+</code></pre>
+
+<h2 id="toc_72">Versions</h2>
 
 <p>0.5.1 Versioning started</p>
 </body></html>  msvc

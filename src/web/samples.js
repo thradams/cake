@@ -1402,3 +1402,53 @@ int main() {
    }
 }
 `;
+
+sample["Ownership (experimental)"]["linked list"] =
+`
+#define _OWNERSHIP_ 
+#include <stdlib.h>
+#include <assert.h>
+
+struct node {
+ struct node* owner next;
+};
+
+struct list {
+  struct node * owner head;
+  struct node * tail;
+};
+
+void list_append(struct list* list, struct node* owner node)
+{
+  if (list->head == NULL) {
+      list->head = move node;
+   }
+   else {
+      assert(list->tail->next == 0);
+      list->tail->next = move node; //ZERO OVERHEAD
+   }
+   list->tail = node;
+}
+
+void list_destroy(implicit struct list* obj_owner list)
+{
+  struct node * owner p = move list->head;
+  while (p) {
+      struct node *  owner next = move p->next;
+      free(p);
+      p = move next;
+  }
+}
+
+int main()
+{
+  struct list list = {};
+  struct node  *owner p =  calloc(1, sizeof * p);
+  
+  if (p) {
+    list_append(&list, move p);
+  }
+
+  list_destroy(&list);
+}
+`;

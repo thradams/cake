@@ -160,6 +160,8 @@ void ownership_types_test_error_owner(void);
 void ownership_flow_test_if_variant(void);
 void check_leaks_on_else_block(void);
 void ownership_flow_test_two_ifs(void);
+void ownership_no_name_parameter(void);
+void ownership_flow_switch_case(void);
 
 /*end of forward declarations*/
 
@@ -313,6 +315,8 @@ g_unit_test_success_count = 0;
     ownership_flow_test_if_variant();
     check_leaks_on_else_block();
     ownership_flow_test_two_ifs();
+    ownership_no_name_parameter();
+    ownership_flow_switch_case();
 return g_unit_test_error_count;
 
 }

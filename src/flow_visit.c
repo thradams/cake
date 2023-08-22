@@ -746,6 +746,9 @@ void visit_object(struct parser_ctx* ctx,
             else if (p_object->state == (OBJECT_STATE_UNINITIALIZED | OBJECT_STATE_MOVED))
             {
             }
+            //else if (p_object->state == (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL | OBJECT_STATE_MOVED))
+            //{
+            //}
             else if (p_object->state == OBJECT_STATE_MOVED)
             {
             }
@@ -1576,7 +1579,6 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         p_object_compared_with_null = NULL;
     }
 
-
     ctx->has_jumps = copy || ctx->has_jumps; //restore
 }
 
@@ -2290,6 +2292,37 @@ enum object_state parse_string_state(const char* s)
 
 }
 
+
+static void flow_visit_assert_declaration(struct flow_visit_ctx* ctx, struct assert_declaration* p_assert_declaration)
+{
+    flow_visit_expression(ctx, p_assert_declaration->expression);
+    struct object* p_object_compared_with_null = NULL;
+
+    if (p_assert_declaration->expression)
+    {
+        p_object_compared_with_null = expression_is_comparing_owner_with_null(p_assert_declaration->expression);
+    }
+
+    struct object* p_object_compared_with_not_null = NULL;
+    if (p_assert_declaration->expression)
+    {
+        p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_assert_declaration->expression);
+    }
+
+    if (p_object_compared_with_null)
+    {
+        //if (p == 0) {  p is null }
+        p_object_compared_with_null->state = OBJECT_STATE_NULL;
+    }
+
+    if (p_object_compared_with_not_null)
+    {
+        //if (p != 0) {  p is not null }
+        p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
+    }
+}
+
+
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
     flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
@@ -2754,6 +2787,10 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     if (p_declaration->static_assert_declaration)
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
+    }
+    if (p_declaration->assert_declaration)
+    {
+        flow_visit_assert_declaration(ctx, p_declaration->assert_declaration);
     }
 
     if (p_declaration->p_attribute_specifier_sequence_opt)

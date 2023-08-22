@@ -141,6 +141,7 @@ enum token_type
     TK_KEYWORD__IMAGINARY,
     TK_KEYWORD__NORETURN,
     TK_KEYWORD__STATIC_ASSERT,    
+    TK_KEYWORD_ASSERT, /*extension*/
     TK_KEYWORD__THREAD_LOCAL,
 
     TK_KEYWORD_TYPEOF, /*C23*/
@@ -150,6 +151,8 @@ enum token_type
     TK_KEYWORD_NULLPTR,  /*C23*/
     TK_KEYWORD_TYPEOF_UNQUAL, /*C23*/
     TK_KEYWORD__BITINT /*C23*/,
+
+    
 
     /*cake extension*/
     TK_KEYWORD__OWNER, 
