@@ -7,9 +7,9 @@
 The static ownership check is an experimental feature for Cake.
 It consists of two separate implementations. 
 
-The first part focuses on introducing the concept of an owner qualifier in the type system. 
+Part I focuses on introducing the concept of an owner qualifier in the type system. 
 
-The second part requires flow analysis, ensuring that owned resources are appropriately released when necessary.   
+Part II requires flow analysis, ensuring that owned resources are appropriately released when necessary.   
   
 By implementing the static ownership check, and using the feature on it's own source, Cake aims to explore and evaluate the effectiveness of this feature.  
   
@@ -127,15 +127,16 @@ owner int handle = make_resource();
 release_resource(handle);
 ```
   
-But pointers have the additional advantage of having a natural zero semantics. What is the empty value for handle for instance?
+But pointers have the additional advantage of having a natural zero semantics.
+What is the empty value for handle for instance?
 
 
 ### Initialization and assignment
 #### Owner = Owner
 
-Because we must have only one owner for each resourse, in this situation the ownership is always moved.  
+Because we must have only one owner for each resource, in this situation the ownership is always moved.  
   
-Although, not necessary, a new keyword **move** was added to make this operation more explicit.
+Although, not necessary, a new keyword **move** was added to make this operation more explicit. What do you prefer, more explicit or implicit syntax?
 
 ```c  
 owner T a = move b;
@@ -148,7 +149,7 @@ owner T a;
 a = move b;
 ```
 
-The exception of the usage of **\move** is when initializing from a function result.
+The exception of the usage of **\move** is when moving a temporary object.
 
 ```c
 T* owner  make_owner();
@@ -156,6 +157,7 @@ T * owner  a = make_owner();
 ```
   
 Note: I have considered to make **owner** optional when initializing from function results because we cannot have a view object if the function returns an owner pointer.
+
 ```c
 T * a = make_owner();
 ```

@@ -59,9 +59,9 @@
 <p>The static ownership check is an experimental feature for Cake.
 It consists of two separate implementations. </p>
 
-<p>The first part focuses on introducing the concept of an owner qualifier in the type system. </p>
+<p>Part I focuses on introducing the concept of an owner qualifier in the type system. </p>
 
-<p>The second part requires flow analysis, ensuring that owned resources are appropriately released when necessary.   </p>
+<p>Part II requires flow analysis, ensuring that owned resources are appropriately released when necessary.   </p>
 
 <p>By implementing the static ownership check, and using the feature on it&#39;s own source, Cake aims to explore and evaluate the effectiveness of this feature.  </p>
 
@@ -172,15 +172,16 @@ int main()
 release_resource(handle);
 </code></pre>
 
-<p>But pointers have the additional advantage of having a natural zero semantics. What is the empty value for handle for instance?</p>
+<p>But pointers have the additional advantage of having a natural zero semantics.
+What is the empty value for handle for instance?</p>
 
 <h3 id="toc_3">Initialization and assignment</h3>
 
 <h4>Owner = Owner</h4>
 
-<p>Because we must have only one owner for each resourse, in this situation the ownership is always moved.  </p>
+<p>Because we must have only one owner for each resource, in this situation the ownership is always moved.  </p>
 
-<p>Although, not necessary, a new keyword <strong>move</strong> was added to make this operation more explicit.</p>
+<p>Although, not necessary, a new keyword <strong>move</strong> was added to make this operation more explicit. What do you prefer, more explicit or implicit syntax?</p>
 
 <pre><code class="language-c">owner T a = move b;
 </code></pre>
@@ -191,16 +192,16 @@ owner T a;
 a = move b;
 </code></pre>
 
-<p>The exception of the usage of <strong>\move</strong> is when initializing from a function result.</p>
+<p>The exception of the usage of <strong>\move</strong> is when moving a temporary object.</p>
 
 <pre><code class="language-c">T* owner  make_owner();
 T * owner  a = make_owner();
 </code></pre>
 
-<p>Note: I have considered to make <strong>owner</strong> optional when initializing from function results because we cannot have a view object if the function returns an owner pointer.
-<code>c
-T * a = make_owner();
-</code></p>
+<p>Note: I have considered to make <strong>owner</strong> optional when initializing from function results because we cannot have a view object if the function returns an owner pointer.</p>
+
+<pre><code class="language-c">T * a = make_owner();
+</code></pre>
 
 <p>In assignments from functions we need to use <strong>move</strong>.</p>
 
