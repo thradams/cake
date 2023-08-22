@@ -10,7 +10,7 @@
 #include "options.h"
 #include "ownership.h"
 
-#define CAKE_VERSION "0.6"
+#define CAKE_VERSION "0.7"
 
 
 struct scope
