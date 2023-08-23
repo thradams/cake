@@ -1,23 +1,15 @@
-void *owner malloc(int i);
-void free(void  *owner);
 
-struct node {
- struct node* owner next;
+void * owner malloc(int i);
+
+struct X {
+  void * owner text;
 };
 
-struct list {
-  struct node * owner head;
-  struct node * tail;
-};
+void x_change( struct X* list);
 
-
-void list_destroy(struct list* obj_owner list)
+int main()
 {
-  struct node * owner p = list->head;
-  while (p) {
-      struct node *  owner next = p->next;
-      free(p);
-      p = next;
-  }
-  //static_debug(p);
+  struct X * owner x = malloc(sizeof * x);
+  static_debug(x);
+  x_change(x);
 }

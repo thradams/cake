@@ -394,8 +394,8 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
     char buffer[200] = {0};
 
 #ifndef TEST
-
-    print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
+    if (p_token)
+        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
 
     va_list args;
@@ -2571,7 +2571,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
 
     try
     {
-        p_init_declarator = init_declarator(ctx,p_declaration_specifiers);
+        p_init_declarator = init_declarator(ctx, p_declaration_specifiers);
 
         if (p_init_declarator == NULL) throw;
         LIST_ADD(&init_declarator_list, p_init_declarator);
@@ -4704,7 +4704,7 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
 void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner p)
 {
     if (p)
-    {        
+    {
         free(p);
     }
 }
@@ -4844,7 +4844,7 @@ struct attribute* owner attribute(struct parser_ctx* ctx)
 void attribute_token_delete(struct attribute_token* owner p)
 {
     if (p)
-    {        
+    {
         free(p);
     }
 }
@@ -4944,11 +4944,11 @@ struct attribute_argument_clause* owner attribute_argument_clause(struct parser_
 void balanced_token_sequence_delete(struct balanced_token_sequence* owner p)
 {
     if (p)
-    {     
+    {
         struct balanced_token* owner item = p->head;
         while (item)
         {
-            struct balanced_token* owner next = item->next;            
+            struct balanced_token* owner next = item->next;
             free(item);
             item = next;
         }
@@ -8942,6 +8942,79 @@ void owner_parameter()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 0 && report.warnings_count == 0);
 }
+
+void taking_address()
+{
+    const char* source
+        =
+        "struct X {\n"
+        "  void * owner text;\n"
+        "};\n"
+        "\n"
+        "void x_change(struct X* list);\n"
+        "void x_destroy(struct X* obj_owner p);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "  struct X x = {};\n"
+        "  static_debug(x);\n"
+        "  x_change(&x);\n"
+        "  //list_destroy(&list);\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1);
+}
+
+
+void taking_address_const()
+{
+    const char* source
+        =
+        "struct X {\n"
+        "  void * owner text;\n"
+        "};\n"
+        "\n"
+        "void f(const struct X* list);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "  struct X x = {};\n"
+        "  f(&x);\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+void pointer_argument()
+{
+    const char* source
+        =
+        "void * owner malloc(int i);\n"
+        "\n"
+        "struct X {\n"
+        "  void * owner text;\n"
+        "};\n"
+        "\n"
+        "void x_change( struct X* list);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "  struct X * owner x = malloc(sizeof * x);\n"
+        "  x_change(x);\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 2);
+}
+
 // 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////

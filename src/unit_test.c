@@ -162,6 +162,9 @@ void ownership_no_name_parameter(void);
 void ownership_flow_switch_case(void);
 void state_inner_objects_preserved(void);
 void owner_parameter(void);
+void taking_address(void);
+void taking_address_const(void);
+void pointer_argument(void);
 
 /*end of forward declarations*/
 
@@ -317,6 +320,9 @@ g_unit_test_success_count = 0;
     ownership_flow_switch_case();
     state_inner_objects_preserved();
     owner_parameter();
+    taking_address();
+    taking_address_const();
+    pointer_argument();
 return g_unit_test_error_count;
 
 }

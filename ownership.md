@@ -138,39 +138,17 @@ owner pointer to function should be error.
 
 Because we must have only one owner for each resource, in this situation the ownership is always moved.  
   
-Although, not necessary, a new keyword **move** was added to make this operation more explicit. What do you prefer, more explicit or implicit syntax?
-
-```c  
-owner T a = move b;
-```
-
-```c  
-owner T b;
-owner T a;
-
-a = move b;
-```
-
-The exception of the usage of **\move** is when moving a temporary object.
 
 ```c
 T* owner  make_owner();
-T * owner  a = make_owner();
+T * owner a = make_owner();
 ```
   
-Note: I have considered to make **owner** optional when initializing from function results because we cannot have a view object if the function returns an owner pointer.
 
+Temporary owners cannot be assigned to non owners.
 ```c
 T * a = make_owner();
 ```
-
-In assignments from functions we need to use **move**.
-  
-```c  
-a = move make_owner();  
-```
-
-
 
 #### Owner = Non-owner
   
@@ -253,7 +231,6 @@ owner T F() {
 }
 ```
 
-When returning non local storage variables (including function parameters) we need to use **move.**
 
 ```c  
 owner T global;
@@ -323,24 +300,14 @@ In general the rules are similar of initializing the parameter with the argument
 
 #### void F(Owner); F(Owner);
 
-We explicitly use **move** on the caller.
 
 ```c
   void F(owner T a);
   owner T a;
-  F(move a);      //OK
+  F(a);      //OK
 ```
 
-We can use **\implicit**  to make the usage of **move** optional. This is useful when the semantics of the function is clear looking at it name, for instance, if the name of the function is "destroy" or "free" etc.    
 
-Sample:
-```c
-void x_destroy(implicit struct X * obj_owner);
-```
-
- > Attributes are begin considered for implicit
-
-The exception of using **move** is when passing the function result directly.
   
 ```c
   void F(owner T a);
@@ -403,7 +370,7 @@ struct X {
 
 int main() {
   struct X * owner p = malloc(sizeof (struct X));
-  p->name = move strdup("hi");
+  p->name =  strdup("hi");
 }
 ```
 
@@ -437,42 +404,13 @@ void token_delete(implicit struct token* owner p)
 ## Grammar
 
 ```c
-New keywords:
-  'move'   
-  'owner'   
-  'view'   
-  'obj_owner'   
-  'implicit'
-
+ 
  type-qualifier:
    ...
    'owner'
    'view'
    'obj_owner'
 
-parameter-declaration:
-  attribute-specifier-sequence opt 'implicit' opt declaration-specifiers declarator  
-
-  attribute-specifier-sequence opt 'implicit' opt declaration-specifiers abstract-declarator opt
-
- argument-expression-list:
-   'move' opt assignment-expression
-   argument-expression-list , assignment-expression
-
- init-declarator:
-   declarator
-   declarator = 'move' opt initializer
-
- assignment-operator:
-  = 
-  = move
-  ...
-
- jump-statement:
-  ...
-  'return';
-  'return' 'move' opt expression;  
- 
 static_debug-declaration:
   'static_debug' (constant-expression) ;
 
@@ -495,10 +433,8 @@ I suggest the creation of a header file "ownership.h"
 #pragma once
 
 #ifdef __CAKE__
-#define implicit implicit
 #define owner owner
 #define obj_owner obj_owner
-#define move move
 #define view view
   
 void* owner calloc(int nmemb, int size);
@@ -506,13 +442,10 @@ void free(implicit void* owner ptr);
 void* owner malloc(int size);
 void* owner realloc(void* owner ptr, int size);
 char * owner strdup( const char *src );
-char * owner strdup( const char *str1 );
 
 #else
-#define implicit
 #define owner
 #define obj_owner
-#define move
 #define view
 
 #endif
@@ -520,9 +453,6 @@ char * owner strdup( const char *str1 );
 ```
 
 Then include this header on the top of your files and just run cake.
-
-
-
 
 The way I am thinking is..
 
