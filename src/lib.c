@@ -31245,7 +31245,8 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         }
         else
         {
-            if (type_is_pointer(&p_current_parameter_type->type))
+            if (p_argument_object &&
+                type_is_pointer(&p_current_parameter_type->type))
             {
                 struct type pointed_type =
                     type_remove_pointer(&p_current_parameter_type->type);

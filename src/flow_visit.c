@@ -1554,7 +1554,8 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
         enum object_state before_if = p_object->object_state_stack.data[state_index_before_if];
         enum object_state after_true_branch = p_object->object_state_stack.data[true_branch_state_index];
         enum object_state after_else_branch = p_object->state;
-
+        //TODO create merge state all inner
+      
         if (was_last_statement_inside_true_branch_return)
         {
             if (after_else_branch != before_if)
@@ -1796,7 +1797,8 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         }
         else
         {
-            if (type_is_pointer(&p_current_parameter_type->type))
+            if (p_argument_object &&
+                type_is_pointer(&p_current_parameter_type->type))
             {
                 struct type pointed_type =
                     type_remove_pointer(&p_current_parameter_type->type);
