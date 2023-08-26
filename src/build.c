@@ -48,7 +48,8 @@
     " visit.c "           \
     " flow_visit.c " \
     " error.c "           \
-    " format_visit.c "    
+    " format_visit.c "  \
+    " tests.c "
     
 
 void compile_cake()

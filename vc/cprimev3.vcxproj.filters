@@ -55,10 +55,10 @@
     <ClCompile Include="..\src\format_visit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\wasm_visit.c">
+    <ClCompile Include="..\src\flow_visit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\flow_visit.c">
+    <ClCompile Include="..\src\tests.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -106,9 +106,6 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\format_visit.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\src\wasm_visit.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\flow_visit.h">

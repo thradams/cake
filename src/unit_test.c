@@ -66,7 +66,7 @@ int test_predefined_macros(void);
 int test_utf8(void);
 int test_line_continuation(void);
 
-/* tests from parser.c*/
+/* tests from tests.c*/
 void parser_specifier_test(void);
 void array_item_type_test(void);
 void take_address_type_test(void);

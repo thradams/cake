@@ -40,6 +40,7 @@
     <ClCompile Include="..\src\osstream.c" />
     <ClCompile Include="..\src\parser.c" />
     <ClCompile Include="..\src\pre_expressions.c" />
+    <ClCompile Include="..\src\tests.c" />
     <ClCompile Include="..\src\token.c" />
     <ClCompile Include="..\src\tokenizer.c" />
     <ClCompile Include="..\src\type.c" />
