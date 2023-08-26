@@ -1,17 +1,6 @@
-
-void* owner malloc(int i);
-
-struct X {
-    void* owner text;
-};
-
-void x_change(struct X* list);
-
-int main(int condition)
+void * owner malloc(int i);
+int main()
 {
-    struct X* owner x = malloc(sizeof * x);
-    if (condition)
-    {
-        x_change(x);
-    }
+    int * p;
+    p = (int* owner) malloc(1);
 }

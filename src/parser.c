@@ -14,7 +14,6 @@
 #include "fs.h"
 #include <ctype.h>
 #include "format_visit.h"
-#include "wasm_visit.h"
 #include "flow_visit.h"
 #include <errno.h>
 
@@ -1027,7 +1026,8 @@ bool first_of_static_assert_declaration(struct parser_ctx* ctx)
 
     return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
         ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
-        ctx->current->type == TK_KEYWORD_STATIC_STATE;
+        ctx->current->type == TK_KEYWORD_STATIC_STATE ||
+        ctx->current->type == TK_KEYWORD_STATIC_SET;
 }
 
 bool first_of_attribute_specifier(struct parser_ctx* ctx)
@@ -1152,6 +1152,7 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
             else if (strcmp("static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
             else if (strcmp("static_state", text) == 0) result = TK_KEYWORD_STATIC_STATE;
+            else if (strcmp("static_set", text) == 0) result = TK_KEYWORD_STATIC_SET;
 
             break;
         case 't':
@@ -2190,6 +2191,7 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
             struct flow_visit_ctx ctx2 = {0};
             ctx2.ctx = ctx;
             flow_visit_function(&ctx2, p_declaration);
+            flow_visit_ctx_destroy(&ctx2);
         }
 
         struct parameter_declaration* parameter = NULL;
@@ -2742,6 +2744,37 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
     return p_typeof_specifier;
 }
 
+void typeof_specifier_argument_delete(struct typeof_specifier_argument* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->expression);
+        type_name_delete(p->type_name);
+        free(p);
+    }
+
+}
+
+void typeof_specifier_delete(struct typeof_specifier* owner p)
+{
+    if (p)
+    {
+        typeof_specifier_argument_delete(p->typeof_specifier_argument);
+        type_destroy(&p->type);
+        free(p);
+    }
+}
+void type_specifier_delete(struct type_specifier* owner p)
+{
+    if (p)
+    {
+        struct_or_union_specifier_delete(p->struct_or_union_specifier);
+        typeof_specifier_delete(p->typeof_specifier);
+        enum_specifier_delete(p->enum_specifier);
+        atomic_type_specifier_delete(p->atomic_type_specifier);
+        free(p);
+    }
+}
 struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 {
     /*
@@ -2939,6 +2972,8 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
         parser_match(ctx);
     }
+
+
     return p_type_specifier;
 }
 
@@ -2988,6 +3023,7 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* owner p)
 struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_ctx* ctx)
 {
     struct struct_or_union_specifier* owner p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
+
 
     if (ctx->current->type == TK_KEYWORD_STRUCT ||
         ctx->current->type == TK_KEYWORD_UNION)
@@ -3064,6 +3100,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
     }
 
 
+
     if (ctx->current->type == '{')
     {
         /*
@@ -3071,6 +3108,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
         */
 
         struct struct_or_union_specifier* first = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tag_name);
+
         if (first)
         {
             /*
@@ -3159,6 +3197,32 @@ struct member_declarator* owner member_declarator(
     return p_member_declarator;
 }
 
+void member_declarator_delete(struct member_declarator* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->constant_expression);
+        assert(p->next == NULL);
+        declarator_delete(p->declarator);
+        free(p);
+    }
+}
+
+void member_declarator_list_delete(struct member_declarator_list* owner p)
+{
+    if (p)
+    {
+        struct member_declarator* owner item = p->head;
+        while (item)
+        {
+            struct member_declarator* owner next = item->next;
+            item->next = NULL;
+            member_declarator_delete(item);
+            item = next;
+        }
+        free(p);
+    }
+}
 struct member_declarator_list* owner member_declarator_list(
     struct parser_ctx* ctx,
     struct struct_or_union_specifier* p_struct_or_union_specifier,
@@ -3177,7 +3241,14 @@ struct member_declarator_list* owner member_declarator_list(
 
 void member_declaration_list_destroy(struct member_declaration_list* obj_owner p)
 {
-
+    struct member_declaration* owner item = p->head;
+    while (item)
+    {
+        struct member_declaration* owner next = item->next;
+        item->next = NULL;
+        member_declaration_delete(item);
+        item = next;
+    }
 }
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
@@ -3212,6 +3283,18 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
     return list;
 }
 
+void member_declaration_delete(struct member_declaration* owner p)
+{
+    if (p)
+    {
+        assert(p->next == NULL);
+        specifier_qualifier_list_delete(p->specifier_qualifier_list);
+        member_declarator_list_delete(p->member_declarator_list_opt);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        static_assert_declaration_delete(p->static_assert_declaration);
+        free(p);
+    }
+}
 struct member_declaration* owner member_declaration(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration* owner p_member_declaration = calloc(1, sizeof(struct member_declaration));
@@ -3328,6 +3411,25 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
 }
 
 
+void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner p)
+{
+    if (p)
+    {
+        struct type_specifier_qualifier* owner item = p->head;
+        while (item)
+        {
+            struct type_specifier_qualifier* owner next = item->next;
+            item->next = NULL;
+            type_specifier_qualifier_delete(item);
+            item = next;
+        }
+
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence);
+
+
+        free(p);
+    }
+}
 
 struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ctx* ctx)
 {
@@ -3412,9 +3514,16 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner p)
 {
     if (p)
     {
-        free(p->type_qualifier);
-        free(p->alignment_specifier);
-        free(p->type_specifier);
+        assert(p->next == NULL);
+        if (p->type_qualifier)
+        {
+            assert(p->type_qualifier->next == NULL);
+            free(p->type_qualifier);
+        }
+        alignment_specifier_delete(p->alignment_specifier);
+
+
+        type_specifier_delete(p->type_specifier);
         free(p);
     }
 }
@@ -3448,9 +3557,13 @@ void enum_specifier_delete(struct enum_specifier* owner p)
 {
     if (p)
     {
+        specifier_qualifier_list_delete(p->specifier_qualifier_list);
+        attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
+        enumerator_list_destroy(&p->enumerator_list);
         free(p);
     }
 }
+
 struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
 {
     /*
@@ -3504,7 +3617,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
             /*points to itself*/
             p_enum_specifier->complete_enum_specifier = p_enum_specifier;
 
-            parser_match_tk(ctx, '{');
+            parser_match_tk(ctx, '{');                        
             p_enum_specifier->enumerator_list = enumerator_list(ctx, p_enum_specifier);
             if (ctx->current->type == ',')
             {
@@ -3620,11 +3733,18 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
     return p_enum_specifier;
 }
 
-void enumerator_list_destroy(struct enum_specifier* obj_owner p_enum_specifier)
+void enumerator_list_destroy(struct enumerator_list* obj_owner p)
 {
-    if (p_enum_specifier)
+    if (p)
     {
-        free(p_enum_specifier);
+        struct enumerator* owner item = p->head;
+        while (item)
+        {
+            struct enumerator* owner next = item->next;
+            item->next = NULL;
+            enumerator_delete(item);
+            item = next;
+        }
     }
 }
 
@@ -3665,6 +3785,17 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_speci
     return enumeratorlist;
 }
 
+void enumerator_delete(struct enumerator* owner p)
+{
+    if (p)
+    {
+        assert(p->next == NULL);
+        attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
+        expression_delete(p->constant_expression_opt);
+
+        free(p);
+    }
+}
 struct enumerator* owner enumerator(struct parser_ctx* ctx,
     struct enum_specifier* p_enum_specifier,
     long long* p_next_enumerator_value)
@@ -3701,6 +3832,16 @@ struct enumerator* owner enumerator(struct parser_ctx* ctx,
 }
 
 
+void alignment_specifier_delete(struct alignment_specifier* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->constant_expression);
+        type_name_delete(p->type_name);
+        free(p);
+    }
+}
+
 struct alignment_specifier* owner alignment_specifier(struct parser_ctx* ctx)
 {
     struct alignment_specifier* owner alignment_specifier = calloc(1, sizeof * alignment_specifier);
@@ -3720,7 +3861,14 @@ struct alignment_specifier* owner alignment_specifier(struct parser_ctx* ctx)
 }
 
 
-
+void atomic_type_specifier_delete(struct atomic_type_specifier* owner p)
+{
+    if (p)
+    {
+        type_name_delete(p->type_name);
+        free(p);
+    }
+}
 struct atomic_type_specifier* owner atomic_type_specifier(struct parser_ctx* ctx)
 {
     //'_Atomic' '(' type_name ')'
@@ -3831,6 +3979,10 @@ void declarator_delete(struct declarator* owner p)
 {
     if (p)
     {
+        type_destroy(&p->type);
+        direct_declarator_delete(p->direct_declarator);
+        pointer_delete(p->pointer);
+        object_destroy(&p->object);
         free(p);
     }
 }
@@ -3887,6 +4039,28 @@ bool declarator_is_function(struct declarator* p_declarator)
 struct array_declarator* owner array_declarator(struct direct_declarator* owner p_direct_declarator, struct parser_ctx* ctx);
 struct function_declarator* owner function_declarator(struct direct_declarator* owner p_direct_declarator, struct parser_ctx* ctx);
 
+void function_declarator_delete(struct function_declarator* owner p)
+{
+    if (p)
+    {
+        direct_declarator_delete(p->direct_declarator);
+        scope_destroy(&p->parameters_scope);
+        parameter_type_list_delete(p->parameter_type_list_opt);
+        free(p);
+    }
+}
+void direct_declarator_delete(struct direct_declarator* owner p)
+{
+    if (p)
+    {
+        declarator_delete(p->declarator);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+        array_declarator_delete(p->array_declarator);
+        function_declarator_delete(p->function_declarator);
+
+        free(p);
+    }
+}
 struct direct_declarator* owner direct_declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* p_specifier_qualifier_list,
     struct declaration_specifiers* p_declaration_specifiers,
@@ -3968,7 +4142,18 @@ struct direct_declarator* owner direct_declarator(struct parser_ctx* ctx,
     return p_direct_declarator;
 }
 
+void array_declarator_delete(struct array_declarator* owner p)
+{
+    if (p)
+    {
+        expression_delete(p->assignment_expression);
+        direct_declarator_delete(p->direct_declarator);
+        expression_delete(p->expression);
+        type_qualifier_list_delete(p->type_qualifier_list_opt);
 
+        free(p);
+    }
+}
 unsigned long long array_declarator_get_size(struct array_declarator* p_array_declarator)
 {
     if (p_array_declarator->assignment_expression)
@@ -4096,7 +4281,26 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
     return p_function_declarator;
 }
 
+void pointer_delete(struct pointer* owner p)
+{
+    if (p)
+    {
+        attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
+        type_qualifier_list_delete(p->type_qualifier_list_opt);
 
+        struct pointer* owner item = p->pointer;
+        while (item)
+        {
+            struct pointer* owner next = item->pointer;
+            attribute_specifier_sequence_delete(item->attribute_specifier_sequence_opt);
+            type_qualifier_list_delete(item->type_qualifier_list_opt);
+            free(item);
+            item = next;
+        }
+
+        free(p);
+    }
+}
 struct pointer* owner pointer_opt(struct parser_ctx* ctx)
 {
     struct pointer* owner p = NULL;
@@ -4137,6 +4341,22 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
 }
 
 
+void type_qualifier_list_delete(struct type_qualifier_list* owner p)
+{
+    if (p)
+    {
+        struct type_qualifier* owner item = p->head;
+        while (item)
+        {
+            struct type_qualifier* owner next = item->next;
+            item->next = NULL;
+            free(item);
+            item = next;
+        }
+        free(p);
+    }
+}
+
 struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
 {
     //type_qualifier
@@ -4175,6 +4395,14 @@ struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
     return p_type_qualifier_list;
 }
 
+void parameter_type_list_delete(struct parameter_type_list* owner p)
+{
+    if (p)
+    {
+        parameter_list_delete(p->parameter_list);
+        free(p);
+    }
+}
 
 struct parameter_type_list* owner parameter_type_list(struct parser_ctx* ctx)
 {
@@ -4203,6 +4431,21 @@ struct parameter_type_list* owner parameter_type_list(struct parser_ctx* ctx)
 }
 
 
+void parameter_list_delete(struct parameter_list* owner  p)
+{
+    if (p)
+    {
+        struct parameter_declaration* owner item = p->head;
+        while (item)
+        {
+            struct parameter_declaration* owner next = item->next;
+            item->next = NULL;
+            parameter_declaration_delete(item);
+            item = next;
+        }
+        free(p);
+    }
+}
 struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
 {
     /*
@@ -4246,6 +4489,18 @@ struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
 }
 
 
+void parameter_declaration_delete(struct parameter_declaration* owner p)
+{
+    if (p)
+    {
+        attribute_specifier_sequence_delete(p->attribute_specifier_sequence_opt);
+        declaration_specifiers_delete(p->declaration_specifiers);
+        declarator_delete(p->declarator);
+
+        assert(p->next == NULL);
+        free(p);
+    }
+}
 struct parameter_declaration* owner parameter_declaration(struct parser_ctx* ctx)
 {
     struct parameter_declaration* owner p_parameter_declaration = calloc(1, sizeof(struct parameter_declaration));
@@ -4439,6 +4694,16 @@ void print_type_name(struct osstream* ss, struct type_name* p)
     print_declarator(ss, p->declarator, true);
 }
 
+void type_name_delete(struct type_name* owner p)
+{
+    if (p)
+    {
+        specifier_qualifier_list_delete(p->specifier_qualifier_list);
+        type_destroy(&p->type);
+        declarator_delete(p->declarator);
+        free(p);
+    }
+}
 struct type_name* owner type_name(struct parser_ctx* ctx)
 {
     struct type_name* owner p_type_name = calloc(1, sizeof(struct type_name));
@@ -4465,6 +4730,14 @@ struct type_name* owner type_name(struct parser_ctx* ctx)
     return p_type_name;
 }
 
+void braced_initializer_delete(struct braced_initializer* owner p)
+{
+    if (p)
+    {
+        initializer_list_delete(p->initializer_list);
+        free(p);
+    }
+}
 struct braced_initializer* owner braced_initializer(struct parser_ctx* ctx)
 {
     /*
@@ -4489,7 +4762,11 @@ void initializer_delete(struct initializer* owner p)
 {
     if (p)
     {
-        //p->designation
+        assert(p->next == NULL);
+        expression_delete(p->assignment_expression);
+        braced_initializer_delete(p->braced_initializer);
+        designation_delete(p->designation);
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
         free(p);
     }
 }
@@ -4521,6 +4798,21 @@ struct initializer* owner initializer(struct parser_ctx* ctx)
 }
 
 
+void initializer_list_delete(struct initializer_list* owner p)
+{
+    if (p)
+    {
+        struct initializer* owner item = p->head;
+        while (item)
+        {
+            struct initializer* owner next = item->next;
+            item->next = NULL;
+            initializer_delete(item);
+            item = next;
+        }
+        free(p);
+    }
+}
 struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
 {
     /*
@@ -4553,13 +4845,16 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
         if (ctx->current->type == '}')
             break; //follow
 
+        struct designation* owner p_designation2 = NULL;
         if (first_of_designator(ctx))
         {
-            p_initializer->designation = designation(ctx);
+            p_designation2 = designation(ctx);
         }
         struct initializer* owner p_initializer2 = initializer(ctx);
 
-        p_initializer2->designation = p_designation;
+        assert(p_initializer2->designation == NULL);
+        p_initializer2->designation = p_designation2;
+
         LIST_ADD(p_initializer_list, p_initializer2);
         p_initializer_list->size++;
     }
@@ -4568,6 +4863,14 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
 }
 
 
+void designation_delete(struct designation* owner p)
+{
+    if (p)
+    {
+        designator_list_delete(p->designator_list);
+        free(p);
+    }
+}
 struct designation* owner designation(struct parser_ctx* ctx)
 {
     //designator_list '='
@@ -4577,6 +4880,21 @@ struct designation* owner designation(struct parser_ctx* ctx)
     return p_designation;
 }
 
+void designator_list_delete(struct designator_list* owner p)
+{
+    if (p)
+    {
+        struct designator* owner item = p->head;
+        while (item)
+        {
+            struct designator* owner next = item->next;
+            item->next = NULL;
+            designator_delete(item);
+            item = next;
+        }
+        free(p);
+    }
+}
 struct designator_list* owner designator_list(struct parser_ctx* ctx)
 {
     //designator
@@ -4609,6 +4927,16 @@ struct designator_list* owner designator_list(struct parser_ctx* ctx)
 }
 
 
+void designator_delete(struct designator* owner p)
+{
+    if (p)
+    {
+        assert(p->next == NULL);
+        expression_delete(p->constant_expression_opt);
+        free(p);
+    }
+
+}
 struct designator* owner designator(struct parser_ctx* ctx)
 {
     //'[' constant_expression ']'
@@ -4656,8 +4984,7 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         p_static_assert_declaration->first_token = ctx->current;
         struct token* position = ctx->current;
 
-
-        parser_match(ctx); // TK_KEYWORD__STATIC_ASSERT || TK_KEYWORD_STATIC_DEBUG || TK_KEYWORD_STATIC_STATE
+        parser_match(ctx);
 
         parser_match_tk(ctx, '(');
 
@@ -4705,6 +5032,14 @@ void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* ow
 {
     if (p)
     {
+        struct attribute_specifier* owner item = p->head;
+        while (item)
+        {
+            struct attribute_specifier* owner next = item->next;
+            item->next = NULL;
+            attribute_specifier_delete(item);
+            item = next;
+        }
         free(p);
     }
 }
@@ -6240,13 +6575,6 @@ void c_visit(struct ast* ast)
 
 }
 
-void ast_wasm_visit(struct ast* ast)
-{
-    struct wasm_visit_ctx ctx = {0};
-    ctx.ast = *ast;
-    wasm_visit(&ctx);
-}
-
 int compile_one_file(const char* file_name,
     struct options* options,
     const char* out_file_name,
@@ -6372,7 +6700,7 @@ int compile_one_file(const char* file_name,
                     s = s2;
                 }
 
-                FILE* out = fopen(out_file_name, "w");
+                FILE* owner out = fopen(out_file_name, "w");
                 if (out)
                 {
                     if (s)
@@ -8934,7 +9262,7 @@ void state_inner_objects_preserved()
 //TODO make test with
 // f(void (*pf)(void* owner p)){}
 // 
-void owner_parameter()
+void owner_parameter_must_be_ignored()
 {
     const char* source = "void f(void (*pf)(void* owner p)){}";
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
@@ -9013,6 +9341,94 @@ void pointer_argument()
     struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 2);
+}
+
+void do_while()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "int main() {\n"
+        "   void * owner p = malloc(1);\n"
+        "   do{\n"
+        "      free(p);\n"
+        "   }\n"
+        "   while(0);   \n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+void switch_cases_state()
+{
+    const char* source
+        =
+        "void* owner malloc(unsigned size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "void* owner f(int i)\n"
+        "{\n"
+        "    void* owner p = malloc(1);\n"
+        "    switch (i)\n"
+        "    {\n"
+        "        case 1:\n"
+        "            break;\n"
+        "        case 2:\n"
+        "            break;\n"
+        "    }\n"
+        "\n"
+        "    return p;\n"
+        "}\n"
+        "";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+void switch_break()
+{
+    const char* source
+        =
+        "void * owner malloc(int i);\n"
+        "\n"
+        "void* owner f(int i)\n"
+        "{\n"
+        "    void* owner p = malloc(1);        \n"
+        "    switch (i) {\n"
+        "        case 1: break;\n"
+        "    }\n"
+        "    return p;\n"
+        "}";
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
+}
+
+void passing_non_owner()
+{
+    const char* source
+        =
+        "struct X { \n"
+        "    char * owner p;\n"
+        "};\n"
+        "void x_destroy(struct X * obj_owner p);\n"
+        "void f(struct X* x)\n"
+        "{\n"
+        "    x_destroy(x);        \n"
+        "}\n"
+        "";
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 1);
 }
 
 // 

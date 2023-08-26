@@ -13,7 +13,7 @@
 struct flow_visit_ctx
 {
     struct parser_ctx *ctx;
-    struct ast ast;    
+    view struct ast ast;    
     struct flow_defer_scope* owner tail_block;
     struct type* view p_return_type;
     bool has_jumps;    
@@ -21,5 +21,6 @@ struct flow_visit_ctx
 };
 
 
+void flow_visit_ctx_destroy(struct flow_visit_ctx* obj_owner p);
 
 void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_declaration);

@@ -1154,56 +1154,39 @@ static_assert( _is_function(main) && (typeof(main())) == (int) );
 
 `;
 sample["Ownership (experimental)"]=[];
-sample["Ownership (experimental)"]["ownership I"] =
-`
-/*  
-  See also: http://thradams.com/cake/ownership.html
-*/
 
-#define _OWNERSHIP_ 
-#include <stdlib.h>
+sample["Ownership (experimental)"]["owner qualifier"] =
+    `
+void* owner malloc(unsigned size);
+void free(void* owner ptr);
 
 int main() {
    void * owner p = malloc(1);
    //free(p);  /*FIX ME*/
 }
-
 `;
 
-sample["Ownership (experimental)"]["ownership II"] =
+sample["Ownership (experimental)"]["static_state/static_debug"] =
 `
-/* 
-  See also: http://thradams.com/cake/ownership.html
-*/
-
-#define _OWNERSHIP_ 
-#include <stdlib.h>
-
-struct X {
-  int i;
-};
-
- struct X * owner f() {
-    struct X * owner p = malloc(1);    
-    return p;
-}
+void* owner malloc(unsigned size);
+void free(void* owner ptr);
 
 int main() {
-   struct X * owner p = f();
-   //free(p);  /*FIX ME*/
+   void * owner p = malloc(1);
+   if (p)
+   {
+     static_state(p, "not-null"); 
+     free(p);
+     static_state(p, "moved"); 
+   }
+   static_state(p, "null or moved"); 
+   static_debug(p);
 }
-
-
 
 `;
 
-sample["Ownership (experimental)"]["ownership III"] =
+sample["Ownership (experimental)"]["implementing a destructor"] =
 `
-
-/*  
-  See also: http://thradams.com/cake/ownership.html
-*/
-
 #define _OWNERSHIP_ 
 #include <stdlib.h>
 #include <string.h>
@@ -1214,47 +1197,21 @@ struct X {
 
 void x_destroy(struct X * obj_owner p) 
 {
-  //free(p->name); /*FIX ME*/
+  free(p->name);
 }
 
 int main() {
    struct X x = {0};
    x.name = strdup("a");
-   //x_destroy(&x); /*FIX ME*/
-}
-
-`;
-
-sample["Ownership (experimental)"]["ownership IV"] =
-`
-/*  
-  See also: http://thradams.com/cake/ownership.html
-*/
-
-#define _OWNERSHIP_ 
-#include <stdlib.h>
-
-struct X
-{
-    int i;
-    //char * owner name; /*TRY*/
-};
-
-int main() 
-{
-    struct X * owner p = malloc(sizeof (struct X));
-    free(p);
+   x_destroy(&x);
 }
 `;
 
-sample["Ownership (experimental)"]["ownership V"] =
+
+sample["Ownership (experimental)"]["implementing delete"] =
 `
-
-/*  
-  See also: http://thradams.com/cake/ownership.html
-*/
-
 #define _OWNERSHIP_ 
+
 #include <stdlib.h>
 
 struct X {
@@ -1278,46 +1235,11 @@ int main() {
    x_delete(p);
 }
 
-
-`;
-
-sample["Ownership (experimental)"]["ownership VI"] =
-`
-
-/*  
-  See also: http://thradams.com/cake/ownership.html
-*/
-
-#define _OWNERSHIP_ 
-#include <stdlib.h>
-#include <string.h>
-
-struct X {    
-    char * owner name;
-};
-
-/*
-  FIX ME, changing 'void * owner' to 'struct X * owner'  
-*/
-void * owner f1(){
-  struct X * owner p = malloc(sizeof (struct X));
-  p->name = strdup("hi");
-  return p;
-}
-
-
 `;
 
 
-
-sample["Ownership (experimental)"]["ownership VII"] =
+sample["Ownership (experimental)"]["implementing swap"] =
 `
-/*  
-  This sample shows how view can be used to implement swap.
-  See also: http://thradams.com/cake/ownership.html
-*/
-
-void free(void * owner p);
 
 struct person {
   char * owner name;
@@ -1326,38 +1248,33 @@ struct person {
 void person_swap(view struct person * a,  
                  view struct person * b) 
 {
+   /*
+     struct is owner qualified by default, because it has at least
+     one owner member.
+     The view qualifiers override this struct to be "view" only
+   */
    view struct person temp = *a;
    *a = *b;
    *b = temp;
 }
 
-void person_destroy(struct person * obj_owner p) {
-  free(p->name);
+int main()
+{  
 }
 
-int main()
-{
-   struct person p1 = {};
-   struct person p2 = {};
-   
-   person_swap(&p1, &p2);
-   person_destroy(&p1);
-   person_destroy(&p2);
-}
 `;
 
-sample["Ownership (experimental)"]["ownership VIII"] =
+sample["Ownership (experimental)"]["fix-me 1"] =
 `
-
-/*  
-  See also: http://thradams.com/cake/ownership.html
+/*
+   Fix this code. First think you have to do is define _OWNERSHIP_ 
 */
 
-#define _OWNERSHIP_ 
+//#define _OWNERSHIP_ 
+
 #include <stdlib.h>
 #include <string.h>
 
-/*TRY FIX THIS CODE*/
 
 struct X {
   char * text;
@@ -1369,41 +1286,9 @@ int main() {
    x.text = strdup("a");
 }
 
-
 `;
 
-sample["Ownership (experimental)"]["ownership IX"] =
-`
-
-#define _OWNERSHIP_ 
-#include <stdlib.h>
-#include <string.h>
-
-void f( void * owner p);
-
-struct X {
-   char * owner name;
-}
-int main() {   
-   struct X * owner p = malloc(sizeof(struct X));
-   if (p) {
-     p->name = strdup("a");
-
-     /*
-        This sample shows that when we cast to void* we lose information
-        and we may have a resource leak.
-     */
-     f(p);
-     
-     /*
-        If the programer knows the code is safe the error can be removed with a cast.        
-     */
-     //f((void * owner) p); /*TRY*/
-   }
-}
-`;
-
-sample["Ownership (experimental)"]["linked list"] =
+sample["Ownership (experimental)"]["Linked list"] =
 `
 #define _OWNERSHIP_ 
 #include <stdlib.h>
@@ -1452,3 +1337,171 @@ int main()
   list_destroy(&list);
 }
 `;
+
+
+sample["Ownership (experimental)"]["static_set/realloc"] =
+`
+
+void* owner realloc(void* ptr, unsigned size);
+void* owner malloc(unsigned size);
+void free(void* owner ptr);
+
+void f()
+{
+    void * owner p = malloc(1);
+    void * owner p2 = realloc(p, 2);
+    if (p2 != 0)
+    {
+       /*
+          if p2 != 0 it  means p was moved.
+       */
+       static_set(p, "moved");
+       p = p2;
+    }    
+    free(p);
+}
+
+
+`;
+
+sample["flow-analysis"] = [];
+sample["flow-analysis"]["if-else 1"] =
+`
+
+void* owner malloc(unsigned size);
+void free(void* owner ptr);
+
+void f1()
+{
+    void * owner p = malloc(1);
+    if (p) {
+      static_state(p, "not-null");
+    }
+
+    static_state(p, "maybe-null");
+    free(p);
+}
+
+void f2(int condition)
+{
+    void * owner p = malloc(1);
+    if (condition) {
+      static_state(p, "maybe-null");
+    }
+
+    static_state(p, "maybe-null");
+    free(p);
+}
+
+void f3(int condition)
+{
+    void * owner p = malloc(1);
+    
+    if (condition) {
+       free(p);
+    }
+    else {
+       free(p);
+    }
+
+    static_state(p, "moved");    
+}
+
+void f3(int condition)
+{
+    void * owner p = malloc(1);
+    
+    if (condition) {
+       
+    }
+    else {
+       free(p);
+    }
+
+    static_state(p, "moved or maybe_null");    
+}
+
+
+void f4(int condition)
+{
+    void * owner p = malloc(1);
+    
+    if (condition) {
+       free(p);
+    }
+    else {
+       
+    }
+
+    static_state(p, "moved or maybe_null");    
+}
+
+void f5(int condition)
+{
+    void * owner p = malloc(1);
+    
+    if (p) {
+       free(p);
+       return;
+    }
+    
+    static_state(p, "null");    
+}
+
+`;
+
+sample["flow-analysis"]["while"] =
+`    
+void * f();
+void * next(void* p);
+
+void f1()
+{
+    void * p = f();
+    static_state(p, "maybe-null");
+
+    while (p) {
+      p = next(p);
+    }
+    static_state(p, "null");
+}
+`;
+
+
+sample["flow-analysis"]["switch"] =
+`    
+    
+void * f();
+
+
+void f1(int condition)
+{
+    void * p = f();    
+    switch (condition)
+    {
+        case 1:
+            p = 0;
+        break;
+    }
+    static_state(p, "maybe-null");
+}
+
+
+void f2(int condition)
+{
+    void * p = f();    
+    switch (condition)
+    {
+        case 1:
+          p = 0;
+        break;
+      default:
+         p = 0;
+        break;
+    }
+    static_state(p, "null");
+}
+
+`;
+
+

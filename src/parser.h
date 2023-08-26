@@ -269,6 +269,8 @@ struct typeof_specifier_argument
     struct type_name* owner type_name;
 };
 
+void typeof_specifier_argument_delete(struct typeof_specifier_argument* owner p);
+
 struct typeof_specifier
 {
     /*
@@ -280,6 +282,7 @@ struct typeof_specifier
     struct typeof_specifier_argument*  owner typeof_specifier_argument;
     struct type type;    
 };
+void typeof_specifier_delete(struct typeof_specifier * owner p);
 
 struct type_specifier
 {
@@ -316,6 +319,7 @@ struct type_specifier
 };
 
 struct type_specifier*  owner type_specifier(struct parser_ctx* ctx);
+void type_specifier_delete(struct type_specifier*  owner p);
 
 struct init_declarator_list
 {
@@ -372,6 +376,7 @@ struct atomic_type_specifier
 };
 
 struct atomic_type_specifier*  owner atomic_type_specifier(struct parser_ctx* ctx);
+void atomic_type_specifier_delete(struct atomic_type_specifier*  owner p);
 
 struct enumerator_list
 {
@@ -388,7 +393,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx,
     struct enum_specifier*  p_enum_specifier
     );
 
-void enumerator_list_destroy(struct enum_specifier*  obj_owner p_enum_specifier);
+void enumerator_list_destroy(struct enumerator_list*  obj_owner p_enum_specifier);
     
 struct enum_specifier
 {
@@ -537,13 +542,14 @@ struct object_state_stack
     int size;
     int capacity;
 };
+void object_state_stack_destroy(struct object_state_stack * obj_owner p);
 
 struct objects {
     struct object* owner data;
     int size;
     int capacity;
 };
-
+void objects_destroy(struct objects* obj_owner p);
 /*
   Used in flow analysis to represent the object instance
 */
@@ -562,6 +568,8 @@ struct object
   struct objects members;      
   struct object_state_stack object_state_stack;
 };
+void object_destroy(struct object* obj_owner p);
+void object_delete(struct object* owner p);
 
 struct declarator
 {
@@ -623,7 +631,7 @@ struct array_declarator
     struct token* token;
     struct token* static_token_opt;
 };
-
+void array_declarator_delete(struct array_declarator* owner p);
 /*
   Return a value > 0 if it has constant size
 */
@@ -639,6 +647,7 @@ struct function_declarator
     struct scope parameters_scope; //usado para escopo parametros
     struct parameter_type_list* owner parameter_type_list_opt;
 };
+void function_declarator_delete(struct function_declarator * owner p);
 
 struct direct_declarator
 {
@@ -655,6 +664,8 @@ struct direct_declarator
     struct function_declarator* owner function_declarator;
     struct attribute_specifier_sequence * owner p_attribute_specifier_sequence_opt;
 };
+
+void direct_declarator_delete(struct direct_declarator* owner p);
 
 struct direct_declarator*  owner  direct_declarator(struct parser_ctx* ctx,
     struct specifier_qualifier_list* specifier_qualifier_list,
@@ -677,6 +688,7 @@ struct parameter_type_list
 };
 
 struct parameter_type_list*  owner parameter_type_list(struct parser_ctx* ctx);
+void parameter_type_list_delete(struct parameter_type_list*  owner p);
 
 struct pointer
 {
@@ -692,7 +704,7 @@ struct pointer
 };
 
 struct pointer*  owner pointer_opt(struct parser_ctx* ctx);
-
+void pointer_delete(struct pointer*  owner p);
 struct parameter_list
 {
     /*
@@ -704,6 +716,7 @@ struct parameter_list
     struct parameter_declaration* tail;
 };
 struct parameter_list*  owner  parameter_list(struct parser_ctx* ctx);
+void parameter_list_delete(struct parameter_list*  owner  p);
 
 struct parameter_declaration
 {
@@ -720,6 +733,8 @@ struct parameter_declaration
     struct parameter_declaration* owner next;
 };
 struct parameter_declaration*  owner parameter_declaration(struct parser_ctx* ctx);
+void parameter_declaration_delete(struct parameter_declaration*  owner p);
+
 
 struct type_name
 {
@@ -736,6 +751,7 @@ struct type_name
 };
 
 struct type_name*  owner type_name(struct parser_ctx* ctx);
+void type_name_delete(struct type_name*  owner p);
 void print_type_name(struct osstream* ss, struct type_name* p);
 
 struct argument_expression
@@ -756,6 +772,7 @@ struct braced_initializer
     struct initializer_list* owner initializer_list;
 };
 struct braced_initializer*  owner braced_initializer(struct parser_ctx* ctx);
+void braced_initializer_delete(struct braced_initializer*  owner p);
 
 struct type_specifier_qualifier
 {
@@ -804,6 +821,8 @@ struct specifier_qualifier_list
 };
 
 struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ctx* ctx);
+void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner p);
+
 void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list);
 
 
@@ -819,6 +838,7 @@ struct alignment_specifier
     struct token* token;
 };
 struct alignment_specifier*  owner alignment_specifier(struct parser_ctx* ctx);
+void alignment_specifier_delete(struct alignment_specifier*  owner p);
 
 
 struct type_qualifier
@@ -832,6 +852,11 @@ struct type_qualifier
     */
     enum type_qualifier_flags flags;
     struct token* token;
+
+    /*
+      Next is used when inside struct type_qualifier_list
+      Not used when inside struct type_specifier_qualifier    
+    */
     struct type_qualifier* owner next;
 };
 
@@ -854,6 +879,7 @@ struct member_declaration
 };
 
 struct member_declaration*  owner member_declaration(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+void member_declaration_delete(struct member_declaration*  owner p);
 
 struct member_declarator
 {
@@ -867,6 +893,7 @@ struct member_declarator
     struct expression* owner constant_expression;
     struct member_declarator* owner next;
 };
+void member_declarator_delete(struct member_declarator * owner p);
 
 struct member_declarator_list
 {
@@ -884,6 +911,7 @@ struct member_declarator_list*  owner member_declarator_list(struct parser_ctx* 
     struct struct_or_union_specifier* ,
     struct specifier_qualifier_list* specifier_qualifier_list
     );
+void member_declarator_list_delete(struct member_declarator_list*  owner p);
 
 struct block_item_list
 {
@@ -1062,7 +1090,7 @@ struct designator
     struct designator* owner next;
 };
 struct designator*  owner designator(struct parser_ctx* ctx);
-
+void designator_delete(struct designator*  owner p);
 struct initializer_list
 {
     /*
@@ -1076,6 +1104,7 @@ struct initializer_list
     int size;
 };
 struct initializer_list*  owner initializer_list(struct parser_ctx* ctx);
+void initializer_list_delete(struct initializer_list*  owner p);
 
 struct primary_block
 {
@@ -1164,6 +1193,7 @@ struct designator_list
 };
 
 struct designator_list* owner designator_list(struct parser_ctx* ctx);
+void designator_list_delete(struct designator_list* owner p);
 
 struct designation
 {
@@ -1175,7 +1205,7 @@ struct designation
     struct token* token;
 };
 struct designation* owner designation(struct parser_ctx* ctx);
-
+void designation_delete(struct designation* owner p);
 
 struct type_qualifier_list
 {
@@ -1190,6 +1220,7 @@ struct type_qualifier_list
 };
 
 struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx);
+void type_qualifier_list_delete(struct type_qualifier_list* owner p);
 
 struct attribute_token
 {
@@ -1242,6 +1273,7 @@ struct enumerator
 };
 
 struct enumerator* owner enumerator(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier, long long *p_enumerator_value);
+void enumerator_delete(struct enumerator* owner p);
 
 struct attribute_argument_clause
 {

@@ -939,9 +939,6 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                 const char* funcname =
                     ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
 
-                p_expression_node = calloc(1, sizeof * p_expression_node);
-                if (p_expression_node == NULL) throw;
-
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
                 p_expression_node->first_token = ctx->current;
                 p_expression_node->last_token = ctx->current;
@@ -1281,6 +1278,8 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         ctx,
                         ctx->current,
                         "called object is not attr function or function pointer");
+
+                    expression_delete(p_expression_node_new);
                     throw;
                 }
 
@@ -1943,7 +1942,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_ASSERT)
         {
-             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
+            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
 
             new_expression->expression_type = UNARY_EXPRESSION_ASSERT;
             new_expression->first_token = ctx->current;
@@ -2036,6 +2035,25 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
             {
                 p_expression_node->left = cast_expression(ctx);
                 if (p_expression_node->left == NULL) throw;
+
+
+                if (p_expression_node->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN &&
+                    p_expression_node->left->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+                {
+                    if (!type_is_owner(&p_expression_node->type))
+                    {
+                        if (type_is_pointer(&p_expression_node->left->type))
+                        {
+                            //(int*) malloc(1)
+                            compiler_set_error_with_token(C_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner pointer");
+                        }
+                        else
+                        {
+                            compiler_set_error_with_token(C_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner");
+                        }
+                    }
+                }
+
                 p_expression_node->constant_value = p_expression_node->left->constant_value;
                 p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
                 if (type_is_floating_point(&p_expression_node->type))
@@ -2056,6 +2074,10 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
                             constant_value_cast(&p_expression_node->constant_value, TYPE_LONG_LONG);
                     }
                 }
+
+                p_expression_node->type.storage_class_specifier_flags =
+                    p_expression_node->left->type.storage_class_specifier_flags;
+
             }
             else
             {
@@ -3020,6 +3042,11 @@ void expression_delete(struct expression* owner p)
 {
     if (p)
     {
+
+        expression_delete(p->condition_expr);
+        compound_statement_delete(p->compound_statement);
+        type_name_delete(p->type_name);
+
         //        struct type_name* owner type_name; 
           //  struct type_name* owner type_name2; /*is_same*/
             //struct braced_initializer* owner braced_initializer;

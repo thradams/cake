@@ -52,6 +52,8 @@ OPTIONS
 
   -sarif                Generates sarif files
 
+  -msvc-output          Ouput is compatible with visual studio
+
 ```
 
 One directory called **out** is created keeping the same directory structure 

@@ -409,7 +409,7 @@ enum type_category type_get_category(const struct type* p_type)
     return p_type->category;
 }
 
-void type_destroy( struct type* obj_owner p_type)
+void type_destroy(struct type* obj_owner p_type)
 {
     //TODO
 }
@@ -485,6 +485,13 @@ bool type_is_array(const struct type* p_type)
 bool type_is_lvalue(const struct type* p_type)
 {
     return p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_LVALUE;
+}
+
+bool type_is_any_owner(const struct type* p_type)
+{
+    return
+        (p_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER) ||
+        (p_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER);
 }
 
 bool type_is_owner(const struct type* p_type)
@@ -710,7 +717,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
 
 
-       
+
 
 
         if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
@@ -738,11 +745,14 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct type* argument_type = &current_argument->expression->type;
     bool is_null_pointer_constant = false;
 
-    if (type_is_nullptr_t(&current_argument->expression->type) ||
-        (constant_value_is_valid(&current_argument->expression->constant_value) &&
-            constant_value_to_ull(&current_argument->expression->constant_value) == 0))
+    if (current_argument)
     {
-        is_null_pointer_constant = true;
+        if (type_is_nullptr_t(&current_argument->expression->type) ||
+            (constant_value_is_valid(&current_argument->expression->constant_value) &&
+                constant_value_to_ull(&current_argument->expression->constant_value) == 0))
+        {
+            is_null_pointer_constant = true;
+        }
     }
 
     struct type argument_type_converted = {0};
@@ -750,11 +760,11 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
 
     if (type_is_array(paramer_type))
     {
-        parameter_type_converted =  type_lvalue_conversion(paramer_type);
+        parameter_type_converted = type_lvalue_conversion(paramer_type);
     }
     else
     {
-        parameter_type_converted =  type_dup(paramer_type);
+        parameter_type_converted = type_dup(paramer_type);
     }
 
     if (expression_is_subjected_to_lvalue_conversion(current_argument->expression))
@@ -848,11 +858,11 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                     current_argument->expression->first_token,
                     " passing null as array");
             }
-            parameter_type_converted =  type_lvalue_conversion(paramer_type);
+            parameter_type_converted = type_lvalue_conversion(paramer_type);
         }
         else
         {
-            parameter_type_converted =  type_dup(paramer_type);
+            parameter_type_converted = type_dup(paramer_type);
         }
 
         if (expression_is_subjected_to_lvalue_conversion(current_argument->expression))
@@ -910,12 +920,18 @@ continuation:
         if (current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
         {
             //owner = owner
-            
+
         }
         else
         {
-            //owner = non-owner
-            if (!is_null_pointer_constant)
+            if (current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+            {
+                compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    ctx,
+                    current_argument->expression->first_token,
+                    "cannot move obj_owner to owner");
+            }
+            else if (!is_null_pointer_constant)
             {
                 compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
@@ -939,7 +955,7 @@ continuation:
                     "cannot move a temporary owner to non-owner");
             }
 
-            
+
         }
         else
         {
@@ -978,7 +994,7 @@ continuation:
 
 void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
-    struct expression* right,    
+    struct expression* right,
     bool return_assignment)
 {
 
@@ -1171,7 +1187,7 @@ continuation:
                 // * non explicit if param or external
                 // ok if external
 
-                
+
 
             }
             else
@@ -1220,7 +1236,7 @@ continuation:
             if (right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
             {
                 //owner = owner
-                
+
             }
             else
             {
@@ -1250,13 +1266,13 @@ continuation:
                 }
 
 
-                
+
             }
             else
             {
                 //non owner = non owner
 
-                
+
             }
         }
     }
@@ -1327,7 +1343,7 @@ struct type type_remove_pointer(const struct type* p_type)
     assert(r.next);
     if (r.next)
     {
-        r = * r.next;
+        r = *r.next;
     }
 
 
@@ -1341,7 +1357,7 @@ struct type get_array_item_type(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
 
-    r = * r.next;
+    r = *r.next;
     return r;
 }
 
@@ -1485,7 +1501,7 @@ struct type type_dup(const struct type* p_type)
     while (p)
     {
         struct type* owner p_new = calloc(1, sizeof(struct type));
-        *p_new = * p;
+        *p_new = *p;
         p_new->next = NULL;
 
         if (p->name_opt)
@@ -2835,7 +2851,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             if (!type_is_void(list.head->next))
             {
                 list.head->next->attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_FUNC_RESULT;
-            }
+}
         }
     }
 #endif

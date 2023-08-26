@@ -163,6 +163,7 @@ enum token_type
     /*extension compile time functions*/
     TK_KEYWORD_STATIC_DEBUG, /*extension*/
     TK_KEYWORD_STATIC_STATE, /*extension*/
+    TK_KEYWORD_STATIC_SET, /*extension*/
     TK_KEYWORD_ATTR_ADD, /*extension*/
     TK_KEYWORD_ATTR_REMOVE, /*extension*/
     TK_KEYWORD_ATTR_HAS, /*extension*/
@@ -233,8 +234,8 @@ struct token* owner clone_token(struct token* p);
 struct token* token_list_add(struct token_list* list, struct token* owner pnew);
 void token_list_remove(struct token_list* list, struct token* first, struct token* last);
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last);
-void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source);
-void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source);
+void token_list_append_list(struct token_list* dest, struct token_list* source);
+void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 char* owner token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);

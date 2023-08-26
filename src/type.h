@@ -195,6 +195,7 @@ bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_owner(const struct type* p_type);
+bool type_is_any_owner(const struct type* p_type);
 bool type_is_lvalue(const struct type* p_type);
 bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);

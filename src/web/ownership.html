@@ -19,35 +19,29 @@
 <a href="#toc_1">Part I - Type system changes</a>
 <ul>
 <li>
-<a href="#toc_2">New Type qualifiers</a>
+<a href="#toc_2">New qualifiers</a>
 </li>
 <li>
-<a href="#toc_3">Initialization and assignment</a>
-</li>
-<li>
-<a href="#toc_4">Returning variables</a>
-</li>
-<li>
-<a href="#toc_5">Calling functions</a>
+<a href="#toc_3">Semantics</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_6">Part II - Flow analysis</a>
+<a href="#toc_4">Part II - Flow analysis</a>
 <ul>
 <li>
-<a href="#toc_7">malloc/calloc</a>
+<a href="#toc_5">malloc/calloc</a>
 </li>
 <li>
-<a href="#toc_8">Disabling ownership checks</a>
+<a href="#toc_6">Disabling ownership checks</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_9">Grammar</a>
+<a href="#toc_7">Grammar</a>
 </li>
 <li>
-<a href="#toc_10">Checking your source code</a>
+<a href="#toc_8">Checking your source code</a>
 </li>
 </ul>
 </li>
@@ -59,7 +53,7 @@
 <p>The static ownership check is an experimental feature for Cake.
 It consists of two separate implementations. </p>
 
-<p>Part I focuses on introducing the concept of an owner qualifier in the type system. </p>
+<p>Part I focuses on introducing the concept of an owner qualifier in the type system and does not requires flow analysis. </p>
 
 <p>Part II requires flow analysis, ensuring that owned resources are appropriately released when necessary.   </p>
 
@@ -67,24 +61,28 @@ It consists of two separate implementations. </p>
 
 <h2 id="toc_1">Part I - Type system changes</h2>
 
-<h3 id="toc_2">New Type qualifiers</h3>
+<h3 id="toc_2">New qualifiers</h3>
 
 <pre><code class="language-c">type-qualifier:
   ...
-  _Owner or owner
-  _View or view
-  _Bbj_owner  or obj_owner
+  owner
+  view
+  obj_owner
 </code></pre>
 
 <blockquote>
-<p>The exactly name of the new keywords still not defined. It can be something like <code>_Owner</code> or just <code>owner</code>. In any case my suggestion is to have macros that can help transiting from one compiler that  has ownership analysis to another without, just making empty macros. </p>
+<p>The exactly name of the new qualifiers still not defined. It can be something like <code>_Owner</code> or just <code>owner</code>.   In any case, my suggestion is to have macros for each qualifier to to be able to compile the same source code in compilers that don&#39;t support ownership checks. </p>
 </blockquote>
 
 <p>The <strong>owner</strong> qualifier can be used when declaring a variable to indicate that its value represents a reference to a resource that must be released exclusively through that reference.</p>
 
-<p>The <strong>view</strong> qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it. View qualified objects does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.</p>
+<p>The <strong>view</strong> qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it.   </p>
 
-<p>The <strong>owner</strong> qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory. For this reason, when converting a owner pointer to <code>void*</code>, only the ownership of the memory is moved.</p>
+<p>View qualified objects does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.</p>
+
+<p>The <strong>owner</strong> qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory.   </p>
+
+<p>For this reason, when converting a owner pointer to <code>void*</code>, only the ownership of the memory is moved.</p>
 
 <p>For instance,  </p>
 
@@ -97,16 +95,18 @@ It consists of two separate implementations. </p>
 
 <p>Returning a <code>void *</code> may leak <code>p-&gt;name</code> so we need a explicit cast <code>return (void * owner) p</code> if we want to do that.</p>
 
-<p>The <strong>_Obj_owner</strong> qualifier is exclusively applicable to pointers, signifying that the pointer owns the pointed object but not the memory it occupies. It is generally used in destructors.  </p>
+<p>The <strong>obj_owner</strong> qualifier is exclusively applicable to pointers, meaning that the pointer owns the pointed object but not the memory it occupies. It is generally used in destructors.    </p>
 
-<pre><code class="language-c">void x_destroy(implicit struct X * obj_owner p) {  
+<blockquote>
+<p>It was not defined yet if this qualifier makes sense (is useful) in other scenarios other than function parameters.</p>
+</blockquote>
+
+<pre><code class="language-c">void x_destroy(struct X * obj_owner p) {  
   //p is the onwer of struct X but it is not 
   //the owner of the memory X occupies.
 }  
-
 int main() {  
   struct X x = {};
-  ...  
   x_destroy(&amp;x);  
 }
 </code></pre>
@@ -117,12 +117,11 @@ int main() {
 
 <pre><code class="language-c">struct person {
   char * owner name;
-};
+};  
 
 int main(){
-  struct person p1 = {};
-  // same as 
-  // owner struct person p1;
+  struct person p1 = {};  
+  /*p1 is a owner type*/
 }
 </code></pre>
 
@@ -166,215 +165,186 @@ int main()
 <pre><code class="language-c">void destroy_array(int n, struct person a[owner 10]);
 </code></pre>
 
-<p>The most common usage of <strong>owner</strong> will be pointers. However the qualified can be applied for any type. One reason is because we can use other types as references to resources, for instance.</p>
+<p>The most common usage of <strong>owner</strong> will be pointers. However, ownership qualifiers can be applied for any type. One reason is because we can use other types as references to resources, for instance, we can use a integer.</p>
 
 <pre><code class="language-c">owner int handle = make_resource();
 release_resource(handle);
 </code></pre>
 
-<p>But pointers have the additional advantage of having a natural zero semantics.
-What is the empty value for handle for instance?</p>
+<p>Pointers have the additional advantage of having a natural zero semantics.   </p>
+
+<p>What is the empty value for handle for instance?</p>
 
 <p>Obs:
 owner pointer to function should be error.</p>
 
-<h3 id="toc_3">Initialization and assignment</h3>
+<p>The owner and obj_owner qualifiers should not be applicable to function objects.  </p>
 
-<h4>Owner = Owner</h4>
+<h3 id="toc_3">Semantics</h3>
 
-<p>Because we must have only one owner for each resource, in this situation the ownership is always moved.  </p>
+<p>1 - When a owner object is copied to another owner object the ownership is always moved/transfered.</p>
 
-<pre><code class="language-c">T* owner  make_owner();
-T * owner a = make_owner();
+<p>Copy happens when we return values, call functions, initialization and assignment.</p>
+
+<p>Samples:</p>
+
+<pre><code class="language-c">
+T* owner make_owner() {  
+   T* owner  p = ...
+   return p; /*moved*/
+}
+
+T * owner b = make_owner(); /*moved*/
+T * owner a = 0;
+a = b; /*moved*/;  
+
+void f(T * owner a);
+f(a); /*moved*/
 </code></pre>
 
-<p>Temporary owners cannot be assigned to non owners.
-<code>c
-T * a = make_owner();
-</code></p>
+<p>The object that receives the value must not hold any resource. This is natural in initialization and function arguments. </p>
 
-<h4>Owner = Non-owner</h4>
+<p>For assignment it needs to be checked with flow analysis (part II).</p>
 
-<p>This is not allowed. The exception is the initialization/assignment of owner pointers to the null pointer constant. </p>
+<p>2 - A non owner object cannot be copied to a owner object.   </p>
 
-<pre><code class="language-c">T owner * p1 = 0;       //OK
-T owner * p2 = NULL;    //OK
-T owner * p3 = nullptr; //OK
-</code></pre>
+<p>The only exception is the null pointer constant when copied to owner pointers.</p>
 
-<pre><code class="language-c">T owner * p1;
-p1 = 0; //OK
-</code></pre>
-
-<blockquote>
-<p>Design note: This could be extended for non pointers. The problem is we need a extra annotation to define what &quot;empty&quot; means for values other than non pointers. For instance, 0 can be valid index of a owner handle.   </p>
-</blockquote>
-
-<h4>Non-Owner = Owner</h4>
-
-<p>In this situation we always have a view.</p>
-
-<pre><code class="language-c">owner T b;
-T a = b;            //OK
-</code></pre>
-
-<pre><code class="language-c">owner T b;
-T a;
-a = b;            //OK
-</code></pre>
-
-<p>We say &quot;a is a view to b&quot;.</p>
-
-<p>We cannot have a view for a owner objects with the storage duration shorter than the view object.</p>
-
-<pre><code class="language-c">T a = make_owner(); //error a cannot be a view
-</code></pre>
-
-<pre><code class="language-c">T a;
-a = make_owner(); //error a cannot be a view
-</code></pre>
-
-<pre><code class="language-c">T global;
-void f()  
-{    
-  owner T a;
-  global = a; //error global duration is bigger than a
+<pre><code class="language-c">T * owner f() {
+  return 0; //OK
 }
 </code></pre>
 
-<pre><code class="language-c">void f()  
-{  
-   T v;    
-   {
-      owner T a;
-      v = a; //error v duration is bigger than a
-   }
-}
-</code></pre>
+<p>3 - An owner object can be copied to a non-owner object if its lifetime is longer than that of the non-owner object.  </p>
 
-<p>(The last samples are not implemented yet in cake)</p>
-
-<h3 id="toc_4">Returning variables</h3>
-
-<h4>Owner F() return Owner</h4>
-
-<p>When returning local storage variables we don&#39;t use <strong>move</strong>.</p>
-
-<pre><code class="language-c">owner T F() {
-   owner T local;
-   return local; //OK   
-}
-</code></pre>
-
-<pre><code class="language-c">owner T global;
-owner T F() {
-   return global;       //ERROR
-   return move global; //OK   
-}
-</code></pre>
-
-<pre><code class="language-c">owner T F(owner T arg) {
-   return arg;       //ERROR
-   return move arg; //OK   
-}
-</code></pre>
-
-<p>When returning a owner type, the caller cannot discard the result.</p>
-
-<pre><code class="language-c"> F(); //ERROR discarding a owner result   
-</code></pre>
-
-<h4>Owner F() return Non-Owner</h4>
-
-<p>The only possible value is null pointer constant.</p>
-
-<pre><code class="language-c">T * owner F() {
-  return 0;        // OK, or nullptr or (void*)0)
-}
-</code></pre>
-
-<h4>Non-Owner F() return Owner</h4>
-
-<p>We return a view of the object.</p>
-
-<p>Following the general rule that view object duration must be shorter than the owner object, returning a owner local storage variable is an error.</p>
+<p>We can the non-owner object a &quot;view&quot; in this case. </p>
 
 <pre><code class="language-c">T F()
 {
     owner T local;
-    return local; //ERROR    
+    return local; /*error*/
 } 
 </code></pre>
 
-<p>However, we can return non local variables including parameters </p>
-
 <pre><code class="language-c">owner T global;
 T F() {
-   return global;       //OK (view)
+   return global; //OK
 }
 </code></pre>
 
 <pre><code class="language-c">T F(owner T arg) {
-   return arg;         //OK (view)
+   return arg; //OK
 }
 </code></pre>
 
-<h3 id="toc_5">Calling functions</h3>
-
-<p>In general the rules are similar of initializing the parameter with the argument. </p>
-
-<h4>void F(Owner); F(Owner);</h4>
-
-<pre><code class="language-c">  void F(owner T a);
-  owner T a;
-  F(a);      //OK
+<pre><code class="language-c">  void F(T * p);
+  F(make_owner()); //ERROR  
 </code></pre>
 
-<pre><code class="language-c">  void F(owner T a);
-  F(make_owner()); //OK
+<pre><code class="language-c">  T  *p = make_owner(); //ERROR
 </code></pre>
 
-<h4>void F(Owner); F(Non-Owner);</h4>
-
-<p>This is not allowed.<br>
-The exception is the null pointer constant.</p>
-
-<pre><code class="language-c">  F(0); //OK  
+<pre><code class="language-c">  T  *p = 0;  
+  {
+    T * owner p2 = make_owner();  
+    p = p2; //error  
+    free(p2);
+  }
 </code></pre>
 
-<h4>void F(Non-Owner); F(Owner);</h4>
+<p>4 - Temporary owner objects cannot be discarded/ignored  </p>
 
-<p>Following the general rule that view object duration must be shorter than the owner object, we cannot pass owner object return by a function.</p>
-
-<pre><code class="language-c">  F(make_owner()); //ERROR  
+<pre><code class="language-c">  make_owner(); //ERROR  
 </code></pre>
 
-<p>But we can pass variables, and the function parameter is a view of the argument.  </p>
-
-<pre><code class="language-c">  owner T a; 
-  F(a); //OK (view)
+<pre><code class="language-c">  void f(T * owner ) /*ERROR no name*/  
+  {
+  }  
 </code></pre>
 
-<h2 id="toc_6">Part II - Flow analysis</h2>
+<h2 id="toc_4">Part II - Flow analysis</h2>
 
-<p>The objective of flow analysis is to ensure that <strong>when an owner object goes out of scope or before assignment it does not owns any resources</strong>.</p>
+<p>The objective of flow analysis is to ensure that when an owning object goes out of scope or before its memory is overridden, it has released all of its resources.</p>
 
-<p>We can print the object state as seen by flow analysis using <strong>static_debug</strong>. We also can assert some specific state using <strong>static_state</strong>.</p>
+<p>Sample:  </p>
 
-<p>Sample:</p>
-
-<pre><code class="language-c">int main()
-{
-  int * i;  
-  static_state(p, &quot;uninitialized&quot;);   
-
-  void * owner p = 0;  
-  static_state(p, &quot;null&quot;);  
-  static_debug(p);
-}
+<pre><code class="language-c">  FILE * owner f = fopen(&quot;file&quot;, &quot;r&quot;);  
+  if (f){  
+      fclose(f);
+  }
 </code></pre>
 
-<h3 id="toc_7">malloc/calloc</h3>
+<p>Flow analysis must know that when f goes of of scope it does not owns any resource. </p>
+
+<blockquote>
+<p>Note: In cake, we can print the object state   as seen by flow analysis using <strong>static_debug(expression)</strong>.
+We also can assert some specific state using <strong>static_state(expression, &quot;state&quot;)</strong>.</p>
+</blockquote>
+
+<p>To track ownership fours states are used &quot;uninitialized&quot;, &quot;moved&quot;, &quot;null&quot; and &quot;not null&quot;.  </p>
+
+<pre><code class="language-c">T * p;  
+/* p is uninitialized*/  
+</code></pre>
+
+<p>Pointers can have the state &quot;null&quot; or &quot;not-null&quot;.  The combination of &quot;null or not-null&quot; is also called &quot;maybe-null&quot;.  </p>
+
+<pre><code class="language-c">T * owner p = 0;  
+/* p is null*/  
+
+T * owner p2 = malloc(sizeof(T));  
+/* p2 is maybe-null*/
+</code></pre>
+
+<p>When one owner object is copied to another the state of the source object is &quot;moved&quot;.  The state of the destination object is the same of the previous state of the source object.</p>
+
+<pre><code class="language-c">T * owner p = 0;  
+T * owner p2 = malloc(sizeof(T));  
+  
+/*p1 is null*/  
+/*p2 is maybe-null*/
+  
+p = p2;  
+
+/*p2 is moved*/  
+/*p1 is maybe-null*/
+
+</code></pre>
+
+<p>The exception is when we move owner objects into functions, then the state is &quot;uninitialized&quot;. This prevents use after free or concurrency problems.</p>
+
+<pre><code class="language-c">  T * owner p = malloc(sizeof(T));  
+  free(p);
+  /* p is uninitialized*/
+</code></pre>
+
+<p>The object state is a composition (set) of all possible states.  </p>
+
+<p>Sample:  </p>
+
+<pre><code class="language-c">  FILE * owner f = 0;  
+  if (condition){    
+      f = fopen(&quot;file&quot;, &quot;r&quot;);
+      fclose(f);
+  } /*f is &quot;null&quot; or &quot;moved&quot; */
+</code></pre>
+
+<p>When an owning pointer goes out of scope and before its memory is overridden it cannot have &quot;not-null&quot; in its set state.   </p>
+
+<p>All others possibilities are permitted. For instance, the state can be &quot;null or uninitialized&quot; or &quot;null or moved&quot;.</p>
+
+<p>When an owning object (non pointer) goes out of scope and before its memory is overridden it must be on &quot;uninitialized&quot; or &quot;moved&quot; or 
+&quot;uninitialized or moved&quot; state otherwise we have a leak.</p>
+
+<pre><code class="language-c">owner int handle = make_resource();
+release_resource(handle);
+</code></pre>
+
+<p>We don&#39;t have semantics information to know for instance if handle 0 is valid or not.</p>
+
+<p>Each member of aggregate objects is checked individually. </p>
+
+<h3 id="toc_5">malloc/calloc</h3>
 
 <p>A common initialization is.</p>
 
@@ -390,7 +360,7 @@ int main() {
 
 <p>We must track that object <code>p-&gt;name</code> does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known.  For this particular case the semantics of malloc/calloc will be built-in; So the static analyzer will know malloc returns a uninitialized memory and calloc return a zeroed memory.</p>
 
-<h3 id="toc_8">Disabling ownership checks</h3>
+<h3 id="toc_6">Disabling ownership checks</h3>
 
 <p>Some functions can have a intricate logic of pointers and instead of trying to adapt the logic we know is correct, we can just annotate &quot;unchecked&quot; at function definition.  </p>
 
@@ -398,21 +368,70 @@ int main() {
 }
 </code></pre>
 
+<blockquote>
 <p>This is also expected to be used with a macro, so compiler without ownership checks will just ignore.</p>
+</blockquote>
 
-<p>In some case, we need to disable just some parts of the code and not the entire function.</p>
+<p>assert can be used to override the static analysis state.</p>
 
-<pre><code class="language-c">void token_delete(implicit struct token* owner p)
+<pre><code class="language-c">/* linked list sample */
+
+struct node {
+ struct node* owner next;
+};
+
+struct list {
+  struct node * owner head;
+  struct node * tail;
+};
+
+void node_delete(struct node* owner p) {
+  if (p) {  
+     /*  
+       flow analysis will assume   
+       p-&gt;next is null and safe to be   
+       ignored  
+     */
+     assert(p-&gt;next == NULL);
+     free(p);
+  }
+}
+
+void list_destroy(struct list* obj_owner list)
 {
-    if (p) {
-        [[already_released]] p-&gt;next;
-        free(p-&gt;lexeme);
-        free(p); //warning next not deleted
-    }
+  struct node * owner p = list-&gt;head;
+  while (p) {
+      struct node *  owner next = p-&gt;next;
+      p-&gt;next = NULL;
+      node_delete(p);
+      p = next;
+  }
 }
 </code></pre>
 
-<h2 id="toc_9">Grammar</h2>
+<p>list_destroy can be implemented as follow:</p>
+
+<pre><code class="language-c">void list_destroy(struct list* obj_owner list)
+{
+  struct node * owner p = list-&gt;head;
+  while (p) {
+      struct node *  owner next = p-&gt;next;
+      free(p);
+      p = next;
+  }
+}
+</code></pre>
+
+<p>We don&#39;t need assert here because compiler knows &quot;p-&gt;next&quot; has been moved. We don&#39;t have a way do override the static analysis state &quot;moved&quot; or &quot;uninitialized&quot; using assert.</p>
+
+<p>TODO</p>
+
+<pre><code class="language-c">void f(struct X *p){
+  move(p-&gt;item);
+} //error &#39;p-&gt;item&#39; was left uninitialized  
+</code></pre>
+
+<h2 id="toc_7">Grammar</h2>
 
 <pre><code class="language-c"> 
  type-qualifier:
@@ -435,7 +454,7 @@ static-declaration:  /*where static-assert is used today*/
 TODO &quot;unchecked&quot;
 </code></pre>
 
-<h2 id="toc_10">Checking your source code</h2>
+<h2 id="toc_8">Checking your source code</h2>
 
 <p>I suggest the creation of a header file &quot;ownership.h&quot;</p>
 

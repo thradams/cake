@@ -897,6 +897,10 @@ int wasm_visit_literal_string(struct wasm_visit_ctx* ctx, struct token* current)
     return 0;
 }
 
+void wasm_visit_ctx_destroy(struct wasm_visit_ctx * obj_owner p)
+{
+    ss_close(&p->ss);
+}
 
 void wasm_visit(struct wasm_visit_ctx* ctx)
 {

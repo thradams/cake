@@ -153,7 +153,7 @@ int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag ty
 
 
 
-void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner p))
+void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner))
 {
     if (map->table != NULL)
     {
@@ -287,7 +287,10 @@ int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p
             pentry->type = type;
         }
     }
-
+    else
+    {
+        static_set(p, "moved"); //this is a leak actually
+    }
     return result;
 }
 

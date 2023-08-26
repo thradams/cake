@@ -66,13 +66,13 @@ void token_list_append_list(struct token_list* dest, struct token_list* obj_owne
 void print_list(struct token_list* list);
 void token_list_destroy( struct token_list* obj_owner list);
 bool token_is_blank(struct token* p);
-struct token* owner token_list_pop_back(struct token_list* list);
+void token_list_pop_back(struct token_list* list);
 void token_list_pop_front(struct token_list* list);
 struct token* owner token_list_pop_front_get(struct token_list* list);
 void remove_line_continuation(char* s);
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew);
 
-void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* obj_owner append);
+void token_list_insert_after(struct token_list* list, struct token* after, struct token_list* append);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* filename_opt, int level, enum token_flags addflags);
 
 const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments);

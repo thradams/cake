@@ -110,6 +110,7 @@ enum error
     C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
     
     C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
+    C_DISCARDING_OWNER,
     
     /*flow analysis errors*/
     C_OWNERSHIP_FLOW_MISSING_DTOR,    
@@ -215,6 +216,9 @@ struct options
     */
     bool null_checks;
 
+    /*
+      -msvc-output
+    */
     bool visual_studio_ouput_format;
 
     /*

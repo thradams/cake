@@ -161,10 +161,14 @@ void ownership_flow_test_two_ifs(void);
 void ownership_no_name_parameter(void);
 void ownership_flow_switch_case(void);
 void state_inner_objects_preserved(void);
-void owner_parameter(void);
+void owner_parameter_must_be_ignored(void);
 void taking_address(void);
 void taking_address_const(void);
 void pointer_argument(void);
+void do_while(void);
+void switch_cases_state(void);
+void switch_break(void);
+void passing_non_owner(void);
 
 /*end of forward declarations*/
 
@@ -319,10 +323,14 @@ g_unit_test_success_count = 0;
     ownership_no_name_parameter();
     ownership_flow_switch_case();
     state_inner_objects_preserved();
-    owner_parameter();
+    owner_parameter_must_be_ignored();
     taking_address();
     taking_address_const();
     pointer_argument();
+    do_while();
+    switch_cases_state();
+    switch_break();
+    passing_non_owner();
 return g_unit_test_error_count;
 
 }

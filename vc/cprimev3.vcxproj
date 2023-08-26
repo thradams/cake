@@ -44,7 +44,6 @@
     <ClCompile Include="..\src\tokenizer.c" />
     <ClCompile Include="..\src\type.c" />
     <ClCompile Include="..\src\visit.c" />
-    <ClCompile Include="..\src\wasm_visit.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\console.h" />
@@ -63,7 +62,6 @@
     <ClInclude Include="..\src\tokenizer.h" />
     <ClInclude Include="..\src\type.h" />
     <ClInclude Include="..\src\visit.h" />
-    <ClInclude Include="..\src\wasm_visit.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

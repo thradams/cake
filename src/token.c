@@ -35,7 +35,14 @@ void print_literal2(const char* s);
 
 void token_list_clear(struct token_list* list)
 {
-    token_list_destroy(list);
+    struct token* owner p = list->head;
+    while (p)
+    {
+        struct token* owner next = p->next;
+        token_delete(p);
+        p = next;
+    }
+
     list->head = NULL;
     list->tail = NULL;
 }
@@ -71,10 +78,10 @@ void token_range_add_flag(struct token* first, struct token* last, enum token_fl
     }
 }
 
-struct token* owner token_list_pop_back(struct token_list* list) unchecked
+void token_list_pop_back(struct token_list* list) unchecked
 {
     if (list->head == NULL)
-        return NULL;
+        return ;
 
     struct token* p = list->tail;
     if (list->head == list->tail)
@@ -93,7 +100,8 @@ struct token* owner token_list_pop_back(struct token_list* list) unchecked
     }
     p->next = NULL;
     p->prev = NULL;
-    return (struct token* owner) p;
+    p->next = NULL;
+    token_delete(p);    
 }
 
 void token_list_pop_front(struct token_list* list) unchecked
@@ -224,13 +232,14 @@ char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
     return cstr;
 }
 
-void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* obj_owner append_list) unchecked
+void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list) 
 {
     if (append_list->head == NULL)
         return;
 
     if (after == NULL)
     {
+        assert(append_list->tail->next == NULL);
         append_list->tail->next = token_list->head;
         token_list->head->prev = append_list->tail;
 
@@ -247,12 +256,17 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         else if (token_list->head == after)
         {
         }
+        assert(append_list->tail->next == NULL);
         append_list->tail->next = follow;
         follow->prev = append_list->tail;
         after->next = append_list->head;
         append_list->head->prev = after;
 
     }
+
+    append_list->head = NULL;
+    append_list->tail = NULL;
+
 }
 
 struct token* token_list_add(struct token_list* list, struct token* owner pnew) unchecked
@@ -304,7 +318,7 @@ struct token* token_list_clone_and_add(struct token_list* list, struct token* pn
     return token_list_add(list, clone);
 }
 
-void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* obj_owner source) unchecked
+void token_list_append_list_at_beginning(struct token_list* dest, struct token_list* source)
 {
     if (source->head == NULL)
     {
@@ -317,12 +331,16 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     }
     else
     {
+        assert(source->tail->next == NULL);
         source->tail->next = dest->head;
         dest->head = source->head;
     }
+
+    source->head = NULL;
+    source->tail = NULL;
 }
 
-void token_list_append_list(struct token_list* dest, struct token_list* obj_owner source) unchecked
+void token_list_append_list(struct token_list* dest, struct token_list* source) 
 {
     if (source->head == NULL)
     {
@@ -335,10 +353,13 @@ void token_list_append_list(struct token_list* dest, struct token_list* obj_owne
     }
     else
     {
+        assert(dest->tail->next == NULL);
         dest->tail->next = source->head;
         source->head->prev = dest->tail;
         dest->tail = source->tail;
     }
+    source->head = NULL;
+    source->tail = NULL;
 }
 
 
@@ -355,7 +376,7 @@ struct token* owner clone_token(struct token* p)
     return token;
 }
 
-struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last)
+struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last) unchecked
 {
 
     struct token_list r = {0};

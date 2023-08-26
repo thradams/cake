@@ -93,7 +93,7 @@ int fill_options(struct options* options,
     options->enabled_warnings_stack[0] &= ~(W_STYLE | W_UNUSED_PARAMETER | W_UNUSED_VARIABLE); //default is OFF
     
     
-    options->visual_studio_ouput_format = true;
+    
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;
@@ -189,6 +189,11 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-msvc-output") == 0)
+        {
+            options->visual_studio_ouput_format = true;
+            continue;
+        }
 
 
         //
@@ -356,6 +361,8 @@ void print_help()
         WHITE "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
         "\n"
         WHITE "  -sarif                " RESET "Generates sarif files\n"
+        "\n"
+        WHITE "  -msvc-output          " RESET "Ouput is compatible with visual studio\n"
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;
