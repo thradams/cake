@@ -18278,7 +18278,7 @@ struct flow_visit_ctx
     view struct ast ast;    
     struct flow_defer_scope* owner tail_block;
     struct type* view p_return_type;
-    bool has_jumps;    
+        
     struct jump_statement* view p_last_jump_statement;
 };
 
@@ -29697,9 +29697,6 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     }
 
 
-    bool copy = ctx->has_jumps;
-    ctx->has_jumps = false;
-
     /*
        This index is from the end of top of stack going to base of statck
     */
@@ -29809,7 +29806,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     pop_states(ctx, 2);
 
-    ctx->has_jumps = copy || ctx->has_jumps; //restore
+    
 
 }
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
@@ -30598,7 +30595,7 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
     ctx->p_last_jump_statement = p_jump_statement;
-    ctx->has_jumps = true;
+
 
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
@@ -31327,13 +31324,13 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
 
         assert(ctx->p_return_type == NULL);
-        assert(ctx->has_jumps == false);
+ 
         struct type type = get_function_return_type(&p_declaration->init_declarator_list.head->p_declarator->type);
         ctx->p_return_type = &type;
         flow_visit_compound_statement(ctx, p_declaration->function_body);
         type_destroy(&type);
         ctx->p_return_type = NULL;
-        ctx->has_jumps = false;
+   
     }
 
 }
