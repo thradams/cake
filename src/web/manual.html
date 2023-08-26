@@ -199,7 +199,7 @@
 </ul>
 </li>
 <li>
-<a href="#toc_60">Extensions (Not in C23)</a>
+<a href="#toc_60">Cake Extensions (Not in C23)</a>
 <ul>
 <li>
 <a href="#toc_61">Extension - try catch throw</a>
@@ -296,8 +296,7 @@ OPTIONS
 
 </code></pre>
 
-<p>One directory called <strong>out</strong> is created keeping the same directory structure 
-of the input files.</p>
+<p>One directory called <strong>out</strong> is created keeping the same directory structure of the input files.</p>
 
 <p>For instance:</p>
 
@@ -366,10 +365,6 @@ When the same warning exists in gcc cakes uses the same name if possible.</p>
 
 <pre><code class="language-c">void f(const char* /*restrict*/ s);
 </code></pre>
-
-<p>The intended use of the restrict qualifier  is to promote optimization, removing it will not change the observable behavior.</p>
-
-<p>C++ does not have standard support for restrict</p>
 
 <p>N448</p>
 
@@ -467,7 +462,7 @@ int main()
 
 <h3 id="toc_8">C99 Complex and imaginary support</h3>
 
-<p>TODO</p>
+<p>Not implemented</p>
 
 <h3 id="toc_9">C99 Universal character names (\u and \U)</h3>
 
@@ -483,11 +478,9 @@ int main()
 <pre><code class="language-c">double d = 2.000000;
 </code></pre>
 
-<blockquote>
 <p>Cake converts the hexadecimal floating to decimal
 floating point using strtod then snprintf.
 That means this conversion is not precise.</p>
-</blockquote>
 
 <h3 id="toc_11">C99 Compound literals</h3>
 
@@ -552,7 +545,8 @@ int f(void) {
 
 <h3 id="toc_13">C99 Line comments</h3>
 
-<p>When compiling to C89 line comments are converted to comments.</p>
+<p>When compiling to C89 line comments are converted to 
+/<em>comments</em>/.</p>
 
 <h3 id="toc_14">C99 inline functions</h3>
 
@@ -569,7 +563,7 @@ int f(void) {
 
 <h3 id="toc_17">C99 Variadic macros</h3>
 
-<p>Yes. We need to expand the macro when comping to C89.
+<p>We need to expand the macro when comping to C89.
 This is covered by # macro expand.</p>
 
 <p>Sample:</p>
@@ -585,7 +579,6 @@ int main()
   int x = 1;
   debug(&quot;X = %d\n&quot;, 1);
 }
-
 </code></pre>
 
 <p>Becomes</p>
@@ -600,7 +593,6 @@ int main()
   int x = 1;
   fprintf(stderr, &quot;X = %d\n&quot;, 1);
 }
-
 </code></pre>
 
 <p>I am considering to mark the debug macro to be expanded automatically
@@ -626,7 +618,7 @@ int main(void)
 <pre><code class="language-c">/*line comments*/
 int main(void)
 {
-    int b = 1;
+    unsigned char b = 1;
     return 0;
 }
 </code></pre>
@@ -645,9 +637,7 @@ Considering C23 has bool and the objective of C89 version is to have a version t
 
 <h3 id="toc_20">C11 _Static_assert</h3>
 
-<p>When compiling to versions C89, C99 _Static_Assert is removed.</p>
-
-<p>Alternative design - macro ?</p>
+<p>When compiling to versions &lt; C11 _Static_Assert is removed.</p>
 
 <h3 id="toc_21">C11 Anonymous structures and unions</h3>
 
@@ -660,18 +650,14 @@ Considering C23 has bool and the objective of C89 version is to have a version t
 }
 </code></pre>
 
-<p>Expected in C99, C89 (not implemented yet)</p>
+<p>Becomes in &lt; C11</p>
 
 <pre><code class="language-c">/*[[noreturn]]*/ void f () {
   abort(); // ok
 }
 </code></pre>
 
-<p>Alternative design - macro ?</p>
-
-<p>Note: 
-C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is 
- an obsolescent feature</p>
+<p>C23 attribute [[noreturn]] provides similar semantics. The _Noreturn function specifier is an obsolescent feature</p>
 
 <h3 id="toc_23">C11 Thread_local/Atomic</h3>
 
@@ -704,13 +690,11 @@ int main(void)
 {
     cbrt(1.0);
 }
-
 </code></pre>
 
 <p>Becomes in C99, C89</p>
 
-<pre><code class="language-c">
-#include &lt;math.h&gt;
+<pre><code class="language-c">#include &lt;math.h&gt;
 
 #define cbrt(X) _Generic((X),    \
                   double: cbrtl, \
@@ -724,7 +708,6 @@ int main(void)
 {
      cbrtl(1.0);
 }
-
 </code></pre>
 
 <h3 id="toc_25">C11 u8&quot;literals&quot;</h3>
@@ -735,7 +718,7 @@ int main(void)
 char * s2 = u8&quot;maca&quot;;
 </code></pre>
 
-<p>Becomes in C99, C89</p>
+<p>Becomes in &lt; C11</p>
 
 <pre><code class="language-c">char * s1 = &quot;ma\xc3\xa7\xc3\xa3&quot;;
 char * s2 = &quot;maca&quot;;
@@ -743,6 +726,8 @@ char * s2 = &quot;maca&quot;;
 
 <p>N1488
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1488.htm</a></p>
+
+<p>Important: Cake assume source is utf8 encoded.</p>
 
 <h3 id="toc_26">C11 _Alignof or C23 alignof</h3>
 
@@ -754,7 +739,7 @@ char * s2 = &quot;maca&quot;;
  }
 </code></pre>
 
-<p>becomes</p>
+<p>Becomes &lt; C11</p>
 
 <pre><code class="language-c"> int main()
  {
@@ -776,7 +761,7 @@ char * s2 = &quot;maca&quot;;
 
 <h3 id="toc_29">C23 _Decimal32, _Decimal64, and _Decimal128</h3>
 
-<p>Not implemented (maybe parsed?)</p>
+<p>Not implemented.</p>
 
 <h3 id="toc_30">C23 static_assert / single-argument static_assert</h3>
 
@@ -804,36 +789,49 @@ char * s2 = &quot;maca&quot;;
 }
 </code></pre>
 
-<p>In C99, C89 it is replaced by one space;</p>
+<p>In &lt; C11 it is replaced by one space;</p>
 
 <h3 id="toc_31">C23 u8 character prefix</h3>
 
-<p>not implemented yet.</p>
-
-<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf</a></p>
+<p>Not implemented yet.
+<a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2418.pdf</a></p>
 
 <h3 id="toc_32">C23 No function declarators without prototypes</h3>
 
 <p><a href="https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm">https://www.open-std.org/JTC1/SC22/WG14/www/docs/n2841.htm</a></p>
-
-<p>Yes</p>
 
 <pre><code class="language-c">int main(){
     func(); //this is an error in C23
 }
 </code></pre>
 
-<p>Before C23 this was a warning.</p>
+<p>See also Remove support for function definitions with identifier lists  </p>
 
-<p>See also Remove support for function definitions with identifier lists
-<a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf</a></p>
+<p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf</a></p>
 
 <h3 id="toc_33">C23 Improved Tag Compatibility</h3>
 
-<p>No.
-To transform this to previous version we could generate a typedef.</p>
+<p>Not implemented yet.</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf</a></p>
+
+<pre><code class="language-c">struct foo { int a; } p;
+void bar(void)
+{
+  struct foo { int a; } q;
+  q = p;
+}
+</code></pre>
+
+<p>Becomes &lt; C23</p>
+
+<pre><code class="language-c">struct foo { int a; } p;
+void bar(void)
+{
+  struct foo  q;
+  q = p;
+}
+</code></pre>
 
 <h3 id="toc_34">C23 Unnamed parameters in function definitions</h3>
 
@@ -845,7 +843,7 @@ int f(int ) {
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2480.pdf</a></p>
 
-<p>TODO: But we need to add a dummy variable when compiling to versions C &lt; 23.</p>
+<p>Cake should add a dummy name when generating C &lt; 23. (Not implemented yet)</p>
 
 <h3 id="toc_35">C23 Digit separators</h3>
 
@@ -855,16 +853,15 @@ int f(int ) {
 }
 </code></pre>
 
-<p>Becomes in C11, C99, C89</p>
+<p>Becomes in &lt; C23</p>
 
 <pre><code class="language-c">int main()
 {
     int a = 100000;
-}x  
+}  
 </code></pre>
 
-<p>This transformation uses only tokens. 
-So even preprocessor and inactive blocks are transformed.</p>
+<p>This transformation happens at token level, so even preprocessor and inactive blocks are transformed.</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf</a></p>
 
@@ -892,10 +889,7 @@ int main()
 
 </code></pre>
 
-<blockquote>
-<p>This transformation uses only tokens. So even preprocessor and inactive
-code is transformed.</p>
-</blockquote>
+<p>This transformation happens at token level, so even preprocessor and inactive blocks are transformed.</p>
 
 <h3 id="toc_37">C23 Introduce the nullptr constant</h3>
 
@@ -924,8 +918,7 @@ int main()
 
 <h3 id="toc_38">C23 Make false and true first-class language features</h3>
 
-<p>When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0. 
-(I am considering adding an extra header file in C89 with bool definition.)</p>
+<p>When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0. </p>
 
 <p>When compiling to C99 and C11 bool is replaced with <strong>_Bool</strong>, true is replaced with <code>((_Bool)1)</code> 
 and false with <strong>(_Bool)0)</strong></p>
@@ -951,7 +944,7 @@ int main()
 
 </code></pre>
 
-<p>Becomes in C11, C99, C89</p>
+<p>Becomes in &lt; C23</p>
 
 <pre><code class="language-c">
 int main()
@@ -982,17 +975,16 @@ auto p = &amp;a;
 double A[3] = { 0 };
 auto pA = A;
 auto qA = &amp;A;
-
 </code></pre>
 
-<p>Expected result (not implemented yet)</p>
+<p>Becomes &lt; C23</p>
 
 <pre><code class="language-c">static double a = 3.5;
-double * p = &amp;a;
+double  * p = &amp;a;
 
 double A[3] = { 0 };
-double* pA = A; //TODO
-auto qA = &amp;A; //TODO?
+double  * pA = A;
+double  (* qA)[3] = &amp;A;
 </code></pre>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n3007.htm</a></p>
@@ -1034,14 +1026,13 @@ int main()
    /*abstract declarator*/
    int k = sizeof(typeof(array));
 
-
    /*new way to declare pointer to functions?*/
    typeof(void (int)) * pf = NULL;
 }
 
 </code></pre>
 
-<p>Becomes in C11, C99, C89</p>
+<p>Becomes in &lt; C23</p>
 
 <pre><code class="language-c">
 
@@ -1078,13 +1069,10 @@ int main()
 
    /*abstract declarator*/
    int k = sizeof(int*[2]);
-
-
+   
    /*new way to declare pointer to functions?*/
    void  (*pf)(int) = ((void*)0);
 }
-
-
 </code></pre>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm">https://open-std.org/JTC1/SC22/WG14/www/docs/n2927.htm</a>
@@ -1118,7 +1106,7 @@ int main()
 
 </code></pre>
 
-<p>Becomes</p>
+<p>Becomes &lt; C23</p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
@@ -1128,15 +1116,13 @@ int a[((int)123)];
 
 const double PI = 3.14;
 
-
-
 int main()
 {
    printf(&quot;%f&quot;, ((double)3.140000));
 }
-
-
 </code></pre>
+
+<p>TODO: Maybe suffix like ULL etc makes the code easier to read.</p>
 
 <h3 id="toc_44">C23 Enhancements to Enumerations</h3>
 
@@ -1149,7 +1135,7 @@ int main() {
 }
 </code></pre>
 
-<p>Becomes</p>
+<p>Becomes &lt; C23</p>
 
 <pre><code class="language-c">enum X {
   A
@@ -1164,7 +1150,7 @@ int main() {
 
 <h3 id="toc_45">C23 Attributes</h3>
 
-<p>Conversion to C11, C99, C89 will just remove the attributes.</p>
+<p>Conversion to &lt; C23  will just remove the attributes.</p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2335.pdf</a>
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2554.pdf</a></p>
@@ -1204,9 +1190,8 @@ int main() {
 
 <h3 id="toc_51">C23 __has_attribute</h3>
 
-<p>It is implemented in C23.</p>
-
-<p>Conversion to C11, C99 C89 not defined yet.</p>
+<p>Its is implemented in cake.
+Conversion &lt; C23 not defined. Maybe a define.</p>
 
 <h3 id="toc_52">C23 __has_include</h3>
 
@@ -1223,16 +1208,12 @@ int main() {
 
 </code></pre>
 
-<p>Becomes in C11, C99, C89.</p>
-
-<pre><code class="language-c">Not defined yet
-</code></pre>
+<p>Its is implemented in cake.
+Conversion &lt; C23 not defined. Maybe a define.</p>
 
 <h3 id="toc_53">C23 #warning</h3>
 
 <p>When compiling to versions &lt; 23 it is commented out.</p>
-
-<p>The compiler also outputs the message on stderr.</p>
 
 <pre><code class="language-c">int main()
 {
@@ -1240,11 +1221,11 @@ int main() {
 }
 </code></pre>
 
-<p>Becomes</p>
+<p>When target &lt; C23 becomes</p>
 
 <pre><code class="language-c">int main()
 {
-  //#warning my warning message  
+  /* #warning my warning message */  
 }
 </code></pre>
 
@@ -1262,11 +1243,10 @@ int main()
   };
 
   printf(&quot;%s\n&quot;, file_txt);
-
 }
 </code></pre>
 
-<p>Becomes in C11, C99, C89</p>
+<p>Becomes in &lt; C23</p>
 
 <pre><code class="language-c">
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3017.htm
@@ -1281,7 +1261,6 @@ int main()
   };
 
   printf(&quot;%s\n&quot;, file_txt);
-
 }
 
 </code></pre>
@@ -1289,7 +1268,7 @@ int main()
 <p>I am considering add an option to generate a file with a suffix
 like &quot;embed_stdio.h&quot; then the equivalent code will be:</p>
 
-<p>Becomes in C11, C99, C89</p>
+<p>Becomes in &lt; C23</p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 
@@ -1301,9 +1280,7 @@ int main()
   };
 
   printf(&quot;%s\n&quot;, file_txt);
-
 }
-
 </code></pre>
 
 <h3 id="toc_55">C23 #elifdef #elifndef</h3>
@@ -1319,7 +1296,7 @@ int main()
 #endif
 </code></pre>
 
-<p>Becomes C11, C99, C89</p>
+<p>Becomes &lt; C23</p>
 
 <pre><code class="language-c">#define Y
 
@@ -1335,7 +1312,8 @@ int main()
 
 <h3 id="toc_56">C23 __VA_OPT__</h3>
 
-<p>Requires #pragma expand. (TODO make the expansion automatic)</p>
+<p>Implemented.
+Requires #pragma expand. (TODO make the expansion automatic)</p>
 
 <pre><code class="language-c">
 #define F(...) f(0 __VA_OPT__(,) __VA_ARGS__)
@@ -1410,6 +1388,8 @@ int main()
 
 <h3 id="toc_58">C23 Compound Literals with storage specifier</h3>
 
+<p>Not implemented yet.</p>
+
 <pre><code class="language-c">void F(int *p){}
 
 int main()
@@ -1418,7 +1398,7 @@ int main()
 }
 </code></pre>
 
-<p>becomes (not implemented yet)</p>
+<p>Becomes (not implemented yet)</p>
 
 <pre><code class="language-c">void F(int *p){}
 
@@ -1435,7 +1415,7 @@ x   }
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf</a></p>
 
-<h2 id="toc_60">Extensions (Not in C23)</h2>
+<h2 id="toc_60">Cake Extensions (Not in C23)</h2>
 
 <h3 id="toc_61">Extension - try catch throw</h3>
 
@@ -1450,7 +1430,7 @@ x   }
 
 <p>try catch is a external block that we can jump off.</p>
 
-<p>try catch is a LOCAL jump only and this is on purpose not a limitation.</p>
+<p>try catch is a <strong>LOCAL jump</strong> this is on purpose not a limitation.</p>
 
 <p>catch block is optional.</p>
 
@@ -1514,8 +1494,6 @@ int main() {
 }
 </code></pre>
 
-<p>I guess everthing is working including <strong>goto</strong> jumps.</p>
-
 <h3 id="toc_63">Extension - if with initializer</h3>
 
 <p>No idea why C++ 17 if with initializer was not proposed for C23!
@@ -1550,13 +1528,14 @@ int main()
 
 <p>An extension if + initializer + defer expression was considered but not implemented yet.</p>
 
+<p>C++ proposal
+<a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html</a></p>
+
 <h3 id="toc_64">Extension Literal function - lambdas</h3>
 
-<p>Lambdas without capture where implemented using a syntax similar of 
-compound literal for function pointer.</p>
+<p>Lambdas without capture where implemented using a syntax similar of compound literal for function pointer.</p>
 
-<p>Lambdas are the most complex code transformation so far because sometimes function scope 
-types needs to be transformed to file scope. This is important because manual lambda capture
+<p>Lambdas are the most complex code transformation so far because sometimes function scope types needs to be transformed to file scope. This is important because manual lambda capture
 is something we want to use in function scope.</p>
 
 <p>For instance:</p>
@@ -1574,8 +1553,7 @@ void create_app(const char* appname)
 }
 </code></pre>
 
-<p>Because struct capture was in function scope and the lambda function will be created
-at file scope the type <strong>struct capture</strong> had to be moved from function scope to file scope.</p>
+<p>Because struct capture was in function scope and the lambda function will be created at file scope the type <strong>struct capture</strong> had to be moved from function scope to file scope.</p>
 
 <pre><code class="language-c">extern char* strdup(const char* s);
 
@@ -1610,7 +1588,9 @@ or a goto passes control to a statement outside the loop.</p>
   }
 </code></pre>
 
-<p>Repeat is the same of <code>for(;;)</code>. In cake&#39;s source for instance I have 5 occurrences of <code>for(;;)</code>.</p>
+<p>Repeat is the same of <code>for(;;)</code>.</p>
+
+<p>In cake&#39;s source for instance I have 5 occurrences of <code>for(;;)</code>.</p>
 
 <h3 id="toc_66">Extension #pragma expand</h3>
 
@@ -1657,11 +1637,10 @@ int main()
 
 <h3 id="toc_67">Type traits</h3>
 
-<p>We have some compile time functions to infer properties of types.
-They are based on C++ <a href="https://en.cppreference.com/w/cpp/header/type_traits">https://en.cppreference.com/w/cpp/header/type_traits</a></p>
+<p>We have some compile time functions to infer properties of types.</p>
 
 <pre><code class="language-c">
-_is_char (TODO)
+_is_char()
 The three types char, signed char, and unsigned char are collectively called the character types.
 
 _is_pointer
@@ -1686,9 +1665,6 @@ Integer and floating types are collectively called arithmetic types.
 _is_scalar
 Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
 
-_is_same(T, U)
-If T and U name the same type (taking into account const/volatile qualifications returns 1
-
 </code></pre>
 
 <h3 id="toc_68">Extension type-expression</h3>
@@ -1698,18 +1674,23 @@ If T and U name the same type (taking into account const/volatile qualifications
 <pre><code>  cast-expression:
     unary-expression
     ( type-name ) cast-expression
-    ( type-name )                  //&lt;- creates a type expression
+    ( type-name ) //&lt;- creates a type expression
 </code></pre>
+
+<p>Type expression can be used with == and != operators. The result is as if the type where compared and the values ignored.</p>
 
 <p>Sample</p>
 
 <pre><code class="language-c">    int a[2];
     static_assert( a == (int[2]) );
 
-
     /* is array of ints? */    
     static_assert( _is_array(a) &amp;&amp; a[0] == (int) );
+</code></pre>
 
+<p>Making operator ? be decided in compile time, this also could be an alternative to _Generic.</p>
+
+<pre><code class="language-c">
 int main()
 {
     int a;
@@ -1720,17 +1701,13 @@ int main()
     int t2 = 
        _Generic(a, int: 1, double: 2, default: 0);
 
-    //allowing typeof on this type of value we can create a way to select types in runtim!
-    typeof( 1 ? (int) : (double)) a;
+    typeof( 1 ? (int) : (double)) b;
 }
 </code></pre>
 
-<p>We can use != and == with void value to compare types.</p>
-
 <h3 id="toc_69">Extension - Ownership checks</h3>
 
-<p>Under development...
-See <a href="ownership.html">ownership</a></p>
+<p>See <a href="ownership.html">ownership</a></p>
 
 <h3 id="toc_70">Extension typename on _Generic</h3>
 
@@ -1751,10 +1728,9 @@ more precise (with qualifiers) type match.</p>
 
 <h3 id="toc_71">Extension assert declaration</h3>
 
-<p>When assert is defined as macro, it is overrided. The justification is
-that cake wants to do static analysis on 3 party headers.</p>
+<p>When assert is defined as macro as a function like macro, it is overridden. </p>
 
-<pre><code class="language-c"> int main()
+<pre><code class="language-c">int main()
 {
     assert(1 == 1);
 }
@@ -1762,6 +1738,6 @@ that cake wants to do static analysis on 3 party headers.</p>
 
 <h2 id="toc_72">Versions</h2>
 
-<p>0.5.1 Versioning started</p>
+<p>0.5.1 Initial version</p>
 </body></html>  msvc
    
