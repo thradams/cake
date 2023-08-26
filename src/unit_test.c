@@ -169,6 +169,7 @@ void do_while(void);
 void switch_cases_state(void);
 void switch_break(void);
 void passing_non_owner(void);
+void flow_analysis_else(void);
 
 /*end of forward declarations*/
 
@@ -331,6 +332,7 @@ g_unit_test_success_count = 0;
     switch_cases_state();
     switch_break();
     passing_non_owner();
+    flow_analysis_else();
 return g_unit_test_error_count;
 
 }

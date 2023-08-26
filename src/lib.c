@@ -21927,7 +21927,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
             /*points to itself*/
             p_enum_specifier->complete_enum_specifier = p_enum_specifier;
 
-            parser_match_tk(ctx, '{');                        
+            parser_match_tk(ctx, '{');
             p_enum_specifier->enumerator_list = enumerator_list(ctx, p_enum_specifier);
             if (ctx->current->type == ',')
             {
@@ -27738,6 +27738,30 @@ void passing_non_owner()
     struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1);
+}
+void flow_analysis_else()
+{
+    const char* source
+        =
+        "int main() {\n"
+        "    int * owner p1 = 0;\n"
+        "    int * owner p2 = malloc(1);\n"
+        "\n"
+        "    if (p2 == NULL) {\n"
+        "        return 1;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "      p1 = p2;\n"
+        "    }\n"
+        "    free(p1);\n"
+        "    return 0;\n"
+        "}";
+
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
+    get_ast(&options, "source", source, &report);
+    assert(report.error_count == 0);
 }
 
 // 
