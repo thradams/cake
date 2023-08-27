@@ -25,15 +25,15 @@ type-qualifier:
   obj_owner
 ```
 
-> The exactly name of the new qualifiers still not defined. It can be something like `_Owner` or just `owner`.   In any case, my suggestion is to have macros for each qualifier to to be able to compile the same source code in compilers that don't support ownership checks. 
+> The exactly name of the new qualifiers still not defined. It can be something like `_Owner` or just `owner`.  My suggestion is to have macros for each qualifier to to be able to compile the same source code in compilers that don't support ownership checks. 
 
-The **owner** qualifier can be used when declaring a variable to indicate that its value represents a reference to a resource that must be released exclusively through that reference.
+The **owner** qualifier can be used when declaring a object to indicate that it has a reference to other object which lifetime can be controlled by it.  The owner object assumes the  ownership of the lifetime of the referenced object.
 
-The **view** qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it.   
+The **view** qualifier is the default for any object, indicating that the variable is not responsible for releasing referenced object.
 
 View qualified objects does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.
 
-The **owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory.   
+The **owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory. 
   
 For this reason, when converting a owner pointer to `void*`, only the ownership of the memory is moved.
   
@@ -143,7 +143,7 @@ The owner and obj_owner qualifiers should not be applicable to function objects.
 
 1 - When a owner object is copied to another owner object the ownership is always moved/transfered.
 
-Copy happens when we return values, call functions, initialization and assignment.
+This happens when we return values, call functions, on initialization and assignment.
 
 Samples:
 
@@ -162,10 +162,11 @@ void f(T * owner a);
 f(a); /*moved*/
 ```
 
-The object that receives the value must not hold any resource. This is natural in initialization and function arguments. 
+The object that receives the value must not hold any resource, otherwise the previous referenced objects would be lost.
+
+This is natural in initialization and function arguments. 
 
 For assignment it needs to be checked with flow analysis (part II).
-
 
 2 - A non owner object cannot be copied to a owner object.   
   
@@ -235,9 +236,8 @@ T F(owner T arg) {
 
 ## Part II - Flow analysis
 
-The objective of flow analysis is to ensure that when an owning object goes out of scope or before its memory is overridden, it has released all of its resources.
+The objective of flow analysis is to ensure that when the lifetime of owner object ends, it must have  already released the resources it owns. The same when we overwrite a reference.  
 
-    
 Sample:  
 
 ```c  
@@ -487,4 +487,29 @@ else {
 // b is 2 or 5  
 // c is 3 or 7  
 
-  
+
+## Terms
+
+### storage duration 
+An object has a storage duration that determines its lifetime. There are four storage durations: static, thread, automatic, and allocated. 
+
+### lifetime 
+
+The lifetime of an object is the portion of program execution during which storage is guaranteed to be reserved for it. An object exists, has a constant address and retains its last-stored value throughout its lifetime.
+
+If an object is referred to outside of its lifetime, the behavior is undefined.
+
+If a pointer value is used in an evaluation after the object the pointer points to (or just past) reaches
+the end of its lifetime, the behavior is undefined.
+
+The representation of a pointer object becomes indeterminate when the object the pointer points to (or just past) reaches the end of its lifetime.
+
+### value
+precise meaning of the contents of an object when interpreted as having a specific type
+
+### object
+Region of data storage in the execution environment, the contents of which can represent values.
+
+### owner object
+Is an object which value represents a reference to other object which lifetime is controlled by it.
+
