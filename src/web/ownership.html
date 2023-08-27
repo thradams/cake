@@ -43,6 +43,26 @@
 <li>
 <a href="#toc_8">Checking your source code</a>
 </li>
+<li>
+<a href="#toc_9">Terms</a>
+<ul>
+<li>
+<a href="#toc_10">storage duration</a>
+</li>
+<li>
+<a href="#toc_11">lifetime</a>
+</li>
+<li>
+<a href="#toc_12">value</a>
+</li>
+<li>
+<a href="#toc_13">object</a>
+</li>
+<li>
+<a href="#toc_14">owner object</a>
+</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -71,16 +91,16 @@ It consists of two separate implementations. </p>
 </code></pre>
 
 <blockquote>
-<p>The exactly name of the new qualifiers still not defined. It can be something like <code>_Owner</code> or just <code>owner</code>.   In any case, my suggestion is to have macros for each qualifier to to be able to compile the same source code in compilers that don&#39;t support ownership checks. </p>
+<p>The exactly name of the new qualifiers still not defined. It can be something like <code>_Owner</code> or just <code>owner</code>.  My suggestion is to have macros for each qualifier to to be able to compile the same source code in compilers that don&#39;t support ownership checks. </p>
 </blockquote>
 
-<p>The <strong>owner</strong> qualifier can be used when declaring a variable to indicate that its value represents a reference to a resource that must be released exclusively through that reference.</p>
+<p>The <strong>owner</strong> qualifier can be used when declaring a object to indicate that it has a reference to other object which lifetime can be controlled by it.  The owner object assumes the  ownership of the lifetime of the referenced object.</p>
 
-<p>The <strong>view</strong> qualifier is the default for any variable, indicating that the variable is not responsible for releasing a resource, even if it has access to it.   </p>
+<p>The <strong>view</strong> qualifier is the default for any object, indicating that the variable is not responsible for releasing referenced object.</p>
 
 <p>View qualified objects does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.</p>
 
-<p>The <strong>owner</strong> qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory.   </p>
+<p>The <strong>owner</strong> qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory. </p>
 
 <p>For this reason, when converting a owner pointer to <code>void*</code>, only the ownership of the memory is moved.</p>
 
@@ -184,7 +204,7 @@ owner pointer to function should be error.</p>
 
 <p>1 - When a owner object is copied to another owner object the ownership is always moved/transfered.</p>
 
-<p>Copy happens when we return values, call functions, initialization and assignment.</p>
+<p>This happens when we return values, call functions, on initialization and assignment.</p>
 
 <p>Samples:</p>
 
@@ -202,7 +222,9 @@ void f(T * owner a);
 f(a); /*moved*/
 </code></pre>
 
-<p>The object that receives the value must not hold any resource. This is natural in initialization and function arguments. </p>
+<p>The object that receives the value must not hold any resource, otherwise the previous referenced objects would be lost.</p>
+
+<p>This is natural in initialization and function arguments. </p>
 
 <p>For assignment it needs to be checked with flow analysis (part II).</p>
 
@@ -264,7 +286,7 @@ T F() {
 
 <h2 id="toc_4">Part II - Flow analysis</h2>
 
-<p>The objective of flow analysis is to ensure that when an owning object goes out of scope or before its memory is overridden, it has released all of its resources.</p>
+<p>The objective of flow analysis is to ensure that when the lifetime of owner object ends, it must have  already released the resources it owns. The same when we overwrite a reference.  </p>
 
 <p>Sample:  </p>
 
@@ -503,5 +525,34 @@ else {<br>
 <p>// a is 4 or 6<br>
 // b is 2 or 5<br>
 // c is 3 or 7  </p>
+
+<h2 id="toc_9">Terms</h2>
+
+<h3 id="toc_10">storage duration</h3>
+
+<p>An object has a storage duration that determines its lifetime. There are four storage durations: static, thread, automatic, and allocated. </p>
+
+<h3 id="toc_11">lifetime</h3>
+
+<p>The lifetime of an object is the portion of program execution during which storage is guaranteed to be reserved for it. An object exists, has a constant address and retains its last-stored value throughout its lifetime.</p>
+
+<p>If an object is referred to outside of its lifetime, the behavior is undefined.</p>
+
+<p>If a pointer value is used in an evaluation after the object the pointer points to (or just past) reaches
+the end of its lifetime, the behavior is undefined.</p>
+
+<p>The representation of a pointer object becomes indeterminate when the object the pointer points to (or just past) reaches the end of its lifetime.</p>
+
+<h3 id="toc_12">value</h3>
+
+<p>precise meaning of the contents of an object when interpreted as having a specific type</p>
+
+<h3 id="toc_13">object</h3>
+
+<p>Region of data storage in the execution environment, the contents of which can represent values.</p>
+
+<h3 id="toc_14">owner object</h3>
+
+<p>Is an object which value represents a reference to other object which lifetime is controlled by it.</p>
 </body></html>  msvc
    

@@ -2101,21 +2101,28 @@ void passing_non_owner()
 void flow_analysis_else()
 {
     const char* source
+
         =
+        "void * owner malloc(int i);\n"
+        "void free(void * owner p);\n"
+        "\n"
         "int main() {\n"
         "    int * owner p1 = 0;\n"
         "    int * owner p2 = malloc(1);\n"
         "\n"
-        "    if (p2 == NULL) {\n"
+        "    if (p2 == 0) {\n"
         "        return 1;\n"
         "    }\n"
         "    else\n"
         "    {\n"
         "      p1 = p2;\n"
         "    }\n"
+        "    static_state(p2, \"moved\");\n"
         "    free(p1);\n"
         "    return 0;\n"
         "}";
+
+    "}";
 
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};

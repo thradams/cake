@@ -29337,7 +29337,7 @@ static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct second
     ctx->tail_block = p_defer;
 
     flow_visit_statement(ctx, p_secondary_block->statement);
-    
+
     ctx->tail_block = ctx->tail_block->previous; //POP
 }
 
@@ -29743,21 +29743,22 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     restore_state(ctx, original);
 
     const int current = 0;
+    
+    /*when we dont have else block we have a empty imaginary one */
+    /*we invert the object state*/
+    if (p_object_compared_with_null)
+    {
+        // if (p == NULL) { } else { p is not null }
+        p_object_compared_with_null->state = OBJECT_STATE_NOT_NULL;
+    }
+    if (p_object_compared_with_not_null)
+    {
+        // if (p != NULL) { } else { p is null }
+        p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
+    }
 
     if (p_selection_statement->else_secondary_block_opt)
     {
-        /*we invert the object state*/
-        if (p_object_compared_with_null)
-        {
-            // if (p == NULL) { } else { p is not null }
-            p_object_compared_with_null->state = OBJECT_STATE_NOT_NULL;
-        }
-        if (p_object_compared_with_not_null)
-        {
-            // if (p != NULL) { } else { p is null }
-            p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
-        }
-
         struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
         p_defer->previous = ctx->tail_block;
         ctx->tail_block = p_defer;
@@ -29768,45 +29769,42 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
+    bool was_last_statement_inside_else_branch_return = false;
+    if (ctx->p_last_jump_statement)
+    {
+        //TODO gotos etc...
+        was_last_statement_inside_else_branch_return =
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
+    }
+
+
     if (was_last_statement_inside_true_branch_return)
     {
-        restore_state(ctx, original);
-        //merge_states_with_current(ctx, state_index_before_if, true_branch_state_index);
-
-        if (p_object_compared_with_null)
+        if (was_last_statement_inside_else_branch_return)
         {
-            //if (p == NULL) {}
-            // 
-            p_object_compared_with_null->state = OBJECT_STATE_NOT_NULL;
+            restore_state(ctx, original);
         }
-
-        if (p_object_compared_with_not_null)
+        else
         {
-            //if (p != NULL) {}
-            p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
+            //the else state is the current state
         }
     }
     else
     {
-        merge_if_else_states(ctx, current, original, true_branch, current);
-
-        if (p_object_compared_with_null)
+        if (was_last_statement_inside_else_branch_return)
         {
-            p_object_compared_with_null->state =
-                state_merge(state_left_in_true_branch, OBJECT_STATE_NOT_NULL);
+            restore_state(ctx, true_branch);
         }
-        if (p_object_compared_with_not_null)
+        else
         {
-            p_object_compared_with_not_null->state =
-                state_merge(state_left_in_true_branch, OBJECT_STATE_NULL);
-        }
+            merge_if_else_states(ctx, current, original, true_branch, current);
+        }        
     }
-
 
 
     pop_states(ctx, 2);
 
-    
+
 
 }
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
@@ -30182,7 +30180,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     "'%s' is uninitialized ",
                     p_expression->declarator->object_name->lexeme);
 #endif
-    }
+            }
 
             break;
 
@@ -30423,8 +30421,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-}
     }
+}
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
@@ -31324,13 +31322,13 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
 
         assert(ctx->p_return_type == NULL);
- 
+
         struct type type = get_function_return_type(&p_declaration->init_declarator_list.head->p_declarator->type);
         ctx->p_return_type = &type;
         flow_visit_compound_statement(ctx, p_declaration->function_body);
         type_destroy(&type);
         ctx->p_return_type = NULL;
-   
+
     }
 
 }
@@ -34307,21 +34305,28 @@ void passing_non_owner()
 void flow_analysis_else()
 {
     const char* source
+
         =
+        "void * owner malloc(int i);\n"
+        "void free(void * owner p);\n"
+        "\n"
         "int main() {\n"
         "    int * owner p1 = 0;\n"
         "    int * owner p2 = malloc(1);\n"
         "\n"
-        "    if (p2 == NULL) {\n"
+        "    if (p2 == 0) {\n"
         "        return 1;\n"
         "    }\n"
         "    else\n"
         "    {\n"
         "      p1 = p2;\n"
         "    }\n"
+        "    static_state(p2, \"moved\");\n"
         "    free(p1);\n"
         "    return 0;\n"
         "}";
+
+    "}";
 
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
