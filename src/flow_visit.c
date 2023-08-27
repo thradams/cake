@@ -32,7 +32,7 @@ struct flow_defer_scope
     //statements for controling where jump like break, throw stop.
 
     struct try_statement* p_try_statement; //try
-    struct selection_statement* p_selection_statement; //if swith
+    struct selection_statement* p_selection_statement; //if switch
     struct iteration_statement* p_iteration_statement; //for do while
     struct statement* p_statement;//
     struct compound_statement* p_function_body;

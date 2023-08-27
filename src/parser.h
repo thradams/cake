@@ -1347,3 +1347,4 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
 
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list);
+const char* owner compile_source(const char* pszoptions, const char* content, struct report* report);

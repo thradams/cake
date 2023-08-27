@@ -170,6 +170,7 @@ void switch_cases_state(void);
 void switch_break(void);
 void passing_non_owner(void);
 void flow_analysis_else(void);
+void moving_content_of_owner(void);
 
 /*end of forward declarations*/
 
@@ -333,6 +334,7 @@ g_unit_test_success_count = 0;
     switch_break();
     passing_non_owner();
     flow_analysis_else();
+    moving_content_of_owner();
 return g_unit_test_error_count;
 
 }

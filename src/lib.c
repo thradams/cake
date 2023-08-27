@@ -11249,6 +11249,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
 
 struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list);
+const char* owner compile_source(const char* pszoptions, const char* content, struct report* report);
 
 
 #ifdef _WIN32
@@ -28022,7 +28023,7 @@ struct flow_defer_scope
     //statements for controling where jump like break, throw stop.
 
     struct try_statement* p_try_statement; //try
-    struct selection_statement* p_selection_statement; //if swith
+    struct selection_statement* p_selection_statement; //if switch
     struct iteration_statement* p_iteration_statement; //for do while
     struct statement* p_statement;//
     struct compound_statement* p_function_body;
@@ -32215,7 +32216,6 @@ void format_visit(struct format_visit_ctx* ctx)
 #ifdef TEST
 
 
-
 static bool compile_without_errors(bool flow_analysis, const char* src)
 {
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = flow_analysis};
@@ -33092,7 +33092,7 @@ void parameter_view()
         "    return parameter->owner_variable;\n"  //ok to move from parameter
         "}\n";
 
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void move_from_extern()
@@ -33106,7 +33106,7 @@ void move_from_extern()
         "    return global.owner_variable;\n" /*makes a view*/
         "}\n";
 
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void owner_type_test()
@@ -33153,7 +33153,7 @@ void owner_type_test()
         "    static_assert(_is_owner(typeof(*p)));    \n"
         "}\n";
 
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void correct_move_assigment()
@@ -33180,7 +33180,7 @@ void correct_move_assigment()
         "    x1 = x2; //ok\n"
         "\n"
         "}";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void no_explicit_move_required()
@@ -33196,7 +33196,7 @@ void no_explicit_move_required()
         "}\n"
         "\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 
 }
 
@@ -33212,7 +33212,7 @@ void no_explicit_move_with_function_result()
         "  destroy(get());\n"
         "}\n";
 
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void cannot_ignore_owner_result()
@@ -33251,7 +33251,7 @@ void can_ignore_owner_result()
         "  f();\n"
         "}\n";
 
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void move_not_necessary_on_return()
@@ -33268,7 +33268,7 @@ void move_not_necessary_on_return()
         "    return f();\n"
         "}\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void explicit_move_not_required()
@@ -33285,7 +33285,7 @@ void explicit_move_not_required()
         "    s = nullptr;    \n"
         "}\n"
         ;
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void error_using_temporary_owner()
@@ -33348,7 +33348,7 @@ void ownership_flow_test_null_ptr_at_end_of_scope()
         "    _Owner int * p = 0;\n"
         "}\n"
         " ";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_pointer_must_be_deleted()
@@ -33385,7 +33385,7 @@ void ownership_flow_test_basic_pointer_check()
         "}\n"
         "";
 
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_struct_member_missing_free()
@@ -33433,7 +33433,7 @@ void ownership_flow_test_struct_member_free()
         "    free(x.text);\n"
         "}\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 
 }
 
@@ -33475,7 +33475,7 @@ void ownership_flow_test_goto_same_scope()
         "    free(p);\n"
         "}\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_jump_labels()
@@ -33521,7 +33521,7 @@ void ownership_flow_test_owner_if_pattern_1()
         "}\n"
         "\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_owner_if_pattern_2()
@@ -33542,7 +33542,7 @@ void ownership_flow_test_owner_if_pattern_2()
         "}\n"
         "\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_missing_destructor()
@@ -33582,7 +33582,7 @@ void ownership_flow_test_no_warning()
         "    }\n"
         "}\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_moved_if_not_null()
@@ -33605,7 +33605,7 @@ void ownership_flow_test_moved_if_not_null()
         "}\n"
         "\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_struct_moved()
@@ -33628,7 +33628,7 @@ void ownership_flow_test_struct_moved()
         "   x_destroy(&p->x);\n"
         "}\n"
         ;
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_scope_error()
@@ -33655,7 +33655,7 @@ void ownership_flow_test_scope_error()
         "    {\n"
         "    }\n"
         "}";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_void_destroy()
@@ -33676,7 +33676,7 @@ void ownership_flow_test_void_destroy()
         "} \n"
         ;
 
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_void_destroy_ok()
@@ -33697,7 +33697,7 @@ void ownership_flow_test_void_destroy_ok()
         "   free(p);   \n"
         "} \n"
         ;
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_moving_owner_pointer()
@@ -33725,7 +33725,7 @@ void ownership_flow_test_moving_owner_pointer()
         "   x_delete(p);      \n"
         "} \n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -33829,7 +33829,7 @@ void ownership_flow_test_while_not_null()
         "      p = next;\n"
         "  }  \n"
         "}";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_if_state()
@@ -33861,7 +33861,7 @@ void ownership_flow_test_if_state()
         "\n"
         "";
 
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void ownership_types_test_error_owner()
@@ -33949,7 +33949,7 @@ void ownership_flow_test_two_ifs()
         "}\n"
         "\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 
 }
 
@@ -33997,7 +33997,7 @@ void ownership_flow_switch_case()
         "            break;\n"
         "    }        \n"
         "}";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void state_inner_objects_preserved()
@@ -34025,7 +34025,7 @@ void state_inner_objects_preserved()
         "    free(p->name);\n"
         "    free(p);\n"
         "}";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 //TODO make test with
@@ -34034,7 +34034,7 @@ void state_inner_objects_preserved()
 void owner_parameter_must_be_ignored()
 {
     const char* source = "void f(void (*pf)(void* owner p)){}";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void taking_address()
@@ -34078,7 +34078,7 @@ void taking_address_const()
         "  f(&x);\n"
         "}\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void pointer_argument()
@@ -34121,7 +34121,7 @@ void do_while()
         "   while(0);   \n"
         "}\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void switch_cases_state()
@@ -34145,7 +34145,7 @@ void switch_cases_state()
         "    return p;\n"
         "}\n"
         "";
-    compile_without_errors(true, source);
+   assert(compile_without_errors(true, source));
 }
 
 void switch_break()
@@ -34162,7 +34162,7 @@ void switch_break()
         "    }\n"
         "    return p;\n"
         "}";
-    compile_without_errors(true, source);
+    assert(compile_without_errors(true, source));
 }
 
 void passing_non_owner()
@@ -34211,10 +34211,34 @@ void flow_analysis_else()
 
     "}";
 
-    compile_without_errors(true, source);
+    assert(compile_without_errors(true, source));
 }
-
-
+void moving_content_of_owner()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "\n"
+        "struct X {  char *owner name; };\n"
+        "struct Y { struct X x; };\n"
+        "\n"
+        "void f(struct Y * y, struct X * obj_owner p) \n"
+        "{\n"
+        "    free(y->x.name);\n"
+        "    y->x = *p;\n"
+        "}\n"
+        "int main() {\n"
+        "   struct X x;\n"
+        "   struct Y y = {0};\n"
+        "   f(&y , &x);\n"
+        "   free(y.x.name);\n"
+        "}\n"
+        "";
+       assert(compile_without_errors(true, source));
+}
 #endif
 
 
