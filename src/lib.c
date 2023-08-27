@@ -5244,6 +5244,8 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 {
                     match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
                     argument_list_add(&macro_argument_list, p_argument);
+                    p_argument = NULL; //MOVED
+
                     p_current_parameter = p_current_parameter->next;
 
                     if (p_current_parameter != NULL)
@@ -5254,6 +5256,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                             p_argument = calloc(1, sizeof(struct macro_argument));
                             p_argument->name = strdup(p_current_parameter->name);
                             argument_list_add(&macro_argument_list, p_argument);
+                            p_argument = NULL; //MOVED
                         }
                         else
                         {
@@ -5282,13 +5285,15 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 {
                     match_token_level(&macro_argument_list.tokens, input_list, ',', level, ctx);
                     argument_list_add(&macro_argument_list, p_argument);
-                    p_argument = NULL; /*tem mais?*/
+                    p_argument = NULL; /*MOVED*/
+
                     p_argument = calloc(1, sizeof(struct macro_argument));
                     p_current_parameter = p_current_parameter->next;
                     if (p_current_parameter == NULL)
                     {
                         preprocessor_set_error_with_token(C_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
                         macro_argument_delete(p_argument);
+                        p_argument = NULL; //DELETED
                         throw;
                     }
                     p_argument->name = strdup(p_current_parameter->name);
@@ -5302,8 +5307,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             }
         }
 
-        //macro_argument_delete(p_argument);
-        //p_argument = NULL;
+        assert(p_argument == NULL);
     }
     catch
     {
@@ -6115,6 +6119,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             }
                             token_list_append_list_at_beginning(input_list, &r3);
                             macro_argument_list_destroy(&arguments2);
+                            token_list_destroy(&r3);
                         }
                     }
                 }
@@ -32209,6 +32214,8 @@ void format_visit(struct format_visit_ctx* ctx)
 
 #ifdef TEST
 
+
+
 static bool compile_without_errors(bool flow_analysis, const char* src)
 {
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = flow_analysis};
@@ -32225,7 +32232,6 @@ static bool compile_with_errors(bool flow_analysis, const char* src)
     get_ast(&options, "source", src, &report);
     return report.error_count != 0;
 }
-
 
 void parser_specifier_test()
 {
@@ -32336,7 +32342,6 @@ void crazy_decl2()
     assert(compile_without_errors(false, src));
 }
 
-
 void crazy_decl4()
 {
     const char* src =
@@ -32381,7 +32386,6 @@ void sizeof_test()
     assert(compile_without_errors(false, src));
 }
 
-
 void alignof_test()
 {
     const char* src =
@@ -32392,8 +32396,6 @@ void alignof_test()
 
     assert(compile_without_errors(false, src));
 }
-
-
 
 void indirection_struct_size()
 {
@@ -32446,7 +32448,6 @@ void array_size()
 
     assert(compile_without_errors(false, src));
 }
-
 
 void expr_type()
 {
@@ -32606,7 +32607,6 @@ void digit_separator_test()
     assert(compile_without_errors(false, source));
 }
 
-
 void numbers_test()
 {
     const char* source =
@@ -32628,7 +32628,6 @@ void binary_digits_test()
 
     assert(compile_without_errors(false, source));
 }
-
 
 void type_suffix_test()
 {
@@ -32679,7 +32678,6 @@ void type_suffix_test()
     assert(compile_without_errors(false, source));
 }
 
-
 void type_test()
 {
     const char* source =
@@ -32724,8 +32722,6 @@ void is_pointer_test()
     assert(compile_without_errors(false, source));
 }
 
-
-
 void params_test()
 {
     const char* source =
@@ -32744,7 +32740,6 @@ void params_test()
     assert(compile_without_errors(false, source));
 }
 
-
 void test_compiler_constant_expression()
 {
     const char* source =
@@ -32760,7 +32755,6 @@ void test_compiler_constant_expression()
     assert(compile_without_errors(false, source));
 }
 
-
 void zerodiv()
 {
     const char* source =
@@ -32772,7 +32766,6 @@ void zerodiv()
 
     assert(compile_with_errors(false, source));
 }
-
 
 void function_result_test()
 {
@@ -32871,8 +32864,6 @@ void const_member()
         report.last_error == C_ASSIGNMENT_OF_READ_ONLY_OBJECT);
 }
 
-
-
 void register_struct_member()
 {
     const char* source
@@ -32891,7 +32882,6 @@ void register_struct_member()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1);
 }
-
 
 void address_of_const()
 {
@@ -32995,7 +32985,6 @@ void simple_no_discard_test2()
     assert(report.warnings_count == 0 && report.error_count == 0);
 }
 
-
 void address_of_register()
 {
     const char* source
@@ -33038,7 +33027,6 @@ void return_address_of_local()
     assert(report.warnings_count == 1 && report.last_warning == W_RETURN_LOCAL_ADDR);
 }
 
-
 void assignment_of_read_only_object()
 {
     const char* source
@@ -33066,8 +33054,6 @@ void assignment_of_read_only_object()
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-
 void simple_move()
 {
     const char* source
@@ -33078,7 +33064,6 @@ void simple_move()
         "}";
     assert(compile_without_errors(true, source));
 }
-
 
 void simple_move_error()
 {
@@ -33198,9 +33183,6 @@ void correct_move_assigment()
     compile_without_errors(true, source);
 }
 
-
-
-
 void no_explicit_move_required()
 {
     const char* source
@@ -33233,7 +33215,6 @@ void no_explicit_move_with_function_result()
     compile_without_errors(true, source);
 }
 
-
 void cannot_ignore_owner_result()
 {
     const char* source
@@ -33254,7 +33235,6 @@ void cannot_ignore_owner_result()
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1);
 }
-
 
 void can_ignore_owner_result()
 {
@@ -33408,7 +33388,6 @@ void ownership_flow_test_basic_pointer_check()
     compile_without_errors(true, source);
 }
 
-
 void ownership_flow_test_struct_member_missing_free()
 {
     const char* source
@@ -33434,7 +33413,6 @@ void ownership_flow_test_struct_member_missing_free()
     ////TODO return ROOT object!
 
 }
-
 
 void ownership_flow_test_struct_member_free()
 {
@@ -33545,6 +33523,7 @@ void ownership_flow_test_owner_if_pattern_1()
         "";
     compile_without_errors(true, source);
 }
+
 void ownership_flow_test_owner_if_pattern_2()
 {
     const char* source
@@ -33585,6 +33564,7 @@ void ownership_flow_test_missing_destructor()
     assert(report.error_count == 1 && report.last_error == C_OWNERSHIP_FLOW_MISSING_DTOR);
 
 }
+
 void ownership_flow_test_no_warning()
 {
     const char* source
@@ -33604,6 +33584,7 @@ void ownership_flow_test_no_warning()
         "";
     compile_without_errors(true, source);
 }
+
 void ownership_flow_test_moved_if_not_null()
 {
     const char* source
@@ -33824,6 +33805,7 @@ void ownership_flow_test_setting_owner_pointer_to_null()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 && report.warnings_count == 0);
 }
+
 void ownership_flow_test_while_not_null()
 {
     const char* source
@@ -33919,6 +33901,7 @@ void ownership_flow_test_if_variant()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 && report.warnings_count == 0);
 }
+
 void check_leaks_on_else_block()
 {
     const char* source
@@ -33939,7 +33922,6 @@ void check_leaks_on_else_block()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 && report.warnings_count == 0);
 }
-
 
 void ownership_flow_test_two_ifs()
 {
@@ -34017,6 +33999,7 @@ void ownership_flow_switch_case()
         "}";
     compile_without_errors(true, source);
 }
+
 void state_inner_objects_preserved()
 {
     const char* source
@@ -34078,7 +34061,6 @@ void taking_address()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1);
 }
-
 
 void taking_address_const()
 {
@@ -34165,6 +34147,7 @@ void switch_cases_state()
         "";
     compile_without_errors(true, source);
 }
+
 void switch_break()
 {
     const char* source
@@ -34201,6 +34184,7 @@ void passing_non_owner()
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1);
 }
+
 void flow_analysis_else()
 {
     const char* source
@@ -34229,13 +34213,6 @@ void flow_analysis_else()
 
     compile_without_errors(true, source);
 }
-
-// 
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////     OWNER /////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 #endif

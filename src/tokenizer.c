@@ -3143,6 +3143,8 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 {
                     match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
                     argument_list_add(&macro_argument_list, p_argument);
+                    p_argument = NULL; //MOVED
+
                     p_current_parameter = p_current_parameter->next;
 
                     if (p_current_parameter != NULL)
@@ -3153,6 +3155,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                             p_argument = calloc(1, sizeof(struct macro_argument));
                             p_argument->name = strdup(p_current_parameter->name);
                             argument_list_add(&macro_argument_list, p_argument);
+                            p_argument = NULL; //MOVED
                         }
                         else
                         {
@@ -3181,13 +3184,15 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
                 {
                     match_token_level(&macro_argument_list.tokens, input_list, ',', level, ctx);
                     argument_list_add(&macro_argument_list, p_argument);
-                    p_argument = NULL; /*tem mais?*/
+                    p_argument = NULL; /*MOVED*/
+
                     p_argument = calloc(1, sizeof(struct macro_argument));
                     p_current_parameter = p_current_parameter->next;
                     if (p_current_parameter == NULL)
                     {
                         preprocessor_set_error_with_token(C_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
                         macro_argument_delete(p_argument);
+                        p_argument = NULL; //DELETED
                         throw;
                     }
                     p_argument->name = strdup(p_current_parameter->name);
@@ -3201,8 +3206,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
             }
         }
 
-        //macro_argument_delete(p_argument);
-        //p_argument = NULL;
+        assert(p_argument == NULL);
     }
     catch
     {
@@ -4014,6 +4018,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             }
                             token_list_append_list_at_beginning(input_list, &r3);
                             macro_argument_list_destroy(&arguments2);
+                            token_list_destroy(&r3);
                         }
                     }
                 }
