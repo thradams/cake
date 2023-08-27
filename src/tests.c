@@ -4,18 +4,18 @@
 #ifdef TEST
 #include "unit_test.h"
 
-static bool compile_without_errors(const char* src)
+static bool compile_without_errors(bool flow_analysis, const char* src)
 {
-    struct options options = {.input = LANGUAGE_C99};
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = flow_analysis};
     struct report report = {0};
     get_ast(&options, "source", src, &report);
     return report.error_count == 0;
 }
 
-static bool compile_with_errors(const char* src)
+static bool compile_with_errors(bool flow_analysis, const char* src)
 {
 
-    struct options options = {.input = LANGUAGE_C99};
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = flow_analysis};
     struct report report = {0};
     get_ast(&options, "source", src, &report);
     return report.error_count != 0;
@@ -25,7 +25,7 @@ static bool compile_with_errors(const char* src)
 void parser_specifier_test()
 {
     const char* src = "long long long i;";
-    assert(compile_with_errors(src));
+    assert(compile_with_errors(false, src));
 }
 
 void array_item_type_test()
@@ -33,7 +33,7 @@ void array_item_type_test()
     const char* src =
         "void (*pf[10])(void* val);\n"
         "static_assert(_is_same(typeof(pf[0]), void (*)(void* val)));\n";
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void take_address_type_test()
@@ -43,26 +43,26 @@ void take_address_type_test()
         "{"
         "    (*p)[0] = 'a';"
         "}";
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void parser_scope_test()
 {
     const char* src = "void f() {int i; char i;}";
-    assert(compile_with_errors(src));
+    assert(compile_with_errors(false, src));
 }
 
 void parser_tag_test()
 {
     //mudou tipo do tag no mesmo escopo
     const char* src = "enum E { A }; struct E { int i; };";
-    assert(compile_with_errors(src));
+    assert(compile_with_errors(false, src));
 }
 
 void string_concatenation_test()
 {
     const char* src = " const char* s = \"part1\" \"part2\";";
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void test_digit_separator()
@@ -88,7 +88,7 @@ void type_test2()
         " static_assert(_is_same(typeof(&a) ,int (*)[10]));\n"
         ;
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void type_test3()
@@ -100,7 +100,7 @@ void type_test3()
         " static_assert(_is_same(typeof(&f), int (**)(void)));"
         ;
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void crazy_decl()
@@ -112,7 +112,7 @@ void crazy_decl()
         "    return 0;\n"
         "}\n";
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void crazy_decl2()
@@ -128,7 +128,7 @@ void crazy_decl2()
         "  f(1);\n"
         "}\n";
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 
@@ -141,12 +141,12 @@ void crazy_decl4()
         "    PF(1, 2);\n"
         "}\n";
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void sizeof_array_test()
 {
-    assert(compile_without_errors(
+    assert(compile_without_errors(false,
         "int main() {\n"
         "int a[] = { 1, 2, 3 };\n"
         "static_assert(sizeof(a) == sizeof(int) * 3);\n"
@@ -173,7 +173,7 @@ void sizeof_test()
         "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));"
         ;
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 
@@ -185,7 +185,7 @@ void alignof_test()
         "static_assert(sizeof(struct X) == 24);"
         ;
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 
@@ -200,7 +200,7 @@ void indirection_struct_size()
         "static_assert(sizeof(X) == sizeof(void*));"
         ;
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void traits_test()
@@ -215,7 +215,7 @@ void traits_test()
         "int((a2))[10];\n"
         "static_assert(_is_array(a2));"
         ;
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void comp_error1()
@@ -226,7 +226,7 @@ void comp_error1()
         "    *z-- = '\\0';\n"
         "}\n";
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void array_size()
@@ -239,7 +239,7 @@ void array_size()
         "}"
         ;
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 
@@ -248,7 +248,7 @@ void expr_type()
     const char* src =
         "static_assert(_is_same(typeof(1 + 2.0), double));";
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 }
 
 void expand_test()
@@ -259,7 +259,7 @@ void expand_test()
         "static_assert(_is_same(typeof(B), int (*[1])[2]));";
     ;
 
-    assert(compile_without_errors(src));
+    assert(compile_without_errors(false, src));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -288,7 +288,7 @@ void expand_test2()
         "";
 
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -301,7 +301,7 @@ void expand_test3()
         "typedef T1(*f[3])(int); "
         "static_assert(_is_same(typeof(f), char* (* [3])(int)));";
 
-    assert(compile_without_errors(src3));
+    assert(compile_without_errors(false, src3));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -379,7 +379,7 @@ void bigtest()
         "\n"
         "\n"
         ;
-    assert(compile_without_errors(str));
+    assert(compile_without_errors(false, str));
 }
 
 void literal_string_type()
@@ -389,7 +389,7 @@ void literal_string_type()
         "    static_assert(_is_same(typeof(\"AB\"),  char [3]));\n"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 void digit_separator_test()
@@ -398,7 +398,7 @@ void digit_separator_test()
         "static_assert(1'00'00 == 10000);"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 
@@ -410,7 +410,7 @@ void numbers_test()
         "#endif"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 void binary_digits_test()
@@ -421,7 +421,7 @@ void binary_digits_test()
         "_Static_assert(052 == 42);"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 
@@ -471,7 +471,7 @@ void type_suffix_test()
         ;
 
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 
@@ -482,7 +482,7 @@ void type_test()
         "static_assert(_is_same( typeof( *(p + 1) ), int)   );"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 void is_pointer_test()
@@ -516,7 +516,7 @@ void is_pointer_test()
         "\n"
         "}\n"
         ;
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 
@@ -536,7 +536,7 @@ void params_test()
         "}"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 
@@ -552,7 +552,7 @@ void test_compiler_constant_expression()
         "}"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 
@@ -565,7 +565,7 @@ void zerodiv()
         "}"
         ;
 
-    assert(compile_with_errors(source));
+    assert(compile_with_errors(false, source));
 }
 
 
@@ -578,7 +578,7 @@ void function_result_test()
         "static_assert(_Generic(F2(), int (*)(int, int*) : 1));\n"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 void type_normalization()
@@ -598,7 +598,7 @@ void type_normalization()
         ;
 
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 void auto_test()
@@ -619,7 +619,7 @@ void auto_test()
         "    }\n"
         ;
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 
 }
 
@@ -642,7 +642,7 @@ void enum_scope()
         "  enum E { B } e2; \n"
         "  static_assert( (typeof(e2)), (enum E) ); \n"
         "}\n";
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 void const_member()
@@ -698,7 +698,7 @@ void address_of_const()
         "static_assert(_Generic(&p, const int *  const * : 1 ));\n"
         "";
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 void lvalue_test()
@@ -749,7 +749,7 @@ void lvalue_test()
         "";
 
 
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(false, source));
 }
 
 void simple_no_discard_test()
@@ -871,7 +871,7 @@ void simple_move()
         "    char * _Owner p = 0;\n"
         "    return p; /*implicit move*/\n"
         "}";
-    assert(compile_without_errors(source));
+    assert(compile_without_errors(true, source));
 }
 
 
@@ -902,10 +902,7 @@ void parameter_view()
         "    return parameter->owner_variable;\n"  //ok to move from parameter
         "}\n";
 
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void move_from_extern()
@@ -919,10 +916,7 @@ void move_from_extern()
         "    return global.owner_variable;\n" /*makes a view*/
         "}\n";
 
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void owner_type_test()
@@ -969,10 +963,7 @@ void owner_type_test()
         "    static_assert(_is_owner(typeof(*p)));    \n"
         "}\n";
 
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void correct_move_assigment()
@@ -999,10 +990,7 @@ void correct_move_assigment()
         "    x1 = x2; //ok\n"
         "\n"
         "}";
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 
@@ -1021,10 +1009,7 @@ void no_explicit_move_required()
         "}\n"
         "\n"
         "";
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 
 }
 
@@ -1040,10 +1025,7 @@ void no_explicit_move_with_function_result()
         "  destroy(get());\n"
         "}\n";
 
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 
@@ -1084,10 +1066,7 @@ void can_ignore_owner_result()
         "  f();\n"
         "}\n";
 
-    struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void move_not_necessary_on_return()
@@ -1104,10 +1083,7 @@ void move_not_necessary_on_return()
         "    return f();\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void explicit_move_not_required()
@@ -1124,10 +1100,7 @@ void explicit_move_not_required()
         "    s = nullptr;    \n"
         "}\n"
         ;
-    struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void error_using_temporary_owner()
@@ -1190,10 +1163,7 @@ void ownership_flow_test_null_ptr_at_end_of_scope()
         "    _Owner int * p = 0;\n"
         "}\n"
         " ";
-    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_pointer_must_be_deleted()
@@ -1230,10 +1200,7 @@ void ownership_flow_test_basic_pointer_check()
         "}\n"
         "";
 
-    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 
@@ -1283,10 +1250,7 @@ void ownership_flow_test_struct_member_free()
         "    free(x.text);\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 
 }
 
@@ -1328,10 +1292,7 @@ void ownership_flow_test_goto_same_scope()
         "    free(p);\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_jump_labels()
@@ -1377,10 +1338,7 @@ void ownership_flow_test_owner_if_pattern_1()
         "}\n"
         "\n"
         "";
-    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 void ownership_flow_test_owner_if_pattern_2()
 {
@@ -1400,10 +1358,7 @@ void ownership_flow_test_owner_if_pattern_2()
         "}\n"
         "\n"
         "";
-    struct options options = {.input = LANGUAGE_C2X, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_missing_destructor()
@@ -1442,10 +1397,7 @@ void ownership_flow_test_no_warning()
         "    }\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 void ownership_flow_test_moved_if_not_null()
 {
@@ -1467,10 +1419,7 @@ void ownership_flow_test_moved_if_not_null()
         "}\n"
         "\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_struct_moved()
@@ -1493,11 +1442,7 @@ void ownership_flow_test_struct_moved()
         "   x_destroy(&p->x);\n"
         "}\n"
         ;
-
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_scope_error()
@@ -1524,11 +1469,7 @@ void ownership_flow_test_scope_error()
         "    {\n"
         "    }\n"
         "}";
-
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_void_destroy()
@@ -1549,10 +1490,7 @@ void ownership_flow_test_void_destroy()
         "} \n"
         ;
 
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_void_destroy_ok()
@@ -1573,11 +1511,7 @@ void ownership_flow_test_void_destroy_ok()
         "   free(p);   \n"
         "} \n"
         ;
-
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_moving_owner_pointer()
@@ -1605,10 +1539,7 @@ void ownership_flow_test_moving_owner_pointer()
         "   x_delete(p);      \n"
         "} \n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -1711,10 +1642,7 @@ void ownership_flow_test_while_not_null()
         "      p = next;\n"
         "  }  \n"
         "}";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_flow_test_if_state()
@@ -1746,12 +1674,7 @@ void ownership_flow_test_if_state()
         "\n"
         "";
 
-
-
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void ownership_types_test_error_owner()
@@ -1839,11 +1762,7 @@ void ownership_flow_test_two_ifs()
         "}\n"
         "\n"
         "";
-
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 
 }
 
@@ -1891,10 +1810,7 @@ void ownership_flow_switch_case()
         "            break;\n"
         "    }        \n"
         "}";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 void state_inner_objects_preserved()
 {
@@ -1921,10 +1837,7 @@ void state_inner_objects_preserved()
         "    free(p->name);\n"
         "    free(p);\n"
         "}";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 //TODO make test with
@@ -1933,10 +1846,7 @@ void state_inner_objects_preserved()
 void owner_parameter_must_be_ignored()
 {
     const char* source = "void f(void (*pf)(void* owner p)){}";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0 && report.warnings_count == 0);
+    compile_without_errors(true, source);
 }
 
 void taking_address()
@@ -1981,10 +1891,7 @@ void taking_address_const()
         "  f(&x);\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void pointer_argument()
@@ -2027,10 +1934,7 @@ void do_while()
         "   while(0);   \n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void switch_cases_state()
@@ -2054,10 +1958,7 @@ void switch_cases_state()
         "    return p;\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 void switch_break()
 {
@@ -2073,10 +1974,7 @@ void switch_break()
         "    }\n"
         "    return p;\n"
         "}";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 void passing_non_owner()
@@ -2124,10 +2022,7 @@ void flow_analysis_else()
 
     "}";
 
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 0);
+    compile_without_errors(true, source);
 }
 
 // 

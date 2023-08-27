@@ -1352,6 +1352,8 @@ static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct second
     ctx->tail_block = p_defer;
 
     flow_visit_statement(ctx, p_secondary_block->statement);
+    
+    check_defer_and_variables(ctx, p_defer,p_secondary_block->last_token);
 
     ctx->tail_block = ctx->tail_block->previous; //POP
 }
@@ -1774,13 +1776,12 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     if (p_selection_statement->else_secondary_block_opt)
     {
-        struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
-        p_defer->p_selection_statement = p_selection_statement;
+        //struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
+        //p_defer->previous = ctx->tail_block;
+        //ctx->tail_block = p_defer;
+        //p_defer->p_selection_statement = p_selection_statement;
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
-        check_defer_and_variables(ctx, p_defer, p_selection_statement->else_secondary_block_opt->last_token);
-        ctx->tail_block = ctx->tail_block->previous; //POP
+        //ctx->tail_block = ctx->tail_block->previous; //POP
 
     }
 

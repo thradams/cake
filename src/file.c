@@ -1,27 +1,16 @@
-void* owner malloc(int i);
-void free(void* owner p);
+void* owner malloc(int sz);
 
-int main()
+ int* owner  f(int i)
 {
-    int* owner p1 = 0;
-    int* owner p2 = malloc(1);
 
-    try
+    int* owner p3 = malloc(1);
+    switch (i)
     {
-        if (p2 == 0)
-        {
-            throw;
-        }
-        else
-        {
-            p1 = p2;
-        }
-    }
-    catch
-    {
-    }
-    static_debug(p2);
 
-    free(p1);
-    return 0;
+        case 1: 
+            break;
+            case 2: 
+            break;
+    }
+    return p3;
 }
