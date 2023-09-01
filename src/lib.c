@@ -2617,7 +2617,7 @@ void macro_parameters_delete(struct macro_parameter* owner parameters)
     while (p)
     {
         struct macro_parameter* owner p_next = p->next;
-        free((void* owner)p->name);
+        free(p->name);
         free(p);
         p = p_next;
     }
@@ -3497,11 +3497,10 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-
-                set_sliced_flag(&stream, p_new_token);
                 continue;
             }
 
@@ -3562,13 +3561,14 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, p_new_token);
+                
                 new_line = false;
                 has_space = false;
                 if (set_sliced_flag(&stream, p_new_token))
                 {
                     tokenizer_set_warning(ctx, &stream, "token sliced");
                 }
+                token_list_add(&list, p_new_token);
                 continue;
             }
 
@@ -3593,10 +3593,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 /*bNewLine = false;*/ //deixa assim
                 has_space = true;
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
             if (stream.current[0] == '/' &&
@@ -3622,10 +3623,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
-                set_sliced_flag(&stream, p_new_token);
+                
 
                 if (stream.current[0] == '\0')
                     break;
@@ -3692,10 +3694,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->line = line;
                 p_new_token->col = col;
                 p_new_token->type = TK_PREPROCESSOR_LINE;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
 
@@ -3721,10 +3724,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
             const char* start = stream.current;
@@ -3741,10 +3745,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
             else
@@ -3759,12 +3764,13 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
 
 
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
 
@@ -30749,11 +30755,11 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     if (ctx->p_last_jump_statement)
     {
         //TODO gotos etc...
-        
+
         was_last_statement_inside_true_branch_return =
             ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
             ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
     }
 
@@ -30801,8 +30807,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         //TODO gotos etc...
         was_last_statement_inside_else_branch_return =
             ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
             ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
     }
 
@@ -31170,7 +31176,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     p_current_argument->expression->first_token,
                     "source object may have been moved");
             }
-            #endif
+#endif
         }
 
 
@@ -31547,12 +31553,12 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
         bool was_last_statement_inside_true_branch_return = false;
         if (ctx->p_last_jump_statement)
         {
-            
-        was_last_statement_inside_true_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
+
+            was_last_statement_inside_true_branch_return =
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
         }
 
         if (was_last_statement_inside_true_branch_return)
