@@ -2093,8 +2093,12 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     if (ctx->p_last_jump_statement)
     {
         //TODO gotos etc...
+
         was_last_statement_inside_true_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
     }
 
     enum object_state state_left_in_true_branch = 0;
@@ -2140,7 +2144,10 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     {
         //TODO gotos etc...
         was_last_statement_inside_else_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
     }
 
 
@@ -2471,15 +2478,16 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 type_destroy(&argument_object_type2);
             }
         }
-#if 0
+
         if (p_argument_object)
         {
+#if 0
             if (p_argument_object->state == OBJECT_STATE_UNINITIALIZED)
             {
                 compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
                     p_current_argument->expression->first_token,
-                    "object is uninitialized");                
+                    "object is uninitialized");
             }
 
             if (p_argument_object->state & OBJECT_STATE_UNINITIALIZED)
@@ -2506,9 +2514,9 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     p_current_argument->expression->first_token,
                     "source object may have been moved");
             }
+#endif
         }
 
-#endif
 
         if (type_is_any_owner(&p_current_parameter_type->type))
         {
@@ -2883,11 +2891,12 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
         bool was_last_statement_inside_true_branch_return = false;
         if (ctx->p_last_jump_statement)
         {
-            //TODO gotos etc...
+
             was_last_statement_inside_true_branch_return =
                 ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK || 
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW;
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
         }
 
         if (was_last_statement_inside_true_branch_return)

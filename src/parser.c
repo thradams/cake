@@ -6456,11 +6456,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STRC \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STR \
+#define STRe \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 
@@ -6666,7 +6666,7 @@ int compile_one_file(const char* file_name,
         {
             const char* owner s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
-            free((void* owner) s2);
+            free(s2);
         }
         else
         {
@@ -6699,7 +6699,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* owner s2 = format_code(options, s);
-                    free((void* owner) s);
+                    free(s);
                     s = s2;
                 }
 
@@ -6753,7 +6753,7 @@ int compile_one_file(const char* file_name,
     token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
     parser_ctx_destroy(&ctx);
-    free((char* owner) s);
+    free(s);
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
@@ -7039,7 +7039,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
                 /*re-parser ouput and format*/
                 const char* owner s2 = format_code(&options, s);
-                free((void* owner)s);
+                free(s);
                 s = s2;
             }
 

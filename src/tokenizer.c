@@ -1405,10 +1405,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, p_new_token);;
+                set_sliced_flag(&stream, p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
 
@@ -1424,10 +1425,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
 

@@ -3523,10 +3523,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                token_list_add(&list, p_new_token);;
+                set_sliced_flag(&stream, p_new_token);
+                token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
 
@@ -3542,10 +3543,11 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
+                set_sliced_flag(&stream, p_new_token);
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                set_sliced_flag(&stream, p_new_token);
+                
                 continue;
             }
 
@@ -25409,11 +25411,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STRC \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STR \
+#define STRe \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 
@@ -25619,7 +25621,7 @@ int compile_one_file(const char* file_name,
         {
             const char* owner s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
-            free((void* owner) s2);
+            free(s2);
         }
         else
         {
@@ -25652,7 +25654,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* owner s2 = format_code(options, s);
-                    free((void* owner) s);
+                    free(s);
                     s = s2;
                 }
 
@@ -25706,7 +25708,7 @@ int compile_one_file(const char* file_name,
     token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
     parser_ctx_destroy(&ctx);
-    free((char* owner) s);
+    free(s);
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
@@ -25992,7 +25994,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
                 /*re-parser ouput and format*/
                 const char* owner s2 = format_code(&options, s);
-                free((void* owner)s);
+                free(s);
                 s = s2;
             }
 
@@ -30747,8 +30749,12 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     if (ctx->p_last_jump_statement)
     {
         //TODO gotos etc...
+        
         was_last_statement_inside_true_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
     }
 
     enum object_state state_left_in_true_branch = 0;
@@ -30794,7 +30800,10 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     {
         //TODO gotos etc...
         was_last_statement_inside_else_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
     }
 
 
@@ -31125,15 +31134,16 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 type_destroy(&argument_object_type2);
             }
         }
-#if 0
+
         if (p_argument_object)
         {
+#if 0
             if (p_argument_object->state == OBJECT_STATE_UNINITIALIZED)
             {
                 compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
                     p_current_argument->expression->first_token,
-                    "object is uninitialized");                
+                    "object is uninitialized");
             }
 
             if (p_argument_object->state & OBJECT_STATE_UNINITIALIZED)
@@ -31160,9 +31170,9 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     p_current_argument->expression->first_token,
                     "source object may have been moved");
             }
+            #endif
         }
 
-#endif
 
         if (type_is_any_owner(&p_current_parameter_type->type))
         {
@@ -31537,11 +31547,12 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
         bool was_last_statement_inside_true_branch_return = false;
         if (ctx->p_last_jump_statement)
         {
-            //TODO gotos etc...
-            was_last_statement_inside_true_branch_return =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK || 
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW;
+            
+        was_last_statement_inside_true_branch_return =
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW||
+            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
         }
 
         if (was_last_statement_inside_true_branch_return)
