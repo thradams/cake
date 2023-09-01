@@ -5092,6 +5092,7 @@ void attribute_specifier_delete(struct attribute_specifier* owner p)
     if (p)
     {
         attribute_list_destroy(p->attribute_list);
+        free(p->attribute_list);
         assert(p->next == NULL);
         free(p);
     }

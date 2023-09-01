@@ -1,13 +1,14 @@
 void free( void* owner ptr);
 void* owner malloc(int size);
+struct X { char * owner text; };
 
-void f(int condition) 
+void x_destroy(struct X* obj_owner p);
+
+void x_delete(struct X* owner p)
 {
-    int * owner p = malloc(sizeof(int));
-    free(p);
-    free(p);
-
-    int * owner p2 = p;
-    int * owner p3;
-    p3 = p;
+    if (p)
+    {
+        x_destroy(p);
+        free(p);
+    }
 }

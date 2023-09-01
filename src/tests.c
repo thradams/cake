@@ -2258,8 +2258,57 @@ void scopes_pop()
         "    }\n"
         "}\n"
         "";
-       assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
+void owner_moved()
+{
+    const char* source
+        =
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
+        "struct X { char * owner text; };\n"
+        "\n"
+        "void x_destroy(struct X* obj_owner p)\n"
+        "{\n"
+        "    free(p->text);\n"
+        "}\n"
+        "\n"
+        "void x_delete(struct X* owner p)\n"
+        "{\n"
+        "    if (p)\n"
+        "    {\n"
+        "        x_destroy(p);\n"
+        "        free(p);\n"
+        "    }\n"
+        "}";
+        assert(compile_without_errors(true, source));
+
+}
+
+void partially_owner_moved()
+{
+    const char* source
+        =
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
+        "struct X { char * owner text; };\n"
+        "\n"
+        "void x_destroy(struct X* obj_owner p)\n"
+        "{\n"
+        "    free(p->text);\n"
+        "}\n"
+        "\n"
+        "void x_delete(struct X* owner p)\n"
+        "{\n"
+        "    if (p)\n"
+        "    {\n"
+        "        x_destroy(p);\n"
+        "    }\n"
+        "}";
+        assert(compile_with_errors(true, source));
+
+}
+
 
 #endif
 

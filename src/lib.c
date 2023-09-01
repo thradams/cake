@@ -16206,6 +16206,7 @@ void type_destroy(struct type* obj_owner p_type)
         struct type* owner next = item->next;
         item->next = NULL;
         type_destroy_one(item);
+        free(item);
         item = next;
     }
 
@@ -24053,6 +24054,7 @@ void attribute_specifier_delete(struct attribute_specifier* owner p)
     if (p)
     {
         attribute_list_destroy(p->attribute_list);
+        free(p->attribute_list);
         assert(p->next == NULL);
         free(p);
     }
@@ -29872,7 +29874,6 @@ void object_assigment(struct parser_ctx* ctx,
     const struct token* error_position,
     bool bool_source_zero_value)
 {
-
     if (p_dest_obj_opt)
     {
         if (type_is_owner(p_dest_obj_type))
@@ -29886,46 +29887,6 @@ void object_assigment(struct parser_ctx* ctx,
                 buffer,
                 true);
         }
-    }
-
-
-    if (type_is_any_owner(p_dest_obj_type) && type_is_any_owner(p_source_obj_type) && type_is_pointer(p_source_obj_type))
-    {
-        if (type_is_void_ptr(p_dest_obj_type))
-        {
-            if (p_source_obj_opt)
-            {
-                struct type t2 = type_remove_pointer(p_source_obj_type);
-                const char* name = p_source_obj_opt->declarator->name ?
-                    p_source_obj_opt->declarator->name->lexeme :
-                    "?";
-
-                visit_object(ctx,
-                    &t2,
-                    p_source_obj_opt->pointed,
-                    error_position,
-                    name,
-                    true);
-                p_source_obj_opt->state = OBJECT_STATE_MOVED;
-                type_destroy(&t2);
-            }
-        }
-        else
-        {
-            /*everthing is moved*/
-            if (p_source_obj_opt)
-                set_object(p_source_obj_type, p_source_obj_opt, OBJECT_STATE_MOVED);
-        }
-    }
-    else if (type_is_any_owner(p_dest_obj_type) && type_is_any_owner(p_source_obj_type))
-    {
-        /*everthing is moved*/
-        if (p_source_obj_opt)
-            set_object(p_source_obj_type, p_source_obj_opt, OBJECT_STATE_MOVED);
-    }
-    else
-    {
-        /*nothing changes*/
     }
 
     if (p_dest_obj_opt)
@@ -29955,6 +29916,72 @@ void object_assigment(struct parser_ctx* ctx,
         }
 
     }
+
+
+
+
+    if (type_is_any_owner(p_dest_obj_type) && type_is_any_owner(p_source_obj_type) && type_is_pointer(p_source_obj_type))
+    {
+        if (type_is_void_ptr(p_dest_obj_type))
+        {
+            if (p_source_obj_opt)
+            {
+                struct type t2 = type_remove_pointer(p_source_obj_type);
+                const char* name = p_source_obj_opt->declarator->name ?
+                    p_source_obj_opt->declarator->name->lexeme :
+                    "?";
+
+                visit_object(ctx,
+                    &t2,
+                    p_source_obj_opt->pointed,
+                    error_position,
+                    name,
+                    true);
+                p_source_obj_opt->state = OBJECT_STATE_MOVED;
+                type_destroy(&t2);
+            }
+        }
+        else if (type_is_obj_owner(p_dest_obj_type))
+        {
+            if (type_is_owner(p_source_obj_type))
+            {
+                if (p_source_obj_opt->pointed)
+                {
+                    struct type t = type_remove_pointer(p_source_obj_type);
+                    set_object(&t, p_source_obj_opt->pointed, OBJECT_STATE_MOVED);
+                    type_destroy(&t);
+                }
+            }
+            else if (type_is_obj_owner(p_source_obj_type))
+            {
+                if (p_source_obj_opt->pointed)
+                {
+                    struct type t = type_remove_pointer(p_source_obj_type);
+                    set_object(&t, p_source_obj_opt->pointed, OBJECT_STATE_MOVED);
+                    type_destroy(&t);
+                }
+            }
+        }
+        else
+        {
+            
+            if (p_source_obj_opt)
+            {
+                set_object(p_source_obj_type, p_source_obj_opt, OBJECT_STATE_MOVED);
+            }
+        }
+    }
+    else if (type_is_any_owner(p_dest_obj_type) && type_is_any_owner(p_source_obj_type))
+    {
+        /*everthing is moved*/
+        if (p_source_obj_opt)
+            set_object(p_source_obj_type, p_source_obj_opt, OBJECT_STATE_MOVED);
+    }
+    else
+    {
+        /*nothing changes*/
+    }
+
 }
 
 
@@ -31144,6 +31171,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         if (p_argument_object)
         {
 #if 0
+
             if (p_argument_object->state == OBJECT_STATE_UNINITIALIZED)
             {
                 compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
@@ -31160,7 +31188,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     "object may be uninitialized");
             }
 
-
+#endif
             if (p_argument_object->state == OBJECT_STATE_MOVED)
             {
                 compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
@@ -31176,7 +31204,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     p_current_argument->expression->first_token,
                     "source object may have been moved");
             }
-#endif
+
         }
 
 
@@ -35553,8 +35581,57 @@ void scopes_pop()
         "    }\n"
         "}\n"
         "";
-       assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
+void owner_moved()
+{
+    const char* source
+        =
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
+        "struct X { char * owner text; };\n"
+        "\n"
+        "void x_destroy(struct X* obj_owner p)\n"
+        "{\n"
+        "    free(p->text);\n"
+        "}\n"
+        "\n"
+        "void x_delete(struct X* owner p)\n"
+        "{\n"
+        "    if (p)\n"
+        "    {\n"
+        "        x_destroy(p);\n"
+        "        free(p);\n"
+        "    }\n"
+        "}";
+        assert(compile_without_errors(true, source));
+
+}
+
+void partially_owner_moved()
+{
+    const char* source
+        =
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
+        "struct X { char * owner text; };\n"
+        "\n"
+        "void x_destroy(struct X* obj_owner p)\n"
+        "{\n"
+        "    free(p->text);\n"
+        "}\n"
+        "\n"
+        "void x_delete(struct X* owner p)\n"
+        "{\n"
+        "    if (p)\n"
+        "    {\n"
+        "        x_destroy(p);\n"
+        "    }\n"
+        "}";
+        assert(compile_with_errors(true, source));
+
+}
+
 
 #endif
 

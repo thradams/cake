@@ -441,6 +441,7 @@ void type_destroy(struct type* obj_owner p_type)
         struct type* owner next = item->next;
         item->next = NULL;
         type_destroy_one(item);
+        free(item);
         item = next;
     }
 
