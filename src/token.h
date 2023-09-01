@@ -180,7 +180,7 @@ enum token_type
     TK_KEYWORD_IS_ARITHMETIC,
     TK_KEYWORD_IS_FLOATING_POINT,
     TK_KEYWORD_IS_INTEGRAL,
-    TK_KEYWORD_IS_SAME,
+    
 
 };
 
@@ -230,6 +230,8 @@ struct token_list
 };
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col);
 bool token_list_is_empty(struct token_list* p);
+void token_list_swap(struct token_list* a, struct token_list* b);
+
 struct token* owner clone_token(struct token* p);
 struct token* token_list_add(struct token_list* list, struct token* owner pnew);
 void token_list_remove(struct token_list* list, struct token* first, struct token* last);

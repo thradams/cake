@@ -1364,6 +1364,27 @@ void f()
 
 `;
 
+sample["Ownership (experimental)"]["view qualifier"] =
+`
+#define _OWNERSHIP_
+
+#include <string.h>
+
+struct person {
+  char * owner name;
+  char * text;
+};
+
+int main(){
+   view struct person person = {};
+   person.name = strdup("name");  
+   
+   struct person person2 = {};
+   person2.text = strdup("name");  
+}
+`;
+
+
 sample["flow-analysis"] = [];
 sample["flow-analysis"]["if-else 1"] =
 `

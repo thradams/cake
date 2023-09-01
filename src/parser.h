@@ -1,4 +1,6 @@
 #pragma once
+#include "ownership.h"
+
 #include <stdio.h>
 #include <errno.h>
 #include "hashmap.h"
@@ -8,9 +10,9 @@
 #include "osstream.h"
 #include "type.h"
 #include "options.h"
-#include "ownership.h"
 
-#define CAKE_VERSION "0.7"
+
+#define CAKE_VERSION "0.7.1"
 
 
 struct scope
@@ -224,7 +226,7 @@ struct attribute_specifier
 struct attribute_specifier*  owner attribute_specifier(struct parser_ctx* ctx);
 void attribute_specifier_delete( struct attribute_specifier*  owner p);
 
-struct attribute* attribute(struct parser_ctx* ctx);
+struct attribute* owner attribute(struct parser_ctx* ctx);
 
 
 struct storage_class_specifier
@@ -390,7 +392,7 @@ struct enumerator_list
 };
 
 struct enumerator_list enumerator_list(struct parser_ctx* ctx,
-    struct enum_specifier*  p_enum_specifier
+    const struct enum_specifier*  p_enum_specifier
     );
 
 void enumerator_list_destroy(struct enumerator_list*  obj_owner p_enum_specifier);
@@ -435,8 +437,8 @@ struct member_declaration_list
     struct member_declaration* tail;
 };
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
-void member_declaration_list_destroy(struct member_declaration_list * obj_owner);
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier*);
+void member_declaration_list_destroy(struct member_declaration_list * obj_owner p );
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
 
@@ -563,7 +565,7 @@ struct object
   struct object * owner pointed;
 
   /*declarator is used only to print the error message*/
-  struct declarator* declarator;
+  const struct declarator* declarator;
 
   struct objects members;      
   struct object_state_stack object_state_stack;
@@ -760,6 +762,8 @@ struct argument_expression
     struct argument_expression* owner next;
 };
 
+void argument_expression_delete(struct argument_expression* owner p);
+
 struct braced_initializer
 {    
     /*
@@ -878,7 +882,7 @@ struct member_declaration
     
 };
 
-struct member_declaration*  owner member_declaration(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+struct member_declaration*  owner member_declaration(struct parser_ctx* ctx, const struct struct_or_union_specifier*);
 void member_declaration_delete(struct member_declaration*  owner p);
 
 struct member_declarator
@@ -1266,13 +1270,13 @@ struct enumerator
     /*
       having the enum specifier we have better information about the type
     */
-    struct enum_specifier* view enum_specifier;
+    const struct enum_specifier* view enum_specifier;
 
     struct enumerator* owner next;
     long long value;    
 };
 
-struct enumerator* owner enumerator(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier, long long *p_enumerator_value);
+struct enumerator* owner enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long *p_enumerator_value);
 void enumerator_delete(struct enumerator* owner p);
 
 struct attribute_argument_clause

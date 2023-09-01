@@ -17,46 +17,37 @@ By implementing the static ownership check, and using the feature on it's own so
 
 ### New qualifiers
 
-```c
-type-qualifier:
-  ...
-  owner
-  view
-  obj_owner
+  - owner
+  - view
+  - obj_owner
+
+The **owner** qualifier declares an object that has a reference to another object.  The owner object exclusively holds the responsibility for controlling the lifetime of the referenced object. When used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory.
+
+```c  
+void * owner p = malloc(1);
+free(p);
 ```
 
-> The exactly name of the new qualifiers still not defined. It can be something like `_Owner` or just `owner`.  My suggestion is to have macros for each qualifier to to be able to compile the same source code in compilers that don't support ownership checks. 
+The **view** qualifier declares an object that has a reference to another object but it does not control its lifetime, which must exist beyond the lifespan of the view qualified object itself. The **view** qualifier is the default.
 
-The **owner** qualifier can be used when declaring a object to indicate that it has a reference to other object which lifetime can be controlled by it.  The owner object assumes the  ownership of the lifetime of the referenced object.
-
-The **view** qualifier is the default for any object, indicating that the variable is not responsible for releasing referenced object.
-
-View qualified objects does not control the lifetime of the resource, which must exist beyond the lifespan of the view qualified object itself.
-
-The **owner** qualifier, when used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory. 
-  
-For this reason, when converting a owner pointer to `void*`, only the ownership of the memory is moved.
-  
-For instance,  
-
-```c
-void * owner f1(){
-  struct X * owner p = malloc(sizeof (struct X));
-  p->name = strdup("a");
-  return p; 
+```c  
+void * owner p = malloc(1);
+if (p)
+{
+  void * p2 = p; /*p2 is a view*/
 }
+free(p);
 ```
-  
-Returning a `void *` may leak `p->name` so we need a explicit cast `return (void * owner) p` if we want to do that.
 
 The **obj\_owner** qualifier is exclusively applicable to pointers, meaning that the pointer owns the pointed object but not the memory it occupies. It is generally used in destructors.    
   
-> It was not defined yet if this qualifier makes sense (is useful) in other scenarios other than function parameters.
   
 ```c    
-void x_destroy(struct X * obj_owner p) {  
-  //p is the onwer of struct X but it is not 
-  //the owner of the memory X occupies.
+void x_destroy(struct X * obj_owner p){
+ /*
+    We must release all resources used by p
+    but we cannot release the memory pointed by p
+ */
 }  
 int main() {  
   struct X x = {};
@@ -88,8 +79,7 @@ struct person {
 
 int main(){
   view struct person p2;
-   //p2      is view qualified  
-   //p2.name is view qualified
+   /*p2.name is view qualified*/
 }
 ```
 
@@ -123,52 +113,80 @@ To qualify array parameters as owner we do:
 void destroy_array(int n, struct person a[owner 10]);
 ```
 
-The most common usage of **owner** will be pointers. However, ownership qualifiers can be applied for any type. One reason is because we can use other types as references to resources, for instance, we can use a integer.
+The most common usage of **owner** will be pointers. However, ownership qualifiers can be applied for any type.
+  
+Sample:
 
-```c  
-owner int handle = make_resource();
-release_resource(handle);
+```c
+owner int socket = 
+    socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 ```
-  
+
 Pointers have the additional advantage of having a natural zero semantics.   
-  
-What is the empty value for handle for instance?
 
-Obs:
-owner pointer to function should be error.
+Considering that the objective of owner objects is to control the lifetime of the referenced object, it does not make sense a owner pointer to functions.
 
-The owner and obj_owner qualifiers should not be applicable to function objects.  
+
+> The exactly name of the new qualifiers still not defined. It can be something like `_Owner` or just `owner`.  My suggestion is to have macros for each qualifier to to be able to compile the same source code in compilers that don't support ownership checks. 
 
 ### Semantics
 
 1 - When a owner object is copied to another owner object the ownership is always moved/transfered.
 
-This happens when we return values, call functions, on initialization and assignment.
+The object that receives the value must not hold any resource, otherwise the previous referenced objects would be lost.
+This is natural in initialization and function arguments. 
 
-Samples:
+Sample returning values
 
 ```c  
-
 T* owner make_owner() {  
    T* owner  p = ...
-   return p; /*moved*/
+   return p;
 }
+```
+  
+Sample initialization
 
-T * owner b = make_owner(); /*moved*/
-T * owner a = 0;
-a = b; /*moved*/;  
+```c
+T * owner b = make_owner(); /*moved*/  
+```
 
+Sample calling functions
+
+```c
 void f(T * owner a);
 f(a); /*moved*/
 ```
 
-The object that receives the value must not hold any resource, otherwise the previous referenced objects would be lost.
+When passing const owner to non const the compiler can ignore the warning. This solves an old and annoying warning.
 
-This is natural in initialization and function arguments. 
 
-For assignment it needs to be checked with flow analysis (part II).
+```c
+const void * p = malloc(10);
+free(p);
+// warning: passing argument 1 of 'free' discards 'const' qualifier from pointer target type
+```
+  
+The reason is because now the compiler has an extra information that is the owner qualifier.  
 
-2 - A non owner object cannot be copied to a owner object.   
+```c
+void free(void * owner p);
+```  
+
+moving a const object to a function already means the object cannot be used anymore. The state is uninitiated, so as a consequence the warning is not necessary and can be removed.
+
+Sample assignment
+
+```c
+T * owner b = make_owner();
+T * owner a = 0;  
+...
+a = b; /*moved*/;  
+```
+
+Flow analysis must ensure a is not holding any resources.
+
+2 - A __non owner object__ cannot be copied to a __owner object__.   
   
 The only exception is the null pointer constant when copied to owner pointers.
 
@@ -178,9 +196,9 @@ T * owner f() {
 }
 ```
 
- 3 - An owner object can be copied to a non-owner object if its lifetime is longer than that of the non-owner object.  
+ 3 - An __owner object__ can be copied to a __non-owner object__ if its lifetime is longer than that of the __non-owner object__.  
    
-   We can the non-owner object a "view" in this case. 
+We call the non-owner object a "view" in this case. 
   
 ```c
 T F()
@@ -236,7 +254,7 @@ T F(owner T arg) {
 
 ## Part II - Flow analysis
 
-The objective of flow analysis is to ensure that when the lifetime of owner object ends, it must have  already released the resources it owns. The same when we overwrite a reference.  
+The objective of flow analysis is to ensure that when the lifetime of owner object ends, it must have  already released the resources it owns. The same when we overwrite the owner object.  
 
 Sample:  
 
@@ -249,40 +267,43 @@ Sample:
   
 Flow analysis must know that when f goes of of scope it does not owns any resource. 
 
->Note: In cake, we can print the object state   as seen by flow analysis using **static\_debug(expression)**.
-We also can assert some specific state using **static\_state(expression, "state")**.
-  
-To track ownership fours states are used "uninitialized", "moved", "null" and "not null".  
+To track ownership fours states are used "uninitialized", "moved", "null" and "not null".  We can assert compile time states in cake using **static_state**
     
-  
 ```c
 T * p;  
-/* p is uninitialized*/  
+static_state(p, "uninitialized");
+```
+
+We can also print object states using **static\_debug**.
+
+```c
+T * p;  
+static_debug(p);
 ```
 
 Pointers can have the state "null" or "not-null".  The combination of "null or not-null" is also called "maybe-null".  
  
 ```c
 T * owner p = 0;  
-/* p is null*/  
+static_state(p, "null");
 
 T * owner p2 = malloc(sizeof(T));  
-/* p2 is maybe-null*/
+static_state(p2, "maybe-null");
 ```
 
 When one owner object is copied to another the state of the source object is "moved".  The state of the destination object is the same of the previous state of the source object.
 
 ```c
-T * owner p = 0;  
+T * owner p1 = 0;  
 T * owner p2 = malloc(sizeof(T));  
-  
-/*p1 is null*/  
-/*p2 is maybe-null*/
-  
-p = p2;  
 
-/*p2 is moved*/  
-/*p1 is maybe-null*/
+static_state(p1, "null");
+static_state(p2, "maybe-null");
+
+p1 = p2;  
+
+static_state(p1, "maybe-null");
+static_state(p2, "moved");
 
 ```
 
@@ -291,41 +312,31 @@ The exception is when we move owner objects into functions, then the state is "u
 ```c  
   T * owner p = malloc(sizeof(T));  
   free(p);
-  /* p is uninitialized*/
+  static_state(p2, "uninitialized");
 ```
 
 
-The object state is a composition (set) of all possible states.  
+The object state is a set of all possible states.  
   
 Sample:  
 
 ```c  
-  FILE * owner f = 0;  
-  if (condition){    
-      f = fopen("file", "r");
+  FILE * owner f = fopen("file", "r");  
+  if (f) {  
       fclose(f);
-  } /*f is "null" or "moved" */
+  }  
+  static_state(f, "null moved");
 ```
 
 When an owning pointer goes out of scope and before its memory is overridden it cannot have "not-null" in its set state.   
 
 All others possibilities are permitted. For instance, the state can be "null or uninitialized" or "null or moved".
   
-When an owning object (non pointer) goes out of scope and before its memory is overridden it must be on "uninitialized" or "moved" or 
-"uninitialized or moved" state otherwise we have a leak.
+When an owning object (non pointer) goes out of scope and before its memory is overridden it must be on "uninitialized" or "moved" or "uninitialized or moved" state.
+Structs an unions doens't have a direct state. But we can say that some struct has been moved if all of its objects have been moved.
 
 
-```c  
-owner int handle = make_resource();
-release_resource(handle);
-``` 
-  
-We don't have semantics information to know for instance if handle 0 is valid or not.
-
-Each member of aggregate objects is checked individually. 
-
-### malloc/calloc 
-A common initialization is.
+### Special case malloc/calloc 
 
 ```c
 struct X {    
@@ -338,7 +349,9 @@ int main() {
 }
 ```
 
-We must track that object `p->name` does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known.  For this particular case the semantics of malloc/calloc will be built-in; So the static analyzer will know malloc returns a uninitialized memory and calloc return a zeroed memory.
+We must track that object `p->name` does not have any resources before the strdup assignment. We know malloc returns an uninitialized memory but the compiler does not known. 
+
+For this particular case the semantics of malloc/calloc will be built-in; So the static analyzer will know malloc returns a uninitialized memory and calloc return a zeroed memory allowing us to write the code above.
 
 ### Disabling ownership checks  
   
@@ -349,9 +362,9 @@ void f() "unchecked" {
 }
 ```
   
-> This is also expected to be used with a macro, so compiler without ownership checks will just ignore.
+So far, from the experience of using this feature in cake source itself, I have much less usages of "unchecked" than I was expecting initially.
 
-assert can be used to override the static analysis state.
+**assert** also can be used to override the static analysis state.
 
 ```c
 /* linked list sample */
@@ -366,12 +379,7 @@ struct list {
 };
 
 void node_delete(struct node* owner p) {
-  if (p) {  
-     /*  
-       flow analysis will assume   
-       p->next is null and safe to be   
-       ignored  
-     */
+  if (p) {
      assert(p->next == NULL);
      free(p);
   }
@@ -405,13 +413,16 @@ void list_destroy(struct list* obj_owner list)
   
 We don't need assert here because compiler knows "p->next" has been moved. We don't have a way do override the static analysis state "moved" or "uninitialized" using assert.
 
-TODO
+We also have **static_set** that can be used where assert does not work. For instance:
 
 ```c
-void f(struct X *p){
-  move(p->item);
-} //error 'p->item' was left uninitialized  
+  void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+  if (pnew == NULL) return ENOMEM;
+  static_set(p->data, "moved");
+  p->data = pnew;
 ```
+
+
 
 ## Grammar
 

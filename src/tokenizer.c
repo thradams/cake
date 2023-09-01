@@ -103,9 +103,9 @@ struct macro
 
 void delete_macro(struct macro* owner macro);
 
-static void delete_macro_void(void* p)
+static void delete_macro_void(void* owner p)
 {
-    struct macro* owner p_macro = p;
+    struct macro* owner p_macro = p;    
     delete_macro(p_macro);
 }
 
@@ -259,7 +259,7 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
 }
 
 
-const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char* path, char fullpath[300], bool* p_already_included)
+const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx, const char* path, char fullpath[300], bool* p_already_included)
 {
     snprintf(fullpath, 300, "%s", path);
 
@@ -270,7 +270,7 @@ const char* find_and_read_include_file(struct preprocessor_ctx* ctx, const char*
     }
 
 
-    char* content = read_file(fullpath);
+    char* owner content = read_file(fullpath);
     if (content == NULL)
     {
         struct include_dir* current = ctx->include_dir.head;
@@ -311,10 +311,14 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
     if (macro != NULL)
     {
         macro->name = strdup(name);
-        owner_hashmap_set(&ctx->macros, name, (void* owner) macro, 0);
+        struct macro* owner previous = owner_hashmap_set(&ctx->macros, name, (void* owner) macro, 0);
+        if (previous)
+        {
+            delete_macro(previous);
+            previous = NULL;
+        }
     }
 }
-
 
 struct macro_argument
 {
@@ -910,11 +914,14 @@ struct token* owner character_constant(struct tokenizer_ctx* ctx, struct stream*
 {
     const char* start = stream->current;
 
-    /*encoding_prefix_opt*/
+    /*
+      encoding-prefix: one of
+       u8 u U L
+    */
     if (stream->current[0] == 'u')
     {
         stream_match(stream);
-        if (stream->current[1] == '8')
+        if (stream->current[0] == '8')
             stream_match(stream);
     }
     else if (stream->current[0] == 'U' ||
@@ -1193,7 +1200,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
     try
     {
 #ifndef MOCKFILES
-        file = (FILE* owner)fopen(filename_opt, "rb");
+        file = (FILE * owner)fopen(filename_opt, "rb");
         if (file == NULL)
         {
             preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
@@ -1249,7 +1256,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
                 }
             }
 
-            char buffer[30];
+            char buffer[30] = {0};
             int c = snprintf(buffer, sizeof buffer, "%d", (int) ch);
 
             struct token* owner p_new_token = new_token(buffer, &buffer[c], TK_PPNUMBER);
@@ -1935,10 +1942,10 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
                 bool already_included = false;
-                const char* s = find_and_read_include_file(ctx, path, fullpath, &already_included);
+                const char* owner s = find_and_read_include_file(ctx, path, fullpath, &already_included);
 
                 bool has_include = s != NULL;
-                free((void* owner)s);
+                free(s);
 
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
@@ -2096,8 +2103,6 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 {
     struct token* first = input_list->head;
 
-
-
     ctx->conditional_inclusion = true;
 
     struct token_list r = {0};
@@ -2115,8 +2120,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     }
 
     struct token_list list1 = copy_replacement_list(&r);
-    *output_list = r; //MOVIDO!
-
+    token_list_swap(output_list, &r);
 
 
     //printf("\n");
@@ -2169,6 +2173,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
     preprocessor_ctx_destroy(&pre_ctx);
     token_list_destroy(&list1);
 
+    token_list_destroy(&r);
 
     return value;
 }
@@ -2534,7 +2539,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
 
         struct macro_parameter* owner p_new_macro_parameter = calloc(1, sizeof * p_new_macro_parameter);
         p_new_macro_parameter->name = strdup(input_list->head->lexeme);
-        
+
         assert(p_last_parameter->next == NULL);
         p_last_parameter->next = p_new_macro_parameter;
         p_last_parameter = p_new_macro_parameter;
@@ -2657,12 +2662,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             path[strlen(path) - 1] = '\0';
 
             bool already_included = false;
-            const char* content = find_and_read_include_file(ctx, path + 1, fullpath, &already_included);
+            const char* owner content = find_and_read_include_file(ctx, path + 1, fullpath, &already_included);
             if (content != NULL)
             {
                 struct tokenizer_ctx tctx = {0};
                 struct token_list list = tokenizer(&tctx, content, fullpath, level + 1, TK_FLAG_NONE);
-                free((void* owner)content);
+                free(content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
                 token_list_append_list(&r, &list2);
@@ -2808,7 +2813,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
 
             macro->name = strdup(input_list->head->lexeme);
-            owner_hashmap_set(&ctx->macros, input_list->head->lexeme, (void *owner)macro, 0);
+            struct macro* owner previous =
+                owner_hashmap_set(&ctx->macros, input_list->head->lexeme, (void* owner)macro, 0);
+            if (previous)
+            {
+                delete_macro(previous);
+                previous = NULL;
+            }
 
 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx); //nome da macro
@@ -3482,7 +3493,8 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
                     token_list_append_list(&r, &r4);
                     token_list_destroy(&r4);
-                    if (ctx->n_errors > 0) {
+                    if (ctx->n_errors > 0)
+                    {
                         token_list_destroy(&argumentlist);
                         throw;
                     }
@@ -3594,7 +3606,8 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
 
                 struct token_list r3 = expand_macro(ctx, p_list, macro, &arguments, level);
                 if (ctx->n_errors > 0)
-                {
+                {                    
+                    token_list_destroy(&new_list);
                     token_list_destroy(&r3);
                     macro_argument_list_destroy(&arguments);
                     throw;

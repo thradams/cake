@@ -68,6 +68,7 @@ int test_line_continuation(void);
 
 /* tests from tests.c*/
 void parser_specifier_test(void);
+void char_constants(void);
 void array_item_type_test(void);
 void take_address_type_test(void);
 void parser_scope_test(void);
@@ -171,6 +172,14 @@ void switch_break(void);
 void passing_non_owner(void);
 void flow_analysis_else(void);
 void moving_content_of_owner(void);
+void switch_scope(void);
+void swith_and_while(void);
+void owner_to_non_owner(void);
+void owner_to_non_owner_zero(void);
+void incomplete_struct(void);
+void switch_pop_problem(void);
+void switch_pop2(void);
+void scopes_pop(void);
 
 /*end of forward declarations*/
 
@@ -232,6 +241,7 @@ g_unit_test_success_count = 0;
     test_utf8();
     test_line_continuation();
     parser_specifier_test();
+    char_constants();
     array_item_type_test();
     take_address_type_test();
     parser_scope_test();
@@ -335,6 +345,14 @@ g_unit_test_success_count = 0;
     passing_non_owner();
     flow_analysis_else();
     moving_content_of_owner();
+    switch_scope();
+    swith_and_while();
+    owner_to_non_owner();
+    owner_to_non_owner_zero();
+    incomplete_struct();
+    switch_pop_problem();
+    switch_pop2();
+    scopes_pop();
 return g_unit_test_error_count;
 
 }

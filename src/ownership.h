@@ -11,6 +11,8 @@ void* owner realloc(void* owner ptr, int size);
 char * owner strdup( const char *src );
 
 typedef struct _iobuf FILE;
+
+FILE* owner fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* owner _Stream);
 
 char * owner strdup( const char *str1 );

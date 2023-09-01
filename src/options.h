@@ -101,6 +101,8 @@ enum error
     C_MACRO_INVALID_ARG,
     C_MISSING_MACRO_ARGUMENT,
     C_ADDRESS_OF_REGISTER,
+    C_MULTICHAR_ERROR,
+    C_CHARACTER_TOO_LARGE,
     C_OWNERSHIP_NON_OWNER_MOVE,
     
     /*ownership type system errors*/

@@ -143,6 +143,8 @@ struct param_list {
     struct param* tail;
 };
 
+void param_list_destroy(struct param_list* obj_owner p);
+
 struct type 
 {
     enum type_category category;
@@ -155,7 +157,7 @@ struct type
     const char* owner name_opt;
 
     struct struct_or_union_specifier* struct_or_union_specifier;
-    struct enum_specifier* enum_specifier;
+    const struct enum_specifier* enum_specifier;
 
     int array_size;
     bool static_array;
@@ -180,6 +182,8 @@ void check_assigment(struct parser_ctx* ctx,
 void print_type(struct osstream* ss, const  struct type* type);
 void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
+void type_set(struct type* a, const struct type* b);
+
 void type_destroy( struct type* obj_owner p_type);
 
 
@@ -195,6 +199,7 @@ bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_owner(const struct type* p_type);
+bool type_is_obj_owner(const struct type* p_type);
 bool type_is_any_owner(const struct type* p_type);
 bool type_is_lvalue(const struct type* p_type);
 bool type_is_pointer_to_const(const struct type* p_type);
@@ -245,7 +250,7 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
 struct type type_make_int();
 struct type type_make_int_bool_like();
 struct type type_make_size_t();
-struct type type_make_enumerator(struct enum_specifier* enum_specifier);
+struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
 

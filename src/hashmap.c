@@ -96,7 +96,7 @@ void * view hashmap_remove(struct hash_map* map, const char* key, enum tag * p_t
 }
 
 
-int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag type)
+int hashmap_set(struct hash_map* map, const char* key, const void* view p, enum tag type)
 {
     int result = 0;
 
@@ -129,7 +129,7 @@ int hashmap_set(struct hash_map* map, const char* key, void* view p, enum tag ty
         {
             struct map_entry* owner p_new_entry = calloc(1, sizeof(*pentry));
             p_new_entry->hash = hash;
-            p_new_entry->p = p;
+            p_new_entry->p = (void*) p;
             p_new_entry->type = type;
             p_new_entry->key = strdup(key);
             p_new_entry->next = map->table[index];
@@ -239,8 +239,10 @@ void * owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, e
 }
 
 
-int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p, enum tag type)
+void* owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const void* owner p, enum tag type)
 {
+    void* owner previous = NULL;
+
     int result = 0;
 
     if (map->table == NULL)
@@ -278,11 +280,12 @@ int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p
             p_new_entry->next = map->table[index];
             map->table[index] = p_new_entry;
             map->size++;
-            result = 0;
+            result = 0;            
         }
         else
         {
             result = 1;            
+            previous = pentry->p;
             pentry->p =  p;
             pentry->type = type;
         }
@@ -291,6 +294,6 @@ int owner_hashmap_set(struct owner_hash_map* map, const char* key, void* owner p
     {
         static_set(p, "moved"); //this is a leak actually
     }
-    return result;
+    return previous;
 }
 

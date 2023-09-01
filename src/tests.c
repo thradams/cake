@@ -1,7 +1,8 @@
 
+#include <string.h>
 
 #ifdef TEST
-#include <string.h>
+
 #include "parser.h"
 #include <stdlib.h>
 
@@ -30,9 +31,28 @@ void parser_specifier_test()
     assert(compile_with_errors(false, src));
 }
 
+void char_constants()
+{
+    const char* source
+        =
+        "#define TYPE_IS(e, T) _Generic(typeof(e), T : 1, default: 0)\n"
+        "\n"
+        "static_assert(U'ç' == 231);\n"
+        "static_assert(u'ç' == 231);\n"
+        "//static_assert('ç' == 231);\n"
+        "\n"
+        "static_assert(TYPE_IS('a', int));\n"
+        "static_assert(TYPE_IS(u8'a', unsigned char));\n"
+        "static_assert(TYPE_IS(u'a', unsigned short));\n"
+        "static_assert(TYPE_IS(U'a', unsigned int));";
+
+    assert(compile_without_errors(false, source));
+}
+
 void array_item_type_test()
 {
     const char* src =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "void (*pf[10])(void* val);\n"
         "static_assert(_is_same(typeof(pf[0]), void (*)(void* val)));\n";
     assert(compile_without_errors(false, src));
@@ -86,6 +106,7 @@ void test_lit()
 void type_test2()
 {
     char* src =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int a[10];\n"
         " static_assert(_is_same(typeof(&a) ,int (*)[10]));\n"
         ;
@@ -96,6 +117,7 @@ void type_test2()
 void type_test3()
 {
     char* src =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int i;"
         "int (*f)(void);"
         " static_assert(_is_same(typeof(&i), int *));"
@@ -243,6 +265,7 @@ void array_size()
 void expr_type()
 {
     const char* src =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "static_assert(_is_same(typeof(1 + 2.0), double));";
 
     assert(compile_without_errors(false, src));
@@ -251,6 +274,7 @@ void expr_type()
 void expand_test()
 {
     char* src =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "typedef int A[2];"
         "typedef A *B [1];"
         "static_assert(_is_same(typeof(B), int (*[1])[2]));";
@@ -294,6 +318,7 @@ void expand_test3()
 
 
     char* src3 =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "typedef char* T1;"
         "typedef T1(*f[3])(int); "
         "static_assert(_is_same(typeof(f), char* (* [3])(int)));";
@@ -307,6 +332,7 @@ void bigtest()
 {
     const char* str =
         "\n"
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
         "struct X { int i; };\n"
         "\n"
@@ -382,6 +408,7 @@ void bigtest()
 void literal_string_type()
 {
     const char* source =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "    static_assert(_is_same(typeof(\"A\"),  char [2]));\n"
         "    static_assert(_is_same(typeof(\"AB\"),  char [3]));\n"
         ;
@@ -424,12 +451,7 @@ void type_suffix_test()
 {
     const char* source =
         "\n"
-        "#ifdef __cplusplus\n"
-        "#include <type_traits>\n"
-        "#define typeof decltype\n"
-        "#define _is_same(a, b) std::is_same<a, b>::value\n"
-        "#endif\n"
-        "\n"
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
         "static_assert(_is_same(typeof(1), int));\n"
         "static_assert(_is_same(typeof(1L), long));\n"
@@ -472,6 +494,7 @@ void type_suffix_test()
 void type_test()
 {
     const char* source =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int * p = 0;"
         "static_assert(_is_same( typeof( *(p + 1) ), int)   );"
         ;
@@ -482,6 +505,7 @@ void type_test()
 void is_pointer_test()
 {
     const char* source =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
         "int main()\n"
         "{\n"
@@ -593,6 +617,7 @@ void type_normalization()
 void auto_test()
 {
     const char* source =
+        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "    int main()\n"
         "    {\n"
         "        double const x = 78.9;\n"
@@ -849,8 +874,8 @@ void simple_move()
 {
     const char* source
         =
-        "char * _Owner f() {\n"
-        "    char * _Owner p = 0;\n"
+        "char * owner f() {\n"
+        "    char * owner p = 0;\n"
         "    return p; /*implicit move*/\n"
         "}";
     assert(compile_without_errors(true, source));
@@ -861,7 +886,7 @@ void simple_move_error()
     const char* source
         =
         "char * f() {\n"
-        "    char * _Owner p = 0;\n"
+        "    char * owner p = 0;\n"
         "    return p; \n"
         "}";
 
@@ -877,27 +902,27 @@ void parameter_view()
     const char* source
         =
         "\n"
-        "struct X { char  * _Owner owner_variable;   };\n"
+        "struct X { char  * owner owner_variable;   };\n"
         "char * f(struct X *parameter) \n"
         "{\n"
         "    return parameter->owner_variable;\n"  //ok to move from parameter
         "}\n";
 
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void move_from_extern()
 {
     const char* source
         =
-        "struct X { char  * _Owner owner_variable;   };\n"
+        "struct X { char  * owner owner_variable;   };\n"
         "struct X global;\n"
         "char * f() \n"
         "{\n"
         "    return global.owner_variable;\n" /*makes a view*/
         "}\n";
 
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void owner_type_test()
@@ -906,15 +931,15 @@ void owner_type_test()
         =
         "\n"
         "struct Y { \n"
-        "    char  * _Owner owner_variable;   \n"
+        "    char  * owner owner_variable;   \n"
         "    char  * non_owner_variable;   \n"
         "};\n"
         "\n"
         "struct X { \n"
-        "    char  * _Owner owner_variable;   \n"
+        "    char  * owner owner_variable;   \n"
         "    char  * non_owner_variable;   \n"
         "    struct Y y1;\n"
-        "    _View struct Y y2;\n"
+        "    view struct Y y2;\n"
         "};\n"
         "\n"
         "void f()\n"
@@ -934,17 +959,17 @@ void owner_type_test()
         "    static_assert(!_is_owner(typeof(x.y2.owner_variable)));\n"
         "    static_assert(!_is_owner(typeof(x.y2.non_owner_variable)));\n"
         "\n"
-        "    _View struct X x2;\n"
+        "    view struct X x2;\n"
         "    static_assert(!_is_owner(typeof(x2)));\n"
         "    static_assert(!_is_owner(typeof(x2.owner_variable)));\n"
         "    static_assert(!_is_owner(typeof(x2.non_owner_variable)));\n"
         "\n"
-        "    _Owner char * p;\n"
+        "    owner char * p;\n"
         "    static_assert(!_is_owner(typeof(p)));\n"
         "    static_assert(_is_owner(typeof(*p)));    \n"
         "}\n";
 
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void correct_move_assigment()
@@ -957,7 +982,7 @@ void correct_move_assigment()
         "};\n"
         "\n"
         "struct X { \n"
-        "    char * _Owner name;\n"
+        "    char * owner name;\n"
         "};\n"
         "\n"
         "int main()\n"
@@ -971,15 +996,15 @@ void correct_move_assigment()
         "    x1 = x2; //ok\n"
         "\n"
         "}";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void no_explicit_move_required()
 {
     const char* source
         =
-        "char * _Owner create();\n"
-        "void f(char * _Owner p);\n"
+        "char * owner create();\n"
+        "void f(char * owner p);\n"
         "\n"
         "int main()\n"
         "{\n"
@@ -987,7 +1012,7 @@ void no_explicit_move_required()
         "}\n"
         "\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 
 }
 
@@ -995,15 +1020,15 @@ void no_explicit_move_with_function_result()
 {
     const char* source
         =
-        "void destroy(char* _Owner x);\n"
-        "char   * _Owner  get();\n"
+        "void destroy(char* owner x);\n"
+        "char   * owner  get();\n"
         "\n"
         "int main()\n"
         "{\n"
         "  destroy(get());\n"
         "}\n";
 
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void cannot_ignore_owner_result()
@@ -1011,7 +1036,7 @@ void cannot_ignore_owner_result()
     const char* source
         =
         "struct X {\n"
-        "  char * _Owner name;\n"
+        "  char * owner name;\n"
         "};\n"
         "\n"
         "struct X f();\n"
@@ -1032,17 +1057,17 @@ void can_ignore_owner_result()
     const char* source
         =
         "struct X {\n"
-        "  char * _Owner name;\n"
+        "  char * owner name;\n"
         "};\n"
         "\n"
-        "_View struct X f();\n"
+        "view struct X f();\n"
         "\n"
         "int main()\n"
         "{\n"
         "  f();\n"
         "}\n";
 
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void move_not_necessary_on_return()
@@ -1050,7 +1075,7 @@ void move_not_necessary_on_return()
     const char* source
         =
         "struct X {\n"
-        "  char * _Owner name;\n"
+        "  char * owner name;\n"
         "};\n"
         "\n"
         "struct X f();\n"
@@ -1059,7 +1084,7 @@ void move_not_necessary_on_return()
         "    return f();\n"
         "}\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void explicit_move_not_required()
@@ -1070,13 +1095,13 @@ void explicit_move_not_required()
         "\n"
         "int main()\n"
         "{\n"
-        "    const char * _Owner s;\n"
+        "    const char * owner s;\n"
         "    s = NULL;    \n"
         "    s = 0;    \n"
         "    s = nullptr;    \n"
         "}\n"
         ;
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void error_using_temporary_owner()
@@ -1085,7 +1110,7 @@ void error_using_temporary_owner()
         =
         "\n"
         "void F(int i);\n"
-        "_Owner int make();\n"
+        "owner int make();\n"
         "int main()\n"
         "{\n"
         "    F(make());\n"
@@ -1101,11 +1126,11 @@ void passing_view_to_owner()
 {
     const char* source
         =
-        "void destroy(_Owner int i);\n"
+        "void destroy(owner int i);\n"
         "\n"
         "int main()\n"
         "{\n"
-        "  _Owner int i = 0;\n"
+        "  owner int i = 0;\n"
         "  int v = i;\n"
         "  destroy(v);\n"
         "}\n"
@@ -1121,7 +1146,7 @@ void obj_owner_cannot_be_used_in_non_pointer()
     const char* source
         =
         "void f() {\n"
-        "    _Obj_owner int i;\n"
+        "    obj_owner int i;\n"
         "}\n"
         ;
     struct options options = {.input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE)};
@@ -1136,10 +1161,10 @@ void ownership_flow_test_null_ptr_at_end_of_scope()
     const char* source
         =
         "void f() {\n"
-        "    _Owner int * p = 0;\n"
+        "    owner int * p = 0;\n"
         "}\n"
         " ";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_pointer_must_be_deleted()
@@ -1147,10 +1172,10 @@ void ownership_flow_test_pointer_must_be_deleted()
     const char* source
         =
         "\n"
-        "int* _Owner  get();\n"
+        "int* owner  get();\n"
         "\n"
         "void f() {\n"
-        "    int * _Owner p = 0;\n"
+        "    int * owner p = 0;\n"
         "    p = get();\n"
         "}\n"
         " ";
@@ -1165,18 +1190,18 @@ void ownership_flow_test_basic_pointer_check()
     const char* source
         =
         "\n"
-        "int* _Owner  get();\n"
-        "void dtor(int* _Owner p);\n"
+        "int* owner  get();\n"
+        "void dtor(int* owner p);\n"
         "\n"
         "void f(int a)\n"
         "{\n"
-        "    int* _Owner p = 0;\n"
+        "    int* owner p = 0;\n"
         "    p = get();    \n"
         "    dtor(p);    \n"
         "}\n"
         "";
 
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_struct_member_missing_free()
@@ -1184,11 +1209,11 @@ void ownership_flow_test_struct_member_missing_free()
     const char* source
         =
         "\n"
-        "char * _Owner strdup(const char* s);\n"
-        "void free(void* _Owner p);\n"
+        "char * owner strdup(const char* s);\n"
+        "void free(void* owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner text;\n"
+        "  char * owner text;\n"
         "};\n"
         "\n"
         "void f(int a)\n"
@@ -1210,11 +1235,11 @@ void ownership_flow_test_struct_member_free()
     const char* source
         =
         "\n"
-        "char * _Owner strdup(const char* s);\n"
-        "void free(void* _Owner p);\n"
+        "char * owner strdup(const char* s);\n"
+        "void free(void* owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner text;\n"
+        "  char * owner text;\n"
         "};\n"
         "\n"
         "void f(int a)\n"
@@ -1224,7 +1249,7 @@ void ownership_flow_test_struct_member_free()
         "    free(x.text);\n"
         "}\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 
 }
 
@@ -1232,12 +1257,12 @@ void ownership_flow_test_move_inside_if()
 {
     const char* source
         =
-        "void free( void* _Owner ptr);\n"
-        "void* _Owner malloc(int size);\n"
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
         "\n"
         "void f(int c) \n"
         "{\n"
-        "    int * _Owner p = malloc(sizeof (int));    \n"
+        "    int * owner p = malloc(sizeof (int));    \n"
         "    if (c) {\n"
         "      free(p);\n"
         "    }\n"
@@ -1253,12 +1278,12 @@ void ownership_flow_test_goto_same_scope()
 {
     const char* source
         =
-        "void free( void* _Owner ptr);\n"
-        "void* _Owner malloc(int size);\n"
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
         "\n"
         "void f(int condition) \n"
         "{\n"
-        "    int * _Owner p = malloc(sizeof(int));\n"
+        "    int * owner p = malloc(sizeof(int));\n"
         "  \n"
         "    if (condition)\n"
         "       goto end;\n"
@@ -1266,19 +1291,19 @@ void ownership_flow_test_goto_same_scope()
         "    free(p);\n"
         "}\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_jump_labels()
 {
     const char* source
         =
-        "void free( void* _Owner ptr);\n"
-        "void* _Owner malloc(int size);\n"
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
         "\n"
         "void f(int condition)\n"
         "{\n"
-        "    int* _Owner p = malloc(sizeof(int));\n"
+        "    int* owner p = malloc(sizeof(int));\n"
         "\n"
         "    if (condition)\n"
         "        goto end;\n"
@@ -1299,12 +1324,12 @@ void ownership_flow_test_owner_if_pattern_1()
     const char* source
         =
         "\n"
-        "void free( void* _Owner ptr);\n"
-        "void* _Owner malloc(int size);\n"
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
         "\n"
         "int main()\n"
         "{\n"
-        "    int* _Owner p = malloc(sizeof(int));\n"
+        "    int* owner p = malloc(sizeof(int));\n"
         "    if (p)\n"
         "    {\n"
         "       free(p);     \n"
@@ -1312,7 +1337,7 @@ void ownership_flow_test_owner_if_pattern_1()
         "}\n"
         "\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_owner_if_pattern_2()
@@ -1320,12 +1345,12 @@ void ownership_flow_test_owner_if_pattern_2()
     const char* source
         =
         "\n"
-        "void free( void* _Owner ptr);\n"
-        "void* _Owner malloc(int size);\n"
+        "void free( void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
         "\n"
         "int main()\n"
         "{\n"
-        "    int* _Owner p = malloc(sizeof(int));\n"
+        "    int* owner p = malloc(sizeof(int));\n"
         "    if (p != 0)\n"
         "    {\n"
         "       free(p);     \n"
@@ -1333,7 +1358,7 @@ void ownership_flow_test_owner_if_pattern_2()
         "}\n"
         "\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_missing_destructor()
@@ -1341,7 +1366,7 @@ void ownership_flow_test_missing_destructor()
     const char* source
         =
         "struct X {\n"
-        "  _Owner i;\n"
+        "  owner i;\n"
         "};\n"
         "void f() {\n"
         "  const struct X x = {0};\n"
@@ -1360,11 +1385,11 @@ void ownership_flow_test_no_warning()
 {
     const char* source
         =
-        "void free( void * _Owner p);\n"
+        "void free( void * owner p);\n"
         "struct X {\n"
-        "  char * _Owner text;\n"
+        "  char * owner text;\n"
         "};\n"
-        "void x_delete( struct X * _Owner p)\n"
+        "void x_delete( struct X * owner p)\n"
         "{\n"
         "    if (p)\n"
         "    {\n"
@@ -1373,22 +1398,22 @@ void ownership_flow_test_no_warning()
         "    }\n"
         "}\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_moved_if_not_null()
 {
     const char* source
         =
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void * owner malloc(int i);\n"
+        "void free( void * owner p);\n"
         "\n"
         "struct X { int i; };\n"
-        "struct Y { struct X * _Owner p; };\n"
+        "struct Y { struct X * owner p; };\n"
         "\n"
         "int main() {\n"
         "   struct Y y;\n"
-        "   struct X * _Owner p = malloc(sizeof(struct X));\n"
+        "   struct X * owner p = malloc(sizeof(struct X));\n"
         "   if (p){\n"
         "     y.p = p;\n"
         "   }\n"
@@ -1396,45 +1421,45 @@ void ownership_flow_test_moved_if_not_null()
         "}\n"
         "\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_struct_moved()
 {
     const char* source
         =
-        "void free( void * _Owner p);\n"
+        "void free( void * owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;\n"
+        "  char * owner name;\n"
         "};\n"
         "\n"
-        "void x_destroy( struct X * _Obj_owner p);\n"
+        "void x_destroy( struct X * obj_owner p);\n"
         "\n"
         "struct Y {\n"
         "  struct X x;\n"
         "};\n"
         "\n"
-        "void y_destroy(struct Y * _Obj_owner p) {\n"
+        "void y_destroy(struct Y * obj_owner p) {\n"
         "   x_destroy(&p->x);\n"
         "}\n"
         ;
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_scope_error()
 {
     const char* source
         =
-        "void * _Owner malloc(int i);\n"
-        "void free( void* _Owner p);\n"
+        "void * owner malloc(int i);\n"
+        "void free( void* owner p);\n"
         "\n"
         "int main() {\n"
         "    try\n"
         "    {\n"
         "         if (1)\n"
         "         {\n"
-        "             char * _Owner s = malloc(1);\n"
+        "             char * owner s = malloc(1);\n"
         "             free(s);\n"
         "         }\n"
         "         else\n"
@@ -1446,7 +1471,7 @@ void ownership_flow_test_scope_error()
         "    {\n"
         "    }\n"
         "}";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_void_destroy()
@@ -1454,20 +1479,20 @@ void ownership_flow_test_void_destroy()
     /*TODO moving to void* requires object is moved before*/
     const char* source
         =
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void * owner malloc(int i);\n"
+        "void free( void * owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "  char * owner name;    \n"
         "};\n"
         "\n"
         "int main() {\n"
-        "   struct X * _Owner p = malloc(sizeof * p);\n"
+        "   struct X * owner p = malloc(sizeof * p);\n"
         "   free(p);   \n"
         "} \n"
         ;
 
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_void_destroy_ok()
@@ -1475,20 +1500,20 @@ void ownership_flow_test_void_destroy_ok()
     /*TODO moving to void* requires object is moved before*/
     const char* source
         =
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void * owner malloc(int i);\n"
+        "void free( void * owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "  char * owner name;    \n"
         "};\n"
         "\n"
         "int main() {\n"
-        "   struct X * _Owner p = malloc(sizeof * p);\n"
+        "   struct X * owner p = malloc(sizeof * p);\n"
         "   free(p->name);\n"
         "   free(p);   \n"
         "} \n"
         ;
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_moving_owner_pointer()
@@ -1496,14 +1521,14 @@ void ownership_flow_test_moving_owner_pointer()
     const char* source
         =
         "\n"
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void * owner malloc(int i);\n"
+        "void free( void * owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "  char * owner name;    \n"
         "};\n"
         "\n"
-        "void x_delete( struct X * _Owner p)\n"
+        "void x_delete( struct X * owner p)\n"
         "{\n"
         "  if (p) {\n"
         "      free(p->name);\n"
@@ -1512,11 +1537,11 @@ void ownership_flow_test_moving_owner_pointer()
         "}\n"
         "\n"
         "int main() {\n"
-        "   struct X * _Owner p = malloc(sizeof * p);   \n"
+        "   struct X * owner p = malloc(sizeof * p);   \n"
         "   x_delete(p);      \n"
         "} \n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -1524,14 +1549,14 @@ void ownership_flow_test_moving_owner_pointer_missing()
     const char* source
         =
         "\n"
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void * owner malloc(int i);\n"
+        "void free( void * owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "  char * owner name;    \n"
         "};\n"
         "\n"
-        "void x_delete( struct X * _Owner p)\n"
+        "void x_delete( struct X * owner p)\n"
         "{\n"
         "  if (p) {\n"
         "      //free(p->name);\n"
@@ -1540,7 +1565,7 @@ void ownership_flow_test_moving_owner_pointer_missing()
         "}\n"
         "\n"
         "int main() {\n"
-        "   struct X * _Owner p = malloc(sizeof * p);   \n"
+        "   struct X * owner p = malloc(sizeof * p);   \n"
         "   x_delete(p);      \n"
         "} \n"
         "";
@@ -1555,14 +1580,14 @@ void ownership_flow_test_error()
     const char* source
         =
         "\n"
-        "void* _Owner malloc(int size);\n"
+        "void* owner malloc(int size);\n"
         "\n"
         "struct X {    \n"
-        "    char * _Owner name;\n"
+        "    char * owner name;\n"
         "};\n"
         "\n"
-        "void * _Owner f1(){\n"
-        "  struct X * _Owner p = malloc(sizeof (struct X));\n"
+        "void * owner f1(){\n"
+        "  struct X * owner p = malloc(sizeof (struct X));\n"
         "  p->name = malloc(1);  \n"
         "  return p;\n"
         "}\n"
@@ -1579,15 +1604,15 @@ void ownership_flow_test_setting_owner_pointer_to_null()
     const char* source
         =
         "\n"
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void * owner malloc(int i);\n"
+        "void free( void * owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "  char * owner name;    \n"
         "};\n"
         "\n"
         "int main() {\n"
-        "   struct X * _Owner p = malloc(sizeof * p);   \n"
+        "   struct X * owner p = malloc(sizeof * p);   \n"
         "   p = 0;\n"
         "} \n"
         "";
@@ -1602,25 +1627,25 @@ void ownership_flow_test_while_not_null()
     const char* source
         =
         "struct item  {\n"
-        "    struct item * _Owner next;\n"
+        "    struct item * owner next;\n"
         "}\n"
-        "void item_delete( struct item * _Owner p);\n"
+        "void item_delete( struct item * owner p);\n"
         "\n"
         "struct list {\n"
-        "    struct item * _Owner head;\n"
+        "    struct item * owner head;\n"
         "    struct item * tail;\n"
         "};\n"
         "int main()\n"
         "{\n"
         "    struct list list = {0};\n"
-        "    struct item * _Owner p = list.head;\n"
+        "    struct item * owner p = list.head;\n"
         "    while (p){\n"
-        "      struct item * _Owner next = p->next;\n"
+        "      struct item * owner next = p->next;\n"
         "      item_delete(p);\n"
         "      p = next;\n"
         "  }  \n"
         "}";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_flow_test_if_state()
@@ -1628,13 +1653,13 @@ void ownership_flow_test_if_state()
     const char* source
         =
         "\n"
-        "int* _Owner make();\n"
+        "int* owner make();\n"
         "void free(int * owner p);\n"
         "\n"
         "\n"
         "void f(int condition)\n"
         "{\n"
-        "  int * _Owner p = 0;\n"
+        "  int * owner p = 0;\n"
         "  static_state(p, \"null\");\n"
         "  \n"
         "  if (condition)\n"
@@ -1652,7 +1677,7 @@ void ownership_flow_test_if_state()
         "\n"
         "";
 
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void ownership_types_test_error_owner()
@@ -1661,7 +1686,7 @@ void ownership_types_test_error_owner()
         =
         "void * f();\n"
         "int main() {\n"
-        "   void * _Owner p = f();   \n"
+        "   void * owner p = f();   \n"
         "}\n"
         ;
     struct options options = {.input = LANGUAGE_C99};
@@ -1677,7 +1702,7 @@ void ownership_flow_test_if_variant()
         "void * owner f();\n"
         "void free( void *owner p);\n"
         "int main() {\n"
-        "   void * _Owner p = f();   \n"
+        "   void * owner p = f();   \n"
         "   if (p)\n"
         "   {\n"
         "       free(p);\n"
@@ -1740,7 +1765,7 @@ void ownership_flow_test_two_ifs()
         "}\n"
         "\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 
 }
 
@@ -1751,11 +1776,7 @@ void ownership_no_name_parameter()
         "void free( void * owner){ }\n"
         "";
 
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1);
-
+    assert(compile_with_errors(true, source));
 }
 
 void ownership_flow_switch_case()
@@ -1788,7 +1809,7 @@ void ownership_flow_switch_case()
         "            break;\n"
         "    }        \n"
         "}";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void state_inner_objects_preserved()
@@ -1816,7 +1837,7 @@ void state_inner_objects_preserved()
         "    free(p->name);\n"
         "    free(p);\n"
         "}";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 //TODO make test with
@@ -1825,7 +1846,7 @@ void state_inner_objects_preserved()
 void owner_parameter_must_be_ignored()
 {
     const char* source = "void f(void (*pf)(void* owner p)){}";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void taking_address()
@@ -1869,7 +1890,7 @@ void taking_address_const()
         "  f(&x);\n"
         "}\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void pointer_argument()
@@ -1912,7 +1933,7 @@ void do_while()
         "   while(0);   \n"
         "}\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void switch_cases_state()
@@ -1936,7 +1957,7 @@ void switch_cases_state()
         "    return p;\n"
         "}\n"
         "";
-   assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
 
 void switch_break()
@@ -1958,6 +1979,10 @@ void switch_break()
 
 void passing_non_owner()
 {
+    /*
+      We need to analuse better this case...
+
+    */
     const char* source
         =
         "struct X { \n"
@@ -1970,10 +1995,7 @@ void passing_non_owner()
         "}\n"
         "";
 
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1);
+    assert(compile_with_errors(true, source));
 }
 
 void flow_analysis_else()
@@ -2021,14 +2043,223 @@ void moving_content_of_owner()
         "    free(y->x.name);\n"
         "    y->x = *p;\n"
         "}\n"
+        ;
+    assert(compile_without_errors(true, source));
+}
+
+void switch_scope()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct X {\n"
+        "    char* owner name;\n"
+        "};\n"
+        "\n"
+        "struct X* owner F(int i)\n"
+        "{\n"
+        "    struct X* owner p1 = 0;\n"
+        "\n"
+        "    switch (i)\n"
+        "    {\n"
+        "        case 1:\n"
+        "            struct X* owner p2 = malloc(sizeof * p2);\n"
+        "            if (p2)\n"
+        "            {\n"
+        "                p1 = p2;\n"
+        "            }\n"
+        "            break;\n"
+        "        case 2:\n"
+        "            break;\n"
+        "    }\n"
+        "\n"
+        "    return p1;\n"
+        "}\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void swith_and_while()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct X {\n"
+        "    char* owner name;\n"
+        "};\n"
+        "\n"
+        "struct X* owner F(int i)\n"
+        "{\n"
+        "\n"
+        "    struct X* owner p1 = 0;\n"
+        "    try\n"
+        "    {\n"
+        "        if (i == 1)\n"
+        "        {\n"
+        "            p1 = malloc(sizeof * p1);            \n"
+        "            while (0){}            \n"
+        "        }\n"
+        "        else if (i == 3)\n"
+        "        {\n"
+        "            p1 = malloc(sizeof * p1);\n"
+        "        }\n"
+        "    }\n"
+        "    catch\n"
+        "    {\n"
+        "    }\n"
+        "\n"
+        "    return p1;\n"
+        "}\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void owner_to_non_owner()
+{
+    const char* source
+        =
+        "void * f();\n"
         "int main() {\n"
-        "   struct X x;\n"
-        "   struct Y y = {0};\n"
-        "   f(&y , &x);\n"
-        "   free(y.x.name);\n"
+        "  void * owner p = f();\n"
+        "}";
+
+    assert(compile_with_errors(true, source));
+}
+
+void owner_to_non_owner_zero()
+{
+    const char* source
+        =
+        "void * f();\n"
+        "int main() {\n"
+        "  void * owner p = 0;\n"
+        "}";
+
+    assert(compile_without_errors(true, source));
+}
+
+void incomplete_struct()
+{
+    const char* source
+        =
+        "void free(void * owner p);\n"
+        "struct X;\n"
+        "struct X f();\n"
+        "struct X { char * owner p; };\n"
+        "int main()\n"
+        "{\n"
+        "    struct X x = 1 ? f() : f(); \n"
+        "    free(x.p);\n"
+        "}";
+    assert(compile_without_errors(true, source));
+
+}
+
+void switch_pop_problem()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "\n"
+        "void f(int i)\n"
+        "{\n"
+        "  void * owner p1 = malloc(1);\n"
+        "  switch(i)\n"
+        "  {\n"
+        "      case 1:\n"
+        "      {\n"
+        "          void * owner p2 = malloc(1);\n"
+        "          free(p2);\n"
+        "      }\n"
+        "      break;\n"
+        "\n"
+        "      case 2:\n"
+        "      {\n"
+        "          void * owner p3 = malloc(1);\n"
+        "            free(p3);\n"
+        "      }\n"
+        "      break;\n"
+        "  }\n"
+        "\n"
+        "  free(p1);\n"
+        "  \n"
+        "}\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void switch_pop2()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "\n"
+        "void f(int i)\n"
+        "{\n"
+        "    void* owner p1 = malloc(1);\n"
+        "    switch (i)\n"
+        "    {\n"
+        "        case 1:\n"
+        "            void* owner p2 = malloc(1);\n"
+        "            free(p2);\n"
+        "            break;\n"
+        "\n"
+        "        case 3:\n"
+        "            void* owner p3 = malloc(1);\n"
+        "            free(p3);\n"
+        "            break;\n"
+        "    }\n"
+        "\n"
+        "    free(p1);\n"
+        "\n"
+        "}\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void scopes_pop()
+{
+    const char* source
+        =
+        "\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct X { char* owner name; };\n"
+        "\n"
+        "void x_destroy(struct X* obj_owner p);\n"
+        "struct X f();\n"
+        "\n"
+        "void f()\n"
+        "{\n"
+        "    {\n"
+        "        struct X x = {0};   \n"
+        "        \n"
+        "        if (1)\n"
+        "        {            \n"
+        "            x = f();\n"
+        "        }\n"
+        "        else\n"
+        "        {         \n"
+        "            x = f();\n"
+        "        }\n"
+        "        x_destroy(&x);\n"
+        "    }\n"
         "}\n"
         "";
        assert(compile_without_errors(true, source));
 }
+
 #endif
 

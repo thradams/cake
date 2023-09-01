@@ -7,9 +7,11 @@
 #include "expressions.h"
 #include "ownership.h"
 
+void defer_scope_delete_all(struct defer_scope* owner p);
+
 void visit_ctx_destroy(struct visit_ctx* obj_owner ctx)
 {
-    defer_scope_delete(ctx->tail_block);
+    defer_scope_delete_all(ctx->tail_block);
     token_list_destroy(&ctx->insert_before_declaration);
     token_list_destroy(&ctx->insert_before_block_item);
 }
@@ -314,17 +316,32 @@ static void visit_secondary_block(struct visit_ctx* ctx, struct secondary_block*
 {
     visit_statement(ctx, p_secondary_block->statement);
 }
+struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
+{
+    struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
+    p_defer->previous = ctx->tail_block->lastchild;
+    ctx->tail_block->lastchild = p_defer;
 
+    return ctx->tail_block->lastchild;
+}
+
+
+struct defer_scope* visit_ctx_push_tail_block(struct visit_ctx* ctx)
+{
+    struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
+    p_defer->previous = ctx->tail_block;
+    ctx->tail_block = p_defer;
+
+    return ctx->tail_block;
+}
 static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
     if (!ctx->is_second_pass)
     {
         //adiciona como filho do ultimo bloco
-        struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
+        struct defer_scope* p_defer = visit_ctx_push_tail_child(ctx);
         p_defer->defer_statement = p_defer_statement;
 
-        p_defer->previous = ctx->tail_block->lastchild;
-        ctx->tail_block->lastchild = p_defer;
 
         if (p_defer_statement->secondary_block)
         {
@@ -338,13 +355,26 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
     }
 }
 
+
+
+void defer_scope_delete_one(struct defer_scope* owner p_block);
+
+void visit_ctx_pop_tail_block(struct visit_ctx* ctx)
+{
+    if (ctx->tail_block)
+    {
+        struct defer_scope* owner previous = ctx->tail_block->previous;
+        ctx->tail_block->previous = NULL;
+        defer_scope_delete_one(ctx->tail_block);
+        ctx->tail_block = previous;
+    }
+}
+
 static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_try_statement)
 {
     if (!ctx->is_second_pass)
     {
-        struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
+        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
         p_defer->p_try_statement = p_try_statement;
 
         if (p_try_statement->secondary_block)
@@ -359,11 +389,8 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, &l);
 
 
-        if (ctx->tail_block)
-        {
-            //POP
-            ctx->tail_block = ctx->tail_block->previous;
-        }
+        visit_ctx_pop_tail_block(ctx);
+
 
         free(p_try_statement->first_token->lexeme);
         p_try_statement->first_token->lexeme = strdup("if (1) /*try*/");
@@ -397,9 +424,7 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
     convert_if_statement(ctx, p_selection_statement);
 
     //PUSH
-    struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-    p_defer->previous = ctx->tail_block;
-    ctx->tail_block = p_defer;
+    struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement2 = p_selection_statement;
 
     if (p_selection_statement->secondary_block)
@@ -415,8 +440,8 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
         token_list_insert_after(&ctx->ast.token_list, p_selection_statement->secondary_block->last_token->prev, &l);
         token_list_destroy(&l);
     }
-    //POP
-    ctx->tail_block = ctx->tail_block->previous;
+
+    visit_ctx_pop_tail_block(ctx);
 
     if (p_selection_statement->else_secondary_block_opt)
         visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
@@ -527,7 +552,7 @@ static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p
             p_type_qualifier->token->type == TK_KEYWORD__OBJ_OWNER ||
             p_type_qualifier->token->type == TK_KEYWORD__VIEW)
         {
-            char temp[100];
+            char temp[100] = {0};
             snprintf(temp, sizeof temp, "/*%s*/", p_type_qualifier->token->lexeme);
             free(p_type_qualifier->token->lexeme);
             p_type_qualifier->token->lexeme = strdup(temp);
@@ -702,7 +727,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                       for it's number and changing the expression type
                       we are not handling &a at this moment
                     */
-                    char buffer[40];
+                    char buffer[40] = {0};
                     constant_value_to_string(&p_expression->constant_value, buffer, sizeof buffer);
                     free(p_expression->first_token->lexeme);
 
@@ -1040,9 +1065,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
 
     if (p_iteration_statement->secondary_block)
     {
-        struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        p_defer->previous = ctx->tail_block;
-        ctx->tail_block = p_defer;
+        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
 
         visit_secondary_block(ctx, p_iteration_statement->secondary_block);
@@ -1056,11 +1079,8 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
         token_list_insert_after(&ctx->ast.token_list, p_iteration_statement->secondary_block->last_token->prev, &l);
 
 
-        if (ctx->tail_block)
-        {
-            //POP
-            ctx->tail_block = ctx->tail_block->previous;
-        }
+        visit_ctx_pop_tail_block(ctx);
+
 
         ss_close(&ss);
         token_list_destroy(&l);
@@ -1266,10 +1286,7 @@ static void visit_block_item(struct visit_ctx* ctx, struct block_item* p_block_i
     }
     if (ctx->insert_before_block_item.head != NULL)
     {
-        //token_list_insert_after(&ctx->ast.token_list, p_statement->first_token->prev, &ctx->insert_before_statement);
         token_list_insert_after(&ctx->ast.token_list, p_block_item->first_token->prev, &ctx->insert_before_block_item);
-        ctx->insert_before_block_item.head = NULL;
-        ctx->insert_before_block_item.tail = NULL;
     }
 }
 
@@ -1624,7 +1641,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
                 p_struct_or_union_specifier->scope_level &&
                 p_complete->visit_moved == 0)
             {
-                char newtag[212];
+                char newtag[212] = {0};
                 snprintf(newtag, sizeof newtag, "_%s%d", p_struct_or_union_specifier->tag_name, ctx->capture_index);
                 ctx->capture_index++;
 
@@ -2001,26 +2018,36 @@ static bool is_last_item_return(struct compound_statement* p_compound_statement)
     return false;
 }
 
-void defer_scope_delete(struct defer_scope* owner p) unchecked
+void defer_scope_delete_one(struct defer_scope* owner p_block)
 {
-    /*delete all defer memory*/
-    struct defer_scope* owner p_block = p;//->tail_block;
-    while (p_block != NULL)
+    if (p_block != NULL)
     {
-
-        struct defer_scope* owner deferchild = p_block->lastchild;
-        while (deferchild != NULL)
+        struct defer_scope* owner child = p_block->lastchild;
+        while (child != NULL)
         {
-            struct defer_scope* owner prev = deferchild->previous;
-            free(deferchild);
-            deferchild = prev;
+            struct defer_scope* owner prev = child->previous;
+
+            child->previous = NULL;
+            defer_scope_delete_one(child);
+
+            child = prev;
         }
 
-        struct defer_scope* owner prev_block = p_block->previous;
+        assert(p_block->previous == NULL);
         free(p_block);
+    }
+}
+
+void defer_scope_delete_all(struct defer_scope* owner p)
+{
+    struct defer_scope* owner p_block = p;
+    while (p_block != NULL)
+    {
+        struct defer_scope* owner prev_block = p_block->previous;
+        p_block->previous = NULL;
+        defer_scope_delete_one(p_block);
         p_block = prev_block;
     }
-
 }
 
 static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration)
@@ -2130,8 +2157,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         ctx->is_second_pass = false;
 
 
-        struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        ctx->tail_block = p_defer;
+        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);        
         p_defer->p_function_body = p_declaration->function_body;
 
         visit_compound_statement(ctx, p_declaration->function_body);
@@ -2155,8 +2181,8 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             hide_block_defer(p_defer);
         }
 
-        defer_scope_delete(ctx->tail_block);
-        ctx->tail_block = NULL;
+        visit_ctx_pop_tail_block(ctx);
+        
 
 
         if (ctx->has_lambda)

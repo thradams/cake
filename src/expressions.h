@@ -90,7 +90,7 @@ struct argument_expression_list
     struct argument_expression* tail;
 };
 
-
+void argument_expression_list_destroy(struct argument_expression_list * obj_owner p);
 
 struct generic_association
 {
@@ -115,6 +115,8 @@ struct generic_assoc_list
     struct generic_association* owner head;
     struct generic_association* tail;
 };
+
+void generic_assoc_list_destroy(struct generic_assoc_list * obj_owner p);
 
 struct generic_selection
 {
@@ -146,6 +148,8 @@ struct generic_selection
     struct token* first_token;
     struct token* last_token;
 };
+
+void generic_selection_delete(struct generic_selection * owner p);
 
 enum constant_value_type {
     TYPE_NOT_CONSTANT,

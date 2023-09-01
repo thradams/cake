@@ -150,7 +150,7 @@ struct type type_lvalue_conversion(struct type* p_type)
             t.category = t.category;
             return t;
         }
-
+        break;
         case TYPE_CATEGORY_ARRAY:
         {
             /*
@@ -172,8 +172,9 @@ struct type type_lvalue_conversion(struct type* p_type)
             t2.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
             return t2;
         }
-
+        break;
         case TYPE_CATEGORY_POINTER:
+            break;
         case TYPE_CATEGORY_ITSELF:
         default:
             break;
@@ -199,6 +200,7 @@ struct type type_convert_to(const struct type* p_type, enum language_version tar
         if (target < LANGUAGE_C2X)
         {
             struct type t = make_void_ptr_type();
+            assert(t.name_opt == NULL);
             if (p_type->name_opt)
             {
                 t.name_opt = strdup(p_type->name_opt);
@@ -409,9 +411,39 @@ enum type_category type_get_category(const struct type* p_type)
     return p_type->category;
 }
 
+void param_list_destroy(struct param_list* obj_owner p)
+{
+    struct param* owner item = p->head;
+    while (item)
+    {
+        struct param* owner next = item->next;
+        type_destroy(&item->type);
+        free(item);
+        item = next;
+    }
+}
+
+void type_destroy_one(struct type* obj_owner p_type)
+{
+    free(p_type->name_opt);
+    param_list_destroy(&p_type->params);
+    assert(p_type->next == NULL);
+}
+
 void type_destroy(struct type* obj_owner p_type)
 {
-    //TODO
+    free(p_type->name_opt);
+    param_list_destroy(&p_type->params);
+
+    struct type* owner item = p_type->next;
+    while (item)
+    {
+        struct type* owner next = item->next;
+        item->next = NULL;
+        type_destroy_one(item);
+        item = next;
+    }
+
 }
 
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes)
@@ -489,13 +521,51 @@ bool type_is_lvalue(const struct type* p_type)
 
 bool type_is_any_owner(const struct type* p_type)
 {
-    return
-        (p_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER) ||
-        (p_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER);
+    if (type_is_owner(p_type))
+    {
+        return true;
+    }
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER;
+}
+
+bool type_is_pointer_to_owner(const struct type* p_type)
+{
+    return type_is_owner(p_type->next);
+}
+
+bool type_is_obj_owner(const struct type* p_type)
+{
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER;
 }
 
 bool type_is_owner(const struct type* p_type)
 {
+
+    if (p_type->struct_or_union_specifier)
+    {
+        if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+            return false;
+
+        struct struct_or_union_specifier* p_complete =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_complete && p_complete->is_owner)
+        {
+            //The objective here is fix a type later.
+            /*
+             struct X;
+             struct X f(); //X is owner?
+             struct X { char * owner p; };
+             int main()
+             {
+               struct X x = 1 ? f() : f();
+             }
+            */
+
+            return true;
+        }
+    }
+
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER;
 }
 
@@ -705,27 +775,137 @@ const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_t
     return NULL;
 }
 
+void check_function_argument_and_parameter2(struct parser_ctx* ctx,
+    struct argument_expression* current_argument,
+    struct type* paramer_type,
+    int param_num)
+{
+    //            owner     obj_owner  view parameter
+    // owner      OK                   OK
+    // obj_owner  X         OK         OK
+    // view       X (NULL)  X          OK
+
+    const bool paramer_is_obj_owner = type_is_obj_owner(paramer_type);
+    const bool paramer_is_owner = type_is_owner(paramer_type);
+    const bool paramer_is_view = !paramer_is_obj_owner && !paramer_is_owner;
+
+    const struct type* const argument_type = &current_argument->expression->type;
+    const bool argument_is_owner = type_is_owner(&current_argument->expression->type);
+    const bool argument_is_obj_owner = type_is_obj_owner(&current_argument->expression->type);
+    const bool argument_is_view = !argument_is_owner && !argument_is_obj_owner;
+
+    if (argument_is_owner && paramer_is_owner)
+    {
+        //ok
+    }
+    else if (argument_is_owner && paramer_is_obj_owner)
+    {
+        //ok
+    }
+    else if (argument_is_owner && paramer_is_view)
+    {
+        //ok
+        if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+        {
+            compiler_set_error_with_token(C_OWNERSHIP_USING_TEMPORARY_OWNER,
+                ctx,
+                current_argument->expression->first_token,
+                "passing a temporary owner to a view");
+        }
+
+    }////////////////////////////////////////////////////////////
+    else if (argument_is_obj_owner && paramer_is_owner)
+    {
+        compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+            ctx,
+            current_argument->expression->first_token,
+            "cannot move obj_owner to owner");
+    }
+    else if (argument_is_obj_owner && paramer_is_obj_owner)
+    {
+        //ok
+    }
+    else if (argument_is_obj_owner && paramer_is_view)
+    {
+        //ok
+        //ok
+        if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+        {
+            compiler_set_error_with_token(C_OWNERSHIP_USING_TEMPORARY_OWNER,
+                ctx,
+                current_argument->expression->first_token,
+                "passing a temporary owner to a view");
+        }
+
+
+    }///////////////////////////////////////////////////////////////
+    else if (argument_is_view && paramer_is_owner)
+    {
+        if (!expression_is_zero(current_argument->expression))
+        {
+            compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                ctx,
+                current_argument->expression->first_token,
+                "passing a view argument to a owner parameter");
+        }
+    }
+    else if (argument_is_view && paramer_is_obj_owner)
+    {
+        //check if the contented of pointer is owner.
+        if (type_is_pointer(argument_type))
+        {
+            struct type t2 = type_remove_pointer(argument_type);
+            if (type_is_owner(&t2))
+            {
+                if (argument_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER && 
+                    argument_type->storage_class_specifier_flags & STORAGE_SPECIFIER_LVALUE)
+                {
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    ctx,
+                    current_argument->expression->first_token,
+                    "passing view argument to obj_owner is dangerous");
+                }                
+            }
+            else
+            {
+                compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    ctx,
+                    current_argument->expression->first_token,
+                    "passing an object that is not owner");
+            }
+            type_destroy(&t2);
+        }
+        else
+        {
+            if (!expression_is_zero(current_argument->expression))
+            {
+                compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                    ctx,
+                    current_argument->expression->first_token,
+                    "passing a view argument to a obj_owner parameter");
+            }
+        }
+    }
+    else if (argument_is_view && paramer_is_view)
+    {
+        //ok
+    }///////////////////////////////////////////////////////////////
+}
+
 void check_function_argument_and_parameter(struct parser_ctx* ctx,
     struct argument_expression* current_argument,
     struct type* paramer_type,
     int param_num)
 {
 
-    if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER ||
-        paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+    if (type_is_any_owner(paramer_type))
     {
-
-
-
-
-
-
-        if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+        if (type_is_obj_owner(paramer_type))
         {
             if (current_argument->expression->type.category == TYPE_CATEGORY_POINTER)
             {
-                if (current_argument->expression->type.next &&
-                    !(current_argument->expression->type.next->type_qualifier_flags & TYPE_QUALIFIER_OWNER))
+                if (type_is_pointer(&current_argument->expression->type) &&
+                    !type_is_pointer_to_owner(&current_argument->expression->type))
                 {
                     compiler_set_error_with_token(C_OWNERSHIP_NOT_OWNER, ctx,
                         current_argument->expression->first_token,
@@ -755,26 +935,16 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         }
     }
 
-    struct type argument_type_converted = {0};
-    struct type parameter_type_converted = {0};
 
-    if (type_is_array(paramer_type))
-    {
-        parameter_type_converted = type_lvalue_conversion(paramer_type);
-    }
-    else
-    {
-        parameter_type_converted = type_dup(paramer_type);
-    }
+    const struct type parameter_type_converted = (type_is_array(paramer_type)) ?
+        type_lvalue_conversion(paramer_type) :
+        type_dup(paramer_type);
 
-    if (expression_is_subjected_to_lvalue_conversion(current_argument->expression))
-    {
-        argument_type_converted = type_lvalue_conversion(argument_type);
-    }
-    else
-    {
-        argument_type_converted = type_dup(argument_type);
-    }
+
+    const struct type argument_type_converted =
+        expression_is_subjected_to_lvalue_conversion(current_argument->expression) ?
+        type_lvalue_conversion(argument_type) :
+        type_dup(argument_type);
 
 
     /*
@@ -788,12 +958,29 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                 current_argument->expression->first_token,
                 " incompatible types at argument %d", param_num);
         }
-        goto continuation;
+
+        check_function_argument_and_parameter2(ctx,
+            current_argument,
+            paramer_type,
+            param_num);
+
+        type_destroy(&parameter_type_converted);
+        type_destroy(&argument_type_converted);
+
+        return;
     }
 
     if (type_is_arithmetic(argument_type) && type_is_arithmetic(paramer_type))
     {
-        goto continuation;
+        check_function_argument_and_parameter2(ctx,
+            current_argument,
+            paramer_type,
+            param_num);
+
+        type_destroy(&parameter_type_converted);
+        type_destroy(&argument_type_converted);
+
+        return;
     }
 
     if (is_null_pointer_constant && type_is_pointer(paramer_type))
@@ -803,7 +990,15 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         //have the anotation [[opt]]
 
         /*can be converted to any type*/
-        goto continuation;
+        check_function_argument_and_parameter2(ctx,
+            current_argument,
+            paramer_type,
+            param_num);
+
+        type_destroy(&parameter_type_converted);
+        type_destroy(&argument_type_converted);
+
+        return;
     }
 
     if (is_null_pointer_constant && type_is_array(paramer_type))
@@ -813,7 +1008,15 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             current_argument->expression->first_token,
             " passing null as array");
 
-        goto continuation;
+        check_function_argument_and_parameter2(ctx,
+            current_argument,
+            paramer_type,
+            param_num);
+
+        type_destroy(&parameter_type_converted);
+        type_destroy(&argument_type_converted);
+
+        return;
     }
 
     /*
@@ -824,13 +1027,29 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
         if (type_is_void_ptr(argument_type))
         {
             /*void pointer can be converted to any type*/
-            goto continuation;
+            check_function_argument_and_parameter2(ctx,
+                current_argument,
+                paramer_type,
+                param_num);
+
+            type_destroy(&parameter_type_converted);
+            type_destroy(&argument_type_converted);
+
+            return;
         }
 
         if (type_is_void_ptr(paramer_type))
         {
             /*any pointer can be converted to void* */
-            goto continuation;
+            check_function_argument_and_parameter2(ctx,
+                current_argument,
+                paramer_type,
+                param_num);
+
+            type_destroy(&parameter_type_converted);
+            type_destroy(&argument_type_converted);
+
+            return;
         }
 
 
@@ -858,21 +1077,8 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
                     current_argument->expression->first_token,
                     " passing null as array");
             }
-            parameter_type_converted = type_lvalue_conversion(paramer_type);
-        }
-        else
-        {
-            parameter_type_converted = type_dup(paramer_type);
         }
 
-        if (expression_is_subjected_to_lvalue_conversion(current_argument->expression))
-        {
-            argument_type_converted = type_lvalue_conversion(argument_type);
-        }
-        else
-        {
-            argument_type_converted = type_dup(argument_type);
-        }
 
 
         if (!type_is_same(&argument_type_converted, &parameter_type_converted, false))
@@ -893,7 +1099,9 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
             //argument const.
             struct type argument_pointer_to = type_remove_pointer(&argument_type_converted);
             struct type parameter_pointer_to = type_remove_pointer(&parameter_type_converted);
-            if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
+            if (type_is_const(&argument_pointer_to) &&
+                !type_is_const(&parameter_pointer_to) &&
+                !type_is_any_owner(&parameter_pointer_to))
             {
                 compiler_set_error_with_token(C_DISCARDING_CONST_AT_ARGUMENT, ctx,
                     current_argument->expression->first_token,
@@ -913,83 +1121,177 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     //        " incompatible types at argument %d ", param_num);
     //}
 
-continuation:
+    check_function_argument_and_parameter2(ctx,
+        current_argument,
+        paramer_type,
+        param_num);
 
-    if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+
+
+    type_destroy(&argument_type_converted);
+    type_destroy(&parameter_type_converted);
+}
+
+void check_assigment2(struct parser_ctx* ctx,
+    struct type* left_type,
+    struct expression* right,
+    bool return_assignment)
+{
+
+    struct type* p_right_type = &right->type;
+    bool is_null_pointer_constant = false;
+
+    if (type_is_nullptr_t(&right->type) ||
+        (constant_value_is_valid(&right->constant_value) &&
+            constant_value_to_ull(&right->constant_value) == 0))
     {
-        if (current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-        {
-            //owner = owner
+        is_null_pointer_constant = true;
+    }
 
+    struct type lvalue_right_type = {0};
+    struct type t2 = {0};
+
+    if (expression_is_subjected_to_lvalue_conversion(right))
+    {
+        lvalue_right_type = type_lvalue_conversion(p_right_type);
+    }
+    else
+    {
+        lvalue_right_type = type_dup(p_right_type);
+    }
+
+    if (return_assignment)
+    {
+        if (type_is_pointer(&right->type) &&
+            right->type.next &&
+            right->type.next->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+        {
+            compiler_set_warning_with_token(W_RETURN_LOCAL_ADDR,
+                ctx,
+                right->first_token,
+                "function returns address of local variable");
+        }
+
+        /*              return | non owner  | owner
+            non owner          | OK         | if external, or param
+            owner          |   | ERROR      | explicit if local, non explicit if external or param
+        */
+
+        if (type_is_owner(&right->type))
+        {
+            if (type_is_owner(left_type))
+            {
+                //returning a owning variable to a owner result                                
+                // * explicit if local variable                
+                // * non explicit if param or external
+                // ok if external
+
+
+
+            }
+            else
+            {
+                //returning a owning variable to a non owner result
+                // * ok if external or param
+                if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+                {
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                        ctx,
+                        right->first_token,
+                        "returning a owner variable to a non owner result");
+                }
+            }
         }
         else
         {
-            if (current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+            if (type_is_owner(left_type))
             {
-                compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                    ctx,
-                    current_argument->expression->first_token,
-                    "cannot move obj_owner to owner");
+                if (type_is_pointer(left_type) &&
+                    constant_value_is_valid(&right->constant_value) &&
+                    constant_value_to_bool(&right->constant_value) == false)
+                {
+                    //ok
+                }
+                else
+                {
+                    //returning a non owning variable to owner
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                        ctx,
+                        right->first_token,
+                        "returning a non owner variable to a owner");
+                }
             }
-            else if (!is_null_pointer_constant)
+            else
             {
-                compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                    ctx,
-                    current_argument->expression->first_token,
-                    "passing a view argument to a owner parameter");
+                //returning a non owning variable to non owner
+                //ok
             }
         }
     }
     else
     {
-        if (paramer_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+        if (type_is_owner(left_type))
         {
-            //non owner = owner
-
-            if (paramer_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+            if (type_is_owner(&right->type))
             {
-                //non owner = (owner) f()
-                compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
-                    ctx,
-                    current_argument->expression->first_token,
-                    "cannot move a temporary owner to non-owner");
+                //owner = owner
+
             }
-
-
+            else
+            {
+                //owner = non-owner
+                if (!is_null_pointer_constant)
+                {
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                        ctx,
+                        right->first_token,
+                        "move assignment needs a owner type on right side");
+                }
+            }
         }
         else
         {
-            //non owner = non owner
-            if (current_argument->expression->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+            if (type_is_owner(&right->type))
             {
-                if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+                //non owner = owner
+
+                if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
                 {
-                    compiler_set_error_with_token(C_OWNERSHIP_USING_TEMPORARY_OWNER,
+                    //non owner = (owner) f()
+                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
                         ctx,
-                        current_argument->expression->first_token,
-                        "passing a temporary owner to a view");
+                        right->first_token,
+                        "cannot move a temporary owner to non-owner");
                 }
+
+
+
             }
+            else
+            {
+                //non owner = non owner
 
 
+            }
+        }
+    }
+    if (right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+    {
+        if (right->expression_type == POSTFIX_FUNCTION_CALL)
+        {
+            //p = f();
+            if (!type_is_owner(left_type))
+            {
+                compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
+            }
         }
     }
 
-    //if (t2.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-    //{
-      //  if (t2.expression_type == POSTFIX_FUNCTION_CALL)
-        //{
-            //p = f();
-          //  if (!(t1.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
-            //{
-              //  compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
-            //}
-    //    }
-    //}
 
 
-    type_destroy(&argument_type_converted);
-    type_destroy(&parameter_type_converted);
+    type_destroy(&lvalue_right_type);
+    type_destroy(&t2);
+
 }
 
 void check_assigment(struct parser_ctx* ctx,
@@ -1021,13 +1323,21 @@ void check_assigment(struct parser_ctx* ctx,
     }
 
 
-    if (!(right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER) &&
-        left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+    if (!(type_is_owner(&right->type)) && type_is_owner(left_type))
     {
         if (!is_null_pointer_constant)
         {
             compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
-            goto continuation;
+
+            check_assigment2(ctx,
+                left_type,
+                right,
+                return_assignment);
+
+            type_destroy(&lvalue_right_type);
+            type_destroy(&t2);
+
+            return;
         }
     }
 
@@ -1043,12 +1353,25 @@ void check_assigment(struct parser_ctx* ctx,
                 right->first_token,
                 " incompatible types ");
         }
-        goto continuation;
+        check_assigment2(ctx,
+            left_type,
+            right,
+            return_assignment);
+
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+        return;
     }
 
     if (type_is_arithmetic(p_right_type) && type_is_arithmetic(left_type))
     {
-        goto continuation;
+        check_assigment2(ctx,
+            left_type,
+            right,
+            return_assignment);
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+        return;
     }
 
     if (is_null_pointer_constant && type_is_pointer(left_type))
@@ -1058,7 +1381,13 @@ void check_assigment(struct parser_ctx* ctx,
         //have the anotation [[opt]]
 
         /*can be converted to any type*/
-        goto continuation;
+        check_assigment2(ctx,
+            left_type,
+            right,
+            return_assignment);
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+        return;
     }
 
     if (is_null_pointer_constant && type_is_array(left_type))
@@ -1068,7 +1397,13 @@ void check_assigment(struct parser_ctx* ctx,
             right->first_token,
             " passing null as array");
 
-        goto continuation;
+        check_assigment2(ctx,
+            left_type,
+            right,
+            return_assignment);
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+        return;
     }
 
     /*
@@ -1079,13 +1414,25 @@ void check_assigment(struct parser_ctx* ctx,
         if (type_is_void_ptr(p_right_type))
         {
             /*void pointer can be converted to any type*/
-            goto continuation;
+            check_assigment2(ctx,
+                left_type,
+                right,
+                return_assignment);
+            type_destroy(&lvalue_right_type);
+            type_destroy(&t2);
+            return;
         }
 
         if (type_is_void_ptr(left_type))
         {
             /*any pointer can be converted to void* */
-            goto continuation;
+            check_assigment2(ctx,
+                left_type,
+                right,
+                return_assignment);
+            type_destroy(&lvalue_right_type);
+            type_destroy(&t2);
+            return;
         }
 
 
@@ -1159,134 +1506,10 @@ void check_assigment(struct parser_ctx* ctx,
         //      " incompatible types ");
     }
 
-continuation:
-
-    if (return_assignment)
-    {
-        if (type_is_pointer(&right->type) &&
-            right->type.next &&
-            right->type.next->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
-        {
-            compiler_set_warning_with_token(W_RETURN_LOCAL_ADDR,
-                ctx,
-                right->first_token,
-                "function returns address of local variable");
-        }
-
-        /*              return | non owner  | owner
-            non owner          | OK         | if external, or param
-            owner          |   | ERROR      | explicit if local, non explicit if external or param
-        */
-
-        if (right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-        {
-            if (left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-            {
-                //returning a owning variable to a owner result                                
-                // * explicit if local variable                
-                // * non explicit if param or external
-                // ok if external
-
-
-
-            }
-            else
-            {
-                //returning a owning variable to a non owner result
-                // * ok if external or param
-                if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
-                {
-                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                        ctx,
-                        right->first_token,
-                        "returning a owner variable to a non owner result");
-                }
-            }
-        }
-        else
-        {
-            if (left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-            {
-                if (type_is_pointer(left_type) &&
-                    constant_value_is_valid(&right->constant_value) &&
-                    constant_value_to_bool(&right->constant_value) == false)
-                {
-                    //ok
-                }
-                else
-                {
-                    //returning a non owning variable to owner
-                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                        ctx,
-                        right->first_token,
-                        "returning a non owner variable to a owner");
-                }
-            }
-            else
-            {
-                //returning a non owning variable to non owner
-                //ok
-            }
-        }
-    }
-    else
-    {
-        if (left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-        {
-            if (right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-            {
-                //owner = owner
-
-            }
-            else
-            {
-                //owner = non-owner
-                if (!is_null_pointer_constant)
-                {
-                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                        ctx,
-                        right->first_token,
-                        "move assignment needs a owner type on right side");
-                }
-            }
-        }
-        else
-        {
-            if (right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-            {
-                //non owner = owner
-
-                if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
-                {
-                    //non owner = (owner) f()
-                    compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_MOVE,
-                        ctx,
-                        right->first_token,
-                        "cannot move a temporary owner to non-owner");
-                }
-
-
-
-            }
-            else
-            {
-                //non owner = non owner
-
-
-            }
-        }
-    }
-    if (right->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-    {
-        if (right->expression_type == POSTFIX_FUNCTION_CALL)
-        {
-            //p = f();
-            if (!(left_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER))
-            {
-                compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
-            }
-        }
-    }
+    check_assigment2(ctx,
+        left_type,
+        right,
+        return_assignment);
 
 
 
@@ -1325,6 +1548,7 @@ struct type type_add_pointer(const struct type* p_type)
     *p = r;
 
     memset(&r, 0, sizeof r);
+    static_set(r, "moved");
 
     r.next = p;
     r.category = TYPE_CATEGORY_POINTER;
@@ -1343,9 +1567,15 @@ struct type type_remove_pointer(const struct type* p_type)
     assert(r.next);
     if (r.next)
     {
-        r = *r.next;
+        struct type next = *r.next;
+        /*
+          we have moved the contents of r.next, but we also need to delete it's memory
+        */
+        free(r.next);
+        r.next = NULL;
+        type_destroy_one(&r);
+        r = next;
     }
-
 
     r.storage_class_specifier_flags = p_type->next->storage_class_specifier_flags;
     r.type_qualifier_flags = p_type->next->type_qualifier_flags;
@@ -1353,12 +1583,18 @@ struct type type_remove_pointer(const struct type* p_type)
     return r;
 }
 
+
 struct type get_array_item_type(const struct type* p_type)
 {
     struct type r = type_dup(p_type);
 
-    r = *r.next;
-    return r;
+    struct type r2 = *r.next;
+
+    free(r.next);
+    free(r.name_opt);
+    param_list_destroy(&r.params);
+
+    return r2;
 }
 
 struct type type_param_array_to_pointer(const struct type* p_type)
@@ -1466,10 +1702,9 @@ int type_get_rank(struct type* p_type1)
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
 {
+    struct type t0 = {0};
     try
     {
-        type_destroy(out);
-
         int rank_left = type_get_rank(p_type1);
         if (rank_left < 0) throw;
 
@@ -1477,9 +1712,9 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
         if (rank_right < 0) throw;
 
         if (rank_left >= rank_right)
-            *out = type_dup(p_type1);
+            t0 = type_dup(p_type1);
         else
-            *out = type_dup(p_type2);
+            t0 = type_dup(p_type2);
 
         /*
            The result of expression +,- * / etc are not lvalue
@@ -1491,7 +1726,17 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
         return 1;
     }
 
+    type_swap(out, &t0);
+    type_destroy(&t0);
+
     return 0;
+}
+
+void type_set(struct type* a, const struct type* b)
+{
+    struct type t = type_dup(b);
+    type_swap(&t, a);
+    type_destroy(&t);
 }
 
 struct type type_dup(const struct type* p_type)
@@ -1502,14 +1747,24 @@ struct type type_dup(const struct type* p_type)
     {
         struct type* owner p_new = calloc(1, sizeof(struct type));
         *p_new = *p;
+
+        //actually I was not the owner of p_new->next
+        static_set(p_new->next, "uninitialized");
         p_new->next = NULL;
 
         if (p->name_opt)
+        {
+            //actually p_new->name_opt was not mine..
+            static_set(p_new->name_opt, "uninitialized");
             p_new->name_opt = strdup(p->name_opt);
+        }
 
         if (p->category == TYPE_CATEGORY_FUNCTION)
         {
+            //actually p_new->params.head  p_new->params.tail and was not mine..
+            static_set(p_new->params.head, "uninitialized");
             p_new->params.head = NULL;
+            static_set(p_new->params.tail, "uninitialized");
             p_new->params.tail = NULL;
 
             struct param* p_param = p->params.head;
@@ -1526,7 +1781,15 @@ struct type type_dup(const struct type* p_type)
         type_list_push_back(&l, p_new);
         p = p->next;
     }
-    return *l.head;
+
+    struct type r = *l.head;
+    /*
+       we have moved the content of l.head
+       but we also need to delete the memory
+    */
+    free(l.head);
+
+    return r;
 }
 
 
@@ -2105,7 +2368,7 @@ void type_set_int(struct type* p_type)
     p_type->category = TYPE_CATEGORY_ITSELF;
 }
 
-struct type type_make_enumerator(struct enum_specifier* enum_specifier)
+struct type type_make_enumerator(const struct enum_specifier* enum_specifier)
 {
     struct type t = {0};
     t.type_specifier_flags = TYPE_SPECIFIER_ENUM;
@@ -2385,21 +2648,7 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarat
 
     p_type->type_qualifier_flags |= type_qualifier_flags;
 
-    if (type_qualifier_flags & TYPE_QUALIFIER_VIEW)
-    {
-        /*
-        * struct X { char *_Owner name; };
-        * _View struct X x;
-        */
-    }
-    else if (p_struct_or_union_specifier)
-    {
-        struct struct_or_union_specifier* p = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
-        if (p && p->is_owner)
-        {
-            p_type->type_qualifier_flags |= TYPE_QUALIFIER_OWNER;
-        }
-    }
+
 
 
 }
@@ -2422,21 +2671,6 @@ void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator
 
     p_type->type_qualifier_flags = type_qualifier_flags;
 
-    if (type_qualifier_flags & TYPE_QUALIFIER_VIEW)
-    {
-        /*
-        * struct X { char *_Owner name; };
-        * _View struct X x;
-        */
-    }
-    else if (p_struct_or_union_specifier)
-    {
-        struct struct_or_union_specifier* p = get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
-        if (p && p->is_owner)
-        {
-            p_type->type_qualifier_flags |= TYPE_QUALIFIER_OWNER;
-        }
-    }
 
 
 }
@@ -2483,13 +2717,7 @@ void type_set_specifiers_using_declarator(struct type* p_type, struct declarator
 
     }
 
-    if (p_type->struct_or_union_specifier)
-    {
-        if (p_type->struct_or_union_specifier->is_owner)
-        {
-            p_type->type_qualifier_flags |= TYPE_QUALIFIER_OWNER;
-        }
-    }
+
 }
 
 void type_set_attributes_using_declarator(struct type* p_type, struct declarator* pdeclarator)
@@ -2681,8 +2909,8 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
     while (pointers.head)
     {
         struct type* owner p = pointers.head;
-        pointers.head = pointers.head->next;
-        p->next = NULL;//
+        pointers.head = p->next;
+        p->next = NULL;
         type_list_push_back(list, p);
     }
 
@@ -2769,6 +2997,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
         if (list.tail)
         {
+            assert(list.tail->next == NULL);
             list.tail->next = p_nt;
         }
         else
@@ -2851,9 +3080,9 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
             if (!type_is_void(list.head->next))
             {
                 list.head->next->attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_FUNC_RESULT;
-}
+            }
         }
-    }
+}
 #endif
 
     if (pdeclarator->name)
@@ -2861,8 +3090,15 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         free((void* owner) list.head->name_opt);
         list.head->name_opt = strdup(pdeclarator->name->lexeme);
     }
-    return *list.head;
-}
+
+    struct type r = *list.head;
+    /*
+      we moved the contents of head
+      but we also need to delete the memory
+    */
+    free(list.head);
+    return r;
+    }
 
 void type_remove_names(struct type* p_type)
 {

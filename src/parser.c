@@ -264,6 +264,8 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 
 void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
+    if (p_token == NULL)
+        return;
     if (p_token->level > 0)
         return;
 
@@ -1209,7 +1211,6 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
             /*TRAITS EXTENSION*/
 
-            else if (strcmp("_is_same", text) == 0) result = TK_KEYWORD_IS_SAME;
             else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
             else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
             else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
@@ -1225,10 +1226,6 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
             else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
 
-            else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
-            else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
-            else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
-            else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
 
 
             break;
@@ -2306,7 +2303,6 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
     struct init_declarator* owner p_init_declarator = calloc(1, sizeof(struct init_declarator));
     try
     {
-
         struct token* tkname = 0;
         p_init_declarator->p_declarator = declarator(ctx,
             NULL,
@@ -2315,15 +2311,11 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             &tkname);
 
         if (p_init_declarator->p_declarator == NULL) throw;
-
-
         p_init_declarator->p_declarator->name = tkname;
-
 
         if (tkname == NULL)
         {
             compiler_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "empty declarator name?? unexpected");
-
             return p_init_declarator;
         }
 
@@ -2347,9 +2339,11 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         {
             if (tkname)
             {
+                /*
+                  Checking nameming conventions
+                */
                 if (ctx->scopes.tail->scope_level == 0)
                 {
-
                     if (type_is_function(&p_init_declarator->p_declarator->type))
                     {
                         naming_convention_global_var(ctx,
@@ -2414,17 +2408,11 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         {
             assert(false);
         }
+
         if (ctx->current && ctx->current->type == '=')
         {
             parser_match(ctx);
-
-
-
             p_init_declarator->initializer = initializer(ctx);
-
-
-
-
             if (p_init_declarator->initializer->braced_initializer)
             {
                 if (type_is_array(&p_init_declarator->p_declarator->type))
@@ -2435,22 +2423,21 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                         /*int a[] = {1, 2, 3}*/
                         const int braced_initializer_size =
                             p_init_declarator->initializer->braced_initializer->initializer_list->size;
-
                         type_set_array_size(&p_init_declarator->p_declarator->type, braced_initializer_size);
                     }
                 }
+
+                /*
+                  Fixing the type of auto declarator
+                  ??
+                */
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
-
-            }
-            /*
-               auto requires we find the type after initializer
-            */
-            if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
-            {
-                if (p_init_declarator->initializer &&
-                    p_init_declarator->initializer->assignment_expression)
+                /*
+                  Fixing the type of auto declarator
+                */
+                if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
                 {
                     struct type t = {0};
 
@@ -2476,52 +2463,64 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     type_swap(&p_init_declarator->p_declarator->type, &t);
                     type_destroy(&t);
                 }
-            }
 
-            if (p_init_declarator->initializer &&
-                p_init_declarator->initializer->assignment_expression &&
-                type_is_pointer_to_const(&p_init_declarator->initializer->assignment_expression->type))
-            {
-                if (p_init_declarator->p_declarator &&
-                    !type_is_pointer_to_const(&p_init_declarator->p_declarator->type))
+                /*
+                  Checking for "const qualifier discarded"
+                */
+                if (type_is_pointer_to_const(&p_init_declarator->initializer->assignment_expression->type))
                 {
-                    compiler_set_warning_with_token(W_DISCARDED_QUALIFIERS, ctx, ctx->current, "const qualifier discarded");
+                    if (p_init_declarator->p_declarator &&
+                        !type_is_pointer_to_const(&p_init_declarator->p_declarator->type))
+                    {
+                        compiler_set_warning_with_token(W_DISCARDED_QUALIFIERS, ctx, ctx->current, "const qualifier discarded");
+                    }
                 }
+
+                if (type_is_owner(&p_init_declarator->initializer->assignment_expression->type))
+                {
+                    if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL)
+                    {
+                        //type * p = f();
+                        if (!type_is_owner(&p_init_declarator->p_declarator->type))
+                        {
+                            compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+                        }
+                    }
+                }
+
+                if (type_is_owner(&p_init_declarator->p_declarator->type))
+                {
+                    if (!type_is_owner(&p_init_declarator->initializer->assignment_expression->type))
+                    {
+                        const bool is_zero =
+                            constant_value_is_valid(&p_init_declarator->initializer->assignment_expression->constant_value) &&
+                            constant_value_to_bool(&p_init_declarator->initializer->assignment_expression->constant_value) == false;
+
+                        if (!is_zero)
+                        {
+                            compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+                                ctx,
+                                p_init_declarator->p_declarator->first_token, "cannot initialize an owner type with a non owner");
+                        }
+                        else
+                        {
+                            /*
+                                 T * owner p =  NULL; // OK
+                            */
+                        }
+                    }
+                }
+
             }
-
         }
-
     }
     catch
     {
     }
 
-    if (p_init_declarator->initializer &&
-        p_init_declarator->initializer->assignment_expression)
-    {
-        if (p_init_declarator->initializer->assignment_expression->type.type_qualifier_flags &
-            TYPE_QUALIFIER_OWNER)
-        {
-            if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL)
-            {
-                //type * p = f();
-                if (!(p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER))
-                {
-                    compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
-                }
-            }
-        }
-        else
-        {
-            if (p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-            {
-                //TODO const pode
-                //compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
-            }
-        }
-
-    }
-
+    /*
+       checking usage of [static ] other than in function arguments
+    */
     if (p_init_declarator->p_declarator)
     {
         if (type_is_array(&p_init_declarator->p_declarator->type))
@@ -2541,7 +2540,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             compiler_set_error_with_token(C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
                 ctx,
                 p_init_declarator->p_declarator->first_token,
-                "_Obj_owner qualifier can only be used with pointers");
+                "obj_owner qualifier can only be used with pointers");
         }
     }
 
@@ -2981,6 +2980,8 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
 struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
+    if (p_struct_or_union_specifier == NULL)
+        return NULL;
 
     if (p_struct_or_union_specifier->member_declaration_list.head)
     {
@@ -3077,8 +3078,8 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
             {
                 /*tag not found, so it is the first appearence*/
                 p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-
                 hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
+
             }
             else
             {
@@ -3122,6 +3123,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
 
         struct token* firsttoken = ctx->current;
         parser_match(ctx);
+
         p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
         p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
         p_struct_or_union_specifier->last_token = ctx->current;
@@ -3180,7 +3182,7 @@ struct member_declarator* owner member_declarator(
     p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
 
     /*extension*/
-    if (p_member_declarator->declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+    if (type_is_owner(&p_member_declarator->declarator->type))
     {
         /*having at least 1 owner member, the struct type is owner by default*/
         p_struct_or_union_specifier->is_owner = true;
@@ -3251,7 +3253,7 @@ void member_declaration_list_destroy(struct member_declaration_list* obj_owner p
     }
 }
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration_list list = {0};
     //member_declaration
@@ -3295,7 +3297,7 @@ void member_declaration_delete(struct member_declaration* owner p)
         free(p);
     }
 }
-struct member_declaration* owner member_declaration(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx, const struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration* owner p_member_declaration = calloc(1, sizeof(struct member_declaration));
     //attribute_specifier_sequence_opt specifier_qualifier_list member_declarator_list_opt ';'
@@ -3729,26 +3731,25 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
 
     }
     catch
-    {}
+    {
+    }
+
     return p_enum_specifier;
 }
 
 void enumerator_list_destroy(struct enumerator_list* obj_owner p)
 {
-    if (p)
+    struct enumerator* owner item = p->head;
+    while (item)
     {
-        struct enumerator* owner item = p->head;
-        while (item)
-        {
-            struct enumerator* owner next = item->next;
-            item->next = NULL;
-            enumerator_delete(item);
-            item = next;
-        }
+        struct enumerator* owner next = item->next;
+        item->next = NULL;
+        enumerator_delete(item);
+        item = next;
     }
 }
 
-struct enumerator_list enumerator_list(struct parser_ctx* ctx, struct enum_specifier* p_enum_specifier)
+struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier)
 {
 
     /*
@@ -3797,7 +3798,7 @@ void enumerator_delete(struct enumerator* owner p)
     }
 }
 struct enumerator* owner enumerator(struct parser_ctx* ctx,
-    struct enum_specifier* p_enum_specifier,
+    const struct enum_specifier* p_enum_specifier,
     long long* p_next_enumerator_value)
 {
     //TODO VALUE
@@ -5024,7 +5025,9 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
 
     }
     catch
-    {}
+    {
+    }
+
     return p_static_assert_declaration;
 }
 
@@ -6453,11 +6456,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR \
+#define STRC \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STRE \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 
@@ -7055,11 +7058,11 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
 
 /*Função exportada para web*/
-char* CompileText(const char* pszoptions, const char* content)
+char* owner CompileText(const char* pszoptions, const char* content)
 {
     printf(WHITE "Cake " CAKE_VERSION RESET "\n");
     struct report report = {0};
-    return  (char*) compile_source(pszoptions, content, &report);
+    return  (char* owner) compile_source(pszoptions, content, &report);
 }
 
 void ast_destroy(struct ast* obj_owner ast)

@@ -1,16 +1,13 @@
-void* owner malloc(int sz);
+void free( void* owner ptr);
+void* owner malloc(int size);
 
- int* owner  f(int i)
+void f(int condition) 
 {
+    int * owner p = malloc(sizeof(int));
+    free(p);
+    free(p);
 
-    int* owner p3 = malloc(1);
-    switch (i)
-    {
-
-        case 1: 
-            break;
-            case 2: 
-            break;
-    }
-    return p3;
+    int * owner p2 = p;
+    int * owner p3;
+    p3 = p;
 }

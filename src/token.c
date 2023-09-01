@@ -39,6 +39,7 @@ void token_list_clear(struct token_list* list)
     while (p)
     {
         struct token* owner next = p->next;
+        p->next = NULL;
         token_delete(p);
         p = next;
     }
@@ -121,8 +122,7 @@ void token_list_pop_front(struct token_list* list) unchecked
         list->head = list->head->next;
     }
     p->next = NULL;
-    p->prev = NULL;
-
+    p->prev = NULL;    
     token_delete(p);
 }
 
@@ -148,7 +148,14 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     return p;
 }
 
-void token_delete(struct token* owner p) unchecked
+void token_list_swap(view struct token_list*  a, view struct token_list* b)
+{
+    view struct token_list temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+void token_delete(struct token* owner p)
 {
     if (p)
     {
@@ -156,6 +163,7 @@ void token_delete(struct token* owner p) unchecked
          * ownership warning here is about the p->next
          * we need a way to remove only this especific warning
         */
+        assert(p->next == NULL);
         free(p->lexeme);
         free(p);
     }
@@ -180,6 +188,7 @@ void token_list_destroy(struct token_list* obj_owner list)
     while (p)
     {
         struct token* owner next = p->next;
+        p->next = NULL;
         token_delete(p);
         p = next;
     }
@@ -363,12 +372,12 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 }
 
 
-struct token* owner clone_token(struct token* p)
+struct token* owner clone_token(struct token* p) unchecked
 {
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-        *token = *p;
+        *token = *p;        
         token->lexeme = strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;

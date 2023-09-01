@@ -184,7 +184,9 @@ void generate_doc(const char *mdfilename, const char *outfile)
         "    <link rel=\"stylesheet\" href=\"default.min.css\">\n"
         "    <script src=\"highlight.min.js\"></script>\n"
         "    <script>hljs.highlightAll();</script>\n"
-        "     <link rel=\"stylesheet\" href=\"style.css\" />\n"
+        "    <link rel=\"stylesheet\" href=\"style.css\" />\n"
+        "    <title>Cake Playground</title>\n"
+        "    <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
         "</head>\n"
         "<body>\n"
         "    <article style=\"max-width: 40em; margin:auto\">\n"
@@ -274,7 +276,7 @@ int main()
     //-flow-analysis 
     //-nullchecks
 
-    if (system("cake.exe  -flow-analysis  -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    if (system("cake.exe  -Wstyle -flow-analysis  -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 
