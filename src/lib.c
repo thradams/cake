@@ -3336,7 +3336,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         const char* pch = textfile;
 #endif
 
-        unsigned char ch;
+        unsigned char ch = 0;
 #ifndef MOCKFILES
         while (fread(&ch, 1, 1, file))
         {
@@ -4075,7 +4075,6 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
-                free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_include ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
@@ -4133,7 +4132,6 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
-                free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_c_attribute ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
@@ -8334,7 +8332,7 @@ int copy_file(const char* pathfrom, const char* pathto)
         return -1;
     }
 
-    char buf[4096];
+    char buf[4096] = {0};
     size_t nread;
     while (nread = fread(buf, sizeof(char), sizeof buf, fd_from), nread > 0) //lint !e668  (warning -- possibly passing null pointer to function 'fread(void *, size_t, size_t, FILE *)', arg. no. 4)
     {
@@ -8387,10 +8385,10 @@ int copy_folder(const char* from, const char* to)
             continue;
         }
 
-        char fromlocal[MAX_PATH];
+        char fromlocal[MAX_PATH] = {0};
         snprintf(fromlocal, MAX_PATH, "%s/%s", from, dp->d_name);
 
-        char tolocal[MAX_PATH];
+        char tolocal[MAX_PATH] = {0};
         snprintf(tolocal, MAX_PATH, "%s/%s", to, dp->d_name);
 
         if (dp->d_type & DT_DIR)
@@ -9051,7 +9049,7 @@ _OWNERSHIP__STR
 "int rand(void);\n"
 "void srand(unsigned int seed);\n"
 "void* aligned_alloc(size_t alignment, size_t size);\n"
-"[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
+"[[nodiscard]] OWNER* owner calloc(size_t nmemb, size_t size);\n"
 "void free(void* OWNER ptr);\n"
 "[[nodiscard]] void* OWNER malloc(size_t size);\n"
 "[[nodiscard]] void* OWNER realloc(void* ptr, size_t size);\n"
@@ -21196,8 +21194,8 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
     enum storage_class_specifier_flags storage_specifier_flags
 )
 {
-    bool is_function_definition;
-    bool flow_analysis;
+    bool is_function_definition = false;
+    bool flow_analysis = false;
     return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, &flow_analysis, storage_specifier_flags);
 }
 
@@ -25406,7 +25404,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
     /*
      * Let's get the msvc command prompt INCLUDE
     */
-    char env[2000];
+    char env[2000] = {0};
     int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
 
     if (n == 0)
@@ -25594,7 +25592,7 @@ int compile_one_file(const char* file_name,
 
         if (options->sarif_output)
         {
-            char sarif_file_name[260];
+            char sarif_file_name[260] = {0};
             strcpy(sarif_file_name, file_name);
             strcat(sarif_file_name, ".sarif");
             ctx.sarif_file = (FILE * owner) fopen(sarif_file_name, "w");
@@ -31170,7 +31168,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
         if (p_argument_object)
         {
-#if 0
+
 
             if (p_argument_object->state == OBJECT_STATE_UNINITIALIZED)
             {
@@ -31188,7 +31186,6 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     "object may be uninitialized");
             }
 
-#endif
             if (p_argument_object->state == OBJECT_STATE_MOVED)
             {
                 compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,

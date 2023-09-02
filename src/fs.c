@@ -172,7 +172,7 @@ int copy_file(const char* pathfrom, const char* pathto)
         return -1;
     }
 
-    char buf[4096];
+    char buf[4096] = {0};
     size_t nread;
     while (nread = fread(buf, sizeof(char), sizeof buf, fd_from), nread > 0) //lint !e668  (warning -- possibly passing null pointer to function 'fread(void *, size_t, size_t, FILE *)', arg. no. 4)
     {
@@ -225,10 +225,10 @@ int copy_folder(const char* from, const char* to)
             continue;
         }
 
-        char fromlocal[MAX_PATH];
+        char fromlocal[MAX_PATH] = {0};
         snprintf(fromlocal, MAX_PATH, "%s/%s", from, dp->d_name);
 
-        char tolocal[MAX_PATH];
+        char tolocal[MAX_PATH] = {0};
         snprintf(tolocal, MAX_PATH, "%s/%s", to, dp->d_name);
 
         if (dp->d_type & DT_DIR)
@@ -889,7 +889,7 @@ _OWNERSHIP__STR
 "int rand(void);\n"
 "void srand(unsigned int seed);\n"
 "void* aligned_alloc(size_t alignment, size_t size);\n"
-"[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
+"[[nodiscard]] OWNER* owner calloc(size_t nmemb, size_t size);\n"
 "void free(void* OWNER ptr);\n"
 "[[nodiscard]] void* OWNER malloc(size_t size);\n"
 "[[nodiscard]] void* OWNER realloc(void* ptr, size_t size);\n"

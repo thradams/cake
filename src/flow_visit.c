@@ -2506,7 +2506,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
         if (p_argument_object)
         {
-#if 0
+
 
             if (p_argument_object->state == OBJECT_STATE_UNINITIALIZED)
             {
@@ -2524,7 +2524,6 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     "object may be uninitialized");
             }
 
-#endif
             if (p_argument_object->state == OBJECT_STATE_MOVED)
             {
                 compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,

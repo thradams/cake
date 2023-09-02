@@ -1218,7 +1218,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
         const char* pch = textfile;
 #endif
 
-        unsigned char ch;
+        unsigned char ch = 0;
 #ifndef MOCKFILES
         while (fread(&ch, 1, 1, file))
         {
@@ -1957,7 +1957,6 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
-                free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_include ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 
@@ -2015,7 +2014,6 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
-                free(p_new_token->lexeme);
                 p_new_token->lexeme = strdup(has_c_attribute ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
 

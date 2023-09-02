@@ -2234,8 +2234,8 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
     enum storage_class_specifier_flags storage_specifier_flags
 )
 {
-    bool is_function_definition;
-    bool flow_analysis;
+    bool is_function_definition = false;
+    bool flow_analysis = false;
     return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, &flow_analysis, storage_specifier_flags);
 }
 
@@ -6444,7 +6444,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
     /*
      * Let's get the msvc command prompt INCLUDE
     */
-    char env[2000];
+    char env[2000] = {0};
     int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
 
     if (n == 0)
@@ -6632,7 +6632,7 @@ int compile_one_file(const char* file_name,
 
         if (options->sarif_output)
         {
-            char sarif_file_name[260];
+            char sarif_file_name[260] = {0};
             strcpy(sarif_file_name, file_name);
             strcat(sarif_file_name, ".sarif");
             ctx.sarif_file = (FILE * owner) fopen(sarif_file_name, "w");
