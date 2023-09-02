@@ -21,122 +21,127 @@ By implementing the static ownership check, and using the feature on it's own so
   - view
   - obj_owner
 
-The **owner** qualifier declares an object that has a reference to another object.  The owner object exclusively holds the responsibility for controlling the lifetime of the referenced object. When used with a pointer, indicates that the pointer assumes ownership of the pointed object and its associated memory.
+An **owner object** is a object that have one or more references to other(s) object(s) which the lifetime it controls. A owner object is the unique owner of the referenced object(s). The **owner** qualifier is used to create a **owner object**. The most common owner object are pointers, and we can also call them as **owner pointers**.
+
+```c  
+  struct X * owner p = calloc(1, sizeof * p);    
+  //...
+  free(p);
+```
+    
+We can have other types of **owner objects** that are not pointers. For instance:
+
+```c  
+owner int sfd =  socket(rp->ai_family,
+   rp->ai_socktype,
+   rp->ai_protocol);  
+```
+  
+An **owner object** can be an aggregate  
+
+```c  
+struct X {
+ char * owner name;
+ struct Y * owner p;
+}; 
+
+char * owner names[10];
+
+```
+
+**Owner pointers**, assumes ownership of the pointed object and its memory as if the ownership were to two different objects.
+
+```c      
+struct X { char * owner text; };   
+int main() {
+  struct X * owner p = malloc(1);  
+  free(p->text); //moving the ownership of object
+  free(p); //moving ownership of the memory  
+}
+```
+
+The memory of an owner pointer is moved when we move it to an `void * owner`. More details on semantics.  
+
+A **view object** is an object that does not have references to other objects, or if it has, it is does not owns the references which must exist beyond the lifespan of the view object itself. We call **view pointer** a pointer that does not own the pointed object.
+  
+Its is not necessary to use the **view** qualifier, because this is the default.
 
 ```c  
 void * owner p = malloc(1);
-free(p);
-```
-
-The **view** qualifier declares an object that has a reference to another object but it does not control its lifetime, which must exist beyond the lifespan of the view qualified object itself. The **view** qualifier is the default.
-
-```c  
-void * owner p = malloc(1);
-if (p)
-{
-  void * p2 = p; /*p2 is a view*/
+if (p) {
+  void * view p2 = p;
+  void * p3 = p;
 }
 free(p);
 ```
+  
+When a **view** qualifier is used with structs/unions, all **owner objects** members becomes **view objects**.
 
-The **obj\_owner** qualifier is exclusively applicable to pointers, meaning that the pointer owns the pointed object but not the memory it occupies. It is generally used in destructors.    
-  
-  
-```c    
-void x_destroy(struct X * obj_owner p){
- /*
-    We must release all resources used by p
-    but we cannot release the memory pointed by p
- */
-}  
-int main() {  
-  struct X x = {};
-  x_destroy(&x);  
-}
-``` 
+```c
+ struct X{
+   char * owner text;
+ };
  
-For struct and unions, if at least one member has the **owner** qualifier, the entire type is considered to be an owner qualified type.
-
-Sample:
-
-```c
-struct person {
-  char * owner name;
-};  
-
-int main(){
-  struct person p1 = {};  
-  /*p1 is a owner type*/
-}
+ int main() {
+   view struct X x = {0};
+   // x.text is a view reference
+ }
 ```
 
-Applying the **view** qualifier to an struct or union type designates the type as a view, regardless of whether it includes members owner qualified.
-
-```c
-struct person {
-  char * owner name;
-};
-
-int main(){
-  view struct person p2;
-   /*p2.name is view qualified*/
-}
-```
-
-Similarly of what happens with structs and unions, if the element of the array is owner qualified the entire array is treated as an owner qualified type.
+An **object owner pointer** is a version of **owner pointer** with the difference that is is responsible only for the lifetime of the pointed object, but not responsible for it's memory lifetime. The **obj\_owner** qualifier is used exclusively with pointers. The most common usage of **object owner pointer** is when creating destructors.  
   
+
+
 Sample:
 
-```c
-int main()
+```c    
+
+struct X { char * owner text; };  
+
+void x_destroy(struct X * obj_owner p)  
 {
-  struct person a[10] = {};  
-  //a is the owner of 10 struct person
+  free(p->text);
+}  
+
+int main() {
+  struct X x= {0};
+  ...  
+  x_destroy(&x); //object moved
+  free(p); //memory moved
 }
 ```
 
-When array types are used in parameters the array is not considered owner qualified type. 
+**object owner pointer** to **non owner objects** does not make sense.   
 
-```c
-void print_array(int n, struct person a[10]);
-
-int main()
-{
-  struct person a[10] = {};
-  print_array(10, a);
-}
+```c    
+struct point {int x, y; };  
+void point_destroy(struct point * obj_owner p) //error  
+void destroy2(void * obj_owner p) //error
+void destroy3(char * obj_owner p) //error
 ```
 
-To qualify array parameters as owner we do:
+**object owner pointer** to incomplete types does not make sense.
 
-```c
-void destroy_array(int n, struct person a[owner 10]);
+```c    
+struct X;
+void point_destroy(struct X * obj_owner p) //error  
 ```
+(Maybe this can be verified at caller)
 
-The most common usage of **owner** will be pointers. However, ownership qualifiers can be applied for any type.
+Considering that the objective of **owner pointers** is to control the lifetime of the referenced object, it does not make sense a owner pointer to functions.
+
+The exactly name of the new qualifiers still not defined. It can be something like `_Owner` or just `owner` or attributes.    
   
-Sample:
-
-```c
-owner int socket = 
-    socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-```
-
-Pointers have the additional advantage of having a natural zero semantics.   
-
-Considering that the objective of owner objects is to control the lifetime of the referenced object, it does not make sense a owner pointer to functions.
-
-
-> The exactly name of the new qualifiers still not defined. It can be something like `_Owner` or just `owner`.  My suggestion is to have macros for each qualifier to to be able to compile the same source code in compilers that don't support ownership checks. 
+My suggestion is to have macros for each qualifier to be able to compile the same source code in compilers that don't support ownership checks. 
+   
 
 ### Semantics
 
-1 - When a owner object is copied to another owner object the ownership is always moved/transfered.
+1 - When a **owner object** is copied to another **owner object** the ownership is always moved.
+  
+The destination owner object must not hold any resource at the moment of copy. This is natural on initialization, function arguments and returning objects. For assignment, flow analysis is required.    
 
-The object that receives the value must not hold any resource, otherwise the previous referenced objects would be lost.
-This is natural in initialization and function arguments. 
-
-Sample returning values
+Sample - returning values
 
 ```c  
 T* owner make_owner() {  
@@ -145,48 +150,113 @@ T* owner make_owner() {
 }
 ```
   
-Sample initialization
+Sample  - initialization
 
 ```c
-T * owner b = make_owner(); /*moved*/  
+T * owner b = make_owner();  
 ```
 
-Sample calling functions
+Sample  - calling functions
 
 ```c
 void f(T * owner a);
-f(a); /*moved*/
+f(a);
 ```
 
-When passing const owner to non const the compiler can ignore the warning. This solves an old and annoying warning.
+When passing a owner pointer that points to const object to a owner pointer to non-const object the common warning discards 'const' qualifier can be ignored.
 
-
-```c
+```c  
+void fred(void * owner p);
 const void * p = malloc(10);
-free(p);
-// warning: passing argument 1 of 'free' discards 'const' qualifier from pointer target type
+free(p); //no warning
 ```
   
-The reason is because now the compiler has an extra information that is the owner qualifier.  
-
-```c
-void free(void * owner p);
-```  
-
-moving a const object to a function already means the object cannot be used anymore. The state is uninitiated, so as a consequence the warning is not necessary and can be removed.
-
-Sample assignment
+Sample - assignment
 
 ```c
 T * owner b = make_owner();
 T * owner a = 0;  
 ...
-a = b; /*moved*/;  
+a = b;  
 ```
 
-Flow analysis must ensure a is not holding any resources.
+Flow analysis must ensure `a` is not holding any resources before the assignment.
+  
+2 - When a **owner pointer object** is copied to a **owner pointer to void** only the ownership of the object is moved.
+  
+The pointed object also must have been released before.  
 
-2 - A __non owner object__ cannot be copied to a __owner object__.   
+```c      
+struct X { char * owner text; };   
+int main() {
+  struct X * owner p = malloc(1);  
+  free(p->text); //moving the ownership of object
+  free(p); //moving ownership of the memory  
+}
+```
+
+3 - When a **owner pointer** is copied to a **object owner pointer** the ownership of the pointed object is moved, but not the ownership of the memory.
+
+```c    
+struct X { char * owner text; };  
+  
+void x_destroy(struct X * obj_owner p){
+  free(p->text);
+}  
+
+int main() {
+  struct X x= {0};
+  ...  
+  x_destroy(&x); //object moved
+  free(p); //memory moved
+}
+```
+
+4 - We can pass a **view pointer to owner object** as a **object owner pointer**. The object is moved.  
+
+```c
+ struct X{
+   char * owner text;
+ };
+ void x_destroy(struct X * obj_owner p){
+  free(p->text);
+}  
+ int main() {
+   struct X x = {0};
+   x_destroy(&x);//OK
+ }
+```
+  
+The exception is a function argument, or object returned by function.
+
+```c
+ 
+void x_destroy(struct X * obj_owner p){
+  free(p->text);
+}
+void F(struct X * p)
+{
+  x_destroy(p);//ERROR
+}
+```
+
+5 - We cannot pass **view pointer to non owner object** as a **object owner pointer**.
+
+```c
+ struct X{
+   char * owner text;
+ };
+ void x_destroy(struct X * obj_owner p){
+  free(p->text);
+}  
+ int main() {
+   view struct X x = {0};
+   x_destroy(&x);//ERROR
+ }
+```
+
+
+6 - A **non owner object** cannot be copied to a **owner object**.   
   
 The only exception is the null pointer constant when copied to owner pointers.
 
@@ -196,9 +266,19 @@ T * owner f() {
 }
 ```
 
- 3 - An __owner object__ can be copied to a __non-owner object__ if its lifetime is longer than that of the __non-owner object__.  
-   
-We call the non-owner object a "view" in this case. 
+```c  
+int * p;
+free(p); //error free requires an owner pointer
+```
+
+```c    
+void x_delete(struct X * owner p);
+struct X x;
+x_delete(&x); //error
+```
+
+7 - An **owner object** can be copied to a **non-owner object** if its lifetime is longer than that of the **non-owner object**.  
+  
   
 ```c
 T F()
@@ -239,14 +319,14 @@ T F(owner T arg) {
   }
 ```
 
-4 - Temporary owner objects cannot be discarded/ignored  
+8 - Temporary **owner objects** cannot be discarded  
 
 ```c  
   make_owner(); //ERROR  
 ```
 
 ```c  
-  void f(T * owner ) /*ERROR no name*/  
+  void f(T * owner )//ERROR
   {
   }  
 ```
@@ -254,7 +334,8 @@ T F(owner T arg) {
 
 ## Part II - Flow analysis
 
-The objective of flow analysis is to ensure that when the lifetime of owner object ends, it must have  already released the resources it owns. The same when we overwrite the owner object.  
+The objective of flow analysis is to ensure that when the lifetime of **owner object** ends, it must have  already released the resources it owns.   
+The same when we overwrite the **owner object**.  
 
 Sample:  
 
@@ -524,3 +605,17 @@ Region of data storage in the execution environment, the contents of which can r
 ### owner object
 Is an object which value represents a reference to other object which lifetime is controlled by it.
 
+
+### Samples
+
+```c
+int mtx_init( owner mtx_t* mutex, int type );  
+void mtx_destroy( mtx_t * obj_owner mutex );  
+
+owner mtx_t mtx;
+int r = mtx_init(&mtx, mtx_plain);  
+if (r == thrd_success){  
+  static_set(mtx, "not null");  
+  mtx_destroy(&mtx);  
+}
+```

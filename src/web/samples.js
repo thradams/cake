@@ -1526,3 +1526,36 @@ void f2(int condition)
 `;
 
 
+sample["Ownership (experimental)"]["mtx_t"] =
+`
+enum {
+    mtx_plain ,
+    mtx_timed,
+    mtx_plain,
+    mtx_timed,
+};
+
+enum {
+
+    thrd_success , /* unspecified */
+    thrd_nomem , /* unspecified */
+    thrd_timedout , /* unspecified */
+    thrd_busy , /* unspecified */
+    thrd_error  /* unspecified */
+};
+
+typedef struct { owner int dummy; } mtx_t;
+int mtx_init(mtx_t *mtx, int type);
+void mtx_destroy( mtx_t * obj_owner mutex );
+
+int main()
+{
+   mtx_t mtx;
+   if (mtx_init(&mtx, mtx_plain) == thrd_success)
+   {
+      static_set(mtx, "not-null");
+      mtx_destroy(&mtx);
+   }
+}
+`;
+
