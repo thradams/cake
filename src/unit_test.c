@@ -182,6 +182,7 @@ void switch_pop2(void);
 void scopes_pop(void);
 void owner_moved(void);
 void partially_owner_moved(void);
+void use_after_destroy(void);
 
 /*end of forward declarations*/
 
@@ -357,6 +358,7 @@ g_unit_test_success_count = 0;
     scopes_pop();
     owner_moved();
     partially_owner_moved();
+    use_after_destroy();
 return g_unit_test_error_count;
 
 }

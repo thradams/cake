@@ -34732,7 +34732,7 @@ void ownership_flow_test_moved_if_not_null()
         "struct Y { struct X * owner p; };\n"
         "\n"
         "int main() {\n"
-        "   struct Y y;\n"
+        "   struct Y y = {0};\n"
         "   struct X * owner p = malloc(sizeof(struct X));\n"
         "   if (p){\n"
         "     y.p = p;\n"
@@ -34829,6 +34829,7 @@ void ownership_flow_test_void_destroy_ok()
         "\n"
         "int main() {\n"
         "   struct X * owner p = malloc(sizeof * p);\n"
+        "   p->name = malloc(10);\n"
         "   free(p->name);\n"
         "   free(p);   \n"
         "} \n"
@@ -35601,7 +35602,7 @@ void owner_moved()
         "        free(p);\n"
         "    }\n"
         "}";
-        assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 
 }
 
@@ -35625,10 +35626,41 @@ void partially_owner_moved()
         "        x_destroy(p);\n"
         "    }\n"
         "}";
-        assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, source));
 
 }
+void use_after_destroy()
+{
+    const char* source
+        =
+        "\n"
+        "char* owner strdup(const char* s);\n"
+        "void* owner malloc(unsigned size);\n"
+        "void free(void* owner ptr);"
+        "\n"
+        "struct X {\n"
+        "  char *owner name;\n"
+        "};\n"
+        "\n"
+        "void x_destroy(struct X * obj_owner p) {\n"
+        "  free(p->name);\n"
+        "}\n"
+        "\n"
+        "void x_print(struct X * p) \n"
+        "{\n"
+        "  //printf(\"%s\", p->name);\n"
+        "}\n"
+        "\n"
+        "int main() {\n"
+        "   struct X x = {0};\n"
+        "   x.name = strdup(\"a\");\n"
+        "   x_destroy(&x);\n"
+        "   x_print(&x);\n"
+        "}\n"
+        "";
+    assert(compile_with_errors(true, source));
 
+}
 
 #endif
 
