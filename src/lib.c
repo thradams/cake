@@ -10,7 +10,7 @@
 void* owner calloc(int nmemb, int size);
 void free(void* owner ptr);
 void* owner malloc(int size);
-void* owner realloc(void* owner ptr, int size);
+void* owner realloc(void*  ptr, int size);
 char * owner strdup( const char *src );
 
 typedef struct _iobuf FILE;
@@ -8102,6 +8102,7 @@ static int reserve(struct osstream* stream, int size)
         void* owner pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
+            static_set(stream->c_str, "moved");
             stream->c_str = pnew;
             stream->capacity = size;
             stream->c_str[size] = 0;
@@ -16603,6 +16604,7 @@ void check_function_argument_and_parameter2(struct parser_ctx* ctx,
     }
     else if (argument_is_view && paramer_is_obj_owner)
     {
+
         //check if the contented of pointer is owner.
         if (type_is_pointer(argument_type))
         {
@@ -16637,6 +16639,7 @@ void check_function_argument_and_parameter2(struct parser_ctx* ctx,
                     "passing a view argument to a obj_owner parameter");
             }
         }
+
     }
     else if (argument_is_view && paramer_is_view)
     {
@@ -29342,7 +29345,16 @@ static void set_object_state(
     }
     else if (type_is_pointer(p_type))
     {
-        p_object->state = p_object_source->state;
+        if (type_is_any_owner(p_type))
+        {
+            p_object->state = p_object_source->state;
+        }
+        else
+        {
+            //MOVED state is not applicable to non owner objects
+            p_object->state = p_object_source->state  & ~OBJECT_STATE_MOVED;
+        }
+        
 
         if (p_object->pointed)
         {
@@ -29639,6 +29651,124 @@ void object_get_name(struct type* p_type,
     object_get_name_core(&p_object->declarator->type, root, p_object, root_name, out, out_size);
 }
 
+void checked_moved(struct parser_ctx* ctx,
+    struct type* p_type,
+    struct object* p_object,
+    const struct token* position_token,
+    const char* previous_names)
+{
+    if (p_object == NULL)
+    {
+        return;
+    }
+
+    if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+    {
+        return;
+    }
+
+    //if (!type_is_any_owner(p_type))
+    //{
+      //  return;
+    //}
+
+
+    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        struct member_declaration* p_member_declaration =
+            p_struct_or_union_specifier->member_declaration_list.head;
+
+
+        /*
+        *  Some parts of the object needs to be moved..
+        *  we need to print error one by one
+        */
+
+        int member_index = 0;
+        while (p_member_declaration)
+        {
+
+            if (p_member_declaration->member_declarator_list_opt)
+            {
+                struct member_declarator* p_member_declarator =
+                    p_member_declaration->member_declarator_list_opt->head;
+                while (p_member_declarator)
+                {
+
+                    if (p_member_declarator->declarator)
+                    {
+                        const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "?";
+
+                        char buffer[200] = {0};
+                        if (type_is_pointer(p_type))
+                            snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
+                        else
+                            snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
+
+                        checked_moved(ctx, &p_member_declarator->declarator->type,
+                            &p_object->members.data[member_index],
+                            position_token,
+                            buffer);
+
+                        member_index++;
+                    }
+                    p_member_declarator = p_member_declarator->next;
+                }
+            }
+            p_member_declaration = p_member_declaration->next;
+        }
+    }
+    else
+    {
+        const char* name = previous_names;
+        const struct token* const position =
+            p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
+
+        if (name[0] == '\0')
+        {
+            /*function arguments without name*/
+            name = "?";
+        }
+        bool should_had_been_moved = false;
+
+
+        if (type_is_pointer(p_type))
+        {
+
+            char buffer[100] = {0};
+            snprintf(buffer, sizeof buffer, "%s", previous_names);
+
+            struct type t2 = type_remove_pointer(p_type);
+
+            checked_moved(ctx,
+                &t2,
+                p_object->pointed,
+                position_token,
+                buffer);
+
+            type_destroy(&t2);
+        }
+
+
+        if (p_object->state & OBJECT_STATE_MOVED)
+        {
+            compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+                ctx,
+                position_token,
+                "argument is leaving scoped with a moved object '%s'",
+                name);
+            if (p_object->declarator)
+            {
+                compiler_set_info_with_token(W_NONE, ctx, p_object->declarator->first_token, "parameter", name);
+            }
+        }
+    }
+
+}
+
 void visit_object(struct parser_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
@@ -29657,9 +29787,19 @@ void visit_object(struct parser_ctx* ctx,
 
     if (!type_is_any_owner(p_type))
     {
+        if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+        {
+            //for view parameters we need to check if they left something moved..
+            checked_moved(ctx,
+                p_type,
+                p_object,
+                position_token,
+                previous_names
+            );
+            
+        }
         return;
     }
-
 
 
     if (p_type->struct_or_union_specifier && p_object->members.size > 0)
@@ -29950,7 +30090,7 @@ void object_assigment(struct parser_ctx* ctx,
         }
         else
         {
-            
+
             if (p_source_obj_opt)
             {
                 set_object(p_source_obj_type, p_source_obj_opt, OBJECT_STATE_MOVED);

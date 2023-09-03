@@ -32,6 +32,7 @@ static int reserve(struct osstream* stream, int size)
         void* owner pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
+            static_set(stream->c_str, "moved");
             stream->c_str = pnew;
             stream->capacity = size;
             stream->c_str[size] = 0;

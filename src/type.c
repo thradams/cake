@@ -852,6 +852,7 @@ void check_function_argument_and_parameter2(struct parser_ctx* ctx,
     }
     else if (argument_is_view && paramer_is_obj_owner)
     {
+
         //check if the contented of pointer is owner.
         if (type_is_pointer(argument_type))
         {
@@ -886,6 +887,7 @@ void check_function_argument_and_parameter2(struct parser_ctx* ctx,
                     "passing a view argument to a obj_owner parameter");
             }
         }
+
     }
     else if (argument_is_view && paramer_is_view)
     {

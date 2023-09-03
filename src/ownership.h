@@ -7,7 +7,7 @@
 void* owner calloc(int nmemb, int size);
 void free(void* owner ptr);
 void* owner malloc(int size);
-void* owner realloc(void* owner ptr, int size);
+void* owner realloc(void*  ptr, int size);
 char * owner strdup( const char *src );
 
 typedef struct _iobuf FILE;

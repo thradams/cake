@@ -1642,3 +1642,40 @@ int main(){
 
 `;
 
+sample["Ownership (experimental)"]["moving parts of view"] =
+`
+#define _OWNERSHIP_ 
+#include <string.h>
+#include <stdlib.h>
+
+
+
+struct X {
+  char *owner name;
+};
+
+struct Y {
+  struct X x;
+};
+
+
+void x_destroy(struct X * obj_owner p) 
+{
+  free(p->name);
+}
+
+void f(struct Y * p)
+{
+    x_destroy(&p->x);
+}
+
+int main() {
+   struct Y  y = {};
+   y.x.name = strdup("a");
+   f(&y);
+   free(y.x.name);
+}
+
+`;
+
+
