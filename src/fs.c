@@ -199,6 +199,8 @@ int copy_file(const char* pathfrom, const char* pathto)
 
     fclose(fd_to);
     fclose(fd_from);
+
+    return -1;
 }
 
 int copy_folder(const char* from, const char* to)
@@ -301,80 +303,71 @@ char* dirname(char* path)
 }
 #endif
 
-char* owner readfile_core(const char* const path)
-{
+#ifndef MOCKFILES
 
+char* owner read_file(const char* const path)
+{
     char* owner data = NULL;
     FILE* owner file = NULL;
     struct stat info = {0};
 
-    /*try*/
+    if (stat(path, &info) != 0)
+        return NULL;
+
+    const int mem_size_bytes = sizeof(char) * info.st_size + 3 /*BOM*/ + 1 /* \0 */;
+
+    data = malloc(mem_size_bytes);
+    if (data == NULL)
+        return NULL;
+
+    file = fopen(path, "r");
+    if (file == NULL)
     {
-        if (stat(path, &info) != 0)
-            return NULL;
-
-        const int mem_size_bytes = sizeof(char) * info.st_size + 3 /*BOM*/ + 1 /* \0 */;
-
-        data = malloc(mem_size_bytes);
-        if (data == NULL)
-            return NULL;
-
-        file = fopen(path, "r");
-        if (file == NULL)
-        {
-            free(data);
-            return NULL;
-        }
-
-        /* first we read 3 bytes */
-        size_t bytes_read = fread(data, 1, 3, file);
-
-        if (bytes_read < 3)
-        {
-            /* we have less than 3 bytes - no BOM */
-
-            data[bytes_read] = '\0';
-
-            if (feof(file))
-            {
-                fclose(file);
-                return data;
-            }
-            free(data);
-            fclose(file);
-            return NULL;
-        }
-
-        /* check byte order mark (BOM) */
-        if ((unsigned char) data[0] == (unsigned char) 0xEF &&
-            (unsigned char) data[1] == (unsigned char) 0xBB &&
-            (unsigned char) data[2] == (unsigned char) 0xBF)
-        {
-            /* in this case we skip this BOM */
-            size_t bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
-            data[bytes_read_part2] = 0;
-
-            fclose(file);
-            return data;
-        }
-        else
-        {
-            size_t bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
-            data[bytes_read_part2 + 3] = 0;
-
-            fclose(file);
-            return data;
-        }
+        free(data);
+        return NULL;
     }
 
-    if (file)
+    /* first we read 3 bytes */
+    size_t bytes_read = fread(data, 1, 3, file);
+
+    if (bytes_read < 3)
+    {
+        /* we have less than 3 bytes - no BOM */
+
+        data[bytes_read] = '\0';
+        if (feof(file))
+        {
+            fclose(file);
+            return data;
+        }
+
+        free(data);
         fclose(file);
-    free(data);
-    return NULL;
+
+        return NULL;
+    }
+
+    /* check byte order mark (BOM) */
+    if ((unsigned char) data[0] == (unsigned char) 0xEF &&
+        (unsigned char) data[1] == (unsigned char) 0xBB &&
+        (unsigned char) data[2] == (unsigned char) 0xBF)
+    {
+        /* in this case we skip this BOM */
+        size_t bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
+        data[bytes_read_part2] = 0;
+
+        fclose(file);
+        return data;
+    }
+
+    size_t bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
+    data[bytes_read_part2 + 3] = 0;
+
+    fclose(file);
+    return data;
 }
 
-
-#ifdef MOCKFILES
+#else
 
 static const char* file_assert_h =
 "\n"
@@ -915,7 +908,7 @@ static const char* file_stddef_h =
 "typedef typeof(nullptr) nullptr_t;\n"
 "\n";
 
-char* read_file(const char* path)
+char* owner read_file(const char* path)
 {
     if (strcmp(path, "stdio.h") == 0)
         return strdup(file_stdio_h);
@@ -932,12 +925,7 @@ char* read_file(const char* path)
     else if (strcmp(path, "assert.h") == 0)
         return strdup(file_assert_h);
 
-    return readfile_core(path);
-}
-#else
-char* owner read_file(const char* path)
-{
-    return readfile_core(path);
+    return NULL;
 }
 #endif
 

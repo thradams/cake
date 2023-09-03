@@ -3227,8 +3227,8 @@ void member_declarator_list_delete(struct member_declarator_list* owner p)
 }
 struct member_declarator_list* owner member_declarator_list(
     struct parser_ctx* ctx,
-    struct struct_or_union_specifier* p_struct_or_union_specifier,
-    struct specifier_qualifier_list* p_specifier_qualifier_list)
+    const struct struct_or_union_specifier* p_struct_or_union_specifier,
+    const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* owner p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
     LIST_ADD(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));

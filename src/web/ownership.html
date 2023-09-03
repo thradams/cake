@@ -75,7 +75,7 @@
 
 <h1 id="toc_0">Ownership checks for C</h1>
 
-<p>The static ownership check is an experimental feature for Cake.
+<p>The static ownership check is an experimental feature in Cake.
 It consists of two separate implementations. </p>
 
 <p>Part I focuses on introducing the concept of an owner qualifier in the type system and does not requires flow analysis. </p>
@@ -199,7 +199,7 @@ void point_destroy(struct X * obj_owner p) //error
 
 <h3 id="toc_3">Semantics</h3>
 
-<p>1 - When a <strong>owner object</strong> is copied to another <strong>owner object</strong> the ownership is always moved.</p>
+<p>1 - When a <strong>owner object</strong> is copied to another <strong>owner object</strong> the ownership is moved.</p>
 
 <p>The destination owner object must not hold any resource at the moment of copy. This is natural on initialization, function arguments and returning objects. For assignment, flow analysis is required.    </p>
 
@@ -225,7 +225,7 @@ f(a);
 <p>When passing a owner pointer that points to const object to a owner pointer to non-const object the common warning discards &#39;const&#39; qualifier can be ignored.</p>
 
 <pre><code class="language-c">void fred(void * owner p);
-const void * p = malloc(10);
+const void * owner p = malloc(10);
 free(p); //no warning
 </code></pre>
 
@@ -385,7 +385,18 @@ The same when we overwrite the <strong>owner object</strong>.  </p>
 
 <p>Flow analysis must know that when f goes of of scope it does not owns any resource. </p>
 
-<p>To track ownership fours states are used &quot;uninitialized&quot;, &quot;moved&quot;, &quot;null&quot; and &quot;not null&quot;.  We can assert compile time states in cake using <strong>static_state</strong></p>
+<p>To track ownership fours states are used</p>
+
+<ul>
+<li>uninitialized</li>
+<li>moved</li>
+<li>null</li>
+<li>not null<br></li>
+</ul>
+
+<p>We can assert compile time states in cake using <strong>static_state</strong></p>
+
+<p>Sample:</p>
 
 <pre><code class="language-c">T * p;  
 static_state(p, &quot;uninitialized&quot;);
@@ -397,7 +408,9 @@ static_state(p, &quot;uninitialized&quot;);
 static_debug(p);
 </code></pre>
 
-<p>Pointers can have the state &quot;null&quot; or &quot;not-null&quot;.  The combination of &quot;null or not-null&quot; is also called &quot;maybe-null&quot;.  </p>
+<p>References can have the state &quot;null&quot; or &quot;not-null&quot;.</p>
+
+<p>The combination of &quot;null or not-null&quot; is also called &quot;maybe-null&quot;.  </p>
 
 <pre><code class="language-c">T * owner p = 0;  
 static_state(p, &quot;null&quot;);
@@ -444,7 +457,7 @@ static_state(p2, &quot;moved&quot;);
 <p>All others possibilities are permitted. For instance, the state can be &quot;null or uninitialized&quot; or &quot;null or moved&quot;.</p>
 
 <p>When an owning object (non pointer) goes out of scope and before its memory is overridden it must be on &quot;uninitialized&quot; or &quot;moved&quot; or &quot;uninitialized or moved&quot; state.
-Structs an unions doens&#39;t have a direct state. But we can say that some struct has been moved if all of its objects have been moved.</p>
+Structs an unions doesn&#39;t have a direct state. But we can say that some struct has been moved if all of its objects have been moved.</p>
 
 <h3 id="toc_5">Special case malloc/calloc</h3>
 

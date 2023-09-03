@@ -8359,6 +8359,8 @@ int copy_file(const char* pathfrom, const char* pathto)
 
     fclose(fd_to);
     fclose(fd_from);
+
+    return -1;
 }
 
 int copy_folder(const char* from, const char* to)
@@ -8461,80 +8463,71 @@ char* dirname(char* path)
 }
 #endif
 
-char* owner readfile_core(const char* const path)
-{
+#ifndef MOCKFILES
 
+char* owner read_file(const char* const path)
+{
     char* owner data = NULL;
     FILE* owner file = NULL;
     struct stat info = {0};
 
-    /*try*/
+    if (stat(path, &info) != 0)
+        return NULL;
+
+    const int mem_size_bytes = sizeof(char) * info.st_size + 3 /*BOM*/ + 1 /* \0 */;
+
+    data = malloc(mem_size_bytes);
+    if (data == NULL)
+        return NULL;
+
+    file = fopen(path, "r");
+    if (file == NULL)
     {
-        if (stat(path, &info) != 0)
-            return NULL;
-
-        const int mem_size_bytes = sizeof(char) * info.st_size + 3 /*BOM*/ + 1 /* \0 */;
-
-        data = malloc(mem_size_bytes);
-        if (data == NULL)
-            return NULL;
-
-        file = fopen(path, "r");
-        if (file == NULL)
-        {
-            free(data);
-            return NULL;
-        }
-
-        /* first we read 3 bytes */
-        size_t bytes_read = fread(data, 1, 3, file);
-
-        if (bytes_read < 3)
-        {
-            /* we have less than 3 bytes - no BOM */
-
-            data[bytes_read] = '\0';
-
-            if (feof(file))
-            {
-                fclose(file);
-                return data;
-            }
-            free(data);
-            fclose(file);
-            return NULL;
-        }
-
-        /* check byte order mark (BOM) */
-        if ((unsigned char) data[0] == (unsigned char) 0xEF &&
-            (unsigned char) data[1] == (unsigned char) 0xBB &&
-            (unsigned char) data[2] == (unsigned char) 0xBF)
-        {
-            /* in this case we skip this BOM */
-            size_t bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
-            data[bytes_read_part2] = 0;
-
-            fclose(file);
-            return data;
-        }
-        else
-        {
-            size_t bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
-            data[bytes_read_part2 + 3] = 0;
-
-            fclose(file);
-            return data;
-        }
+        free(data);
+        return NULL;
     }
 
-    if (file)
+    /* first we read 3 bytes */
+    size_t bytes_read = fread(data, 1, 3, file);
+
+    if (bytes_read < 3)
+    {
+        /* we have less than 3 bytes - no BOM */
+
+        data[bytes_read] = '\0';
+        if (feof(file))
+        {
+            fclose(file);
+            return data;
+        }
+
+        free(data);
         fclose(file);
-    free(data);
-    return NULL;
+
+        return NULL;
+    }
+
+    /* check byte order mark (BOM) */
+    if ((unsigned char) data[0] == (unsigned char) 0xEF &&
+        (unsigned char) data[1] == (unsigned char) 0xBB &&
+        (unsigned char) data[2] == (unsigned char) 0xBF)
+    {
+        /* in this case we skip this BOM */
+        size_t bytes_read_part2 = fread(&data[0], 1, info.st_size - 3, file);
+        data[bytes_read_part2] = 0;
+
+        fclose(file);
+        return data;
+    }
+
+    size_t bytes_read_part2 = fread(&data[3], 1, info.st_size - 3, file);
+    data[bytes_read_part2 + 3] = 0;
+
+    fclose(file);
+    return data;
 }
 
-
-#ifdef MOCKFILES
+#else
 
 static const char* file_assert_h =
 "\n"
@@ -9075,7 +9068,7 @@ static const char* file_stddef_h =
 "typedef typeof(nullptr) nullptr_t;\n"
 "\n";
 
-char* read_file(const char* path)
+char* owner read_file(const char* path)
 {
     if (strcmp(path, "stdio.h") == 0)
         return strdup(file_stdio_h);
@@ -9092,12 +9085,7 @@ char* read_file(const char* path)
     else if (strcmp(path, "assert.h") == 0)
         return strdup(file_assert_h);
 
-    return readfile_core(path);
-}
-#else
-char* owner read_file(const char* path)
-{
-    return readfile_core(path);
+    return NULL;
 }
 #endif
 
@@ -16896,7 +16884,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     type_destroy(&parameter_type_converted);
 }
 
-void check_assigment2(struct parser_ctx* ctx,
+void check_owner_rules_assigment(struct parser_ctx* ctx,
     struct type* left_type,
     struct expression* right,
     bool return_assignment)
@@ -17093,7 +17081,7 @@ void check_assigment(struct parser_ctx* ctx,
         {
             compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
 
-            check_assigment2(ctx,
+            check_owner_rules_assigment(ctx,
                 left_type,
                 right,
                 return_assignment);
@@ -17117,7 +17105,7 @@ void check_assigment(struct parser_ctx* ctx,
                 right->first_token,
                 " incompatible types ");
         }
-        check_assigment2(ctx,
+        check_owner_rules_assigment(ctx,
             left_type,
             right,
             return_assignment);
@@ -17129,7 +17117,7 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (type_is_arithmetic(p_right_type) && type_is_arithmetic(left_type))
     {
-        check_assigment2(ctx,
+        check_owner_rules_assigment(ctx,
             left_type,
             right,
             return_assignment);
@@ -17145,7 +17133,7 @@ void check_assigment(struct parser_ctx* ctx,
         //have the anotation [[opt]]
 
         /*can be converted to any type*/
-        check_assigment2(ctx,
+        check_owner_rules_assigment(ctx,
             left_type,
             right,
             return_assignment);
@@ -17161,7 +17149,7 @@ void check_assigment(struct parser_ctx* ctx,
             right->first_token,
             " passing null as array");
 
-        check_assigment2(ctx,
+        check_owner_rules_assigment(ctx,
             left_type,
             right,
             return_assignment);
@@ -17178,7 +17166,7 @@ void check_assigment(struct parser_ctx* ctx,
         if (type_is_void_ptr(p_right_type))
         {
             /*void pointer can be converted to any type*/
-            check_assigment2(ctx,
+            check_owner_rules_assigment(ctx,
                 left_type,
                 right,
                 return_assignment);
@@ -17190,7 +17178,7 @@ void check_assigment(struct parser_ctx* ctx,
         if (type_is_void_ptr(left_type))
         {
             /*any pointer can be converted to void* */
-            check_assigment2(ctx,
+            check_owner_rules_assigment(ctx,
                 left_type,
                 right,
                 return_assignment);
@@ -17270,7 +17258,7 @@ void check_assigment(struct parser_ctx* ctx,
         //      " incompatible types ");
     }
 
-    check_assigment2(ctx,
+    check_owner_rules_assigment(ctx,
         left_type,
         right,
         return_assignment);
@@ -29654,7 +29642,7 @@ void object_get_name(struct type* p_type,
 void visit_object(struct parser_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
-    struct token* position_token,
+    const struct token* position_token,
     const char* previous_names,
     bool is_assigment)
 {

@@ -992,7 +992,7 @@ void object_get_name(struct type* p_type,
 void visit_object(struct parser_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
-    struct token* position_token,
+    const struct token* position_token,
     const char* previous_names,
     bool is_assigment)
 {

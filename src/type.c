@@ -937,12 +937,12 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     }
 
 
-    const struct type parameter_type_converted = (type_is_array(paramer_type)) ?
+    struct type parameter_type_converted = (type_is_array(paramer_type)) ?
         type_lvalue_conversion(paramer_type) :
         type_dup(paramer_type);
 
 
-    const struct type argument_type_converted =
+    struct type argument_type_converted =
         expression_is_subjected_to_lvalue_conversion(current_argument->expression) ?
         type_lvalue_conversion(argument_type) :
         type_dup(argument_type);
@@ -1133,7 +1133,7 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     type_destroy(&parameter_type_converted);
 }
 
-void check_assigment2(struct parser_ctx* ctx,
+void check_owner_rules_assigment(struct parser_ctx* ctx,
     struct type* left_type,
     struct expression* right,
     bool return_assignment)
@@ -1330,7 +1330,7 @@ void check_assigment(struct parser_ctx* ctx,
         {
             compiler_set_error_with_token(C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
 
-            check_assigment2(ctx,
+            check_owner_rules_assigment(ctx,
                 left_type,
                 right,
                 return_assignment);
@@ -1354,7 +1354,7 @@ void check_assigment(struct parser_ctx* ctx,
                 right->first_token,
                 " incompatible types ");
         }
-        check_assigment2(ctx,
+        check_owner_rules_assigment(ctx,
             left_type,
             right,
             return_assignment);
@@ -1366,7 +1366,7 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (type_is_arithmetic(p_right_type) && type_is_arithmetic(left_type))
     {
-        check_assigment2(ctx,
+        check_owner_rules_assigment(ctx,
             left_type,
             right,
             return_assignment);
@@ -1382,7 +1382,7 @@ void check_assigment(struct parser_ctx* ctx,
         //have the anotation [[opt]]
 
         /*can be converted to any type*/
-        check_assigment2(ctx,
+        check_owner_rules_assigment(ctx,
             left_type,
             right,
             return_assignment);
@@ -1398,7 +1398,7 @@ void check_assigment(struct parser_ctx* ctx,
             right->first_token,
             " passing null as array");
 
-        check_assigment2(ctx,
+        check_owner_rules_assigment(ctx,
             left_type,
             right,
             return_assignment);
@@ -1415,7 +1415,7 @@ void check_assigment(struct parser_ctx* ctx,
         if (type_is_void_ptr(p_right_type))
         {
             /*void pointer can be converted to any type*/
-            check_assigment2(ctx,
+            check_owner_rules_assigment(ctx,
                 left_type,
                 right,
                 return_assignment);
@@ -1427,7 +1427,7 @@ void check_assigment(struct parser_ctx* ctx,
         if (type_is_void_ptr(left_type))
         {
             /*any pointer can be converted to void* */
-            check_assigment2(ctx,
+            check_owner_rules_assigment(ctx,
                 left_type,
                 right,
                 return_assignment);
@@ -1507,7 +1507,7 @@ void check_assigment(struct parser_ctx* ctx,
         //      " incompatible types ");
     }
 
-    check_assigment2(ctx,
+    check_owner_rules_assigment(ctx,
         left_type,
         right,
         return_assignment);
