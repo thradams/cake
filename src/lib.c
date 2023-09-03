@@ -10871,8 +10871,8 @@ struct member_declarator_list
 };
 
 struct member_declarator_list*  owner member_declarator_list(struct parser_ctx* ctx,
-    struct struct_or_union_specifier* ,
-    struct specifier_qualifier_list* specifier_qualifier_list
+    const struct struct_or_union_specifier* ,
+    const struct specifier_qualifier_list* specifier_qualifier_list
     );
 void member_declarator_list_delete(struct member_declarator_list*  owner p);
 
@@ -16688,12 +16688,12 @@ void check_function_argument_and_parameter(struct parser_ctx* ctx,
     }
 
 
-    const struct type parameter_type_converted = (type_is_array(paramer_type)) ?
+    struct type parameter_type_converted = (type_is_array(paramer_type)) ?
         type_lvalue_conversion(paramer_type) :
         type_dup(paramer_type);
 
 
-    const struct type argument_type_converted =
+    struct type argument_type_converted =
         expression_is_subjected_to_lvalue_conversion(current_argument->expression) ?
         type_lvalue_conversion(argument_type) :
         type_dup(argument_type);
@@ -22175,8 +22175,8 @@ void member_declarator_list_delete(struct member_declarator_list* owner p)
 }
 struct member_declarator_list* owner member_declarator_list(
     struct parser_ctx* ctx,
-    struct struct_or_union_specifier* p_struct_or_union_specifier,
-    struct specifier_qualifier_list* p_specifier_qualifier_list)
+    const struct struct_or_union_specifier* p_struct_or_union_specifier,
+    const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* owner p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
     LIST_ADD(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));

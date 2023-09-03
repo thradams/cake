@@ -94,108 +94,151 @@ It consists of two separate implementations. </p>
 <li>obj_owner</li>
 </ul>
 
-<p>An <strong>owner object</strong> is a object that have one or more references to other(s) object(s) which the lifetime it controls. A owner object is the unique owner of the referenced object(s). The <strong>owner</strong> qualifier is used to create a <strong>owner object</strong>. The most common owner object are pointers, and we can also call them as <strong>owner pointers</strong>.</p>
+<p>An <strong>owner object</strong> is an object that has at least one reference to another object, over which it has control of the lifetime. An owner object is the unique owner of the referenced object(s).
+The <strong>owner</strong> qualifier is used to declare an <strong>owner object</strong>.</p>
+
+<p>The most common owner objects are pointers, and we can also call them <strong>owner pointers</strong>.</p>
 
 <pre><code class="language-c">  struct X * owner p = calloc(1, sizeof * p);    
   //...
   free(p);
 </code></pre>
 
-<p>We can have other types of <strong>owner objects</strong> that are not pointers. For instance:</p>
+<p>We can have other types of <strong>owner objects</strong> that work as references but are not necessarily pointers. 
+For instance, Berkeley sockets, uses a integer to identity the socket.</p>
 
-<pre><code class="language-c">owner int sfd =  socket(rp-&gt;ai_family,
-   rp-&gt;ai_socktype,
-   rp-&gt;ai_protocol);  
+<pre><code class="language-c">    owner int server_socket =   
+       socket(AF_INET, SOCK_STREAM, 0);  
+    ...   
+    close(server_socket);
 </code></pre>
 
-<p>An <strong>owner object</strong> can be an aggregate  </p>
+<p>Aggregates (struct/unions/arrays) also can be a <strong>owner object</strong>.  </p>
 
 <pre><code class="language-c">struct X {
- char * owner name;
- struct Y * owner p;
+  char * owner name;
+  struct Y * owner p;
 }; 
-
 char * owner names[10];
-
 </code></pre>
 
-<p><strong>Owner pointers</strong>, assumes ownership of the pointed object and its memory as if the ownership were to two different objects.</p>
+<p><strong>Owner pointers</strong> assume ownership of the pointed object and its memory, treating them as if they were two different objects.</p>
 
 <pre><code class="language-c">struct X { char * owner text; };   
 int main() {
   struct X * owner p = malloc(1);  
-  free(p-&gt;text); //moving the ownership of object
-  free(p); //moving ownership of the memory  
+    
+  /*releasing object resources*/  
+  free(p-&gt;text);
+  
+  /*releasing memory*/  
+  free(p);  
 }
 </code></pre>
 
-<p>The memory of an owner pointer is moved when we move it to an <code>void * owner</code>. More details on semantics.  </p>
+<p>When owner objects are copied the ownership is moved.  </p>
 
-<p>A <strong>view object</strong> is an object that does not have references to other objects, or if it has, it is does not owns the references which must exist beyond the lifespan of the view object itself. We call <strong>view pointer</strong> a pointer that does not own the pointed object.</p>
+<p>For instance:</p>
 
-<p>Its is not necessary to use the <strong>view</strong> qualifier, because this is the default.</p>
-
-<pre><code class="language-c">void * owner p = malloc(1);
-if (p) {
-  void * view p2 = p;
-  void * p3 = p;
+<pre><code class="language-c">struct X { char * owner text; };   
+int main() {
+  struct X x1 = {};
+  ....
+  struct X x2 = {};
+  x2 = x1;
+  
+  free(x2.text);
 }
-free(p);
 </code></pre>
 
-<p>When a <strong>view</strong> qualifier is used with structs/unions, all <strong>owner objects</strong> members becomes <strong>view objects</strong>.</p>
+<p>A <strong>view object</strong> is an object that holds references to other objects but does not own those references, which must exist beyond the lifespan of the view object itself. A <strong>view pointer</strong> is a pointer that does not own the pointed object, that is the default.    </p>
 
-<pre><code class="language-c"> struct X{
-   char * owner text;
- };
- 
- int main() {
-   view struct X x = {0};
-   // x.text is a view reference
- }
+<p>The view qualifier is used to override the owner qualifier in structs.</p>
+
+<pre><code class="language-c">struct X { char * owner text; };   
+int main() {
+  struct X x1 = {};
+  ....
+  view struct X x2 = {};
+  x2 = x1; //x2 is just a view
+  
+  free(x1.text); //x1 still the owner
+}
 </code></pre>
 
-<p>An <strong>object owner pointer</strong> is a version of <strong>owner pointer</strong> with the difference that is is responsible only for the lifetime of the pointed object, but not responsible for it&#39;s memory lifetime. The <strong>obj_owner</strong> qualifier is used exclusively with pointers. The most common usage of <strong>object owner pointer</strong> is when creating destructors.  </p>
+<p>We can create destructors like this</p>
+
+<pre><code class="language-c">struct X { char * owner text; };  
+void x_destroy(struct X x) {
+  free(p-&gt;text);
+} //ok
+
+int main() {
+  struct X x= {0};
+  //...
+  x_destroy(x); //x moved
+}
+</code></pre>
+
+<p>However, generally structs are passed by pointer in C. The next qualifier <strong>obj_owner</strong> is used for this purpose.</p>
+
+<p>An <strong>object owner pointer</strong> is a version of <strong>owner pointer</strong> with the difference that is is responsible only for the lifetime of the pointed object, but not responsible for it&#39;s memory lifetime.   </p>
+
+<p>The <strong>obj_owner</strong> qualifier is used exclusively with pointers. The most common usage of <strong>object owner pointer</strong> is when creating destructors.  </p>
 
 <p>Sample:</p>
 
-<pre><code class="language-c">
-struct X { char * owner text; };  
-
-void x_destroy(struct X * obj_owner p)  
-{
+<pre><code class="language-c">struct X { char * owner text; };  
+void x_destroy(struct X * obj_owner p) {
   free(p-&gt;text);
 }  
 
 int main() {
   struct X x= {0};
   ...  
-  x_destroy(&amp;x); //object moved
-  free(p); //memory moved
+  x_destroy(&amp;x); //x was moved
 }
 </code></pre>
 
+<p>Now consider this sample that is not using <strong>obj_owner</strong></p>
+
+<pre><code class="language-c">struct X { char * owner text; };  
+void f(struct X * p) {
+  free(p-&gt;text);
+}  
+int main() {
+  struct X x= {0};
+  f(&amp;x);
+}
+</code></pre>
+
+<p>There is nothing on the function declaration telling us or the compiler that parts of x will be moved.  </p>
+
+<p>So, what is checked is:<br>
+<strong>pointers to owner objects</strong> cannot leave the scope with the pointed objected moved or parts of it moved.</p>
+
+<p>This sample below is correct.  </p>
+
+<pre><code class="language-c">struct X { char * owner text; };  
+void f(struct X * p) {
+  free(p-&gt;text);  
+  p-&gt;text = strdup(&quot;new value&quot;);
+} //ok p-&gt;text is leaving the scoped initialized   
+</code></pre>
+
+<p>But</p>
+
+<pre><code class="language-c">void f(struct X * p) {
+  free(p-&gt;text);
+}  //error pointed object p-&gt;text was moved
+</code></pre>
+
+<p>is not correct.</p>
+
 <p><strong>object owner pointer</strong> to <strong>non owner objects</strong> does not make sense.   </p>
 
-<pre><code class="language-c">struct point {int x, y; };  
-void point_destroy(struct point * obj_owner p) //error  
-void destroy2(void * obj_owner p) //error
-void destroy3(char * obj_owner p) //error
-</code></pre>
-
-<p><strong>object owner pointer</strong> to incomplete types does not make sense.</p>
-
-<pre><code class="language-c">struct X;
-void point_destroy(struct X * obj_owner p) //error  
-</code></pre>
-
-<p>(Maybe this can be verified at caller)</p>
-
-<p>Considering that the objective of <strong>owner pointers</strong> is to control the lifetime of the referenced object, it does not make sense a owner pointer to functions.</p>
-
-<p>The exactly name of the new qualifiers still not defined. It can be something like <code>_Owner</code> or just <code>owner</code> or attributes.    </p>
-
-<p>My suggestion is to have macros for each qualifier to be able to compile the same source code in compilers that don&#39;t support ownership checks. </p>
+<p><strong>owner objects</strong> must use complete types.
+<strong>owner pointers</strong> to functions are not allowed.</p>
 
 <h3 id="toc_3">Semantics</h3>
 
@@ -239,7 +282,7 @@ a = b;
 
 <p>Flow analysis must ensure <code>a</code> is not holding any resources before the assignment.</p>
 
-<p>2 - When a <strong>owner pointer object</strong> is copied to a <strong>owner pointer to void</strong> only the ownership of the object is moved.</p>
+<p>2 - When a <strong>owner pointer</strong> is copied to a <strong>owner pointer</strong> to <code>void</code> only the ownership of the object is moved.</p>
 
 <p>The pointed object also must have been released before.  </p>
 
@@ -267,7 +310,7 @@ int main() {
 }
 </code></pre>
 
-<p>4 - We can pass a <strong>view pointer to owner object</strong> as a <strong>object owner pointer</strong>. The object is moved.  </p>
+<p>4 - We can pass a <strong>pointer to owner object</strong> as a <strong>object owner pointer</strong>. The object is moved.  </p>
 
 <pre><code class="language-c"> struct X{
    char * owner text;
@@ -281,19 +324,9 @@ int main() {
  }
 </code></pre>
 
-<p>The exception is a function argument, or object returned by function.</p>
+<p>But arguments cannot leave the scoped moved.</p>
 
-<pre><code class="language-c"> 
-void x_destroy(struct X * obj_owner p){
-  free(p-&gt;text);
-}
-void F(struct X * p)
-{
-  x_destroy(p);//ERROR
-}
-</code></pre>
-
-<p>5 - We cannot pass <strong>view pointer to non owner object</strong> as a <strong>object owner pointer</strong>.</p>
+<p>5 - We cannot pass <strong>pointer to non owner object</strong> as a <strong>object owner pointer</strong>.</p>
 
 <pre><code class="language-c"> struct X{
    char * owner text;
