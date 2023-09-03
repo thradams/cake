@@ -1155,14 +1155,14 @@ static_assert( _is_function(main) && (typeof(main())) == (int) );
 `;
 sample["Ownership (experimental)"]=[];
 
-sample["Ownership (experimental)"]["owner qualifier"] =
-    `
+sample["Ownership (experimental)"]["hello"] =
+`
 void* owner malloc(unsigned size);
 void free(void* owner ptr);
 
 int main() {
    void * owner p = malloc(1);
-   //free(p);  /*FIX ME*/
+   free(p);
 }
 `;
 
@@ -1185,7 +1185,30 @@ int main() {
 
 `;
 
-sample["Ownership (experimental)"]["implementing a destructor"] =
+sample["Ownership (experimental)"]["implementing a destructor I"] =
+`
+#define _OWNERSHIP_ 
+#include <stdlib.h>
+#include <string.h>
+
+struct X {
+  char *owner name;
+};
+
+void x_destroy(struct X x) 
+{
+  free(x.name);
+}
+
+int main() {
+   struct X x = {0};
+   x.name = strdup("a");
+   x_destroy(x);
+}
+`;
+
+
+sample["Ownership (experimental)"]["implementing a destructor II"] =
 `
 #define _OWNERSHIP_ 
 #include <stdlib.h>
@@ -1206,6 +1229,32 @@ int main() {
    x_destroy(&x);
 }
 `;
+
+sample["Ownership (experimental)"]["view qualifier"] =
+`
+#define _OWNERSHIP_ 
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+struct X {
+  char *owner name;
+};
+
+void f(view struct X x) 
+{
+  printf(x.name);
+}
+
+int main() {
+   struct X x = {0};
+   x.name = strdup("a");
+   f(x); /*not moved*/
+   free(x.name);
+}
+`;
+
 
 
 sample["Ownership (experimental)"]["implementing delete"] =
@@ -1237,32 +1286,6 @@ int main() {
 
 `;
 
-
-sample["Ownership (experimental)"]["implementing swap"] =
-`
-
-struct person {
-  char * owner name;
-};  
-
-void person_swap(view struct person * a,  
-                 view struct person * b) 
-{
-   /*
-     struct is owner qualified by default, because it has at least
-     one owner member.
-     The view qualifiers override this struct to be "view" only
-   */
-   view struct person temp = *a;
-   *a = *b;
-   *b = temp;
-}
-
-int main()
-{  
-}
-
-`;
 
 sample["Ownership (experimental)"]["fix-me 1"] =
 `
@@ -1362,26 +1385,6 @@ void f()
 }
 
 
-`;
-
-sample["Ownership (experimental)"]["view qualifier"] =
-`
-#define _OWNERSHIP_
-
-#include <string.h>
-
-struct person {
-  char * owner name;
-  char * text;
-};
-
-int main(){
-   view struct person person = {};
-   person.name = strdup("name");  
-   
-   struct person person2 = {};
-   person2.text = strdup("name");  
-}
 `;
 
 
@@ -1577,3 +1580,65 @@ int main()
 }
 
 `;
+
+
+sample["Ownership (experimental)"]["assignment"] =
+`
+#define _OWNERSHIP_ 
+
+#include <string.h>
+#include <stdlib.h>
+
+int main()
+{  
+  const char * owner s1 = strdup("hi");
+  const char * owner s2 = NULL;
+
+  s2 = s1;
+
+  free(s2);      
+}
+`;
+
+
+
+sample["Ownership (experimental)"]["takes_ownership"] =
+`
+#define _OWNERSHIP_
+ 
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+void takes_ownership(char * owner some_string)
+{
+    printf("%s", some_string);  
+    free(some_string);
+}
+
+int main()
+{
+    owner auto s = strdup("hello");
+    takes_ownership(s);
+}
+`;
+
+
+sample["Ownership (experimental)"]["gives_ownership"] =
+`
+#define _OWNERSHIP_ 
+#include <string.h>
+#include <stdlib.h>
+
+const char * owner gives_ownership() {  
+    owner auto some_string = strdup("yours");
+    return some_string;
+}
+
+int main(){
+  owner auto s = gives_ownership();
+  free(s);
+}
+
+`;
+
