@@ -882,7 +882,7 @@ _OWNERSHIP__STR
 "int rand(void);\n"
 "void srand(unsigned int seed);\n"
 "void* aligned_alloc(size_t alignment, size_t size);\n"
-"[[nodiscard]] OWNER* owner calloc(size_t nmemb, size_t size);\n"
+"[[nodiscard]] void* OWNER calloc(size_t nmemb, size_t size);\n"
 "void free(void* OWNER ptr);\n"
 "[[nodiscard]] void* OWNER malloc(size_t size);\n"
 "[[nodiscard]] void* OWNER realloc(void* ptr, size_t size);\n"

@@ -38,10 +38,10 @@ void object_state_to_string(enum object_state e)
 {
     bool  first = true;
 
-    printf("(");
+    printf("\"");
     if (e & OBJECT_STATE_UNINITIALIZED)
     {
-        if (first) first = false; else printf(" ");
+        if (first) first = false; else printf(" or ");
         printf("uninitialized");
     }
 
@@ -49,27 +49,32 @@ void object_state_to_string(enum object_state e)
     if (e & OBJECT_STATE_NOT_NULL &&
         e & OBJECT_STATE_NULL)
     {
-        if (first) first = false; else printf(" ");
+        if (first) first = false; else printf(" or ");
         printf("maybe-null");
     }
     else if (e & OBJECT_STATE_NOT_NULL)
     {
-        if (first) first = false; else printf(" ");
+        if (first) first = false; else printf(" or ");
         printf("not-null");
     }
     else if (e & OBJECT_STATE_NULL)
     {
-        if (first) first = false; else printf(" ");
+        if (first) first = false; else printf(" or ");
         printf("null");
+    }
+    else if (e & OBJECT_STATE_ZERO)
+    {
+        if (first) first = false; else printf(" or ");
+        printf("zero");
     }
 
     if (e & OBJECT_STATE_MOVED)
     {
-        if (first) first = false; else printf(" ");
+        if (first) first = false; else printf(" or ");
         printf("moved");
     }
 
-    printf(")");
+    printf("\"");
 }
 
 struct defer_statement* owner defer_statement(struct parser_ctx* ctx);
@@ -1904,6 +1909,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
         if (p_declaration_specifiers == NULL)
             throw;
 
+        static_set(p_declaration_specifiers, "not-null");
         p_declaration_specifiers->first_token = ctx->current;
 
         while (first_of_declaration_specifier(ctx))
@@ -2800,9 +2806,11 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
        typeof-specifier                      C23
     */
 
-    struct type_specifier* owner p_type_specifier = calloc(1, sizeof * p_type_specifier);
+    struct type_specifier* owner p_type_specifier = (struct type_specifier* owner) calloc(1, sizeof * p_type_specifier);
+    if (p_type_specifier == NULL)
+        return NULL;
 
-
+    static_set(*p_type_specifier, "zero");
 
 
     //typeof (expression)
@@ -3024,7 +3032,11 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* owner p)
 struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_ctx* ctx)
 {
     struct struct_or_union_specifier* owner p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
+    
+    if (p_struct_or_union_specifier == NULL)
+        return NULL;
 
+    static_set(*p_struct_or_union_specifier, "zero");
 
     if (ctx->current->type == TK_KEYWORD_STRUCT ||
         ctx->current->type == TK_KEYWORD_UNION)
@@ -3436,6 +3448,11 @@ void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner p)
 struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ctx* ctx)
 {
     struct specifier_qualifier_list* owner p_specifier_qualifier_list = calloc(1, sizeof(struct specifier_qualifier_list));
+    if (p_specifier_qualifier_list == NULL)
+        return NULL;
+
+    static_set(*p_specifier_qualifier_list, "zero");
+
     /*
       type_specifier_qualifier attribute_specifier_sequence_opt
       type_specifier_qualifier specifier_qualifier_list
@@ -6457,11 +6474,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR \
+#define STRC \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STRe \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 

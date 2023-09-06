@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+  
+    <link rel="stylesheet" href="default.min.css">
+    <script src="highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+    <link rel="stylesheet" href="style.css" />
+    <title>Cake Playground</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    <article style="max-width: 40em; margin:auto">
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
+<h1>Cake - C23 and Beyond</h1>
+<ul>
+<li>
+<a href="#toc_0">Owner Objects</a>
+<ul>
+<li>
+<a href="#toc_1">Other Types of Owner Objects</a>
+</li>
+<li>
+<a href="#toc_2">View Objects</a>
+</li>
+<li>
+<a href="#toc_3">Deleting Owner Pointers</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_4">Copying a owner pointer to a obj_owner pointer</a>
+</li>
+<li>
+<a href="#toc_5">Static analysis</a>
+</li>
+</ul>
+<h2 id="toc_0">Owner Objects</h2>
+
+<p>An <strong>owner object</strong> is an object that holds a reference to another object and controls its lifetime.</p>
+
+<p>The most common owner objects are pointers, and we call them <strong>owner pointers</strong>. An owner pointer is created with the qualifier <strong>owner</strong> as shown in listing 1:</p>
+
+<pre><code class="language-c">FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+if (f)
+    fclose(f);
+</code></pre>
+
+<p>Listing 1 - Owner Pointer to FILE</p>
+
+<p>Each object has only one owner. When an owner object is copied, the ownership is moved. For instance, in listing 2, the ownership of owner pointer <code>f</code> is moved to <code>f2</code>:</p>
+
+<pre><code class="language-c">FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+FILE *owner f2 = f; /*MOVED*/
+if (f2)
+    fclose(f2);
+</code></pre>
+
+<p>Listing 2 - Assignment of Owner Objects is a Move</p>
+
+<p>Before the end of its lifetime, owner objects must transfer the ownership of the objects they possess. Invoking a function is analogous to assignment, resulting in the object’s transfer of ownership. In the previous examples, we were already transferring ownership of the owner pointer to the close function, which is declared as follows:</p>
+
+<pre><code class="language-c">void close(FILE *owner p);
+</code></pre>
+
+<p>Listing 3 - Declaration of close</p>
+
+<h3 id="toc_1">Other Types of Owner Objects</h3>
+
+<p>We can have other types of <strong>owner objects</strong>. For instance, Berkeley sockets use an integer to identify the socket, as shown in listing 4:</p>
+
+<pre><code class="language-c">owner int server_socket =
+     socket(AF_INET, SOCK_STREAM, 0);
+ /*...*/
+ close(server_socket);
+</code></pre>
+
+<p>Listing 4 - Non-Pointer owners objects</p>
+
+<h3 id="toc_2">View Objects</h3>
+
+<p>A <strong>view object</strong> is an object that holds references to other object but does not own those references, which must exist beyond the lifespan of the view object itself. The most common view objects are pointers called <strong>view pointers</strong>. We don’t need to add the view qualifier because it is the default. When a owner object is copied to a view object the ownership is not transfered as showed in listing 5.</p>
+
+<pre><code class="language-c">void use_file(FILE *f) {
+}
+int main() {
+    FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    if (f) {
+        use_file(f); /*NOT MOVED*/
+        fclose(f);
+    }
+}
+</code></pre>
+
+<p>Listing 5 - Calling Function with View Parameters</p>
+
+<p>When a <strong>view</strong> qualifier is used in structs, it makes all members as view objects. Listing 6.</p>
+
+<pre><code class="language-c">struct X {   
+  char *owner text;   
+};  
+
+void f(view struct X x) {  
+    
+}  
+
+int main() {
+    struct X x = {};
+    f(x); /*NOT MOVED*/    
+    free(x.text);
+}
+</code></pre>
+
+<p>Listing 6 - A view parameter</p>
+
+<h3 id="toc_3">Deleting Owner Pointers</h3>
+
+<p><strong>Owner pointers</strong> assume ownership of the pointed object and its memory, treating them as if they were two different objects. A common pattern is to create a delete function as shown in listing 7:</p>
+
+<pre><code class="language-c">struct X { 
+  char *owner text; 
+};
+void x_delete(struct X *owner p) 
+{
+  if (p) {
+    free( p-&gt; text);
+    free( p); 
+  } 
+ }
+ int main() 
+ {
+   struct X * pX = calloc( 1, sizeof * pX);
+   if (pX) {
+     /*...*/;
+     x_delete( pX); 
+   }
+}
+</code></pre>
+
+<p>Listing 7 - Implementing the delete function</p>
+
+<p>In situations where we want to create the object on the stack, we can implement a destructor, as shown in Listing 8:</p>
+
+<pre><code class="language-c">struct X {
+    char *owner text;
+};  
+
+void x_destroy(struct X x) {
+    free(x.text);
+}  
+
+int main() {
+    struct X x = {};
+    /*...*/
+    x_destroy(x); /*x is moved*/
+}
+</code></pre>
+
+<p>Listing 8 - Implementing a destructor</p>
+
+<p>In C, structs are typically passed by pointer rather than by value. To transfer the ownership of an object to a pointer, we introduce a new qualifier, <strong>obj_owner</strong>. </p>
+
+<p>A pointer qualified with <strong>obj_owner</strong> is the owner of the pointed object but not responsible for managing its memory. Listing 9 illustrates how to implement a destructor using a obj_owner pointer parameter.</p>
+
+<pre><code class="language-c">struct X {
+    char *owner text;
+};
+void x_destroy(struct X *obj_owner x) {
+    free(x-&gt;text);
+}
+int main() {
+    struct X x = {};
+    /*more code*/
+    x_destroy(&amp;x); /*x is moved*/
+}
+</code></pre>
+
+<p>Listing 9 - Implementing a destructor using obj_owner</p>
+
+<h2 id="toc_4">Copying a owner pointer to a obj_owner pointer</h2>
+
+<p>We can copy a owner pointer to a obj_owner pointer, in this case, only the ownership of the pointed object is transfered but no the memory ownership. Listing 10 shows how we can use <code>x_destroy</code> at the implementation of <code>x_delete</code>.</p>
+
+<pre><code class="language-c">struct X {
+  char *owner text; 
+};
+
+void x_destroy(struct X *obj_owner x) {
+  free(x-&gt;text); 
+}
+
+void x_delete(struct X *owner p) { 
+  if (p) {
+    x_destroy(p); /* *p is moved*/
+    free(p);
+  }
+}
+
+int main() {
+   struct X * pX = calloc( 1, sizeof * pX);
+   if (pX) {
+     /*...*/;   
+     x_delete( pX); 
+   }
+ } 
+</code></pre>
+
+<p>Listing 10 - Using <code>x_destroy</code> to implement <code>x_delete</code></p>
+
+<h2 id="toc_5">Static analysis</h2>
+
+<p>All the rules we have presented are checked by the compiler. Let&#39;s return to our first sample</p>
+
+<pre><code class="language-c">FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+if (f)
+    fclose(f);
+</code></pre>
+
+<p>The flow analysis must ensure that when the owner pointer ‘f’ goes out of scope, it does not own any objects. At the end of the scope, ‘f’ can be either null or moved, and both states ensure that there are no remaining resources.</p>
+
+<p>To implement the ownership verification the compiler uses five states.</p>
+
+<ul>
+<li>uninitialized</li>
+<li>moved</li>
+<li>null</li>
+<li>not-null</li>
+<li>zero</li>
+</ul>
+
+<p>We can print these states using <strong>static_debug</strong> declaration. We can also assert the variable is at some state using <strong>static_state</strong> declaration. Listing 11 shows this usage: </p>
+
+<pre><code class="language-c">int main() {
+ int a;   
+ static_state(a, &quot;uninitialized&quot;);  
+ static_debug(a);
+}
+</code></pre>
+
+<p>Listing 11 - Usage of <strong>static_state</strong> and <strong>static_debug</strong></p>
+
+<p>Output:</p>
+
+<pre><code>source:5:2: note: static_debug
+ 5 | static_debug(a);
+   | ^~~~~~~~~~~~
+   a == {(uninitialized)}   
+</code></pre>
+
+<p>As we just saw, the <strong>uninitialized</strong> is the state of variables declared but not initialized. Compiler must ensure we don&#39;t read uninitialized variables.</p>
+
+<p>The <strong>null</strong> state means <strong>owner objects</strong> are not referencing any object. Listing 12 shows a sample using owner pointers.</p>
+
+<pre><code class="language-c">int main() {
+ void * owner p = nullptr;   
+ static_state(p, &quot;null&quot;); 
+}
+</code></pre>
+
+<p>Listing 12 - Null state</p>
+
+<p>The <strong>not-null</strong> state means the object is referencing some object as showed in listing 13.  </p>
+
+<pre><code class="language-c">int main()
+{
+   void * owner p = malloc(1);
+   if (p) {
+     static_state(p, &quot;not-null&quot;);
+   }
+}
+</code></pre>
+
+<p>Listing 13 - Not-null state</p>
+
+<p>The <strong>zero</strong> state is used to non owner objects to complement and give support for the uninitialized checks.  </p>
+
+<pre><code class="language-c">int main()
+{
+   int i = 0;
+   static_state(i, &quot;zero&quot;);   
+}
+</code></pre>
+
+<p>Listing 14 - The zero state</p>
+
+<p>Zero and null are different states. This difference is necessary because for non pointer, like the socket sample, 0 does necessary means null, instead -1 is the null state.</p>
+
+<p>The compiler does not knows the semantics for types that are not pointers.  </p>
+
+<p>However, can use <strong>static_set</strong> to inform states. At listing 15, we annotate that <code>server_socket</code> is null, this does not means it is zero, but it means it is not holding any resources and it is safe to return without calling close.</p>
+
+<pre><code class="language-c">  owner int server_socket =
+     socket(AF_INET, SOCK_STREAM, 0);
+  if (server_socket &lt; 0) {  
+     static_set(server_socket, &quot;null&quot;);
+     return;
+  }  
+ /*...*/
+ close(server_socket);
+</code></pre>
+
+<p>Listing 15 - Usage of static_set</p>
+
+<p>Now let&#39;s consider <code>realloc</code> function.</p>
+
+<pre><code class="language-c">  void * owner realloc( void *ptr, size_t new_size );   
+</code></pre>
+
+<p>At the declaration of <code>realloc</code> we are not moving the <code>ptr</code>. The reason for that is because the <code>ptr</code> may or may not be moved. If the function returns NULL <code>ptr</code> was not moved. Listing 16 shows how <strong>static_set</strong> can be used.</p>
+
+<pre><code class="language-c">  void * owner p = malloc(1);
+  void * owner p2 = realloc(p, 2);
+  if (p2 != 0)
+  {
+     /*
+        if p2 != 0 it  means p was moved.
+     */
+     static_set(p, &quot;moved&quot;);
+     p = p2;
+  }    
+  free(p);
+</code></pre>
+
+<p>Listing 16 - Using static_set with realloc</p>
+
+<p>The state of an object is a combination of all possible states. For instance, let&#39;s print and check the state of <code>f</code> at listing 17.</p>
+
+<pre><code class="language-c">FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+if (f)
+    fclose(f);  
+static_state(f, &quot;null or moved&quot;);
+static_debug(f);
+</code></pre>
+
+<p>Output:</p>
+
+<pre><code class="language-c">source:13:3: note: static_debug
+ 13 |  static_debug(f);
+    |  ^~~~~~~~~~~~
+    f == {*(null moved)}
+</code></pre>
+
+<p>Listing 17 - Flow analysis</p>
+</body></html>  msvc
+   

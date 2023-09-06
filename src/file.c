@@ -1,12 +1,13 @@
-void free( void* owner ptr);
-void* owner malloc(int size);
-
-
-struct X { 
-    char * owner p;
+struct X {
+    union {
+        struct {
+            int Zone : 28;
+            int Level : 4;
+        };
+        int Value;
+    };
 };
-void x_destroy(struct X * obj_owner p);
-void f(struct X* x)
+int main()
 {
-    x_destroy(x);        
+  int i = sizeof(struct X);
 }

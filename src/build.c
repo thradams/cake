@@ -191,6 +191,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
         "<body>\n"
         "    <article style=\"max-width: 40em; margin:auto\">\n"
         "<p><a href=\"index.html\">Home</a> | <a href=\"manual.html\">Manual</a> | <a href=\"playground.html\">Playground</a></p>\n"
+        "<article>\n"
         "<h1>Cake - C23 and Beyond</h1>\n";
 
     FILE *f2 = fopen(outfile /*"./web/index.html"*/, "w");
@@ -211,7 +212,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
     FILE *f3 = fopen(outfile /*"./web/index.html"*/, "a");
     if (f3)
     {
-        fwrite("</body></html>", 1, strlen("</article></body></html>"), f3);
+        fwrite("</article></body></html>", 1, strlen("</article></body></html>"), f3);
         fclose(f3);
     }
 }
@@ -251,6 +252,7 @@ int main()
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../warnings.md", "./web/warnings.html");
     generate_doc("../ownership.md", "./web/ownership.html");
+    
 
     remove("hoedown.exe");
 

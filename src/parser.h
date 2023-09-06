@@ -529,11 +529,32 @@ void initializer_delete(struct initializer* owner p);
 
 enum object_state
 {
+    /*
+       Not used
+    */
     OBJECT_STATE_STRUCT = 0,
-    OBJECT_STATE_UNINITIALIZED = 1 << 0,        
+
+    OBJECT_STATE_UNINITIALIZED = 1 << 0,            
+    /*
+      non-pointer can be NULL and not ZERO.
+      For pointer ZERO is set as NULL
+    */
     OBJECT_STATE_NULL = 1 << 1,
+    
+    /*
+       We have a reference
+    */
     OBJECT_STATE_NOT_NULL = 1 << 2,
-    OBJECT_STATE_MOVED = 1 << 3
+    
+    /*
+       object was moved
+    */
+    OBJECT_STATE_MOVED = 1 << 3,
+
+    /*
+       non-pointer initialized with 0
+    */
+    OBJECT_STATE_ZERO = 1 << 4
 };
 
 void object_state_to_string(enum object_state e);

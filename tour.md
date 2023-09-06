@@ -1,3 +1,101 @@
+# Checked ownership in C
+
+In this tour, we'll explore the concept of ownership in the C programming language having the experimental ownership checks implemented by cake compiler to help us.  
+  
+C is a low-level language where developers have direct control over memory management, making ownership a critical aspect of writing efficient and bug-free code. Cake implements a static analysis verification to ensure the programmer is not making mistake while implementing the ownership.  
+
+**Introduction to Ownership in C**
+
+Ownership in C refers to the responsibility a developer has for managing allocated memory. In C, you must explicitly allocate and deallocate memory, giving you full control but also the potential for errors.
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    int *dynamicArray = (int *)malloc(5 * sizeof(int)); // Allocate memory
+    if (dynamicArray == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return 1;
+    }
+
+    // Use dynamicArray
+    for (int i = 0; i < 5; i++) {
+        dynamicArray[i] = i * 10;
+    }
+
+    // Deallocate memory
+    free(dynamicArray);
+    return 0;
+}
+```
+
+In this example, we manually allocate memory using `malloc` and deallocate it using `free`.
+
+**Ownership and Memory Leaks**
+
+One common issue in C is memory leaks, which occur when allocated memory is not properly deallocated. Failing to release memory can lead to programs consuming more and more memory over time.
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    int *dynamicArray = (int *)malloc(5 * sizeof(int));
+    if (dynamicArray == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return 1;
+    }
+
+    // Use dynamicArray
+    for (int i = 0; i < 5; i++) {
+        dynamicArray[i] = i * 10;
+    }
+
+    // Memory leak - forgetting to free allocated memory
+    return 0;
+}
+```
+
+**Stop 3: Ownership and Dangling Pointers**
+
+Another issue in C is the possibility of dangling pointers, which occur when you access memory that has already been deallocated.
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    int *dynamicArray = (int *)malloc(5 * sizeof(int));
+    if (dynamicArray == NULL) {
+        fprintf(stderr, "Memory allocation failed.\n");
+        return 1;
+    }
+
+    // Use dynamicArray
+    for (int i = 0; i < 5; i++) {
+        dynamicArray[i] = i * 10;
+    }
+
+    // Deallocate memory
+    free(dynamicArray);
+
+    // Accessing memory through a dangling pointer
+    printf("%d\n", dynamicArray[0]); // Undefined behavior
+    return 0;
+}
+```
+
+**Stop 4: Ownership and Best Practices**
+
+To manage ownership effectively in C, follow these best practices:
+
+- Always check if memory allocation (`malloc`, `calloc`, etc.) succeeds.
+- Free memory using `free` when it's no longer needed.
+- Set pointers to `NULL` after freeing memory to avoid dangling pointers.
+- Use data structures like linked lists and arrays cautiously, ensuring proper allocation and deallocation.
+
+In C, ownership comes with great power and responsibility. Proper memory management is essential to avoid memory leaks and undefined behavior.
 # Cake ownership checks tour
 
 

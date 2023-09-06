@@ -2342,5 +2342,59 @@ void use_after_destroy()
 
 }
 
+void obj_owner_must_be_from_addressof()
+{
+    const char* source
+        =
+        "void free(void* owner ptr);\n"
+        "void* owner malloc(int size);\n"
+        "char * owner strdup(const char* );\n"
+        "\n"
+        "struct X {\n"
+        "  char *owner name;\n"
+        "};\n"
+        "\n"
+        "struct Y {\n"
+        "  struct X x;\n"
+        "  struct X * px;\n"
+        "};\n"
+        "\n"
+        "void x_destroy(struct X * obj_owner p) \n"
+        "{\n"
+        "  free(p->name);\n"
+        "}\n"
+        "\n"
+        "void f(struct Y * p)\n"
+        "{    \n"
+        "    x_destroy(p->px);\n"
+        "}\n"
+        "\n"
+        "int main() {\n"
+        "   struct Y  y = {};   \n"
+        "   struct * p = &y.x;\n"
+        "   x_destroy(&y.x);\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_with_errors(true, source));
+}
+
+void discarding_owner()
+{
+    const char* source
+        =
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct X {\n"
+        "  char *owner name;\n"
+        "};\n"
+        "\n"
+        "int main()\n"
+        "{  \n"
+        "  struct X * p = (struct X * owner) malloc(1);\n"
+        "}";
+    assert(compile_with_errors(true, source));
+}
 #endif
 

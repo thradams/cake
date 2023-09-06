@@ -161,6 +161,13 @@ struct type
 
     int array_size;
     bool static_array;
+    
+    /*
+      address_of is true when the type is created by address of operator.
+      This is used to create obj_owner pointer.
+    */
+    bool address_of;
+
     struct param_list params;
     struct type* owner next;
 };

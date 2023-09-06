@@ -596,7 +596,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
 
         if (p_generic_association == NULL) throw;
 
-        LIST_ADD(&list, p_generic_association);
+        generic_assoc_list_add(&list, p_generic_association);
 
         while (ctx->current->type == ',')
         {
@@ -605,7 +605,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
             struct generic_association* owner p_generic_association2 = generic_association(ctx);
             if (p_generic_association2 == NULL) throw;
 
-            LIST_ADD(&list, p_generic_association2);
+            generic_assoc_list_add(&list, p_generic_association2);
         }
     }
     catch
@@ -623,6 +623,20 @@ void generic_association_delete(struct generic_association* owner p)
         type_destroy(&p->type);
         free(p);
     }
+}
+
+void generic_assoc_list_add(struct generic_assoc_list* list, struct generic_association* owner pitem)
+{
+    if (list->head == NULL)
+    {
+        list->head = pitem;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = pitem;
+    }
+    list->tail = pitem;
 }
 
 void generic_assoc_list_destroy(struct generic_assoc_list* obj_owner p)
@@ -2049,6 +2063,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 }
 
                 new_expression->type = type_add_pointer(&new_expression->right->type);
+                new_expression->type.address_of = true;
             }
             else
             {
@@ -2277,7 +2292,8 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
                 // Achar que era um cast_expression foi um engano...
                 // porque apareceu o { então é compound literal que eh postfix.
                 struct expression* owner new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name);
-
+                p_expression_node->type_name = NULL; //MOVED
+                
                 expression_delete(p_expression_node);
                 p_expression_node = new_expression;
             }
@@ -3370,7 +3386,7 @@ void expression_delete(struct expression* owner p)
         type_name_delete(p->type_name2);
         expression_delete(p->right);
         expression_delete(p->left);
-        braced_initializer_delete(p->braced_initializer);        
+        braced_initializer_delete(p->braced_initializer);
         generic_selection_delete(p->generic_selection);
         type_destroy(&p->type);
         argument_expression_list_destroy(&p->argument_expression_list);
@@ -3584,8 +3600,8 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
                     }
                     else if (!type_is_same(&left_type, &right_type, false))
                     {
-                        type_print(&left_type);
-                        type_print(&right_type);
+                        //type_print(&left_type);
+                        //type_print(&right_type);
                         compiler_set_error_with_token(C_INCOMPATIBLE_TYPES, ctx, ctx->current, "incompatible types");
                     }
                     else

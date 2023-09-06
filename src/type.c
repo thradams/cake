@@ -852,29 +852,32 @@ void check_function_argument_and_parameter2(struct parser_ctx* ctx,
     }
     else if (argument_is_view && paramer_is_obj_owner)
     {
-
         //check if the contented of pointer is owner.
         if (type_is_pointer(argument_type))
         {
             struct type t2 = type_remove_pointer(argument_type);
-            if (type_is_owner(&t2))
+            if (!type_is_owner(&t2))
             {
-                if (argument_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER && 
-                    argument_type->storage_class_specifier_flags & STORAGE_SPECIFIER_LVALUE)
-                {
-                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-                    ctx,
-                    current_argument->expression->first_token,
-                    "passing view argument to obj_owner is dangerous");
-                }                
-            }
-            else
-            {
+
                 compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token,
-                    "passing an object that is not owner");
+                    "pointed object is not owner");
+
             }
+            else
+            {
+                //pointer object is owner 
+                if (!argument_type->address_of)
+                {
+                    //we need something created with address of.
+                    compiler_set_error_with_token(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+                        ctx,
+                        current_argument->expression->first_token,
+                        "obj_owner pointer must be created using address of operator &");
+                }
+            }
+
             type_destroy(&t2);
         }
         else
@@ -1855,6 +1858,29 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
 
                 size += type_get_sizeof(&md->declarator->type);
                 md = md->next;
+            }
+        }
+        else
+        {
+            if (d->specifier_qualifier_list->struct_or_union_specifier)
+            {
+                struct type t = {0};
+                t.category = TYPE_CATEGORY_ITSELF;
+                t.struct_or_union_specifier = d->specifier_qualifier_list->struct_or_union_specifier;
+                t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                int align = type_get_alignof(&t);
+
+                if (align > maxalign)
+                {
+                    maxalign = align;
+                }
+                if (size % align != 0)
+                {
+                    size += align - (size % align);
+                }
+                size += type_get_sizeof(&t);
+                type_destroy(&t);
             }
         }
         d = d->next;
@@ -3085,7 +3111,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 list.head->next->attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_FUNC_RESULT;
             }
         }
-}
+    }
 #endif
 
     if (pdeclarator->name)

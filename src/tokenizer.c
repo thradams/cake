@@ -2787,7 +2787,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             A
             */
 
-            struct macro* owner macro = calloc(1, sizeof * macro);
+            struct macro* owner macro = (struct macro* owner ) calloc(1, sizeof * macro);
             if (macro == NULL)
             {
                 preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "out of mem");
@@ -2817,7 +2817,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     ///   input_list->head->token_origin->lexeme,
                       // input_list->head->line);
             }
-
+            
+            assert(macro->name == NULL);
             macro->name = strdup(input_list->head->lexeme);
             struct macro* owner previous =
                 owner_hashmap_set(&ctx->macros, input_list->head->lexeme, (void* owner)macro, 0);

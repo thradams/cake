@@ -116,6 +116,7 @@ struct generic_assoc_list
     struct generic_association* tail;
 };
 
+void generic_assoc_list_add(struct generic_assoc_list * p, struct generic_association* owner item);
 void generic_assoc_list_destroy(struct generic_assoc_list * obj_owner p);
 
 struct generic_selection

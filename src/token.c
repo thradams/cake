@@ -148,9 +148,9 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     return p;
 }
 
-void token_list_swap(view struct token_list*  a, view struct token_list* b)
+void token_list_swap(struct token_list*  a, struct token_list* b)
 {
-    view struct token_list temp = *a;
+    struct token_list temp = *a;
     *a = *b;
     *b = temp;
 }
