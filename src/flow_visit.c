@@ -627,9 +627,12 @@ static void set_object(
     enum object_state flags);
 
 static void set_object_state(
+    struct parser_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
-    const struct object* p_object_source)
+    struct type* p_source_type,
+    const struct object* p_object_source,
+    const struct token* error_position)
 {
     if (p_object_source == NULL)
     {
@@ -666,9 +669,12 @@ static void set_object_state(
                         {
                             if (member_index < p_object->members.size)
                             {
-                                set_object_state(&p_member_declarator->declarator->type,
+                                set_object_state(ctx,
+                                    &p_member_declarator->declarator->type,
                                     &p_object->members.data[member_index],
-                                    &p_object_source->members.data[member_index]);
+                                    &p_object_source->members.data[member_index].declarator->type,
+                                    &p_object_source->members.data[member_index],
+                                    error_position);
                             }
                             else
                             {
@@ -699,6 +705,56 @@ static void set_object_state(
     }
     else if (type_is_pointer(p_type))
     {
+        if (p_object_source)
+        {
+            if (p_object_source->state == OBJECT_STATE_UNINITIALIZED)
+            {
+                char buffer[100] = {0};
+                object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
+                compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+                    ctx,
+                    error_position,
+                    "source object '%s' is uninitialized", buffer);
+            }
+            else if (p_object_source->state & OBJECT_STATE_UNINITIALIZED)
+            {
+                char buffer[100] = {0};
+                object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
+
+                compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+                    ctx,
+                    error_position,
+                    "source object '%s' may be uninitialized", buffer);
+            }
+
+            if (type_is_any_owner(p_type) &&
+                type_is_any_owner(p_source_type))
+            {
+                if (p_object_source->state == OBJECT_STATE_MOVED)
+                {
+                    char buffer[100] = {0};
+                    object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
+
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+                        ctx,
+                        error_position,
+                        "source object '%s' have been moved", buffer);
+                }
+                else if (p_object_source->state & OBJECT_STATE_MOVED)
+                {
+                    char buffer[100] = {0};
+                    object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
+
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+                        ctx,
+                        error_position,
+                        "source object '%s' may have been moved", buffer);
+                }
+            }
+
+        }
+
+
         if (type_is_any_owner(p_type))
         {
             p_object->state = p_object_source->state;
@@ -715,7 +771,7 @@ static void set_object_state(
             struct type t2 = type_remove_pointer(p_type);
             if (p_object_source->pointed)
             {
-                set_object_state(&t2, p_object->pointed, p_object_source->pointed);
+                set_object_state(ctx, &t2, p_object->pointed, p_source_type, p_object_source->pointed, error_position);
             }
             else
             {
@@ -726,6 +782,8 @@ static void set_object_state(
     }
     else
     {
+
+
         //assert(p_object->members.size == 0); //enum?
         p_object->state = p_object_source->state;
     }
@@ -1449,6 +1507,8 @@ void object_assigment(struct parser_ctx* ctx,
         }
     }
 
+
+
     if (p_dest_obj_opt)
     {
         if (bool_source_zero_value)
@@ -1469,7 +1529,7 @@ void object_assigment(struct parser_ctx* ctx,
             else
             {
                 if (p_source_obj_opt)
-                    set_object_state(p_dest_obj_type, p_dest_obj_opt, p_source_obj_opt);
+                    set_object_state(ctx, p_dest_obj_type, p_dest_obj_opt, p_source_obj_type, p_source_obj_opt, error_position);
                 else
                     set_object(p_dest_obj_type, p_dest_obj_opt, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
             }
@@ -2741,42 +2801,6 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
                 type_destroy(&argument_object_type2);
             }
-        }
-
-        if (p_argument_object)
-        {
-
-
-            if (p_argument_object->state == OBJECT_STATE_UNINITIALIZED)
-            {
-                compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
-                    ctx,
-                    p_current_argument->expression->first_token,
-                    "object is uninitialized");
-            }
-            else if (p_argument_object->state & OBJECT_STATE_UNINITIALIZED)
-            {
-                compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
-                    ctx,
-                    p_current_argument->expression->first_token,
-                    "object may be uninitialized");
-            }
-
-            if (p_argument_object->state == OBJECT_STATE_MOVED)
-            {
-                compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
-                    ctx,
-                    p_current_argument->expression->first_token,
-                    "source object have been moved");
-            }
-            else if (p_argument_object->state & OBJECT_STATE_MOVED)
-            {
-                compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
-                    ctx,
-                    p_current_argument->expression->first_token,
-                    "source object may have been moved");
-            }
-
         }
 
 

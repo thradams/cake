@@ -1340,14 +1340,14 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
 
     try
     {
-        struct token* owner p_first = NULL;
+        struct token* p_first = NULL;
         if (filename_opt != NULL)
         {
             const char* begin = filename_opt;
             const char* end = filename_opt + strlen(filename_opt);
-            p_first = new_token(begin, end, TK_BEGIN_OF_FILE);
-            p_first->level = level;
-            token_list_add(&list, p_first);
+            struct token* owner p_new = new_token(begin, end, TK_BEGIN_OF_FILE);
+            p_new->level = level;
+            p_first = token_list_add(&list, p_new);             
         }
 
 
@@ -2165,7 +2165,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
     //struct parser_ctx parser_ctx = { 0 };
     pre_ctx.input_list = list4;
-    pre_ctx.current = list4.head;
+    pre_ctx.current = pre_ctx.input_list.head;
     //pre_skip_blanks(&parser_ctx);
 
     long long value = 0;
@@ -2529,7 +2529,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
     assert(macro->parameters == NULL);
     macro->parameters = p_macro_parameter;
 
-    struct macro_parameter* p_last_parameter = p_macro_parameter;
+    struct macro_parameter* p_last_parameter = macro->parameters;
 
     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
     skip_blanks(ctx, &r, input_list);
@@ -2548,7 +2548,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
 
         assert(p_last_parameter->next == NULL);
         p_last_parameter->next = p_new_macro_parameter;
-        p_last_parameter = p_new_macro_parameter;
+        p_last_parameter = p_last_parameter->next;
 
         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
         skip_blanks(ctx, &r, input_list);

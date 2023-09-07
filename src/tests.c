@@ -689,7 +689,7 @@ void register_struct_member()
         "};\n"
         "\n"
         "int main() {\n"
-        "  register struct X x;\n"
+        "  register struct X x = {0};\n"
         "  int * p = &x.i;\n" //error: address of register variable 'x' requested
         "}\n"
         "";
@@ -987,12 +987,12 @@ void correct_move_assigment()
         "\n"
         "int main()\n"
         "{\n"
-        "    struct Y y1;\n"
-        "    struct Y y2;\n"
+        "    struct Y y1 = {};\n"
+        "    struct Y y2 = {};\n"
         "    y1 = y2; //ok\n"
         "\n"
-        "    struct X x1;\n"
-        "    struct X x2;\n"
+        "    struct X x1 = {};\n"
+        "    struct X x2 = {};\n"
         "    x1 = x2; //ok\n"
         "\n"
         "}";
@@ -2053,7 +2053,7 @@ void switch_scope()
     const char* source
         =
         "\n"
-        "void* owner malloc(unsigned size);\n"
+        "void* owner calloc(unsigned n, unsigned size);\n"
         "void free(void* owner ptr);\n"
         "\n"
         "struct X {\n"
@@ -2067,9 +2067,10 @@ void switch_scope()
         "    switch (i)\n"
         "    {\n"
         "        case 1:\n"
-        "            struct X* owner p2 = malloc(sizeof * p2);\n"
+        "            struct X* owner p2 = calloc(1, sizeof * p2);\n"
         "            if (p2)\n"
         "            {\n"
+        "              static_set(*p2, \"zero\");\n"
         "                p1 = p2;\n"
         "            }\n"
         "            break;\n"
