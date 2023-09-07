@@ -121,7 +121,7 @@ int main() {
 ```
 
 
-When the object on created the stack, we can implement a destructor, as shown in Listing 8:
+When the object is created on the stack, we can implement a destructor, as shown in Listing 8:
 
 ##### Listing 8 - Implementing a destructor
 ```c
@@ -467,7 +467,7 @@ void x_swap(struct X * a, struct X * b) {
 
 **Rule:** moved objects cannot be moved. Listing 27.
 
-##### Listing 27 - We cannot move a moved object
+##### Listing 27 - We cannot move a moved or uninitialized object
 
 ```c
 int * owner p1 = ...;
@@ -511,7 +511,7 @@ int main(){
 
 **Rule:** To convert a view pointer to obj_owner we need check that the origin (the object it is pointing) is an owner object. Listing 30.
 
-##### Listing 30 -Checking the origin of obj_owner
+##### Listing 30 - Checking the origin of obj_owner
 
 ```c
 struct X {
@@ -524,6 +524,8 @@ void f(struct X * x) {
 ```
   
 **Rule** When we cast void pointer to objects we assume the object is uninitialized. Listing 31  
+
+##### Listing 31 - void objects are uninitialized
 
 ```c
 struct X { 
@@ -541,10 +543,11 @@ int main()
    }
 }
 ```
-Listing 31 - void objects are uninitialized
 
 When calloc is used, the memory is initialized with zeros.
 if necessary, **state_set** can be used with "zero" parameter to tell the compiler the state of the pointed object. Listing 32.
+
+##### Listing 32 - Zeroing the state
 
 ```c
 struct X { 
@@ -559,26 +562,5 @@ int main()
    }
 }
 ```
-Listing 32 - Zeroing the state
 
 **Rule**: An object that has any parts moved/uninitialized cannot be moved.  Listing 33.
-
-```c
-struct X { 
-  char *owner part1;
-  char *owner part2;  
-};
-void f(struct X x);
-
-int main() 
-{
-  struct X x = {};
-  /*..*/
-  free(x.part1);
-  f(x); //ERROR x.part1 is uninitialized
-}
-```
-Listing 33 - Messing with owner objects 
-
-
-
