@@ -1,13 +1,21 @@
+char * owner strdup(const char* s);
+void free(void char * owner p);
+
 struct X {
-    union {
-        struct {
-            int Zone : 28;
-            int Level : 4;
-        };
-        int Value;
-    };
+  char *owner name;
 };
-int main()
+
+void f(char * owner s);
+
+void x_destroy(struct X * obj_owner p) 
 {
-  int i = sizeof(struct X);
+  free(p->name);
+}
+
+int main() {
+   struct X x = {0};
+   x.name = strdup("a");
+   f(x.name);
+   static_debug(x);
+   x_destroy(&x);
 }
