@@ -12,7 +12,9 @@ if (f)
     fclose(f);
 ```
 
-**Rule**: One object cannot be owned for more than one owner object. When owner objects are copied the ownership is transfered.
+**Rule**: An object cannot be owned for more than one owner object.   
+
+**Rule**: When owner objects are copied the ownership is transfered.
 
 For example, in Listing 2, the ownership of the owner pointer `f` is transferred to `f2`:
 
@@ -94,7 +96,7 @@ int main() {
 
 ## Deleting Owner Pointers
 
-**Owner pointers** take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function, as illustrated in Listing 7:
+**Owner pointers** take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources, as illustrated in Listing 7:
 
 ##### Listing 7 - Implementing the delete function
 
@@ -128,11 +130,9 @@ When the object is created on the stack, we can implement a destructor, as shown
 struct X {
     char *owner text;
 };  
-
 void x_destroy(struct X x) {
     free(x.text);
 }  
-
 int main() {
     struct X x = {};
     /*...*/
@@ -140,7 +140,7 @@ int main() {
 }
 ```
 
-In C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, we introduce a new qualifier, **obj_owner**. 
+However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, we introduce a new qualifier, **obj_owner**. 
 
 A pointer qualified with **obj_owner** is the owner of the pointed object but not responsible for managing its memory.
 
@@ -235,7 +235,7 @@ source:5:2: note: static_debug
    a == "uninitialized"
 ```
   
-As we have just seen, the **uninitialized** state applies to variables that are declared but not initialized. The compiler ensures that we don't read uninitialized objects.
+As we have just seen, the **uninitialized** state is the state of variables that are declared but not initialized. The compiler ensures that we don't read uninitialized objects.
 
 The **null** state means that owner objects are not referencing any object. Listing 12 shows a sample using owner pointers:
 
@@ -381,7 +381,7 @@ void init(struct  X * x) {
 ```
 
  
-The runtime assert is also used by the compiler. Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know `list->tail->next` is null. Using assert we inform the compiler and we also have a runtime check for possible bugs.
+The runtime assert is also used by the compiler. Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know `list->tail->next` is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.
 
 Listing 22 shows the usage of assert. 
 
@@ -410,6 +410,7 @@ void list_append(struct list* list, struct node* owner node)
 ```
   
 **Rule:** A non-owner object cannot be copied to a owner object. 
+
 But, the null pointer constant is converted to a null owner pointer. Se listing 23.
 
 ##### Listing 23 - non owner cannot be copied to owner
@@ -422,7 +423,6 @@ int main() {
 }
 ```
   
-
 **Rule:** A view pointer parameter cannot leave the scope with moved/uninitialized objects. Listing 24
 
 ##### Listing 24 - Messing with view parameters
@@ -440,7 +440,7 @@ int main() {
 }
 ```
 
-However, listing 25 is correct.
+However, listing 25 is correct, because before the end of scope states of the parameters are restored.
 
 ##### Listing 25 - swap function
 
@@ -473,7 +473,7 @@ int * owner p3 = p1; //ERROR p1 was moved
 ```
 
 
-**Rule:** When coping a owner object to to a view object the compiler must check if the lifetime. Listing 28
+**Rule:** When coping a owner object to to a view object the compiler must check the lifetime. Listing 28
 
 ##### Listing 28 - Lifetime check
 
@@ -560,4 +560,6 @@ int main()
 }
 ```
 
-**Rule**: An object that has any parts moved/uninitialized cannot be moved.  Listing 33.
+For pointers zero state means null.
+
+

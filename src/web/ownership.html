@@ -49,7 +49,9 @@ if (f)
     fclose(f);
 </code></pre>
 
-<p><strong>Rule</strong>: One object cannot be owned for more than one owner object. When owner objects are copied the ownership is transfered.</p>
+<p><strong>Rule</strong>: An object cannot be owned for more than one owner object.   </p>
+
+<p><strong>Rule</strong>: When owner objects are copied the ownership is transfered.</p>
 
 <p>For example, in Listing 2, the ownership of the owner pointer <code>f</code> is transferred to <code>f2</code>:</p>
 
@@ -122,7 +124,7 @@ int main() {
 
 <h2 id="toc_3">Deleting Owner Pointers</h2>
 
-<p><strong>Owner pointers</strong> take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function, as illustrated in Listing 7:</p>
+<p><strong>Owner pointers</strong> take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources, as illustrated in Listing 7:</p>
 
 <h5>Listing 7 - Implementing the delete function</h5>
 
@@ -154,11 +156,9 @@ int main() {
 <pre><code class="language-c">struct X {
     char *owner text;
 };  
-
 void x_destroy(struct X x) {
     free(x.text);
 }  
-
 int main() {
     struct X x = {};
     /*...*/
@@ -166,7 +166,7 @@ int main() {
 }
 </code></pre>
 
-<p>In C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, we introduce a new qualifier, <strong>obj_owner</strong>. </p>
+<p>However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, we introduce a new qualifier, <strong>obj_owner</strong>. </p>
 
 <p>A pointer qualified with <strong>obj_owner</strong> is the owner of the pointed object but not responsible for managing its memory.</p>
 
@@ -257,7 +257,7 @@ if (f)
    a == &quot;uninitialized&quot;
 </code></pre>
 
-<p>As we have just seen, the <strong>uninitialized</strong> state applies to variables that are declared but not initialized. The compiler ensures that we don&#39;t read uninitialized objects.</p>
+<p>As we have just seen, the <strong>uninitialized</strong> state is the state of variables that are declared but not initialized. The compiler ensures that we don&#39;t read uninitialized objects.</p>
 
 <p>The <strong>null</strong> state means that owner objects are not referencing any object. Listing 12 shows a sample using owner pointers:</p>
 
@@ -347,7 +347,7 @@ if (f)
 <pre><code class="language-c">source:13:3: note: static_debug
  13 |  static_debug(f);
     |  ^~~~~~~~~~~~
-    f == {*(null moved)}
+    f == &quot;null or moved&quot;
 </code></pre>
 
 <p><strong>Rule:</strong> We cannot discard owner objects as showed in listing 18.  </p>
@@ -391,7 +391,7 @@ void init(struct  X * x) {
 }
 </code></pre>
 
-<p>The runtime assert is also used by the compiler. Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know <code>list-&gt;tail-&gt;next</code> is null. Using assert we inform the compiler and we also have a runtime check for possible bugs.</p>
+<p>The runtime assert is also used by the compiler. Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know <code>list-&gt;tail-&gt;next</code> is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.</p>
 
 <p>Listing 22 shows the usage of assert. </p>
 
@@ -416,11 +416,11 @@ void list_append(struct list* list, struct node* owner node)
    }
    list-&gt;tail = node;
 }
-
 </code></pre>
 
-<p><strong>Rule:</strong> A non-owner object cannot be copied to a owner object. 
-But, the null pointer constant is converted to a null owner pointer. Se listing 23.</p>
+<p><strong>Rule:</strong> A non-owner object cannot be copied to a owner object. </p>
+
+<p>But, the null pointer constant is converted to a null owner pointer. Se listing 23.</p>
 
 <h5>Listing 23 - non owner cannot be copied to owner</h5>
 
@@ -431,8 +431,7 @@ int main() {
 }
 </code></pre>
 
-<p><strong>Rule:</strong> A view parameter cannot leave the scope with moved/uninitialized objects. The reason is because there is nothing on the function contract (not using owners) saying this can happens.
-Listing 24</p>
+<p><strong>Rule:</strong> A view pointer parameter cannot leave the scope with moved/uninitialized objects. Listing 24</p>
 
 <h5>Listing 24 - Messing with view parameters</h5>
 
@@ -448,7 +447,7 @@ int main() {
 }
 </code></pre>
 
-<p>However, listing 25 is correct.</p>
+<p>However, listing 25 is correct, because before the end of scope states of the parameters are restored.</p>
 
 <h5>Listing 25 - swap function</h5>
 
@@ -477,7 +476,7 @@ int * owner p2 = p1;
 int * owner p3 = p1; //ERROR p1 was moved
 </code></pre>
 
-<p><strong>Rule:</strong> When coping a owner object to to a view object the compiler must check if the lifetime. Listing 28</p>
+<p><strong>Rule:</strong> When coping a owner object to to a view object the compiler must check the lifetime. Listing 28</p>
 
 <h5>Listing 28 - Lifetime check</h5>
 
@@ -559,5 +558,5 @@ int main()
 }
 </code></pre>
 
-<p><strong>Rule</strong>: An object that has any parts moved/uninitialized cannot be moved.  Listing 33.</p>
+<p>For pointers zero state means null.</p>
 </article></body></html>
