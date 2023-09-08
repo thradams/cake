@@ -333,10 +333,9 @@ Output:
 source:13:3: note: static_debug
  13 |  static_debug(f);
     |  ^~~~~~~~~~~~
-    f == {*(null moved)}
+    f == "null or moved"
 ```
-
-  
+ 
 **Rule:** We cannot discard owner objects as showed in listing 18.  
 
 ##### Listing 18 - owner objects cannot be discarded.
@@ -408,7 +407,6 @@ void list_append(struct list* list, struct node* owner node)
    }
    list->tail = node;
 }
-
 ```
   
 **Rule:** A non-owner object cannot be copied to a owner object. 
@@ -425,8 +423,7 @@ int main() {
 ```
   
 
-**Rule:** A view parameter cannot leave the scope with moved/uninitialized objects. The reason is because there is nothing on the function contract (not using owners) saying this can happens.
-Listing 24
+**Rule:** A view pointer parameter cannot leave the scope with moved/uninitialized objects. Listing 24
 
 ##### Listing 24 - Messing with view parameters
 
