@@ -1481,6 +1481,82 @@ void visit_object(struct parser_ctx* ctx,
 
 }
 
+void object_assigment2(struct parser_ctx* ctx,
+    struct object* p_source_obj_opt,
+    struct type* p_source_obj_type,
+    struct object* p_dest_obj_opt,
+    struct type* p_dest_obj_type,
+    const struct token* error_position,
+    enum object_state source_state_after)
+{
+
+    //TODO 
+
+    if (p_source_obj_opt &&
+        p_source_obj_type->struct_or_union_specifier && p_source_obj_opt->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_source_obj_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier)
+        {
+            struct member_declaration* p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            if (member_index < p_source_obj_opt->members.size)
+                            {
+                                object_assigment2(ctx,
+                                    &p_source_obj_opt->members.data[member_index],
+                                    &p_source_obj_opt->members.data[member_index].declarator->type,
+                                    &p_dest_obj_opt->members.data[member_index],
+                                    &p_dest_obj_opt->members.data[member_index].declarator->type,
+                                    error_position,
+                                    source_state_after);
+                            }
+                            else
+                            {
+                                //TODO BUG union?                                
+                            }
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+        }
+        else
+        {
+            //assert(p_object->members.size == 0);
+            //p_object->state = p_object_source->state;
+        }
+    }
+    else if (type_is_array(p_source_obj_type))
+    {
+    }
+    else if (type_is_pointer(p_source_obj_type))
+    {      
+    }
+    else
+    {
+        //assert(p_object->members.size == 0); //enum?
+        //p_object->state = p_object_source->state;
+    }
+}
+
 void object_assigment(struct parser_ctx* ctx,
     struct object* p_source_obj_opt,
     struct type* p_source_obj_type,
@@ -2806,6 +2882,14 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
         if (type_is_any_owner(&p_current_parameter_type->type))
         {
+            //object_assigment2(ctx,
+            //    p_argument_object,
+            //    &argument_object_type,
+            //    NULL, /*dest object*/
+            //    &p_current_parameter_type->type,
+            //    p_current_argument->expression->first_token,                
+            //    OBJECT_STATE_UNINITIALIZED);
+
             object_assigment(ctx,
                 p_argument_object,
                 &argument_object_type,
@@ -2877,7 +2961,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     "'%s' is uninitialized ",
                     p_expression->declarator->object_name->lexeme);
 #endif
-    }
+            }
 
             break;
 
@@ -3061,6 +3145,15 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             bool bool_source_zero_value = constant_value_is_valid(&p_expression->right->constant_value) &&
                 constant_value_to_ull(&p_expression->right->constant_value) == 0;
 
+            //object_assigment2(ctx->ctx,
+            //    p_right_object, /*source*/
+            //    &right_object_type, /*source type*/
+            //    p_dest_object, /*dest object*/
+            //    &dest_object_type, /*dest type*/
+            //    p_expression->left->first_token,
+            //    bool_source_zero_value,
+            //    OBJECT_STATE_MOVED);
+
             object_assigment(ctx->ctx,
                 p_right_object, /*source*/
                 &right_object_type, /*source type*/
@@ -3152,7 +3245,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
-}
+    }
 }
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
@@ -3347,6 +3440,15 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
             struct object* p_object = expression_get_object(p_jump_statement->expression_opt, &type);
             bool bool_source_zero_value = constant_value_is_valid(&p_jump_statement->expression_opt->constant_value) &&
                 constant_value_to_ull(&p_jump_statement->expression_opt->constant_value) == 0;
+
+            //object_assigment2(ctx->ctx,
+            //    p_object, /*source*/
+            //    &type, /*source type*/
+            //    NULL, /*dest object*/
+            //    ctx->p_return_type, /*dest type*/
+            //    p_jump_statement->expression_opt->first_token,
+            //    bool_source_zero_value,
+            //    OBJECT_STATE_UNINITIALIZED);
 
             object_assigment(ctx->ctx,
                 p_object, /*source*/
