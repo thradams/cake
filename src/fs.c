@@ -87,7 +87,7 @@ struct TAGDIR
 DIR* owner opendir(const char* name)
 {
     assert(name != 0);
-    WIN32_FIND_DATAA fdfile;
+    WIN32_FIND_DATAA fdfile = {0};
 
     char path[MAX_PATH] = {0};
     strcat(path, name);
@@ -126,7 +126,7 @@ int closedir(DIR* owner dirp)
 
 struct dirent* readdir(DIR* dirp)
 {
-    WIN32_FIND_DATAA fdfile;
+    WIN32_FIND_DATAA fdfile = {0};
     BOOL b = FindNextFileA(dirp->handle, &fdfile);
     if (b)
     {
