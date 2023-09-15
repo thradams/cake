@@ -10075,7 +10075,7 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
 
 
 
-#define CAKE_VERSION "0.7.2"
+#define CAKE_VERSION "0.7.3"
 
 
 struct scope
