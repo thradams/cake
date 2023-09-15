@@ -44,6 +44,7 @@ caso nao tenha este arquivos apt-get install uuid-dev
 
 bool path_is_absolute(const char* path)
 {
+#ifdef _WINDOWS_
     const char ch = tolower(path[0]);
     if (ch >= 'a' && ch <= 'z')
     {
@@ -57,6 +58,9 @@ bool path_is_absolute(const char* path)
         // //server
         return true;
     }
+#else
+    return path[0] == '/';
+#endif
 
     return false;    
 }
