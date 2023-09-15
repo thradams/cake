@@ -1,21 +1,31 @@
-char * owner strdup(const char* s);
-void free(void char * owner p);
-
-struct X {
-  char *owner name;
+enum constant_value_type {
+    TYPE_NOT_CONSTANT,
+    TYPE_EMPTY,
+    TYPE_LONG_LONG,
+    TYPE_DOUBLE,
+    TYPE_UNSIGNED_LONG_LONG
 };
 
-void f(char * owner s);
+struct constant_value {
+    enum constant_value_type type;
+    union {
+        unsigned long long ullvalue;
+        long long llvalue;
+        double dvalue;
+    };
+};
 
-void x_destroy(struct X * obj_owner p) 
+struct constant_value make_constant_value_double(double d)
 {
-  free(p->name);
+    struct constant_value r;
+    r.dvalue = d;
+    r.type = TYPE_DOUBLE;
+    return r;
 }
 
-int main() {
-   struct X x = {0};
-   x.name = strdup("a");
-   f(x.name);
-   static_debug(x);
-   x_destroy(&x);
+
+int main()
+{
+    struct constant_value r;
+    r.type = TYPE_LONG_LONG;
 }

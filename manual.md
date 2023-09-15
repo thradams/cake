@@ -494,6 +494,25 @@ int main(void)
 }
 ```
 
+###  C11 u' ' U' ' character constants
+
+//TODO
+
+```c
+ int i = U'ç';
+ int i2 = u'ç';
+```
+
+Becomes in < C11
+
+```c
+ //TODO
+ int i = ((unsigned int)132);
+ int i2 = ((short)121);
+```
+
+Important: Cake assume source is utf8 encoded.
+
 ###  C11 u8"literals"
 
 u8 literals are converted to escape sequences.

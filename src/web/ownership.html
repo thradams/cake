@@ -559,4 +559,42 @@ int main()
 </code></pre>
 
 <p>For pointers zero state means null.</p>
+
+<p><strong>Rule</strong> : We cannot return moved or non-initialized objects. All returned objects are in a valid state.</p>
+
+<h5>Listing 33 - Returning invalid object</h5>
+
+<pre><code class="language-c">void* owner malloc(unsigned long size);
+void free(void* owner ptr);
+
+struct X { 
+  char *owner text; 
+};
+
+struct X * owner f() 
+{
+   struct X * owner pX = malloc(sizeof * pX);
+   return pX;
+}
+</code></pre>
+
+<h5>Listing 34 - Assuming returned objects are valid</h5>
+
+<pre><code class="language-c">void* owner malloc(unsigned long size);
+void free(void* owner ptr);
+
+struct X { 
+  char *owner text; 
+};
+
+struct X * owner f();
+
+int main()
+{
+   struct X * owner pX = f();
+   if (pX) {
+     static_state(pX-&gt;text, &quot;maybe-null&quot;);
+   }
+}
+</code></pre>
 </article></body></html>

@@ -185,6 +185,20 @@ void partially_owner_moved(void);
 void use_after_destroy(void);
 void obj_owner_must_be_from_addressof(void);
 void discarding_owner(void);
+void using_uninitialized(void);
+void using_uninitialized_struct(void);
+void zero_initialized(void);
+void empty_initialized(void);
+void calloc_state(void);
+void malloc_initialization(void);
+void valid_but_unkown_result(void);
+void calling_non_const_func(void);
+void calling_const_func(void);
+void pointer_to_owner(void);
+void socket_sample(void);
+void return_object(void);
+void return_bad_object(void);
+void null_to_owner(void);
 
 /*end of forward declarations*/
 
@@ -363,6 +377,20 @@ g_unit_test_success_count = 0;
     use_after_destroy();
     obj_owner_must_be_from_addressof();
     discarding_owner();
+    using_uninitialized();
+    using_uninitialized_struct();
+    zero_initialized();
+    empty_initialized();
+    calloc_state();
+    malloc_initialization();
+    valid_but_unkown_result();
+    calling_non_const_func();
+    calling_const_func();
+    pointer_to_owner();
+    socket_sample();
+    return_object();
+    return_bad_object();
+    null_to_owner();
 return g_unit_test_error_count;
 
 }

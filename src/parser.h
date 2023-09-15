@@ -12,7 +12,7 @@
 #include "options.h"
 
 
-#define CAKE_VERSION "0.7.1"
+#define CAKE_VERSION "0.7.2"
 
 
 struct scope
@@ -532,7 +532,7 @@ enum object_state
     /*
        Not used
     */
-    OBJECT_STATE_STRUCT = 0,
+    OBJECT_STATE_EMPTY = 0,
 
     OBJECT_STATE_UNINITIALIZED = 1 << 0,            
     /*
@@ -552,9 +552,14 @@ enum object_state
     OBJECT_STATE_MOVED = 1 << 3,
 
     /*
-       non-pointer initialized with 0
+       non-pointer with 0
     */
-    OBJECT_STATE_ZERO = 1 << 4
+    OBJECT_STATE_ZERO = 1 << 4,
+
+    /*
+       non-pointer with != 0
+    */
+    OBJECT_STATE_NOT_ZERO = 1 << 5
 };
 
 void object_state_to_string(enum object_state e);
@@ -593,6 +598,7 @@ struct object
 };
 void object_destroy(struct object* obj_owner p);
 void object_delete(struct object* owner p);
+void object_swap(struct object* a, struct object* b);
 
 struct declarator
 {

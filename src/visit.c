@@ -665,8 +665,17 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
         visit_type_name(ctx, p_generic_selection->type_name);
     }
 
+    struct generic_association* p = p_generic_selection->generic_assoc_list.head;
+    while (p)
+    {
+        visit_type_name(ctx, p->p_type_name);
+        visit_expression(ctx, p->expression);
+        p = p->next;
+    }
+
     if (ctx->target < LANGUAGE_C11)
     {
+        //TODO lambada inside teh expression
         /*let's hide everything first*/
         token_range_add_flag(p_generic_selection->first_token, p_generic_selection->last_token, TK_FLAG_HIDE);
 
@@ -791,6 +800,10 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             }
             break;
 
+        case PRIMARY_EXPRESSION_PARENTESIS:
+            visit_expression(ctx, p_expression->right);
+            break;
+
         case PRIMARY_EXPRESSION_GENERIC:
             visit_generic_selection(ctx, p_expression->generic_selection);
             break;
@@ -838,6 +851,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 p_expression->type_name->declarator->type.name_opt = strdup(name);
 
                 struct osstream ss0 = {0};
+
                 print_type(&ss0, &p_expression->type_name->declarator->type);
                 ss_fprintf(&ss, "static %s", ss0.c_str);
 
@@ -1466,7 +1480,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
 
         if (ss.c_str != NULL)
         {
-            const int level = p_declarator->first_token->level;
+            const int level = p_declarator->first_token ? p_declarator->first_token->level : 0;
             struct tokenizer_ctx tctx = {0};
             struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_FINAL);
 
@@ -1916,7 +1930,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         }
 
 
-        /*now we print new especifiers then convert to tokens*/
+        /*now we print new specifiers then convert to tokens*/
         struct osstream ss0 = {0};
         struct type new_type = {0};
 
@@ -1931,6 +1945,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
         struct token_list l2 = tokenizer(&tctx, ss0.c_str, NULL, level, TK_FLAG_FINAL);
 
         token_list_insert_after(&ctx->ast.token_list, p_declaration_specifiers->last_token, &l2);
+
 
         type_destroy(&new_type);
         ss_close(&ss0);
@@ -2157,7 +2172,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         ctx->is_second_pass = false;
 
 
-        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);        
+        struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
         p_defer->p_function_body = p_declaration->function_body;
 
         visit_compound_statement(ctx, p_declaration->function_body);
@@ -2182,7 +2197,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         }
 
         visit_ctx_pop_tail_block(ctx);
-        
+
 
 
         if (ctx->has_lambda)

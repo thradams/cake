@@ -1474,6 +1474,7 @@ void ownership_flow_test_scope_error()
     assert(compile_without_errors(true, source));
 }
 
+
 void ownership_flow_test_void_destroy()
 {
     /*TODO moving to void* requires object is moved before*/
@@ -1542,7 +1543,7 @@ void ownership_flow_test_moving_owner_pointer()
         "   x_delete(p);      \n"
         "} \n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_with_errors(true, source));
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -1565,10 +1566,6 @@ void ownership_flow_test_moving_owner_pointer_missing()
         "  }\n"
         "}\n"
         "\n"
-        "int main() {\n"
-        "   struct X * owner p = malloc(sizeof * p);   \n"
-        "   x_delete(p);      \n"
-        "} \n"
         "";
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
@@ -1629,7 +1626,7 @@ void ownership_flow_test_while_not_null()
         =
         "struct item  {\n"
         "    struct item * owner next;\n"
-        "}\n"
+        "};\n"
         "void item_delete( struct item * owner p);\n"
         "\n"
         "struct list {\n"
@@ -1642,6 +1639,7 @@ void ownership_flow_test_while_not_null()
         "    struct item * owner p = list.head;\n"
         "    while (p){\n"
         "      struct item * owner next = p->next;\n"
+        "      p->next = 0;\n"
         "      item_delete(p);\n"
         "      p = next;\n"
         "  }  \n"
@@ -1915,7 +1913,7 @@ void pointer_argument()
     struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
     struct report report = {0};
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 2);
+    assert(report.error_count == 3);
 }
 
 void do_while()
@@ -2397,5 +2395,426 @@ void discarding_owner()
         "}";
     assert(compile_with_errors(true, source));
 }
+
+void using_uninitialized()
+{
+    const char* source
+        =
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct X {\n"
+        "  char * owner text;\n"
+        "};\n"
+        "\n"
+        "void x_delete(struct X * owner  p);\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X * owner p = malloc(sizeof(struct X));      \n"
+        "   x_delete(p); /*uninitialized*/\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_with_errors(true, source));
+}
+
+void using_uninitialized_struct()
+{
+    const char* source
+        =
+        "struct X {\n"
+        "  char * owner text;\n"
+        "};\n"
+        "\n"
+        "void x_destroy(struct X * obj_owner p);\n"
+        "\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X x;\n"
+        "   x_destroy(&x);\n"
+        "}\n"
+        "\n"
+        "";
+
+    assert(compile_with_errors(true, source));
+}
+
+void zero_initialized()
+{
+    const char* source
+        =
+        "struct Y {\n"
+        "  char * owner p0;\n"
+        "  int * owner p2;\n"
+        "  double i2;\n"
+        "};\n"
+        "\n"
+        "struct X {\n"
+        "  char * owner text;\n"
+        "  int * owner p1;\n"
+        "  int i;\n"
+        "  struct Y  *pY;\n"
+        "};\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X x = {0};   \n"
+        "   static_state(x.text, \"null\");\n"
+        "   static_state(x.p1, \"null\");\n"
+        "   static_state(x.i, \"zero\");\n"
+        "   static_state(x.pY, \"null\");\n"
+        "   static_state(x.pY->p0, \"\");\n"
+        "   static_state(x.pY->p2, \"\");\n"
+        "   static_state(x.pY->i2, \"\");\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+
+void empty_initialized()
+{
+    const char* source
+        =
+        "struct Y {\n"
+        "  char * owner p0;\n"
+        "  int * owner p2;\n"
+        "  double i2;\n"
+        "};\n"
+        "\n"
+        "struct X {\n"
+        "  char * owner text;\n"
+        "  int * owner p1;\n"
+        "  int i;\n"
+        "  struct Y  *pY;\n"
+        "};\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X x = {};   \n"
+        "   static_state(x.text, \"null\");\n"
+        "   static_state(x.p1, \"null\");\n"
+        "   static_state(x.i, \"zero\");\n"
+        "   static_state(x.pY, \"null\");\n"
+        "   static_state(x.pY->p0, \"\");\n"
+        "   static_state(x.pY->p2, \"\");\n"
+        "   static_state(x.pY->i2, \"\");\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void calloc_state()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner calloc(unsigned long n , unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct Y {\n"
+        "  char * owner p0;\n"
+        "  int * owner p2;\n"
+        "  double i2;\n"
+        "};\n"
+        "\n"
+        "struct X {\n"
+        "  char * owner text;\n"
+        "  int * owner p1;\n"
+        "  int i;\n"
+        "  struct Y  *pY;\n"
+        "};\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X * owner x = calloc(1,sizeof * x);\n"
+        "   static_state(x, \"maybe-null\");\n"
+        "\n"
+        "   static_state(x->p1, \"null\");\n"
+        "   static_state(x->i, \"zero\");\n"
+        "   static_state(x->pY, \"null\");\n"
+        "   static_state(x->pY->p0, \"uninitialized\");\n"
+        "   static_state(x->pY->p2, \"uninitialized\");\n"
+        "   static_state(x->pY->i2, \"uninitialized\");   \n"
+        "   free(x);\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void malloc_initialization()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct Y {\n"
+        "  char * owner p0;\n"
+        "  int * owner p2;\n"
+        "  double i2;\n"
+        "};\n"
+        "\n"
+        "struct X {\n"
+        "  char * owner text;\n"
+        "  int * owner p1;\n"
+        "  int i;\n"
+        "  struct Y  *pY;\n"
+        "};\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X * owner x = malloc(sizeof * x);\n"
+        "   static_state(x, \"maybe-null\");\n"
+        "\n"
+        "   static_state(x->p1, \"uninitialized\");\n"
+        "   static_state(x->i, \"uninitialized\");\n"
+        "   static_state(x->pY, \"uninitialized\");\n"
+        "   static_state(x->pY->p0, \"\");\n"
+        "   static_state(x->pY->p2, \"\");\n"
+        "   static_state(x->pY->i2, \"\");   \n"
+        "   free(x);\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void valid_but_unkown_result()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct Y {\n"
+        "  char * owner p0;\n"
+        "  int * owner p2;\n"
+        "  double i2;\n"
+        "};\n"
+        "\n"
+        "struct X {\n"
+        "  char * owner text;\n"
+        "  int * owner p1;\n"
+        "  int i;\n"
+        "  struct Y  *pY;\n"
+        "};\n"
+        "\n"
+        "struct X f();\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X x;\n"
+        "   x = f();\n"
+        "\n"
+        "   static_state(x.p1, \"maybe-null\");\n"
+        "   static_state(x.i, \"any\");\n"
+        "   static_state(x.pY, \"maybe-null\");\n"
+        "   static_state(x.pY->p0, \"maybe-null\");\n"
+        "   static_state(x.pY->p2, \"maybe-null\");\n"
+        "   static_state(x.pY->i2, \"any\");   \n"
+        "   free(x);\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void calling_non_const_func()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct Y {\n"
+        "  char * owner p0;\n"
+        "  int * owner p2;\n"
+        "  double i2;\n"
+        "};\n"
+        "\n"
+        "struct X {\n"
+        "  char * owner text;\n"
+        "  int * owner p1;\n"
+        "  int i;\n"
+        "  struct Y  *pY;\n"
+        "};\n"
+        "\n"
+        "void init(struct X * p);\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X x;\n"
+        "   /*lying here, to avoid error of using uninitialized*/\n"
+        "   static_set(x,\"zero\");\n"
+        "   init(&x);\n"
+        "\n"
+        "   static_state(x.p1, \"maybe-null\");\n"
+        "   static_state(x.i, \"any\");\n"
+        "   static_state(x.pY, \"maybe-null\");\n"
+        "   static_state(x.pY->p0, \"maybe-null\");\n"
+        "   static_state(x.pY->p2, \"maybe-null\");\n"
+        "   static_state(x.pY->i2, \"any\");   \n"
+        "   free(x);\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+void calling_const_func()
+{
+    const char* source
+        =
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct Y {\n"
+        "    char* owner p0;\n"
+        "    int* owner p2;\n"
+        "    double i2;\n"
+        "};\n"
+        "\n"
+        "struct X {\n"
+        "    char* owner text;\n"
+        "    int* owner p1;\n"
+        "    int i;\n"
+        "    struct Y* pY;\n"
+        "};\n"
+        "\n"
+        "void f(const struct X* p);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    struct X x = {0};\n"
+        "    f(&x);\n"
+        "\n"
+        "    static_state(x.p1, \"null\");\n"
+        "    static_state(x.i, \"zero\");\n"
+        "    static_state(x.pY, \"null\");\n"
+        "    static_state(x.pY->p0, \"\");\n"
+        "    static_state(x.pY->p2, \"\");\n"
+        "    static_state(x.pY->i2, \"\");\n"
+        "\n"
+        "    free(x);\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+void pointer_to_owner()
+{
+    const char* source
+        =
+        "\n"
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "struct X {\n"
+        "  char * owner text;\n"
+        "};\n"
+        "\n"
+        "void f(struct X * owner p1, struct X * owner* p2){\n"
+        "  *p2 = p1;\n"
+        "}\n"
+        "\n"
+        "int main() {   \n"
+        "   struct X * owner p1 = malloc(sizeof * p1);\n"
+        "   p1->text = 0;\n"
+        "   struct X * owner p2 = 0;\n"
+        "   f(p1, &p2);\n"
+        "   \n"
+        "   free(p2->text);\n"
+        "   free(p2);\n"
+        "}\n"
+        "\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void socket_sample()
+{
+    const char* source
+        =
+        "owner int socket();\n"
+        "void close(owner int fd);\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "  owner int fd;\n"
+        "  \n"
+        "  fd = socket();\n"
+        "  if (fd < 0)\n"
+        "  {\n"
+        "     static_set(fd, \"null\");   \n"
+        "     return 1;\n"
+        "  }\n"
+        "  close(fd);\n"
+        "}\n"
+        "\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+
+void return_object()
+{
+    const char* source
+        =
+        "char * owner strdup(const char* s);\n"
+        "void free(void * owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char *owner name;\n"
+        "};\n"
+        "\n"
+        "struct X make()\n"
+        "{\n"
+        "  struct X x = {0};\n"
+        "  x.name = strdup(\"text\");  \n"
+        "  return x;\n"
+        "}\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
+void return_bad_object()
+{
+    const char* source
+        =
+        "char * owner strdup(const char* s);\n"
+        "void free(void * owner p);\n"
+        "\n"
+        "struct X {\n"
+        "  char *owner name;\n"
+        "};\n"
+        "\n"
+        "struct X make()\n"
+        "{\n"
+        "  struct X x = {0};\n"
+        "  x.name = strdup(\"text\");  \n"
+        "  free(x.name)\n"
+        "  return x;\n"
+        "}\n"
+        "";
+    assert(compile_with_errors(true, source));
+}
+
+void null_to_owner()
+{
+    const char* source
+        =
+        "\n"
+        "void f(int * owner p);\n"
+        "int main()\n"
+        "{\n"
+        "   int * owner p = 0;\n"
+        "   p = ((void *) 0); \n"
+        "   f(0);\n"
+        "   f((void *) 0);\n"
+        "   f(nullptr);\n"
+        "}\n";
+    assert(compile_with_errors(true, source));
+}
+
+
 #endif
 

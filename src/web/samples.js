@@ -450,7 +450,7 @@ int main()
 
     typeof_unqual(const int) p5;
     typeof_unqual(const int * const) p6;
-    static_assert(_is_same(typeof_unqual(const int * const), const int *));
+    
     
 
     /*let's expand this macro and see inside*/
@@ -478,13 +478,37 @@ int main()
 
 
 int f5(){
-  typeof(int [2]) *p1;
+  typeof(int [2]) *p1 = 0;
   auto p2 = (typeof(int [2]) *) p1 ;
 }
 
 
 `;
 
+sample["C23"]["macro NEW"] =
+`
+#include <stdlib.h>
+#include <string.h>
+
+static inline void* allocate_and_copy(void* s, size_t n) {
+    void* p = malloc(n);
+    if (p) {
+        memcpy(p, s, n);
+    }
+    return p;
+}
+
+#define NEW(...) (typeof(__VA_ARGS__)*) allocate_and_copy(&(__VA_ARGS__), sizeof(__VA_ARGS__))
+#pragma expand NEW
+
+struct X {
+    const int i;
+};
+
+int main() { 
+    auto p = NEW((struct X) {});     
+}
+`;
 
 sample["C23"]["auto"] =
 `
@@ -583,7 +607,7 @@ int main()
   void * p2 = NULL;
 
   auto a = nullptr;
-  static_assert(_is_same(typeof(a), typeof(nullptr)));
+  
 
   printf("%s", _Generic(nullptr, typeof(nullptr) : "nullptr_t"));
 }
@@ -1050,8 +1074,8 @@ sample["Extensions"]["typeof + lambdas"] =
 #pragma expand SWAP
 int main()
 {
-    int a;
-    int b;
+    int a = 1;
+    int b = 2;
     SWAP(a, b);
 }
 `;
@@ -1124,7 +1148,7 @@ int main()
   static_assert(!_is_array(pf));
   static_assert(_is_pointer(pf));
 
-  static_assert(_is_same(int, typeof(i)));
+  
 
 }
 `;
@@ -1177,12 +1201,11 @@ int main() {
    {
      static_state(p, "not-null"); 
      free(p);
-     static_state(p, "moved"); 
+     static_state(p, "uninitialized"); 
    }
-   static_state(p, "null or moved"); 
+   static_state(p, "null or uninitialized"); 
    static_debug(p);
 }
-
 `;
 
 sample["Ownership (experimental)"]["implementing a destructor I"] =

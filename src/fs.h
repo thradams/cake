@@ -1,5 +1,7 @@
 #pragma once
 #include "ownership.h"
+#include <stdbool.h>
+
 #ifdef _WIN32 
 #include <direct.h>
 #include <sys/types.h>
@@ -92,3 +94,5 @@ char* dirname(char* path);
 const char* get_posix_error_message(int error);
 
 
+bool path_is_relative(const char* path);
+bool path_is_absolute(const char* path);

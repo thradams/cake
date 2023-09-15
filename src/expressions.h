@@ -18,6 +18,7 @@ enum expression_type
     PRIMARY_EXPRESSION_PREDEFINED_CONSTANT, /*true false*/
     PRIMARY_EXPRESSION_GENERIC,
     PRIMARY_EXPRESSION_NUMBER,
+    PRIMARY_EXPRESSION_PARENTESIS,
 
     POSTFIX_EXPRESSION_FUNCTION_LITERAL,
     POSTFIX_EXPRESSION_COMPOUND_LITERAL,
@@ -211,7 +212,7 @@ struct expression
     struct expression* owner left;
     struct expression* owner right;
 };
-void expression_delete( struct expression* owner);
+void expression_delete(struct expression* owner p);
 
 struct expression* owner assignment_expression(struct parser_ctx* ctx);
 struct expression* owner expression(struct parser_ctx* ctx);

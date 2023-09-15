@@ -41,6 +41,32 @@ caso nao tenha este arquivos apt-get install uuid-dev
 #include <stdbool.h>
 #include <errno.h>
 
+
+bool path_is_absolute(const char* path)
+{
+    const char ch = tolower(path[0]);
+    if (ch >= 'a' && ch <= 'z')
+    {
+        /*  c:/ or c:\ */
+        if (path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+            return true;
+    }
+
+    if (path[0] == '\\' && path[1] == '\\')
+    {
+        // //server
+        return true;
+    }
+
+    return false;    
+}
+
+bool path_is_relative(const char* path)
+{
+    return !path_is_absolute(path);
+}
+
+
 #ifdef _WIN32
 
 #ifdef __CAKE__
@@ -381,11 +407,11 @@ static const char* file_assert_h =
 
 #define  _OWNERSHIP__STR "\n"\
  "#ifdef _OWNERSHIP_\n"\
-  "#define OWNER owner\n"\
+ "#define OWNER owner\n"\
  "#define OBJ_OWNER obj_owner\n"\
  "#define VIEW view\n"\
  "#else\n"\
-  "#define OWNER\n"\
+ "#define OWNER\n"\
  "#define OBJ_OWNER\n"\
  "#define VIEW \n"\
  "#endif\n"\
@@ -910,21 +936,21 @@ static const char* file_stddef_h =
 
 char* owner read_file(const char* path)
 {
-    if (strcmp(path, "stdio.h") == 0)
+    if (strcmp(path, "c:/stdio.h") == 0)
         return strdup(file_stdio_h);
-    else if (strcmp(path, "stdlib.h") == 0)
+    else if (strcmp(path, "c:/stdlib.h") == 0)
         return strdup(file_stdlib_h);
-    else if (strcmp(path, "stddef.h") == 0)
+    else if (strcmp(path, "c:/stddef.h") == 0)
         return strdup(file_stddef_h);
-    else if (strcmp(path, "math.h") == 0)
+    else if (strcmp(path, "c:/math.h") == 0)
         return strdup(file_math_h);
-    else if (strcmp(path, "errno.h") == 0)
+    else if (strcmp(path, "c:/errno.h") == 0)
         return strdup(file_errno_h);
-    else if (strcmp(path, "string.h") == 0)
+    else if (strcmp(path, "c:/string.h") == 0)
         return strdup(file_string_h);
-    else if (strcmp(path, "assert.h") == 0)
+    else if (strcmp(path, "c:/assert.h") == 0)
         return strdup(file_assert_h);
-
+    printf("read %s\n", path);
     return NULL;
 }
 #endif

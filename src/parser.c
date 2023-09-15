@@ -62,10 +62,22 @@ void object_state_to_string(enum object_state e)
         if (first) first = false; else printf(" or ");
         printf("null");
     }
+
+    if (e & OBJECT_STATE_NOT_ZERO &&
+        e & OBJECT_STATE_ZERO)
+    {
+        if (first) first = false; else printf(" or ");
+        printf("any");
+    }
     else if (e & OBJECT_STATE_ZERO)
     {
         if (first) first = false; else printf(" or ");
         printf("zero");
+    }
+    else if (e & OBJECT_STATE_NOT_ZERO)
+    {
+        if (first) first = false; else printf(" or ");
+        printf("not-zero");
     }
 
     if (e & OBJECT_STATE_MOVED)
@@ -2739,6 +2751,9 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
 
         type_visit_to_mark_anonymous(&p_typeof_specifier->type);
 
+        free(p_typeof_specifier->type.name_opt);
+        p_typeof_specifier->type.name_opt = NULL;
+
         p_typeof_specifier->last_token = ctx->current;
         parser_match_tk(ctx, ')');
     }
@@ -2806,14 +2821,13 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
        typeof-specifier                      C23
     */
 
-    struct type_specifier* owner p_type_specifier = (struct type_specifier* owner) calloc(1, sizeof * p_type_specifier);
+    struct type_specifier* owner p_type_specifier = calloc(1, sizeof * p_type_specifier);
     if (p_type_specifier == NULL)
         return NULL;
 
-    static_set(*p_type_specifier, "zero");
+    
+    
 
-
-    //typeof (expression)
     switch (ctx->current->type)
     {
         case TK_KEYWORD_VOID:
@@ -2942,6 +2956,8 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
     }
 
+    
+
     if (first_of_typeof_specifier(ctx))
     {
         p_type_specifier->token = ctx->current;
@@ -2980,7 +2996,7 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
         parser_match(ctx);
     }
 
-
+    
     return p_type_specifier;
 }
 
@@ -3032,7 +3048,7 @@ void struct_or_union_specifier_delete(struct struct_or_union_specifier* owner p)
 struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_ctx* ctx)
 {
     struct struct_or_union_specifier* owner p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
-    
+
     if (p_struct_or_union_specifier == NULL)
         return NULL;
 
@@ -6438,6 +6454,19 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
         {
             char buffer[200];
             snprintf(buffer, sizeof buffer, "#define %s \n", argv[i] + 2);
+
+            /*TODO make it more precise*/
+            char* p = &buffer[7];
+            while (*p)
+            {
+                if (*p == '=')
+                {
+                    *p = ' ';
+                    break;
+                }
+                p++;
+            }
+
             struct tokenizer_ctx tctx = {0};
             struct token_list l1 = tokenizer(&tctx, buffer, "", 0, TK_FLAG_NONE);
             struct token_list r = preprocessor(prectx, &l1, 0);
@@ -6477,11 +6506,11 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         */
 #if 1  /*DEBUG INSIDE MSVC IDE*/
 
-#define STR \
+#define STRC \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
 
 
-#define STRE \
+#define STR \
  "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
 
 
@@ -6770,6 +6799,7 @@ int compile_one_file(const char* file_name,
             fprintf(ctx.sarif_file, "%s", END);
         }
         fclose(ctx.sarif_file);
+        ctx.sarif_file = NULL;
     }
     token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
@@ -7024,7 +7054,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
         if (options.preprocess_only)
         {
             struct tokenizer_ctx tctx = {0};
-            struct token_list tokens = tokenizer(&tctx, content, "source", 0, TK_FLAG_NONE);
+            struct token_list tokens = tokenizer(&tctx, content, "c:/main.c", 0, TK_FLAG_NONE);
 
 
             struct token_list token_list = preprocessor(&prectx, &tokens, 0);
@@ -7033,15 +7063,13 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
                 s = print_preprocessed_to_string2(token_list.head);
             }
 
-            preprocessor_ctx_destroy(&prectx);
-
             token_list_destroy(&tokens);
             token_list_destroy(&token_list);
         }
         else
         {
 
-            ast = get_ast(&options, "source", content, report);
+            ast = get_ast(&options, "c:/main.c", content, report);
             if (report->error_count > 0) throw;
 
             visit_ctx.ast = ast;
@@ -7078,9 +7106,12 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 }
 
 
-/*Função exportada para web*/
+
 char* owner CompileText(const char* pszoptions, const char* content)
 {
+    /*
+      This function is called by the web playground
+    */
     printf(WHITE "Cake " CAKE_VERSION RESET "\n");
     struct report report = {0};
     return  (char* owner) compile_source(pszoptions, content, &report);

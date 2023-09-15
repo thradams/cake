@@ -105,7 +105,7 @@ void delete_macro(struct macro* owner macro);
 
 static void delete_macro_void(void* owner p)
 {
-    struct macro* owner p_macro = p;    
+    struct macro* owner p_macro = p;
     delete_macro(p_macro);
 }
 
@@ -259,38 +259,78 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
 }
 
 
-const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx, const char* path, char fullpath[300], bool* p_already_included)
+const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
+    const char* path, /*as in include*/
+    const char* current_file_dir, /*this is the dir of the file that includes*/
+    bool* p_already_included, /*out file alread included pragma once*/
+    char full_path_out[], /*this is the final full path of the file*/
+    int full_path_out_size)
 {
-    snprintf(fullpath, 300, "%s", path);
 
-    if (hashmap_find(&ctx->pragma_once_map, fullpath) != NULL)
+    full_path_out[0] = '\0';
+
+    if (path_is_absolute(path))
+    {
+        //todo realpath
+        if (hashmap_find(&ctx->pragma_once_map, path) != NULL)
+        {
+            *p_already_included = true;
+            return NULL;
+        }
+
+        char* owner content = read_file(path);
+        if (content != NULL)
+        {
+            snprintf(full_path_out, full_path_out_size, "%s", path);
+            return content;
+        }
+        return NULL;
+    }
+
+    
+
+    char newpath[200] = {0};
+    snprintf(newpath, sizeof newpath, "%s/%s", current_file_dir, path);
+
+#ifdef __EMSCRIPTEN__
+    /*realpath returns empty on emscriptem*/
+    snprintf(full_path_out, full_path_out_size, "%s", newpath);    
+#else
+    realpath(newpath, full_path_out);
+#endif
+    
+
+    if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
     {
         *p_already_included = true;
         return NULL;
     }
 
+    char * owner content = read_file(full_path_out);
+    if (content != NULL)
+        return content;
 
-    char* owner content = read_file(fullpath);
-    if (content == NULL)
+
+    struct include_dir* current = ctx->include_dir.head;
+    while (current)
     {
-        struct include_dir* current = ctx->include_dir.head;
-        while (current)
+        snprintf(full_path_out, full_path_out_size, "%s%s", current->path, path);
+
+        if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
         {
-            snprintf(fullpath, 300, "%s%s", current->path, path);
-
-            if (hashmap_find(&ctx->pragma_once_map, fullpath) != NULL)
-            {
-                *p_already_included = true;
-                return NULL;
-            }
-
-            content = read_file(fullpath);
-            if (content != NULL)
-                break;
-            current = current->next;
+            *p_already_included = true;
+            return NULL;
         }
+
+        const char* owner content = read_file(full_path_out);
+        if (content != NULL)
+        {
+            return content;
+        }
+        current = current->next;
     }
-    return content;
+    full_path_out[0] = '\0';
+    return NULL;
 }
 
 
@@ -311,7 +351,7 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
     if (macro != NULL)
     {
         macro->name = strdup(name);
-        struct macro* owner previous = owner_hashmap_set(&ctx->macros, name, (void* owner) macro, 0);
+        struct macro* owner previous = (struct macro* owner)owner_hashmap_set(&ctx->macros, name, (void* owner) macro, 0);
         if (previous)
         {
             delete_macro(previous);
@@ -1231,7 +1271,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
             if (b_first)
             {
                 b_first = false;
-            }
+        }
             else
             {
                 char b[] = ",";
@@ -1273,7 +1313,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 #ifdef MOCKFILES   
         free(textfile);
 #endif
-    }
+        }
     catch
     {
     }
@@ -1293,7 +1333,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
     assert(list.head != NULL);
     return list;
-}
+    }
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -1346,8 +1386,15 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             const char* begin = filename_opt;
             const char* end = filename_opt + strlen(filename_opt);
             struct token* owner p_new = new_token(begin, end, TK_BEGIN_OF_FILE);
+#ifdef _WINDOWS_
+            //windows have case insensive paths
+            for (char* p = p_new->lexeme; *p; p++)
+            {
+                *p = tolower(*p);
+            }
+#endif
             p_new->level = level;
-            p_first = token_list_add(&list, p_new);             
+            p_first = token_list_add(&list, p_new);
         }
 
 
@@ -1408,7 +1455,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                
+
                 continue;
             }
 
@@ -1428,7 +1475,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                
+
                 continue;
             }
 
@@ -1443,7 +1490,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 p_new_token->token_origin = p_first;
                 p_new_token->line = line;
                 p_new_token->col = col;
-                
+
                 new_line = false;
                 has_space = false;
                 if (set_sliced_flag(&stream, p_new_token))
@@ -1479,7 +1526,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 /*bNewLine = false;*/ //deixa assim
                 has_space = true;
-                
+
                 continue;
             }
             if (stream.current[0] == '/' &&
@@ -1509,7 +1556,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
-                
+
 
                 if (stream.current[0] == '\0')
                     break;
@@ -1580,7 +1627,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                
+
                 continue;
             }
 
@@ -1610,7 +1657,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = true;
                 has_space = false;
-                
+
                 continue;
             }
             const char* start = stream.current;
@@ -1631,7 +1678,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 token_list_add(&list, p_new_token);
                 new_line = false;
                 has_space = false;
-                
+
                 continue;
             }
             else
@@ -1652,7 +1699,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 has_space = false;
 
 
-                
+
                 continue;
             }
 
@@ -1949,8 +1996,14 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
 
+                char full_path_result[200] = {0};
                 bool already_included = false;
-                const char* owner s = find_and_read_include_file(ctx, path, fullpath, &already_included);
+                const char* owner s = find_and_read_include_file(ctx,
+                    path,
+                    fullpath,
+                    &already_included,
+                    full_path_result,
+                    sizeof full_path_result);
 
                 bool has_include = s != NULL;
                 free(s);
@@ -2587,6 +2640,8 @@ struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list*
     return r;
 }
 
+
+
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
     /*
@@ -2662,17 +2717,27 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             }
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
-            char fullpath[300] = {0};
-
-
             path[strlen(path) - 1] = '\0';
 
+            /*this is the dir of the current file*/
+            char current_file_dir[300] = {0};
+            snprintf(current_file_dir, sizeof current_file_dir, "%s", r.tail->token_origin->lexeme);
+            dirname(current_file_dir);
+
+
+            char full_path_result[200] = {0};
             bool already_included = false;
-            const char* owner content = find_and_read_include_file(ctx, path + 1, fullpath, &already_included);
+            const char* owner content = find_and_read_include_file(ctx,
+                path + 1,
+                current_file_dir,
+                &already_included,
+                full_path_result,
+                sizeof full_path_result);
+
             if (content != NULL)
             {
                 struct tokenizer_ctx tctx = {0};
-                struct token_list list = tokenizer(&tctx, content, fullpath, level + 1, TK_FLAG_NONE);
+                struct token_list list = tokenizer(&tctx, content, full_path_result, level + 1, TK_FLAG_NONE);
                 free(content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
@@ -2787,7 +2852,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             A
             */
 
-            struct macro* owner macro = (struct macro* owner ) calloc(1, sizeof * macro);
+            struct macro* owner macro = calloc(1, sizeof * macro);
             if (macro == NULL)
             {
                 preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "out of mem");
@@ -2817,7 +2882,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     ///   input_list->head->token_origin->lexeme,
                       // input_list->head->line);
             }
-            
+
             assert(macro->name == NULL);
             macro->name = strdup(input_list->head->lexeme);
             struct macro* owner previous =
@@ -3613,7 +3678,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
 
                 struct token_list r3 = expand_macro(ctx, p_list, macro, &arguments, level);
                 if (ctx->n_errors > 0)
-                {                    
+                {
                     token_list_destroy(&new_list);
                     token_list_destroy(&r3);
                     macro_argument_list_destroy(&arguments);
