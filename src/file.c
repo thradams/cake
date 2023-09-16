@@ -1,31 +1,14 @@
-enum constant_value_type {
-    TYPE_NOT_CONSTANT,
-    TYPE_EMPTY,
-    TYPE_LONG_LONG,
-    TYPE_DOUBLE,
-    TYPE_UNSIGNED_LONG_LONG
-};
+void* owner malloc(unsigned long size);
+void free(void* owner ptr);
 
-struct constant_value {
-    enum constant_value_type type;
-    union {
-        unsigned long long ullvalue;
-        long long llvalue;
-        double dvalue;
-    };
-};
-
-struct constant_value make_constant_value_double(double d)
+void f5()
 {
-    struct constant_value r;
-    r.dvalue = d;
-    r.type = TYPE_DOUBLE;
-    return r;
-}
-
-
-int main()
-{
-    struct constant_value r;
-    r.type = TYPE_LONG_LONG;
+    void * owner p = malloc(1);
+    
+    if (p) {
+       free(p);
+       return;
+    }
+    
+    static_state(p, "null");    
 }

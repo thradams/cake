@@ -31565,6 +31565,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
     }
 
+    ctx->p_last_jump_statement = NULL;
     if (p_selection_statement->else_secondary_block_opt)
     {
         //struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
