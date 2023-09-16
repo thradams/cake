@@ -12946,7 +12946,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
-                p_expression_node_new->left = p_expression_node;
+                
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
@@ -12976,6 +12976,8 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 }
 
                 parser_match_tk(ctx, ']');
+
+                p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '(')
@@ -12985,7 +12987,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
-                p_expression_node_new->left = p_expression_node;
+                
 
 
                 if (!type_is_function_or_function_pointer(&p_expression_node->type))
@@ -13009,6 +13011,8 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 parser_match_tk(ctx, ')');
                 compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list);
                 p_expression_node_new->last_token = ctx->previous;
+
+                p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '.')
@@ -13074,7 +13078,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
-                p_expression_node_new->left = p_expression_node;
+                
 
 
                 parser_match(ctx);
@@ -13107,7 +13111,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                             {
                                 p_expression_node_new->member_index = member_index;
                                 p_expression_node_new->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
-                                fix_arrow_member_type(&p_expression_node_new->type, &p_expression_node_new->left->type, &p_expression_node_new->type);
+                                fix_arrow_member_type(&p_expression_node_new->type, &p_expression_node->type, &p_expression_node_new->type);
                             }
                             else
                             {
@@ -13147,6 +13151,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         "structure or union required");
                 }
 
+                p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '++')
@@ -13156,9 +13161,10 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
-                p_expression_node_new->left = p_expression_node;
+                
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
+                p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
             else if (ctx->current->type == '--')
@@ -13168,9 +13174,10 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
-                p_expression_node_new->left = p_expression_node;
+                
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
+                p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
             else
