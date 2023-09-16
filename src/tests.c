@@ -2815,6 +2815,28 @@ void null_to_owner()
     assert(compile_with_errors(true, source));
 }
 
+void return_true_branch()
+{
+
+    const char* source
+        =
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "void f5()\n"
+        "{\n"
+        "    void * owner p = malloc(1);\n"
+        "    \n"
+        "    if (p) {\n"
+        "       free(p);\n"
+        "       return;\n"
+        "    }\n"
+        "    \n"
+        "    static_state(p, \"null\");    \n"
+        "}\n"
+        "";
+    assert(compile_without_errors(true, source));
+}
 
 #endif
 

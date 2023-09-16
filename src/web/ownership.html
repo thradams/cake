@@ -217,6 +217,8 @@ int main() {
  } 
 </code></pre>
 
+<p>We only can convert <code>address of expressions</code> to <code>obj_owner</code> or <code>owner pointers</code>.  </p>
+
 <h2 id="toc_5">Static analysis</h2>
 
 <p>All the rules we have presented are checked by the compiler. Let&#39;s revisit our first example:</p>
@@ -228,7 +230,7 @@ if (f)
 
 <p>The flow analysis must ensure that when the owner pointer ‘f’ goes out of scope, it does not own any objects. At the end of the scope, ‘f’ can be either null or moved, and both states ensure that there are no remaining resources.</p>
 
-<p>To check the ownership rules, the compiler uses five states:</p>
+<p>To check the ownership rules, the compiler uses six states:</p>
 
 <ul>
 <li>uninitialized</li>
@@ -236,6 +238,7 @@ if (f)
 <li>null</li>
 <li>not-null</li>
 <li>zero</li>
+<li>not-zero</li>
 </ul>
 
 <p>We can print these states using the <strong>static_debug</strong> declaration. We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. Listing 11 shows this usage:</p>
@@ -294,6 +297,8 @@ if (f)
 </code></pre>
 
 <p><strong>Zero</strong> and <strong>null</strong> are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily mean null. The compiler does not know the semantics for types that are not pointers. However, you can use <strong>static_set</strong> to override states. In Listing 15, we annotate that server_socket is null, which doesn&#39;t mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.</p>
+
+<p>The <strong>not-zero</strong> state is used for non-owner objects to indicate the value if not zero.</p>
 
 <h5>Listing 15 - Usage of static_set</h5>
 

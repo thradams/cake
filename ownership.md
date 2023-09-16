@@ -194,6 +194,9 @@ int main() {
  } 
 ```
 
+We only can convert `address of expressions` to `obj_owner` or `owner pointers`.  
+
+
 ## Static analysis  
 
 All the rules we have presented are checked by the compiler. Let's revisit our first example:
@@ -206,13 +209,14 @@ if (f)
 
 The flow analysis must ensure that when the owner pointer ‘f’ goes out of scope, it does not own any objects. At the end of the scope, ‘f’ can be either null or moved, and both states ensure that there are no remaining resources.
 
-To check the ownership rules, the compiler uses five states:
+To check the ownership rules, the compiler uses six states:
 
 - uninitialized
 - moved
 - null
 - not-null
 - zero
+- not-zero
  
 We can print these states using the **static_debug** declaration. We can also assert the variable is at a certain state using the **static_state** declaration. Listing 11 shows this usage:
 
@@ -275,6 +279,8 @@ int main()
 ```
 
 **Zero** and **null** are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily mean null. The compiler does not know the semantics for types that are not pointers. However, you can use **static_set** to override states. In Listing 15, we annotate that server_socket is null, which doesn't mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.
+
+The **not-zero** state is used for non-owner objects to indicate the value if not zero.
 
 ##### Listing 15 - Usage of static_set
 
