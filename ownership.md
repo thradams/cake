@@ -196,6 +196,18 @@ int main() {
 
 We only can convert `address of expressions` to `obj_owner` or `owner pointers`.  
 
+##### Listing .. - Checking the origin of obj_owner
+
+```c
+struct X {
+ struct Y * p;
+};
+void y_destroy(struct Y * obj_owner p);
+void f(struct X * x) {
+  y_destroy(x->y); //ERROR
+}
+```
+
 
 ## Static analysis  
 
@@ -347,10 +359,9 @@ source:13:3: note: static_debug
 ##### Listing 18 - owner objects cannot be discarded.
 
 ```c  
-void using_file(FILE * f);
 int main() {  
  fopen("file.txt", "r"); //ERROR  
- using_file(fopen("file.txt", "r")); //ERROR
+ 
 }
 ```
 
@@ -389,7 +400,7 @@ void init(struct  X * x) {
  
 The runtime assert is also used by the compiler. Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know `list->tail->next` is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.
 
-Listing 22 shows the usage of assert. 
+##### Listing 22 shows the usage of assert. 
 
 ```c
 struct node {
@@ -478,12 +489,20 @@ int * owner p2 = p1;
 int * owner p3 = p1; //ERROR p1 was moved
 ```
 
+```c
+int * owner f(int * owner p1) {
+ int * owner p2 = p1;
+ return p1; //ERROR p1 was moved
+}
+```
 
 **Rule:** When coping a owner object to to a view object the compiler must check the lifetime. Listing 28
 
 ##### Listing 28 - Lifetime check
 
 ```c
+void using_file(FILE * f);
+
 struct X { 
   char *owner text; 
 };  
@@ -496,98 +515,16 @@ int main() {
     struct X * owner p2 = make_owner();  
     p = p2; //error p lives longer than p2  
     free(p2);
-  }  
+  }
+
+  using_file(fopen("file.txt", "r")); //ERROR
+
 }
 ```
 
-**Rule:** const can be discard when moving to `void*`. Listing 29
 
-##### Listing 29 - Non warning discarding const.
-
-```c
-void free(void * owner p);
-int main(){
-  const void * p = malloc(1);
-  free(p); //no discarding const warning here
-}
-```
-
-**Rule:** To convert a view pointer to obj_owner we need check that the origin (the object it is pointing) is an owner object. Listing 30.
-
-##### Listing 30 - Checking the origin of obj_owner
-
-```c
-struct X {
- struct Y * p;
-};
-void y_destroy(struct Y * obj_owner p);
-void f(struct X * x) {
-  y_destroy(x->y); //ERROR origin of y cannot be verified
-}
-```
+**Rule:** Returned objects must be valid.
   
-**Rule** When we cast void pointer to objects we assume the object is uninitialized. Listing 31  
-
-##### Listing 31 - void objects are uninitialized
-
-```c
-struct X { 
-  char *owner text; 
-};
-void x_delete(struct X *owner p);  
-
-int main() 
-{
-   struct X * pX = calloc( 1, sizeof * pX);
-   if (pX) {
-     static_state(pX->text, "uninitialized");
-     p->text = strdup("hi"); 
-     x_delete( pX); 
-   }
-}
-```
-
-When calloc is used, the memory is initialized with zeros.
-if necessary, **state_set** can be used with "zero" parameter to tell the compiler the state of the pointed object. Listing 32.
-
-##### Listing 32 - Zeroing the state
-
-```c
-struct X { 
-  char *owner text; 
-};
-int main() 
-{
-   struct X * pX = calloc( 1, sizeof * pX);
-   if (pX) {  
-     /*the memory of pointed object is all zeroes*/
-     static_state(*p, "zero");          
-   }
-}
-```
-
-For pointers zero state means null.
-
-
-**Rule** : We cannot return moved or non-initialized objects. All returned objects are in a valid state.
-
-##### Listing 33 - Returning invalid object
-
-```c
-void* owner malloc(unsigned long size);
-void free(void* owner ptr);
-
-struct X { 
-  char *owner text; 
-};
-
-struct X * owner f() 
-{
-   struct X * owner pX = malloc(sizeof * pX);
-   return pX;
-}
-```
-
 
 ##### Listing 34 - Assuming returned objects are valid
 
@@ -609,6 +546,34 @@ int main()
    }
 }
 ```
+
+
+
+
+**Rule:** Arguments must be valid.
+  
+
+##### Listing 35 - Arguments must be valid
+
+```c
+void* owner malloc(unsigned long size);
+void free(void* owner ptr);
+
+struct X { 
+  char *owner text; 
+};
+
+struct X * owner f();
+
+int main()
+{
+   struct X * owner pX = f();
+   if (pX) {
+     static_state(pX->text, "maybe-null");
+   }
+}
+```
+
 
 
 
