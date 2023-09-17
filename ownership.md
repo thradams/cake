@@ -3,7 +3,7 @@
 
 An **owner object** is an object referencing another object and managing its lifetime.
 
-The most common type of owner objects is pointers, often referred to as **owner pointers**. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:
+The most common type of owner objects are pointers, often referred to as **owner pointers**. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:
 
 ##### Listing 1 - Owner Pointer to FILE
 ```c
@@ -12,7 +12,7 @@ if (f)
     fclose(f);
 ```
 
-**Rule**: An object cannot be owned for more than one owner object.   
+**Rule**: An **owner object** is always the unique owner of the referenced object.
 
 **Rule**: When owner objects are copied the ownership is transfered.
 
@@ -36,7 +36,6 @@ Invoking a function is analogous to assignment, resulting in the object’s tran
 ```c
 void close(FILE *owner p);
 ```
-
 
 ### Non pointer Owner Objects
 
@@ -63,8 +62,8 @@ The view qualifier is not necessary for pointers, since it's the default behavio
 ##### Listing 5 - Calling Function with View Parameters
 
 ```c
-void use_file(FILE *f) {
-}
+void use_file(FILE *f) {}
+
 int main() {
     FILE *owner f = fopen("file.txt", "r");
     if (f) {
@@ -162,12 +161,27 @@ int main() {
 }
 ```
 
+In order to prevent moving from a non owner object, only `address of expressions` to `obj_owner` are allowed. For instance, listing 10 shows we cannot move a view pointer.
+
+##### Listing 10 - Non address of expression or owner pointer.
+
+```c
+struct X {
+ struct Y * p;
+};
+
+void y_destroy(struct Y * obj_owner p);
+
+void f(struct X * x) {
+  y_destroy(x->y); //ERROR
+}
+```
 
 ## Copying a owner pointer to a obj_owner pointer
  
-We can copy an owner pointer to an **obj_owner** pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership. Listing 10 illustrates how we can use `x_destroy` in the implementation of `x_delete`.
+We can copy an owner pointer to an **obj_owner** pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership. Listing 11 illustrates how we can use `x_destroy` in the implementation of `x_delete`.
 
-##### Listing 10 - Using `x_destroy` to implement `x_delete`
+##### Listing 11 - Using `x_destroy` to implement `x_delete`
 
 ```c
 struct X {
@@ -194,20 +208,6 @@ int main() {
  } 
 ```
 
-We only can convert `address of expressions` to `obj_owner` or `owner pointers`.  
-
-##### Listing .. - Checking the origin of obj_owner
-
-```c
-struct X {
- struct Y * p;
-};
-void y_destroy(struct Y * obj_owner p);
-void f(struct X * x) {
-  y_destroy(x->y); //ERROR
-}
-```
-
 
 ## Static analysis  
 
@@ -230,9 +230,9 @@ To check the ownership rules, the compiler uses six states:
 - zero
 - not-zero
  
-We can print these states using the **static_debug** declaration. We can also assert the variable is at a certain state using the **static_state** declaration. Listing 11 shows this usage:
+We can print these states using the **static_debug** declaration. We can also assert the variable is at a certain state using the **static_state** declaration. Listing 12 shows this usage:
 
-##### Listing 11 - Usage of **static_state** and **static_debug**
+##### Listing 12 - Usage of **static_state** and **static_debug**
 
 ```c
 int main() {
@@ -253,9 +253,9 @@ source:5:2: note: static_debug
   
 As we have just seen, the **uninitialized** state is the state of variables that are declared but not initialized. The compiler ensures that we don't read uninitialized objects.
 
-The **null** state means that owner objects are not referencing any object. Listing 12 shows a sample using owner pointers:
+The **null** state means that owner objects are not referencing any object. Listing 13 shows a sample using owner pointers:
 
-##### Listing 12 - Null state
+##### Listing 13 - Null state
 
 ```c
 int main() {
@@ -264,9 +264,9 @@ int main() {
 }
 ```  
 
-The **not-null** state indicates that the object is referencing some object, as shown in listing 13.
+The **not-null** state indicates that the object is referencing some object, as shown in listing 14.
 
-##### Listing 13 - Not-null state
+##### Listing 14 - Not-null state
 
 ```c
 int main()
@@ -280,7 +280,7 @@ int main()
 
 The **zero** state is used for non-owner objects to complement and support uninitialized checks.
 
-##### Listing 14 - The zero state
+##### Listing 15 - The zero state
 
 ```c
 int main()
@@ -290,11 +290,11 @@ int main()
 }
 ```
 
-**Zero** and **null** are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily mean null. The compiler does not know the semantics for types that are not pointers. However, you can use **static_set** to override states. In Listing 15, we annotate that server_socket is null, which doesn't mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.
+**Zero** and **null** are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily mean null. The compiler does not know the semantics for types that are not pointers. However, you can use **static_set** to override states. In Listing 16, we annotate that server_socket is null, which doesn't mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.
 
 The **not-zero** state is used for non-owner objects to indicate the value if not zero.
 
-##### Listing 15 - Usage of static_set
+##### Listing 16 - Usage of static_set
 
 ```c
   owner int server_socket =
@@ -313,9 +313,9 @@ Now let's consider `realloc` function.
 void * owner realloc( void *ptr, size_t new_size );	
 ```
 
-In the declaration of `realloc`, we are not moving the ptr. The reason for that is because the `ptr` may or may not be moved. If the function returns NULL, `ptr` was not moved. Listing 16 shows how **static_set** can be used.
+In the declaration of `realloc`, we are not moving the ptr. The reason for that is because the `ptr` may or may not be moved. If the function returns NULL, `ptr` was not moved. Listing 17 shows how **static_set** can be used.
 
-##### Listing 16 - Using static_set with realloc
+##### Listing 17 - Using static_set with realloc
 
 ```c
   void * owner p = malloc(1);
@@ -360,8 +360,7 @@ source:13:3: note: static_debug
 
 ```c  
 int main() {  
- fopen("file.txt", "r"); //ERROR  
- 
+ fopen("file.txt", "r"); //ERROR
 }
 ```
 
@@ -518,7 +517,6 @@ int main() {
   }
 
   using_file(fopen("file.txt", "r")); //ERROR
-
 }
 ```
 
@@ -553,28 +551,74 @@ int main()
 **Rule:** Arguments must be valid.
   
 
-##### Listing 35 - Arguments must be valid
+##### Listing 35 - Arguments cannot be moved or uninitialized
 
-```c
-void* owner malloc(unsigned long size);
-void free(void* owner ptr);
+```c  
 
 struct X { 
   char *owner text; 
 };
 
-struct X * owner f();
+void f(struct X * p);
 
-int main()
-{
-   struct X * owner pX = f();
-   if (pX) {
-     static_state(pX->text, "maybe-null");
-   }
+int main() {
+   struct X x;
+   f(&x); //ERROR
+     
+   struct X x1 = {0};
+   struct X x2 = x1; //MOVED
+   f(&x1); //ERROR
 }
 ```
 
+For this reason, an qualifier 'out' can be added in the future to allow passing unitalicized objects.
 
+```c
+struct X {
+  char *owner text; 
+};
+void init(out struct  X * x) {  
+  x->text = strdup("a");
+}
+int main() {
+  struct X x = {0};
+  init(&x);
+}
+```
+
+Meanwhile, the error can be removed initializing the object.
+  
+```c
+struct X {
+  char *owner text; 
+};
+void init(struct  X * x) {  
+  static_set(x, "uninitialized");
+  x->text = strdup("a");
+}
+int main() {
+  struct X x = {0};
+  init(&x);
+}
+```
+
+We can also pretend the object is initialized.
+
+
+```c
+struct X {
+  char *owner text; 
+};
+void init(struct  X * x) {  
+  static_set(x, "uninitialized");
+  x->text = strdup("a");
+}
+int main() {
+  struct X x;
+  static_set(x, "zero");
+  init(&x);
+}
+```
 
 
 

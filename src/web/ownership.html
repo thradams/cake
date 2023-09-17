@@ -40,7 +40,7 @@
 
 <p>An <strong>owner object</strong> is an object referencing another object and managing its lifetime.</p>
 
-<p>The most common type of owner objects is pointers, often referred to as <strong>owner pointers</strong>. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:</p>
+<p>The most common type of owner objects are pointers, often referred to as <strong>owner pointers</strong>. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:</p>
 
 <h5>Listing 1 - Owner Pointer to FILE</h5>
 
@@ -49,7 +49,7 @@ if (f)
     fclose(f);
 </code></pre>
 
-<p><strong>Rule</strong>: An object cannot be owned for more than one owner object.   </p>
+<p><strong>Rule</strong>: An <strong>owner object</strong> is always the unique owner of the referenced object.</p>
 
 <p><strong>Rule</strong>: When owner objects are copied the ownership is transfered.</p>
 
@@ -94,8 +94,8 @@ if (f)
 
 <h5>Listing 5 - Calling Function with View Parameters</h5>
 
-<pre><code class="language-c">void use_file(FILE *f) {
-}
+<pre><code class="language-c">void use_file(FILE *f) {}
+
 int main() {
     FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
     if (f) {
@@ -187,11 +187,26 @@ int main() {
 }
 </code></pre>
 
+<p>In order to prevent moving from a non owner object, only <code>address of expressions</code> to <code>obj_owner</code> are allowed. For instance, listing 10 shows we cannot move a view pointer.</p>
+
+<h5>Listing 10 - Non address of expression or owner pointer.</h5>
+
+<pre><code class="language-c">struct X {
+ struct Y * p;
+};
+
+void y_destroy(struct Y * obj_owner p);
+
+void f(struct X * x) {
+  y_destroy(x-&gt;y); //ERROR
+}
+</code></pre>
+
 <h2 id="toc_4">Copying a owner pointer to a obj_owner pointer</h2>
 
-<p>We can copy an owner pointer to an <strong>obj_owner</strong> pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership. Listing 10 illustrates how we can use <code>x_destroy</code> in the implementation of <code>x_delete</code>.</p>
+<p>We can copy an owner pointer to an <strong>obj_owner</strong> pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership. Listing 11 illustrates how we can use <code>x_destroy</code> in the implementation of <code>x_delete</code>.</p>
 
-<h5>Listing 10 - Using <code>x_destroy</code> to implement <code>x_delete</code></h5>
+<h5>Listing 11 - Using <code>x_destroy</code> to implement <code>x_delete</code></h5>
 
 <pre><code class="language-c">struct X {
   char *owner text; 
@@ -217,8 +232,6 @@ int main() {
  } 
 </code></pre>
 
-<p>We only can convert <code>address of expressions</code> to <code>obj_owner</code> or <code>owner pointers</code>.  </p>
-
 <h2 id="toc_5">Static analysis</h2>
 
 <p>All the rules we have presented are checked by the compiler. Let&#39;s revisit our first example:</p>
@@ -241,9 +254,9 @@ if (f)
 <li>not-zero</li>
 </ul>
 
-<p>We can print these states using the <strong>static_debug</strong> declaration. We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. Listing 11 shows this usage:</p>
+<p>We can print these states using the <strong>static_debug</strong> declaration. We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. Listing 12 shows this usage:</p>
 
-<h5>Listing 11 - Usage of <strong>static_state</strong> and <strong>static_debug</strong></h5>
+<h5>Listing 12 - Usage of <strong>static_state</strong> and <strong>static_debug</strong></h5>
 
 <pre><code class="language-c">int main() {
  int a;   
@@ -262,9 +275,9 @@ if (f)
 
 <p>As we have just seen, the <strong>uninitialized</strong> state is the state of variables that are declared but not initialized. The compiler ensures that we don&#39;t read uninitialized objects.</p>
 
-<p>The <strong>null</strong> state means that owner objects are not referencing any object. Listing 12 shows a sample using owner pointers:</p>
+<p>The <strong>null</strong> state means that owner objects are not referencing any object. Listing 13 shows a sample using owner pointers:</p>
 
-<h5>Listing 12 - Null state</h5>
+<h5>Listing 13 - Null state</h5>
 
 <pre><code class="language-c">int main() {
  void * owner p = nullptr;   
@@ -272,9 +285,9 @@ if (f)
 }
 </code></pre>
 
-<p>The <strong>not-null</strong> state indicates that the object is referencing some object, as shown in listing 13.</p>
+<p>The <strong>not-null</strong> state indicates that the object is referencing some object, as shown in listing 14.</p>
 
-<h5>Listing 13 - Not-null state</h5>
+<h5>Listing 14 - Not-null state</h5>
 
 <pre><code class="language-c">int main()
 {
@@ -287,7 +300,7 @@ if (f)
 
 <p>The <strong>zero</strong> state is used for non-owner objects to complement and support uninitialized checks.</p>
 
-<h5>Listing 14 - The zero state</h5>
+<h5>Listing 15 - The zero state</h5>
 
 <pre><code class="language-c">int main()
 {
@@ -296,11 +309,11 @@ if (f)
 }
 </code></pre>
 
-<p><strong>Zero</strong> and <strong>null</strong> are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily mean null. The compiler does not know the semantics for types that are not pointers. However, you can use <strong>static_set</strong> to override states. In Listing 15, we annotate that server_socket is null, which doesn&#39;t mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.</p>
+<p><strong>Zero</strong> and <strong>null</strong> are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily mean null. The compiler does not know the semantics for types that are not pointers. However, you can use <strong>static_set</strong> to override states. In Listing 16, we annotate that server_socket is null, which doesn&#39;t mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.</p>
 
 <p>The <strong>not-zero</strong> state is used for non-owner objects to indicate the value if not zero.</p>
 
-<h5>Listing 15 - Usage of static_set</h5>
+<h5>Listing 16 - Usage of static_set</h5>
 
 <pre><code class="language-c">  owner int server_socket =
      socket(AF_INET, SOCK_STREAM, 0);
@@ -317,9 +330,9 @@ if (f)
 <pre><code class="language-c">void * owner realloc( void *ptr, size_t new_size ); 
 </code></pre>
 
-<p>In the declaration of <code>realloc</code>, we are not moving the ptr. The reason for that is because the <code>ptr</code> may or may not be moved. If the function returns NULL, <code>ptr</code> was not moved. Listing 16 shows how <strong>static_set</strong> can be used.</p>
+<p>In the declaration of <code>realloc</code>, we are not moving the ptr. The reason for that is because the <code>ptr</code> may or may not be moved. If the function returns NULL, <code>ptr</code> was not moved. Listing 17 shows how <strong>static_set</strong> can be used.</p>
 
-<h5>Listing 16 - Using static_set with realloc</h5>
+<h5>Listing 17 - Using static_set with realloc</h5>
 
 <pre><code class="language-c">  void * owner p = malloc(1);
   void * owner p2 = realloc(p, 2);
@@ -359,10 +372,8 @@ if (f)
 
 <h5>Listing 18 - owner objects cannot be discarded.</h5>
 
-<pre><code class="language-c">void using_file(FILE * f);
-int main() {  
- fopen(&quot;file.txt&quot;, &quot;r&quot;); //ERROR  
- using_file(fopen(&quot;file.txt&quot;, &quot;r&quot;)); //ERROR
+<pre><code class="language-c">int main() {  
+ fopen(&quot;file.txt&quot;, &quot;r&quot;); //ERROR
 }
 </code></pre>
 
@@ -398,7 +409,7 @@ void init(struct  X * x) {
 
 <p>The runtime assert is also used by the compiler. Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know <code>list-&gt;tail-&gt;next</code> is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.</p>
 
-<p>Listing 22 shows the usage of assert. </p>
+<h5>Listing 22 shows the usage of assert.</h5>
 
 <pre><code class="language-c">struct node {
  char * owner text;
@@ -481,11 +492,19 @@ int * owner p2 = p1;
 int * owner p3 = p1; //ERROR p1 was moved
 </code></pre>
 
+<pre><code class="language-c">int * owner f(int * owner p1) {
+ int * owner p2 = p1;
+ return p1; //ERROR p1 was moved
+}
+</code></pre>
+
 <p><strong>Rule:</strong> When coping a owner object to to a view object the compiler must check the lifetime. Listing 28</p>
 
 <h5>Listing 28 - Lifetime check</h5>
 
-<pre><code class="language-c">struct X { 
+<pre><code class="language-c">void using_file(FILE * f);
+
+struct X { 
   char *owner text; 
 };  
   
@@ -497,91 +516,13 @@ int main() {
     struct X * owner p2 = make_owner();  
     p = p2; //error p lives longer than p2  
     free(p2);
-  }  
+  }
+
+  using_file(fopen(&quot;file.txt&quot;, &quot;r&quot;)); //ERROR
 }
 </code></pre>
 
-<p><strong>Rule:</strong> const can be discard when moving to <code>void*</code>. Listing 29</p>
-
-<h5>Listing 29 - Non warning discarding const.</h5>
-
-<pre><code class="language-c">void free(void * owner p);
-int main(){
-  const void * p = malloc(1);
-  free(p); //no discarding const warning here
-}
-</code></pre>
-
-<p><strong>Rule:</strong> To convert a view pointer to obj_owner we need check that the origin (the object it is pointing) is an owner object. Listing 30.</p>
-
-<h5>Listing 30 - Checking the origin of obj_owner</h5>
-
-<pre><code class="language-c">struct X {
- struct Y * p;
-};
-void y_destroy(struct Y * obj_owner p);
-void f(struct X * x) {
-  y_destroy(x-&gt;y); //ERROR origin of y cannot be verified
-}
-</code></pre>
-
-<p><strong>Rule</strong> When we cast void pointer to objects we assume the object is uninitialized. Listing 31  </p>
-
-<h5>Listing 31 - void objects are uninitialized</h5>
-
-<pre><code class="language-c">struct X { 
-  char *owner text; 
-};
-void x_delete(struct X *owner p);  
-
-int main() 
-{
-   struct X * pX = calloc( 1, sizeof * pX);
-   if (pX) {
-     static_state(pX-&gt;text, &quot;uninitialized&quot;);
-     p-&gt;text = strdup(&quot;hi&quot;); 
-     x_delete( pX); 
-   }
-}
-</code></pre>
-
-<p>When calloc is used, the memory is initialized with zeros.
-if necessary, <strong>state_set</strong> can be used with &quot;zero&quot; parameter to tell the compiler the state of the pointed object. Listing 32.</p>
-
-<h5>Listing 32 - Zeroing the state</h5>
-
-<pre><code class="language-c">struct X { 
-  char *owner text; 
-};
-int main() 
-{
-   struct X * pX = calloc( 1, sizeof * pX);
-   if (pX) {  
-     /*the memory of pointed object is all zeroes*/
-     static_state(*p, &quot;zero&quot;);          
-   }
-}
-</code></pre>
-
-<p>For pointers zero state means null.</p>
-
-<p><strong>Rule</strong> : We cannot return moved or non-initialized objects. All returned objects are in a valid state.</p>
-
-<h5>Listing 33 - Returning invalid object</h5>
-
-<pre><code class="language-c">void* owner malloc(unsigned long size);
-void free(void* owner ptr);
-
-struct X { 
-  char *owner text; 
-};
-
-struct X * owner f() 
-{
-   struct X * owner pX = malloc(sizeof * pX);
-   return pX;
-}
-</code></pre>
+<p><strong>Rule:</strong> Returned objects must be valid.</p>
 
 <h5>Listing 34 - Assuming returned objects are valid</h5>
 
@@ -600,6 +541,72 @@ int main()
    if (pX) {
      static_state(pX-&gt;text, &quot;maybe-null&quot;);
    }
+}
+</code></pre>
+
+<p><strong>Rule:</strong> Arguments must be valid.</p>
+
+<h5>Listing 35 - Arguments cannot be moved or uninitialized</h5>
+
+<pre><code class="language-c">
+struct X { 
+  char *owner text; 
+};
+
+void f(struct X * p);
+
+int main() {
+   struct X x;
+   f(&amp;x); //ERROR
+     
+   struct X x1 = {0};
+   struct X x2 = x1; //MOVED
+   f(&amp;x1); //ERROR
+}
+</code></pre>
+
+<p>For this reason, an qualifier &#39;out&#39; can be added in the future to allow passing unitalicized objects.</p>
+
+<pre><code class="language-c">struct X {
+  char *owner text; 
+};
+void init(out struct  X * x) {  
+  x-&gt;text = strdup(&quot;a&quot;);
+}
+int main() {
+  struct X x = {0};
+  init(&amp;x);
+}
+</code></pre>
+
+<p>Meanwhile, the error can be removed initializing the object.</p>
+
+<pre><code class="language-c">struct X {
+  char *owner text; 
+};
+void init(struct  X * x) {  
+  static_set(x, &quot;uninitialized&quot;);
+  x-&gt;text = strdup(&quot;a&quot;);
+}
+int main() {
+  struct X x = {0};
+  init(&amp;x);
+}
+</code></pre>
+
+<p>We can also pretend the object is initialized.</p>
+
+<pre><code class="language-c">struct X {
+  char *owner text; 
+};
+void init(struct  X * x) {  
+  static_set(x, &quot;uninitialized&quot;);
+  x-&gt;text = strdup(&quot;a&quot;);
+}
+int main() {
+  struct X x;
+  static_set(x, &quot;zero&quot;);
+  init(&amp;x);
 }
 </code></pre>
 </article></body></html>
