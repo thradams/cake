@@ -64,13 +64,10 @@ dkms.conf
 /vc/x64/Debug
 /src/sqlite3.h
 /src/sqlite3.c
-/vc/.vs/cake/FileContentIndex
-/vc/.vs/cake/config/applicationhost.config
 /src/sqlite3ext.h
 /src/shell.c
 src/cake
 *.sarif
-/src/.vs/cake
-/.vscode/launch.json
-/.vscode/settings.json
-/.vscode/tasks.json
+/src/.vs/
+
+/vc/.vs/cake/FileContentIndex
