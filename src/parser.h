@@ -637,7 +637,7 @@ struct declarator;
 void print_declarator(struct osstream* ss, struct declarator* declarator, bool is_abstract);
 
 struct declarator* owner declarator(struct parser_ctx* ctx,
-    struct specifier_qualifier_list* specifier_qualifier_list,
+    const struct specifier_qualifier_list* specifier_qualifier_list,
     struct declaration_specifiers* declaration_specifiers,
     bool abstract_acceptable,
     struct token** pptokenname);
@@ -697,7 +697,7 @@ struct direct_declarator
 void direct_declarator_delete(struct direct_declarator* owner p);
 
 struct direct_declarator*  owner  direct_declarator(struct parser_ctx* ctx,
-    struct specifier_qualifier_list* specifier_qualifier_list,
+    const struct specifier_qualifier_list* specifier_qualifier_list,
     struct declaration_specifiers* declaration_specifiers,
     bool abstract_acceptable,
     struct token** pptoken_name
@@ -909,7 +909,7 @@ struct member_declaration
     
 };
 
-struct member_declaration*  owner member_declaration(struct parser_ctx* ctx, const struct struct_or_union_specifier*);
+struct member_declaration*  owner member_declaration(struct parser_ctx* ctx,  struct struct_or_union_specifier*);
 void member_declaration_delete(struct member_declaration*  owner p);
 
 struct member_declarator
@@ -939,7 +939,7 @@ struct member_declarator_list
 };
 
 struct member_declarator_list*  owner member_declarator_list(struct parser_ctx* ctx,
-    const struct struct_or_union_specifier* ,
+     struct struct_or_union_specifier* ,
     const struct specifier_qualifier_list* specifier_qualifier_list
     );
 void member_declarator_list_delete(struct member_declarator_list*  owner p);

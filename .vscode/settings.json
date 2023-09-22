@@ -1,0 +1,25 @@
+{
+    "files.associations": {
+        "stdlib.h": "c",
+        "error.h": "c",
+        "stdio.h": "c",
+        "types.h": "c",
+        "fs.h": "c",
+        "stdbool.h": "c",
+        "ownership.h": "c",
+        "assert.h": "c",
+        "expressions.h": "c",
+        "parser.h": "c",
+        "limits.h": "c",
+        "stat.h": "c",
+        "unistd.h": "c",
+        "uuid.h": "c",
+        "socket.h": "c",
+        "termios.h": "c",
+        "ioctl.h": "c",
+        "hash.h": "c",
+        "string.h": "c",
+        "console.h": "c",
+        "type.h": "c"
+    }
+}

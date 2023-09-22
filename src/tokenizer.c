@@ -115,7 +115,7 @@ void include_dir_list_destroy(struct include_dir_list* obj_owner list)
     while (p)
     {
         struct include_dir* owner next = p->next;
-        free(p->path);
+        free((void *owner)p->path);
         free(p);
         p = next;
     }
@@ -314,15 +314,23 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
     struct include_dir* current = ctx->include_dir.head;
     while (current)
     {
-        snprintf(full_path_out, full_path_out_size, "%s%s", current->path, path);
+        int len = strlen(current->path);
+        if (current->path[len-1] == '/')
+        {
+          snprintf(full_path_out, full_path_out_size, "%s%s", current->path, path);
+        }
+        else
+        {
+           snprintf(full_path_out, full_path_out_size, "%s/%s", current->path, path);
+        }
 
         if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
         {
             *p_already_included = true;
             return NULL;
         }
-
-        const char* owner content = read_file(full_path_out);
+        
+        content = read_file(full_path_out);
         if (content != NULL)
         {
             return content;
@@ -426,7 +434,7 @@ void macro_argument_delete(struct macro_argument* owner p)
     {
         assert(p->next == NULL);
         token_list_destroy(&p->tokens);
-        free(p->name);
+        free((void * owner) p->name);
         free(p);
     }
 }
@@ -539,7 +547,7 @@ void macro_parameters_delete(struct macro_parameter* owner parameters)
     while (p)
     {
         struct macro_parameter* owner p_next = p->next;
-        free(p->name);
+        free((void * owner)p->name);
         free(p);
         p = p_next;
     }
@@ -2006,7 +2014,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     sizeof full_path_result);
 
                 bool has_include = s != NULL;
-                free(s);
+                free((void * owner)s);
 
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
@@ -2738,7 +2746,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 struct tokenizer_ctx tctx = {0};
                 struct token_list list = tokenizer(&tctx, content, full_path_result, level + 1, TK_FLAG_NONE);
-                free(content);
+                free((void * owner)content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
                 token_list_append_list(&r, &list2);
@@ -4323,6 +4331,10 @@ void check_unused_macros(struct owner_hash_map* map)
 
 void add_standard_macros(struct preprocessor_ctx* ctx)
 {
+    /*
+      This command prints all macros used by gcc
+      echo | gcc -dM -E -    
+    */
     const enum warning w =
         ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index];
 

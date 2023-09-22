@@ -1,4 +1,13 @@
 
+## Intro
+Cake works as an extension for MSCV on windows, and an extension for GCC on Linux.
+So, when possible the same options are used.
+
+## Include directories
+
+On windows, cake can be used on the command line in the same way of MSVC. Cake will read the variable INCLUDE that is the same variable used by MSCV to find the header files. We also can run cake outside the visual studio command prompt adding the file ´includes.txt´ and writing the directoes. 
+To discover what are the directores we can run the command ``ècho INCLUDE´
+
 ## Command line
 
 ```

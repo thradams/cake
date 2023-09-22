@@ -439,14 +439,6 @@ enum object_state state_merge(enum object_state before, enum object_state after)
 }
 
 
-static void object_set_state(struct object* object, int n)
-{
-    object->state = object->object_state_stack.data[n];
-    for (int i = 0; i < object->members.size; i++)
-    {
-        object_set_state(&object->members.data[i], n);
-    }
-}
 
 static void print_object_core(int ident, struct type* p_type, struct object* p_object, const char* previous_names, bool is_pointer, bool short_version)
 {
@@ -616,8 +608,8 @@ static void print_object_core(int ident, struct type* p_type, struct object* p_o
 
 
 }
-void object_get_name(struct type* p_type,
-    struct object* p_object,
+void object_get_name(const struct type* p_type,
+    const struct object* p_object,
     char* out,
     int out_size);
 
@@ -646,7 +638,7 @@ static void set_object_state(
     struct parser_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
-    struct type* p_source_type,
+    const struct type* p_source_type,
     const struct object* p_object_source,
     const struct token* error_position)
 {
@@ -1115,9 +1107,9 @@ bool object_check(struct type* p_type, struct object* p_object)
 }
 
 void object_get_name_core(
-    struct type* p_type,
-    struct object* p_object,
-    struct object* p_object_target,
+    const struct type* p_type,
+    const struct object* p_object,
+    const struct object* p_object_target,
     const char* previous_names,
     char* out,
     int out_size)
@@ -1201,8 +1193,8 @@ void object_get_name_core(
 }
 
 
-void object_get_name(struct type* p_type,
-    struct object* p_object,
+void object_get_name(const struct type* p_type,
+    const struct object* p_object,
     char* out,
     int out_size)
 {
@@ -1379,8 +1371,8 @@ void checked_read_object(struct parser_ctx* ctx,
 
         if (p_object->state & OBJECT_STATE_MOVED)
         {
-            struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-            const char* parameter_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
+            //struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
+            //const char* parameter_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
 
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
@@ -1393,8 +1385,7 @@ void checked_read_object(struct parser_ctx* ctx,
 
         if (p_object->state & OBJECT_STATE_UNINITIALIZED)
         {
-            struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-            const char* parameter_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
+            //struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
 
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
@@ -2132,36 +2123,7 @@ static bool check_all_defer_until_end(struct flow_visit_ctx* ctx, struct flow_de
     return found_found;
 }
 
-static bool set_all_variables(struct flow_visit_ctx* ctx,
-    struct flow_defer_scope* deferblock,
-    enum object_state state)
-{
-    bool found_error = false;
 
-    struct flow_defer_scope* deferchild = deferblock->last_child;
-    while (deferchild != NULL)
-    {
-        if (deferchild->declarator)
-        {
-            struct declarator* p_declarator = deferchild->declarator;
-            set_object(&p_declarator->type, &p_declarator->object, state);
-        }
-        deferchild = deferchild->previous;
-    }
-    return found_error;
-}
-
-static void set_all_until_end(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock, enum object_state state)
-{
-
-    struct flow_defer_scope* p_defer = deferblock;
-    while (p_defer != NULL)
-    {
-        set_all_variables(ctx, p_defer, state);
-        p_defer = p_defer->previous;
-    }
-
-}
 
 static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* p_secondary_block)
 {
@@ -2316,8 +2278,7 @@ static void object_merge_states_with_current(struct object* object,
     {
     }
     else
-    {
-        printf("");
+    {        
         return;
     }
 
@@ -2330,8 +2291,7 @@ static void object_merge_states_with_current(struct object* object,
     {
     }
     else
-    {
-        printf("");
+    {        
         return;
     }
     enum object_state state_before = before_index == 0 ? object->state :
@@ -2347,7 +2307,7 @@ static void object_merge_states_with_current(struct object* object,
     }
     else
     {
-        printf("");
+        
         return;
     }
     enum object_state state_after = after_index == 0 ? object->state :
@@ -2398,8 +2358,7 @@ static void object_merge_if_else_states(struct object* object,
     {
     }
     else
-    {
-        printf("");
+    {        
         return;
     }
     if (original_state == 0 || (object->object_state_stack.size - original_state >= 0 &&
@@ -2408,7 +2367,7 @@ static void object_merge_if_else_states(struct object* object,
     }
     else
     {
-        printf("");
+        
         return;
     }    if (true_branch_state == 0 ||
         (object->object_state_stack.size - true_branch_state >= 0 &&
@@ -2416,8 +2375,7 @@ static void object_merge_if_else_states(struct object* object,
     {
     }
     else
-    {
-        printf("");
+    {        
         return;
     }
     if (false_branch_state == 0 || (object->object_state_stack.size - false_branch_state >= 0 &&
@@ -2426,7 +2384,7 @@ static void object_merge_if_else_states(struct object* object,
     }
     else
     {
-        printf("");
+        
         return;
     }
 
@@ -2565,11 +2523,11 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
             ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
     }
 
-    enum object_state state_left_in_true_branch = 0;
-    if (p_object_compared_with_null)
-        state_left_in_true_branch = p_object_compared_with_null->state;
-    else if (p_object_compared_with_not_null)
-        state_left_in_true_branch = p_object_compared_with_not_null->state;
+    //enum object_state state_left_in_true_branch = 0;
+    //if (p_object_compared_with_null)
+      //  state_left_in_true_branch = p_object_compared_with_null->state;
+    //else if (p_object_compared_with_not_null)
+      //  state_left_in_true_branch = p_object_compared_with_not_null->state;
 
     /*let's make a copy of the state we left true branch*/
     const int true_branch = 1;
@@ -3198,14 +3156,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         case ASSIGNMENT_EXPRESSION:
         {
-            static int i = 0;
-            i++;
-            if (i == 805)
-            {
-                printf("");
-                //    print_object(0, &dest_object_type, p_dest_object, "");
-            }
-
+            
             struct type right_object_type = {0};
             struct object* const p_right_object = expression_get_object(p_expression->right, &right_object_type);
 

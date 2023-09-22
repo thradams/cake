@@ -1,84 +1,54 @@
+// crt_va.c
+// Compile with: cl /W3 /Tc crt_va.c
+// The program below illustrates passing a variable
+// number of arguments using the following macros:
+//      va_start            va_arg              va_copy
+//      va_end              va_list
 
+#include <stdio.h>
+#include <stdarg.h>
+#include <math.h>
 
-void* owner malloc(unsigned long size);
-void free(void* owner ptr);
+double deviation(int first, ...);
 
-void f1()
+int main( void )
 {
-    void * owner p = malloc(1);
-    if (p) {
-      static_state(p, "not-null");
-    }
+    /* Call with 3 integers (-1 is used as terminator). */
+    printf("Deviation is: %f\n", deviation(2, 3, 4, -1 ));
 
-    static_state(p, "maybe-null");
-    free(p);
+    /* Call with 4 integers. */
+    printf("Deviation is: %f\n", deviation(5, 7, 9, 11, -1));
+
+    /* Call with just -1 terminator. */
+    printf("Deviation is: %f\n", deviation(-1));
 }
 
-void f2(int condition)
+/* Returns the standard deviation of a variable list of integers. */
+double deviation(int first, ...)
 {
-    void * owner p = malloc(1);
-    if (condition) {
-      static_state(p, "maybe-null");
-    }
+    int count = 0, i = first;
+    double mean = 0.0, sum = 0.0;
+    va_list marker;
+    va_list copy;
 
-    static_state(p, "maybe-null");
-    static_set(p, "null");
+    va_start(marker, first);     /* Initialize variable arguments. */
+    va_copy(copy, marker);       /* Copy list for the second pass */
+    while (i != -1)
+    {
+        sum += i;
+        count++;
+        i = va_arg(marker, int);
+    }
+    va_end(marker);              /* Reset variable argument list. */
+    mean = sum ? (sum / count) : 0.0;
+
+    i = first;                  /* reset to calculate deviation */
+    sum = 0.0;
+    while (i != -1)
+    {
+        sum += (i - mean)*(i - mean);
+        i = va_arg(copy, int);
+    }
+    va_end(copy);               /* Reset copy of argument list. */
+    return count ? sqrt(sum / count) : 0.0;
 }
-
-void f3(int condition)
-{
-    void * owner p = malloc(1);
-    
-    if (condition) {
-       free(p);
-    }
-    else {
-       free(p);
-    }
-
-    static_state(p, "uninitialized");    
-}
-
-void f3(int condition)
-{
-    void * owner p = malloc(1);
-    
-    if (condition) {
-       
-    }
-    else {
-       free(p);
-    }
-
-    static_state(p, "uninitialized or maybe_null");    
-    static_set(p, "null");
-}
-
-
-void f4(int condition)
-{
-    void * owner p = malloc(1);
-    
-    if (condition) {
-       free(p);
-    }
-    else {
-       
-    }
-
-    static_state(p, "uninitialized or maybe_null");   
-    static_set(p, "null");
-}
-
-void f5(int condition)
-{
-    void * owner p = malloc(1);
-    
-    if (p) {
-       free(p);
-       return;
-    }
-    
-    static_state(p, "null");    
-}
-

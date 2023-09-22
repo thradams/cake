@@ -425,14 +425,14 @@ void param_list_destroy(struct param_list* obj_owner p)
 
 void type_destroy_one(struct type* obj_owner p_type)
 {
-    free(p_type->name_opt);
+    free((void * owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
     assert(p_type->next == NULL);
 }
 
 void type_destroy(struct type* obj_owner p_type)
 {
-    free(p_type->name_opt);
+    free((void * owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
 
     struct type* owner item = p_type->next;
@@ -1597,7 +1597,7 @@ struct type get_array_item_type(const struct type* p_type)
     struct type r2 = *r.next;
 
     free(r.next);
-    free(r.name_opt);
+    free((void * owner) r.name_opt);
     param_list_destroy(&r.params);
 
     return r2;
@@ -2662,17 +2662,17 @@ void type_visit_to_mark_anonymous(struct type* p_type)
 
 void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
-    struct struct_or_union_specifier* p_struct_or_union_specifier = NULL;
+    
     enum type_qualifier_flags type_qualifier_flags = 0;
     if (pdeclarator->declaration_specifiers)
     {
         type_qualifier_flags = pdeclarator->declaration_specifiers->type_qualifier_flags;
-        p_struct_or_union_specifier = pdeclarator->declaration_specifiers->struct_or_union_specifier;
+        
     }
     else if (pdeclarator->specifier_qualifier_list)
     {
         type_qualifier_flags = pdeclarator->specifier_qualifier_list->type_qualifier_flags;
-        p_struct_or_union_specifier = pdeclarator->specifier_qualifier_list->struct_or_union_specifier;
+        
     }
 
     p_type->type_qualifier_flags |= type_qualifier_flags;
@@ -2685,17 +2685,17 @@ void type_merge_qualifiers_using_declarator(struct type* p_type, struct declarat
 
 void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
-    struct struct_or_union_specifier* p_struct_or_union_specifier = NULL;
+    
     enum type_qualifier_flags type_qualifier_flags = 0;
     if (pdeclarator->declaration_specifiers)
     {
         type_qualifier_flags = pdeclarator->declaration_specifiers->type_qualifier_flags;
-        p_struct_or_union_specifier = pdeclarator->declaration_specifiers->struct_or_union_specifier;
+     
     }
     else if (pdeclarator->specifier_qualifier_list)
     {
         type_qualifier_flags = pdeclarator->specifier_qualifier_list->type_qualifier_flags;
-        p_struct_or_union_specifier = pdeclarator->specifier_qualifier_list->struct_or_union_specifier;
+     
     }
 
     p_type->type_qualifier_flags = type_qualifier_flags;

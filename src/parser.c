@@ -2751,7 +2751,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
 
         type_visit_to_mark_anonymous(&p_typeof_specifier->type);
 
-        free(p_typeof_specifier->type.name_opt);
+        free((void* owner) p_typeof_specifier->type.name_opt);
         p_typeof_specifier->type.name_opt = NULL;
 
         p_typeof_specifier->last_token = ctx->current;
@@ -2825,8 +2825,8 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
     if (p_type_specifier == NULL)
         return NULL;
 
-    
-    
+
+
 
     switch (ctx->current->type)
     {
@@ -2956,7 +2956,7 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
     }
 
-    
+
 
     if (first_of_typeof_specifier(ctx))
     {
@@ -2996,7 +2996,7 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
         parser_match(ctx);
     }
 
-    
+
     return p_type_specifier;
 }
 
@@ -3191,7 +3191,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
 struct member_declarator* owner member_declarator(
     struct parser_ctx* ctx,
     struct struct_or_union_specifier* p_struct_or_union_specifier,
-    struct specifier_qualifier_list* p_specifier_qualifier_list
+    const struct specifier_qualifier_list* p_specifier_qualifier_list
 )
 {
     /*
@@ -3255,7 +3255,7 @@ void member_declarator_list_delete(struct member_declarator_list* owner p)
 }
 struct member_declarator_list* owner member_declarator_list(
     struct parser_ctx* ctx,
-    const struct struct_or_union_specifier* p_struct_or_union_specifier,
+    struct struct_or_union_specifier* p_struct_or_union_specifier,
     const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* owner p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
@@ -3291,8 +3291,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, c
 
     try
     {
-        p_member_declaration = member_declaration(ctx,
-            p_struct_or_union_specifier);
+        p_member_declaration = member_declaration(ctx, p_struct_or_union_specifier);
 
         if (p_member_declaration == NULL) throw;
         LIST_ADD(&list, p_member_declaration);
@@ -3325,7 +3324,8 @@ void member_declaration_delete(struct member_declaration* owner p)
         free(p);
     }
 }
-struct member_declaration* owner member_declaration(struct parser_ctx* ctx, const struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
+    struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration* owner p_member_declaration = calloc(1, sizeof(struct member_declaration));
     //attribute_specifier_sequence_opt specifier_qualifier_list member_declarator_list_opt ';'
@@ -4021,7 +4021,7 @@ void declarator_delete(struct declarator* owner p)
     }
 }
 struct declarator* owner declarator(struct parser_ctx* ctx,
-    struct specifier_qualifier_list* p_specifier_qualifier_list,
+    const struct specifier_qualifier_list* p_specifier_qualifier_list,
     struct declaration_specifiers* p_declaration_specifiers,
     bool abstract_acceptable,
     struct token** pp_token_name)
@@ -4096,7 +4096,7 @@ void direct_declarator_delete(struct direct_declarator* owner p)
     }
 }
 struct direct_declarator* owner direct_declarator(struct parser_ctx* ctx,
-    struct specifier_qualifier_list* p_specifier_qualifier_list,
+    const struct specifier_qualifier_list* p_specifier_qualifier_list,
     struct declaration_specifiers* p_declaration_specifiers,
     bool abstract_acceptable,
     struct token** pptoken_name)
@@ -5028,7 +5028,12 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         /*
          When flow analysis is enabled static assert is evaluated there
         */
-        const bool show_error_if_not_constant = !ctx->options.flow_analysis;
+        bool show_error_if_not_constant = false;
+        if (p_static_assert_declaration->first_token->type == TK_KEYWORD__STATIC_ASSERT)
+        {
+            show_error_if_not_constant = true;
+        }
+
         p_static_assert_declaration->constant_expression = constant_expression(ctx, show_error_if_not_constant);
         if (p_static_assert_declaration->constant_expression == NULL) throw;
 
@@ -6484,51 +6489,48 @@ unsigned long __stdcall GetEnvironmentVariableA(
     char* lpbuffer,
     unsigned long nsize
 );
+#else
+
+unsigned long GetEnvironmentVariableA(
+    const char* lpname,
+    char* lpbuffer,
+    unsigned long nsize
+)
+{
+
+}
 #endif
 
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
-#ifdef _WIN32
-
+    char executable_path[MAX_PATH] = {0};
+    get_self_path(executable_path, sizeof(executable_path));
+    dirname(executable_path);
+    char path[MAX_PATH] = {0};
+    snprintf(path, sizeof path, "%s/includes.txt", executable_path);
     /*
-     * Let's get the msvc command prompt INCLUDE
+    * windows
+     echo %INCLUDE%
+     Linux 
+     echo | gcc -E -Wp,-v -
+     
+     copy the directories separated by ; or newnline to includes.txt
     */
+
+    char* includes = read_file(path);
     char env[2000] = {0};
-    int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
 
-    if (n == 0)
+#ifdef _WIN32
+    if (includes == NULL)
     {
-        /*
-         * Used in debug inside VC IDE
-         * type on msvc command prompt:
-         * echo %INCLUDE%
-         * to generate this string
-        */
-#if 1  /*DEBUG INSIDE MSVC IDE*/
-
-#define STR \
- "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
-
-
-#define STRE \
- "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
-
-
-
-        //http://thradams.com/app/litapp.html
-        snprintf(env, sizeof env,
-            "%s",
-            STR);
-
-
-        n = (int) strlen(env);
-#endif
+        int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
+        includes = env;
     }
+#endif
 
-
-    if (n > 0 && n < sizeof(env))
+    if (includes)
     {
-        const char* p = env;
+        const char* p = includes;
 
         for (;;)
         {
@@ -6538,7 +6540,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             }
             char filename_local[500] = {0};
             int count = 0;
-            while (*p != '\0' && *p != ';')
+            while (*p != '\0' && (*p != ';' && *p != '\n'))
             {
                 filename_local[count] = *p;
                 p++;
@@ -6556,8 +6558,10 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             }
             p++;
         }
+        if (includes != env)
+            free(includes);
     }
-#endif
+
 }
 
 const char* owner format_code(struct options* options, const char* content)
@@ -6716,7 +6720,7 @@ int compile_one_file(const char* file_name,
         {
             const char* owner s2 = print_preprocessed_to_string2(ast.token_list.head);
             printf("%s", s2);
-            free(s2);
+            free((void* owner)s2);
         }
         else
         {
@@ -6749,7 +6753,7 @@ int compile_one_file(const char* file_name,
                 {
                     /*re-parser ouput and format*/
                     const char* owner s2 = format_code(options, s);
-                    free(s);
+                    free((void* owner)s);
                     s = s2;
                 }
 
@@ -6804,7 +6808,7 @@ int compile_one_file(const char* file_name,
     token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
     parser_ctx_destroy(&ctx);
-    free(s);
+    free((void* owner)s);
     free(content);
     ast_destroy(&ast);
     preprocessor_ctx_destroy(&prectx);
@@ -7088,7 +7092,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
                 /*re-parser ouput and format*/
                 const char* owner s2 = format_code(&options, s);
-                free(s);
+                free((void* owner) s);
                 s = s2;
             }
 

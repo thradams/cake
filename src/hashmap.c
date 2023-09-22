@@ -140,7 +140,7 @@ int hashmap_set(struct hash_map* map, const char* key, const void* view p, enum 
         else
         {
             result = 1;            
-            pentry->p =  p;
+            pentry->p = (void*) p;
             pentry->type = type;
         }
     }
@@ -243,8 +243,6 @@ void* owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const
 {
     void* owner previous = NULL;
 
-    int result = 0;
-
     if (map->table == NULL)
     {
         if (map->capacity < 1)
@@ -274,19 +272,17 @@ void* owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const
         {
             struct owner_map_entry* owner p_new_entry = calloc(1, sizeof(*pentry));
             p_new_entry->hash = hash;
-            p_new_entry->p = p;
+            p_new_entry->p = (void * owner)p;
             p_new_entry->type = type;
             p_new_entry->key = strdup(key);
             p_new_entry->next = map->table[index];
             map->table[index] = p_new_entry;
-            map->size++;
-            result = 0;            
+            map->size++;            
         }
         else
-        {
-            result = 1;            
+        {            
             previous = pentry->p;
-            pentry->p =  p;
+            pentry->p = (void * owner) p;
             pentry->type = type;
         }
     }

@@ -1472,7 +1472,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
         type_remove_names(&new_type);
         if (p_declarator->name)
         {
-            free(new_type.name_opt);
+            free((void * owner)new_type.name_opt);
             new_type.name_opt = strdup(p_declarator->name->lexeme);
         }
 
