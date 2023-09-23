@@ -9344,7 +9344,6 @@ int fill_options(struct options* options,
             continue;
         }
         
-
         if (strcmp(argv[i], "-showIncludes") == 0)
         {
             options->show_includes = true;
@@ -10037,9 +10036,7 @@ enum constant_value_type {
     TYPE_UNSIGNED_LONG_LONG
 };
 
-struct constant_value {
-   
-    
+struct constant_value {       
     enum constant_value_type type;
     union {
         unsigned long long ullvalue;

@@ -102,6 +102,9 @@ Enables or disable warnings.
 See [warnings](warnings.html)
 
 
+#### -showIncludes
+Causes the compiler to output a list of the include files. The option also displays nested include files, that is, the files included by the files that you include.
+
 #### -Wall
 Enables all warnings
 
