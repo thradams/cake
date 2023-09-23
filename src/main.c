@@ -42,7 +42,9 @@ int main(int argc, char** argv)
 {
     enable_vt_mode();
 
-    printf(WHITE "Cake " CAKE_VERSION RESET "\n");
+    //-msvc-output 
+
+    printf("Cake " CAKE_VERSION "\n");
     printf("\n\n");
 
 

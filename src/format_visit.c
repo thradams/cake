@@ -10,7 +10,7 @@
 void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx)
 {
     /*
-    * Before this token we must have a identation and before identation a new line.
+    * Before this token we must have a indentation and before indentation a new line.
     * If we don't have it we need to insert.
     */
 

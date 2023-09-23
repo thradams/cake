@@ -6517,7 +6517,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
      copy the directories separated by ; or newnline to includes.txt
     */
 
-    char* includes = read_file(path);
+    char* owner includes = read_file(path);
     char env[2000] = {0};
 
 #ifdef _WIN32

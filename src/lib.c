@@ -25709,55 +25709,48 @@ unsigned long __stdcall GetEnvironmentVariableA(
     char* lpbuffer,
     unsigned long nsize
 );
+#else
+
+unsigned long GetEnvironmentVariableA(
+    const char* lpname,
+    char* lpbuffer,
+    unsigned long nsize
+)
+{
+
+}
 #endif
 
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
-#ifdef _WIN32
-
+    char executable_path[MAX_PATH] = {0};
+    get_self_path(executable_path, sizeof(executable_path));
+    dirname(executable_path);
+    char path[MAX_PATH] = {0};
+    snprintf(path, sizeof path, "%s/includes.txt", executable_path);
     /*
-     * Let's get the msvc command prompt INCLUDE
+    * windows
+     echo %INCLUDE%
+     Linux 
+     echo | gcc -E -Wp,-v -
+     
+     copy the directories separated by ; or newnline to includes.txt
     */
+
+    char* owner includes = read_file(path);
     char env[2000] = {0};
-    int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
 
-    if (n == 0)
+#ifdef _WIN32
+    if (includes == NULL)
     {
-        /*included directory*/
-#if 0
-        char executable_path[MAX_PATH] = {0};
-        get_self_path(executable_path, sizeof(executable_path));
-        dirname(executable_path);
-        char path[MAX_PATH] = {0};
-        snprintf(path, sizeof path, "%s/include", executable_path);
-        include_dir_add(&prectx->include_dir, path);
-#endif
-
-        /*
-         * Used in debug inside VC IDE
-         * type on msvc command prompt:
-         * echo %INCLUDE%
-         * to generate this string
-        */
-#if 1  /*DEBUG INSIDE MSVC IDE*/
-
-#define STR \
- "C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Tools\\MSVC\\14.37.32820\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt\n"\
-
-
-#define STRE \
- "C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Tools\\MSVC\\14.36.32532\\ATLMFC\\include;C:\\Program Files\\Microsoft Visual Studio\\2022\\Professional\\VC\\Auxiliary\\VS\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.22000.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\um;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\\\include\\10.0.22000.0\\\\cppwinrt;C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.8\\include\\um"
-        snprintf(env, sizeof env, "%s", STR);
-
-
-        n = (int) strlen(env);
-#endif
+        int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
+        includes = env;
     }
+#endif
 
-
-    if (n > 0 && n < sizeof(env))
+    if (includes)
     {
-        const char* p = env;
+        const char* p = includes;
 
         for (;;)
         {
@@ -25767,7 +25760,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             }
             char filename_local[500] = {0};
             int count = 0;
-            while (*p != '\0' && *p != ';')
+            while (*p != '\0' && (*p != ';' && *p != '\n'))
             {
                 filename_local[count] = *p;
                 p++;
@@ -25785,15 +25778,10 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             }
             p++;
         }
+        if (includes != env)
+            free(includes);
     }
-#else
-    char executable_path[MAX_PATH] = {0};
-    get_self_path(executable_path, sizeof(executable_path));
-    dirname(executable_path);
-    char path[MAX_PATH] = {0};
-    snprintf(path, sizeof path, "%s/include", executable_path);
-    include_dir_add(&prectx->include_dir, path);
-#endif
+
 }
 
 const char* owner format_code(struct options* options, const char* content)

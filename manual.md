@@ -1,12 +1,45 @@
 
 ## Intro
-Cake works as an extension for MSCV on windows, and an extension for GCC on Linux.
-So, when possible the same options are used.
+Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. 
+
+Cakes uses the same command line options of MSVC and GCC.
+
 
 ## Include directories
 
-On windows, cake can be used on the command line in the same way of MSVC. Cake will read the variable INCLUDE that is the same variable used by MSCV to find the header files. We also can run cake outside the visual studio command prompt adding the file ´includes.txt´ and writing the directoes. 
-To discover what are the directores we can run the command ``ècho INCLUDE´
+On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file 'includes.txt' and specifying the directories. To discover what directories are included, you can run the command 'echo %INCLUDE%' at Visual Studio command prompt.
+  
+```
+echo %INCLUDE%
+```  
+
+ 
+Copy this output to includes.txt. The separator can be ; or newline.
+
+```  
+ ├── cake.exe
+ ├── includes.txt
+```
+  
+When cake runs it first tries to load include.txt, if not present it tries to read INCLUDE variable.
+
+On Linux, the same file is used. To find out what are the directories used by GCC type
+
+```
+echo | gcc -E -Wp,-v -
+```
+  
+Then copy the directories to the includes.txt.  
+
+Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. This headers also are used  for the web version.
+
+```  
+ ├── cake.exe
+ ├── includes.txt  
+ ├── [include]  
+     ├── stdio.h
+     ...
+```
 
 ## Command line
 
@@ -26,44 +59,58 @@ cake file.c -o file.cc && cl file.cc
 
 cake file.c -direct-compilation -o file.cc && cl file.cc
     Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc
-
-OPTIONS
-
-  -I                    Adds a directory to the list of directories searched for include files
-                        (On windows, if you run cake at the visual studio command prompt cake
-                        uses the same include files used by msvc )
-
-  -no-output            Cake will not generate ouput
-
-  -D                    Defines a preprocessing symbol for a source file
-
-  -E                    Copies preprocessor output to standard output
-
-  -o name.c             Defines the ouput name. used when we compile one file
-
-  -remove-comments      Remove all comments from the ouput file
-
-  -direct-compilation   output without macros/preprocessor parts
-
-  -target=standard      Output target C standard (c89, c99, c11, c2x, cxx)
-                        C99 is the default and C89 (ANSI C) is the minimum target
-
-  -std=standard         Assume that the input sources are for standard (c89, c99, c11, c2x, cxx)
-                        (not implemented yet, input is considered C23)
-
-  -fi                   Format input (format before language convertion)
-
-  -fo                   Format output (format after language convertion, result parsed again)
-
-  -no-discard           Makes [[nodiscard]] default implicitly
-
-  -Wname -Wno-name      Enables or disable warning
-
-  -sarif                Generates sarif files
-
-  -msvc-output          Ouput is compatible with visual studio
-
+  
 ```
+
+### OPTIONS
+
+#### -I  (same as GCC and MSVC)
+Adds a directory to the list of directories searched for include files
+
+####  -no-output
+Cake will not generate output
+
+#### -D (same as GCC and MSVC)
+Defines a preprocessing symbol for a source file
+#### -E (same as GCC and MSVC)
+Copies preprocessor output to standard output
+
+#### -o name.c (same as GCC and MSVC)
+  Defines the output name. used when we compile one file
+  
+#### -remove-comments      
+Remove all comments from the output file
+
+#### -direct-compilation   
+output code as compiler sees it without macros.
+
+#### -target=standard      
+Output target C standard (c89, c99, c11, c2x, cxx)
+C99 is the default and C89 (ANSI C) is the minimum target
+
+#### -fi
+Format input (format before language conversion)
+
+#### -fo
+Format output (format after language conversion, result parsed again)
+
+#### -no-discard
+Makes [[nodiscard]] default implicitly
+
+#### -Wname -Wno-name  (same as GCC)   
+Enables or disable warnings.
+See [warnings](warnings.html)
+
+
+#### -Wall
+Enables all warnings
+
+#### -sarif               
+Generates sarif files
+
+#### -msvc-output          
+Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. 
+
 
 One directory called **out** is created keeping the same directory structure of the input files.
 
@@ -109,12 +156,8 @@ output
  #define __STDC_VERSION__ 202311L
 ```
 
-## Warnings
 
-Warnings can be controlled with "-Wname" and "-Wno-name" and "-Wall".
-When the same warning exists in gcc cakes uses the same name if possible.
 
-See [warnings](warnings.html)
 
 ## C99 Transformations
 
