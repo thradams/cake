@@ -5575,10 +5575,14 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                     if (ctx->current &&
                         ctx->current->level == 0)
                     {
+#if 0
+                        //too many false..alerts.
+                        //make list of for sure ...
                         compiler_set_warning_with_token(W_UNUSED_VALUE,
                             ctx,
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
+#endif
                     }
                 }
             }

@@ -115,7 +115,7 @@ void include_dir_list_destroy(struct include_dir_list* obj_owner list)
     while (p)
     {
         struct include_dir* owner next = p->next;
-        free((void *owner)p->path);
+        free((void* owner)p->path);
         free(p);
         p = next;
     }
@@ -287,18 +287,18 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
         return NULL;
     }
 
-    
+
 
     char newpath[200] = {0};
     snprintf(newpath, sizeof newpath, "%s/%s", current_file_dir, path);
 
 #ifdef __EMSCRIPTEN__
     /*realpath returns empty on emscriptem*/
-    snprintf(full_path_out, full_path_out_size, "%s", newpath);    
+    snprintf(full_path_out, full_path_out_size, "%s", newpath);
 #else
     realpath(newpath, full_path_out);
 #endif
-    
+
 
     if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
     {
@@ -306,7 +306,7 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
         return NULL;
     }
 
-    char * owner content = read_file(full_path_out);
+    char* owner content = read_file(full_path_out);
     if (content != NULL)
         return content;
 
@@ -315,13 +315,13 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
     while (current)
     {
         int len = strlen(current->path);
-        if (current->path[len-1] == '/')
+        if (current->path[len - 1] == '/')
         {
-          snprintf(full_path_out, full_path_out_size, "%s%s", current->path, path);
+            snprintf(full_path_out, full_path_out_size, "%s%s", current->path, path);
         }
         else
         {
-           snprintf(full_path_out, full_path_out_size, "%s/%s", current->path, path);
+            snprintf(full_path_out, full_path_out_size, "%s/%s", current->path, path);
         }
 
         if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
@@ -329,7 +329,7 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
             *p_already_included = true;
             return NULL;
         }
-        
+
         content = read_file(full_path_out);
         if (content != NULL)
         {
@@ -434,7 +434,7 @@ void macro_argument_delete(struct macro_argument* owner p)
     {
         assert(p->next == NULL);
         token_list_destroy(&p->tokens);
-        free((void * owner) p->name);
+        free((void* owner) p->name);
         free(p);
     }
 }
@@ -547,7 +547,7 @@ void macro_parameters_delete(struct macro_parameter* owner parameters)
     while (p)
     {
         struct macro_parameter* owner p_next = p->next;
-        free((void * owner)p->name);
+        free((void* owner)p->name);
         free(p);
         p = p_next;
     }
@@ -1279,7 +1279,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
             if (b_first)
             {
                 b_first = false;
-        }
+            }
             else
             {
                 char b[] = ",";
@@ -1321,7 +1321,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 #ifdef MOCKFILES   
         free(textfile);
 #endif
-        }
+    }
     catch
     {
     }
@@ -1341,7 +1341,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
     assert(list.head != NULL);
     return list;
-    }
+}
 
 static bool set_sliced_flag(struct stream* stream, struct token* p_new_token)
 {
@@ -2014,7 +2014,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     sizeof full_path_result);
 
                 bool has_include = s != NULL;
-                free((void * owner)s);
+                free((void* owner)s);
 
                 struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
@@ -2648,7 +2648,38 @@ struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list*
     return r;
 }
 
+static bool is_empty_assert(struct token_list* replacement_list)
+{
+    struct token* token = replacement_list->head;
 
+    if (token == NULL) return false;
+    if (strcmp(token->lexeme, "(")) return false;
+    token = token->next;
+
+    if (token == NULL) return false;
+    if (strcmp(token->lexeme, "(")) return false;
+    token = token->next;
+
+    if (token == NULL) return false;
+    if (strcmp(token->lexeme, "void")) return false;
+    token = token->next;
+
+    if (token == NULL) return false;
+    if (strcmp(token->lexeme, ")")) return false;
+    token = token->next;
+
+    if (token == NULL) return false;
+    if (strcmp(token->lexeme, "0")) return false;
+    token = token->next;
+
+    if (token == NULL) return false;
+    if (strcmp(token->lexeme, ")")) return false;
+    token = token->next;
+
+    if (token != NULL) return false;
+
+    return true;
+}
 
 struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level)
 {
@@ -2746,14 +2777,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             {
                 if (ctx->options.show_includes)
                 {
-                   printf("Note: including file:");                  
-                   printf("%*c", level + 1, ' ');
-                   printf("%s\n", full_path_result);
+                    printf("Note: including file:");
+                    printf("%*c", level + 1, ' ');
+                    printf("%s\n", full_path_result);
                 }
 
                 struct tokenizer_ctx tctx = {0};
                 struct token_list list = tokenizer(&tctx, content, full_path_result, level + 1, TK_FLAG_NONE);
-                free((void * owner)content);
+                free((void* owner)content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
                 token_list_append_list(&r, &list2);
@@ -2982,16 +3013,19 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 // and assert is a keyword. The reason is the send
                 // information to the static analyzer
 
-                macro_parameters_delete(macro->parameters);
 
-                struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
-                p_macro_parameter->name = strdup("__VA_ARGS__");
-                macro->parameters = p_macro_parameter;
+                if (!is_empty_assert(&macro->replacement_list))
+                {
+                    macro_parameters_delete(macro->parameters);
 
-                token_list_destroy(&macro->replacement_list);
-                struct tokenizer_ctx tctx = {0};
+                    struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                    p_macro_parameter->name = strdup("__VA_ARGS__");
+                    macro->parameters = p_macro_parameter;
 
-                macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
+                    token_list_destroy(&macro->replacement_list);
+                    struct tokenizer_ctx tctx = {0};
+                    macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
+                }
             }
 
             if (macro_name_token)
@@ -4340,7 +4374,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 {
     /*
       This command prints all macros used by gcc
-      echo | gcc -dM -E -    
+      echo | gcc -dM -E -
     */
     const enum warning w =
         ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index];
@@ -5996,6 +6030,6 @@ int test_line_continuation()
 
 
     return 0;
-}
+    }
 
 #endif

@@ -151,6 +151,12 @@ output
           ├── file2.c
 ```
 
+## Setting the path  
+This command is useful on windows to add the current path to system path. (This is not persistent)
+
+```
+set PATH=%PATH%;%CD%
+```
 
 ## Pre-defined macros
 
@@ -159,7 +165,11 @@ output
  #define __STDC_VERSION__ 202311L
 ```
 
+### Pre-defined macros for MSVC compatibility
+https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170#standard-predefined-macros
 
+### Pre-defined macros for GCC compatibility
+https://gcc.gnu.org/onlinedocs/cpp/Predefined-Macros.html
 
 
 ## C99 Transformations
