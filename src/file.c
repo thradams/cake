@@ -1,11 +1,5 @@
-struct X{
-int i;
-};
-void f(struct X* const x){}
+#include <limits.h>
 int main()
 {
-    struct X x;
-    f(&x);
+    int i = USHRT_MAX;
 }
-
-
