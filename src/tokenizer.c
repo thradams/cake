@@ -4443,6 +4443,8 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #endif
 
 #ifdef __linux__
+    
+//https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
     /*some gcc stuff need to parse linux headers*/
     "#define __linux__\n"
         "#define __builtin_va_list\n"
