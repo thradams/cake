@@ -20,6 +20,8 @@
         "hash.h": "c",
         "string.h": "c",
         "console.h": "c",
-        "type.h": "c"
+        "type.h": "c",
+        "stddef.h": "c",
+        "dirent.h": "c"
     }
 }

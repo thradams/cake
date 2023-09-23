@@ -4449,7 +4449,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
         "#define __builtin_va_arg(a, b)\n"
-        "#define __builtin_va_copy(a, b)\n"
+        "#define __builtin_va_copy(a, b)\n";
 #endif
       
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);

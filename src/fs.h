@@ -2,6 +2,7 @@
 #include "ownership.h"
 #include <stdbool.h>
 
+
 #ifdef _WIN32 
 #include <direct.h>
 #include <sys/types.h>
@@ -71,6 +72,10 @@ struct dirent* readdir(DIR* dirp);
 
 
 #else
+
+typedef struct __dirstream DIR;
+DIR * owner opendir (const char *__name);
+
 
 #define MAX_PATH 500
 

@@ -2061,9 +2061,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2075,13 +2072,11 @@ void c_clrscr()
 
 //#pragma once
 
+
 #ifdef _WIN32 
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
@@ -2147,6 +2142,10 @@ struct dirent* readdir(DIR* dirp);
 
 
 #else
+
+typedef struct __dirstream DIR;
+DIR * owner opendir (const char *__name);
+
 
 #define MAX_PATH 500
 
@@ -6572,7 +6571,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
         "#define __builtin_va_arg(a, b)\n"
-        "#define __builtin_va_copy(a, b)\n"
+        "#define __builtin_va_copy(a, b)\n";
 #endif
       
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
@@ -31959,10 +31958,11 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         /*
            checking is some uninitialized or moved object is being used as parameter
         */
-        if (p_argument_object &&
-            type_is_const(&p_current_parameter_type->type))
+        if (p_argument_object)
         {
+            //TODO check if pointed object is const
             bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
+
             checked_read_object(ctx,
                 &argument_object_type,
                 p_argument_object,
