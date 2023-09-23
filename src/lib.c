@@ -2187,6 +2187,8 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 #if defined _MSC_VER && !defined __POCC__
 #endif
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
 
 /*
  Se for 1 inclui todos os ignorados de dentro dos includes
@@ -6549,11 +6551,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #ifdef WIN32
         "#define _WINDOWS\n"
         "#define _WIN32\n"
-        "#define _INTEGRAL_MAX_BITS 64\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
+        "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
         "#define _MSC_EXTENSIONS\n"
-        "#define _MSC_VER 1935\n"
-        "#define _M_IX86\n"
-        "#define _X86_\n"
+        "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
+        "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"        
         "#define __fastcall\n"
         "#define __stdcall\n"
         "#define __cdecl\n"
