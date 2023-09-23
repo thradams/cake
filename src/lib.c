@@ -6550,6 +6550,18 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define _WINDOWS\n"
         "#define _WIN32\n"
         "#define _INTEGRAL_MAX_BITS 64\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
+        "#define _MSC_EXTENSIONS\n"
+        "#define _MSC_VER 1935\n"
+        "#define _M_IX86\n"
+        "#define _X86_\n"
+        "#define __fastcall\n"
+        "#define __stdcall\n"
+        "#define __cdecl\n"
+        "#define __pragma(a)\n"
+        "#define __declspec(a)\n"
+        "#define __crt_va_start(X) \n"
+        "#define __builtin_offsetof(type, member) 0\n"; //como nao defini msver ele pensa que eh gcc aqui
+
 #endif
 
 #ifdef __linux__
@@ -6561,16 +6573,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __builtin_va_arg(a, b)\n"
         "#define __builtin_va_copy(a, b)\n"
 #endif
-        "#define _M_IX86\n"
-        "#define _X86_\n"
-        "#define __fastcall\n"
-        "#define __stdcall\n"
-        "#define __cdecl\n"
-        "#define __pragma(a)\n"
-        "#define __declspec(a)\n"
-        "#define __crt_va_start(X) \n"
-        "#define __builtin_offsetof(type, member) 0\n"; //como nao defini msver ele pensa que eh gcc aqui
-
+      
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
 
