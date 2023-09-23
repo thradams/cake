@@ -133,7 +133,12 @@ int fill_options(struct options* options,
             }
             continue;
         }
-
+        
+        if (strcmp(argv[i], "-showIncludes") == 0)
+        {
+            options->show_includes = true;
+            continue;
+        }
         if (strcmp(argv[i], "-E") == 0)
         {
             options->preprocess_only = true;

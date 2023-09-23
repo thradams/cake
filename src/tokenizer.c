@@ -2744,6 +2744,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (content != NULL)
             {
+                if (ctx->options.show_includes)
+                {
+                   printf("Note: including file:");                  
+                   printf("%*c", level + 1, ' ');
+                   printf("%s\n", full_path_result);
+                }
+
                 struct tokenizer_ctx tctx = {0};
                 struct token_list list = tokenizer(&tctx, content, full_path_result, level + 1, TK_FLAG_NONE);
                 free((void * owner)content);

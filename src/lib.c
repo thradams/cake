@@ -719,6 +719,13 @@ struct options
     enum style style;
 
     /*
+       Causes the compiler to output a list of the include files.
+       The option also displays nested include files, that is, 
+       the files included by the files that you include.
+    */
+    bool show_includes;
+
+    /*
        -remove-comments  
     */
     bool remove_comments;    
@@ -4860,6 +4867,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             if (content != NULL)
             {
+                if (ctx->options.show_includes)
+                {
+                   printf("Note: including file:");                  
+                   printf("%*c", level + 1, ' ');
+                   printf("%s\n", full_path_result);
+                }
+
                 struct tokenizer_ctx tctx = {0};
                 struct token_list list = tokenizer(&tctx, content, full_path_result, level + 1, TK_FLAG_NONE);
                 free((void * owner)content);
@@ -9329,7 +9343,13 @@ int fill_options(struct options* options,
             }
             continue;
         }
+        
 
+        if (strcmp(argv[i], "-showIncludes") == 0)
+        {
+            options->show_includes = true;
+            continue;
+        }
         if (strcmp(argv[i], "-E") == 0)
         {
             options->preprocess_only = true;
@@ -10018,6 +10038,8 @@ enum constant_value_type {
 };
 
 struct constant_value {
+   
+    
     enum constant_value_type type;
     union {
         unsigned long long ullvalue;
@@ -33796,7 +33818,7 @@ int GetWindowsOrLinuxSocketLastErrorAsPosix(void)
 void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx)
 {
     /*
-    * Before this token we must have a identation and before identation a new line.
+    * Before this token we must have a indentation and before indentation a new line.
     * If we don't have it we need to insert.
     */
 
