@@ -31331,7 +31331,7 @@ static void object_merge_states_with_current(struct object* object,
     {
     }
     else
-    {        
+    {
         return;
     }
 
@@ -31344,7 +31344,7 @@ static void object_merge_states_with_current(struct object* object,
     {
     }
     else
-    {        
+    {
         return;
     }
     enum object_state state_before = before_index == 0 ? object->state :
@@ -31360,7 +31360,7 @@ static void object_merge_states_with_current(struct object* object,
     }
     else
     {
-        
+
         return;
     }
     enum object_state state_after = after_index == 0 ? object->state :
@@ -31411,7 +31411,7 @@ static void object_merge_if_else_states(struct object* object,
     {
     }
     else
-    {        
+    {
         return;
     }
     if (original_state == 0 || (object->object_state_stack.size - original_state >= 0 &&
@@ -31420,7 +31420,7 @@ static void object_merge_if_else_states(struct object* object,
     }
     else
     {
-        
+
         return;
     }    if (true_branch_state == 0 ||
         (object->object_state_stack.size - true_branch_state >= 0 &&
@@ -31428,7 +31428,7 @@ static void object_merge_if_else_states(struct object* object,
     {
     }
     else
-    {        
+    {
         return;
     }
     if (false_branch_state == 0 || (object->object_state_stack.size - false_branch_state >= 0 &&
@@ -31437,7 +31437,7 @@ static void object_merge_if_else_states(struct object* object,
     }
     else
     {
-        
+
         return;
     }
 
@@ -31957,9 +31957,10 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
 
         /*
-              checking is some unitialized or movev object is being used as parameter
-            */
-        if (p_argument_object)
+           checking is some uninitialized or moved object is being used as parameter
+        */
+        if (p_argument_object &&
+            type_is_const(&p_current_parameter_type->type))
         {
             bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
             checked_read_object(ctx,
@@ -32049,7 +32050,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             break;
 
         case PRIMARY_EXPRESSION_PARENTESIS:
-            flow_visit_expression(ctx,p_expression->right);
+            flow_visit_expression(ctx, p_expression->right);
             break;
 
         case PRIMARY_EXPRESSION_STRING_LITERAL:
@@ -32209,7 +32210,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         case ASSIGNMENT_EXPRESSION:
         {
-            
+
             struct type right_object_type = {0};
             struct object* const p_right_object = expression_get_object(p_expression->right, &right_object_type);
 
@@ -32883,7 +32884,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
         struct flow_defer_scope* p_defer = flow_visit_ctx_push_child(ctx);
         p_defer->declarator = p_declarator;
 
-        
+
         struct object temp = make_object(&p_declarator->type, p_declarator);
         object_swap(&temp, &p_declarator->object);
         object_destroy(&temp);
