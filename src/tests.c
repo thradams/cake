@@ -2947,8 +2947,25 @@ void member()
         "    t.u.view.pSelect = 0;\n"
         "}\n"
         "";
-     assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, source));
 }
+void loop_leak()
+{
+    const char* source
+        =
+        "void* owner malloc(unsigned long size);\n"
+        "void free(void* owner ptr);\n"
+        "\n"
+        "int main() {\n"
+        "   void * owner p = 0;\n"
+        "   for (int i=0; i < 2; i++) {\n"
+        "     p = malloc(1);\n"
+        "   }\n"
+        "   free(p);\n"
+        "}";
+        assert(compile_with_errors(true, source));
+}
+
 
 #endif
 

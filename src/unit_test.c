@@ -202,6 +202,7 @@ void null_to_owner(void);
 void return_true_branch(void);
 void flow_tests(void);
 void member(void);
+void loop_leak(void);
 
 /*end of forward declarations*/
 
@@ -397,6 +398,7 @@ g_unit_test_success_count = 0;
     return_true_branch();
     flow_tests();
     member();
+    loop_leak();
 return g_unit_test_error_count;
 
 }
