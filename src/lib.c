@@ -2061,6 +2061,9 @@ void c_clrscr()
 #include <ctype.h>
 
 
+#include <sys/stat.h>
+
+
 #include <errno.h>
 
 
@@ -2077,6 +2080,9 @@ void c_clrscr()
 
 
 #include <direct.h>
+
+
+#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
@@ -6565,15 +6571,17 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #endif
 
 #ifdef __linux__
-    
-//https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
-    /*some gcc stuff need to parse linux headers*/
+
+    //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
+        /*some gcc stuff need to parse linux headers*/
     "#define __linux__\n"
         "#define __builtin_va_list\n"
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
         "#define __builtin_va_arg(a, b)\n"
         "#define __builtin_va_copy(a, b)\n"
+
+        "#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
         "#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
         "#define __PTRDIFF_TYPE__ " TOSTRING(__PTRDIFF_TYPE__) "\n"
         "#define __WCHAR_TYPE__ " TOSTRING(__WCHAR_TYPE__) "\n"
@@ -6649,6 +6657,53 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __WCHAR_MIN__ " TOSTRING(__WCHAR_MIN__) "\n"
         "#define __WINT_MIN__ " TOSTRING(__WINT_MIN__) "\n"
         "#define __SIG_ATOMIC_MIN__ " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+
+        "#define __INT8_C " TOSTRING(__SIG_ATOMIC_MIN__) "\n"
+        "#define __INT16_C " TOSTRING(__INT16_C) "\n"
+        "#define __INT32_C " TOSTRING(__INT32_C) "\n"
+        "#define __INT64_C " TOSTRING(__INT64_C) "\n"
+        "#define __UINT8_C " TOSTRING(__UINT8_C) "\n"
+        "#define __UINT16_C " TOSTRING(__UINT16_C) "\n"
+        "#define __UINT32_C " TOSTRING(__UINT32_C) "\n"
+        "#define __UINT64_C " TOSTRING(__UINT64_C) "\n"
+        "#define __INTMAX_C " TOSTRING(__INTMAX_C) "\n"
+        "#define __UINTMAX_C " TOSTRING(__UINTMAX_C) "\n"
+
+        "#define __SCHAR_WIDTH__ " TOSTRING(__SCHAR_WIDTH__) "\n"
+        "#define __SHRT_WIDTH__ " TOSTRING(__SHRT_WIDTH__) "\n"
+        "#define __INT_WIDTH__ " TOSTRING(__INT_WIDTH__) "\n"
+        "#define __LONG_WIDTH__ " TOSTRING(__LONG_WIDTH__) "\n"
+        "#define __LONG_LONG_WIDTH__ " TOSTRING(__LONG_LONG_WIDTH__) "\n"
+        "#define __PTRDIFF_WIDTH__ " TOSTRING(__PTRDIFF_WIDTH__) "\n"
+        "#define __SIG_ATOMIC_WIDTH__ " TOSTRING(__SIG_ATOMIC_WIDTH__) "\n"
+        "#define __SIZE_WIDTH__ " TOSTRING(__SIZE_WIDTH__) "\n"
+        "#define __WCHAR_WIDTH__ " TOSTRING(__WCHAR_WIDTH__) "\n"
+        "#define __WINT_WIDTH__ " TOSTRING(__WINT_WIDTH__) "\n"
+        "#define __INT_LEAST8_WIDTH__ " TOSTRING(__INT_LEAST8_WIDTH__) "\n"
+        "#define __INT_LEAST16_WIDTH__ " TOSTRING(__INT_LEAST16_WIDTH__) "\n"
+        "#define __INT_LEAST32_WIDTH__ " TOSTRING(__INT_LEAST32_WIDTH__) "\n"
+        "#define __INT_LEAST64_WIDTH__ " TOSTRING(__INT_LEAST64_WIDTH__) "\n"
+        "#define __INT_FAST8_WIDTH__ " TOSTRING(__INT_FAST8_WIDTH__) "\n"
+        "#define __INT_FAST16_WIDTH__ " TOSTRING(__INT_FAST16_WIDTH__) "\n"
+        "#define __INT_FAST32_WIDTH__ " TOSTRING(__INT_FAST32_WIDTH__) "\n"
+        "#define __INT_FAST64_WIDTH__ " TOSTRING(__INT_FAST64_WIDTH__) "\n"
+        "#define __INTPTR_WIDTH__ " TOSTRING(__INTPTR_WIDTH__) "\n"
+        "#define __INTMAX_WIDTH__ " TOSTRING(__INTMAX_WIDTH__) "\n"
+
+
+        "#define __SIZEOF_INT__ " TOSTRING(__SIZEOF_INT__) "\n"
+        "#define __SIZEOF_LONG__ " TOSTRING(__SIZEOF_LONG__) "\n"
+        "#define __SIZEOF_LONG_LONG__ " TOSTRING(__SIZEOF_LONG_LONG__) "\n"
+        "#define __SIZEOF_SHORT__ " TOSTRING(__SIZEOF_SHORT__) "\n"
+        "#define __SIZEOF_POINTER__ " TOSTRING(__SIZEOF_POINTER__) "\n"
+        "#define __SIZEOF_FLOAT__ " TOSTRING(__SIZEOF_FLOAT__) "\n"
+        "#define __SIZEOF_DOUBLE__ " TOSTRING(__SIZEOF_DOUBLE__) "\n"
+        "#define __SIZEOF_LONG_DOUBLE__ " TOSTRING(__SIZEOF_LONG_DOUBLE__) "\n"
+        "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
+        "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
+        "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
+        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
+
         ;
 
 #endif

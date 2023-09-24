@@ -2928,5 +2928,27 @@ void flow_tests()
         "";
     assert(compile_without_errors(true, source));
 }
+
+void member()
+{
+    const char* source
+        =
+        "struct X {\n"
+        "  union {\n"
+        "    struct {\n"
+        "      int *pSelect;\n"
+        "    } view;\n"
+        "  }u;\n"
+        "};\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    struct X t;\n"
+        "    t.u.view.pSelect = 0;\n"
+        "}\n"
+        "";
+     assert(compile_without_errors(true, source));
+}
+
 #endif
 

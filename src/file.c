@@ -1,5 +1,13 @@
-#include <limits.h>
+struct X {
+  union {
+    struct {
+      int *pSelect;
+    } view;
+  }u;
+};
+
 int main()
 {
-    int i = USHRT_MAX;
+    struct X t;
+    t.u.view.pSelect = 0;
 }
