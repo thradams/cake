@@ -201,6 +201,7 @@ void return_bad_object(void);
 void null_to_owner(void);
 void return_true_branch(void);
 void flow_tests(void);
+void member(void);
 
 /*end of forward declarations*/
 
@@ -395,6 +396,7 @@ g_unit_test_success_count = 0;
     null_to_owner();
     return_true_branch();
     flow_tests();
+    member();
 return g_unit_test_error_count;
 
 }
