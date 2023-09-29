@@ -1146,12 +1146,7 @@ enum token_type is_keyword(const char* text)
             if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
             break;
 
-        case 'o':
-            if (strcmp("owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
-            else if (strcmp("obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
-            else if (strcmp("opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
-            break;
-
+        
         case 'l':
             if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
             break;
@@ -1190,13 +1185,14 @@ enum token_type is_keyword(const char* text)
         case 'v':
             if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
             else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
-            else if (strcmp("view", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
+            
             break;
         case 'w':
             if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
             break;
         case '_':
 
+            
             //begin microsoft
             if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
             else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
@@ -1208,6 +1204,12 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
             //
             //end microsoft
+
+            /*ownership*/
+            else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
+            else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
 
             /*EXPERIMENTAL EXTENSION*/
             else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;

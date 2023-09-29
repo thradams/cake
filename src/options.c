@@ -151,7 +151,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-flow-analysis") == 0)
+        if (strcmp(argv[i], "-analyze") == 0)
         {
             options->flow_analysis = true;
             continue;
@@ -179,12 +179,6 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-fo") == 0)
         {
             options->format_ouput = true;
-            continue;
-        }
-
-        if (strcmp(argv[i], "-no-discard") == 0)
-        {
-            options->nodiscard_is_default = true;
             continue;
         }
 

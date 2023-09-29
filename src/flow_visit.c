@@ -1322,7 +1322,9 @@ void checked_read_object(struct parser_ctx* ctx,
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         struct member_declaration* p_member_declaration =
-            p_struct_or_union_specifier->member_declaration_list.head;
+            p_struct_or_union_specifier ? 
+            p_struct_or_union_specifier->member_declaration_list.head : 
+            NULL;
 
         /*
         *  Some parts of the object needs to be moved..

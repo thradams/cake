@@ -206,12 +206,6 @@ struct options
     bool format_input;
     bool format_ouput;
     
-    /*
-      -no-discard 
-    */
-    bool nodiscard_is_default;
-
-
     
     /*
       -no-output

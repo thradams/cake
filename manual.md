@@ -94,8 +94,6 @@ Format input (format before language conversion)
 #### -fo
 Format output (format after language conversion, result parsed again)
 
-#### -no-discard
-Makes [[nodiscard]] default implicitly
 
 #### -Wname -Wno-name  (same as GCC)   
 Enables or disable warnings.
@@ -114,6 +112,10 @@ Generates sarif files
 #### -msvc-output          
 Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. 
 
+### -analyze
+Runs flow analysis and ownership checks
+
+## Output
 
 One directory called **out** is created keeping the same directory structure of the input files.
 

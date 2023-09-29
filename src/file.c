@@ -2,12 +2,12 @@ struct X {
   union {
     struct {
       int *pSelect;
-    } view;
+    } view2;
   }u;
 };
 
 int main()
 {
     struct X t;
-    t.u.view.pSelect = 0;
+    t.u.view2.pSelect = 0;
 }

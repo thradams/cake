@@ -4,6 +4,14 @@
 
 
 #ifdef __CAKE__
+
+#define owner _Owner
+#define obj_owner  _Obj_owner
+#define view _View
+#define static_debug(x)
+#define static_set(x, s)
+#define unchecked
+
 void* owner calloc(int nmemb, int size);
 void free(void* owner ptr);
 void* owner malloc(int size);
