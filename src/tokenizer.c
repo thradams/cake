@@ -4574,11 +4574,9 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
         "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
         "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
-        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
-
-        ;
-
+        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"        
 #endif
+        "\n";
 
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);

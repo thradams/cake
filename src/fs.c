@@ -411,9 +411,9 @@ static const char* file_assert_h =
 
 #define  _OWNERSHIP__STR "\n"\
  "#ifdef _OWNERSHIP_\n"\
- "#define OWNER owner\n"\
- "#define OBJ_OWNER obj_owner\n"\
- "#define VIEW view\n"\
+ "#define OWNER _Owner\n"\
+ "#define OBJ_OWNER _Obj_owner\n"\
+ "#define VIEW _View\n"\
  "#else\n"\
  "#define OWNER\n"\
  "#define OBJ_OWNER\n"\

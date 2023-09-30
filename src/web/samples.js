@@ -1181,22 +1181,22 @@ sample["Ownership (experimental)"]=[];
 
 sample["Ownership (experimental)"]["hello"] =
 `
-void* owner malloc(unsigned long size);
-void free(void* owner ptr);
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
 
 int main() {
-   void * owner p = malloc(1);
+   void * _Owner p = malloc(1);
    free(p);
 }
 `;
 
 sample["Ownership (experimental)"]["static_state/static_debug"] =
 `
-void* owner malloc(unsigned long size);
-void free(void* owner ptr);
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
 
 int main() {
-   void * owner p = malloc(1);
+   void * _Owner p = malloc(1);
    if (p)
    {
      static_state(p, "not-null"); 
@@ -1215,7 +1215,7 @@ sample["Ownership (experimental)"]["implementing a destructor I"] =
 #include <string.h>
 
 struct X {
-  char *owner name;
+  char *_Owner name;
 };
 
 void x_destroy(struct X x) 
@@ -1238,10 +1238,10 @@ sample["Ownership (experimental)"]["implementing a destructor II"] =
 #include <string.h>
 
 struct X {
-  char *owner name;
+  char *_Owner name;
 };
 
-void x_destroy(struct X * obj_owner p) 
+void x_destroy(struct X * _Obj_owner p) 
 {
   free(p->name);
 }
@@ -1262,10 +1262,10 @@ sample["Ownership (experimental)"]["view qualifier"] =
 #include <string.h>
 
 struct X {
-  char *owner name;
+  char *_Owner name;
 };
 
-void f(view struct X x) 
+void f(_View struct X x) 
 {
   printf(x.name);
 }
@@ -1287,10 +1287,10 @@ sample["Ownership (experimental)"]["implementing delete"] =
 #include <stdlib.h>
 
 struct X {
-  char * owner text;
+  char * _Owner text;
 };
 
-void x_delete(struct X * owner p)
+void x_delete(struct X * _Owner p)
 {
     if (p)
     {
@@ -1300,7 +1300,7 @@ void x_delete(struct X * owner p)
 }
 
 int main() {   
-   struct X * owner p = malloc(sizeof(struct X));
+   struct X * _Owner p = malloc(sizeof(struct X));
       
    p->text = malloc(10);
 
@@ -1344,16 +1344,16 @@ sample["Ownership (experimental)"]["Linked list"] =
 #include <string.h>
 
 struct node {
- char * owner text;
- struct node* owner next;
+ char * _Owner text;
+ struct node* _Owner next;
 };
 
 struct list {
-  struct node * owner head;
+  struct node * _Owner head;
   struct node * tail;
 };
 
-void list_append(struct list* list, struct node* owner node)
+void list_append(struct list* list, struct node* _Owner node)
 {
   if (list->head == NULL) {
       list->head = node;
@@ -1365,11 +1365,11 @@ void list_append(struct list* list, struct node* owner node)
    list->tail = node;
 }
 
-void list_destroy(struct list* obj_owner list)
+void list_destroy(struct list* _Obj_owner list)
 {
-  struct node * owner p = list->head;
+  struct node * _Owner p = list->head;
   while (p) {
-      struct node *  owner next = p->next;
+      struct node *  _Owner next = p->next;
       free(p->text); 
       free(p);
       p = next;
@@ -1388,7 +1388,7 @@ void list_print(const struct list* list)
 int main()
 {
   struct list list = {};
-  struct node  *owner p =  calloc(1, sizeof * p);
+  struct node  *_Owner p =  calloc(1, sizeof * p);
   
   if (p) {
     p->text = strdup("item1");
@@ -1405,14 +1405,14 @@ int main()
 sample["Ownership (experimental)"]["static_set/realloc"] =
 `
 
-void* owner realloc(void* ptr, unsigned size);
-void* owner malloc(unsigned long size);
-void free(void* owner ptr);
+void* _Owner realloc(void* ptr, unsigned size);
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
 
 void f()
 {
-    void * owner p = malloc(1);
-    void * owner p2 = realloc(p, 2);
+    void * _Owner p = malloc(1);
+    void * _Owner p2 = realloc(p, 2);
     if (p2 != 0)
     {
        /*
@@ -1432,12 +1432,12 @@ sample["flow-analysis"] = [];
 sample["flow-analysis"]["if-else 1"] =
 `
 
-void* owner malloc(unsigned long size);
-void free(void* owner ptr);
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
 
 void f1()
 {
-    void * owner p = malloc(1);
+    void * _Owner p = malloc(1);
     if (p) {
       static_state(p, "not-null");
     }
@@ -1448,7 +1448,7 @@ void f1()
 
 void f2(int condition)
 {
-    void * owner p = malloc(1);
+    void * _Owner p = malloc(1);
     if (condition) {
       static_state(p, "maybe-null");
     }
@@ -1459,7 +1459,7 @@ void f2(int condition)
 
 void f3(int condition)
 {
-    void * owner p = malloc(1);
+    void * _Owner p = malloc(1);
     
     if (condition) {
        free(p);
@@ -1473,7 +1473,7 @@ void f3(int condition)
 
 void f3(int condition)
 {
-    void * owner p = malloc(1);
+    void * _Owner p = malloc(1);
     
     if (condition) {
        
@@ -1488,7 +1488,7 @@ void f3(int condition)
 
 void f4(int condition)
 {
-    void * owner p = malloc(1);
+    void * _Owner p = malloc(1);
     
     if (condition) {
        free(p);
@@ -1502,7 +1502,7 @@ void f4(int condition)
 
 void f5(int condition)
 {
-    void * owner p = malloc(1);
+    void * _Owner p = malloc(1);
     
     if (p) {
        free(p);
@@ -1587,9 +1587,9 @@ enum {
     thrd_error  /* unspecified */
 };
 
-typedef struct { owner int dummy; } mtx_t;
+typedef struct { _Owner int dummy; } mtx_t;
 int mtx_init(mtx_t *mtx, int type);
-void mtx_destroy( mtx_t * obj_owner mutex );
+void mtx_destroy( mtx_t * _Obj_owner mutex );
 
 int main()
 {
@@ -1604,12 +1604,12 @@ int main()
 
 sample["Ownership (experimental)"]["socket"] =
 `
-owner int socket();
-void close(owner int fd);
+_Owner int socket();
+void close(_Owner int fd);
 
 int main()
 {
-  owner int fd;
+  _Owner int fd;
   
   fd = socket();
   if (fd < 0)
@@ -1632,8 +1632,8 @@ sample["Ownership (experimental)"]["assignment"] =
 
 int main()
 {  
-  const char * owner s1 = strdup("hi");
-  const char * owner s2 = NULL;
+  const char * _Owner s1 = strdup("hi");
+  const char * _Owner s2 = NULL;
 
   s2 = s1;
 
@@ -1643,7 +1643,7 @@ int main()
 
 
 
-sample["Ownership (experimental)"]["takes_ownership"] =
+sample["Ownership (experimental)"]["takes__Ownership"] =
 `
 #define _OWNERSHIP_
  
@@ -1651,7 +1651,7 @@ sample["Ownership (experimental)"]["takes_ownership"] =
 #include <stdio.h>
 #include <string.h>
 
-void takes_ownership(char * owner some_string)
+void takes__Ownership(char * _Owner some_string)
 {
     printf("%s", some_string);  
     free(some_string);
@@ -1659,25 +1659,25 @@ void takes_ownership(char * owner some_string)
 
 int main()
 {
-    owner auto s = strdup("hello");
-    takes_ownership(s);
+    _Owner auto s = strdup("hello");
+    takes__Ownership(s);
 }
 `;
 
 
-sample["Ownership (experimental)"]["gives_ownership"] =
+sample["Ownership (experimental)"]["gives ownership"] =
 `
 #define _OWNERSHIP_ 
 #include <string.h>
 #include <stdlib.h>
 
-const char * owner gives_ownership() {  
-    owner auto some_string = strdup("yours");
+const char * _Owner gives_ownership() {  
+    _Owner auto some_string = strdup("yours");
     return some_string;
 }
 
 int main(){
-  owner auto s = gives_ownership();
+  _Owner auto s = gives_ownership();
   free(s);
 }
 
@@ -1692,7 +1692,7 @@ sample["Ownership (experimental)"]["moving parts of view"] =
 
 
 struct X {
-  char *owner name;
+  char *_Owner name;
 };
 
 struct Y {
@@ -1701,7 +1701,7 @@ struct Y {
 };
 
 
-void x_destroy(struct X * obj_owner p) 
+void x_destroy(struct X * _Obj_owner p) 
 {
   free(p->name);
 }
@@ -1724,17 +1724,17 @@ int main() {
 
 sample["Ownership (experimental)"]["owner pointer owns two objects"] =
 `
-void * owner calloc(unsigned long i, unsigned long sz);
-char * owner strdup(const char* );
-void free(void * owner p);
+void * _Owner calloc(unsigned long i, unsigned long sz);
+char * _Owner strdup(const char* );
+void free(void * _Owner p);
 
 struct X {
-  char *owner name;
+  char *_Owner name;
 };
 
 int main()
 {
-   struct X * owner p = calloc(1, sizeof * p);
+   struct X * _Owner p = calloc(1, sizeof * p);
    if (p) {
 
      p->name = strdup("hi");     
@@ -1750,17 +1750,17 @@ int main()
 
 sample["Ownership (experimental)"]["checking double free"] =
 `
-void free(void * owner p);
+void free(void * _Owner p);
 
 struct X {
-    char * owner naasdasdme;
-    char * owner nasdasame;
-    char * owner naasdme;
-    char * owner namasde;
-    char * owner namasade;
+    char * _Owner naasdasdme;
+    char * _Owner nasdasame;
+    char * _Owner naasdme;
+    char * _Owner namasde;
+    char * _Owner namasade;
 };
 
-void x_destroy(struct X * obj_owner p)
+void x_destroy(struct X * _Obj_owner p)
 {
     free(p->naasdasdme);
     free(p->nasdasame);

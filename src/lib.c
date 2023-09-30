@@ -6704,11 +6704,9 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
         "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
         "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
-        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
-
-        ;
-
+        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"        
 #endif
+        "\n";
 
     struct token_list l = tokenizer(&tctx, pre_defined_macros_text, "standard macros inclusion", 0, TK_FLAG_NONE);
     struct token_list l10 = preprocessor(ctx, &l, 0);
@@ -8835,9 +8833,9 @@ static const char* file_assert_h =
 
 #define  _OWNERSHIP__STR "\n"\
  "#ifdef _OWNERSHIP_\n"\
- "#define OWNER owner\n"\
- "#define OBJ_OWNER obj_owner\n"\
- "#define VIEW view\n"\
+ "#define OWNER _Owner\n"\
+ "#define OBJ_OWNER _Obj_owner\n"\
+ "#define VIEW _View\n"\
  "#else\n"\
  "#define OWNER\n"\
  "#define OBJ_OWNER\n"\
