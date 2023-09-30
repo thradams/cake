@@ -1099,7 +1099,7 @@ int main()
 
 
 
-sample["Extensions"]["pragma warning"] =
+sample["Extensions"]["pragma diagnostic"] =
 `
 enum E1 { A };
 enum E2 { B };
