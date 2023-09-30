@@ -994,8 +994,7 @@ bool first_of_iteration_statement(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    return
-        ctx->current->type == TK_KEYWORD_REPEAT || /*extension*/
+    return        
         ctx->current->type == TK_KEYWORD_WHILE ||
         ctx->current->type == TK_KEYWORD_DO ||
         ctx->current->type == TK_KEYWORD_FOR;
@@ -1154,7 +1153,7 @@ enum token_type is_keyword(const char* text)
             if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
             else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
             else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
-            else if (strcmp("repeat", text) == 0) result = TK_KEYWORD_REPEAT;
+            
             break;
         case 's':
             if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
@@ -6087,12 +6086,7 @@ struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
         p_iteration_statement->expression1 = expression(ctx);
         parser_match_tk(ctx, ')');
         parser_match_tk(ctx, ';');
-    }
-    else if (ctx->current->type == TK_KEYWORD_REPEAT)
-    {
-        parser_match(ctx);
-        p_iteration_statement->secondary_block = secondary_block(ctx);
-    }
+    }    
     else if (ctx->current->type == TK_KEYWORD_WHILE)
     {
         parser_match(ctx);

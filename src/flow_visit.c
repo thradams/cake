@@ -3438,11 +3438,7 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
     {
         flow_visit_do_while_statement(ctx, p_iteration_statement);
-    }
-    else if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
-    {
-        //flow_visit_do_while_statement(ctx, p_iteration_statement);
-    }
+    }    
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_FOR)
     {
         //flow_visit_do_while_statement(ctx, p_iteration_statement);

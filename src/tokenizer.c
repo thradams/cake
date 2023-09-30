@@ -4725,7 +4725,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH";
         case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY";
         case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
-        case TK_KEYWORD_REPEAT: return "TK_KEYWORD_REPEAT";
+        
         case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
     }
     assert(false);

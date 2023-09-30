@@ -1488,29 +1488,6 @@ void create_app(const char* appname)
 }
 ```
 
-###  Extension Repeat
-
-```
-iteration-statement:
-        ...
-        "repeat" secondary-block
-```
-
-Repeat merely executes the given statement forever unless a break statement is encountered, 
-or a goto passes control to a statement outside the loop.
-
-```c
-  repeat {
-       if (condition) 
-         break;
-  }
-```
-
-Repeat is the same of `for(;;)`.
-
-In cake's source for instance I have 5 occurrences of `for(;;)`.
-
-
 ### Extension #pragma expand
 
 pragma expand tells the C back-end to not hide macro expansions. This is necessary when

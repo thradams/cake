@@ -381,7 +381,7 @@ enum token_type
     TK_KEYWORD_VOID,
     TK_KEYWORD_VOLATILE,
     TK_KEYWORD_WHILE,
-    TK_KEYWORD_REPEAT,
+    
     TK_KEYWORD__ALIGNAS,
     TK_KEYWORD__ALIGNOF,
     TK_KEYWORD__ATOMIC,
@@ -6855,7 +6855,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH";
         case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY";
         case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
-        case TK_KEYWORD_REPEAT: return "TK_KEYWORD_REPEAT";
+        
         case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
     }
     assert(false);
@@ -20398,8 +20398,7 @@ bool first_of_iteration_statement(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    return
-        ctx->current->type == TK_KEYWORD_REPEAT || /*extension*/
+    return        
         ctx->current->type == TK_KEYWORD_WHILE ||
         ctx->current->type == TK_KEYWORD_DO ||
         ctx->current->type == TK_KEYWORD_FOR;
@@ -20558,7 +20557,7 @@ enum token_type is_keyword(const char* text)
             if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
             else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
             else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
-            else if (strcmp("repeat", text) == 0) result = TK_KEYWORD_REPEAT;
+            
             break;
         case 's':
             if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
@@ -25491,12 +25490,7 @@ struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
         p_iteration_statement->expression1 = expression(ctx);
         parser_match_tk(ctx, ')');
         parser_match_tk(ctx, ';');
-    }
-    else if (ctx->current->type == TK_KEYWORD_REPEAT)
-    {
-        parser_match(ctx);
-        p_iteration_statement->secondary_block = secondary_block(ctx);
-    }
+    }    
     else if (ctx->current->type == TK_KEYWORD_WHILE)
     {
         parser_match(ctx);
@@ -27863,12 +27857,7 @@ static void visit_iteration_statement(struct visit_ctx* ctx, struct iteration_st
     {
         visit_expression(ctx, p_iteration_statement->expression2);
     }
-
-    if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
-    {
-        free(p_iteration_statement->first_token->lexeme);
-        p_iteration_statement->first_token->lexeme = strdup("for(;;)/*repeat*/");
-    }
+    
 
     if (p_iteration_statement->secondary_block)
     {
@@ -32620,11 +32609,7 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
     {
         flow_visit_do_while_statement(ctx, p_iteration_statement);
-    }
-    else if (p_iteration_statement->first_token->type == TK_KEYWORD_REPEAT)
-    {
-        //flow_visit_do_while_statement(ctx, p_iteration_statement);
-    }
+    }    
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_FOR)
     {
         //flow_visit_do_while_statement(ctx, p_iteration_statement);

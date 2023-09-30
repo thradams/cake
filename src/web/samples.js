@@ -985,15 +985,6 @@ int main()
 }
 `;
 
-sample["Extensions"]["repeat statement"] =
-`
-int main()
-{
-   repeat {
-     break;
-   }
-}
-`;
 
 sample["Extensions"]["Literal function (lambda) I"] =
 `
