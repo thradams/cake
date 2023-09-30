@@ -1,13 +1,15 @@
-struct X {
-  union {
-    struct {
-      int *pSelect;
-    } view2;
-  }u;
-};
-
 int main()
 {
-    struct X t;
-    t.u.view2.pSelect = 0;
+  try
+  {
+     int i = 0;
+     if (i == 0) return;    
+     defer i = 1;    
+     if (i == 0) return;     
+  }
+  catch
+  {
+     /*some error*/
+  }
 }
+

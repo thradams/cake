@@ -12,6 +12,8 @@ if (f)
     fclose(f);
 ```
 
+**Note:** The owner qualifier is actually a macro and the real keyword is _Owner. Being a macro have an advantage that it can be defined to nothing for compilers that don't implement ownership. For this job we can include <ownership.h>, but this details will be omitted for now.
+
 **Rule**: An **owner object** is always the unique owner of the referenced object.
 
 **Rule**: When owner objects are copied the ownership is transfered.

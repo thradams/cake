@@ -1322,8 +1322,8 @@ void checked_read_object(struct parser_ctx* ctx,
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
         struct member_declaration* p_member_declaration =
-            p_struct_or_union_specifier ? 
-            p_struct_or_union_specifier->member_declaration_list.head : 
+            p_struct_or_union_specifier ?
+            p_struct_or_union_specifier->member_declaration_list.head :
             NULL;
 
         /*
@@ -1772,10 +1772,9 @@ struct object* visit_objects_next(struct visit_objects* visit_objects)
             }
             else
             {
-                visit_objects->next_child = visit_objects->current_block->last_child;
+                visit_objects->next_child = visit_objects->next_child->previous;
             }
         }
-
 
         visit_objects->current_block = visit_objects->current_block->previous;
         if (visit_objects->current_block)
@@ -2136,6 +2135,13 @@ static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct second
 
 static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_statement* p_defer_statement)
 {
+
+    //adiciona como filho do ultimo bloco
+//    struct defer_scope* p_defer = visit_ctx_push_tail_child(ctx);
+  //  p_defer->defer_statement = p_defer_statement;
+
+
+
 
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_child(ctx);
     p_defer->defer_statement = p_defer_statement;
@@ -3279,8 +3285,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         default:
             break;
+            }
     }
-}
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
@@ -3438,7 +3444,7 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
     {
         flow_visit_do_while_statement(ctx, p_iteration_statement);
-    }    
+    }
     else if (p_iteration_statement->first_token->type == TK_KEYWORD_FOR)
     {
         //flow_visit_do_while_statement(ctx, p_iteration_statement);
