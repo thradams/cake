@@ -272,16 +272,19 @@
 
 <p>Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. </p>
 
-<p>Cakes uses the same command line options of MSVC and GCC.</p>
+<p>When applicable, Cake uses the same command line options of MSVC and GCC.</p>
 
 <h2 id="toc_1">Include directories</h2>
 
-<p>On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file &#39;includes.txt&#39; and specifying the directories. To discover what directories are included, you can run the command &#39;echo %INCLUDE%&#39; at Visual Studio command prompt.</p>
+<p>On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file &#39;includes.txt&#39; and specifying the directories. </p>
+
+<p>To discover what directories are included, you can run the command &#39;echo %INCLUDE%&#39; at Visual Studio command prompt.</p>
 
 <pre><code>echo %INCLUDE%
 </code></pre>
 
-<p>Copy this output to includes.txt. The separator can be ; or newline.</p>
+<p>Copy this output to includes.txt. The separator can be ; or newline.<br>
+The includes.txt must be together with cake.exe</p>
 
 <pre><code> ├── cake.exe
  ├── includes.txt
@@ -289,21 +292,14 @@
 
 <p>When cake runs it first tries to load include.txt, if not present it tries to read INCLUDE variable.</p>
 
-<p>On Linux, the same file is used. To find out what are the directories used by GCC type</p>
+<p>On Linux, the same file (includes.txt) is used. To find out what are the directories used by GCC type</p>
 
 <pre><code>echo | gcc -E -Wp,-v -
 </code></pre>
 
 <p>Then copy the directories to the includes.txt.  </p>
 
-<p>Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. This headers also are used  for the web version.</p>
-
-<pre><code> ├── cake.exe
- ├── includes.txt  
- ├── [include]  
-     ├── stdio.h
-     ...
-</code></pre>
+<p>Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on includes.txt but mixing headers is not recommended.</p>
 
 <h2 id="toc_2">Command line</h2>
 

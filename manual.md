@@ -2,19 +2,22 @@
 ## Intro
 Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. 
 
-Cakes uses the same command line options of MSVC and GCC.
+When applicable, Cake uses the same command line options of MSVC and GCC.
 
 
 ## Include directories
 
-On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file 'includes.txt' and specifying the directories. To discover what directories are included, you can run the command 'echo %INCLUDE%' at Visual Studio command prompt.
+On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file 'includes.txt' and specifying the directories. 
+
+To discover what directories are included, you can run the command 'echo %INCLUDE%' at Visual Studio command prompt.
   
 ```
 echo %INCLUDE%
 ```  
 
  
-Copy this output to includes.txt. The separator can be ; or newline.
+Copy this output to includes.txt. The separator can be ; or newline.  
+The includes.txt must be together with cake.exe
 
 ```  
  ├── cake.exe
@@ -23,7 +26,7 @@ Copy this output to includes.txt. The separator can be ; or newline.
   
 When cake runs it first tries to load include.txt, if not present it tries to read INCLUDE variable.
 
-On Linux, the same file is used. To find out what are the directories used by GCC type
+On Linux, the same file (includes.txt) is used. To find out what are the directories used by GCC type
 
 ```
 echo | gcc -E -Wp,-v -
@@ -31,15 +34,7 @@ echo | gcc -E -Wp,-v -
   
 Then copy the directories to the includes.txt.  
 
-Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. This headers also are used  for the web version.
-
-```  
- ├── cake.exe
- ├── includes.txt  
- ├── [include]  
-     ├── stdio.h
-     ...
-```
+Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on includes.txt but mixing headers is not recommended.
 
 ## Command line
 
