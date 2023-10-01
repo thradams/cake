@@ -994,7 +994,7 @@ bool first_of_iteration_statement(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    return        
+    return
         ctx->current->type == TK_KEYWORD_WHILE ||
         ctx->current->type == TK_KEYWORD_DO ||
         ctx->current->type == TK_KEYWORD_FOR;
@@ -1145,7 +1145,7 @@ enum token_type is_keyword(const char* text)
             if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
             break;
 
-        
+
         case 'l':
             if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
             break;
@@ -1153,7 +1153,7 @@ enum token_type is_keyword(const char* text)
             if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
             else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
             else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
-            
+
             break;
         case 's':
             if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
@@ -1184,14 +1184,14 @@ enum token_type is_keyword(const char* text)
         case 'v':
             if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
             else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
-            
+
             break;
         case 'w':
             if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
             break;
         case '_':
 
-            
+
             //begin microsoft
             if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
             else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
@@ -6086,7 +6086,7 @@ struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
         p_iteration_statement->expression1 = expression(ctx);
         parser_match_tk(ctx, ')');
         parser_match_tk(ctx, ';');
-    }    
+    }
     else if (ctx->current->type == TK_KEYWORD_WHILE)
     {
         parser_match(ctx);
@@ -6503,35 +6503,17 @@ unsigned long GetEnvironmentVariableA(
 
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
-    char executable_path[MAX_PATH] = {0};
-    get_self_path(executable_path, sizeof(executable_path));
-    dirname(executable_path);
-    char path[MAX_PATH] = {0};
-    snprintf(path, sizeof path, "%s/includes.txt", executable_path);
-    /*
-    * windows
-     echo %INCLUDE%
-     Linux 
-     echo | gcc -E -Wp,-v -
-     
-     copy the directories separated by ; or newnline to includes.txt
-    */
 
-    char* owner includes = read_file(path);
-    char env[2000] = {0};
+    
 
 #ifdef _WIN32
-    if (includes == NULL)
-    {
-        int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
-        includes = env;
-    }
-#endif
+    char env[2000] = {0};
+    int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
 
-    if (includes)
+    if (n > 0)
     {
-        const char* p = includes;
 
+        const char* p = env;
         for (;;)
         {
             if (*p == '\0')
@@ -6558,9 +6540,8 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             }
             p++;
         }
-        if (includes != env)
-            free(includes);
     }
+#endif
 
 }
 
@@ -6646,6 +6627,7 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx);
 
+    include_config_header(&prectx);
     //print_all_macros(&prectx);
 
     struct ast ast = {0};

@@ -883,6 +883,7 @@ void print_all_macros(struct preprocessor_ctx* prectx);
 
 int string_literal_byte_size(const char* s);
 int get_char_type(const char* s);
+void include_config_header(struct preprocessor_ctx* ctx);
 
 #ifdef _WIN32
 
@@ -5249,12 +5250,21 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     skip_blanks_level(ctx, &r, input_list, level);
                 }
 
-                if (strcmp(input_list->head->lexeme, "once") == 0)
+                if (input_list->head && strcmp(input_list->head->lexeme, "once") == 0)
                 {
                     hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*) 1, 0);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                 }
-                else if (strcmp(input_list->head->lexeme, "expand") == 0)
+                else if (input_list->head && strcmp(input_list->head->lexeme, "dir") == 0)
+                {
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+                    skip_blanks_level(ctx, &r, input_list, level);
+                    char path[200] = {0};
+                    strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
+                    include_dir_add(&ctx->include_dir, path);
+                    match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//pragma
+                }
+                else if (input_list->head && strcmp(input_list->head->lexeme, "expand") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                     skip_blanks_level(ctx, &r, input_list, level);
@@ -5267,14 +5277,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                 }
-                else if (strcmp(input_list->head->lexeme, "nullchecks") == 0)
+                else if (input_list->head && strcmp(input_list->head->lexeme, "nullchecks") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
                     skip_blanks_level(ctx, &r, input_list, level);
                     ctx->options.null_checks = true;
                 }
 
-                if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
+                if (input_list->head && strcmp(input_list->head->lexeme, "diagnostic") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
                     skip_blanks_level(ctx, &r, input_list, level);
@@ -6502,6 +6512,38 @@ void check_unused_macros(struct owner_hash_map* map)
     }
 }
 
+void include_config_header(struct preprocessor_ctx* ctx)
+{
+    char executable_path[MAX_PATH] = {0};
+    get_self_path(executable_path, sizeof(executable_path));
+    dirname(executable_path);
+    char path[MAX_PATH] = {0};
+    snprintf(path, sizeof path, "%s/cakeconfig.h", executable_path);
+    /*
+    * windows
+     echo %INCLUDE%
+     Linux 
+     echo | gcc -E -Wp,-v -          
+    */
+
+    char* owner str = read_file(path);
+
+
+    const enum warning w =
+        ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index];
+
+    
+
+    struct tokenizer_ctx tctx = {0};
+    struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
+    struct token_list l10 = preprocessor(ctx, &l, 0);
+    mark_macros_as_used(&ctx->macros);
+    token_list_destroy(&l);
+    free(str);
+    /*restore*/
+    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = w;
+}
+
 void add_standard_macros(struct preprocessor_ctx* ctx)
 {
     /*
@@ -6704,7 +6746,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
         "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
         "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
-        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"        
+        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
 #endif
         "\n";
 
@@ -6855,7 +6897,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH";
         case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY";
         case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
-        
+
         case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
     }
     assert(false);
@@ -20398,7 +20440,7 @@ bool first_of_iteration_statement(struct parser_ctx* ctx)
     if (ctx->current == NULL)
         return false;
 
-    return        
+    return
         ctx->current->type == TK_KEYWORD_WHILE ||
         ctx->current->type == TK_KEYWORD_DO ||
         ctx->current->type == TK_KEYWORD_FOR;
@@ -20549,7 +20591,7 @@ enum token_type is_keyword(const char* text)
             if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
             break;
 
-        
+
         case 'l':
             if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
             break;
@@ -20557,7 +20599,7 @@ enum token_type is_keyword(const char* text)
             if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
             else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
             else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
-            
+
             break;
         case 's':
             if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
@@ -20588,14 +20630,14 @@ enum token_type is_keyword(const char* text)
         case 'v':
             if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
             else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
-            
+
             break;
         case 'w':
             if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
             break;
         case '_':
 
-            
+
             //begin microsoft
             if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
             else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
@@ -25490,7 +25532,7 @@ struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
         p_iteration_statement->expression1 = expression(ctx);
         parser_match_tk(ctx, ')');
         parser_match_tk(ctx, ';');
-    }    
+    }
     else if (ctx->current->type == TK_KEYWORD_WHILE)
     {
         parser_match(ctx);
@@ -25907,35 +25949,17 @@ unsigned long GetEnvironmentVariableA(
 
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
-    char executable_path[MAX_PATH] = {0};
-    get_self_path(executable_path, sizeof(executable_path));
-    dirname(executable_path);
-    char path[MAX_PATH] = {0};
-    snprintf(path, sizeof path, "%s/includes.txt", executable_path);
-    /*
-    * windows
-     echo %INCLUDE%
-     Linux 
-     echo | gcc -E -Wp,-v -
-     
-     copy the directories separated by ; or newnline to includes.txt
-    */
 
-    char* owner includes = read_file(path);
-    char env[2000] = {0};
+    
 
 #ifdef _WIN32
-    if (includes == NULL)
-    {
-        int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
-        includes = env;
-    }
-#endif
+    char env[2000] = {0};
+    int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
 
-    if (includes)
+    if (n > 0)
     {
-        const char* p = includes;
 
+        const char* p = env;
         for (;;)
         {
             if (*p == '\0')
@@ -25962,9 +25986,8 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
             }
             p++;
         }
-        if (includes != env)
-            free(includes);
     }
+#endif
 
 }
 
@@ -26050,6 +26073,7 @@ int compile_one_file(const char* file_name,
 
     add_standard_macros(&prectx);
 
+    include_config_header(&prectx);
     //print_all_macros(&prectx);
 
     struct ast ast = {0};

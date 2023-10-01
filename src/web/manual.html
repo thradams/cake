@@ -245,29 +245,32 @@
 <a href="#toc_72">Extension Literal function - lambdas</a>
 </li>
 <li>
-<a href="#toc_73">Extension #pragma expand</a>
+<a href="#toc_73">Extension #pragma dir</a>
 </li>
 <li>
-<a href="#toc_74">Type traits</a>
+<a href="#toc_74">Extension #pragma expand</a>
 </li>
 <li>
-<a href="#toc_75">Extension type-expression</a>
+<a href="#toc_75">Type traits</a>
 </li>
 <li>
-<a href="#toc_76">Extension - Ownership checks</a>
+<a href="#toc_76">Extension type-expression</a>
 </li>
 <li>
-<a href="#toc_77">Extension typename on _Generic</a>
+<a href="#toc_77">Extension - Ownership checks</a>
 </li>
 <li>
-<a href="#toc_78">Extension assert declaration</a>
+<a href="#toc_78">Extension typename on _Generic</a>
+</li>
+<li>
+<a href="#toc_79">Extension assert declaration</a>
 </li>
 </ul>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_79">define assert(...) ((void)0)</a>
+<a href="#toc_80">define assert(...) ((void)0)</a>
 <h2 id="toc_0">Intro</h2>
 
 <p>Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. </p>
@@ -276,30 +279,35 @@
 
 <h2 id="toc_1">Include directories</h2>
 
-<p>On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file &#39;includes.txt&#39; and specifying the directories. </p>
+<p>On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file &#39;cakeconfig.h&#39; and specifying the directories using <code>pragma dir</code>. </p>
 
 <p>To discover what directories are included, you can run the command &#39;echo %INCLUDE%&#39; at Visual Studio command prompt.</p>
 
 <pre><code>echo %INCLUDE%
 </code></pre>
 
-<p>Copy this output to includes.txt. The separator can be ; or newline.<br>
-The includes.txt must be together with cake.exe</p>
+<p>Copy this output to <code>cakeconfig.h</code>.<br>
+For instance:</p>
 
-<pre><code> ├── cake.exe
- ├── includes.txt
+<pre><code> 
+#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Tools/MSVC/14.37.32820/include&quot;
+#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Auxiliary/VS/include&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/ucrt&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/um&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/shared&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/winrt&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
+
 </code></pre>
 
-<p>When cake runs it first tries to load include.txt, if not present it tries to read INCLUDE variable.</p>
+<p>When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.  </p>
 
-<p>On Linux, the same file (includes.txt) is used. To find out what are the directories used by GCC type</p>
+<p>On Linux, the same file <code>cakeconfig.h</code> is used. To find out what are the directories used by GCC type</p>
 
 <pre><code>echo | gcc -E -Wp,-v -
 </code></pre>
 
-<p>Then copy the directories to the includes.txt.  </p>
-
-<p>Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on includes.txt but mixing headers is not recommended.</p>
+<p>Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on <code>cakeconfig.h</code> but mixing cake headers with other headers is not recommended.</p>
 
 <h2 id="toc_2">Command line</h2>
 
@@ -1692,7 +1700,14 @@ void create_app(const char* appname)
 }
 </code></pre>
 
-<h3 id="toc_73">Extension #pragma expand</h3>
+<h3 id="toc_73">Extension #pragma dir</h3>
+
+<pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
+</code></pre>
+
+<p>pragma dir makes the preprocessor include the directory when searching for includes.</p>
+
+<h3 id="toc_74">Extension #pragma expand</h3>
 
 <p>pragma expand tells the C back-end to not hide macro expansions. This is necessary when
 the compiler makes changes inside the macro code.</p>
@@ -1735,7 +1750,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_74">Type traits</h3>
+<h3 id="toc_75">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.</p>
 
@@ -1767,7 +1782,7 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 
 </code></pre>
 
-<h3 id="toc_75">Extension type-expression</h3>
+<h3 id="toc_76">Extension type-expression</h3>
 
 <p>Syntax:</p>
 
@@ -1805,11 +1820,11 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_76">Extension - Ownership checks</h3>
+<h3 id="toc_77">Extension - Ownership checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
-<h3 id="toc_77">Extension typename on _Generic</h3>
+<h3 id="toc_78">Extension typename on _Generic</h3>
 
 <pre><code class="language-c"> int main()
 {
@@ -1826,12 +1841,12 @@ int main()
 <p>and the lvalue conversion will not happen, allowing 
 more precise (with qualifiers) type match.</p>
 
-<h3 id="toc_78">Extension assert declaration</h3>
+<h3 id="toc_79">Extension assert declaration</h3>
 
 <p>Standard says &quot;If NDEBUG is defined as a macro name at the point in the source file where <assert.h> is included, the assert macro is defined simply as
 ```c</p>
 
-<h1 id="toc_79">define assert(...) ((void)0)</h1>
+<h1 id="toc_80">define assert(...) ((void)0)</h1>
 
 <pre><code>
 What cake extensions does is, if the macro is NOT defined as ((void)0) then the macro is expanded as especial statement that sends information for the static analyzer. It doesn&#39;t matter how assert is defined it will be override. (this helps cake  using headers from other compilers and still understand the assert meaning)

@@ -93,3 +93,4 @@ void print_all_macros(struct preprocessor_ctx* prectx);
 
 int string_literal_byte_size(const char* s);
 int get_char_type(const char* s);
+void include_config_header(struct preprocessor_ctx* ctx);

@@ -3119,12 +3119,21 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     skip_blanks_level(ctx, &r, input_list, level);
                 }
 
-                if (strcmp(input_list->head->lexeme, "once") == 0)
+                if (input_list->head && strcmp(input_list->head->lexeme, "once") == 0)
                 {
                     hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*) 1, 0);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                 }
-                else if (strcmp(input_list->head->lexeme, "expand") == 0)
+                else if (input_list->head && strcmp(input_list->head->lexeme, "dir") == 0)
+                {
+                    match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+                    skip_blanks_level(ctx, &r, input_list, level);
+                    char path[200] = {0};
+                    strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
+                    include_dir_add(&ctx->include_dir, path);
+                    match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//pragma
+                }
+                else if (input_list->head && strcmp(input_list->head->lexeme, "expand") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                     skip_blanks_level(ctx, &r, input_list, level);
@@ -3137,14 +3146,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                 }
-                else if (strcmp(input_list->head->lexeme, "nullchecks") == 0)
+                else if (input_list->head && strcmp(input_list->head->lexeme, "nullchecks") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
                     skip_blanks_level(ctx, &r, input_list, level);
                     ctx->options.null_checks = true;
                 }
 
-                if (strcmp(input_list->head->lexeme, "diagnostic") == 0)
+                if (input_list->head && strcmp(input_list->head->lexeme, "diagnostic") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
                     skip_blanks_level(ctx, &r, input_list, level);
@@ -4372,6 +4381,38 @@ void check_unused_macros(struct owner_hash_map* map)
     }
 }
 
+void include_config_header(struct preprocessor_ctx* ctx)
+{
+    char executable_path[MAX_PATH] = {0};
+    get_self_path(executable_path, sizeof(executable_path));
+    dirname(executable_path);
+    char path[MAX_PATH] = {0};
+    snprintf(path, sizeof path, "%s/cakeconfig.h", executable_path);
+    /*
+    * windows
+     echo %INCLUDE%
+     Linux 
+     echo | gcc -E -Wp,-v -          
+    */
+
+    char* owner str = read_file(path);
+
+
+    const enum warning w =
+        ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index];
+
+    
+
+    struct tokenizer_ctx tctx = {0};
+    struct token_list l = tokenizer(&tctx, str, "standard macros inclusion", 0, TK_FLAG_NONE);
+    struct token_list l10 = preprocessor(ctx, &l, 0);
+    mark_macros_as_used(&ctx->macros);
+    token_list_destroy(&l);
+    free(str);
+    /*restore*/
+    ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = w;
+}
+
 void add_standard_macros(struct preprocessor_ctx* ctx)
 {
     /*
@@ -4574,7 +4615,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __SIZEOF_SIZE_T__ " TOSTRING(__SIZEOF_SIZE_T__) "\n"
         "#define __SIZEOF_WCHAR_T__ " TOSTRING(__SIZEOF_WCHAR_T__) "\n"
         "#define __SIZEOF_WINT_T__ " TOSTRING(__SIZEOF_WINT_T__) "\n"
-        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"        
+        "#define __SIZEOF_PTRDIFF_T__ " TOSTRING(__SIZEOF_PTRDIFF_T__) "\n"
 #endif
         "\n";
 
@@ -4725,7 +4766,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH";
         case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY";
         case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
-        
+
         case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
     }
     assert(false);

@@ -7,7 +7,7 @@ When applicable, Cake uses the same command line options of MSVC and GCC.
 
 ## Include directories
 
-On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file 'includes.txt' and specifying the directories. 
+On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file 'cakeconfig.h' and specifying the directories using `pragma dir`. 
 
 To discover what directories are included, you can run the command 'echo %INCLUDE%' at Visual Studio command prompt.
   
@@ -16,25 +16,31 @@ echo %INCLUDE%
 ```  
 
  
-Copy this output to includes.txt. The separator can be ; or newline.  
-The includes.txt must be together with cake.exe
+Copy this output to `cakeconfig.h`.  
+For instance:
 
 ```  
- ├── cake.exe
- ├── includes.txt
+ 
+#pragma dir "C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Tools/MSVC/14.37.32820/include"
+#pragma dir "C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Auxiliary/VS/include"
+#pragma dir "C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/ucrt"
+#pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/um"
+#pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/shared"
+#pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/winrt"
+#pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt"
+
 ```
   
-When cake runs it first tries to load include.txt, if not present it tries to read INCLUDE variable.
-
-On Linux, the same file (includes.txt) is used. To find out what are the directories used by GCC type
+When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.  
+  
+On Linux, the same file `cakeconfig.h` is used. To find out what are the directories used by GCC type
 
 ```
 echo | gcc -E -Wp,-v -
 ```
   
-Then copy the directories to the includes.txt.  
 
-Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on includes.txt but mixing headers is not recommended.
+Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on `cakeconfig.h` but mixing cake headers with other headers is not recommended.
 
 ## Command line
 
@@ -1482,6 +1488,14 @@ void create_app(const char* appname)
   _lit_func_0(&capture);  
 }
 ```
+
+### Extension #pragma dir  
+
+```c 
+#pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt"
+```  
+  
+pragma dir makes the preprocessor include the directory when searching for includes.
 
 ### Extension #pragma expand
 
