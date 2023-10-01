@@ -1635,19 +1635,16 @@ more precise (with qualifiers) type match.
 
 ### Extension assert declaration
 
-When assert is defined as macro as a function like macro, it is overridden. 
-
+Standard says "If NDEBUG is defined as a macro name at the point in the source file where <assert.h> is included, the assert macro is defined simply as
 ```c
-int main()
-{
-    assert(1 == 1);
-}
+#define assert(...) ((void)0)  
 ```
 
+What cake extensions does is, if the macro is NOT defined as ((void)0) then the macro is expanded as especial statement that sends information for the static analyzer. It doesn't matter how assert is defined it will be override. (this helps cake  using headers from other compilers and still understand the assert meaning)
 
 ## Versions
 
-0.5.1 Initial version
+
 
 
 

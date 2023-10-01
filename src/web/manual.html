@@ -264,10 +264,10 @@
 </li>
 </ul>
 </li>
-<li>
-<a href="#toc_79">Versions</a>
-</li>
 </ul>
+</li>
+<li>
+<a href="#toc_79">define assert(...) ((void)0)</a>
 <h2 id="toc_0">Intro</h2>
 
 <p>Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. </p>
@@ -1832,15 +1832,20 @@ more precise (with qualifiers) type match.</p>
 
 <h3 id="toc_78">Extension assert declaration</h3>
 
-<p>When assert is defined as macro as a function like macro, it is overridden. </p>
+<p>Standard says &quot;If NDEBUG is defined as a macro name at the point in the source file where <assert.h> is included, the assert macro is defined simply as
+```c</p>
 
-<pre><code class="language-c">int main()
-{
-    assert(1 == 1);
-}
+<h1 id="toc_79">define assert(...) ((void)0)</h1>
+
+<pre><code>
+What cake extensions does is, if the macro is NOT defined as ((void)0) then the macro is expanded as especial statement that sends information for the static analyzer. It doesn&#39;t matter how assert is defined it will be override. (this helps cake  using headers from other compilers and still understand the assert meaning)
+
+## Versions
+
+
+
+
+
+
 </code></pre>
-
-<h2 id="toc_79">Versions</h2>
-
-<p>0.5.1 Initial version</p>
 </article></body></html>
