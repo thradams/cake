@@ -1312,9 +1312,6 @@ int main() {
 
 sample["Ownership (experimental)"]["fix-me 1"] =
 `
-/*
-   Fix this code. First think you have to do is define _OWNERSHIP_ 
-*/
 
 //#include <ownership.h> 
 #include <stdlib.h>
@@ -1387,7 +1384,7 @@ void list_print(const struct list* list)
 int main()
 {
   struct list list = {};
-  struct node  *_Owner p =  calloc(1, sizeof * p);
+  struct node  * owner p =  calloc(1, sizeof * p);
   
   if (p) {
     p->text = strdup("item1");
@@ -1624,15 +1621,14 @@ int main()
 
 sample["Ownership (experimental)"]["assignment"] =
 `
-#define _OWNERSHIP_ 
-
+#include <ownership.h> 
 #include <string.h>
 #include <stdlib.h>
 
 int main()
 {  
-  const char * _Owner s1 = strdup("hi");
-  const char * _Owner s2 = NULL;
+  const char * owner s1 = strdup("hi");
+  const char * owner s2 = NULL;
 
   s2 = s1;
 

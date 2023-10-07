@@ -141,7 +141,7 @@ int main() {
 }
 ```
 
-However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, we introduce a new qualifier, **obj_owner**. 
+However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, I introduce a new qualifier, **obj_owner**. 
 
 A pointer qualified with **obj_owner** is the owner of the pointed object but not responsible for managing its memory.
 
@@ -625,33 +625,37 @@ int main() {
 
 
 
-## Ownership Feature Strategy (Inspired by <stdbool.h>)
+## Ownership Feature Strategy (Inspired by \<stdbool.h\>)
 
-If the compiler supports ownership qualifiers such as _Owner, _View, _Obj_view, etc., it can define __STDC_OWNERSHIP__.
+If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it can define `´__STDC_OWNERSHIP__`. 
 
-However, ownership-aware definitions and checks are not active by default. Therefore, when compiling this file, no new errors or warnings will appear.
+However, ownership is not active by default.
+
+Therefore, when compiling this file, we don't have errors or warnings.
 
 ```c
-#include <stdio.h>
+#include <stdlib.h>
 
 int main() {
   void * p = malloc(1);
 }
 ```
 
-The definition of malloc in this case is:
 
-```c
+But, including \<ownership.h\> at beginning, then the define `__OWNERSHIP_H__` will be present changing the declarations inside stdlib.h.  
+For instance, inside \<stdlib.h\>.  
+
+```c  
+#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)
+void * _Owner malloc(size_t size);  
+#define owner _Owner  
+#else
 void * malloc(size_t size);
+#define owner /*empty*/
+#endif
 ```
 
-But, if we include the ownership header at the beginning, AND the compiler supports ownership, the definition of malloc changes to:
-
-```c
-void * _Owner malloc(size_t size);
-```
-
-In this case, the compiler will check and require we change the code to:
+So now, this sample:
 
 ```c
 #include <ownership.h>
@@ -662,19 +666,36 @@ int main() {
 }
 ```
 
-This modification will result in a warning or error about a memory leak.
+Will have the ownership enabled if the compiler supports ownership. And we will see an error message about the leak.
+Otherwise, if the compiler does not support ownership checks the macro owner will be empty.
+The same thing for the other qualifiers.
 
-If the compiler supports ownership, the owner macro is as _Owner; otherwise, it is defined as an empty macro. 
-
-With this approach, the same code:
+This solution is not perfect. If we have mixed old-new code at same unit the old code will be affected. 
 
 ```c
 #include <ownership.h>
 #include <stdio.h>
+#include "oldheader.h"
 
 int main() {
   void * owner p = malloc(1);
 }
 ```
 
-Can be compiled with both new and old compilers.
+For now, the solution for this is disable warning around include "oldheader.h".
+
+In brief:
+ - Old code can be compiled in new compilers because they don't include <ownerhip.h>
+ - New code can be compiled in old compiler because qualifiers will be ignored
+ - New code will be compiled and checked when the header ownership is included.
+
+ I have considered something like `#pragma OWNERSHIP ON/OFF` but this is also similar controlling warning with pragma. The objective is also avoid reading `#pragma OWNERSHIP ON` everywhere.  
+
+I also have considered attributes, but is not so clear the attributes for types. But also the usage of attributes would be together with macros because we can compiler new code in old compilers.  
+    
+Although, here I am talking about a specific feature ownership, with the evolution of C this kind of situation will be very common. Maybe the natural evolution will be attributes, but attributes also feels temporary/experimental solution especially if they mean something on the type system.
+
+
+
+
+

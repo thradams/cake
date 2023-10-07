@@ -171,7 +171,7 @@ int main() {
 }
 </code></pre>
 
-<p>However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, we introduce a new qualifier, <strong>obj_owner</strong>. </p>
+<p>However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, I introduce a new qualifier, <strong>obj_owner</strong>. </p>
 
 <p>A pointer qualified with <strong>obj_owner</strong> is the owner of the pointed object but not responsible for managing its memory.</p>
 
@@ -615,30 +615,34 @@ int main() {
 }
 </code></pre>
 
-<h2 id="toc_6">Ownership Feature Strategy (Inspired by <stdbool.h>)</h2>
+<h2 id="toc_6">Ownership Feature Strategy (Inspired by &lt;stdbool.h&gt;)</h2>
 
-<p>If the compiler supports ownership qualifiers such as _Owner, _View, <em>Obj</em>view, etc., it can define <strong>STDC_OWNERSHIP</strong>.</p>
+<p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, <em>Obj</em>view, etc., it can define <code>´__STDC_OWNERSHIP__</code>. </p>
 
-<p>However, ownership-aware definitions and checks are not active by default. Therefore, when compiling this file, no new errors or warnings will appear.</p>
+<p>However, ownership is not active by default.</p>
 
-<pre><code class="language-c">#include &lt;stdio.h&gt;
+<p>Therefore, when compiling this file, we don&#39;t have errors or warnings.</p>
+
+<pre><code class="language-c">#include &lt;stdlib.h&gt;
 
 int main() {
   void * p = malloc(1);
 }
 </code></pre>
 
-<p>The definition of malloc in this case is:</p>
+<p>But, including &lt;ownership.h&gt; at beginning, then the define <code>__OWNERSHIP_H__</code> will be present changing the declarations inside stdlib.h.<br>
+For instance, inside &lt;stdlib.h&gt;.  </p>
 
-<pre><code class="language-c">void * malloc(size_t size);
+<pre><code class="language-c">#if defined(__STDC_OWNERSHIP__) &amp;&amp; defined(__OWNERSHIP_H__)
+void * _Owner malloc(size_t size);  
+#define owner _Owner  
+#else
+void * malloc(size_t size);
+#define owner /*empty*/
+#endif
 </code></pre>
 
-<p>But, if we include the ownership header at the beginning, AND the compiler supports ownership, the definition of malloc changes to:</p>
-
-<pre><code class="language-c">void * _Owner malloc(size_t size);
-</code></pre>
-
-<p>In this case, the compiler will check and require we change the code to:</p>
+<p>So now, this sample:</p>
 
 <pre><code class="language-c">#include &lt;ownership.h&gt;
 #include &lt;stdio.h&gt;
@@ -648,19 +652,31 @@ int main() {
 }
 </code></pre>
 
-<p>This modification will result in a warning or error about a memory leak.</p>
+<p>Will have the ownership enabled if the compiler supports ownership. And we will see an error message about the leak.
+Otherwise, if the compiler does not support ownership checks the macro owner will be empty.
+The same thing for the other qualifiers.</p>
 
-<p>If the compiler supports ownership, the owner macro is as _Owner; otherwise, it is defined as an empty macro. </p>
-
-<p>With this approach, the same code:</p>
+<p>This solution is not perfect. If we have mixed old-new code at same unit the old code will be affected. </p>
 
 <pre><code class="language-c">#include &lt;ownership.h&gt;
 #include &lt;stdio.h&gt;
+#include &quot;oldheader.h&quot;
 
 int main() {
   void * owner p = malloc(1);
 }
 </code></pre>
 
-<p>Can be compiled with both new and old compilers.</p>
+<p>For now, the solution for this is disable warning around include &quot;oldheader.h&quot;.</p>
+
+<p>In brief:
+ - Old code can be compiled in new compilers because they don&#39;t include <ownerhip.h>
+ - New code can be compiled in old compiler because qualifiers will be ignored
+ - New code will be compiled and checked when the header ownership is included.</p>
+
+<p>I have considered something like <code>#pragma OWNERSHIP ON/OFF</code> but this is also similar controlling warning with pragma. The objective is also avoid reading <code>#pragma OWNERSHIP ON</code> everywhere.  </p>
+
+<p>I also have considered attributes, but is not so clear the attributes for types. But also the usage of attributes would be together with macros because we can compiler new code in old compilers.  </p>
+
+<p>Although, here I am talking about a specific feature ownership, with the evolution of C this kind of situation will be very common. Maybe the natural evolution will be attributes, but attributes also feels temporary/experimental solution especially if they mean something on the type system.</p>
 </article></body></html>
