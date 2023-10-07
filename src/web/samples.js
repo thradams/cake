@@ -1201,12 +1201,19 @@ int main() {
 
 sample["Ownership (experimental)"]["implementing a destructor I"] =
 `
-#define _OWNERSHIP_ 
+
+/*
+  Header ownership.h defines macros owner, view etc.
+  It also "activate" ownership checks.
+  If the compiler does not suports ownership it defines as empty macros
+*/
+
+#include <ownership.h> 
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char *_Owner name;
+  char *owner name;
 };
 
 void x_destroy(struct X x) 
@@ -1219,17 +1226,19 @@ int main() {
    x.name = strdup("a");
    x_destroy(x);
 }
+
 `;
 
 
 sample["Ownership (experimental)"]["implementing a destructor II"] =
 `
-#define _OWNERSHIP_ 
+
+#include <ownership.h> 
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char *_Owner name;
+  char * owner name;
 };
 
 void x_destroy(struct X * _Obj_owner p) 
@@ -1242,21 +1251,21 @@ int main() {
    x.name = strdup("a");
    x_destroy(&x);
 }
+
 `;
 
 sample["Ownership (experimental)"]["view qualifier"] =
 `
-#define _OWNERSHIP_ 
-
+#include <ownership.h> 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 struct X {
-  char *_Owner name;
+  char *owner name;
 };
 
-void f(_View struct X x) 
+void f(view struct X x) 
 {
   printf(x.name);
 }
@@ -1267,18 +1276,18 @@ int main() {
    f(x); /*not moved*/
    free(x.name);
 }
+
 `;
 
 
 
 sample["Ownership (experimental)"]["implementing delete"] =
 `
-#define _OWNERSHIP_ 
-
+#include <ownership.h> 
 #include <stdlib.h>
 
 struct X {
-  char * _Owner text;
+  char * owner text;
 };
 
 void x_delete(struct X * _Owner p)
@@ -1291,7 +1300,7 @@ void x_delete(struct X * _Owner p)
 }
 
 int main() {   
-   struct X * _Owner p = malloc(sizeof(struct X));
+   struct X * owner p = malloc(sizeof(struct X));
       
    p->text = malloc(10);
 
@@ -1307,8 +1316,7 @@ sample["Ownership (experimental)"]["fix-me 1"] =
    Fix this code. First think you have to do is define _OWNERSHIP_ 
 */
 
-//#define _OWNERSHIP_ 
-
+//#include <ownership.h> 
 #include <stdlib.h>
 #include <string.h>
 
@@ -1328,23 +1336,23 @@ int main() {
 sample["Ownership (experimental)"]["Linked list"] =
 `
 
-#define _OWNERSHIP_ 
+#include <ownership.h> 
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
 struct node {
- char * _Owner text;
- struct node* _Owner next;
+ char * owner text;
+ struct node* owner next;
 };
 
 struct list {
-  struct node * _Owner head;
+  struct node * owner head;
   struct node * tail;
 };
 
-void list_append(struct list* list, struct node* _Owner node)
+void list_append(struct list* list, struct node* owner node)
 {
   if (list->head == NULL) {
       list->head = node;
@@ -1356,11 +1364,11 @@ void list_append(struct list* list, struct node* _Owner node)
    list->tail = node;
 }
 
-void list_destroy(struct list* _Obj_owner list)
+void list_destroy(struct list* obj_owner list)
 {
-  struct node * _Owner p = list->head;
+  struct node * owner p = list->head;
   while (p) {
-      struct node *  _Owner next = p->next;
+      struct node *  owner next = p->next;
       free(p->text); 
       free(p);
       p = next;
@@ -1634,15 +1642,14 @@ int main()
 
 
 
-sample["Ownership (experimental)"]["takes__Ownership"] =
+sample["Ownership (experimental)"]["takes_ownership"] =
 `
-#define _OWNERSHIP_
- 
+#include <ownership.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-void takes__Ownership(char * _Owner some_string)
+void takes_ownership(char * owner some_string)
 {
     printf("%s", some_string);  
     free(some_string);
@@ -1650,40 +1657,38 @@ void takes__Ownership(char * _Owner some_string)
 
 int main()
 {
-    _Owner auto s = strdup("hello");
-    takes__Ownership(s);
+    owner auto s = strdup("hello");
+    takes_ownership(s);
 }
 `;
 
 
 sample["Ownership (experimental)"]["gives ownership"] =
 `
-#define _OWNERSHIP_ 
+#include <ownership.h>
 #include <string.h>
 #include <stdlib.h>
 
-const char * _Owner gives_ownership() {  
-    _Owner auto some_string = strdup("yours");
+const char * owner gives_ownership() {  
+    owner auto some_string = strdup("yours");
     return some_string;
 }
 
 int main(){
-  _Owner auto s = gives_ownership();
+  owner auto s = gives_ownership();
   free(s);
 }
-
 `;
 
 sample["Ownership (experimental)"]["moving parts of view"] =
 `
-#define _OWNERSHIP_ 
-
+#include <ownership.h>
 #include <string.h>
 #include <stdlib.h>
 
 
 struct X {
-  char *_Owner name;
+  char * owner name;
 };
 
 struct Y {
@@ -1692,7 +1697,7 @@ struct Y {
 };
 
 
-void x_destroy(struct X * _Obj_owner p) 
+void x_destroy(struct X * obj_owner p) 
 {
   free(p->name);
 }
@@ -1709,7 +1714,6 @@ int main() {
    f(&y);
    free(y.x.name);
 }
-
 
 `;
 

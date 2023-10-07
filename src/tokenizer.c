@@ -4465,6 +4465,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __LINE__ 0\n"
         "#define __COUNT__ 0\n"
         "#define _CONSOLE\n"
+        "#define __STDC_OWNERSHIP__\n"
 
 #ifdef WIN32
         "#define _WINDOWS\n"

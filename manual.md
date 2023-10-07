@@ -166,7 +166,11 @@ set PATH=%PATH%;%CD%
 ```c
  #define __CAKE__ 202311L
  #define __STDC_VERSION__ 202311L
+ #define __STDC_OWNERSHIP__ 1
 ```
+
+The define __STDC_OWNERSHIP__ indicates that the compiler suports owneship checks
+
 
 ### Pre-defined macros for MSVC compatibility
 https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170#standard-predefined-macros

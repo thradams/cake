@@ -409,22 +409,10 @@ static const char* file_assert_h =
 "\n"
 "";
 
-#define  _OWNERSHIP__STR "\n"\
- "#ifdef _OWNERSHIP_\n"\
- "#define OWNER _Owner\n"\
- "#define OBJ_OWNER _Obj_owner\n"\
- "#define VIEW _View\n"\
- "#else\n"\
- "#define OWNER\n"\
- "#define OBJ_OWNER\n"\
- "#define VIEW \n"\
- "#endif\n"\
- "\n"
 
 
 static const char* file_stdio_h =
 "#pragma once\n"
-_OWNERSHIP__STR
 "#define _IOFBF 0x0000\n"
 "#define _IOLBF 0x0040\n"
 "#define _IONBF 0x0004\n"
@@ -465,10 +453,19 @@ _OWNERSHIP__STR
 "int rename(const char* old, const char* news);\n"
 "FILE* tmpfile(void);\n"
 "char* tmpnam(char* s);\n"
-"int fclose(FILE* OWNER stream);\n"
+"#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)\n"
+"int fclose(FILE* _Owner stream);\n"
+"#else\n"
+"int fclose(FILE* stream);\n"
+"#endif\n"
 "int fflush(FILE* stream);\n"
-"FILE* OWNER fopen(const char* restrict filename, const char* restrict mode);\n"
-"FILE* OWNER freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
+"#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)\n"
+"FILE* _Owner fopen(const char* restrict filename, const char* restrict mode);\n"
+"FILE* _Owner freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
+"#else\n"
+"FILE* fopen(const char* restrict filename, const char* restrict mode);\n"
+"FILE* freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
+"#endif\n"
 "void setbuf(FILE* restrict stream, char* restrict buf);\n"
 "int setvbuf(FILE* restrict stream, char* restrict buf, int mode, size_t size);\n"
 "int fprintf(FILE* restrict stream, const char* restrict format, ...);\n"
@@ -604,7 +601,6 @@ static const char* file_errno_h =
 
 
 static const char* file_string_h =
-_OWNERSHIP__STR
 " \n"
 "typedef int errno_t;\n"
 "typedef unsigned long long size_t;\n"
@@ -668,7 +664,11 @@ _OWNERSHIP__STR
 "char* strpbrk(char const* _Str, char const* _Control);\n"
 "size_t strspn(char const* _Str, char const* _Control);\n"
 "char* strtok(char* _String, char const* _Delimiter);\n"
-"char* OWNER strdup(char const* _String);\n"
+"#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)\n"
+"char* _Owner strdup(char const* _String);\n"
+"#else\n"
+"char* strdup(char const* _String);\n"
+"#endif\n"
 "int strcmpi(char const* _String1, char const* _String2);\n"
 "int stricmp(char const* _String1, char const* _String2);\n"
 "char* strlwr(char* _String);\n"
@@ -892,7 +892,6 @@ static const char* file_math_h
 "";
 
 static const char* file_stdlib_h =
-_OWNERSHIP__STR
 "typedef long long fpos_t;\n"
 "typedef unsigned size_t;\n"
 "\n"
@@ -912,10 +911,17 @@ _OWNERSHIP__STR
 "int rand(void);\n"
 "void srand(unsigned int seed);\n"
 "void* aligned_alloc(size_t alignment, size_t size);\n"
-"[[nodiscard]] void* OWNER calloc(size_t nmemb, size_t size);\n"
-"void free(void* OWNER ptr);\n"
-"[[nodiscard]] void* OWNER malloc(size_t size);\n"
-"[[nodiscard]] void* OWNER realloc(void* ptr, size_t size);\n"
+"#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)\n"
+"[[nodiscard]] void* _Owner calloc(size_t nmemb, size_t size);\n"
+"void free(void* _Owner ptr);\n"
+"[[nodiscard]] void* _Owner malloc(size_t size);\n"
+"[[nodiscard]] void* _Owner realloc(void* ptr, size_t size);\n"
+"#else\n"
+"[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
+"void free(void* ptr);\n"
+"[[nodiscard]] void* malloc(size_t size);\n"
+"[[nodiscard]] void* realloc(void* ptr, size_t size);\n"
+"#endif\n"
 "[[noreturn]] void abort(void);\n"
 "int atexit(void (*func)(void));\n"
 "int at_quick_exit(void (*func)(void));\n"
@@ -938,6 +944,31 @@ static const char* file_stddef_h =
 "typedef typeof(nullptr) nullptr_t;\n"
 "\n";
 
+const char* file_ownership_h = 
+ "#ifndef __OWNERSHIP_H__\n"
+ "#define __OWNERSHIP_H__\n"
+ "\n"
+ "#ifdef __STDC_OWNERSHIP__\n"
+ "#define owner _Owner\n"
+ "#define obj_owner  _Obj_owner\n"
+ "#define view _View\n"
+ "#define unchecked \"unchecked\"\n"
+ "\n"
+ "#else\n"
+ "#define owner\n"
+ "#define obj_owner\n"
+ "#define view\n"
+ "#define static_debug(x)\n"
+ "#define static_set(x, s)\n"
+ "#define unchecked\n"
+ "#endif\n"
+ "\n"
+ "#endif\n"
+ "\n"
+ "";
+
+
+
 char* owner read_file(const char* path)
 {
     if (strcmp(path, "c:/stdio.h") == 0)
@@ -954,6 +985,8 @@ char* owner read_file(const char* path)
         return strdup(file_string_h);
     else if (strcmp(path, "c:/assert.h") == 0)
         return strdup(file_assert_h);
+    else if (strcmp(path, "c:/ownership.h") == 0)
+        return strdup(file_ownership_h);
     printf("read %s\n", path);
     return NULL;
 }
