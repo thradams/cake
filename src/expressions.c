@@ -21,25 +21,33 @@
 #endif
 
 
-struct constant_value make_constant_value_double(double d)
+struct constant_value make_constant_value_double(double d, bool disabled)
 {
-    struct constant_value r;
+    struct constant_value r = {0};
+    if (disabled)
+        return r;
     r.dvalue = d;
     r.type = TYPE_DOUBLE;
     return r;
 }
 
-struct constant_value make_constant_value_ull(unsigned long long d)
+struct constant_value make_constant_value_ull(unsigned long long d, bool disabled)
 {
-    struct constant_value r;
+    struct constant_value r= {0};
+    if (disabled)
+        return r;
+
     r.ullvalue = d;
     r.type = TYPE_UNSIGNED_LONG_LONG;
     return r;
 }
 
-struct constant_value make_constant_value_ll(long long d)
+struct constant_value make_constant_value_ll(long long d, bool disabled)
 {
-    struct constant_value r;
+    struct constant_value r= {0};
+    if (disabled)
+        return r;
+
     r.llvalue = d;
     r.type = TYPE_LONG_LONG;
     return r;
@@ -864,7 +872,8 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             compiler_set_error_with_token(C_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
         }
 
-        p_expression_node->constant_value = make_constant_value_ll(c);
+
+        p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
     }
     else if (p[0] == 'u')
     {
@@ -887,7 +896,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             compiler_set_error_with_token(C_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
         }
 
-        p_expression_node->constant_value = make_constant_value_ll(c);
+        p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
     }
     else if (p[0] == 'U')
     {
@@ -906,7 +915,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
         }
 
 
-        p_expression_node->constant_value = make_constant_value_ll(c);
+        p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
     }
     else if (p[0] == 'L')
     {
@@ -942,7 +951,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             value = value * 256 + c;
         }
 
-        p_expression_node->constant_value = make_constant_value_ll(value);
+        p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
     }
     else
     {
@@ -968,7 +977,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
                 break;
             value = value * 256 + c;
         }
-        p_expression_node->constant_value = make_constant_value_ll(value);
+        p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
     }
 
     parser_match(ctx);
@@ -980,8 +989,9 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
 }
 
 
-int convert_to_number(struct token* token, struct expression* p_expression_node)
+int convert_to_number(struct token* token, struct expression* p_expression_node, bool disabled)
 {
+
     /*copia removendo os separadores*/
     //um dos maiores buffer necessarios seria 128 bits binario...
     //0xb1'1'1.... 
@@ -1007,30 +1017,30 @@ int convert_to_number(struct token* token, struct expression* p_expression_node)
 
             if (flags & TYPE_SPECIFIER_UNSIGNED)
             {
-                p_expression_node->constant_value = make_constant_value_ull(strtoull(buffer, 0, 10));
+                p_expression_node->constant_value = make_constant_value_ull(strtoull(buffer, 0, 10), disabled);
             }
             else
             {
-                p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, 0, 10));
+                p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, 0, 10), disabled);
             }
 
             break;
         case TK_COMPILER_OCTAL_CONSTANT:
-            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, 0, 8));
+            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, 0, 8), disabled);
 
             break;
         case TK_COMPILER_HEXADECIMAL_CONSTANT:
-            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 16));
+            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 16), disabled);
 
             break;
         case TK_COMPILER_BINARY_CONSTANT:
-            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 2));
+            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 2), disabled);
             break;
         case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
-            p_expression_node->constant_value = make_constant_value_double(strtod(buffer, 0));
+            p_expression_node->constant_value = make_constant_value_double(strtod(buffer, 0), disabled);
             break;
         case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-            p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0));
+            p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0), disabled);
             break;
         default:
             assert(false);
@@ -1158,7 +1168,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             {
                 struct enumerator* p_enumerator = p_entry->p;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
-                p_expression_node->constant_value = make_constant_value_ll(p_enumerator->value);
+                p_expression_node->constant_value = make_constant_value_ll(p_enumerator->value, ctx->evaluation_is_disabled);
 
                 p_expression_node->type = type_make_enumerator(p_enumerator->enum_specifier);
 
@@ -1275,7 +1285,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->last_token = ctx->current;
 
             p_expression_node->constant_value =
-                make_constant_value_ll(ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0);
+                make_constant_value_ll(ctx->current->type == TK_KEYWORD_TRUE ? 1 : 0, ctx->evaluation_is_disabled);
 
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_BOOL;
             p_expression_node->type.type_qualifier_flags = 0;
@@ -1293,7 +1303,8 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
 
-            p_expression_node->constant_value = make_constant_value_ll(0);
+
+            p_expression_node->constant_value = make_constant_value_ll(0, ctx->evaluation_is_disabled);
 
             /*TODO nullptr type*/
             p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_NULLPTR_T;
@@ -1311,7 +1322,9 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
             p_expression_node->expression_type = PRIMARY_EXPRESSION_NUMBER;
-            convert_to_number(ctx->current, p_expression_node);
+
+            convert_to_number(ctx->current, p_expression_node, ctx->evaluation_is_disabled);
+
             parser_match(ctx);
         }
         else if (ctx->current->type == TK_KEYWORD__GENERIC)
@@ -1341,15 +1354,15 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PARENTESIS;
-            p_expression_node->first_token = ctx->current;            
+            p_expression_node->first_token = ctx->current;
             parser_match(ctx);
             p_expression_node->right = expression(ctx);
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
-            if (p_expression_node->right == NULL) throw;            
-            p_expression_node->last_token= ctx->current;
+            if (p_expression_node->right == NULL) throw;
+            p_expression_node->last_token = ctx->current;
             parser_match_tk(ctx, ')');
-            
+
         }
         else
         {
@@ -1512,7 +1525,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
-                
+
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
@@ -1553,7 +1566,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
-                
+
 
 
                 if (!type_is_function_or_function_pointer(&p_expression_node->type))
@@ -1644,7 +1657,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
-                
+
 
 
                 parser_match(ctx);
@@ -1727,7 +1740,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
-                
+
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
                 p_expression_node_new->left = p_expression_node;
@@ -1740,7 +1753,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
-                
+
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
                 p_expression_node_new->left = p_expression_node;
@@ -1984,7 +1997,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 || ctx->current->type == '!'))
         {
 
-            struct expression* owner new_expression = calloc(1, sizeof * new_expression);            
+            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
 
@@ -2097,7 +2110,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
                 new_expression->type = type_add_pointer(&new_expression->right->type);
                 new_expression->type.address_of = true;
-                }
+            }
             else
             {
                 expression_delete(new_expression);
@@ -2108,9 +2121,13 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = new_expression;
-            }
+        }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
+            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = true;
+            //defer would be nice here...
+
             parser_match(ctx);
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
 
@@ -2126,27 +2143,32 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->type = type_make_int();
 
                 parser_match_tk(ctx, ')');
-                new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type));
 
+                new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
             }
             else
             {
                 new_expression->right = unary_expression(ctx);
                 if (new_expression->right == NULL)
                 {
+                    /*restore*/
+                    ctx->evaluation_is_disabled = disable_evaluation_copy;
                     expression_delete(new_expression);
                     throw;
                 }
 
 
                 new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_EXPRESSION;
-                new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->right->type));
 
+                new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->right->type), false);
             }
 
             type_destroy(&new_expression->type);
             new_expression->type = type_make_size_t();
             p_expression_node = new_expression;
+
+            /*restore*/
+            ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
         else if (
             ctx->current->type == TK_KEYWORD_IS_LVALUE ||
@@ -2160,6 +2182,9 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             ctx->current->type == TK_KEYWORD_IS_FLOATING_POINT ||
             ctx->current->type == TK_KEYWORD_IS_INTEGRAL)
         {
+            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = true;
+
             struct token* traits_token = ctx->current;
 
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
@@ -2186,6 +2211,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->right = unary_expression(ctx);
                 if (new_expression->right == NULL)
                 {
+                    /*restore*/
+                    ctx->evaluation_is_disabled = disable_evaluation_copy;
                     expression_delete(new_expression);
                     throw;
                 }
@@ -2193,45 +2220,46 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 p_type = &new_expression->right->type;
                 new_expression->last_token = ctx->previous;
             }
+
             switch (traits_token->type)
             {
                 case TK_KEYWORD_IS_LVALUE:
-                    new_expression->constant_value = make_constant_value_ll(type_is_lvalue(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_lvalue(p_type), false);
                     break;
 
                 case TK_KEYWORD_IS_CONST:
-                    new_expression->constant_value = make_constant_value_ll(type_is_const(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_const(p_type), false);
                     break;
                 case TK_KEYWORD_IS_OWNER:
-                    new_expression->constant_value = make_constant_value_ll(type_is_owner(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_owner(p_type), false);
                     break;
 
                 case TK_KEYWORD_IS_POINTER:
-                    new_expression->constant_value = make_constant_value_ll(type_is_pointer(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_pointer(p_type), false);
 
                     break;
                 case TK_KEYWORD_IS_FUNCTION:
-                    new_expression->constant_value = make_constant_value_ll(type_is_function(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_function(p_type), false);
 
                     break;
                 case TK_KEYWORD_IS_ARRAY:
-                    new_expression->constant_value = make_constant_value_ll(type_is_array(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_array(p_type), false);
 
                     break;
                 case TK_KEYWORD_IS_ARITHMETIC:
-                    new_expression->constant_value = make_constant_value_ll(type_is_arithmetic(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_arithmetic(p_type), false);
 
                     break;
                 case TK_KEYWORD_IS_SCALAR:
-                    new_expression->constant_value = make_constant_value_ll(type_is_scalar(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_scalar(p_type), false);
 
                     break;
                 case TK_KEYWORD_IS_FLOATING_POINT:
-                    new_expression->constant_value = make_constant_value_ll(type_is_floating_point(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_floating_point(p_type), false);
 
                     break;
                 case TK_KEYWORD_IS_INTEGRAL:
-                    new_expression->constant_value = make_constant_value_ll(type_is_integer(p_type));
+                    new_expression->constant_value = make_constant_value_ll(type_is_integer(p_type), false);
 
                     break;
 
@@ -2243,6 +2271,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
             new_expression->type = type_make_int_bool_like();
             p_expression_node = new_expression;
+            /*restore*/
+            ctx->evaluation_is_disabled = disable_evaluation_copy;
         }
         else if (ctx->current->type == TK_KEYWORD_ASSERT)
         {
@@ -2269,7 +2299,10 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             parser_match_tk(ctx, '(');
             new_expression->type_name = type_name(ctx);
             parser_match_tk(ctx, ')');
-            new_expression->constant_value = make_constant_value_ll(type_get_alignof(&new_expression->type_name->type));
+            if (!ctx->evaluation_is_disabled)
+            {
+                new_expression->constant_value = make_constant_value_ll(type_get_alignof(&new_expression->type_name->type), ctx->evaluation_is_disabled);
+            }
             new_expression->type = type_make_int();
             new_expression->last_token = ctx->previous;
 
@@ -2283,13 +2316,13 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             p_expression_node = postfix_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
-        }
+    }
     catch
     {
     }
 
     return p_expression_node;
-    }
+}
 
 struct expression* owner cast_expression(struct parser_ctx* ctx)
 {
@@ -2471,7 +2504,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            new_expression->last_token =  new_expression->right->last_token;
+            new_expression->last_token = new_expression->right->last_token;
 
             if (op == '*')
             {
@@ -2500,7 +2533,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
                 if (constant_value_is_valid(&new_expression->right->constant_value) &&
                     constant_value_to_ll(&new_expression->right->constant_value) == 0)
                 {
-                    compiler_set_error_with_token(C_DIVIZION_BY_ZERO, ctx, ctx->current, "divizion by zero");
+                    compiler_set_error_with_token(C_DIVIZION_BY_ZERO, ctx, ctx->current, "division by zero");
                 }
 
                 if (!type_is_arithmetic(&new_expression->left->type))
@@ -2789,7 +2822,7 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
                 ctx->current->type == '<<'))
         {
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            
+
             new_expression->first_token = ctx->current;
             static_set(*new_expression, "zero");
 
@@ -2956,11 +2989,13 @@ static void check_diferent_enuns(struct parser_ctx* ctx,
 void expression_evaluate_equal_not_equal(const struct expression* left,
     const struct expression* right,
     struct expression* result,
-    int op)
+    int op,
+    bool disabled)
 {
     assert(op == '==' || op == '!=');
     result->constant_value =
         constant_value_op(&left->constant_value, &right->constant_value, op);
+
 
     if (left->constant_value.type == TYPE_EMPTY ||
         right->constant_value.type == TYPE_EMPTY)
@@ -2968,12 +3003,12 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
         if (op == '==')
         {
             result->constant_value =
-                make_constant_value_ll(type_is_same(&left->type, &right->type, true));
+                make_constant_value_ll(type_is_same(&left->type, &right->type, true), disabled);
         }
         else
         {
             result->constant_value =
-                make_constant_value_ll(!type_is_same(&left->type, &right->type, true));
+                make_constant_value_ll(!type_is_same(&left->type, &right->type, true), disabled);
         }
     }
 }
@@ -3031,7 +3066,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
                 expression_evaluate_equal_not_equal(new_expression->left,
                     new_expression->right,
                     new_expression,
-                    '==');
+                    '==',
+                    ctx->evaluation_is_disabled);
             }
             else if (operator_token->type == '!=')
             {
@@ -3039,7 +3075,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
                 expression_evaluate_equal_not_equal(new_expression->left,
                     new_expression->right,
                     new_expression,
-                    '!=');
+                    '!=',
+                    ctx->evaluation_is_disabled);
             }
             else
             {
@@ -3084,12 +3121,12 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
             if (new_expression == NULL) throw;
             static_set(*new_expression, "zero");
 
-            new_expression->first_token = ctx->current;            
+            new_expression->first_token = ctx->current;
             new_expression->expression_type = AND_EXPRESSION;
             new_expression->left = p_expression_node;
             new_expression->right = equality_expression(ctx);
             if (new_expression->right == NULL) throw;
-            
+
             new_expression->last_token = new_expression->right->last_token;
             new_expression->constant_value =
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '&');
@@ -3136,7 +3173,7 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
-            
+
             static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
@@ -3187,7 +3224,7 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
-            
+
             static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
@@ -3241,7 +3278,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
-            
+
             static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_AND_EXPRESSION;
@@ -3295,7 +3332,7 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
-            
+
             static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = LOGICAL_OR_EXPRESSION;
@@ -3379,7 +3416,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
 
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
-            
+
             static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
@@ -3409,7 +3446,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
                 //TODO
                 //compiler_set_error_with_token(C_LVALUE_ASSIGNMENT, ctx, ctx->current, "lvalue assignment");
             }
-            
+
             new_expression->right = assignment_expression(ctx);
             if (new_expression->right == NULL)
             {
@@ -3423,7 +3460,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
                 check_assigment(ctx, &new_expression->left->type, new_expression->right, false);
             }
 
-            
+
             new_expression->last_token = new_expression->right->last_token;
 
             new_expression->type = type_dup(&new_expression->right->type);
@@ -3584,7 +3621,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
                 throw;
             }
 
-            
+
 
             if (constant_value_is_valid(&p_conditional_expression->condition_expr->constant_value))
             {

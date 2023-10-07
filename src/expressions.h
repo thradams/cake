@@ -170,9 +170,10 @@ struct constant_value {
     };
 };
 
-struct constant_value make_constant_value_double(double d);
-struct constant_value make_constant_value_ull(unsigned long long d);
-struct constant_value make_constant_value_ll(long long d);
+struct constant_value make_constant_value_double(double d, bool disabled);
+struct constant_value make_constant_value_ull(unsigned long long d, bool disabled);
+struct constant_value make_constant_value_ll(long long d, bool disabled);
+
 struct constant_value constant_value_op(const struct constant_value* a, const  struct constant_value* b, int op);
 unsigned long long constant_value_to_ull(const struct constant_value* a);
 long long constant_value_to_ll(const struct constant_value* a);
@@ -224,4 +225,5 @@ bool is_null_pointer_constant(const struct expression* expression);
 void expression_evaluate_equal_not_equal(const struct expression* left,
     const struct expression* right,
     struct expression* result,
-    int op);
+    int op,
+    bool disabled);

@@ -2685,7 +2685,12 @@ struct typeof_specifier_argument* owner typeof_specifier_argument(struct parser_
         }
         else
         {
+            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = true;
             new_typeof_specifier_argument->expression = expression(ctx);
+            /*restore*/
+            ctx->evaluation_is_disabled = disable_evaluation_copy;
+
             if (new_typeof_specifier_argument->expression == NULL) throw;
 
             //declarator_type_clear_name(new_typeof_specifier_argument->expression->type.declarator_type);
@@ -4244,7 +4249,12 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
         {
             //tem que ter..
 
+            const bool evaluation_is_disabled = ctx->evaluation_is_disabled;
+            ctx->evaluation_is_disabled = false;
             p_array_declarator->assignment_expression = assignment_expression(ctx);
+            /*restore*/
+            ctx->evaluation_is_disabled = evaluation_is_disabled;
+
             if (p_array_declarator->assignment_expression == NULL) throw;
         }
         else
@@ -4256,7 +4266,11 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
             }
             else if (ctx->current->type != ']')
             {
+                const bool evaluation_is_disabled = ctx->evaluation_is_disabled;
+                ctx->evaluation_is_disabled = false;
                 p_array_declarator->assignment_expression = assignment_expression(ctx);
+                /*restore*/
+                ctx->evaluation_is_disabled = evaluation_is_disabled;
                 if (p_array_declarator->assignment_expression == NULL) throw;
             }
             else
@@ -5575,20 +5589,20 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                 {
                     if (ctx->current &&
                         ctx->current->level == 0)
-                    {
+                {
 #if 0
-                        //too many false..alerts.
-                        //make list of for sure ...
-                        compiler_set_warning_with_token(W_UNUSED_VALUE,
-                            ctx,
-                            p_unlabeled_statement->expression_statement->expression_opt->first_token,
-                            "expression not used");
+                    //too many false..alerts.
+                    //make list of for sure ...
+                    compiler_set_warning_with_token(W_UNUSED_VALUE,
+                        ctx,
+                        p_unlabeled_statement->expression_statement->expression_opt->first_token,
+                        "expression not used");
 #endif
-                    }
                 }
             }
         }
     }
+}
 
     return p_unlabeled_statement;
 }
@@ -6504,7 +6518,7 @@ unsigned long GetEnvironmentVariableA(
 void append_msvc_include_dir(struct preprocessor_ctx* prectx)
 {
 
-    
+
 
 #ifdef _WIN32
     char env[2000] = {0};

@@ -167,6 +167,11 @@ void crazy_decl4()
     assert(compile_without_errors(false, src));
 }
 
+void sizeof_not_evaluated()
+{
+    assert(compile_without_errors(false,"int i = sizeof(1/0);\n"));
+}
+
 void sizeof_array_test()
 {
     assert(compile_without_errors(false,

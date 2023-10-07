@@ -75,6 +75,11 @@ struct parser_ctx
     struct token* previous;
     int try_catch_block_index;
 
+    /*
+       Expression inside sizeof etc.. are not evaluated
+    */
+    bool evaluation_is_disabled;
+
     struct report* p_report;
     
 };
