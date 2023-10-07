@@ -35,6 +35,9 @@
 <li>
 <a href="#toc_5">Static analysis</a>
 </li>
+<li>
+<a href="#toc_6">Ownership Feature Strategy (Inspired by &lt;stdbool.h&gt;)</a>
+</li>
 </ul>
 <h2 id="toc_0">Owner Objects</h2>
 
@@ -611,4 +614,53 @@ int main() {
   init(&amp;x);
 }
 </code></pre>
+
+<h2 id="toc_6">Ownership Feature Strategy (Inspired by <stdbool.h>)</h2>
+
+<p>If the compiler supports ownership qualifiers such as _Owner, _View, <em>Obj</em>view, etc., it can define <strong>STDC_OWNERSHIP</strong>.</p>
+
+<p>However, ownership-aware definitions and checks are not active by default. Therefore, when compiling this file, no new errors or warnings will appear.</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int main() {
+  void * p = malloc(1);
+}
+</code></pre>
+
+<p>The definition of malloc in this case is:</p>
+
+<pre><code class="language-c">void * malloc(size_t size);
+</code></pre>
+
+<p>But, if we include the ownership header at the beginning, AND the compiler supports ownership, the definition of malloc changes to:</p>
+
+<pre><code class="language-c">void * _Owner malloc(size_t size);
+</code></pre>
+
+<p>In this case, the compiler will check and require we change the code to:</p>
+
+<pre><code class="language-c">#include &lt;ownership.h&gt;
+#include &lt;stdio.h&gt;
+
+int main() {
+  void * owner p = malloc(1);
+}
+</code></pre>
+
+<p>This modification will result in a warning or error about a memory leak.</p>
+
+<p>If the compiler supports ownership, the owner macro is as _Owner; otherwise, it is defined as an empty macro. </p>
+
+<p>With this approach, the same code:</p>
+
+<pre><code class="language-c">#include &lt;ownership.h&gt;
+#include &lt;stdio.h&gt;
+
+int main() {
+  void * owner p = malloc(1);
+}
+</code></pre>
+
+<p>Can be compiled with both new and old compilers.</p>
 </article></body></html>

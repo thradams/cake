@@ -625,3 +625,56 @@ int main() {
 
 
 
+## Ownership Feature Strategy (Inspired by <stdbool.h>)
+
+If the compiler supports ownership qualifiers such as _Owner, _View, _Obj_view, etc., it can define __STDC_OWNERSHIP__.
+
+However, ownership-aware definitions and checks are not active by default. Therefore, when compiling this file, no new errors or warnings will appear.
+
+```c
+#include <stdio.h>
+
+int main() {
+  void * p = malloc(1);
+}
+```
+
+The definition of malloc in this case is:
+
+```c
+void * malloc(size_t size);
+```
+
+But, if we include the ownership header at the beginning, AND the compiler supports ownership, the definition of malloc changes to:
+
+```c
+void * _Owner malloc(size_t size);
+```
+
+In this case, the compiler will check and require we change the code to:
+
+```c
+#include <ownership.h>
+#include <stdio.h>
+
+int main() {
+  void * owner p = malloc(1);
+}
+```
+
+This modification will result in a warning or error about a memory leak.
+
+If the compiler supports ownership, the owner macro is as _Owner; otherwise, it is defined as an empty macro. 
+
+With this approach, the same code:
+
+```c
+#include <ownership.h>
+#include <stdio.h>
+
+int main() {
+  void * owner p = malloc(1);
+}
+```
+
+Can be compiled with both new and old compilers.
