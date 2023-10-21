@@ -6599,8 +6599,18 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __STDC_OWNERSHIP__\n"
 
 #ifdef WIN32
-        "#define _WINDOWS\n"
-        "#define _WIN32\n"
+        
+        //see
+        //https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170
+
+#ifdef _WIN32
+        "#define _WIN32 " TOSTRING(_WIN32) "\n"
+#endif
+
+#ifdef _WIN64 
+        "#define _WIN64 " TOSTRING(_WIN64) "\n"
+#endif
+
         "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
         "#define _MSC_EXTENSIONS\n"
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
@@ -22209,7 +22219,7 @@ struct typeof_specifier_argument* owner typeof_specifier_argument(struct parser_
         }
         else
         {
-            bool disable_evaluation_copy = ctx->evaluation_is_disabled;
+            const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
             ctx->evaluation_is_disabled = true;
             new_typeof_specifier_argument->expression = expression(ctx);
             /*restore*/
