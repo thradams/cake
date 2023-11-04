@@ -1241,7 +1241,7 @@ struct X {
   char * owner name;
 };
 
-void x_destroy(struct X * _Obj_owner p) 
+void x_destroy(struct X * obj_owner p) 
 {
   free(p->name);
 }
@@ -1290,7 +1290,7 @@ struct X {
   char * owner text;
 };
 
-void x_delete(struct X * _Owner p)
+void x_delete(struct X * owner p)
 {
     if (p)
     {
