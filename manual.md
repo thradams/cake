@@ -1648,12 +1648,28 @@ more precise (with qualifiers) type match.
 
 ### Extension assert declaration
 
-Standard says "If NDEBUG is defined as a macro name at the point in the source file where <assert.h> is included, the assert macro is defined simply as
+Standard says "If NDEBUG is defined as a macro name at the point in the source file 
+where <assert.h> is included, the assert macro is defined simply as
+
 ```c
 #define assert(...) ((void)0)  
 ```
 
-What cake extensions does is, if the macro is NOT defined as ((void)0) then the macro is expanded as especial statement that sends information for the static analyzer. It doesn't matter how assert is defined it will be override. (this helps cake  using headers from other compilers and still understand the assert meaning)
+Cake keeps that. 
+
+
+
+If NDEBUG is NOT defined cake defines assert as
+
+```c
+#define assert(...) assert(__VA_ARGS__) 
+```
+
+Because Cake can be used as a static analyzer, reading existing headers not previously known by Cake,
+it overrides the assert macro to retain information for its use in compiler phases.
+
+Then assert is also a keyword for a built-in expression.
+
 
 ## Versions
 
