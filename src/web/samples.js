@@ -1168,6 +1168,26 @@ int main()
 static_assert( _is_function(main) && (typeof(main())) == (int) );
 
 `;
+
+
+sample["Extensions"]["assert"] =
+`
+/* 
+   assert in cake is a built-in expression.
+   including assert.h if NDEBUG is defined, defines
+   assert as ((void)0). Othewise, assert is defined as assert(...) assert(__VA_ARGS__)
+*/    
+
+#define NDEBUG
+#include <assert.h>
+
+int main()
+{
+   assert(1 == 1);
+}
+
+`;
+
 sample["Ownership (experimental)"]=[];
 
 sample["Ownership (experimental)"]["hello"] =

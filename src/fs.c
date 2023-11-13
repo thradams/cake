@@ -401,14 +401,13 @@ char* owner read_file(const char* const path)
 
 static const char* file_assert_h =
 "\n"
-"#ifdef DEBUG\n"
-"#define assert(c) do { if (!(c)){} } while(0)\n"
-"#else\n"
-"#define assert(c) \n"
+"#ifdef NDEBUG\n"
+"#define assert(...) ((void)0)"
+"#else"
+"#define assert(...) assert(__VA_ARGS__)\n"
 "#endif\n"
 "\n"
 "";
-
 
 
 static const char* file_stdio_h =

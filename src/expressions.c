@@ -2285,6 +2285,14 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             parser_match_tk(ctx, '(');
             new_expression->right = expression(ctx);
+            
+            /*if (constant_value_is_valid(&new_expression->right->constant_value) &&
+                !constant_value_to_bool(&new_expression->right->constant_value))
+            {
+                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, 
+                    new_expression->right->first_token, "assert failed");
+            }*/
+
             parser_match_tk(ctx, ')');
             return new_expression;
         }
