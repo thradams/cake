@@ -10338,6 +10338,7 @@ struct expression
     struct expression* owner left;
     struct expression* owner right;
 };
+
 void expression_delete(struct expression* owner p);
 
 struct expression* owner assignment_expression(struct parser_ctx* ctx);
@@ -10352,6 +10353,7 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
     struct expression* result,
     int op,
     bool disabled);
+
 
 
 //#pragma once
@@ -19517,6 +19519,7 @@ struct flow_visit_ctx
 void flow_visit_ctx_destroy(struct flow_visit_ctx* obj_owner p);
 
 void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
+
 
 #ifdef _WIN32
 #endif

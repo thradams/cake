@@ -3,16 +3,23 @@
 
 An **owner object** is an object referencing another object and managing its lifetime.
 
-The most common type of owner objects are pointers, often referred to as **owner pointers**. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:
+The most common type of owner objects are pointers, often referred as **owner pointers**. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:
 
 ##### Listing 1 - Owner Pointer to FILE
+
 ```c
-FILE *owner f = fopen("file.txt", "r");
-if (f)
+#include <ownership.h>
+#include <stdio.h>
+
+int main()
+{
+  FILE *owner f = fopen("file.txt", "r"); 
+  if (f)
     fclose(f);
+}
 ```
 
-**Note:** The owner qualifier is actually a macro and the real keyword is _Owner. Being a macro have an advantage that it can be defined to nothing for compilers that don't implement ownership. For this job we can include ownership.h, but these details will be omitted for now.
+**Note:** The owner is actually a macro declared in ownership.h. The real keyword for the qualifier is _Owner.
 
 **Rule**: An **owner object** is always the unique owner of the referenced object.
 
@@ -23,15 +30,19 @@ For example, in Listing 2, the ownership of the owner pointer `f` is transferred
 ##### Listing 2 - Assignment of Owner Objects is a Move
 
 ```c  
+#include <ownership.h>
+int main()
+{
 	FILE *owner f = fopen("file.txt", "r");
 	FILE *owner f2 = f; /*MOVED*/
 	if (f2)
-    fclose(f2);
+       fclose(f2);
+}
 ```
 
-**Rule:** Before the end of its lifetime, owner objects must transfer the ownership of the objects they own.
+**Rule:** Before the end of its lifetime, owner objects must transfer the ownership of the objects they own. 
 
-Invoking a function is analogous to assignment, resulting in the object’s transfer of ownership. In the previous examples, we were already transferring ownership of the owner pointer to the close function, which is declared as follows:
+Invoking a function is analogous to assignment of the arguments, resulting in the transfer of ownership. In the previous examples, we were already transferring ownership of the owner pointer to the close function, which is declared as follows:
 
 ##### Listing 3 - Declaration of close
 
@@ -39,7 +50,7 @@ Invoking a function is analogous to assignment, resulting in the object’s tran
 void close(FILE *owner p);
 ```
 
-### Non pointer Owner Objects
+### Non-pointer owner objects
 
 We can have other types of **owner objects**. For instance, Berkeley sockets use an integer to identify the socket, as shown in listing 4:
 
@@ -53,6 +64,8 @@ We can have other types of **owner objects**. For instance, Berkeley sockets use
 ```
 
 
+The location and usage of qualifier owner is similar of const. For instance, for pointers it goes after `*`, but for this socket sample it can be before int.
+
 ## View Objects
 
 A **view object** is an object referencing another object without managing its lifetime. The lifetime of the referenced object must be bigger than the lifetime of the view object.
@@ -64,6 +77,9 @@ The view qualifier is not necessary for pointers, since it's the default behavio
 ##### Listing 5 - Calling Function with View Parameters
 
 ```c
+#include <ownership.h>
+#include <stdio.h>
+
 void use_file(FILE *f) {}
 
 int main() {
@@ -75,12 +91,14 @@ int main() {
 }
 ```
 
-
 When a **view** qualifier is used in structs, it makes all members as view objects. Listing 6.
 
 ##### Listing 6 - A view parameter
 
 ```c
+#include <ownership.h>
+#include <stdlib.h>
+
 struct X {   
   char *owner text;   
 };  
@@ -102,6 +120,10 @@ int main() {
 ##### Listing 7 - Implementing the delete function
 
 ```c
+#include <ownership.h>
+#include <stdlib.h>
+
+
 struct X { 
   char *owner text; 
 };

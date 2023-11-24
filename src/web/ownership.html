@@ -48,6 +48,8 @@
 <h5>Listing 1 - Owner Pointer to FILE</h5>
 
 <pre><code class="language-c">#include &lt;ownership.h&gt;
+#include &lt;stdio.h&gt;
+
 int main()
 {
   FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;); 
@@ -72,11 +74,11 @@ int main()
     FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
     FILE *owner f2 = f; /*MOVED*/
     if (f2)
-    fclose(f2);
+       fclose(f2);
 }
 </code></pre>
 
-<p><strong>Rule:</strong> Before the end of its lifetime, owner objects must transfer the ownership of the objects they own.</p>
+<p><strong>Rule:</strong> Before the end of its lifetime, owner objects must transfer the ownership of the objects they own. </p>
 
 <p>Invoking a function is analogous to assignment of the arguments, resulting in the transfer of ownership. In the previous examples, we were already transferring ownership of the owner pointer to the close function, which is declared as follows:</p>
 
@@ -109,7 +111,10 @@ int main()
 
 <h5>Listing 5 - Calling Function with View Parameters</h5>
 
-<pre><code class="language-c">void use_file(FILE *f) {}
+<pre><code class="language-c">#include &lt;ownership.h&gt;
+#include &lt;stdio.h&gt;
+
+void use_file(FILE *f) {}
 
 int main() {
     FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
@@ -124,7 +129,10 @@ int main() {
 
 <h5>Listing 6 - A view parameter</h5>
 
-<pre><code class="language-c">struct X {   
+<pre><code class="language-c">#include &lt;ownership.h&gt;
+#include &lt;stdlib.h&gt;
+
+struct X {   
   char *owner text;   
 };  
 
@@ -143,7 +151,11 @@ int main() {
 
 <h5>Listing 7 - Implementing the delete function</h5>
 
-<pre><code class="language-c">struct X { 
+<pre><code class="language-c">#include &lt;ownership.h&gt;
+#include &lt;stdlib.h&gt;
+
+
+struct X { 
   char *owner text; 
 };
 void x_delete(struct X *owner p) {
