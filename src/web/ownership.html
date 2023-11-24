@@ -19,7 +19,7 @@
 <a href="#toc_0">Owner Objects</a>
 <ul>
 <li>
-<a href="#toc_1">Non pointer Owner Objects</a>
+<a href="#toc_1">Non-pointer owner objects</a>
 </li>
 </ul>
 </li>
@@ -43,16 +43,20 @@
 
 <p>An <strong>owner object</strong> is an object referencing another object and managing its lifetime.</p>
 
-<p>The most common type of owner objects are pointers, often referred to as <strong>owner pointers</strong>. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:</p>
+<p>The most common type of owner objects are pointers, often referred as <strong>owner pointers</strong>. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:</p>
 
 <h5>Listing 1 - Owner Pointer to FILE</h5>
 
-<pre><code class="language-c">FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-if (f)
+<pre><code class="language-c">#include &lt;ownership.h&gt;
+int main()
+{
+  FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;); 
+  if (f)
     fclose(f);
+}
 </code></pre>
 
-<p><strong>Note:</strong> The owner qualifier is actually a macro and the real keyword is _Owner. Being a macro have an advantage that it can be defined to nothing for compilers that don&#39;t implement ownership. For this job we can include ownership.h, but these details will be omitted for now.</p>
+<p><strong>Note:</strong> The owner is actually a macro declared in ownership.h. The real keyword for the qualifier is _Owner.</p>
 
 <p><strong>Rule</strong>: An <strong>owner object</strong> is always the unique owner of the referenced object.</p>
 
@@ -62,22 +66,26 @@ if (f)
 
 <h5>Listing 2 - Assignment of Owner Objects is a Move</h5>
 
-<pre><code class="language-c">    FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+<pre><code class="language-c">#include &lt;ownership.h&gt;
+int main()
+{
+    FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
     FILE *owner f2 = f; /*MOVED*/
     if (f2)
     fclose(f2);
+}
 </code></pre>
 
 <p><strong>Rule:</strong> Before the end of its lifetime, owner objects must transfer the ownership of the objects they own.</p>
 
-<p>Invoking a function is analogous to assignment, resulting in the object’s transfer of ownership. In the previous examples, we were already transferring ownership of the owner pointer to the close function, which is declared as follows:</p>
+<p>Invoking a function is analogous to assignment of the arguments, resulting in the transfer of ownership. In the previous examples, we were already transferring ownership of the owner pointer to the close function, which is declared as follows:</p>
 
 <h5>Listing 3 - Declaration of close</h5>
 
 <pre><code class="language-c">void close(FILE *owner p);
 </code></pre>
 
-<h3 id="toc_1">Non pointer Owner Objects</h3>
+<h3 id="toc_1">Non-pointer owner objects</h3>
 
 <p>We can have other types of <strong>owner objects</strong>. For instance, Berkeley sockets use an integer to identify the socket, as shown in listing 4:</p>
 
@@ -88,6 +96,8 @@ if (f)
  /*...*/
  close(server_socket);
 </code></pre>
+
+<p>The location and usage of qualifier owner is similar of const. For instance, for pointers it goes after <code>*</code>, but for this socket sample it can be before int.</p>
 
 <h2 id="toc_2">View Objects</h2>
 
