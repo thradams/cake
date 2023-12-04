@@ -87,12 +87,14 @@ void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, boo
 
         l.head->flags |= TK_FLAG_HIDE;
         const char* owner s = get_code_as_compiler_see(&l);
-        assert(s != NULL);
-        if (hide_tokens)
-            token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
+        if (s != NULL)
+        {
+            if (hide_tokens)
+                token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
-        ss_fprintf(ss, "%s", s);
-        free((void* owner)s);
+            ss_fprintf(ss, "%s", s);
+            free((void* owner)s);
+        }
         defer_child = defer_child->previous;
     }
 }
