@@ -848,7 +848,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
     p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
     p_expression_node->type.category = TYPE_CATEGORY_ITSELF;
 
-    const unsigned char* p = ctx->current->lexeme;
+    const unsigned char* p = (const unsigned char* ) ctx->current->lexeme;
 
     if (p[0] == 'u' && p[1] == '8')
     {

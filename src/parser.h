@@ -621,7 +621,7 @@ struct declarator
 
     
     struct declaration_specifiers* view declaration_specifiers;
-    struct specifier_qualifier_list* view specifier_qualifier_list;
+    const struct specifier_qualifier_list* view specifier_qualifier_list;
 
     struct token* name; //shortcut
 
