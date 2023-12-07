@@ -970,6 +970,21 @@ int main()
 
 `;
 
+
+sample["Extensions"]["defer and flow analysis"] =
+    `
+void f2(int i){}
+void f(int k)
+{
+  int i;
+  defer f2(i);
+  
+  if (k > 1)
+   return;
+}
+
+`;
+
 sample["Extensions"]["if with initialization (Like C++17)"] =
     `
 #include <stdio.h>
