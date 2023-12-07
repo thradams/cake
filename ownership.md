@@ -31,6 +31,8 @@ For example, in Listing 2, the ownership of the owner pointer `f` is transferred
 
 ```c  
 #include <ownership.h>
+#include <stdio.h>
+
 int main()
 {
 	FILE *owner f = fopen("file.txt", "r");
@@ -123,10 +125,10 @@ int main() {
 #include <ownership.h>
 #include <stdlib.h>
 
-
 struct X { 
   char *owner text; 
 };
+
 void x_delete(struct X *owner p) {
   if (p) {
     /*releasing the object*/ 
@@ -136,6 +138,7 @@ void x_delete(struct X *owner p) {
     free(p); 
   }
 }
+
 int main() {
   struct X * owner pX = calloc( 1, sizeof * pX);
   if (pX) {
@@ -153,9 +156,11 @@ When the object is created on the stack, we can implement a destructor, as shown
 struct X {
     char *owner text;
 };  
+
 void x_destroy(struct X x) {
     free(x.text);
 }  
+
 int main() {
     struct X x = {};
     /*...*/
@@ -175,9 +180,11 @@ Listing 9 illustrates how to implement a destructor using a obj_owner pointer pa
 struct X {
     char *owner text;
 };
+
 void x_destroy(struct X *obj_owner x) {
     free(x->text);
 }
+
 int main() {
     struct X x = {};
     /*more code*/
@@ -314,7 +321,7 @@ int main()
 }
 ```
 
-**Zero** and **null** are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily mean null. The compiler does not know the semantics for types that are not pointers. However, you can use **static_set** to override states. In Listing 16, we annotate that server_socket is null, which doesn't mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.
+**Zero** and **null** are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily means null. The compiler does not know the semantics for types that are not pointers. However, you can use **static_set** to override states. In Listing 16, we annotate that server_socket is null, which doesn't mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.
 
 The **not-zero** state is used for non-owner objects to indicate the value if not zero.
 
