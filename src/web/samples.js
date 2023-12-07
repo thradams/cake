@@ -985,6 +985,30 @@ void f(int k)
 
 `;
 
+
+sample["Extensions"]["defer interleaved with return"] =
+`
+
+int f(){
+  int i = 1;
+  defer {
+    i = 0;
+  }
+  return i++;
+}
+
+void f0(){
+  int i = 1;
+  defer {
+    i = 0;
+  }
+  return; //empty or constant expression
+}
+
+
+`;
+
+
 sample["Extensions"]["if with initialization (Like C++17)"] =
     `
 #include <stdio.h>
