@@ -1844,8 +1844,18 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
     {
         if (deferchild->defer_statement)
         {
+            const int error_count = ctx->ctx->p_report->error_count;
+            const int warnings_count = ctx->ctx->p_report->warnings_count;
+            const int info_count = ctx->ctx->p_report->info_count;
+
             flow_visit_secondary_block(ctx, deferchild->defer_statement->secondary_block);
-                compiler_set_info_with_token(0, ctx->ctx, position_token, "defer end of scope for defer");
+
+            if (error_count != ctx->ctx->p_report->error_count ||
+                warnings_count != ctx->ctx->p_report->warnings_count ||
+                info_count != ctx->ctx->p_report->info_count)
+            {
+                compiler_set_info_with_token(0, ctx->ctx, position_token, "defer end of scope");
+            }
         }
         else if (deferchild->declarator)
         {
@@ -1859,7 +1869,6 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
     }
     return found_error;
 }
-
 static bool flow_find_label_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, const char* label);
 
 static bool check_all_defer_until_try(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock,

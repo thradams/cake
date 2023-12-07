@@ -10969,7 +10969,7 @@ struct declarator
 
     
     struct declaration_specifiers* view declaration_specifiers;
-    struct specifier_qualifier_list* view specifier_qualifier_list;
+    const struct specifier_qualifier_list* view specifier_qualifier_list;
 
     struct token* name; //shortcut
 
@@ -12568,7 +12568,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
     p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
     p_expression_node->type.category = TYPE_CATEGORY_ITSELF;
 
-    const unsigned char* p = ctx->current->lexeme;
+    const unsigned char* p = (const unsigned char* ) ctx->current->lexeme;
 
     if (p[0] == 'u' && p[1] == '8')
     {
@@ -27010,12 +27010,14 @@ void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, boo
 
         l.head->flags |= TK_FLAG_HIDE;
         const char* owner s = get_code_as_compiler_see(&l);
-        assert(s != NULL);
-        if (hide_tokens)
-            token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
+        if (s != NULL)
+        {
+            if (hide_tokens)
+                token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
 
-        ss_fprintf(ss, "%s", s);
-        free((void* owner)s);
+            ss_fprintf(ss, "%s", s);
+            free((void* owner)s);
+        }
         defer_child = defer_child->previous;
     }
 }
@@ -31151,7 +31153,18 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
     {
         if (deferchild->defer_statement)
         {
+            const int error_count = ctx->ctx->p_report->error_count;
+            const int warnings_count = ctx->ctx->p_report->warnings_count;
+            const int info_count = ctx->ctx->p_report->info_count;
+
             flow_visit_secondary_block(ctx, deferchild->defer_statement->secondary_block);
+
+            if (error_count != ctx->ctx->p_report->error_count ||
+                warnings_count != ctx->ctx->p_report->warnings_count ||
+                info_count != ctx->ctx->p_report->info_count)
+            {
+                compiler_set_info_with_token(0, ctx->ctx, position_token, "defer end of scope");
+            }
         }
         else if (deferchild->declarator)
         {
@@ -31165,7 +31178,6 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
     }
     return found_error;
 }
-
 static bool flow_find_label_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement, const char* label);
 
 static bool check_all_defer_until_try(struct flow_visit_ctx* ctx, struct flow_defer_scope* deferblock,
