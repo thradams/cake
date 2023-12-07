@@ -1845,6 +1845,7 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
         if (deferchild->defer_statement)
         {
             flow_visit_secondary_block(ctx, deferchild->defer_statement->secondary_block);
+                compiler_set_info_with_token(0, ctx->ctx, position_token, "defer end of scope for defer");
         }
         else if (deferchild->declarator)
         {
