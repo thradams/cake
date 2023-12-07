@@ -12,7 +12,7 @@
 #include "options.h"
 
 
-#define CAKE_VERSION "0.7.3"
+#define CAKE_VERSION "0.7.4"
 
 
 struct scope
