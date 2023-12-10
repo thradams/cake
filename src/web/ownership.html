@@ -69,6 +69,8 @@ int main()
 <h5>Listing 2 - Assignment of Owner Objects is a Move</h5>
 
 <pre><code class="language-c">#include &lt;ownership.h&gt;
+#include &lt;stdio.h&gt;
+
 int main()
 {
     FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
@@ -154,10 +156,10 @@ int main() {
 <pre><code class="language-c">#include &lt;ownership.h&gt;
 #include &lt;stdlib.h&gt;
 
-
 struct X { 
   char *owner text; 
 };
+
 void x_delete(struct X *owner p) {
   if (p) {
     /*releasing the object*/ 
@@ -167,6 +169,7 @@ void x_delete(struct X *owner p) {
     free(p); 
   }
 }
+
 int main() {
   struct X * owner pX = calloc( 1, sizeof * pX);
   if (pX) {
@@ -183,9 +186,11 @@ int main() {
 <pre><code class="language-c">struct X {
     char *owner text;
 };  
+
 void x_destroy(struct X x) {
     free(x.text);
 }  
+
 int main() {
     struct X x = {};
     /*...*/
@@ -204,9 +209,11 @@ int main() {
 <pre><code class="language-c">struct X {
     char *owner text;
 };
+
 void x_destroy(struct X *obj_owner x) {
     free(x-&gt;text);
 }
+
 int main() {
     struct X x = {};
     /*more code*/
@@ -336,7 +343,7 @@ if (f)
 }
 </code></pre>
 
-<p><strong>Zero</strong> and <strong>null</strong> are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily mean null. The compiler does not know the semantics for types that are not pointers. However, you can use <strong>static_set</strong> to override states. In Listing 16, we annotate that server_socket is null, which doesn&#39;t mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.</p>
+<p><strong>Zero</strong> and <strong>null</strong> are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily means null. The compiler does not know the semantics for types that are not pointers. However, you can use <strong>static_set</strong> to override states. In Listing 16, we annotate that server_socket is null, which doesn&#39;t mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.</p>
 
 <p>The <strong>not-zero</strong> state is used for non-owner objects to indicate the value if not zero.</p>
 
