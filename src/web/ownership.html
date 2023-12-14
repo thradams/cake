@@ -351,7 +351,9 @@ int main() {
 }
 </code></pre>
 
-<p>The <strong>not-null</strong> state indicates that the object is referencing some object, as shown in listing 14.</p>
+<p>The <strong>not-null</strong> state indicates that the object is referencing some object.
+The state can be a combination of possibilities like <strong>null</strong> and <strong>not-null</strong>. We can check possible combination using &quot;or&quot;.
+This particular combination <strong>null or not-null</strong> has a alias <strong>maybe-null</strong> as shown in listing 14.</p>
 
 <h5>Listing 14 - not-null and maybe-null state</h5>
 
@@ -365,6 +367,7 @@ int main()
      static_state(p, &quot;not-null&quot;);
    }
    static_state(p, &quot;maybe-null&quot;);   
+   static_state(p, &quot;null or not-null&quot;);
    free(p);
 }
 </code></pre>
@@ -474,8 +477,16 @@ int main() {
 
 <h5>Listing 19 - Check before assignment</h5>
 
-<pre><code class="language-c">  FILE * owner file = fopen(&quot;file.txt&quot;, &quot;r&quot;);  
-  file = fopen(&quot;file.txt&quot;, &quot;r&quot;); //ERROR
+<pre><code class="language-c">#include &lt;ownership.h&gt; 
+#include &lt;stdio.h&gt;
+
+int main() {
+  FILE * owner file = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+  
+  //error: memory pointed by &#39;file&#39; was not 
+  //released before assignment.  
+  file = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+}
 </code></pre>
 
 <p>Sometimes is not possible to infer the state. Consider this sample.</p>
@@ -508,7 +519,7 @@ struct X {
   char *owner text; 
 };
 
-void init(struct  X * x) {
+void init(struct X * x) {
   static_set(x-&gt;text, &quot;uninitialized&quot;);
   x-&gt;text = strdup(&quot;a&quot;);
 }

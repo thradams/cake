@@ -328,7 +328,9 @@ int main() {
 }
 ```  
 
-The **not-null** state indicates that the object is referencing some object, as shown in listing 14.
+The **not-null** state indicates that the object is referencing some object.
+The state can be a combination of possibilities like **null** and **not-null**. We can check possible combination using "or".
+This particular combination **null or not-null** has a alias **maybe-null** as shown in listing 14.
 
 ##### Listing 14 - not-null and maybe-null state
 
@@ -343,6 +345,7 @@ int main()
      static_state(p, "not-null");
    }
    static_state(p, "maybe-null");   
+   static_state(p, "null or not-null");
    free(p);
 }
 ```
@@ -462,8 +465,16 @@ int main() {
 ##### Listing 19 - Check before assignment
 
 ```c
-  FILE * owner file = fopen("file.txt", "r");  
-  file = fopen("file.txt", "r"); //ERROR
+#include <ownership.h> 
+#include <stdio.h>
+
+int main() {
+  FILE * owner file = fopen("file.txt", "r");
+  
+  //error: memory pointed by 'file' was not 
+  //released before assignment.  
+  file = fopen("file.txt", "r");
+}
 ```
 
 Sometimes is not possible to infer the state. Consider this sample.
@@ -498,7 +509,7 @@ struct X {
   char *owner text; 
 };
 
-void init(struct  X * x) {
+void init(struct X * x) {
   static_set(x->text, "uninitialized");
   x->text = strdup("a");
 }
