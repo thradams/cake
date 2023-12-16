@@ -18,7 +18,7 @@ enum warning {
     W_NONE = 0,  /*not a real warning, used in especial cases*/
     W_UNUSED_VARIABLE = 1 << 1, //-Wunused-variable
     W_DEPRECATED = 1 << 2,
-    W_ENUN_CONVERSION = 1 << 3 ,//-Wenum-compare
+    W_ENUN_CONVERSION = 1 << 3 ,//-Wenum-conversion
     W_NON_NULL = 1 << 4, //-Wnonnull
     W_ADDRESS = 1 << 5, //-Waddress (always true)
     W_UNUSED_PARAMETER = 1 << 6, //-Wno-unused-parameter
