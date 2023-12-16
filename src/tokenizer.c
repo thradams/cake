@@ -4444,6 +4444,8 @@ void include_config_header(struct preprocessor_ctx* ctx)
 	mark_macros_as_used(&ctx->macros);
 	token_list_destroy(&l);
 	free(str);
+	token_list_destroy(&l10);
+
 	/*restore*/
 	ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = w;
 }
