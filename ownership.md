@@ -796,11 +796,11 @@ int main() {
 
 ## Ownership Feature Strategy (Inspired by stdbool.h)
 
-If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj\_view, etc., it defines `__STDC_OWNERSHIP__`. 
+If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj\_view, etc., it must define  `__STDC_OWNERSHIP__`. 
 
-However, even if the compiler implements ownership, it is not active by default.
+However, even if the compiler implements ownership, it is not active by default. The objective is to have a smooth transition allowing some files without checks. For instance, a thirty part code inside your project.
 
-Therefore, when compiling this file, we don't have errors or warnings because ownership checks are not enabled.
+For instance, when compiling this file, even if the compiler supports ownership we don't have errors or warnings because the checks are not enabled by default.
 
 ```c
 #include <stdlib.h>
@@ -810,77 +810,20 @@ int main() {
 }
 ```
 
-A second define `__OWNERSHIP_H__` is used to enable ownership, for instance, changing the definition of malloc.  
-Including `#include <ownership.h>` at beginning, will define 
-`__OWNERSHIP_H__` enabling ownership declaration on stdlib.h.
-`ownership.h` also adds lowercase macros for _Owner etc.
-  
+A second define `__OWNERSHIP_H__`, is used to enable ownership.
+This define is set when we include `<ownership.h>` at beginning. 
 
-Inside stdlib.h we will have something like: 
+```c
+#include <ownership.h>
+#include <stdlib.h>
 
-```c  
-#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)
-void * _Owner malloc(size_t size);  
-#else
-void * malloc(size_t size);
-#endif
+int main() {
+  void * p = malloc(1); //error owner required
+}
 ```
+
+The other advantage of having a `<ownership.h>` is because owner is a macro that can be defined as empty in case the compiler does not support ownership, allowing the same code to be compiled in compiler without ownership support. 
+  
   
 > Currently cake is using the same headers of VS and GCC that are not aware of ownership. For this reason, `ownership.h` itself is declaring malloc etc and the second declaration of malloc inside stdlib.h will not complain with the discrepancy of ownership qualifiers between declarations.
-
-
-
-So now, this sample:
-
-```c
-#include <ownership.h>
-#include <stdio.h>
-
-int main() {
-  void * owner p = malloc(1);
-}
-```
-
-Will have the ownership enabled if the compiler supports ownership, otherwise owner macro will be defined as empty.
-  
-> This approach allows the same code to be compiled in compilers with or without ownership. 
-
-The compiler will now complain about the memory leak.
-
-This solution is not perfect. If we mix old and new includes the old headers may be affect.
-
-For instance:
-
-```c
-#include <ownership.h>
-#include <stdio.h>
-#include "oldheader.h" //affected 
-
-int main() {
-  void * owner p = malloc(1);
-}
-```
-
-The old header may be affect in some ways, for instance a inline function may be using malloc and the compiler will complain the lack of ownership qualifiers.  
-  
-The old header maybe is using owner as a variable name. 
- 
-
-The solution for this problem may be changing the order of includes. We also may silence errors for the lack of ownership qualifiers. 
-
-
-In brief:
-
-- Old code can be compiled in new compilers because they don't include `<ownership.h>`.
-- New code using `<ownership.h>` can be compiled in old compilers because qualifiers are defined as empty macros
-
-I have considered something like `#pragma OWNERSHIP ON/OFF` but this is also similar controlling warning with pragma. The objective is also avoid reading `#pragma OWNERSHIP ON` everywhere.  
-
-I also have considered attributes, but is not so clear the attributes for types. But also the usage of attributes would be together with macros because we can compile new code in old compilers.  
-    
-Although, here I am talking about a specific feature ownership, with the evolution of C this kind of situation will be very common. Maybe the natural evolution will be attributes, but attributes also feels temporary/experimental solution especially if they mean something on the type system.
-
-
-
-
 

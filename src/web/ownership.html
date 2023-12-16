@@ -785,11 +785,11 @@ int main() {
 
 <h2 id="toc_6">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
 
-<p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it defines <code>__STDC_OWNERSHIP__</code>. </p>
+<p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it must define  <code>__STDC_OWNERSHIP__</code>. </p>
 
-<p>However, even if the compiler implements ownership, it is not active by default.</p>
+<p>However, even if the compiler implements ownership, it is not active by default. The objective is to have a smooth transition allowing some files without checks. For instance, a thirty part code inside your project.</p>
 
-<p>Therefore, when compiling this file, we don&#39;t have errors or warnings because ownership checks are not enabled.</p>
+<p>For instance, when compiling this file, even if the compiler supports ownership we don&#39;t have errors or warnings because the checks are not enabled by default.</p>
 
 <pre><code class="language-c">#include &lt;stdlib.h&gt;
 
@@ -798,71 +798,20 @@ int main() {
 }
 </code></pre>
 
-<p>A second define <code>__OWNERSHIP_H__</code> is used to enable ownership, for instance, changing the definition of malloc.<br>
-Including <code>#include &lt;ownership.h&gt;</code> at beginning, will define 
-<code>__OWNERSHIP_H__</code> enabling ownership declaration on stdlib.h.
-<code>ownership.h</code> also adds lowercase macros for _Owner etc.</p>
+<p>A second define <code>__OWNERSHIP_H__</code>, is used to enable ownership.
+This define is set when we include <code>&lt;ownership.h&gt;</code> at beginning. </p>
 
-<p>Inside stdlib.h we will have something like: </p>
+<pre><code class="language-c">#include &lt;ownership.h&gt;
+#include &lt;stdlib.h&gt;
 
-<pre><code class="language-c">#if defined(__STDC_OWNERSHIP__) &amp;&amp; defined(__OWNERSHIP_H__)
-void * _Owner malloc(size_t size);  
-#else
-void * malloc(size_t size);
-#endif
+int main() {
+  void * p = malloc(1); //error owner required
+}
 </code></pre>
+
+<p>The other advantage of having a <code>&lt;ownership.h&gt;</code> is because owner is a macro that can be defined as empty in case the compiler does not support ownership, allowing the same code to be compiled in compiler without ownership support. </p>
 
 <blockquote>
 <p>Currently cake is using the same headers of VS and GCC that are not aware of ownership. For this reason, <code>ownership.h</code> itself is declaring malloc etc and the second declaration of malloc inside stdlib.h will not complain with the discrepancy of ownership qualifiers between declarations.</p>
 </blockquote>
-
-<p>So now, this sample:</p>
-
-<pre><code class="language-c">#include &lt;ownership.h&gt;
-#include &lt;stdio.h&gt;
-
-int main() {
-  void * owner p = malloc(1);
-}
-</code></pre>
-
-<p>Will have the ownership enabled if the compiler supports ownership, otherwise owner macro will be defined as empty.</p>
-
-<blockquote>
-<p>This approach allows the same code to be compiled in compilers with or without ownership. </p>
-</blockquote>
-
-<p>The compiler will now complain about the memory leak.</p>
-
-<p>This solution is not perfect. If we mix old and new includes the old headers may be affect.</p>
-
-<p>For instance:</p>
-
-<pre><code class="language-c">#include &lt;ownership.h&gt;
-#include &lt;stdio.h&gt;
-#include &quot;oldheader.h&quot; //affected 
-
-int main() {
-  void * owner p = malloc(1);
-}
-</code></pre>
-
-<p>The old header may be affect in some ways, for instance a inline function may be using malloc and the compiler will complain the lack of ownership qualifiers.  </p>
-
-<p>The old header maybe is using owner as a variable name. </p>
-
-<p>The solution for this problem may be changing the order of includes. We also may silence errors for the lack of ownership qualifiers. </p>
-
-<p>In brief:</p>
-
-<ul>
-<li>Old code can be compiled in new compilers because they don&#39;t include <code>&lt;ownership.h&gt;</code>.</li>
-<li>New code using <code>&lt;ownership.h&gt;</code> can be compiled in old compilers because qualifiers are defined as empty macros</li>
-</ul>
-
-<p>I have considered something like <code>#pragma OWNERSHIP ON/OFF</code> but this is also similar controlling warning with pragma. The objective is also avoid reading <code>#pragma OWNERSHIP ON</code> everywhere.  </p>
-
-<p>I also have considered attributes, but is not so clear the attributes for types. But also the usage of attributes would be together with macros because we can compile new code in old compilers.  </p>
-
-<p>Although, here I am talking about a specific feature ownership, with the evolution of C this kind of situation will be very common. Maybe the natural evolution will be attributes, but attributes also feels temporary/experimental solution especially if they mean something on the type system.</p>
 </article></body></html>
