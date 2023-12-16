@@ -6575,6 +6575,8 @@ void include_config_header(struct preprocessor_ctx* ctx)
 	mark_macros_as_used(&ctx->macros);
 	token_list_destroy(&l);
 	free(str);
+	token_list_destroy(&l10);
+
 	/*restore*/
 	ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = w;
 }
@@ -17900,10 +17902,7 @@ struct type type_add_pointer(const struct type* p_type)
 
     struct type* owner p = calloc(1, sizeof(struct type));
     *p = r;
-
-    memset(&r, 0, sizeof r);
-    static_set(r, "zero");
-
+    r = (struct type){0};
     r.next = p;
     r.category = TYPE_CATEGORY_POINTER;
 
@@ -19517,7 +19516,7 @@ const struct type* type_get_specifer_part(const struct type* p_type)
 struct format_visit_ctx
 {
     view struct ast ast;
-    int identation;
+    int indentation;
 };
 
 void format_visit(struct format_visit_ctx* ctx);
@@ -26304,7 +26303,7 @@ int compile_one_file(const char* file_name,
             {
                 if (options->format_input)
                 {
-                    struct format_visit_ctx f = {.ast = ast, .identation = 4};
+                    struct format_visit_ctx f = {.ast = ast, .indentation = 4};
                     format_visit(&f);
                 }
 
@@ -34213,8 +34212,8 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
             if (previous_token->type == TK_BLANKS)
             {
                 char blanks[50] = { 0 };
-                if (ctx->identation > 0)
-                    snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
+                if (ctx->indentation > 0)
+                    snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
 
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
@@ -34234,9 +34233,9 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
             else if (previous_token->type != TK_NEWLINE)
             {
                 char blanks[50] = {0};
-                if (ctx->identation > 0)
+                if (ctx->indentation > 0)
                 {
-                    snprintf(blanks, sizeof blanks, "\n%*c", (ctx->identation * 4), ' ');
+                    snprintf(blanks, sizeof blanks, "\n%*c", (ctx->indentation * 4), ' ');
                 }
                 else
                 {
@@ -34270,8 +34269,8 @@ void ajust_if_begin(struct token* token, struct format_visit_ctx* ctx)
                 previous_previous_token->type == TK_NEWLINE)
             {
                 char blanks[50] = { 0 };
-                if (ctx->identation > 0)
-                    snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
+                if (ctx->indentation > 0)
+                    snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
 
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
@@ -34503,10 +34502,10 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
 {
     ajust_line_and_identation(p_compound_statement->first_token, ctx);
 
-    ctx->identation++;
+    ctx->indentation++;
     format_visit_block_item_list(ctx, &p_compound_statement->block_item_list);
 
-    ctx->identation++;
+    ctx->indentation++;
     /*fix comments anything that is not part of AST*/
     struct token* tk = p_compound_statement->first_token;
     while (tk)
@@ -34518,9 +34517,9 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
         }
         tk = tk->next;
     }
-    ctx->identation--;
+    ctx->indentation--;
 
-    ctx->identation--;
+    ctx->indentation--;
 
     ajust_line_and_identation(p_compound_statement->last_token, ctx);
 }

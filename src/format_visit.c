@@ -22,8 +22,8 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
             if (previous_token->type == TK_BLANKS)
             {
                 char blanks[50] = { 0 };
-                if (ctx->identation > 0)
-                    snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
+                if (ctx->indentation > 0)
+                    snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
 
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
@@ -43,9 +43,9 @@ void ajust_line_and_identation(struct token* token, struct format_visit_ctx* ctx
             else if (previous_token->type != TK_NEWLINE)
             {
                 char blanks[50] = {0};
-                if (ctx->identation > 0)
+                if (ctx->indentation > 0)
                 {
-                    snprintf(blanks, sizeof blanks, "\n%*c", (ctx->identation * 4), ' ');
+                    snprintf(blanks, sizeof blanks, "\n%*c", (ctx->indentation * 4), ' ');
                 }
                 else
                 {
@@ -79,8 +79,8 @@ void ajust_if_begin(struct token* token, struct format_visit_ctx* ctx)
                 previous_previous_token->type == TK_NEWLINE)
             {
                 char blanks[50] = { 0 };
-                if (ctx->identation > 0)
-                    snprintf(blanks, sizeof blanks, "%*c", (ctx->identation * 4), ' ');
+                if (ctx->indentation > 0)
+                    snprintf(blanks, sizeof blanks, "%*c", (ctx->indentation * 4), ' ');
 
                 /*only adjust the number of spaces*/
                 free(previous_token->lexeme);
@@ -312,10 +312,10 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
 {
     ajust_line_and_identation(p_compound_statement->first_token, ctx);
 
-    ctx->identation++;
+    ctx->indentation++;
     format_visit_block_item_list(ctx, &p_compound_statement->block_item_list);
 
-    ctx->identation++;
+    ctx->indentation++;
     /*fix comments anything that is not part of AST*/
     struct token* tk = p_compound_statement->first_token;
     while (tk)
@@ -327,9 +327,9 @@ static void format_visit_compound_statement(struct format_visit_ctx* ctx, struct
         }
         tk = tk->next;
     }
-    ctx->identation--;
+    ctx->indentation--;
 
-    ctx->identation--;
+    ctx->indentation--;
 
     ajust_line_and_identation(p_compound_statement->last_token, ctx);
 }

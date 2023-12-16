@@ -6730,7 +6730,7 @@ int compile_one_file(const char* file_name,
             {
                 if (options->format_input)
                 {
-                    struct format_visit_ctx f = {.ast = ast, .identation = 4};
+                    struct format_visit_ctx f = {.ast = ast, .indentation = 4};
                     format_visit(&f);
                 }
 

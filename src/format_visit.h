@@ -6,7 +6,7 @@
 struct format_visit_ctx
 {
     view struct ast ast;
-    int identation;
+    int indentation;
 };
 
 void format_visit(struct format_visit_ctx* ctx);
