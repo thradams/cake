@@ -1552,10 +1552,7 @@ struct type type_add_pointer(const struct type* p_type)
 
     struct type* owner p = calloc(1, sizeof(struct type));
     *p = r;
-
-    memset(&r, 0, sizeof r);
-    static_set(r, "zero");
-
+    r = (struct type){0};
     r.next = p;
     r.category = TYPE_CATEGORY_POINTER;
 
