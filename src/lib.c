@@ -2366,7 +2366,6 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
 	{
 		printf("warning: " "%s\n", buffer);
 		print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
-#endif
 	}
 	else
 	{
@@ -2374,6 +2373,8 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
 		print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 
 	}
+#endif
+
 }
 
 void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
@@ -14733,15 +14734,10 @@ static void check_diferent_enuns(struct parser_ctx* ctx,
             if (right->type.enum_specifier->tag_token)
                 righttag = right->type.enum_specifier->tag_token->lexeme;
 
-            /*
-             * This comparison by name is not 100% correct because they be from
-             * diferent scopes.
-            */
-
             compiler_set_warning_with_token(W_ENUN_COMPARE,
                 ctx,
                 operator_token,
-                "comparison between 'enum %s' and 'enum %s'",
+                "implicit conversion from 'enum %s' to 'enum %s'",
                 lefttag,
                 righttag);
         }

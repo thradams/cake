@@ -2979,15 +2979,10 @@ static void check_diferent_enuns(struct parser_ctx* ctx,
             if (right->type.enum_specifier->tag_token)
                 righttag = right->type.enum_specifier->tag_token->lexeme;
 
-            /*
-             * This comparison by name is not 100% correct because they be from
-             * diferent scopes.
-            */
-
-            compiler_set_warning_with_token(W_ENUN_COMPARE,
+            compiler_set_warning_with_token(W_ENUN_CONVERSION,
                 ctx,
                 operator_token,
-                "comparison between 'enum %s' and 'enum %s'",
+                "implicit conversion from 'enum %s' to 'enum %s'",
                 lefttag,
                 righttag);
         }

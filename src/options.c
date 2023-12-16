@@ -26,7 +26,7 @@ static struct w {
 s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
     {W_DEPRECATED, "deprecated"},
-    {W_ENUN_COMPARE,"enum-compare"},
+    {W_ENUN_CONVERSION,"enum-conversion"},
     {W_NON_NULL, "nonnull"},
     {W_ADDRESS, "address"},
     {W_UNUSED_PARAMETER, "unused-parameter"},

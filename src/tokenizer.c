@@ -235,7 +235,6 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
 	{
 		printf("warning: " "%s\n", buffer);
 		print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
-#endif
 	}
 	else
 	{
@@ -243,6 +242,8 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
 		print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 
 	}
+#endif
+
 }
 
 void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
