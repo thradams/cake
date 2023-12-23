@@ -821,7 +821,7 @@ struct preprocessor_ctx
     struct owner_hash_map macros;
     struct include_dir_list include_dir;
 
-    /*lista dos headers marcados com pragma once*/
+    /*map of pragma once already included files*/
     struct hash_map pragma_once_map;
     
     struct token* current;
