@@ -1,5 +1,5 @@
   
-Last Updated 10/12/2023
+Last Updated 23/12/2023
 
 ## Owner Objects
 
@@ -71,7 +71,7 @@ We can have other types of **owner objects**. For instance, Berkeley sockets use
 
 The location and usage of qualifier owner is similar of const qualifier. For pointers it goes after `*`, for this socket sample it can be before int.
 
-## View Objects
+### View Objects
 
 A **view object** is an object referencing another object without managing its lifetime. 
 
@@ -123,8 +123,11 @@ int main() {
 }
 ```
 
+It is interesting to compare against const qualifier. 
+While const adds a qualifier "const" "view" removes the qualifier "owner".
 
-## Deleting Owner Pointers
+
+### Deleting Owner Pointers
 
 **Owner pointers** take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources, as illustrated in Listing 7:
 
@@ -229,8 +232,6 @@ void f(struct X * x) {
   y_destroy(x->p); 
 }
 ```
-
-## Copying a owner pointer to a obj_owner pointer
  
 We can copy an owner pointer to an **obj_owner** pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership. Listing 11 illustrates how we can use `x_destroy` in the implementation of `x_delete`.
 
@@ -264,6 +265,19 @@ int main() {
  } 
 ```
 
+In C, array types in arguments are pointers. This characteristics is preserved.
+
+To use owner qualifier in array we do. (Just like const)
+
+```c
+void f(int a[owner])
+{
+  free(a);
+}
+```
+
+But I think this is quite uncommon.
+
 
 ## Static analysis - Checking the rules at compile time  
 
@@ -294,7 +308,7 @@ To check the ownership rules, the compiler uses six states:
  
 We can print these states using the **static_debug** declaration. We can also assert the variable is at a certain state using the **static_state** declaration. Listing 12 shows this usage:
 
-**Listing 12 - Usage of **static_state** and **static_debug****
+**Listing 12 - Usage of static\_state and static\_debug**
 
 ```c
 int main() {
@@ -352,7 +366,7 @@ int main()
 
 The **zero** state is used for non-owner objects to complement and support uninitialized checks.
 
-**Listing 15 - The zero state
+**Listing 15 - The zero state**
 
 ```c
 int main()
@@ -432,7 +446,7 @@ int main() {
 
 When objects are moved to functions, the state is  `uninitialized`  that is the worst scenario of what can happens inside the function. When objects are moved inside the same source the state is `moved`.
 
-```
+```c
 #include <ownership.h> 
 #include <stdlib.h>
 #include <stdio.h>
@@ -521,7 +535,7 @@ But when possible we can use assert that works both as static information and ru
 
 Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know `list->tail->next` is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.
 
-**Listing 22 shows the usage of assert. 
+**Listing 22 shows the usage of assert.** 
 
 ```c
 
@@ -556,7 +570,7 @@ void list_append(struct list* list, struct node* owner node)
 
 But, the null pointer constant is converted to a null owner pointer. Se listing 23.
 
-**Listing 23 - non owner cannot be copied to owner
+**Listing 23 - non owner cannot be copied to owner**
 
 ```c
 FILE * f();
@@ -818,11 +832,11 @@ This define is set when we include `<ownership.h>` at beginning.
 #include <stdlib.h>
 
 int main() {
-  void * p = malloc(1); //error owner required
+  void * p = malloc(1); //error: missing owner qualifier
 }
 ```
 
-The other advantage of having a `<ownership.h>` is because owner is a macro that can be defined as empty in case the compiler does not support ownership, allowing the same code to be compiled in compiler without ownership support. 
+The other advantage of having a `<ownership.h>` is because owner is a macro that can be defined as empty in case the compiler does not support ownership, allowing the same code to be compiled in compilers without ownership support. 
   
   
 > Currently cake is using the same headers of VS and GCC that are not aware of ownership. For this reason, `ownership.h` itself is declaring malloc etc and the second declaration of malloc inside stdlib.h will not complain with the discrepancy of ownership qualifiers between declarations.

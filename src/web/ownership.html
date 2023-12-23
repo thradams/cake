@@ -21,25 +21,22 @@
 <li>
 <a href="#toc_1">Non-pointer owner objects</a>
 </li>
-</ul>
-</li>
 <li>
 <a href="#toc_2">View Objects</a>
 </li>
 <li>
 <a href="#toc_3">Deleting Owner Pointers</a>
 </li>
-<li>
-<a href="#toc_4">Copying a owner pointer to a obj_owner pointer</a>
+</ul>
 </li>
 <li>
-<a href="#toc_5">Static analysis - Checking the rules at compile time</a>
+<a href="#toc_4">Static analysis - Checking the rules at compile time</a>
 </li>
 <li>
-<a href="#toc_6">Ownership Feature Strategy (Inspired by stdbool.h)</a>
+<a href="#toc_5">Ownership Feature Strategy (Inspired by stdbool.h)</a>
 </li>
 </ul>
-<p>Last Updated 10/12/2023</p>
+<p>Last Updated 23/12/2023</p>
 
 <h2 id="toc_0">Owner Objects</h2>
 
@@ -107,7 +104,7 @@ int main()
 
 <p>The location and usage of qualifier owner is similar of const qualifier. For pointers it goes after <code>*</code>, for this socket sample it can be before int.</p>
 
-<h2 id="toc_2">View Objects</h2>
+<h3 id="toc_2">View Objects</h3>
 
 <p>A <strong>view object</strong> is an object referencing another object without managing its lifetime. </p>
 
@@ -155,7 +152,10 @@ int main() {
 }
 </code></pre>
 
-<h2 id="toc_3">Deleting Owner Pointers</h2>
+<p>It is interesting to compare against const qualifier. 
+While const adds a qualifier &quot;const&quot; &quot;view&quot; removes the qualifier &quot;owner&quot;.</p>
+
+<h3 id="toc_3">Deleting Owner Pointers</h3>
 
 <p><strong>Owner pointers</strong> take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources, as illustrated in Listing 7:</p>
 
@@ -257,8 +257,6 @@ void f(struct X * x) {
 }
 </code></pre>
 
-<h2 id="toc_4">Copying a owner pointer to a obj_owner pointer</h2>
-
 <p>We can copy an owner pointer to an <strong>obj_owner</strong> pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership. Listing 11 illustrates how we can use <code>x_destroy</code> in the implementation of <code>x_delete</code>.</p>
 
 <p><strong>Listing 11 - Using <code>x_destroy</code> to implement <code>x_delete</code></strong></p>
@@ -290,7 +288,19 @@ int main() {
  } 
 </code></pre>
 
-<h2 id="toc_5">Static analysis - Checking the rules at compile time</h2>
+<p>In C, array types in arguments are pointers. This characteristics is preserved.</p>
+
+<p>To use owner qualifier in array we do. (Just like const)</p>
+
+<pre><code class="language-c">void f(int a[owner])
+{
+  free(a);
+}
+</code></pre>
+
+<p>But I think this is quite uncommon.</p>
+
+<h2 id="toc_4">Static analysis - Checking the rules at compile time</h2>
 
 <p>Let&#39;s revisit our first example:</p>
 
@@ -320,7 +330,7 @@ int main()
 
 <p>We can print these states using the <strong>static_debug</strong> declaration. We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. Listing 12 shows this usage:</p>
 
-<p>**Listing 12 - Usage of <strong>static_state</strong> and <strong>static_debug</strong>**</p>
+<p><strong>Listing 12 - Usage of static_state and static_debug</strong></p>
 
 <pre><code class="language-c">int main() {
  int a;   
@@ -374,7 +384,7 @@ int main()
 
 <p>The <strong>zero</strong> state is used for non-owner objects to complement and support uninitialized checks.</p>
 
-<p>**Listing 15 - The zero state</p>
+<p><strong>Listing 15 - The zero state</strong></p>
 
 <pre><code class="language-c">int main()
 {
@@ -448,7 +458,7 @@ int main() {
 
 <p>When objects are moved to functions, the state is  <code>uninitialized</code>  that is the worst scenario of what can happens inside the function. When objects are moved inside the same source the state is <code>moved</code>.</p>
 
-<pre><code>#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#include &lt;ownership.h&gt; 
 #include &lt;stdlib.h&gt;
 #include &lt;stdio.h&gt;
 
@@ -531,7 +541,7 @@ void init(struct X * x) {
 
 <p>Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know <code>list-&gt;tail-&gt;next</code> is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.</p>
 
-<p>**Listing 22 shows the usage of assert. </p>
+<p><strong>Listing 22 shows the usage of assert.</strong> </p>
 
 <pre><code class="language-c">
 #include &lt;ownership.h&gt; 
@@ -565,7 +575,7 @@ void list_append(struct list* list, struct node* owner node)
 
 <p>But, the null pointer constant is converted to a null owner pointer. Se listing 23.</p>
 
-<p>**Listing 23 - non owner cannot be copied to owner</p>
+<p><strong>Listing 23 - non owner cannot be copied to owner</strong></p>
 
 <pre><code class="language-c">FILE * f();
 int main() {  
@@ -783,7 +793,7 @@ int main() {
 }
 </code></pre>
 
-<h2 id="toc_6">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
+<h2 id="toc_5">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
 
 <p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it must define  <code>__STDC_OWNERSHIP__</code>. </p>
 
@@ -805,11 +815,11 @@ This define is set when we include <code>&lt;ownership.h&gt;</code> at beginning
 #include &lt;stdlib.h&gt;
 
 int main() {
-  void * p = malloc(1); //error owner required
+  void * p = malloc(1); //error: missing owner qualifier
 }
 </code></pre>
 
-<p>The other advantage of having a <code>&lt;ownership.h&gt;</code> is because owner is a macro that can be defined as empty in case the compiler does not support ownership, allowing the same code to be compiled in compiler without ownership support. </p>
+<p>The other advantage of having a <code>&lt;ownership.h&gt;</code> is because owner is a macro that can be defined as empty in case the compiler does not support ownership, allowing the same code to be compiled in compilers without ownership support. </p>
 
 <blockquote>
 <p>Currently cake is using the same headers of VS and GCC that are not aware of ownership. For this reason, <code>ownership.h</code> itself is declaring malloc etc and the second declaration of malloc inside stdlib.h will not complain with the discrepancy of ownership qualifiers between declarations.</p>
