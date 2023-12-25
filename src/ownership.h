@@ -7,6 +7,8 @@
  /*
    ownership is suported
  */
+#define out _Out
+#define opt _Opt
 #define owner _Owner
 #define obj_owner  _Obj_owner
 #define view _View
@@ -14,7 +16,7 @@
 
 
 void* owner calloc(int nmemb, int size);
-void free(void* owner ptr);
+void free(void* owner opt ptr);
 void* owner malloc(int size);
 void* owner realloc(void*  ptr, int size);
 char * owner strdup( const char *src );
@@ -24,6 +26,8 @@ FILE* owner fopen(char const* _FileName, char const* _Mode);
 int fclose(FILE* owner _Stream);
 
 #else
+#define out
+#define opt
 #define owner
 #define obj_owner
 #define view

@@ -91,7 +91,7 @@ void object_state_to_string(enum object_state e)
 
 struct defer_statement* owner defer_statement(struct parser_ctx* ctx);
 
-void defer_statement_delete(struct defer_statement* owner p)
+void defer_statement_delete(struct defer_statement* owner opt p)
 {
     if (p)
     {
@@ -2382,13 +2382,13 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 }
             }
 
-            struct scope* out = NULL;
-            struct declarator* previous = find_declarator(ctx, name, &out);
+            struct scope* out_scope = NULL;
+            struct declarator* previous = find_declarator(ctx, name, &out_scope);
             if (previous)
             {
-                if (out->scope_level == ctx->scopes.tail->scope_level)
+                if (out_scope->scope_level == ctx->scopes.tail->scope_level)
                 {
-                    if (out->scope_level == 0)
+                    if (out_scope->scope_level == 0)
                     {
                         /*file scope*/
                         if (!type_is_same(&previous->type, &p_init_declarator->p_declarator->type, true))
@@ -2409,7 +2409,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     hashmap_set(&ctx->scopes.tail->variables, name, p_init_declarator, TAG_TYPE_INIT_DECLARATOR);
 
                     /*global scope no warning...*/
-                    if (out->scope_level != 0)
+                    if (out_scope->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
                         if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token, "declaration of '%s' hides previous declaration", name))
@@ -5473,7 +5473,7 @@ struct secondary_block* owner secondary_block(struct parser_ctx* ctx)
     return p_secondary_block;
 }
 
-void secondary_block_delete(struct secondary_block* owner p)
+void secondary_block_delete(struct secondary_block* owner opt p)
 {
     if (p)
     {
@@ -6759,13 +6759,13 @@ int compile_one_file(const char* file_name,
                     s = s2;
                 }
 
-                FILE* owner out = fopen(out_file_name, "w");
-                if (out)
+                FILE* owner outfile = fopen(out_file_name, "w");
+                if (outfile)
                 {
                     if (s)
-                        fprintf(out, "%s", s);
+                        fprintf(outfile, "%s", s);
 
-                    fclose(out);
+                    fclose(outfile);
                     //printf("%-30s ", path);
                 }
                 else

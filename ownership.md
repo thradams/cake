@@ -769,55 +769,38 @@ int main() {
 }
 ```
 
-For this reason, an qualifier 'out' can be added in the future to allow passing unitalicized objects.
+For this reason, an qualifier `out` can be added to allow passing unitalicized objects.
 
 ```c
+void  free(void* _Owner p);
+char* _Owner strdup(const char* s);
+
 struct X {
-  char *owner text; 
+    char* _Owner s;
 };
-void init(out struct  X * x) {  
-  x->text = strdup("a");
+
+void init(_Out struct X *  px)
+{
+    static_state(px, "maybe-null");
+    static_state(px->s, "uninitialized");
+    px->s = strdup("a");
 }
+
+void set(struct X* px, const char* text)
+{
+    static_state(px, "maybe-null");
+    static_state(px->s, "maybe-null");
+    free(px->s);
+    px->s = strdup(text);
+}
+
 int main() {
-  struct X x = {0};
-  init(&x);
+    struct X x;
+    init(&x);
+    set(&x, "b");
+    free(x.s);
 }
 ```
-
-Meanwhile, the error can be removed initializing the object.
-  
-```c
-struct X {
-  char *owner text; 
-};
-void init(struct  X * x) {  
-  static_set(x, "uninitialized");
-  x->text = strdup("a");
-}
-int main() {
-  struct X x = {0};
-  init(&x);
-}
-```
-
-We can also pretend the object is initialized.
-
-
-```c
-struct X {
-  char *owner text; 
-};
-void init(struct  X * x) {  
-  static_set(x, "uninitialized");
-  x->text = strdup("a");
-}
-int main() {
-  struct X x;
-  static_set(x, "zero");
-  init(&x);
-}
-```
-
 
 
 

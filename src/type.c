@@ -1708,7 +1708,7 @@ int type_get_rank(struct type* p_type1)
     return rank;
 }
 
-int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
+int type_common(struct type* p_type1, struct type* p_type2, struct type* out_type)
 {
     struct type t0 = {0};
     try
@@ -1727,14 +1727,14 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out)
         /*
            The result of expression +,- * / etc are not lvalue
         */
-        out->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
+        out_type->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
     }
     catch
     {
         return 1;
     }
 
-    type_swap(out, &t0);
+    type_swap(out_type, &t0);
     type_destroy(&t0);
 
     return 0;

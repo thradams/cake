@@ -610,7 +610,7 @@ static void print_object_core(int ident, struct type* p_type, struct object* p_o
 }
 void object_get_name(const struct type* p_type,
 	const struct object* p_object,
-	char* out,
+	char* outname,
 	int out_size);
 
 
@@ -1115,7 +1115,7 @@ void object_get_name_core(
 	const struct object* p_object,
 	const struct object* p_object_target,
 	const char* previous_names,
-	char* out,
+	char* outname,
 	int out_size)
 {
 	if (p_object == NULL)
@@ -1125,7 +1125,7 @@ void object_get_name_core(
 
 	if (p_object == p_object_target)
 	{
-		snprintf(out, out_size, "%s", previous_names);
+		snprintf(outname, out_size, "%s", previous_names);
 		return;
 	}
 
@@ -1161,7 +1161,7 @@ void object_get_name_core(
 							&p_object->members.data[member_index],
 							p_object_target,
 							buffer,
-							out,
+							outname,
 							out_size);
 
 						member_index++;
@@ -1188,7 +1188,7 @@ void object_get_name_core(
 					p_object->pointed,
 					p_object_target,
 					buffer,
-					out,
+					outname,
 					out_size);
 			}
 			type_destroy(&t2);
@@ -1199,13 +1199,13 @@ void object_get_name_core(
 
 void object_get_name(const struct type* p_type,
 	const struct object* p_object,
-	char* out,
+	char* outname,
 	int out_size)
 {
 	if (p_object->declarator == NULL)
 	{
-		out[0] = '?';
-		out[1] = '\0';
+		outname[0] = '?';
+		outname[1] = '\0';
 		return;
 	}
 
@@ -1213,7 +1213,7 @@ void object_get_name(const struct type* p_type,
 	const char* root_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
 	const struct object* root = &p_object->declarator->object;
 
-	object_get_name_core(&p_object->declarator->type, root, p_object, root_name, out, out_size);
+	object_get_name_core(&p_object->declarator->type, root, p_object, root_name, outname, out_size);
 }
 
 void checked_moved(struct parser_ctx* ctx,

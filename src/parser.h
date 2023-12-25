@@ -988,7 +988,7 @@ struct defer_statement
     struct secondary_block* owner secondary_block;
 };
 
-void defer_statement_delete(struct defer_statement * owner p);
+void defer_statement_delete(struct defer_statement * owner opt p);
 
 struct try_statement
 {   
@@ -1173,7 +1173,7 @@ struct secondary_block
     struct statement* owner statement;
 };
 
-void secondary_block_delete(struct secondary_block * owner p);
+void secondary_block_delete(struct secondary_block * owner opt p);
 
 struct unlabeled_statement
 {
