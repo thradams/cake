@@ -499,9 +499,9 @@ int main() {
 }
 </code></pre>
 
-<p>Sometimes is not possible to infer the state. Consider this sample.</p>
+<p>For function parameters, the state of the object is valid by default.</p>
 
-<p><strong>Listing 20 - Some states cannot be inferred</strong></p>
+<p><strong>Listing 20 - States of function parameters</strong></p>
 
 <pre><code class="language-c">#include &lt;ownership.h&gt; 
 #include &lt;string.h&gt;
@@ -510,15 +510,16 @@ struct X {
   char *owner text; 
 };
 
-void init(struct  X * x) {
-  //Error: memory pointed by &#39;x.text&#39; was 
-  // not released before assignment
-  x-&gt;text = strdup(&quot;a&quot;);
+void set(struct  X * x, const char * name) {
+  free(x-&gt;text);
+  x-&gt;text = strdup(name);
 }
 
 </code></pre>
 
-<p>How to know <code>x-&gt;text</code> was not holding any resource? At  listing 21, we show how <strong>static_set</strong> can be used to say <code>x-&gt;text</code> is not initialized at <code>init</code>. </p>
+<p>In some cases this is not true, for instance when the object is uninitialized.</p>
+
+<p>At  listing 21, we show how <strong>static_set</strong> can be used to say <code>x-&gt;text</code> is not initialized at <code>init</code>. </p>
 
 <p><strong>Listing 21 - Using static_set</strong></p>
 
@@ -535,7 +536,30 @@ void init(struct X * x) {
 }
 </code></pre>
 
-<p>At this <code>init</code> sample we cannot check the uninitialized at runtime because it can be anything.</p>
+<p>The problem here is that the compiler is not checking, we are just creating assumptions.
+For this reason the <code>out</code> qualifier will be created  (not implemented yet).</p>
+
+<pre><code class="language-c">#include &lt;ownership.h&gt; 
+#include &lt;string.h&gt;
+
+struct X {
+  char *owner text; 
+};
+
+void init(out struct X * x) {
+  x-&gt;text = strdup(&quot;a&quot;);
+}
+
+void set(struct  X * x, const char * name) {
+  free(x-&gt;text);
+  x-&gt;text = strdup(name);
+}
+
+</code></pre>
+
+<p>The out parameter tells us that the argument must be 100% uninitialized. The advantage compared with set_state is that the compiler can check the argument state at the caller side.</p>
+
+<p>The advantage of static_set is because it can be used in more complicated scenarios.</p>
 
 <p>But when possible we can use assert that works both as static information and runtime check in debug.</p>
 

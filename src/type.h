@@ -93,6 +93,7 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_VIEW = 1 << 6,
     TYPE_QUALIFIER_OPT = 1 << 7,
     TYPE_QUALIFIER_NOT_NULL = 1 << 8,
+    TYPE_QUALIFIER_OUT = 1 << 9,
 };
 
 enum storage_class_specifier_flags
@@ -204,6 +205,8 @@ int type_set_array_size(struct type* p_type, int size);
 
 bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
+
+bool type_is_out(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_owner(const struct type* p_type);
 bool type_is_obj_owner(const struct type* p_type);

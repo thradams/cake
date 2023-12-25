@@ -491,9 +491,9 @@ int main() {
 }
 ```
 
-Sometimes is not possible to infer the state. Consider this sample.
+For function parameters, the state of the object is valid by default.
 
-**Listing 20 - Some states cannot be inferred**
+**Listing 20 - States of function parameters**
 
 ```c
 #include <ownership.h> 
@@ -503,15 +503,16 @@ struct X {
   char *owner text; 
 };
 
-void init(struct  X * x) {
-  //Error: memory pointed by 'x.text' was 
-  // not released before assignment
-  x->text = strdup("a");
+void set(struct  X * x, const char * name) {
+  free(x->text);
+  x->text = strdup(name);
 }
 
 ```
 
-How to know `x->text` was not holding any resource? At  listing 21, we show how **static_set** can be used to say `x->text` is not initialized at `init`. 
+In some cases this is not true, for instance when the object is uninitialized.
+
+At  listing 21, we show how **static_set** can be used to say `x->text` is not initialized at `init`. 
 
 **Listing 21 - Using static_set**
 
@@ -529,8 +530,31 @@ void init(struct X * x) {
 }
 ```
 
-At this `init` sample we cannot check the uninitialized at runtime because it can be anything.
- 
+The problem here is that the compiler is not checking, we are just creating assumptions.
+For this reason the `out` qualifier will be created  (not implemented yet).
+
+```c
+#include <ownership.h> 
+#include <string.h>
+
+struct X {
+  char *owner text; 
+};
+
+void init(out struct X * x) {
+  x->text = strdup("a");
+}
+
+void set(struct  X * x, const char * name) {
+  free(x->text);
+  x->text = strdup(name);
+}
+
+```
+The out parameter tells us that the argument must be 100% uninitialized. The advantage compared with set_state is that the compiler can check the argument state at the caller side.
+
+The advantage of static_set is because it can be used in more complicated scenarios.
+
 But when possible we can use assert that works both as static information and runtime check in debug.
 
 Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know `list->tail->next` is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.

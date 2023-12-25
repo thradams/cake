@@ -155,7 +155,8 @@ enum token_type
     
 
     /*cake extension*/
-    TK_KEYWORD__OWNER, 
+    TK_KEYWORD__OWNER,
+    TK_KEYWORD__OUT,
     TK_KEYWORD__OBJ_OWNER, 
     TK_KEYWORD__VIEW,    
     TK_KEYWORD__OPT, 

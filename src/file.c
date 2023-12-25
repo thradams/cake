@@ -1,8 +1,10 @@
-enum E1 { A };
-enum E2 { B };
+struct X
+{
+    char* _Owner s;
+};
+void init(struct X * _Out x){}
 
 int main() {
-    enum E1 e;
-    e = B;
-    if (e == B) {}
+    struct X x;
+    init(&x);
 }

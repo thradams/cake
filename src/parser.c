@@ -724,6 +724,7 @@ bool first_of_type_qualifier_token(struct token* p_token)
         p_token->type == TK_KEYWORD__ATOMIC ||
 
         /*extensions*/
+        p_token->type == TK_KEYWORD__OUT ||
         p_token->type == TK_KEYWORD__OWNER ||
         p_token->type == TK_KEYWORD__OBJ_OWNER ||
         p_token->type == TK_KEYWORD__VIEW ||
@@ -1205,6 +1206,7 @@ enum token_type is_keyword(const char* text)
             //end microsoft
 
             /*ownership*/
+            else if (strcmp("_Out", text) == 0) result = TK_KEYWORD__OUT; /*extension*/
             else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
             else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
             else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
@@ -3944,6 +3946,10 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
             /*
               ownership extensions
             */
+
+        case TK_KEYWORD__OUT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
+            break;
 
         case TK_KEYWORD__OWNER:
             p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;

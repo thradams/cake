@@ -550,7 +550,8 @@ static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p
 			p_type_qualifier->token->lexeme = strdup("/*restrict*/");
 		}
 
-		if (p_type_qualifier->token->type == TK_KEYWORD__OWNER ||
+		if (p_type_qualifier->token->type == TK_KEYWORD__OUT ||
+			p_type_qualifier->token->type == TK_KEYWORD__OWNER ||
 			p_type_qualifier->token->type == TK_KEYWORD__OBJ_OWNER ||
 			p_type_qualifier->token->type == TK_KEYWORD__VIEW)
 		{
