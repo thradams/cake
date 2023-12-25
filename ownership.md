@@ -491,7 +491,8 @@ int main() {
 }
 ```
 
-For function parameters, the state of the object is valid by default.
+### Function Parameters
+For function parameters, the state of the object is initialized by default.
 
 **Listing 20 - States of function parameters**
 
@@ -510,28 +511,7 @@ void set(struct  X * x, const char * name) {
 
 ```
 
-In some cases this is not true, for instance when the object is uninitialized.
-
-At  listing 21, we show how **static_set** can be used to say `x->text` is not initialized at `init`. 
-
-**Listing 21 - Using static_set**
-
-```c
-#include <ownership.h> 
-#include <string.h>
-
-struct X {
-  char *owner text; 
-};
-
-void init(struct X * x) {
-  static_set(x->text, "uninitialized");
-  x->text = strdup("a");
-}
-```
-
-The problem here is that the compiler is not checking, we are just creating assumptions.
-For this reason the `out` qualifier will be created  (not implemented yet).
+When the argument can be uninitialized we use the qualifier _Out.
 
 ```c
 #include <ownership.h> 
@@ -551,9 +531,18 @@ void set(struct  X * x, const char * name) {
 }
 
 ```
-The out parameter tells us that the argument must be 100% uninitialized. The advantage compared with set_state is that the compiler can check the argument state at the caller side.
 
-The advantage of static_set is because it can be used in more complicated scenarios.
+
+After calling init the object may or not be initialized.
+
+At  listing 21, we show how **static_set** can be used to set states. 
+
+**Listing 21 - Using static_set**
+
+```c
+TODO
+```
+
 
 But when possible we can use assert that works both as static information and runtime check in debug.
 

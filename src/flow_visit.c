@@ -1387,8 +1387,6 @@ void checked_read_object(struct parser_ctx* ctx,
 
 		if (p_object->state & OBJECT_STATE_UNINITIALIZED)
 		{
-			//struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-
 			char name[200] = { 0 };
 			object_get_name(p_type, p_object, name, sizeof name);
 			compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
@@ -1636,7 +1634,7 @@ void object_assigment(struct parser_ctx* ctx,
 {
 	if (p_dest_obj_opt)
 	{
-		if (type_is_owner(p_dest_obj_type))
+		if (type_is_owner(p_dest_obj_type) && !type_is_out(p_dest_obj_type))
 		{
 			char buffer[100] = { 0 };
 			object_get_name(p_dest_obj_type, p_dest_obj_opt, buffer, sizeof buffer);
