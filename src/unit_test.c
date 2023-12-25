@@ -204,6 +204,7 @@ void return_true_branch(void);
 void flow_tests(void);
 void member(void);
 void loop_leak(void);
+void out_parameter(void);
 
 /*end of forward declarations*/
 
@@ -401,6 +402,7 @@ g_unit_test_success_count = 0;
     flow_tests();
     member();
     loop_leak();
+    out_parameter();
 return g_unit_test_error_count;
 
 }

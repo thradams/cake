@@ -2971,6 +2971,30 @@ void loop_leak()
         assert(compile_with_errors(true, source));
 }
 
+void out_parameter() {
+    const char* source        
+        =
+        "void  free(void* _Owner p);\n"
+        "char* _Owner strdup(const char* s);\n"
+        "\n"
+        "struct X {\n"
+        "    char* _Owner s;\n"
+        "};\n"
+        "void init(_Out struct X *  px)\n"
+        "{\n"
+        "    static_state(px, \"maybe-null\");\n"
+        "    static_state(px->s, \"uninitialized\");\n"
+        "    px->s = strdup(\"a\");\n"
+        "}\n"
+        "\n"
+        "int main() {\n"
+        "    struct X x;\n"
+        "    init(&x);\n"
+        "    free(x.s);\n"
+        "}";
+
+        assert(compile_without_errors(true, source));
+}
 
 #endif
 

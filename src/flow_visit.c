@@ -944,6 +944,10 @@ static void set_object(
 		if (p_object->pointed)
 		{
 			struct type t2 = type_remove_pointer(p_type);
+			if (type_is_out(&t2))
+			{
+				flags = OBJECT_STATE_UNINITIALIZED;
+			}
 			set_object(&t2, p_object->pointed, flags);
 			type_destroy(&t2);
 		}
@@ -1515,8 +1519,8 @@ void visit_object(struct parser_ctx* ctx,
 
 
 		/*
-		   Despide the name OBJECT_STATE_NOT_NULL does not means null, it means
-		   the reference is not refering an object, the value could be -1 for istnace.
+		   Despite the name OBJECT_STATE_NOT_NULL does not means null, it means
+		   the reference is not referring an object, the value could be -1 for instance.
 		*/
 		if (type_is_pointer(p_type))
 		{
@@ -1569,27 +1573,33 @@ void visit_object(struct parser_ctx* ctx,
 			{
 				if (type_is_pointer(p_type))
 				{
-					if (is_assigment)
+					struct type t2 = type_remove_pointer(p_type);
+					bool pointed_is_out = type_is_out(&t2);
+					type_destroy(&t2);
+
+					if (!pointed_is_out)
 					{
-						compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
-							ctx,
-							position_token,
-							"memory pointed by '%s' was not released before assignment.",
-							name);
-					}
-					else
-					{
-						compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
-							ctx,
-							position,
-							"memory pointed by '%s' was not released.",
-							name);
-						if (p_object->declarator)
+						if (is_assigment)
 						{
-							compiler_set_info_with_token(W_NONE, ctx, position_token, "end of '%s' scope", name);
+							compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+								ctx,
+								position_token,
+								"memory pointed by '%s' was not released before assignment.",
+								name);
+						}
+						else
+						{
+							compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+								ctx,
+								position,
+								"memory pointed by '%s' was not released.",
+								name);
+							if (p_object->declarator)
+							{
+								compiler_set_info_with_token(W_NONE, ctx, position_token, "end of '%s' scope", name);
+							}
 						}
 					}
-
 				}
 				else
 				{
@@ -2876,7 +2886,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
 	struct param* p_current_parameter_type = NULL;
 
-	const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
+ 	const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
 	if (p_param_list)
 	{
@@ -2919,19 +2929,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 			}
 		}
 
-		if (p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OPT)
-		{
-			//todo check all uninitialized
-			//char buffer[100] = { 0 };
-			// object_get_name(&argument_object_type2, p_argument_object2, buffer, sizeof buffer);
-			//visit_object(ctx,
-			//	p_current_parameter_type,
-			//	NULL,
-			//	p_current_argument->expression->first_token,
-			//	buffer,
-			//	true);
-		}
-
+	
 		/*
 		  checking is some uninitialized or moved object is being used as parameter
 		*/
@@ -2940,11 +2938,28 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 			//TODO check if pointed object is const
 			bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
 
-			checked_read_object(ctx,
-				&argument_object_type,
-				p_argument_object,
-				p_current_argument->expression->first_token,
-				check_pointed_object);
+			bool pointer_to_out = false;
+
+			if (type_is_pointer(&p_current_parameter_type->type) &&
+				check_pointed_object)
+			{
+				struct type t2 = type_remove_pointer(&p_current_parameter_type->type);
+				if (type_is_out(&t2))
+				{
+					pointer_to_out = true;
+					type_destroy(&t2);
+				}
+			}
+
+			if (!pointer_to_out)
+			{
+				checked_read_object(ctx,
+					&argument_object_type,
+					p_argument_object,
+					p_current_argument->expression->first_token,
+					check_pointed_object);
+
+			}
 		}
 
 		if (type_is_any_owner(&p_current_parameter_type->type))
@@ -3883,7 +3898,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 			}
 
 
-
+#if 0
 			if (type_is_pointer(&p_declarator->type))
 			{
 				//TODO necessary?
@@ -3894,6 +3909,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 				}
 				type_destroy(&t2);
 			}
+#endif
 		}
 	}
 

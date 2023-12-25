@@ -31,9 +31,14 @@
 </li>
 <li>
 <a href="#toc_4">Static analysis - Checking the rules at compile time</a>
+<ul>
+<li>
+<a href="#toc_5">Function Parameters</a>
+</li>
+</ul>
 </li>
 <li>
-<a href="#toc_5">Ownership Feature Strategy (Inspired by stdbool.h)</a>
+<a href="#toc_6">Ownership Feature Strategy (Inspired by stdbool.h)</a>
 </li>
 </ul>
 <p>Last Updated 23/12/2023</p>
@@ -499,7 +504,9 @@ int main() {
 }
 </code></pre>
 
-<p>For function parameters, the state of the object is valid by default.</p>
+<h3 id="toc_5">Function Parameters</h3>
+
+<p>For function parameters, the state of the object is initialized by default.</p>
 
 <p><strong>Listing 20 - States of function parameters</strong></p>
 
@@ -517,27 +524,7 @@ void set(struct  X * x, const char * name) {
 
 </code></pre>
 
-<p>In some cases this is not true, for instance when the object is uninitialized.</p>
-
-<p>At  listing 21, we show how <strong>static_set</strong> can be used to say <code>x-&gt;text</code> is not initialized at <code>init</code>. </p>
-
-<p><strong>Listing 21 - Using static_set</strong></p>
-
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
-#include &lt;string.h&gt;
-
-struct X {
-  char *owner text; 
-};
-
-void init(struct X * x) {
-  static_set(x-&gt;text, &quot;uninitialized&quot;);
-  x-&gt;text = strdup(&quot;a&quot;);
-}
-</code></pre>
-
-<p>The problem here is that the compiler is not checking, we are just creating assumptions.
-For this reason the <code>out</code> qualifier will be created  (not implemented yet).</p>
+<p>When the argument can be uninitialized we use the qualifier _Out.</p>
 
 <pre><code class="language-c">#include &lt;ownership.h&gt; 
 #include &lt;string.h&gt;
@@ -557,9 +544,14 @@ void set(struct  X * x, const char * name) {
 
 </code></pre>
 
-<p>The out parameter tells us that the argument must be 100% uninitialized. The advantage compared with set_state is that the compiler can check the argument state at the caller side.</p>
+<p>After calling init the object may or not be initialized.</p>
 
-<p>The advantage of static_set is because it can be used in more complicated scenarios.</p>
+<p>At  listing 21, we show how <strong>static_set</strong> can be used to set states. </p>
+
+<p><strong>Listing 21 - Using static_set</strong></p>
+
+<pre><code class="language-c">TODO
+</code></pre>
 
 <p>But when possible we can use assert that works both as static information and runtime check in debug.</p>
 
@@ -817,7 +809,7 @@ int main() {
 }
 </code></pre>
 
-<h2 id="toc_5">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
+<h2 id="toc_6">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
 
 <p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it must define  <code>__STDC_OWNERSHIP__</code>. </p>
 
