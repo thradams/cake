@@ -16,7 +16,7 @@
 #include "format_visit.h"
 #include "flow_visit.h"
 #include <errno.h>
-
+#include  "object.h"
 #ifdef _WIN32
 #include <Windows.h>
 #endif

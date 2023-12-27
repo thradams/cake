@@ -64,6 +64,12 @@
     <ClInclude Include="..\src\type.h" />
     <ClInclude Include="..\src\visit.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\object.c">
+      <FileType>CppCode</FileType>
+    </ClCompile>
+    <Text Include="..\src\object.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

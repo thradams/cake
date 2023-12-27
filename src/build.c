@@ -21,6 +21,7 @@
     " error.h "           \
     " fs.h "              \
     " hash.h "            \
+    " object.h "          \
     " hashmap.h "         \
     " osstream.h "        \
     " options.h "         \
@@ -44,6 +45,7 @@
     " expressions.c "     \
     " pre_expressions.c " \
     " type.c "            \
+    " object.c "          \
     " parser.c "          \
     " visit.c "           \
     " flow_visit.c " \
