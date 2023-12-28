@@ -48,13 +48,13 @@
 
 <h2 id="toc_0">Abstract</h2>
 
-<p>The objective is to statically check code and prevent all types of bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like &quot;destroy&quot; or &quot;init&quot; serve as hints, along with documentation and sometimes the implementation itself.</p>
+<p>The objective is to statically check code and prevent bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like &quot;destroy&quot; or &quot;init&quot; serve as hints, along with documentation and sometimes the implementation itself.</p>
 
 <p>The compiler doesn&#39;t read documentation, nor does it operate in the same way as humans. Instead, a formal means of communication with the compiler is necessary. To facilitate this, new qualifiers have been created, and new methods of communication with the compiler have been established.</p>
 
-<p>In the end, we still have the same language, but with a TypeSystem++ version of C. This TypeSystem++ can be disabled, and the language remains unmodified.</p>
+<p>In the end, we still have the same language, but with a c_type_system++ version of C. This c_type_system++ can be disabled, and the language remains unmodified.</p>
 
-<p>The creation of these rules follows certain principles, one of which is to default to safety. In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom to code as they wish, they must either persuade the compiler or disable analysis in specific code sections. Qualifiers are chosen to minimize annotations considering a common scenario.</p>
+<p>The creation of these rules follows certain principles, one of which is to default to safety. In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom to code as they wish, they must either persuade the compiler or disable analysis in specific code sections. Qualifiers are chosen to minimize annotations considering a common usage.</p>
 
 <h2 id="toc_1">Owner Objects</h2>
 

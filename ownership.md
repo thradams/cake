@@ -2,13 +2,13 @@
 Last Updated 27/12/2023
 
 ## Abstract
-The objective is to statically check code and prevent all types of bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like "destroy" or "init" serve as hints, along with documentation and sometimes the implementation itself.
+The objective is to statically check code and prevent bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like "destroy" or "init" serve as hints, along with documentation and sometimes the implementation itself.
 
 The compiler doesn't read documentation, nor does it operate in the same way as humans. Instead, a formal means of communication with the compiler is necessary. To facilitate this, new qualifiers have been created, and new methods of communication with the compiler have been established.
 
-In the end, we still have the same language, but with a TypeSystem++ version of C. This TypeSystem++ can be disabled, and the language remains unmodified.
+In the end, we still have the same language, but with a c\_type\_system++ version of C. This c\_type\_system++ can be disabled, and the language remains unmodified.
 
-The creation of these rules follows certain principles, one of which is to default to safety. In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom to code as they wish, they must either persuade the compiler or disable analysis in specific code sections. Qualifiers are chosen to minimize annotations considering a common scenario.
+The creation of these rules follows certain principles, one of which is to default to safety. In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom to code as they wish, they must either persuade the compiler or disable analysis in specific code sections. Qualifiers are chosen to minimize annotations considering a common usage.
 
 ## Owner Objects
 
