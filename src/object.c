@@ -189,7 +189,7 @@ bool has_name(const char* name, struct object_name_list* list)
 
 		if (p_struct_or_union_specifier)
 		{
-			obj.state = OBJECT_STATE_EMPTY;
+			obj.state = OBJECT_STATE_NOT_APPLICABLE;
 
 			struct member_declaration* p_member_declaration =
 				p_struct_or_union_specifier->member_declaration_list.head;
@@ -225,7 +225,7 @@ bool has_name(const char* name, struct object_name_list* list)
 							{
 								struct object member_obj = { 0 };
 								member_obj.declarator = declarator;
-								member_obj.state = OBJECT_STATE_EMPTY;
+								member_obj.state = OBJECT_STATE_NOT_APPLICABLE;
 								objects_push_back(&obj.members, &member_obj);
 							}
 							else
@@ -274,7 +274,7 @@ bool has_name(const char* name, struct object_name_list* list)
 	}
 	else if (type_is_pointer(p_type))
 	{
-		obj.state = OBJECT_STATE_EMPTY;
+		obj.state = OBJECT_STATE_NOT_APPLICABLE;
 
 		if (deep < 1)
 		{
@@ -294,7 +294,7 @@ bool has_name(const char* name, struct object_name_list* list)
 	{
 		//assert(p_object->members_size == 0);
 		//p_object->state = flags;
-		obj.state = OBJECT_STATE_EMPTY;
+		obj.state = OBJECT_STATE_NOT_APPLICABLE;
 	}
 
 	return obj;

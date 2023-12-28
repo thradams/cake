@@ -9,9 +9,9 @@
 enum object_state
 {
     /*
-       Not used
+       Not applicable. The state cannot be used.
     */
-    OBJECT_STATE_EMPTY = 0,
+    OBJECT_STATE_NOT_APPLICABLE = 0,
 
     OBJECT_STATE_UNINITIALIZED = 1 << 0,
     /*
@@ -56,6 +56,7 @@ struct objects {
     int size;
     int capacity;
 };
+
 void objects_destroy(struct objects* obj_owner p);
 /*
   Used in flow analysis to represent the object instance

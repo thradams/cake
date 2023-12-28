@@ -31,9 +31,6 @@
 #include <time.h>
 
 
-
-
-
 void object_state_to_string(enum object_state e)
 {
     bool  first = true;

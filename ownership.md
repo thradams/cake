@@ -1,5 +1,14 @@
   
-Last Updated 23/12/2023
+Last Updated 27/12/2023
+
+## Abstract
+The objective is to statically check code and prevent all types of bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like "destroy" or "init" serve as hints, along with documentation and sometimes the implementation itself.
+
+The compiler doesn't read documentation, nor does it operate in the same way as humans. Instead, a formal means of communication with the compiler is necessary. To facilitate this, new qualifiers have been created, and new methods of communication with the compiler have been established.
+
+In the end, we still have the same language, but with a TypeSystem++ version of C. This TypeSystem++ can be disabled, and the language remains unmodified.
+
+The creation of these rules follows certain principles, one of which is to default to safety. In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom to code as they wish, they must either persuade the compiler or disable analysis in specific code sections. Qualifiers are chosen to minimize annotations considering a common scenario.
 
 ## Owner Objects
 
@@ -326,8 +335,165 @@ c:/main.c:4:2: note: static_debug
    | ^~~~~~~~~~~~
  a == "uninitialized"
 ```
+ 
+
+As we have just seen, the **uninitialized** state is the state of variables that are declared but not initialized. 
+
+The compiler ensures that we don't read uninitialized objects.
+
+```c
+void f1(int i);
+int main() {
+   int i;
+   f1(i); //error: uninitialized object 'i'
+}
+```
+
+The other situation were variables becomes **uninitialized** is when moving ownership to function parameters. This prevents bugs like double free or use after free.
+
+```c
+#include <ownership.h> 
+#include <stdlib.h>
+
+struct X {
+  char * owner text;
+};
+
+void x_delete(struct X * owner p)
+{
+    if (p) {
+      free(p->text);
+      free(p);    
+    }
+}
+
+void f(struct X * p){}
+
+int main() {   
+   struct X * owner p = malloc(sizeof(struct X));
+   p->text = malloc(10);
+   x_delete(p);
+   f(p); //uninitialized object 'p'
+}
+```
+
+When objects are moved within a local scope, the state is "moved" rather than "uninitialized." The "moved" state is similar to the "uninitialized" state. For instance, it's not possible to move an object that has already been moved.
+
+```c
+#include <ownership.h> 
+#include <stdlib.h>
+
+struct X {
+  char * owner text;
+};
+
+void x_delete(struct X * owner p)
+{
+    if (p)
+    {
+      free(p->text);
+      free(p);    
+    }
+}
+
+void f(struct X * p){}
+
+int main() {   
+   struct X * owner p = malloc(sizeof(struct X));
+   p->text = malloc(10);
   
-As we have just seen, the **uninitialized** state is the state of variables that are declared but not initialized. The compiler ensures that we don't read uninitialized objects.
+   struct X * owner p2 = 0;
+   p2 = p; //MOVED
+  
+   f(p); //error: object 'p' was moved
+   x_delete(p2);
+}
+
+```
+
+The "moved" state was introduced instead of solely relying on the "uninitialized" state because static analysis benefits from having more information on local variables. "Moved" objects may, in some cases, serve as view objects. For example, in listing XX, the x object has been moved to x2, but it is safe to use x as "view" object even after the move.
+
+```c
+#include <ownership.h> 
+#include <stdlib.h>
+
+struct X {
+  char * owner text;
+};
+
+int main() {   
+  struct X x = {0};
+  struct X x2 = {0};
+  free(x2.text);
+}
+```
+
+Note: The current implementation of cake does not handle all necessary states to ensure the safe usage of moved objects.
+
+A common scenario where uninitialized objects are utilized is when a pointer to an uninitialized object is passed to an "init" function. This situation is addressed by the qualifier **out**.
+
+```c  
+#include <ownership.h> 
+#include <stdlib.h>
+#include <string.h>
+
+struct X {
+  char * owner text;
+};
+
+int init(out struct X *p, const char * text)
+{
+  p->text = strdup(text);
+}
+
+int main() {   
+  struct X x;
+  init(&x, "text");  
+  free(x.text);
+}
+  
+```
+
+The "out" qualifier is valuable for both the caller and the implementation. The caller is informed that the argument must be uninitialized, and the implementation is aware that it can safely override the contents of the object `p->text = strdup(text);` without causing a memory leak.
+
+There is no explicit "initialized" state. When referring to initialized objects, it means the state is neither "moved" nor "uninitialized."
+
+
+**Rule** By default, the parameters of a function are considered initialized. The exception is created with out qualifier.
+
+For instance, at set implementation we need free text before assignment.
+
+```c
+#include <ownership.h> 
+#include <stdlib.h>
+#include <string.h>
+
+struct X {
+  char * owner text;
+};
+
+int init(out struct X *p, const char * text)
+{
+  p->text = strdup(text);
+}
+
+int set(struct X *p, const char * text)
+{
+  free(p->text);
+  p->text = strdup(text);
+}
+
+int main() {   
+  struct X x;
+  init(&x, "text1");
+  set(&x, "text2");   
+  free(x.text);
+}
+```
+
+**Rule** All objects passed as arguments must be initialized. The exception is when object is out qualified.
+
+**Rule**: We cannot pass initialized objects to **out** qualified object.
 
 The **null** state means that owner objects are initialized and not referencing any object. Listing 13 shows a sample using owner pointers:
 
@@ -366,6 +532,12 @@ int main()
 
 The **zero** state is used for non-owner objects to complement and support uninitialized checks.
 
+**Rule** Pointer parameters are consider not-null by default.
+
+To tell the compiler that the pointer can be null, we use the qualifier _Opt.
+
+(Currently Cake is only doing null-checks if the -nullchecks option is passed to the compiler)
+
 **Listing 15 - The zero state**
 
 ```c
@@ -392,6 +564,24 @@ The **not-zero** state is used for non-owner objects to indicate the value if no
  /*...*/
  close(server_socket);
 ```
+
+Similarly of  `maybe-null`, `any` is a alias for `zero or not-zero`.
+
+```c
+int f();
+
+int main() {   
+    int i = f();
+    static_state(i, "any");
+}
+
+```
+
+By the way, the result of functions are never `uninitialized` objects by convention.
+
+
+
+**Rule**: Function never returns uninitialized objects.
 
 Now let's consider `realloc` function.
 
@@ -460,7 +650,7 @@ int main() {
 ```
 
 
-**Check:** We cannot discard owner objects as showed in listing 18.  
+**Rule:** We cannot discard owner objects as showed in listing 18.  
 
 **Listing 18 - owner objects cannot be discarded.**
 

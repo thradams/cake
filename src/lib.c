@@ -9465,12 +9465,16 @@ const char* file_ownership_h =
  "#define __OWNERSHIP_H__\n"
  "\n"
  "#ifdef __STDC_OWNERSHIP__\n"
+ "#define out _Out\n"
+ "#define opt _Opt\n"
  "#define owner _Owner\n"
  "#define obj_owner  _Obj_owner\n"
  "#define view _View\n"
  "#define unchecked \"unchecked\"\n"
  "\n"
  "#else\n"
+ "#define out \n"
+ "#define opt \n"
  "#define owner\n"
  "#define obj_owner\n"
  "#define view\n"
@@ -10405,15 +10409,18 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
 
 
 
+/*
+   Object represents "memory" and state. Used by flow analysis
+*/
 
 //#pragma once
 
 enum object_state
 {
     /*
-       Not used
+       Not applicable. The state cannot be used.
     */
-    OBJECT_STATE_EMPTY = 0,
+    OBJECT_STATE_NOT_APPLICABLE = 0,
 
     OBJECT_STATE_UNINITIALIZED = 1 << 0,
     /*
@@ -10458,6 +10465,7 @@ struct objects {
     int size;
     int capacity;
 };
+
 void objects_destroy(struct objects* obj_owner p);
 /*
   Used in flow analysis to represent the object instance
@@ -19719,7 +19727,7 @@ bool has_name(const char* name, struct object_name_list* list)
 
 		if (p_struct_or_union_specifier)
 		{
-			obj.state = OBJECT_STATE_EMPTY;
+			obj.state = OBJECT_STATE_NOT_APPLICABLE;
 
 			struct member_declaration* p_member_declaration =
 				p_struct_or_union_specifier->member_declaration_list.head;
@@ -19755,7 +19763,7 @@ bool has_name(const char* name, struct object_name_list* list)
 							{
 								struct object member_obj = { 0 };
 								member_obj.declarator = declarator;
-								member_obj.state = OBJECT_STATE_EMPTY;
+								member_obj.state = OBJECT_STATE_NOT_APPLICABLE;
 								objects_push_back(&obj.members, &member_obj);
 							}
 							else
@@ -19804,7 +19812,7 @@ bool has_name(const char* name, struct object_name_list* list)
 	}
 	else if (type_is_pointer(p_type))
 	{
-		obj.state = OBJECT_STATE_EMPTY;
+		obj.state = OBJECT_STATE_NOT_APPLICABLE;
 
 		if (deep < 1)
 		{
@@ -19824,7 +19832,7 @@ bool has_name(const char* name, struct object_name_list* list)
 	{
 		//assert(p_object->members_size == 0);
 		//p_object->state = flags;
-		obj.state = OBJECT_STATE_EMPTY;
+		obj.state = OBJECT_STATE_NOT_APPLICABLE;
 	}
 
 	return obj;
@@ -21332,9 +21340,6 @@ struct visit_ctx
 
 void visit(struct visit_ctx* ctx);
 void visit_ctx_destroy( struct visit_ctx* obj_owner ctx);
-
-
-
 
 
 
