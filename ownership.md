@@ -1,5 +1,7 @@
   
 Last Updated 27/12/2023
+  
+This is a work in progress, both design and implementation.
 
 ## Abstract
 The objective is to statically check code and prevent bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like "destroy" or "init" serve as hints, along with documentation and sometimes the implementation itself.
@@ -423,7 +425,9 @@ struct X {
 
 int main() {   
   struct X x = {0};
-  struct X x2 = {0};
+  //...
+  struct X x2 = {0};  
+  x2 = x; //MOVED
   free(x2.text);
 }
 ```
@@ -443,6 +447,7 @@ struct X {
 
 int init(out struct X *p, const char * text)
 {
+  //SAFE
   p->text = strdup(text);
 }
 
@@ -454,10 +459,11 @@ int main() {
   
 ```
 
-The "out" qualifier is valuable for both the caller and the implementation. The caller is informed that the argument must be uninitialized, and the implementation is aware that it can safely override the contents of the object `p->text = strdup(text);` without causing a memory leak.
+The "out" qualifier is necessary at the caller side and at the implementation.
+
+The caller is informed that the argument must be uninitialized, and the implementation is aware that it can safely override the contents of the object `p->text = strdup(text);` without causing a memory leak.
 
 There is no explicit "initialized" state. When referring to initialized objects, it means the state is neither "moved" nor "uninitialized."
-
 
 **Rule** By default, the parameters of a function are considered initialized. The exception is created with out qualifier.
 
@@ -474,12 +480,13 @@ struct X {
 
 int init(out struct X *p, const char * text)
 {
+  //SAFE
   p->text = strdup(text);
 }
 
 int set(struct X *p, const char * text)
 {
-  free(p->text);
+  free(p->text); //NECESSARY
   p->text = strdup(text);
 }
 
@@ -532,11 +539,11 @@ int main()
 
 The **zero** state is used for non-owner objects to complement and support uninitialized checks.
 
-**Rule** Pointer parameters are consider not-null by default.
+**Rule** Pointer parameters are consider not-null by default. The exception is created using the qualifier **_Opt**.  
 
-To tell the compiler that the pointer can be null, we use the qualifier _Opt.
+To tell the compiler that the pointer can be null, we use the qualifier **_Opt**.
 
-(Currently Cake is only doing null-checks if the -nullchecks option is passed to the compiler)
+(Currently Cake is only doing null-checks if the -nullchecks option is passed to the compiler, the cake source itself has to move to nullchecks)
 
 **Listing 15 - The zero state**
 

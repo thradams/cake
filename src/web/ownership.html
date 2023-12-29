@@ -46,6 +46,8 @@
 </ul>
 <p>Last Updated 27/12/2023</p>
 
+<p>This is a work in progress, both design and implementation.</p>
+
 <h2 id="toc_0">Abstract</h2>
 
 <p>The objective is to statically check code and prevent bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like &quot;destroy&quot; or &quot;init&quot; serve as hints, along with documentation and sometimes the implementation itself.</p>
@@ -447,7 +449,9 @@ struct X {
 
 int main() {   
   struct X x = {0};
-  struct X x2 = {0};
+  //...
+  struct X x2 = {0};  
+  x2 = x; //MOVED
   free(x2.text);
 }
 </code></pre>
@@ -466,6 +470,7 @@ struct X {
 
 int init(out struct X *p, const char * text)
 {
+  //SAFE
   p-&gt;text = strdup(text);
 }
 
@@ -477,7 +482,9 @@ int main() {
   
 </code></pre>
 
-<p>The &quot;out&quot; qualifier is valuable for both the caller and the implementation. The caller is informed that the argument must be uninitialized, and the implementation is aware that it can safely override the contents of the object <code>p-&gt;text = strdup(text);</code> without causing a memory leak.</p>
+<p>The &quot;out&quot; qualifier is necessary at the caller side and at the implementation.</p>
+
+<p>The caller is informed that the argument must be uninitialized, and the implementation is aware that it can safely override the contents of the object <code>p-&gt;text = strdup(text);</code> without causing a memory leak.</p>
 
 <p>There is no explicit &quot;initialized&quot; state. When referring to initialized objects, it means the state is neither &quot;moved&quot; nor &quot;uninitialized.&quot;</p>
 
@@ -495,12 +502,13 @@ struct X {
 
 int init(out struct X *p, const char * text)
 {
+  //SAFE
   p-&gt;text = strdup(text);
 }
 
 int set(struct X *p, const char * text)
 {
-  free(p-&gt;text);
+  free(p-&gt;text); //NECESSARY
   p-&gt;text = strdup(text);
 }
 
