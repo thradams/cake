@@ -1,7 +1,7 @@
   
 Last Updated 27/12/2023
   
-This is a work in progress, both design and implementation.
+This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.
 
 ## Abstract
 The objective is to statically check code and prevent bugs, including memory bugs. For this task, the compiler needs information that humans typically gather from the context. For example, names like "destroy" or "init" serve as hints, along with documentation and sometimes the implementation itself.
@@ -14,7 +14,7 @@ The creation of these rules follows certain principles, one of which is to defau
 
 ## Owner Objects
 
-An **owner object** is an object referencing another object and managing its lifetime.
+An **owner object** is an object referencing another object and managing its lifetime. 
 
 The most common type of owner objects are pointers, often referred as **owner pointers**. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:
 
@@ -112,9 +112,7 @@ int main() {
 When a struct or union have at least one owner object it makes the struct a owner object too.
 
 When a **view** qualifier is used in structs, it makes all members as view objects. Listing 6.
-  
-
-
+ 
 **Listing 6 - A view parameter**
 
 ```c
@@ -137,6 +135,81 @@ int main() {
 It is interesting to compare against const qualifier. 
 While const adds a qualifier "const" "view" removes the qualifier "owner".
 
+### Returning view pointers.
+We cannot return local variables as view pointers.
+  
+```c
+int * f()
+{
+   int a = 1;
+   return &a;
+}
+int main()
+{
+  int * p = f();   
+  //warning: function returns address of 
+  //local variable [-Wreturn-local-addr]
+}
+```
+
+But we can return static variables and function arguments.
+
+```c
+static int a = 1;
+
+int * f()
+{   
+   return &a;
+}
+int * f2(int *p) {
+   return p;
+}
+
+int main()
+{
+  int * p = f();
+  int b = 1;
+  p = f2(&b);
+}
+```
+
+Another sample:
+
+```c   
+#include <stdio.h>
+
+int * max(int * p1, int * p2) {  
+ return *p1 > *p2 ? p1 : p2;
+}
+
+int main(){  
+   int * p = NULL;
+   int a  = 1;
+   {
+      int b = 2;
+      p = max(&a,  &b);
+   }
+   printf("%d", *p);
+}
+```
+
+Examining the implementation reveals that the returned view pointer's lifetime can be that of either 'a' or 'b'. Our goal is to set contracts at the declaration level. Following the concept of ensuring safety by default, we assume that the returned view pointers have the shortest scope, limited to the function call.  
+(Cake is not doing this check at this moment) 
+
+### View pointer as struct members
+Consider this sample.
+
+```c  
+struct X {  
+ struct Y * pY;  
+};  
+struct Y {  
+ char * owner name;  
+};  
+```
+
+An object Y pointed by pY must live longer than object X.  
+This check must be done at instantiation.
 
 ### Deleting Owner Pointers
 
@@ -557,7 +630,7 @@ int main()
 
 **Zero** and **null** are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily means null. The compiler does not know the semantics for types that are not pointers. However, you can use **static_set** to override states. In Listing 16, we annotate that server_socket is null, which doesn't mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.
 
-The **not-zero** state is used for non-owner objects to indicate the value if not zero.
+
 
 **Listing 16 - Usage of static_set**
 
@@ -572,7 +645,10 @@ The **not-zero** state is used for non-owner objects to indicate the value if no
  close(server_socket);
 ```
 
-Similarly of  `maybe-null`, `any` is a alias for `zero or not-zero`.
+The **not-zero** state is used for non-owner objects to indicate the value if not zero.
+
+
+Similarly of  **maybe-null**, **any** is a alias for **zero or not-zero** state.
 
 ```c
 int f();
@@ -584,9 +660,9 @@ int main() {
 
 ```
 
-By the way, the result of functions are never `uninitialized` objects by convention.
-
-
+By the way, the result of functions are never **uninitialized** by convention.
+  
+By default, pointers have the state **maybe-null** and other types have the state **any**.
 
 **Rule**: Function never returns uninitialized objects.
 
@@ -1000,6 +1076,9 @@ int main() {
 ```
 
 
+
+
+ 
 
 ## Ownership Feature Strategy (Inspired by stdbool.h)
 

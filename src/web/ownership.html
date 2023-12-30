@@ -28,25 +28,31 @@
 <a href="#toc_3">View Objects</a>
 </li>
 <li>
-<a href="#toc_4">Deleting Owner Pointers</a>
+<a href="#toc_4">Returning view pointers.</a>
+</li>
+<li>
+<a href="#toc_5">View pointer as struct members</a>
+</li>
+<li>
+<a href="#toc_6">Deleting Owner Pointers</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_5">Static analysis - Checking the rules at compile time</a>
+<a href="#toc_7">Static analysis - Checking the rules at compile time</a>
 <ul>
 <li>
-<a href="#toc_6">Function Parameters</a>
+<a href="#toc_8">Function Parameters</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_7">Ownership Feature Strategy (Inspired by stdbool.h)</a>
+<a href="#toc_9">Ownership Feature Strategy (Inspired by stdbool.h)</a>
 </li>
 </ul>
 <p>Last Updated 27/12/2023</p>
 
-<p>This is a work in progress, both design and implementation.</p>
+<p>This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.</p>
 
 <h2 id="toc_0">Abstract</h2>
 
@@ -60,7 +66,7 @@
 
 <h2 id="toc_1">Owner Objects</h2>
 
-<p>An <strong>owner object</strong> is an object referencing another object and managing its lifetime.</p>
+<p>An <strong>owner object</strong> is an object referencing another object and managing its lifetime. </p>
 
 <p>The most common type of owner objects are pointers, often referred as <strong>owner pointers</strong>. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:</p>
 
@@ -175,7 +181,81 @@ int main() {
 <p>It is interesting to compare against const qualifier. 
 While const adds a qualifier &quot;const&quot; &quot;view&quot; removes the qualifier &quot;owner&quot;.</p>
 
-<h3 id="toc_4">Deleting Owner Pointers</h3>
+<h3 id="toc_4">Returning view pointers.</h3>
+
+<p>We cannot return local variables as view pointers.</p>
+
+<pre><code class="language-c">int * f()
+{
+   int a = 1;
+   return &amp;a;
+}
+int main()
+{
+  int * p = f();   
+  //warning: function returns address of 
+  //local variable [-Wreturn-local-addr]
+}
+</code></pre>
+
+<p>But we can return static variables and function arguments.</p>
+
+<pre><code class="language-c">static int a = 1;
+
+int * f()
+{   
+   return &amp;a;
+}
+int * f2(int *p) {
+   return p;
+}
+
+int main()
+{
+  int * p = f();
+  int b = 1;
+  p = f2(&amp;b);
+}
+</code></pre>
+
+<p>Another sample:</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+
+int * max(int * p1, int * p2) {  
+ return *p1 &gt; *p2 ? p1 : p2;
+}
+
+int main(){  
+   int * p = NULL;
+   int a  = 1;
+   {
+      int b = 2;
+      p = max(&amp;a,  &amp;b);
+   }
+   printf(&quot;%d&quot;, *p);
+}
+</code></pre>
+
+<p>Examining the implementation reveals that the returned view pointer&#39;s lifetime can be that of either &#39;a&#39; or &#39;b&#39;. Our goal is to set contracts at the declaration level. Following the concept of ensuring safety by default, we assume that the returned view pointers have the shortest scope, limited to the function call.<br>
+(Cake is not doing this check at this moment) </p>
+
+<h3 id="toc_5">View pointer as struct members</h3>
+
+<p>Consider this sample.</p>
+
+<pre><code class="language-c">struct X {  
+ struct Y * pY;  
+};  
+struct Y {  
+ char * owner name;  
+};  
+</code></pre>
+
+<p>An object Y pointed by pY must live longer than object X.<br>
+This check must be done at instantiation.</p>
+
+<h3 id="toc_6">Deleting Owner Pointers</h3>
 
 <p><strong>Owner pointers</strong> take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources, as illustrated in Listing 7:</p>
 
@@ -320,7 +400,7 @@ int main() {
 
 <p>But I think this is quite uncommon.</p>
 
-<h2 id="toc_5">Static analysis - Checking the rules at compile time</h2>
+<h2 id="toc_7">Static analysis - Checking the rules at compile time</h2>
 
 <p>Let&#39;s revisit our first example:</p>
 
@@ -559,11 +639,11 @@ int main()
 
 <p>The <strong>zero</strong> state is used for non-owner objects to complement and support uninitialized checks.</p>
 
-<p><strong>Rule</strong> Pointer parameters are consider not-null by default.</p>
+<p><strong>Rule</strong> Pointer parameters are consider not-null by default. The exception is created using the qualifier <strong>_Opt</strong>.  </p>
 
-<p>To tell the compiler that the pointer can be null, we use the qualifier _Opt.</p>
+<p>To tell the compiler that the pointer can be null, we use the qualifier <strong>_Opt</strong>.</p>
 
-<p>(Currently Cake is only doing null-checks if the -nullchecks option is passed to the compiler)</p>
+<p>(Currently Cake is only doing null-checks if the -nullchecks option is passed to the compiler, the cake source itself has to move to nullchecks)</p>
 
 <p><strong>Listing 15 - The zero state</strong></p>
 
@@ -575,8 +655,6 @@ int main()
 </code></pre>
 
 <p><strong>Zero</strong> and <strong>null</strong> are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily means null. The compiler does not know the semantics for types that are not pointers. However, you can use <strong>static_set</strong> to override states. In Listing 16, we annotate that server_socket is null, which doesn&#39;t mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.</p>
-
-<p>The <strong>not-zero</strong> state is used for non-owner objects to indicate the value if not zero.</p>
 
 <p><strong>Listing 16 - Usage of static_set</strong></p>
 
@@ -590,7 +668,9 @@ int main()
  close(server_socket);
 </code></pre>
 
-<p>Similarly of  <code>maybe-null</code>, <code>any</code> is a alias for <code>zero or not-zero</code>.</p>
+<p>The <strong>not-zero</strong> state is used for non-owner objects to indicate the value if not zero.</p>
+
+<p>Similarly of  <strong>maybe-null</strong>, <strong>any</strong> is a alias for <strong>zero or not-zero</strong> state.</p>
 
 <pre><code class="language-c">int f();
 
@@ -601,7 +681,9 @@ int main() {
 
 </code></pre>
 
-<p>By the way, the result of functions are never <code>uninitialized</code> objects by convention.</p>
+<p>By the way, the result of functions are never <strong>uninitialized</strong> by convention.</p>
+
+<p>By default, pointers have the state <strong>maybe-null</strong> and other types have the state <strong>any</strong>.</p>
 
 <p><strong>Rule</strong>: Function never returns uninitialized objects.</p>
 
@@ -695,7 +777,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_6">Function Parameters</h3>
+<h3 id="toc_8">Function Parameters</h3>
 
 <p>For function parameters, the state of the object is initialized by default.</p>
 
@@ -987,7 +1069,7 @@ int main() {
 }
 </code></pre>
 
-<h2 id="toc_7">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
+<h2 id="toc_9">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
 
 <p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it must define  <code>__STDC_OWNERSHIP__</code>. </p>
 
