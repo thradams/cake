@@ -287,6 +287,8 @@ int main()
 #if defined BUILD_LINUX_GCC
     /*
       running cake on its own source code
+      To find GCC directories use 
+      echo | gcc -E -Wp,-v -
     */
     if (system("./cake " 
                " -D__x86_64__ "
