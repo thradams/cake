@@ -146,7 +146,8 @@ You can contribute by trying out cake, reporting bugs, and giving feedback.
 Have a suggestion for C?
   
 DISCORD SERVER
-https://discord.gg/mtfw8qVw
+
+[https://discord.gg/QpDzZGrd](https://discord.gg/QpDzZGrd)
 
 # Status?
 
