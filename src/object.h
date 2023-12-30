@@ -82,6 +82,10 @@ void object_swap(struct object* a, struct object* b);
 
 struct declarator;
 struct object make_object(struct type* p_type, const struct declarator* declarator);
+
+struct parser_ctx;
+struct token;
+
 void visit_object(struct parser_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
