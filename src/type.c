@@ -515,10 +515,7 @@ bool type_is_array(const struct type* p_type)
     return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
-bool type_is_lvalue(const struct type* p_type)
-{
-    return p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_LVALUE;
-}
+
 
 bool type_is_any_owner(const struct type* p_type)
 {
@@ -1727,7 +1724,7 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out_typ
         /*
            The result of expression +,- * / etc are not lvalue
         */
-        out_type->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
+        
     }
     catch
     {
@@ -2482,6 +2479,7 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
     struct type t = {0};
     t.category = TYPE_CATEGORY_ARRAY;
     t.array_size = size;
+    
     struct type* owner p2 = calloc(1, sizeof(struct type));
     p2->category = TYPE_CATEGORY_ITSELF;
     p2->type_specifier_flags = chartype;
@@ -2708,9 +2706,6 @@ void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator
 
 void type_set_storage_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
-    /*if we have a declarator then we have a lvalue*/
-    p_type->storage_class_specifier_flags |= STORAGE_SPECIFIER_LVALUE;
-
     if (pdeclarator->declaration_specifiers)
     {
         p_type->storage_class_specifier_flags |=

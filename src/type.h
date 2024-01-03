@@ -109,11 +109,6 @@ enum storage_class_specifier_flags
     /*extra flag just to annotate this*/
     STORAGE_SPECIFIER_CONSTEXPR_STATIC = 1 << 7,
 
-    /*
-      Not working yet...TODO
-    */
-    STORAGE_SPECIFIER_LVALUE = 1 << 10,
-
     STORAGE_SPECIFIER_PARAMETER = 1 << 11,
     STORAGE_SPECIFIER_AUTOMATIC_STORAGE = 1 << 12,
     STORAGE_SPECIFIER_FUNCTION_RETURN = 1 << 13,
@@ -167,7 +162,7 @@ struct type
       This is used to create obj_owner pointer.
     */
     bool address_of;
-
+    
     struct param_list params;
     struct type* owner next;
 };

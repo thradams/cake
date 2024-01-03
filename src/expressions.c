@@ -1196,6 +1196,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
+                
 
                 p_expression_node->type = type_dup(&p_declarator->type);
                 if (p_init_declarator)
@@ -1228,6 +1229,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                 p_expression_node->last_token = ctx->current;
 
                 p_expression_node->type = type_make_literal_string(strlen(funcname) + 1, TYPE_SPECIFIER_CHAR);
+                
             }
             else
             {
@@ -1244,6 +1246,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
+            
 
             enum type_specifier_flags char_type = TYPE_SPECIFIER_CHAR;
 
@@ -1357,6 +1360,9 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
             p_expression_node->right = expression(ctx);
+            
+            
+
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
             if (p_expression_node->right == NULL) throw;
@@ -1525,7 +1531,8 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
-
+                //the result of the subscription operator ([])
+                
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
@@ -1601,7 +1608,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
-
+                
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
 
                 parser_match(ctx);
@@ -1657,7 +1664,9 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
-
+                
+                //the result of a member access through pointer -> operator is lvalue
+                
 
 
                 parser_match(ctx);
@@ -1816,6 +1825,7 @@ struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, st
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
             p_expression_node->braced_initializer = braced_initializer(ctx);
+            
         }
 
         p_expression_node->last_token = ctx->previous;
@@ -1866,6 +1876,7 @@ struct expression* owner postfix_expression(struct parser_ctx* ctx)
             if (p_expression_node->type_name == NULL) throw;
 
             p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+
             parser_match_tk(ctx, ')');
             //printf("\n");
             //print_type(&p_expression_node->type);
@@ -2035,7 +2046,6 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
                 new_expression->type = type_dup(&new_expression->right->type);
-                new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
             }
             else if (op == '-')
             {
@@ -2044,7 +2054,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
                 new_expression->type = type_dup(&new_expression->right->type);
-                new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
+                
             }
             else if (op == '+')
             {
@@ -2053,11 +2063,14 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
                 new_expression->type = type_dup(&new_expression->right->type);
-                new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
+                
             }
             else if (op == '*')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_CONTENT;
+                //the result of the indirection(unary*) operator applied to a pointer to object
+                
+
                 if (!type_is_pointer(&new_expression->right->type))
                 {
                     compiler_set_error_with_token(C_INDIRECTION_REQUIRES_POINTER_OPERAND,
@@ -2075,17 +2088,13 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                   "pointer to . . ."
                 */
                 new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
-                //TODO nao tem como tirar endereco de uma constante
 
-                if (!(new_expression->right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_LVALUE))
+                if (!expression_is_lvalue(new_expression->right))
                 {
-                    //STORAGE_SPECIFIER_LVALUE not worning yet on type system
-#if 0
                     compiler_set_error_with_token(C_ADDRESS_OF_REGISTER,
                         ctx,
                         new_expression->right->first_token,
                         "lvalue required as unary '&' operand");
-#endif
                 }
 
                 if (new_expression->right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_REGISTER)
@@ -2224,7 +2233,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             switch (traits_token->type)
             {
                 case TK_KEYWORD_IS_LVALUE:
-                    new_expression->constant_value = make_constant_value_ll(type_is_lvalue(p_type), false);
+                    new_expression->constant_value = make_constant_value_ll(expression_is_lvalue(new_expression->right), false);
                     break;
 
                 case TK_KEYWORD_IS_CONST:
@@ -3444,7 +3453,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
                 }
             }
 
-            if (type_is_lvalue(&new_expression->left->type))
+            //if (type_is_lvalue(&new_expression->left->type))
             {
                 //TODO
                 //compiler_set_error_with_token(C_LVALUE_ASSIGNMENT, ctx, ctx->current, "lvalue assignment");
@@ -3467,7 +3476,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
 
             new_expression->type = type_dup(&new_expression->right->type);
-            new_expression->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_LVALUE;
+            
 
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD;
@@ -3802,6 +3811,36 @@ struct expression* owner constant_expression(struct parser_ctx* ctx, bool show_e
     }
 
     return p_expression;
+}
+
+bool expression_is_lvalue(const struct expression* expr)
+{
+    //https://en.cppreference.com/w/c/language/value_category
+
+    switch (expr->expression_type)
+    {
+     case PRIMARY_EXPRESSION_DECLARATOR:
+     case PRIMARY_EXPRESSION__FUNC__:
+     case PRIMARY_EXPRESSION_STRING_LITERAL:
+     case POSTFIX_ARRAY:
+     case POSTFIX_ARROW:
+     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
+     case UNARY_EXPRESSION_CONTENT:
+        return true;
+     default:
+         break;
+    }
+
+    if (expr->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
+    {
+        return expression_is_lvalue(expr->right);
+    }
+    else if (expr->expression_type == POSTFIX_DOT)
+    {
+      return expression_is_lvalue(expr->left);
+    }
+
+    return false;
 }
 
 bool expression_is_zero(struct expression* p_expression)

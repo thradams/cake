@@ -9997,11 +9997,6 @@ enum storage_class_specifier_flags
     /*extra flag just to annotate this*/
     STORAGE_SPECIFIER_CONSTEXPR_STATIC = 1 << 7,
 
-    /*
-      Not working yet...TODO
-    */
-    STORAGE_SPECIFIER_LVALUE = 1 << 10,
-
     STORAGE_SPECIFIER_PARAMETER = 1 << 11,
     STORAGE_SPECIFIER_AUTOMATIC_STORAGE = 1 << 12,
     STORAGE_SPECIFIER_FUNCTION_RETURN = 1 << 13,
@@ -10055,7 +10050,7 @@ struct type
       This is used to create obj_owner pointer.
     */
     bool address_of;
-
+    
     struct param_list params;
     struct type* owner next;
 };
@@ -10359,6 +10354,7 @@ struct expression
 {
     enum expression_type expression_type;
     struct type type;
+    //bool lvalue;
 
     struct constant_value constant_value;
 
@@ -10394,6 +10390,8 @@ struct expression* owner expression(struct parser_ctx* ctx);
 struct expression* owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
+bool expression_is_lvalue(const struct expression* expr);
+
 struct object* expression_get_object(struct expression* p_expression, struct type* p_type);
 bool is_null_pointer_constant(const struct expression* expression);
 void expression_evaluate_equal_not_equal(const struct expression* left,
@@ -12986,6 +12984,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                 p_declarator->num_uses++;
                 p_expression_node->declarator = p_declarator;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_DECLARATOR;
+                
 
                 p_expression_node->type = type_dup(&p_declarator->type);
                 if (p_init_declarator)
@@ -13018,6 +13017,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                 p_expression_node->last_token = ctx->current;
 
                 p_expression_node->type = type_make_literal_string(strlen(funcname) + 1, TYPE_SPECIFIER_CHAR);
+                
             }
             else
             {
@@ -13034,6 +13034,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->expression_type = PRIMARY_EXPRESSION_STRING_LITERAL;
             p_expression_node->first_token = ctx->current;
             p_expression_node->last_token = ctx->current;
+            
 
             enum type_specifier_flags char_type = TYPE_SPECIFIER_CHAR;
 
@@ -13147,6 +13148,9 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
             p_expression_node->right = expression(ctx);
+            
+            
+
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
             if (p_expression_node->right == NULL) throw;
@@ -13315,7 +13319,8 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
-
+                //the result of the subscription operator ([])
+                
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
@@ -13391,7 +13396,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
-
+                
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
 
                 parser_match(ctx);
@@ -13447,7 +13452,9 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
-
+                
+                //the result of a member access through pointer -> operator is lvalue
+                
 
 
                 parser_match(ctx);
@@ -13606,6 +13613,7 @@ struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, st
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_COMPOUND_LITERAL;
             p_expression_node->braced_initializer = braced_initializer(ctx);
+            
         }
 
         p_expression_node->last_token = ctx->previous;
@@ -13656,6 +13664,7 @@ struct expression* owner postfix_expression(struct parser_ctx* ctx)
             if (p_expression_node->type_name == NULL) throw;
 
             p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
+
             parser_match_tk(ctx, ')');
             //printf("\n");
             //print_type(&p_expression_node->type);
@@ -13825,7 +13834,6 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
                 new_expression->type = type_dup(&new_expression->right->type);
-                new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
             }
             else if (op == '-')
             {
@@ -13834,7 +13842,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
                 new_expression->type = type_dup(&new_expression->right->type);
-                new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
+                
             }
             else if (op == '+')
             {
@@ -13843,11 +13851,14 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
                 new_expression->type = type_dup(&new_expression->right->type);
-                new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
+                
             }
             else if (op == '*')
             {
                 new_expression->expression_type = UNARY_EXPRESSION_CONTENT;
+                //the result of the indirection(unary*) operator applied to a pointer to object
+                
+
                 if (!type_is_pointer(&new_expression->right->type))
                 {
                     compiler_set_error_with_token(C_INDIRECTION_REQUIRES_POINTER_OPERAND,
@@ -13867,7 +13878,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
                 //TODO nao tem como tirar endereco de uma constante
 
-                if (!(new_expression->right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_LVALUE))
+                if (!expression_is_lvalue(new_expression->right))
                 {
                     //STORAGE_SPECIFIER_LVALUE not worning yet on type system
 #if 0
@@ -14014,7 +14025,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             switch (traits_token->type)
             {
                 case TK_KEYWORD_IS_LVALUE:
-                    new_expression->constant_value = make_constant_value_ll(type_is_lvalue(p_type), false);
+                    new_expression->constant_value = make_constant_value_ll(expression_is_lvalue(new_expression->right), false);
                     break;
 
                 case TK_KEYWORD_IS_CONST:
@@ -15234,7 +15245,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
                 }
             }
 
-            if (type_is_lvalue(&new_expression->left->type))
+            //if (type_is_lvalue(&new_expression->left->type))
             {
                 //TODO
                 //compiler_set_error_with_token(C_LVALUE_ASSIGNMENT, ctx, ctx->current, "lvalue assignment");
@@ -15257,7 +15268,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
 
             new_expression->type = type_dup(&new_expression->right->type);
-            new_expression->type.storage_class_specifier_flags |= STORAGE_SPECIFIER_LVALUE;
+            
 
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD;
@@ -15592,6 +15603,36 @@ struct expression* owner constant_expression(struct parser_ctx* ctx, bool show_e
     }
 
     return p_expression;
+}
+
+bool expression_is_lvalue(const struct expression* expr)
+{
+    //https://en.cppreference.com/w/c/language/value_category
+
+    switch (expr->expression_type)
+    {
+     case PRIMARY_EXPRESSION_DECLARATOR:
+     case PRIMARY_EXPRESSION__FUNC__:
+     case PRIMARY_EXPRESSION_STRING_LITERAL:
+     case POSTFIX_ARRAY:
+     case POSTFIX_ARROW:
+     case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
+     case UNARY_EXPRESSION_CONTENT:
+        return true;
+     default:
+         break;
+    }
+
+    if (expr->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
+    {
+        return expression_is_lvalue(expr->right);
+    }
+    else if (expr->expression_type == POSTFIX_DOT)
+    {
+      return expression_is_lvalue(expr->left);
+    }
+
+    return false;
 }
 
 bool expression_is_zero(struct expression* p_expression)
@@ -16898,10 +16939,7 @@ bool type_is_array(const struct type* p_type)
     return type_get_category(p_type) == TYPE_CATEGORY_ARRAY;
 }
 
-bool type_is_lvalue(const struct type* p_type)
-{
-    return p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_LVALUE;
-}
+
 
 bool type_is_any_owner(const struct type* p_type)
 {
@@ -18110,7 +18148,7 @@ int type_common(struct type* p_type1, struct type* p_type2, struct type* out_typ
         /*
            The result of expression +,- * / etc are not lvalue
         */
-        out_type->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_LVALUE;
+        
     }
     catch
     {
@@ -18868,6 +18906,7 @@ struct type type_make_literal_string(int size, enum type_specifier_flags chartyp
     struct type t = {0};
     t.category = TYPE_CATEGORY_ARRAY;
     t.array_size = size;
+    
     struct type* owner p2 = calloc(1, sizeof(struct type));
     p2->category = TYPE_CATEGORY_ITSELF;
     p2->type_specifier_flags = chartype;
@@ -19094,9 +19133,6 @@ void type_set_qualifiers_using_declarator(struct type* p_type, struct declarator
 
 void type_set_storage_specifiers_using_declarator(struct type* p_type, struct declarator* pdeclarator)
 {
-    /*if we have a declarator then we have a lvalue*/
-    p_type->storage_class_specifier_flags |= STORAGE_SPECIFIER_LVALUE;
-
     if (pdeclarator->declaration_specifiers)
     {
         p_type->storage_class_specifier_flags |=
@@ -35342,50 +35378,83 @@ void address_of_const()
 
 void lvalue_test()
 {
+    //https://en.cppreference.com/w/c/language/value_category
+
     const char* source
         =
+        "//https://en.cppreference.com/w/c/language/value_category\n"
         "\n"
-        "struct X {\n"
-        "    int j;\n"
-        "};\n"
-        "struct X f() { struct X x; return x; }\n"
-        "\n"
-        "int main()\n"
+        "struct X\n"
         "{\n"
-        "    struct X x;\n"
-        "    static_assert(_is_lvalue(x));\n"
-        "    static_assert(_is_lvalue(&x));\n"
-        "    static_assert(_is_lvalue(x.j));\n"
-        "    static_assert(_is_lvalue(&x.j));\n"
+        "	int i;\n"
+        "};\n"
+        "\n"
+        "struct X f() { struct X x = {0};  return x; }\n"
+        "\n"
+        "const int i;\n"
+        "static_assert(_Generic(&i, const int* : 1));\n"
+        "\n"
+        "const int* const p;\n"
+        "static_assert(_Generic(&p, const int* const* : 1));\n"
         "\n"
         "\n"
-        "    int i;\n"
+        "int main() {\n"
+        "	static_assert(!_is_lvalue(1));\n"
+        "	static_assert(_is_lvalue(\"a\"));\n"
+        "	static_assert(_is_lvalue((int) { 0 }));\n"
         "\n"
-        "    static_assert(_is_lvalue(i));\n"
-        "    static_assert(_is_lvalue(&i));\n"
-        "    static_assert(_is_lvalue(i = 1));\n"
+        "	int a;\n"
+        "	static_assert(_is_lvalue(a));\n"
+        "	static_assert(_is_lvalue((a)));\n"
         "\n"
-        "    int* p;\n"
-        "    static_assert(_is_lvalue(p + 1));\n"
-        "    static_assert(_is_lvalue(&p + 1));\n"
-        "    static_assert(_is_lvalue(&(p + 1)));\n"
+        "	enum  E { A };\n"
+        "	static_assert(!_is_lvalue(A));\n"
         "\n"
-        "    static_assert(!_is_lvalue(~i));\n"
-        "    static_assert(!_is_lvalue(1));\n"
-        "    static_assert(!_is_lvalue(1.2));\n"
-        "    static_assert(!_is_lvalue(\"a\"));\n"
-        "    static_assert(!_is_lvalue('a'));\n"
-        "    static_assert(!_is_lvalue(sizeof(int)));\n"
         "\n"
-        "    static_assert(!_is_lvalue(1 + 1));\n"
-        "    static_assert(!_is_lvalue(i + 1));\n"
-        "    static_assert(!_is_lvalue(~i));\n"
-        "    static_assert(!_is_lvalue(-i));\n"
+        "	struct X x = {0};\n"
+        "	static_assert(_is_lvalue(x.i));\n"
         "\n"
-        "    static_assert(!_is_lvalue(&f()));\n"
+        "	struct X *px = 0;\n"
+        "	static_assert(_is_lvalue(px->i));\n"
+        "\n"
+        "	//== Non-lvalue object expressions ==\n"
+        "	// \n"
+        "	//integer, character, and floating constants \n"
+        "	static_assert(!_is_lvalue(1));\n"
+        "	static_assert(!_is_lvalue(1.2));\n"
+        "	static_assert(!_is_lvalue('a'));\n"
+        "\n"
+        "	//any function call expression\n"
+        "	static_assert(!_is_lvalue(f()));\n"
+        "	\n"
+        "	//any cast expression\n"
+        "	static_assert(!_is_lvalue((int)(0)));\n"
+        "\n"
+        "	//member access operator (dot) applied to a non-lvalue structure/union\n"
+        "	static_assert(!_is_lvalue(f().i));\n"
+        "	\n"
+        "	//results of all arithmetic, relational, logical, and bitwise operators\n"
+        "	static_assert(!_is_lvalue(1 + 2));\n"
+        "	static_assert(!_is_lvalue(1 && 2));\n"
+        "	static_assert(!_is_lvalue(~1));\n"
+        "\n"
+        "	//results of increment and decrement operators \n"
+        "	static_assert(!_is_lvalue(a++));\n"
+        "	\n"
+        "	//results of assignment operators\n"
+        "\n"
+        "	//the conditional operator\n"
+        "	static_assert(!_is_lvalue(a ? a : a));\n"
+        "\n"
+        "	//the comma operator\n"
+        "	static_assert(!_is_lvalue(a , a)); \n"
+        "	\n"
+        "	//the address-of operator, even if neutralized by application to the result of unary * operator \n"
+        "	static_assert(!_is_lvalue(&a));\n"
+        "\n"
         "}\n"
-        "\n"
         "";
+    ;
 
 
     assert(compile_without_errors(false, source));

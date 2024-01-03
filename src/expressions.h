@@ -186,6 +186,7 @@ struct expression
 {
     enum expression_type expression_type;
     struct type type;
+    //bool lvalue;
 
     struct constant_value constant_value;
 
@@ -221,6 +222,8 @@ struct expression* owner expression(struct parser_ctx* ctx);
 struct expression* owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
+bool expression_is_lvalue(const struct expression* expr);
+
 struct object* expression_get_object(struct expression* p_expression, struct type* p_type);
 bool is_null_pointer_constant(const struct expression* expression);
 void expression_evaluate_equal_not_equal(const struct expression* left,
