@@ -10489,6 +10489,10 @@ void object_swap(struct object* a, struct object* b);
 struct declarator;
 struct object make_object(struct type* p_type, const struct declarator* declarator);
 
+void object_push_copy_current_state(struct object* object);
+
+void object_pop_states(struct object* object, int n);
+
 struct parser_ctx;
 struct token;
 
@@ -10498,6 +10502,40 @@ void visit_object(struct parser_ctx* ctx,
     const struct token* position_token,
     const char* previous_names,
     bool is_assigment);
+
+void object_restore_state(struct object* object, int state_to_restore);
+
+void print_object_core(int ident, struct type* p_type, struct object* p_object, const char* previous_names, bool is_pointer, bool short_version);
+
+void print_object(struct type* p_type, struct object* p_object, bool short_version);
+void set_direct_state(
+    struct type* p_type,
+    struct object* p_object,
+    enum object_state flags);
+void set_object(
+    struct type* p_type,
+    struct object* p_object,
+    enum object_state flags);
+
+void object_assigment(struct parser_ctx* ctx,
+    struct object* p_source_obj_opt,
+    struct type* p_source_obj_type,
+
+    struct object* p_dest_obj_opt,
+    struct type* p_dest_obj_type,
+
+    const struct token* error_position,
+    bool bool_source_zero_value,
+    enum object_state source_state_after);
+
+void object_set_unknown(struct type* p_type, struct object* p_object);
+
+
+void checked_read_object(struct parser_ctx* ctx,
+    struct type* p_type,
+    struct object* p_object,
+    const struct token* position_token,
+    bool check_pointed_object);
 
 
 #define CAKE_VERSION "0.7.4"
@@ -13876,17 +13914,13 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                   "pointer to . . ."
                 */
                 new_expression->expression_type = UNARY_EXPRESSION_ADDRESSOF;
-                //TODO nao tem como tirar endereco de uma constante
 
                 if (!expression_is_lvalue(new_expression->right))
                 {
-                    //STORAGE_SPECIFIER_LVALUE not worning yet on type system
-#if 0
                     compiler_set_error_with_token(C_ADDRESS_OF_REGISTER,
                         ctx,
                         new_expression->right->first_token,
                         "lvalue required as unary '&' operand");
-#endif
                 }
 
                 if (new_expression->right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_REGISTER)
@@ -19958,15 +19992,6 @@ void object_restore_state(struct object* object, int state_to_restore)
 	}
 }
 
-enum object_state state_merge(enum object_state before, enum object_state after)
-{
-	enum object_state e = before | after;
-
-
-	return e;
-}
-
-
 void print_object_core(int ident, struct type* p_type, struct object* p_object, const char* previous_names, bool is_pointer, bool short_version)
 {
 	if (p_object == NULL)
@@ -20027,9 +20052,9 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 				{
 					//char buffer[200] = {0};
 					//if (is_pointer)
-					  //  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
+					//  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
 					//else
-					  //  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
+					//  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
 
 					struct type t = { 0 };
 					t.category = TYPE_CATEGORY_ITSELF;
@@ -20135,6 +20160,16 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 
 
 }
+
+enum object_state state_merge(enum object_state before, enum object_state after)
+{
+	enum object_state e = before | after;
+
+
+	return e;
+}
+
+
 void object_get_name(const struct type* p_type,
 	const struct object* p_object,
 	char* outname,

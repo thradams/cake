@@ -381,15 +381,6 @@ void object_restore_state(struct object* object, int state_to_restore)
 	}
 }
 
-enum object_state state_merge(enum object_state before, enum object_state after)
-{
-	enum object_state e = before | after;
-
-
-	return e;
-}
-
-
 void print_object_core(int ident, struct type* p_type, struct object* p_object, const char* previous_names, bool is_pointer, bool short_version)
 {
 	if (p_object == NULL)
@@ -450,9 +441,9 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 				{
 					//char buffer[200] = {0};
 					//if (is_pointer)
-					  //  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
+					//  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
 					//else
-					  //  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
+					//  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
 
 					struct type t = { 0 };
 					t.category = TYPE_CATEGORY_ITSELF;
@@ -558,6 +549,16 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 
 
 }
+
+enum object_state state_merge(enum object_state before, enum object_state after)
+{
+	enum object_state e = before | after;
+
+
+	return e;
+}
+
+
 void object_get_name(const struct type* p_type,
 	const struct object* p_object,
 	char* outname,
