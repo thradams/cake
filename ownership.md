@@ -10,7 +10,11 @@ The compiler doesn't read documentation, nor does it operate in the same way as 
 
 In the end, we still have the same language, but with a c\_type\_system++ version of C. This c\_type\_system++ can be disabled, and the language remains unmodified.
 
-The creation of these rules follows certain principles, one of which is to default to safety. In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom to code as they wish, they must either persuade the compiler or disable analysis in specific code sections. Qualifiers are chosen to minimize annotations considering a common usage.
+The creation of these rules follows certain principles, one of which is to default to safety.
+In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom 
+to code as they wish, they must either persuade the compiler or disable analysis in specific code sections.
+A human factor must be considered to ensure that annotations do not make the work too boring with 
+excessive details. In this regard, selecting defaults that cover the most common cases is crucial.
 
 ## Owner Objects
 
