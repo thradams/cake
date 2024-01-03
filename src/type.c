@@ -2847,8 +2847,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             while (p)
             {
                 struct param* owner p_new_param = calloc(1, sizeof(struct param));
-                p_new_param->type = type_dup(&p->declarator->type);
-                assert(p->declarator->type.category != TYPE_CATEGORY_NONE);
+                p_new_param->type = type_dup(&p->declarator->type);                
                 LIST_ADD(&p_func->params, p_new_param);
                 p = p->next;
             }

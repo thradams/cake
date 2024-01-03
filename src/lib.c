@@ -9902,8 +9902,7 @@ enum type_category
     TYPE_CATEGORY_ITSELF,
     TYPE_CATEGORY_FUNCTION,
     TYPE_CATEGORY_ARRAY,
-    TYPE_CATEGORY_POINTER,
-    TYPE_CATEGORY_NONE,
+    TYPE_CATEGORY_POINTER,    
 };
 
 
@@ -10491,6 +10490,10 @@ void object_swap(struct object* a, struct object* b);
 
 struct declarator;
 struct object make_object(struct type* p_type, const struct declarator* declarator);
+
+struct parser_ctx;
+struct token;
+
 void visit_object(struct parser_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
@@ -19230,8 +19233,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             while (p)
             {
                 struct param* owner p_new_param = calloc(1, sizeof(struct param));
-                p_new_param->type = type_dup(&p->declarator->type);
-                assert(p->declarator->type.category != TYPE_CATEGORY_NONE);
+                p_new_param->type = type_dup(&p->declarator->type);                
                 LIST_ADD(&p_func->params, p_new_param);
                 p = p->next;
             }
@@ -19543,6 +19545,10 @@ const struct type* type_get_specifer_part(const struct type* p_type)
 }
 
 
+
+#include <stdint.h>
+
+
 void object_swap(struct object* a, struct object* b)
 {
 	struct object temp = *a;
@@ -19715,7 +19721,7 @@ bool has_name(const char* name, struct object_name_list* list)
 	return false;
 }
 
- struct object make_object_core(struct type* p_type, struct object_name_list* list, int deep, const struct declarator* declarator)
+struct object make_object_core(struct type* p_type, struct object_name_list* list, int deep, const struct declarator* declarator)
 {
 	struct object obj = { 0 };
 	obj.declarator = declarator;
@@ -19845,7 +19851,7 @@ struct object make_object(struct type* p_type, const struct declarator* declarat
 	return make_object_core(p_type, &list, 0, declarator);
 }
 
- void object_push_copy_current_state(struct object* object)
+void object_push_copy_current_state(struct object* object)
 {
 
 	object_state_stack_push_back(&object->object_state_stack, object->state);
@@ -19862,7 +19868,7 @@ struct object make_object(struct type* p_type, const struct declarator* declarat
 
 }
 
- void object_pop_states(struct object* object, int n)
+void object_pop_states(struct object* object, int n)
 {
 
 	if (object->object_state_stack.size < n)
@@ -19886,7 +19892,7 @@ struct object make_object(struct type* p_type, const struct declarator* declarat
 
 }
 
- void object_restore_state(struct object* object, int state_to_restore)
+void object_restore_state(struct object* object, int state_to_restore)
 {
 	assert(state_to_restore > 0);
 
@@ -19925,7 +19931,7 @@ enum object_state state_merge(enum object_state before, enum object_state after)
 }
 
 
- void print_object_core(int ident, struct type* p_type, struct object* p_object, const char* previous_names, bool is_pointer, bool short_version)
+void print_object_core(int ident, struct type* p_type, struct object* p_object, const char* previous_names, bool is_pointer, bool short_version)
 {
 	if (p_object == NULL)
 	{
@@ -20099,7 +20105,7 @@ void object_get_name(const struct type* p_type,
 	int out_size);
 
 
- void print_object(struct type* p_type, struct object* p_object, bool short_version)
+void print_object(struct type* p_type, struct object* p_object, bool short_version)
 {
 	if (p_object == NULL)
 	{
@@ -20114,12 +20120,12 @@ void object_get_name(const struct type* p_type,
 	print_object_core(0, p_type, p_object, name, type_is_pointer(p_type), short_version);
 }
 
- void set_object(
+void set_object(
 	struct type* p_type,
 	struct object* p_object,
 	enum object_state flags);
 
- void set_object_state(
+void set_object_state(
 	struct parser_ctx* ctx,
 	struct type* p_type,
 	struct object* p_object,
@@ -20283,7 +20289,7 @@ void object_get_name(const struct type* p_type,
 }
 
 
- void set_direct_state(
+void set_direct_state(
 	struct type* p_type,
 	struct object* p_object,
 	enum object_state flags)
@@ -20357,7 +20363,7 @@ void object_get_name(const struct type* p_type,
 	}
 }
 
- void set_object(
+void set_object(
 	struct type* p_type,
 	struct object* p_object,
 	enum object_state flags)
@@ -20445,7 +20451,7 @@ void object_get_name(const struct type* p_type,
 }
 
 
- void object_set_unknown(struct type* p_type, struct object* p_object)
+void object_set_unknown(struct type* p_type, struct object* p_object)
 {
 	if (p_object == NULL || p_type == NULL)
 	{
@@ -31130,9 +31136,6 @@ void visit(struct visit_ctx* ctx)
 
 
 
-
-
-#include <stdint.h>
 
 /*
 			  NULL
