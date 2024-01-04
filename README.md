@@ -147,7 +147,7 @@ Have a suggestion for C?
   
 DISCORD SERVER
 
-[https://discord.gg/QpDzZGrd](https://discord.gg/QpDzZGrd)
+[https://discord.gg/YRekr2N65S](https://discord.gg/YRekr2N65S)
 
 # Status?
 
