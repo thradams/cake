@@ -111,7 +111,7 @@ void set_object(
     struct object* p_object,
     enum object_state flags);
 
-void object_assigment(struct parser_ctx* ctx,
+void object_assignment(struct parser_ctx* ctx,
     struct object* p_source_obj_opt,
     struct type* p_source_obj_type,
 

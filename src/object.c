@@ -1582,7 +1582,7 @@ void visit_object(struct parser_ctx* ctx,
 }
 
 
-void object_assigment(struct parser_ctx* ctx,
+void object_assignment(struct parser_ctx* ctx,
 	struct object* p_source_obj_opt,
 	struct type* p_source_obj_type,
 

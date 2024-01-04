@@ -1261,7 +1261,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
 #endif
 
-			object_assigment(ctx,
+			object_assignment(ctx,
 				p_argument_object,
 				&argument_object_type,
 				NULL, /*dest object*/
@@ -1523,7 +1523,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 			}
 		}
 
-		object_assigment(ctx->ctx,
+		object_assignment(ctx->ctx,
 			p_right_object, /*source*/
 			&right_object_type, /*source type*/
 			p_dest_object, /*dest object*/
@@ -1813,7 +1813,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 				p_jump_statement->expression_opt->first_token,
 				true);
 
-			object_assigment(ctx->ctx,
+			object_assignment(ctx->ctx,
 				p_object, /*source*/
 				&type, /*source type*/
 				NULL, /*dest object*/
@@ -2298,7 +2298,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
 							p_init_declarator->p_declarator->first_token
 							;
 
-						object_assigment(ctx->ctx, p_right_object, &right_object_type,
+						object_assignment(ctx->ctx, p_right_object, &right_object_type,
 							&p_init_declarator->p_declarator->object,
 							&p_init_declarator->p_declarator->type,
 							token_position,
@@ -2314,7 +2314,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
 						p_init_declarator->p_declarator->first_token
 						;
 
-					object_assigment(ctx->ctx, p_right_object, &right_object_type,
+					object_assignment(ctx->ctx, p_right_object, &right_object_type,
 						&p_init_declarator->p_declarator->object,
 						&p_init_declarator->p_declarator->type,
 						token_position,
