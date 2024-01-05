@@ -3478,10 +3478,12 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
                 }
             }
 
-            //if (type_is_lvalue(&new_expression->left->type))
+            if (!expression_is_lvalue(new_expression->left))
             {
-                //TODO
-                //compiler_set_error_with_token(C_LVALUE_ASSIGNMENT, ctx, ctx->current, "lvalue assignment");
+                compiler_set_error_with_token(C_OPERATOR_NEEDS_LVALUE,
+                    ctx,
+                    op_token,
+                    "lvalue required as left operand of assignment");
             }
 
             new_expression->right = assignment_expression(ctx);

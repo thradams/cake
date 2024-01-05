@@ -1,8 +1,4 @@
-struct X { int i; void* p; }
-int main() {
-	struct X x;
-	x = (struct X){ 0 };
-	static_state(x.i, "zero");
-	static_state(x.p, "null");
-	static_debug((struct X) { 0 });
+void F(char(*p)[10])
+{
+    (*p)[0] = 'a';
 }
