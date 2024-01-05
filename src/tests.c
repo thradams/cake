@@ -3091,6 +3091,19 @@ void null_check_2()
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
+void compound_literal_object()
+{
+    const char* source
+        =
+        "struct X { int i; void* p; }\n"
+        "int main() {\n"
+        "	struct X x;\n"
+        "	x = (struct X){ 0 };\n"
+        "	static_state(x.i, \"zero\");\n"
+        "	static_state(x.p, \"null\");\n"
+        "}";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
 
 #endif
 

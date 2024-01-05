@@ -1415,6 +1415,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 		flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
 
+		struct object temp2 = make_object(&p_expression->type, &p_expression->type_name->declarator);
+		object_swap(&temp2, &p_expression->type_name->declarator->object);
+		object_destroy(&temp2);
+
+		//TODO the state of object depends of the initializer
+		set_direct_state(&p_expression->type, &p_expression->type_name->declarator->object, OBJECT_STATE_ZERO);
+
+
 		assert(p_expression->left == NULL);
 		assert(p_expression->right == NULL);
 

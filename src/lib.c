@@ -12961,6 +12961,15 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
         return NULL;
 
     }
+    else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
+    {
+        if (p_type)
+            type_set(p_type, &p_expression->type);
+
+        return &p_expression->type_name->declarator->object;
+    }
+
+
     if (p_type)
         type_set(p_type, &p_expression->type);
     return NULL;
@@ -32645,6 +32654,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 		flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
 
+		struct object temp2 = make_object(&p_expression->type, &p_expression->type_name->declarator);
+		object_swap(&temp2, &p_expression->type_name->declarator->object);
+		object_destroy(&temp2);
+
+		//TODO the state of object depends of the initializer
+		set_direct_state(&p_expression->type, &p_expression->type_name->declarator->object, OBJECT_STATE_ZERO);
+
+
 		assert(p_expression->left == NULL);
 		assert(p_expression->right == NULL);
 
@@ -37823,6 +37840,19 @@ void null_check_2()
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
+void compound_literal_object()
+{
+    const char* source
+        =
+        "struct X { int i; void* p; }\n"
+        "int main() {\n"
+        "	struct X x;\n"
+        "	x = (struct X){ 0 };\n"
+        "	static_state(x.i, \"zero\");\n"
+        "	static_state(x.p, \"null\");\n"
+        "}";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
 
 #endif
 

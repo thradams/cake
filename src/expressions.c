@@ -1134,6 +1134,15 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
         return NULL;
 
     }
+    else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
+    {
+        if (p_type)
+            type_set(p_type, &p_expression->type);
+
+        return &p_expression->type_name->declarator->object;
+    }
+
+
     if (p_type)
         type_set(p_type, &p_expression->type);
     return NULL;

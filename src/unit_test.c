@@ -210,6 +210,7 @@ void lvalue_required_2(void);
 void lvalue_required_3(void);
 void null_check_1(void);
 void null_check_2(void);
+void compound_literal_object(void);
 
 /*end of forward declarations*/
 
@@ -413,6 +414,7 @@ g_unit_test_success_count = 0;
     lvalue_required_3();
     null_check_1();
     null_check_2();
+    compound_literal_object();
 return g_unit_test_error_count;
 
 }

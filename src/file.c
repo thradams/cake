@@ -1,19 +1,8 @@
-
-#pragma CAKE nullchecks ON
-
-void f(int * p)
-{
-  static_state(p, "not-null");
-}
-
-//#pragma CAKE nullchecks OFF
-
-void f(int * p)
-{
-  static_state(p, "maybe-null");
-}
-
-int main()
-{
-
+struct X { int i; void* p; }
+int main() {
+	struct X x;
+	x = (struct X){ 0 };
+	static_state(x.i, "zero");
+	static_state(x.p, "null");
+	static_debug((struct X) { 0 });
 }
