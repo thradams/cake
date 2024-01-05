@@ -1744,6 +1744,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             }
             else if (ctx->current->type == '++')
             {
+                if (!expression_is_lvalue(p_expression_node))
+                {
+                    compiler_set_error_with_token(C_OPERATOR_NEEDS_LVALUE,
+                        ctx,
+                        p_expression_node->first_token,
+                        "lvalue required as increment operand");
+                }
+
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
 
                 static_set(*p_expression_node_new, "zero");
@@ -1757,6 +1765,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             }
             else if (ctx->current->type == '--')
             {
+                if (!expression_is_lvalue(p_expression_node))
+                {
+                    compiler_set_error_with_token(C_OPERATOR_NEEDS_LVALUE,
+                        ctx,
+                        p_expression_node->first_token,
+                        "lvalue required as decrement operand");
+                }
+
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
 
                 static_set(*p_expression_node_new, "zero");

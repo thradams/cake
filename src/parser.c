@@ -1665,7 +1665,23 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
         {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
-            ctx->options.null_checks = true;
+            
+            //Isso nao esta funcionando pois esta informao precisa estar na AST.
+            //pois eh usada em um segundo passo.
+            bool onoff = false;
+            if (ctx->current && strcmp(ctx->current->lexeme, "ON") == 0)
+            {
+                onoff = true;
+            }
+            else if (ctx->current && strcmp(ctx->current->lexeme, "OFF") == 0)
+            {
+                onoff = false;
+            }
+            else
+            {
+                compiler_set_error_with_token(C_PRAGMA_ERROR, ctx, ctx->current, "nullchecks pragma needs to use ON OFF");                
+            }
+            ctx->options.null_checks = onoff;
         }
 
         if (ctx->current && strcmp(ctx->current->lexeme, "diagnostic") == 0)

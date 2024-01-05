@@ -663,10 +663,11 @@ enum error
     C_MACRO_INVALID_ARG,
     C_MISSING_MACRO_ARGUMENT,
     C_ADDRESS_OF_REGISTER,
+    C_OPERATOR_NEEDS_LVALUE, //C2105
     C_MULTICHAR_ERROR,
     C_CHARACTER_TOO_LARGE,
     C_OWNERSHIP_NON_OWNER_MOVE,
-    
+    C_PRAGMA_ERROR,
     /*ownership type system errors*/
     C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
     C_OWNERSHIP_NOT_OWNER,
@@ -10517,7 +10518,7 @@ void set_object(
     struct object* p_object,
     enum object_state flags);
 
-void object_assigment(struct parser_ctx* ctx,
+void object_assignment(struct parser_ctx* ctx,
     struct object* p_source_obj_opt,
     struct type* p_source_obj_type,
 
@@ -13570,6 +13571,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             }
             else if (ctx->current->type == '++')
             {
+                if (!expression_is_lvalue(p_expression_node))
+                {
+                    compiler_set_error_with_token(C_OPERATOR_NEEDS_LVALUE,
+                        ctx,
+                        p_expression_node->first_token,
+                        "lvalue required as increment operand");
+                }
+
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
 
                 static_set(*p_expression_node_new, "zero");
@@ -13583,6 +13592,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             }
             else if (ctx->current->type == '--')
             {
+                if (!expression_is_lvalue(p_expression_node))
+                {
+                    compiler_set_error_with_token(C_OPERATOR_NEEDS_LVALUE,
+                        ctx,
+                        p_expression_node->first_token,
+                        "lvalue required as decrement operand");
+                }
+
                 struct expression* owner p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
 
                 static_set(*p_expression_node_new, "zero");
@@ -21193,7 +21210,7 @@ void visit_object(struct parser_ctx* ctx,
 }
 
 
-void object_assigment(struct parser_ctx* ctx,
+void object_assignment(struct parser_ctx* ctx,
 	struct object* p_source_obj_opt,
 	struct type* p_source_obj_type,
 
@@ -23054,7 +23071,23 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
         {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
-            ctx->options.null_checks = true;
+            
+            //Isso nao esta funcionando pois esta informao precisa estar na AST.
+            //pois eh usada em um segundo passo.
+            bool onoff = false;
+            if (ctx->current && strcmp(ctx->current->lexeme, "ON") == 0)
+            {
+                onoff = true;
+            }
+            else if (ctx->current && strcmp(ctx->current->lexeme, "OFF") == 0)
+            {
+                onoff = false;
+            }
+            else
+            {
+                compiler_set_error_with_token(C_PRAGMA_ERROR, ctx, ctx->current, "nullchecks pragma needs to use ON OFF");                
+            }
+            ctx->options.null_checks = onoff;
         }
 
         if (ctx->current && strcmp(ctx->current->lexeme, "diagnostic") == 0)
@@ -32369,137 +32402,142 @@ static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct gene
 	}
 }
 
+
 static int compare_function_arguments2(struct parser_ctx* ctx,
-	struct type* p_type,
-	struct argument_expression_list* p_argument_expression_list)
+    struct type* p_type,
+    struct argument_expression_list* p_argument_expression_list)
 {
 
-	struct param* p_current_parameter_type = NULL;
+    struct param* p_current_parameter_type = NULL;
 
- 	const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
+    const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
-	if (p_param_list)
-	{
-		p_current_parameter_type = p_param_list->head;
-	}
+    if (p_param_list)
+    {
+        p_current_parameter_type = p_param_list->head;
+    }
 
-	int param_num = 1;
-	struct argument_expression* p_current_argument = p_argument_expression_list->head;
+    int param_num = 1;
+    struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
-	while (p_current_argument && p_current_parameter_type)
-	{
-		struct type argument_object_type = { 0 };
-		struct object* p_argument_object =
-			expression_get_object(p_current_argument->expression, &argument_object_type);
+    while (p_current_argument && p_current_parameter_type)
+    {
+        struct type argument_object_type = {0};
+        struct object* p_argument_object =
+            expression_get_object(p_current_argument->expression, &argument_object_type);
 
-		bool bool_source_zero_value = constant_value_is_valid(&p_current_argument->expression->constant_value) &&
-			constant_value_to_ull(&p_current_argument->expression->constant_value) == 0;
+        bool bool_source_zero_value = constant_value_is_valid(&p_current_argument->expression->constant_value) &&
+            constant_value_to_ull(&p_current_argument->expression->constant_value) == 0;
 
-		struct type argument_object_type2 = { 0 };
-		struct object* p_argument_object2 =
-			expression_get_object(p_current_argument->expression, &argument_object_type2);
+        struct type argument_object_type2 = {0};
+        struct object* p_argument_object2 =
+            expression_get_object(p_current_argument->expression, &argument_object_type2);
 
 
-		if (ctx->options.null_checks)
-		{
-			if (type_is_pointer(&p_current_parameter_type->type) &&
-				!(p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OPT))
-			{
+        if (ctx->options.null_checks)
+        {
+            if (type_is_pointer(&p_current_parameter_type->type) &&
+                !(p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OPT))
+            {
 
-				if (p_argument_object2 &&
-					p_argument_object2->state & OBJECT_STATE_NULL)
-				{
-					compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
-						ctx,
-						p_current_argument->expression->first_token,
-						"pointer can be null, but the parameter is not optional");
-				}
+                if (p_argument_object2 &&
+                    p_argument_object2->state & OBJECT_STATE_NULL)
+                {
+                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+                        ctx,
+                        p_current_argument->expression->first_token,
+                        "pointer can be null, but the parameter is not optional");
+                }
 
-				type_destroy(&argument_object_type2);
-			}
-		}
+                type_destroy(&argument_object_type2);
+            }
+        }
 
-	
-		/*
-		  checking is some uninitialized or moved object is being used as parameter
-		*/
-		if (p_argument_object)
-		{
-			//TODO check if pointed object is const
-			bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
 
-			bool pointer_to_out = false;
+        /*
+          checking is some uninitialized or moved object is being used as parameter
+        */
+        if (p_argument_object)
+        {
+            //TODO check if pointed object is const
+            bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
 
-			if (type_is_pointer(&p_current_parameter_type->type) &&
-				check_pointed_object)
-			{
-				struct type t2 = type_remove_pointer(&p_current_parameter_type->type);
-				if (type_is_out(&t2))
-				{
-					pointer_to_out = true;
-					type_destroy(&t2);
-				}
-			}
+            bool pointer_to_out = false;
 
-			if (!pointer_to_out)
-			{
-				checked_read_object(ctx,
-					&argument_object_type,
-					p_argument_object,
-					p_current_argument->expression->first_token,
-					check_pointed_object);
+            if (type_is_pointer(&p_current_parameter_type->type) &&
+                check_pointed_object)
+            {
+                struct type t2 = type_remove_pointer(&p_current_parameter_type->type);
+                if (type_is_out(&t2))
+                {
+                    pointer_to_out = true;
+                    type_destroy(&t2);
+                }
+            }
 
-			}
-		}
+            if (!pointer_to_out)
+            {
+                checked_read_object(ctx,
+                    &argument_object_type,
+                    p_argument_object,
+                    p_current_argument->expression->first_token,
+                    check_pointed_object);
 
-		if (type_is_any_owner(&p_current_parameter_type->type))
-		{
+            }
+        }
+
+        if (type_is_any_owner(&p_current_parameter_type->type))
+        {
 #if 1
 
 #endif
 
-			object_assigment(ctx,
-				p_argument_object,
-				&argument_object_type,
-				NULL, /*dest object*/
-				&p_current_parameter_type->type,
-				p_current_argument->expression->first_token,
-				bool_source_zero_value,
-				OBJECT_STATE_UNINITIALIZED);
-		}
-		else
-		{
-			if (p_argument_object &&
-				type_is_pointer(&p_current_parameter_type->type))
-			{
-				struct type pointed_type =
-					type_remove_pointer(&p_current_parameter_type->type);
+            object_assignment(ctx,
+                p_argument_object,
+                &argument_object_type,
+                NULL, /*dest object*/
+                &p_current_parameter_type->type,
+                p_current_argument->expression->first_token,
+                bool_source_zero_value,
+                OBJECT_STATE_UNINITIALIZED);
+        }
+        else
+        {
+            if (p_argument_object &&
+                type_is_pointer(&p_current_parameter_type->type))
+            {
+                struct type parameter_type =
+                    type_remove_pointer(&p_current_parameter_type->type);
 
-				if (!type_is_const(&pointed_type))
-				{
-					if (type_is_void(&pointed_type))
-					{
-						//
-					}
-					else
-					{
-						object_set_unknown(&argument_object_type, p_argument_object);
-					}
-				}
+                if (!type_is_const(&parameter_type))
+                {
+                    if (type_is_void(&parameter_type))
+                    {
+                        //
+                    }
+                    else
+                    {
+                        if (p_argument_object->pointed)
+                        {
+                            struct type pointed_type = type_remove_pointer(&argument_object_type);
+                            object_set_unknown(&pointed_type, p_argument_object->pointed);
+                            type_destroy(&pointed_type);                            
+                        }
+                    }
+                }
 
-				type_destroy(&pointed_type);
-			}
-		}
-		p_current_argument = p_current_argument->next;
-		p_current_parameter_type = p_current_parameter_type->next;
-		param_num++;
+                type_destroy(&parameter_type);
+            }
+        }
+        p_current_argument = p_current_argument->next;
+        p_current_parameter_type = p_current_parameter_type->next;
+        param_num++;
 
-		type_destroy(&argument_object_type);
-	}
+        type_destroy(&argument_object_type);
+    }
 
-	return 0;
+    return 0;
 }
-
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression)
 {
 	if (p_expression == NULL)
@@ -32720,7 +32758,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 			}
 		}
 
-		object_assigment(ctx->ctx,
+		object_assignment(ctx->ctx,
 			p_right_object, /*source*/
 			&right_object_type, /*source type*/
 			p_dest_object, /*dest object*/
@@ -33010,7 +33048,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 				p_jump_statement->expression_opt->first_token,
 				true);
 
-			object_assigment(ctx->ctx,
+			object_assignment(ctx->ctx,
 				p_object, /*source*/
 				&type, /*source type*/
 				NULL, /*dest object*/
@@ -33495,7 +33533,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
 							p_init_declarator->p_declarator->first_token
 							;
 
-						object_assigment(ctx->ctx, p_right_object, &right_object_type,
+						object_assignment(ctx->ctx, p_right_object, &right_object_type,
 							&p_init_declarator->p_declarator->object,
 							&p_init_declarator->p_declarator->type,
 							token_position,
@@ -33511,7 +33549,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
 						p_init_declarator->p_declarator->first_token
 						;
 
-					object_assigment(ctx->ctx, p_right_object, &right_object_type,
+					object_assignment(ctx->ctx, p_right_object, &right_object_type,
 						&p_init_declarator->p_declarator->object,
 						&p_init_declarator->p_declarator->type,
 						token_position,
@@ -34702,18 +34740,18 @@ void format_visit(struct format_visit_ctx* ctx)
 
 
 
-static bool compile_without_errors(bool flow_analysis, const char* src)
+static bool compile_without_errors(bool flow_analysis, bool nullchecks, const char* src)
 {
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = flow_analysis};
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = flow_analysis, .null_checks = nullchecks};
     struct report report = {0};
     get_ast(&options, "source", src, &report);
     return report.error_count == 0;
 }
 
-static bool compile_with_errors(bool flow_analysis, const char* src)
+static bool compile_with_errors(bool flow_analysis, bool nullchecks, const char* src)
 {
 
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = flow_analysis};
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = flow_analysis, .null_checks = nullchecks};
     struct report report = {0};
     get_ast(&options, "source", src, &report);
     return report.error_count != 0;
@@ -34722,7 +34760,7 @@ static bool compile_with_errors(bool flow_analysis, const char* src)
 void parser_specifier_test()
 {
     const char* src = "long long long i;";
-    assert(compile_with_errors(false, src));
+    assert(compile_with_errors(false, false, src));
 }
 
 void char_constants()
@@ -34740,7 +34778,7 @@ void char_constants()
         "static_assert(TYPE_IS(u'a', unsigned short));\n"
         "static_assert(TYPE_IS(U'a', unsigned int));";
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void array_item_type_test()
@@ -34749,7 +34787,7 @@ void array_item_type_test()
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "void (*pf[10])(void* val);\n"
         "static_assert(_is_same(typeof(pf[0]), void (*)(void* val)));\n";
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void take_address_type_test()
@@ -34759,26 +34797,26 @@ void take_address_type_test()
         "{"
         "    (*p)[0] = 'a';"
         "}";
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void parser_scope_test()
 {
     const char* src = "void f() {int i; char i;}";
-    assert(compile_with_errors(false, src));
+    assert(compile_with_errors(false, false, src));
 }
 
 void parser_tag_test()
 {
     //mudou tipo do tag no mesmo escopo
     const char* src = "enum E { A }; struct E { int i; };";
-    assert(compile_with_errors(false, src));
+    assert(compile_with_errors(false, false, src));
 }
 
 void string_concatenation_test()
 {
     const char* src = " const char* s = \"part1\" \"part2\";";
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void test_digit_separator()
@@ -34805,7 +34843,7 @@ void type_test2()
         " static_assert(_is_same(typeof(&a) ,int (*)[10]));\n"
         ;
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void type_test3()
@@ -34818,7 +34856,7 @@ void type_test3()
         " static_assert(_is_same(typeof(&f), int (**)(void)));"
         ;
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void crazy_decl()
@@ -34830,7 +34868,7 @@ void crazy_decl()
         "    return 0;\n"
         "}\n";
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void crazy_decl2()
@@ -34846,7 +34884,7 @@ void crazy_decl2()
         "  f(1);\n"
         "}\n";
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void crazy_decl4()
@@ -34858,17 +34896,18 @@ void crazy_decl4()
         "    PF(1, 2);\n"
         "}\n";
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void sizeof_not_evaluated()
 {
-    assert(compile_without_errors(false,"int i = sizeof(1/0);\n"));
+    assert(compile_without_errors(false, false, "int i = sizeof(1/0);\n"));
 }
 
 void sizeof_array_test()
 {
     assert(compile_without_errors(false,
+        false,
         "int main() {\n"
         "int a[] = { 1, 2, 3 };\n"
         "static_assert(sizeof(a) == sizeof(int) * 3);\n"
@@ -34895,7 +34934,7 @@ void sizeof_test()
         "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));"
         ;
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void alignof_test()
@@ -34906,7 +34945,7 @@ void alignof_test()
         "static_assert(sizeof(struct X) == 24);"
         ;
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void indirection_struct_size()
@@ -34919,7 +34958,7 @@ void indirection_struct_size()
         "static_assert(sizeof(X) == sizeof(void*));"
         ;
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void traits_test()
@@ -34934,7 +34973,7 @@ void traits_test()
         "int((a2))[10];\n"
         "static_assert(_is_array(a2));"
         ;
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void comp_error1()
@@ -34945,7 +34984,7 @@ void comp_error1()
         "    *z-- = '\\0';\n"
         "}\n";
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void array_size()
@@ -34958,7 +34997,7 @@ void array_size()
         "}"
         ;
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void expr_type()
@@ -34967,7 +35006,7 @@ void expr_type()
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "static_assert(_is_same(typeof(1 + 2.0), double));";
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 }
 
 void expand_test()
@@ -34979,7 +35018,7 @@ void expand_test()
         "static_assert(_is_same(typeof(B), int (*[1])[2]));";
     ;
 
-    assert(compile_without_errors(false, src));
+    assert(compile_without_errors(false, false, src));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -35008,7 +35047,7 @@ void expand_test2()
         "";
 
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -35022,7 +35061,7 @@ void expand_test3()
         "typedef T1(*f[3])(int); "
         "static_assert(_is_same(typeof(f), char* (* [3])(int)));";
 
-    assert(compile_without_errors(false, src3));
+    assert(compile_without_errors(false, false, src3));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -35101,7 +35140,7 @@ void bigtest()
         "\n"
         "\n"
         ;
-    assert(compile_without_errors(false, str));
+    assert(compile_without_errors(false, false, str));
 }
 
 void literal_string_type()
@@ -35112,7 +35151,7 @@ void literal_string_type()
         "    static_assert(_is_same(typeof(\"AB\"),  char [3]));\n"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void digit_separator_test()
@@ -35121,7 +35160,7 @@ void digit_separator_test()
         "static_assert(1'00'00 == 10000);"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void numbers_test()
@@ -35132,7 +35171,7 @@ void numbers_test()
         "#endif"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void binary_digits_test()
@@ -35143,7 +35182,7 @@ void binary_digits_test()
         "_Static_assert(052 == 42);"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void type_suffix_test()
@@ -35187,7 +35226,7 @@ void type_suffix_test()
         ;
 
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void type_test()
@@ -35198,7 +35237,7 @@ void type_test()
         "static_assert(_is_same( typeof( *(p + 1) ), int)   );"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void is_pointer_test()
@@ -35233,7 +35272,7 @@ void is_pointer_test()
         "\n"
         "}\n"
         ;
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void params_test()
@@ -35251,7 +35290,7 @@ void params_test()
         "}"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void test_compiler_constant_expression()
@@ -35266,7 +35305,7 @@ void test_compiler_constant_expression()
         "}"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void zerodiv()
@@ -35278,7 +35317,7 @@ void zerodiv()
         "}"
         ;
 
-    assert(compile_with_errors(false, source));
+    assert(compile_with_errors(false, false, source));
 }
 
 void function_result_test()
@@ -35290,7 +35329,7 @@ void function_result_test()
         "static_assert(_Generic(F2(), int (*)(int, int*) : 1));\n"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void type_normalization()
@@ -35310,7 +35349,7 @@ void type_normalization()
         ;
 
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void auto_test()
@@ -35332,7 +35371,7 @@ void auto_test()
         "    }\n"
         ;
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 
 }
 
@@ -35355,7 +35394,7 @@ void enum_scope()
         "  enum E { B } e2; \n"
         "  static_assert( (typeof(e2)), (enum E) ); \n"
         "}\n";
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void const_member()
@@ -35408,7 +35447,7 @@ void address_of_const()
         "static_assert(_Generic(&p, const int *  const * : 1 ));\n"
         "";
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void lvalue_test()
@@ -35492,7 +35531,7 @@ void lvalue_test()
     ;
 
 
-    assert(compile_without_errors(false, source));
+    assert(compile_without_errors(false, false, source));
 }
 
 void simple_no_discard_test()
@@ -35610,7 +35649,7 @@ void simple_move()
         "    char * _Owner p = 0;\n"
         "    return p; /*implicit move*/\n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void simple_move_error()
@@ -35640,7 +35679,7 @@ void parameter_view()
         "    return parameter->owner_variable;\n"  //ok to move from parameter
         "}\n";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void move_from_extern()
@@ -35654,7 +35693,7 @@ void move_from_extern()
         "    return global.owner_variable;\n" /*makes a _View*/
         "}\n";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void owner_type_test()
@@ -35701,7 +35740,7 @@ void owner_type_test()
         "    static_assert(_is_owner(typeof(*p)));    \n"
         "}\n";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void correct_move_assigment()
@@ -35728,7 +35767,7 @@ void correct_move_assigment()
         "    x1 = x2; //ok\n"
         "\n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void no_explicit_move_required()
@@ -35744,7 +35783,7 @@ void no_explicit_move_required()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 
 }
 
@@ -35760,7 +35799,7 @@ void no_explicit_move_with_function_result()
         "  destroy(get());\n"
         "}\n";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void cannot_ignore_owner_result()
@@ -35799,7 +35838,7 @@ void can_ignore_owner_result()
         "  f();\n"
         "}\n";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void move_not_necessary_on_return()
@@ -35816,7 +35855,7 @@ void move_not_necessary_on_return()
         "    return f();\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void explicit_move_not_required()
@@ -35833,7 +35872,7 @@ void explicit_move_not_required()
         "    s = nullptr;    \n"
         "}\n"
         ;
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void error_using_temporary_owner()
@@ -35896,7 +35935,7 @@ void ownership_flow_test_null_ptr_at_end_of_scope()
         "    _Owner int * p = 0;\n"
         "}\n"
         " ";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_pointer_must_be_deleted()
@@ -35933,7 +35972,7 @@ void ownership_flow_test_basic_pointer_check()
         "}\n"
         "";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_struct_member_missing_free()
@@ -35981,7 +36020,7 @@ void ownership_flow_test_struct_member_free()
         "    free(x.text);\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 
 }
 
@@ -36023,7 +36062,7 @@ void ownership_flow_test_goto_same_scope()
         "    free(p);\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_jump_labels()
@@ -36069,7 +36108,7 @@ void ownership_flow_test_owner_if_pattern_1()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_owner_if_pattern_2()
@@ -36090,7 +36129,7 @@ void ownership_flow_test_owner_if_pattern_2()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_missing_destructor()
@@ -36130,7 +36169,7 @@ void ownership_flow_test_no_warning()
         "    }\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_moved_if_not_null()
@@ -36153,7 +36192,7 @@ void ownership_flow_test_moved_if_not_null()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_struct_moved()
@@ -36176,7 +36215,7 @@ void ownership_flow_test_struct_moved()
         "   x_destroy(&p->x);\n"
         "}\n"
         ;
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_scope_error()
@@ -36203,7 +36242,7 @@ void ownership_flow_test_scope_error()
         "    {\n"
         "    }\n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 
@@ -36225,7 +36264,7 @@ void ownership_flow_test_void_destroy()
         "} \n"
         ;
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_void_destroy_ok()
@@ -36247,7 +36286,7 @@ void ownership_flow_test_void_destroy_ok()
         "   free(p);   \n"
         "} \n"
         ;
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_moving_owner_pointer()
@@ -36275,7 +36314,7 @@ void ownership_flow_test_moving_owner_pointer()
         "   x_delete(p);      \n"
         "} \n"
         "";
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -36376,7 +36415,7 @@ void ownership_flow_test_while_not_null()
         "      p = next;\n"
         "  }  \n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_if_state()
@@ -36408,7 +36447,7 @@ void ownership_flow_test_if_state()
         "\n"
         "";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_types_test_error_owner()
@@ -36496,7 +36535,7 @@ void ownership_flow_test_two_ifs()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 
 }
 
@@ -36507,7 +36546,7 @@ void ownership_no_name_parameter()
         "void free( void * _Owner){ }\n"
         "";
 
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void ownership_flow_switch_case()
@@ -36540,7 +36579,7 @@ void ownership_flow_switch_case()
         "            break;\n"
         "    }        \n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void state_inner_objects_preserved()
@@ -36568,7 +36607,7 @@ void state_inner_objects_preserved()
         "    free(p->name);\n"
         "    free(p);\n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 //TODO make test with
@@ -36577,7 +36616,7 @@ void state_inner_objects_preserved()
 void owner_parameter_must_be_ignored()
 {
     const char* source = "void f(void (*pf)(void* _Owner p)){}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void taking_address()
@@ -36621,7 +36660,7 @@ void taking_address_const()
         "  f(&x);\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void pointer_argument()
@@ -36664,7 +36703,7 @@ void do_while()
         "   while(0);   \n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void switch_cases_state()
@@ -36688,7 +36727,7 @@ void switch_cases_state()
         "    return p;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void switch_break()
@@ -36705,7 +36744,7 @@ void switch_break()
         "    }\n"
         "    return p;\n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void passing_non_owner()
@@ -36726,7 +36765,7 @@ void passing_non_owner()
         "}\n"
         "";
 
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void flow_analysis_else()
@@ -36755,7 +36794,7 @@ void flow_analysis_else()
 
     "}";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 void moving_content_of_owner()
 {
@@ -36775,7 +36814,7 @@ void moving_content_of_owner()
         "    y->x = *p;\n"
         "}\n"
         ;
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void switch_scope()
@@ -36811,7 +36850,7 @@ void switch_scope()
         "    return p1;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void swith_and_while()
@@ -36849,7 +36888,7 @@ void swith_and_while()
         "    return p1;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void owner_to_non_owner()
@@ -36861,7 +36900,7 @@ void owner_to_non_owner()
         "  void * _Owner p = f();\n"
         "}";
 
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void owner_to_non_owner_zero()
@@ -36873,7 +36912,7 @@ void owner_to_non_owner_zero()
         "  void * _Owner p = 0;\n"
         "}";
 
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void incomplete_struct()
@@ -36889,7 +36928,7 @@ void incomplete_struct()
         "    struct X x = 1 ? f() : f(); \n"
         "    free(x.p);\n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 
 }
 
@@ -36926,7 +36965,7 @@ void switch_pop_problem()
         "  \n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void switch_pop2()
@@ -36958,7 +36997,7 @@ void switch_pop2()
         "\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void scopes_pop()
@@ -36990,7 +37029,7 @@ void scopes_pop()
         "    }\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 void owner_moved()
 {
@@ -37013,7 +37052,7 @@ void owner_moved()
         "        free(p);\n"
         "    }\n"
         "}";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 
 }
 
@@ -37037,7 +37076,7 @@ void partially_owner_moved()
         "        x_destroy(p);\n"
         "    }\n"
         "}";
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 
 }
 void use_after_destroy()
@@ -37069,7 +37108,7 @@ void use_after_destroy()
         "   x_print(&x);\n"
         "}\n"
         "";
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 
 }
 
@@ -37107,7 +37146,7 @@ void obj_owner_must_be_from_addressof()
         "}\n"
         "\n"
         "";
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void discarding_owner()
@@ -37125,7 +37164,7 @@ void discarding_owner()
         "{  \n"
         "  struct X * p = (struct X * _Owner) malloc(1);\n"
         "}";
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void using_uninitialized()
@@ -37147,7 +37186,7 @@ void using_uninitialized()
         "}\n"
         "\n"
         "";
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void using_uninitialized_struct()
@@ -37168,7 +37207,7 @@ void using_uninitialized_struct()
         "\n"
         "";
 
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void zero_initialized()
@@ -37200,7 +37239,7 @@ void zero_initialized()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 
@@ -37233,7 +37272,7 @@ void empty_initialized()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void calloc_state()
@@ -37271,7 +37310,7 @@ void calloc_state()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void malloc_initialization()
@@ -37309,7 +37348,7 @@ void malloc_initialization()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void valid_but_unkown_result()
@@ -37349,7 +37388,7 @@ void valid_but_unkown_result()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void calling_non_const_func()
@@ -37391,7 +37430,7 @@ void calling_non_const_func()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 void calling_const_func()
 {
@@ -37431,7 +37470,7 @@ void calling_const_func()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 void pointer_to_owner()
 {
@@ -37461,7 +37500,7 @@ void pointer_to_owner()
         "\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void socket_sample()
@@ -37485,7 +37524,7 @@ void socket_sample()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void return_object()
@@ -37506,7 +37545,7 @@ void return_object()
         "  return x;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 void return_bad_object()
 {
@@ -37527,7 +37566,7 @@ void return_bad_object()
         "  return x;\n"
         "}\n"
         "";
-    assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
 void null_to_owner()
@@ -37544,7 +37583,7 @@ void null_to_owner()
         "   f((void *) 0);\n"
         "   f(nullptr);\n"
         "}\n";
-    assert(compile_with_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void return_true_branch()
@@ -37567,7 +37606,7 @@ void return_true_branch()
         "    static_state(p, \"null\");    \n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 void flow_tests()
 {
@@ -37658,7 +37697,7 @@ void flow_tests()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void member()
@@ -37679,7 +37718,7 @@ void member()
         "    t.u.view.pSelect = 0;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
 void loop_leak()
 {
@@ -37695,11 +37734,12 @@ void loop_leak()
         "   }\n"
         "   free(p);\n"
         "}";
-        assert(compile_with_errors(true, source));
+    assert(compile_with_errors(true, false, source));
 }
 
-void out_parameter() {
-    const char* source        
+void out_parameter()
+{
+    const char* source
         =
         "void  free(void* _Owner p);\n"
         "char* _Owner strdup(const char* s);\n"
@@ -37720,8 +37760,69 @@ void out_parameter() {
         "    free(x.s);\n"
         "}";
 
-        assert(compile_without_errors(true, source));
+    assert(compile_without_errors(true, false, source));
 }
+
+void lvalue_required_1()
+{
+    const char* source
+        =
+        "int main()\n"
+        "{\n"
+        " 1++;\n"
+        "}\n"
+        "";
+    assert(compile_with_errors(true, false, source));
+}
+
+void lvalue_required_2()
+{
+    const char* source
+        =
+        "int main()\n"
+        "{\n"
+        " 1--;\n"
+        "}\n"
+        "";
+    assert(compile_with_errors(true, false, source));
+}
+
+void lvalue_required_3()
+{
+    const char* source
+        =
+        "int main()\n"
+        "{\n"
+        " int * p = &1;\n"
+        "}\n"
+        "";
+    assert(compile_with_errors(true, false, source));
+}
+
+void null_check_1()
+{
+    const char* source
+        =
+        "void f(int  *p)\n"
+        "{\n"
+        " static_state(p, \"not-null\");\n"
+        "}\n"
+        "";
+    assert(compile_without_errors(true, true, source));
+}
+
+void null_check_2()
+{
+    const char* source
+        =
+        "void f(int  *p)\n"
+        "{\n"
+        " static_state(p, \"maybe-null\");\n"
+        "}\n"
+        "";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
+
 
 #endif
 

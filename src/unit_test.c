@@ -205,6 +205,11 @@ void flow_tests(void);
 void member(void);
 void loop_leak(void);
 void out_parameter(void);
+void lvalue_required_1(void);
+void lvalue_required_2(void);
+void lvalue_required_3(void);
+void null_check_1(void);
+void null_check_2(void);
 
 /*end of forward declarations*/
 
@@ -403,6 +408,11 @@ g_unit_test_success_count = 0;
     member();
     loop_leak();
     out_parameter();
+    lvalue_required_1();
+    lvalue_required_2();
+    lvalue_required_3();
+    null_check_1();
+    null_check_2();
 return g_unit_test_error_count;
 
 }
