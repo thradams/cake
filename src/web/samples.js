@@ -1523,7 +1523,7 @@ void f3(int condition)
        free(p);
     }
 
-    static_state(p, "moved");    
+    static_state(p, "uninitialized");    
 }
 
 void f3(int condition)
@@ -1537,7 +1537,7 @@ void f3(int condition)
        free(p);
     }
 
-    static_state(p, "moved or maybe_null");    
+    static_state(p, "uninitialized or maybe_null");    
 }
 
 
@@ -1552,7 +1552,7 @@ void f4(int condition)
        
     }
 
-    static_state(p, "moved or maybe_null");    
+    static_state(p, "uninitialized or maybe_null");    
 }
 
 void f5(int condition)
