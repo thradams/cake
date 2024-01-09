@@ -11,7 +11,7 @@
     <link href="SplitterBar.css" type="text/css" rel="stylesheet">
 
     <title>Document</title>
- 
+
     <script src="codemirror.js"></script>
     <link rel="stylesheet" href="codemirror.css">
     <script src="clike.js"></script>
@@ -26,9 +26,6 @@
             height: 400px;
             width: 100%;
             margin: auto;
-            border: 1px solid;
-            margin-top: 5px;
-            
         }
 
 
@@ -41,77 +38,87 @@
         }
     </style>
 
+    <link rel="stylesheet"
+          data-name="min/vs/editor/editor.main"
+          href="min/vs/editor/editor.main.css" />
+
 </head>
 <body>
-    
+
+    <div style="background-color: rgb(244,244,244); padding-top: 2px; padding-bottom: 2px">
+
+        <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a>
+
+        <select id="samples" onchange="OnChangeSelection(this.value)">
+            <option>Select...</option>
+        </select>
+
+        <select id="sample" onchange="OnChangeSelectionSample(this.value)">
+            <option>Select...</option>
+        </select>
 
 
-    <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a>
-
-    <select id="samples" onchange="OnChangeSelection(this.value)">
-        <option>Select...</option>
-    </select>
-
-    <select id="sample" onchange="OnChangeSelectionSample(this.value)">
-        <option>Select...</option>
-    </select>
+        <button onclick="OnCompileButton()">Compile To</button>
 
 
-    <button onclick="OnCompileButton()">Compile To</button>
+        <select id="outtype" style="margin-left:auto;margin-right: 10px">
+            <option value="-1">C89 (ANSI C)</option>
+            <option value="1">C99</option>
+            <option value="2">C11</option>
+            <option value="3">C23</option>
+            <option value="4">C23 + extensions</option>
+            <option value="0">Preprocess only</option>
+            <!--<option value="-2">C89 -direct-compilation</option>-->
+        </select>
 
-
-    <select id="outtype" style="margin-left:auto;margin-right: 10px">        
-        <option value="-1">C89 (ANSI C)</option>
-        <option value="1">C99</option>
-        <option value="2">C11</option>
-        <option value="3">C23</option>
-        <option value="4">C23 + extensions</option>
-        <option value="0">Preprocess only</option>        
-        <!--<option value="-2">C89 -direct-compilation</option>-->
-    </select>
-
-    <label>Options</label><input type="text" id="options" />
+        <label>Options</label><input type="text" id="options" />
 
 
 
-    <button onclick="Share()">Share</button>
-    <input type="text" id="sharelink" style="width:100%;display:none" />
-
+        <button onclick="Share()">Share</button>
+        <input type="text" id="sharelink" style="width:100%;display:none" />
+    </div>
     <div id="containerOne" class="containerOne">
-        
+
         <div id="div1" class="leftSide">
-            <div>
-                <div>                    
-                    <textarea id="in" style="height: 100%; width: 100%"></textarea>
-                </div>
+            <div id="in">
+
             </div>
         </div>
         <div id="div2" class="rightSide">
-            <div>
-                <div >                    
-                    <textarea id="out" style="height: 100%; width: 100%"></textarea>
-                </div>
+            <div id="out">
+
             </div>
         </div>
     </div>
 
-   
-    <pre id="output" rows="8" 
-    style="line-height:1.5;border: 1px solid #d2d3d4; font-weight: bolder; background-color:#f5f5f5; color:#007bfd; width: 100%;font-size;14px; font: Consolas,Liberation Mono,Courier,monospace;">
+
+    <pre id="output" rows="8"
+         style="line-height:1.5;border: 1px solid #d2d3d4; font-weight: bolder; background-color:#f5f5f5; color:#007bfd; width: 100%;font-size;14px; font: Consolas,Liberation Mono,Courier,monospace;">
     </pre>
 
-     <button onclick="OnCompileOuput()">Compile Ouput (using coliru online)</button>
+    <button onclick="OnCompileOuput()">Compile Ouput (using coliru online)</button>
 
     <p>Cake is compiled with emscripten and it is running in your browser.</p>
 
     <script src="splitterbar.js"></script>
 
-        <script>
+
+    <script>
+        var require = { paths: { vs: 'min/vs' } };
+    </script>
+    <script src="min/vs/loader.js"></script>
+    <script src="min/vs/editor/editor.main.nls.js"></script>
+    <script src="min/vs/editor/editor.main.js"></script>
+
+
+    <script>
 
         //monta a lista com exemplos
         var se = document.getElementById("samples");
         //var se2 = document.getElementById("sample");
-        for (var area in sample) {
+        for (var area in sample)
+        {
             var o = document.createElement('option');
             o.textContent = area;
             o.value = area;
@@ -125,38 +132,40 @@
 
 
 
-        var inputEditor = CodeMirror.fromTextArea(document.getElementById('in'),
-            {
-                lineNumbers: true,
-                matchBrackets: true,
-                mode: "text/x-csrc"
+        var inputEditor = monaco.editor.create(document.getElementById('in'), {
+            language: 'c',
+            automaticLayout: true,
+            minimap: { enabled: false }
+        });
 
-            }
-        );
-        inputEditor.setSize(null, "400");
-        
+        var outputEditor = monaco.editor.create(document.getElementById('out'), {
+            language: 'c',
+            automaticLayout: true,
+            minimap: { enabled: false }
+        });
 
-        var outputEditor = CodeMirror.fromTextArea(document.getElementById('out'),
+        div1.onresize = function ()
+        {
+            inputEditor.layout();
+            outputEditor.layout();
+        };
 
-            {
-                lineNumbers: true,
-                matchBrackets: true,
-                mode: "text/x-csrc",
-                foldGutter: true,
-                gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"]
+        div2.onresize = function ()
+        {
+            inputEditor.layout();
+            outputEditor.layout();
+        };
 
-            }
-        );
 
-        outputEditor.setSize("100%", "400");
-        
 
         const urlParams = new URLSearchParams(window.location.search);
 
 
         var to = urlParams.get('to');
-        if (to) {
-            try {
+        if (to)
+        {
+            try
+            {
                 to = decodeURI(to);
                 document.getElementById("outtype").value = to;
             }
@@ -164,8 +173,10 @@
         }
 
         var options = urlParams.get('options');
-        if (options) {
-            try {
+        if (options)
+        {
+            try
+            {
                 options = decodeURI(options);
                 document.getElementById("options").value = options;
             } catch { }
@@ -173,7 +184,8 @@
 
 
         var code = urlParams.get('code');
-        if (code) {
+        if (code)
+        {
             code = atob(decodeURIComponent(code));
 
 
@@ -182,7 +194,8 @@
 
         }
 
-        function Share() {
+        function Share()
+        {
 
 
             var source = inputEditor.getValue();
@@ -200,12 +213,14 @@
 
         }
 
-        function OnSwap() {
+        function OnSwap()
+        {
             var temp = inputEditor.getValue();
             inputEditor.setValue(outputEditor.getValue());
             outputEditor.setValue(temp);
         }
-        function OnCompileOuput() {
+        function OnCompileOuput()
+        {
             document.getElementById("output").value = "";
             var http = new XMLHttpRequest();
 
@@ -229,7 +244,8 @@
             //text = text.replace(/>/g, "&gt;");
             //text = text.replace('\n', '<br>', 'g');
             //console.log(text);
-            if (element) {
+            if (element)
+            {
                 element.innerHTML = text + "\n";
                 element.scrollTop = element.scrollHeight; // focus on bottom
             }
@@ -237,7 +253,8 @@
         }
 
 
-        function OnCompileButton() {
+        function OnCompileButton()
+        {
             document.getElementById("output").value = "";
             outputEditor.setValue("");
             var outputLanguage = document.getElementById("outtype").value;
@@ -269,23 +286,25 @@
         function OnChangeSelectionSample(index)
         {
             var area = document.getElementById("samples").value;
-            
+
             var source = sample[area][index];
             inputEditor.setValue(source, -1);
             outputEditor.setValue("");
         }
-        function OnChangeSelection(index) {
+        function OnChangeSelection(index)
+        {
             var samples = sample[index];
             var se2 = document.getElementById("sample");
             se2.innerText = "";
 
-        for (var i in samples) {
-            var o = document.createElement('option');
-            o.textContent = i;
-            o.value = i;
-            se2.appendChild(o);
-        }
-        OnChangeSelectionSample(Object.keys(sample[index])[0]);
+            for (var i in samples)
+            {
+                var o = document.createElement('option');
+                o.textContent = i;
+                o.value = i;
+                se2.appendChild(o);
+            }
+            OnChangeSelectionSample(Object.keys(sample[index])[0]);
         }
 
     </script>

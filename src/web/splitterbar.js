@@ -23,7 +23,8 @@ const SplitterBar = function(container, leftContent, rightContent) {
     splitter.style.left = '50%';
     splitter.style.transform = 'translateX(-50%)';
     
-    splitter.style.background = 'gray';
+    splitter.style.background = 'RGB(244,244,244)';
+    splitter.style.border = "1px solid #d2d3d4";
     splitter.style.cursor = 'col-resize';
     
 
@@ -150,7 +151,8 @@ const VSplitterBar = function (container, topContent, bottomContent) {
     splitter.style.top = '50%';
     splitter.style.transform = 'translateY(-50%)';
 
-    splitter.style.background = 'gray';
+    splitter.style.background = 'RGB(244,244,244)';
+    splitter.style.border = "1px solid #d2d3d4";
     splitter.style.cursor = 'row-resize';
 
 
