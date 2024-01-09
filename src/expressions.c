@@ -417,7 +417,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
 
         while (p_current_argument && p_current_parameter_type)
         {
-            check_function_argument_and_parameter(ctx, p_current_argument, &p_current_parameter_type->type, param_num);
+            check_argument_and_parameter(ctx, p_current_argument, &p_current_parameter_type->type, param_num);
 
 
 
@@ -3607,12 +3607,16 @@ bool is_first_of_conditional_expression(struct parser_ctx* ctx)
         is_first_of_primary_expression(ctx);
 }
 
-bool is_null_pointer_constant(const struct expression* expression)
+bool expression_is_null_pointer_constant(const struct expression* expression)
 {
     if (expression)
     {
-        return constant_value_is_valid(&expression->constant_value) &&
-            constant_value_to_bool(&expression->constant_value) == 0;
+        if (type_is_nullptr_t(&expression->type) ||
+            (constant_value_is_valid(&expression->constant_value) &&
+                constant_value_to_ull(&expression->constant_value) == 0))
+        {
+            return true;
+        }
     }
     return false;
 }
@@ -3745,7 +3749,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
                     — one operand is a pointer to an object type and the other is a pointer to a qualified or unqualified
                     version of void
             */
-                if (is_null_pointer_constant(p_conditional_expression->right) ||
+                if (expression_is_null_pointer_constant(p_conditional_expression->right) ||
                     type_is_nullptr_t(&right_type) ||
                     type_is_void_ptr(&right_type))
                 {
@@ -3778,7 +3782,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             }
             else if (type_is_pointer(&right_type))
             {
-                if (is_null_pointer_constant(p_conditional_expression->left) ||
+                if (expression_is_null_pointer_constant(p_conditional_expression->left) ||
                     type_is_nullptr_t(&left_type) ||
                     type_is_void_ptr(&left_type))
                 {

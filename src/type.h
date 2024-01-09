@@ -233,7 +233,7 @@ bool type_is_bool(const struct type* p_type);
 struct type type_get_enum_type(const struct type* p_type);
 
 struct argument_expression;
-void check_function_argument_and_parameter(struct parser_ctx* ctx,
+void check_argument_and_parameter(struct parser_ctx* ctx,
     struct argument_expression* current_argument,
     struct type* paramer_type,
     int param_num);

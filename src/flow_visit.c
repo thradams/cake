@@ -481,7 +481,7 @@ static struct object* expression_is_comparing_owner_with_null(struct expression*
 {
 	if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL &&
 		type_is_pointer(&p_expression->left->type) &&
-		is_null_pointer_constant(p_expression->right))
+		expression_is_null_pointer_constant(p_expression->right))
 	{
 		// if ( pointer == NULL )
 		struct type type = { 0 };
@@ -492,7 +492,7 @@ static struct object* expression_is_comparing_owner_with_null(struct expression*
 
 
 	if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL &&
-		is_null_pointer_constant(p_expression->left) &&
+		expression_is_null_pointer_constant(p_expression->left) &&
 		type_is_pointer(&p_expression->right->type))
 	{
 		// if (NULL == pointer)
@@ -522,7 +522,7 @@ static struct object* expression_is_comparing_owner_with_not_null(struct express
 
 	if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL &&
 		type_is_pointer(&p_expression->left->type) &&
-		is_null_pointer_constant(p_expression->right))
+		expression_is_null_pointer_constant(p_expression->right))
 	{
 		//if (p != NULL)
 		struct type type = { 0 };
@@ -532,7 +532,7 @@ static struct object* expression_is_comparing_owner_with_not_null(struct express
 	}
 
 	if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL &&
-		is_null_pointer_constant(p_expression->right) &&
+		expression_is_null_pointer_constant(p_expression->right) &&
 		type_is_pointer(&p_expression->left->type))
 	{
 		//NULL != p 

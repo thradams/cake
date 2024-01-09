@@ -1,4 +1,5 @@
-void F(char(*p)[10])
+void f(int i) {}
+int main()
 {
-    (*p)[0] = 'a';
+	f((void*)0);
 }
