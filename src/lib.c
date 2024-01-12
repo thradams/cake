@@ -37901,6 +37901,21 @@ void bounds_check1()
 		"}";
 	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
 }
+
+void bounds_check2()
+{
+	const char* source
+		=		
+		"void f1(int array[5])\n"
+		"{\n"
+		"    int i = array[5];\n"
+		"}\n"
+		"";
+
+	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+}
+
+
 #endif
 
 
