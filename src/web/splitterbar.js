@@ -19,7 +19,7 @@ const SplitterBar = function(container, leftContent, rightContent) {
     
     container.appendChild(splitter);
     
-    splitter.style.width = '10px';
+    splitter.style.width = '5px';
     splitter.style.left = '50%';
     splitter.style.transform = 'translateX(-50%)';
     
@@ -147,7 +147,7 @@ const VSplitterBar = function (container, topContent, bottomContent) {
 
     container.appendChild(splitter);
 
-    splitter.style.height = '10px';
+    splitter.style.height = '5px';
     splitter.style.top = '50%';
     splitter.style.transform = 'translateY(-50%)';
 
