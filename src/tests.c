@@ -3122,5 +3122,15 @@ void compound_literal_object()
 	assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
+void bounds_check1()
+{
+	const char* source
+		=
+		"int main() {\n"
+		"	int a[5];\n"
+		"	int i = a[5];\n"
+		"}";
+	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+}
 #endif
 

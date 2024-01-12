@@ -1570,6 +1570,24 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                     throw;
                 }
 
+                if (constant_value_is_valid(&p_expression_node_new->right->constant_value))
+                {
+                    unsigned long long index =
+                        constant_value_to_ull(&p_expression_node_new->right->constant_value);
+                    if (type_is_array(&p_expression_node->type))
+                    {
+                        if (p_expression_node->type.array_size > 0)
+                        {
+                            if (index >= (unsigned long long) p_expression_node->type.array_size)
+                            {
+                                compiler_set_error_with_token(C_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                                    ctx,
+                                    ctx->current,
+                                    "index %d is past the end of the array", index);
+                            }
+                        }
+                    }
+                }
                 parser_match_tk(ctx, ']');
 
                 p_expression_node_new->left = p_expression_node;
