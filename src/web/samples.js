@@ -42,6 +42,8 @@ void F(int a[static const 5])
     
     /*cake extention,array arguments cannot be modified*/
     //a = 1;  /*try*/
+
+    int k = a[5]; //bounds check
 }
 
 
@@ -56,6 +58,7 @@ int main() {
     
     int b[] = { 1, 2, 3 , 4, 5};
     F(b);
+    int k = b[5]; //bounds check
 
     int c[] = { 1, 2, 3 , 4, 5, 6};
     F(c);
