@@ -1175,7 +1175,14 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 				right->first_token,
 				"function returns address of local variable");
 		}
-
+		if (type_is_array(&right->type) &&			
+			right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+		{
+			compiler_set_warning_with_token(W_RETURN_LOCAL_ADDR,
+				ctx,
+				right->first_token,
+				"function returns address of local variable");
+		}
 		/*              return | non owner  | owner
 			non owner          | OK         | if external, or param
 			owner          |   | ERROR      | explicit if local, non explicit if external or param

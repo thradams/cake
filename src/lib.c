@@ -17683,7 +17683,14 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 				right->first_token,
 				"function returns address of local variable");
 		}
-
+		if (type_is_array(&right->type) &&			
+			right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+		{
+			compiler_set_warning_with_token(W_RETURN_LOCAL_ADDR,
+				ctx,
+				right->first_token,
+				"function returns address of local variable");
+		}
 		/*              return | non owner  | owner
 			non owner          | OK         | if external, or param
 			owner          |   | ERROR      | explicit if local, non explicit if external or param
@@ -35645,6 +35652,23 @@ void return_address_of_local()
 		"  return &x.i;\n"
 		"}\n"
 		"";
+	struct options options = { .input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE) };
+	struct report report = { 0 };
+	get_ast(&options, "source", source, &report);
+	assert(report.warnings_count == 1 && report.last_warning == W_RETURN_LOCAL_ADDR);
+}
+
+void return_address_of_local2()
+{
+	const char* source
+		=
+		"\n"
+		"char* f() {\n"
+		"    char str[] = \".\";\n"
+		"    return str;\n"
+		"}\n"
+		;
+	
 	struct options options = { .input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE) };
 	struct report report = { 0 };
 	get_ast(&options, "source", source, &report);

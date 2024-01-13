@@ -882,6 +882,23 @@ void return_address_of_local()
 	assert(report.warnings_count == 1 && report.last_warning == W_RETURN_LOCAL_ADDR);
 }
 
+void return_address_of_local2()
+{
+	const char* source
+		=
+		"\n"
+		"char* f() {\n"
+		"    char str[] = \".\";\n"
+		"    return str;\n"
+		"}\n"
+		;
+	
+	struct options options = { .input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE) };
+	struct report report = { 0 };
+	get_ast(&options, "source", source, &report);
+	assert(report.warnings_count == 1 && report.last_warning == W_RETURN_LOCAL_ADDR);
+}
+
 void assignment_of_read_only_object()
 {
 	const char* source
