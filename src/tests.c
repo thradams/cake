@@ -892,7 +892,7 @@ void return_address_of_local2()
 		"    return str;\n"
 		"}\n"
 		;
-	
+
 	struct options options = { .input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE) };
 	struct report report = { 0 };
 	get_ast(&options, "source", source, &report);
@@ -3153,13 +3153,26 @@ void bounds_check1()
 void bounds_check2()
 {
 	const char* source
-		=		
+		=
 		"void f1(int array[5])\n"
 		"{\n"
 		"    int i = array[5];\n"
 		"}\n"
 		"";
 
+	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+}
+
+void uninitialized_objects_passed_to_variadic_function()
+{
+	const char* source
+		=
+		"void f(char* s, ...);\n"
+		"int main() {\n"
+		"   int i;\n"
+		"   f(\"\", i);\n"
+		"   return 0;\n"
+		"}";
 	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
 }
 

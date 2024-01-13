@@ -32440,139 +32440,155 @@ static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct gene
 
 
 static int compare_function_arguments2(struct parser_ctx* ctx,
-    struct type* p_type,
-    struct argument_expression_list* p_argument_expression_list)
+	struct type* p_type,
+	struct argument_expression_list* p_argument_expression_list)
 {
 
-    struct param* p_current_parameter_type = NULL;
+	struct param* p_current_parameter_type = NULL;
 
-    const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
+	const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
-    if (p_param_list)
-    {
-        p_current_parameter_type = p_param_list->head;
-    }
+	if (p_param_list)
+	{
+		p_current_parameter_type = p_param_list->head;
+	}
 
-    int param_num = 1;
-    struct argument_expression* p_current_argument = p_argument_expression_list->head;
+	int param_num = 1;
+	struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
-    while (p_current_argument && p_current_parameter_type)
-    {
-        struct type argument_object_type = {0};
-        struct object* p_argument_object =
-            expression_get_object(p_current_argument->expression, &argument_object_type);
+	while (p_current_argument && p_current_parameter_type)
+	{
+		struct type argument_object_type = { 0 };
+		struct object* p_argument_object =
+			expression_get_object(p_current_argument->expression, &argument_object_type);
 
-        bool bool_source_zero_value = constant_value_is_valid(&p_current_argument->expression->constant_value) &&
-            constant_value_to_ull(&p_current_argument->expression->constant_value) == 0;
+		bool bool_source_zero_value = constant_value_is_valid(&p_current_argument->expression->constant_value) &&
+			constant_value_to_ull(&p_current_argument->expression->constant_value) == 0;
 
-        struct type argument_object_type2 = {0};
-        struct object* p_argument_object2 =
-            expression_get_object(p_current_argument->expression, &argument_object_type2);
-
-
-        if (ctx->options.null_checks)
-        {
-            if (type_is_pointer(&p_current_parameter_type->type) &&
-                !(p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OPT))
-            {
-
-                if (p_argument_object2 &&
-                    p_argument_object2->state & OBJECT_STATE_NULL)
-                {
-                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
-                        ctx,
-                        p_current_argument->expression->first_token,
-                        "pointer can be null, but the parameter is not optional");
-                }
-
-                type_destroy(&argument_object_type2);
-            }
-        }
+		struct type argument_object_type2 = { 0 };
+		struct object* p_argument_object2 =
+			expression_get_object(p_current_argument->expression, &argument_object_type2);
 
 
-        /*
-          checking is some uninitialized or moved object is being used as parameter
-        */
-        if (p_argument_object)
-        {
-            //TODO check if pointed object is const
-            bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
+		if (ctx->options.null_checks)
+		{
+			if (type_is_pointer(&p_current_parameter_type->type) &&
+				!(p_current_parameter_type->type.type_qualifier_flags & TYPE_QUALIFIER_OPT))
+			{
 
-            bool pointer_to_out = false;
+				if (p_argument_object2 &&
+					p_argument_object2->state & OBJECT_STATE_NULL)
+				{
+					compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+						ctx,
+						p_current_argument->expression->first_token,
+						"pointer can be null, but the parameter is not optional");
+				}
 
-            if (type_is_pointer(&p_current_parameter_type->type) &&
-                check_pointed_object)
-            {
-                struct type t2 = type_remove_pointer(&p_current_parameter_type->type);
-                if (type_is_out(&t2))
-                {
-                    pointer_to_out = true;
-                    type_destroy(&t2);
-                }
-            }
+				type_destroy(&argument_object_type2);
+			}
+		}
 
-            if (!pointer_to_out)
-            {
-                checked_read_object(ctx,
-                    &argument_object_type,
-                    p_argument_object,
-                    p_current_argument->expression->first_token,
-                    check_pointed_object);
 
-            }
-        }
+		/*
+		  checking is some uninitialized or moved object is being used as parameter
+		*/
+		if (p_argument_object)
+		{
+			//TODO check if pointed object is const
+			bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
 
-        if (type_is_any_owner(&p_current_parameter_type->type))
-        {
+			bool pointer_to_out = false;
+
+			if (type_is_pointer(&p_current_parameter_type->type) &&
+				check_pointed_object)
+			{
+				struct type t2 = type_remove_pointer(&p_current_parameter_type->type);
+				if (type_is_out(&t2))
+				{
+					pointer_to_out = true;
+					type_destroy(&t2);
+				}
+			}
+
+			if (!pointer_to_out)
+			{
+				checked_read_object(ctx,
+					&argument_object_type,
+					p_argument_object,
+					p_current_argument->expression->first_token,
+					check_pointed_object);
+
+			}
+		}
+
+		if (type_is_any_owner(&p_current_parameter_type->type))
+		{
 #if 1
 
 #endif
 
-            object_assignment(ctx,
-                p_argument_object,
-                &argument_object_type,
-                NULL, /*dest object*/
-                &p_current_parameter_type->type,
-                p_current_argument->expression->first_token,
-                bool_source_zero_value,
-                OBJECT_STATE_UNINITIALIZED);
-        }
-        else
-        {
-            if (p_argument_object &&
-                type_is_pointer(&p_current_parameter_type->type))
-            {
-                struct type parameter_type =
-                    type_remove_pointer(&p_current_parameter_type->type);
+			object_assignment(ctx,
+				p_argument_object,
+				&argument_object_type,
+				NULL, /*dest object*/
+				&p_current_parameter_type->type,
+				p_current_argument->expression->first_token,
+				bool_source_zero_value,
+				OBJECT_STATE_UNINITIALIZED);
+		}
+		else
+		{
+			if (p_argument_object &&
+				type_is_pointer(&p_current_parameter_type->type))
+			{
+				struct type parameter_type =
+					type_remove_pointer(&p_current_parameter_type->type);
 
-                if (!type_is_const(&parameter_type))
-                {
-                    if (type_is_void(&parameter_type))
-                    {
-                        //
-                    }
-                    else
-                    {
-                        if (p_argument_object->pointed)
-                        {
-                            struct type pointed_type = type_remove_pointer(&argument_object_type);
-                            object_set_unknown(&pointed_type, p_argument_object->pointed);
-                            type_destroy(&pointed_type);                            
-                        }
-                    }
-                }
+				if (!type_is_const(&parameter_type))
+				{
+					if (type_is_void(&parameter_type))
+					{
+						//
+					}
+					else
+					{
+						if (p_argument_object->pointed)
+						{
+							struct type pointed_type = type_remove_pointer(&argument_object_type);
+							object_set_unknown(&pointed_type, p_argument_object->pointed);
+							type_destroy(&pointed_type);
+						}
+					}
+				}
 
-                type_destroy(&parameter_type);
-            }
-        }
-        p_current_argument = p_current_argument->next;
-        p_current_parameter_type = p_current_parameter_type->next;
-        param_num++;
+				type_destroy(&parameter_type);
+			}
+		}
+		p_current_argument = p_current_argument->next;
+		p_current_parameter_type = p_current_parameter_type->next;
+		param_num++;
 
-        type_destroy(&argument_object_type);
-    }
+		type_destroy(&argument_object_type);
+	}
 
-    return 0;
+	while (p_current_argument) {
+		/*
+		   We have more argument than parameters, this happens with variadic functions
+		*/
+		struct type argument_object_type = { 0 };
+		struct object* p_argument_object =
+			expression_get_object(p_current_argument->expression, &argument_object_type);
+
+		checked_read_object(ctx,
+			&argument_object_type,
+			p_argument_object,
+			p_current_argument->expression->first_token,
+			false);
+
+		p_current_argument = p_current_argument->next;
+	}
+	return 0;
 }
 static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression)
 {
@@ -32893,8 +32909,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 	default:
 		break;
+		}
 	}
-}
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
@@ -33499,7 +33515,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 	{
 		flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
 	}
-}
+			}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -35668,7 +35684,7 @@ void return_address_of_local2()
 		"    return str;\n"
 		"}\n"
 		;
-	
+
 	struct options options = { .input = LANGUAGE_C99, .enabled_warnings_stack[0] = (~0 & ~W_STYLE) };
 	struct report report = { 0 };
 	get_ast(&options, "source", source, &report);
@@ -37929,13 +37945,26 @@ void bounds_check1()
 void bounds_check2()
 {
 	const char* source
-		=		
+		=
 		"void f1(int array[5])\n"
 		"{\n"
 		"    int i = array[5];\n"
 		"}\n"
 		"";
 
+	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+}
+
+void uninitialized_objects_passed_to_variadic_function()
+{
+	const char* source
+		=
+		"void f(char* s, ...);\n"
+		"int main() {\n"
+		"   int i;\n"
+		"   f(\"\", i);\n"
+		"   return 0;\n"
+		"}";
 	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
 }
 

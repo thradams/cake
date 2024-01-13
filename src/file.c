@@ -1,10 +1,6 @@
-
-char* f() {
-    char str[] = ".";
-    return str;
-}
-
+void f(char* s, ...);
 int main() {
-    char* str = f();
+   int i;
+   f("", i);
    return 0;
 }
