@@ -3176,6 +3176,19 @@ void uninitialized_objects_passed_to_variadic_function()
 	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
 }
 
+void nullderef() {
+	const char* source
+		=
+		"\n"
+		"int main() {\n"
+		"    int* ptr = 0;\n"
+		"    int k = *ptr;\n"
+		"    k = 0;\n"
+		"    return 0;\n"
+		"}";
+
+	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+}
 
 #endif
 

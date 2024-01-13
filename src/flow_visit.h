@@ -18,6 +18,8 @@ struct flow_visit_ctx
     struct type* view p_return_type;
     int parameter_list;
     struct jump_statement* view p_last_jump_statement;
+
+    bool is_left_expression; //a = b
 };
 
 

@@ -216,6 +216,7 @@ void compound_literal_object(void);
 void bounds_check1(void);
 void bounds_check2(void);
 void uninitialized_objects_passed_to_variadic_function(void);
+void nullderef(void);
 
 /*end of forward declarations*/
 
@@ -425,6 +426,7 @@ g_unit_test_success_count = 0;
     bounds_check1();
     bounds_check2();
     uninitialized_objects_passed_to_variadic_function();
+    nullderef();
 return g_unit_test_error_count;
 
 }

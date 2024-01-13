@@ -1496,12 +1496,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 	case UNARY_EXPRESSION_SIZEOF_TYPE:
 	case UNARY_EXPRESSION_INCREMENT:
 	case UNARY_EXPRESSION_DECREMENT:
-
 	case UNARY_EXPRESSION_NOT:
 	case UNARY_EXPRESSION_BITNOT:
 	case UNARY_EXPRESSION_NEG:
 	case UNARY_EXPRESSION_PLUS:
-	case UNARY_EXPRESSION_CONTENT:
+	
 	case UNARY_EXPRESSION_ADDRESSOF:
 		if (p_expression->right)
 		{
@@ -1515,9 +1514,48 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 		}
 
 		break;
+#if 1
+	case UNARY_EXPRESSION_CONTENT:
+	{
+		if (p_expression->right)
+		{
+			flow_visit_expression(ctx, p_expression->right);
+		}
 
+		struct type t = { 0 };
+		struct object* p_object = expression_get_object(p_expression->right, &t);
 
+		if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+		{
+			compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+				ctx->ctx,
+				p_expression->right->first_token, "using a uninitialized object");
+		}
+		else if (p_object && p_object->state & OBJECT_STATE_NULL)
+		{
+			/*
+			  *p = 1*
+			*/
+			if (ctx->is_left_expression)
+			{
+			    //is
+			}
+			else
+			{
+				//TO many errors because the pointer can be null.
+				if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
+				{
+					compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+						ctx->ctx,
+						p_expression->right->first_token, "deferencing a NULL object");
+				}
+			}
+		}
+		type_destroy(&t);
 
+	}
+	break;
+#endif
 
 
 
@@ -1531,7 +1569,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 		struct type dest_object_type = { 0 };
 		struct object* const p_dest_object = expression_get_object(p_expression->left, &dest_object_type);
 		//print_object(&dest_object_type, p_dest_object);
+		
+		bool temp = ctx->is_left_expression = true;
 		flow_visit_expression(ctx, p_expression->left);
+		ctx->is_left_expression = temp;
+
 		//print_object(&dest_object_type, p_dest_object);
 		flow_visit_expression(ctx, p_expression->right);
 
@@ -1643,8 +1685,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 	default:
 		break;
-		}
 	}
+}
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
@@ -2230,10 +2272,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 					set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
 				}
 				type_destroy(&t2);
-			}
-#endif
 		}
+#endif
 	}
+}
 
 	/*if (p_declarator->pointer)
 	{
@@ -2249,7 +2291,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 	{
 		flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
 	}
-			}
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
