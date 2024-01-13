@@ -279,8 +279,13 @@ int main()
 
     //-flow-analysis 
     //-nullchecks
+#ifdef NULLCHECKS
+#define NC " -nullchecks "
+#else
+#define NC "  "
+#endif
 
-    if (system("cake.exe  -Wstyle -analyze -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    if (system("cake.exe  " NC " -Wstyle -analyze -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 

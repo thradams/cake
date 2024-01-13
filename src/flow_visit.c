@@ -2726,6 +2726,10 @@ void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_decla
 
 	assert(ctx->tail_block == NULL);
 	struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+	if (p_defer == NULL)
+	{
+		return;
+	}
 	p_defer->p_function_body = p_declaration->function_body;
 
 	flow_visit_declaration(ctx, p_declaration);
