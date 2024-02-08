@@ -1,6 +1,5 @@
 #include "ownership.h"
 #include "object.h"
-#include <stdlib.h>
 #include "parser.h"
 #include <string.h>
 #include <assert.h>

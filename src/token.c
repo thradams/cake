@@ -1,5 +1,4 @@
 #include "ownership.h"
-#include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

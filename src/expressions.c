@@ -5,9 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "expressions.h"
-#include "hash.h"
 #include <string.h>
-#include "console.h"
 #include "parser.h"
 #include "type.h"
 

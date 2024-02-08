@@ -1,13 +1,14 @@
-#include "ownership.h"
-#include <stdbool.h>
-#include "type.h"
-#include "parser.h"
-#include "error.h"
-#include <stdlib.h>
 #include <assert.h>
-#include "hash.h"
-#include <string.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "error.h"
+#include "hash.h"
+#include "ownership.h"
+#include "parser.h"
+#include "type.h"
+
 
 void print_item(struct osstream* ss, bool* first, const char* item)
 {
