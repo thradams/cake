@@ -14,7 +14,7 @@ enum type_category
     TYPE_CATEGORY_ITSELF,
     TYPE_CATEGORY_FUNCTION,
     TYPE_CATEGORY_ARRAY,
-    TYPE_CATEGORY_POINTER,    
+    TYPE_CATEGORY_POINTER,
 };
 
 
@@ -28,7 +28,7 @@ enum attribute_flags
     STD_ATTRIBUTE_NORETURN = 1 << 4,
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
-    CAKE_ATTRIBUTE_IMPLICT= 1 << 7,
+    CAKE_ATTRIBUTE_IMPLICT = 1 << 7,
     /*
      1 == 2 results in int in C
      lets add extra flag here
@@ -84,11 +84,11 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_CONST = 1 << 0,
     TYPE_QUALIFIER_RESTRICT = 1 << 1,
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
-    TYPE_QUALIFIER__ATOMIC = 1 << 3 , 
-    
+    TYPE_QUALIFIER__ATOMIC = 1 << 3,
+
     /*ownership extensions*/
-    TYPE_QUALIFIER_OWNER = 1 << 4,    
-    TYPE_QUALIFIER_OBJ_OWNER = 1 << 5,   
+    TYPE_QUALIFIER_OWNER = 1 << 4,
+    TYPE_QUALIFIER_OBJ_OWNER = 1 << 5,
     TYPE_QUALIFIER_VIEW = 1 << 6,
     TYPE_QUALIFIER_OPT = 1 << 7,
     TYPE_QUALIFIER_NOT_NULL = 1 << 8,
@@ -105,7 +105,7 @@ enum storage_class_specifier_flags
     STORAGE_SPECIFIER_AUTO = 1 << 4,
     STORAGE_SPECIFIER_REGISTER = 1 << 5,
     STORAGE_SPECIFIER_CONSTEXPR = 1 << 6,
-    
+
     /*extra flag just to annotate this*/
     STORAGE_SPECIFIER_CONSTEXPR_STATIC = 1 << 7,
 
@@ -140,7 +140,7 @@ struct param_list {
 
 void param_list_destroy(struct param_list* obj_owner p);
 
-struct type 
+struct type
 {
     enum type_category category;
 
@@ -156,13 +156,13 @@ struct type
 
     int array_size;
     bool static_array;
-    
+
     /*
       address_of is true when the type is created by address of operator.
       This is used to create obj_owner pointer.
     */
     bool address_of;
-    
+
     struct param_list params;
     struct type* owner next;
 };
@@ -178,7 +178,7 @@ struct expression;
 
 void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
-    struct expression* right,    
+    struct expression* right,
     bool return_assignment);
 
 void print_type(struct osstream* ss, const  struct type* type);
@@ -186,7 +186,7 @@ void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
 
-void type_destroy( struct type* obj_owner p_type);
+void type_destroy(struct type* obj_owner p_type);
 
 
 
