@@ -39,9 +39,9 @@ Cake can also be used as static analyzer, especially the new ownership analysis.
 
 * C23 preprocessor
 * C23 syntax analysis
-* C23 semantic analysis (> 58 errors, > 16 warnings)
-* static ownership checks (extension)
-* sarif output
+* C23 semantic analysis
+* Static ownership checks (Extension)
+* Sarif output
 * C backend
 * AST 
 
@@ -78,7 +78,7 @@ Emscripten https://emscripten.org/  is required.
 
 First do the normal build. 
 
-The normal build also generates a file *lib.c* that is the amalgameted  version of the "core lib".
+The normal build also generates a file *lib.c* that is the amalgamated  version of the "core lib".
 
 Then at _./src_ dir type:
 
@@ -151,7 +151,7 @@ DISCORD SERVER
 
 # Status?
 
-At version 0.5.13 we have 58 types of erros (we have more messages sharing the 
+At version 0.5.13 we have 58 types of errors (we have more messages sharing the 
 same type) and 14 warnings/info.
 
 # How cake is tested?
