@@ -3203,5 +3203,22 @@ void for_loop_visit()
 		"}";
 	assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
+
+void uninitialized_object()
+{
+	const char* source
+		=
+		"int main() {\n"
+		"    int i;\n"
+		"    int k;\n"
+		"    k = 1 + i;\n"
+		"}";
+	
+	struct options options = { .input = LANGUAGE_C99, .flow_analysis = true, .enabled_warnings_stack[0] = (~0 & ~W_STYLE) };
+	struct report report = { 0 };
+	get_ast(&options, "source", source, &report);
+	assert(report.warnings_count == 1);
+}
+
 #endif
 

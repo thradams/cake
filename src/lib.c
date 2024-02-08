@@ -968,7 +968,7 @@ void token_range_add_flag(struct token* first, struct token* last, enum token_fl
 void token_list_pop_back(struct token_list* list) unchecked
 {
     if (list->head == NULL)
-        return ;
+        return;
 
     struct token* p = list->tail;
     if (list->head == list->tail)
@@ -988,7 +988,7 @@ void token_list_pop_back(struct token_list* list) unchecked
     p->next = NULL;
     p->prev = NULL;
     p->next = NULL;
-    token_delete(p);    
+    token_delete(p);
 }
 
 void token_list_pop_front(struct token_list* list) unchecked
@@ -1008,7 +1008,7 @@ void token_list_pop_front(struct token_list* list) unchecked
         list->head = list->head->next;
     }
     p->next = NULL;
-    p->prev = NULL;    
+    p->prev = NULL;
     token_delete(p);
 }
 
@@ -1034,7 +1034,7 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     return p;
 }
 
-void token_list_swap(struct token_list*  a, struct token_list* b)
+void token_list_swap(struct token_list* a, struct token_list* b)
 {
     struct token_list temp = *a;
     *a = *b;
@@ -1082,7 +1082,7 @@ void token_list_destroy(struct token_list* obj_owner list)
 
 char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
 {
-    struct osstream ss = {0};
+    struct osstream ss = { 0 };
     if (bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
@@ -1127,7 +1127,7 @@ char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
     return cstr;
 }
 
-void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list) 
+void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
 {
     if (append_list->head == NULL)
         return;
@@ -1235,7 +1235,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     source->tail = NULL;
 }
 
-void token_list_append_list(struct token_list* dest, struct token_list* source) 
+void token_list_append_list(struct token_list* dest, struct token_list* source)
 {
     if (source->head == NULL)
     {
@@ -1263,7 +1263,7 @@ struct token* owner clone_token(struct token* p) unchecked
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-        *token = *p;        
+        *token = *p;
         token->lexeme = strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
@@ -1274,7 +1274,7 @@ struct token* owner clone_token(struct token* p) unchecked
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last) unchecked
 {
 
-    struct token_list r = {0};
+    struct token_list r = { 0 };
 
     struct token* before_first = first->prev;
     struct token* owner after_last = last->next;
@@ -1343,11 +1343,11 @@ void print_literal2(const char* s)
     {
         switch (*s)
         {
-            case '\n':
-                printf("\\n");
-                break;
-            default:
-                printf("%c", *s);
+        case '\n':
+            printf("\\n");
+            break;
+        default:
+            printf("%c", *s);
         }
         s++;
     }
@@ -1365,7 +1365,7 @@ void print_token(struct token* p_token)
         printf(LIGHTGREEN);
     else
         printf(LIGHTGRAY);
-    char buffer0[50] = {0};
+    char buffer0[50] = { 0 };
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
@@ -1373,7 +1373,7 @@ void print_token(struct token* p_token)
     {
         printf(LIGHTCYAN);
     }
-    char buffer[50] = {0};
+    char buffer[50] = { 0 };
     strcat(buffer, "[");
     if (p_token->flags & TK_FLAG_FINAL)
     {
@@ -1529,7 +1529,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     if (!visual_studio_ouput_format)
         printf(LIGHTGRAY);
 
-    char nbuffer[20] = {0};
+    char nbuffer[20] = { 0 };
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
 
@@ -9903,7 +9903,7 @@ enum type_category
     TYPE_CATEGORY_ITSELF,
     TYPE_CATEGORY_FUNCTION,
     TYPE_CATEGORY_ARRAY,
-    TYPE_CATEGORY_POINTER,    
+    TYPE_CATEGORY_POINTER,
 };
 
 
@@ -9917,7 +9917,7 @@ enum attribute_flags
     STD_ATTRIBUTE_NORETURN = 1 << 4,
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
-    CAKE_ATTRIBUTE_IMPLICT= 1 << 7,
+    CAKE_ATTRIBUTE_IMPLICT = 1 << 7,
     /*
      1 == 2 results in int in C
      lets add extra flag here
@@ -9973,11 +9973,11 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_CONST = 1 << 0,
     TYPE_QUALIFIER_RESTRICT = 1 << 1,
     TYPE_QUALIFIER_VOLATILE = 1 << 2,
-    TYPE_QUALIFIER__ATOMIC = 1 << 3 , 
-    
+    TYPE_QUALIFIER__ATOMIC = 1 << 3,
+
     /*ownership extensions*/
-    TYPE_QUALIFIER_OWNER = 1 << 4,    
-    TYPE_QUALIFIER_OBJ_OWNER = 1 << 5,   
+    TYPE_QUALIFIER_OWNER = 1 << 4,
+    TYPE_QUALIFIER_OBJ_OWNER = 1 << 5,
     TYPE_QUALIFIER_VIEW = 1 << 6,
     TYPE_QUALIFIER_OPT = 1 << 7,
     TYPE_QUALIFIER_NOT_NULL = 1 << 8,
@@ -9994,7 +9994,7 @@ enum storage_class_specifier_flags
     STORAGE_SPECIFIER_AUTO = 1 << 4,
     STORAGE_SPECIFIER_REGISTER = 1 << 5,
     STORAGE_SPECIFIER_CONSTEXPR = 1 << 6,
-    
+
     /*extra flag just to annotate this*/
     STORAGE_SPECIFIER_CONSTEXPR_STATIC = 1 << 7,
 
@@ -10029,7 +10029,7 @@ struct param_list {
 
 void param_list_destroy(struct param_list* obj_owner p);
 
-struct type 
+struct type
 {
     enum type_category category;
 
@@ -10045,13 +10045,13 @@ struct type
 
     int array_size;
     bool static_array;
-    
+
     /*
       address_of is true when the type is created by address of operator.
       This is used to create obj_owner pointer.
     */
     bool address_of;
-    
+
     struct param_list params;
     struct type* owner next;
 };
@@ -10067,7 +10067,7 @@ struct expression;
 
 void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
-    struct expression* right,    
+    struct expression* right,
     bool return_assignment);
 
 void print_type(struct osstream* ss, const  struct type* type);
@@ -10075,7 +10075,7 @@ void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
 
-void type_destroy( struct type* obj_owner p_type);
+void type_destroy(struct type* obj_owner p_type);
 
 
 
@@ -21415,7 +21415,8 @@ struct flow_visit_ctx
     int parameter_list;
     struct jump_statement* view p_last_jump_statement;
 
-    bool is_left_expression; //a = b
+    bool is_left_expression; //true when visiting left expression  in assigment
+    bool is_size_of_expression; //true when is expression for sizeof
 };
 
 
@@ -32604,13 +32605,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             //TODO inside sizeof(v)  is not an error. :D
             //TODO function type...
-#if 0
-            compiler_set_warning_with_token(W_UNINITIALZED,
-                ctx->ctx,
-                p_expression->first_token,
-                "'%s' is uninitialized ",
-                p_expression->declarator->object_name->lexeme);
-#endif
+
+            if (!ctx->is_left_expression && 
+                !ctx->is_size_of_expression)
+            {
+                compiler_set_warning_with_token(W_UNINITIALZED,
+                    ctx->ctx,
+                    p_expression->first_token,
+                    "'%s' is uninitialized ",
+                    p_expression->declarator->name->token_origin->lexeme);
+            }
         }
 
         break;
@@ -32678,7 +32682,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 
         flow_visit_compound_statement(ctx, p_expression->compound_statement);
-
 
         break;
 
@@ -32753,6 +32756,24 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
+    
+        if (p_expression->right)
+        {
+            const bool t = ctx->is_size_of_expression;
+            ctx->is_size_of_expression = true;
+            flow_visit_expression(ctx, p_expression->right);
+            ctx->is_size_of_expression = t;
+        }
+
+        if (p_expression->type_name)
+        {
+            /*sizeof*/
+            flow_visit_type_name(ctx, p_expression->type_name);
+        }
+
+        
+        break;
+
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
@@ -32796,18 +32817,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             /*
               *p = 1*
             */
-            if (ctx->is_left_expression)
-            {
-                //is
-            }
-            else
+            if (!ctx->is_left_expression &&
+                !ctx->is_size_of_expression)
             {
                 //TO many errors because the pointer can be null.
                 if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
                 {
+
                     compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
                         ctx->ctx,
-                        p_expression->right->first_token, "deferencing a NULL object");
+                        p_expression->right->first_token, "dereference a NULL object");
                 }
             }
         }
@@ -32830,13 +32849,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         struct object* const p_dest_object = expression_get_object(p_expression->left, &dest_object_type);
         //print_object(&dest_object_type, p_dest_object);
 
-        bool temp = ctx->is_left_expression = true;
+        bool temp = ctx->is_left_expression;
+        ctx->is_left_expression = true;
         flow_visit_expression(ctx, p_expression->left);
-        ctx->is_left_expression = temp;
-
-        //print_object(&dest_object_type, p_dest_object);
+        ctx->is_left_expression = false;
         flow_visit_expression(ctx, p_expression->right);
-
+        ctx->is_left_expression = temp;
 
 
         bool bool_source_zero_value = constant_value_is_valid(&p_expression->right->constant_value) &&
@@ -38071,6 +38089,23 @@ void for_loop_visit()
 		"}";
 	assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
+
+void uninitialized_object()
+{
+	const char* source
+		=
+		"int main() {\n"
+		"    int i;\n"
+		"    int k;\n"
+		"    k = 1 + i;\n"
+		"}";
+	
+	struct options options = { .input = LANGUAGE_C99, .flow_analysis = true, .enabled_warnings_stack[0] = (~0 & ~W_STYLE) };
+	struct report report = { 0 };
+	get_ast(&options, "source", source, &report);
+	assert(report.warnings_count == 1);
+}
+
 #endif
 
 

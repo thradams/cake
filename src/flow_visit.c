@@ -1330,13 +1330,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             //TODO inside sizeof(v)  is not an error. :D
             //TODO function type...
-#if 0
-            compiler_set_warning_with_token(W_UNINITIALZED,
-                ctx->ctx,
-                p_expression->first_token,
-                "'%s' is uninitialized ",
-                p_expression->declarator->object_name->lexeme);
-#endif
+
+            if (!ctx->is_left_expression && 
+                !ctx->is_size_of_expression)
+            {
+                compiler_set_warning_with_token(W_UNINITIALZED,
+                    ctx->ctx,
+                    p_expression->first_token,
+                    "'%s' is uninitialized ",
+                    p_expression->declarator->name->token_origin->lexeme);
+            }
         }
 
         break;
@@ -1404,7 +1407,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 
         flow_visit_compound_statement(ctx, p_expression->compound_statement);
-
 
         break;
 
@@ -1479,6 +1481,24 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
+    
+        if (p_expression->right)
+        {
+            const bool t = ctx->is_size_of_expression;
+            ctx->is_size_of_expression = true;
+            flow_visit_expression(ctx, p_expression->right);
+            ctx->is_size_of_expression = t;
+        }
+
+        if (p_expression->type_name)
+        {
+            /*sizeof*/
+            flow_visit_type_name(ctx, p_expression->type_name);
+        }
+
+        
+        break;
+
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
@@ -1522,18 +1542,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             /*
               *p = 1*
             */
-            if (ctx->is_left_expression)
-            {
-                //is
-            }
-            else
+            if (!ctx->is_left_expression &&
+                !ctx->is_size_of_expression)
             {
                 //TO many errors because the pointer can be null.
                 if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
                 {
+
                     compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
                         ctx->ctx,
-                        p_expression->right->first_token, "deferencing a NULL object");
+                        p_expression->right->first_token, "dereference a NULL object");
                 }
             }
         }
@@ -1556,13 +1574,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         struct object* const p_dest_object = expression_get_object(p_expression->left, &dest_object_type);
         //print_object(&dest_object_type, p_dest_object);
 
-        bool temp = ctx->is_left_expression = true;
+        bool temp = ctx->is_left_expression;
+        ctx->is_left_expression = true;
         flow_visit_expression(ctx, p_expression->left);
-        ctx->is_left_expression = temp;
-
-        //print_object(&dest_object_type, p_dest_object);
+        ctx->is_left_expression = false;
         flow_visit_expression(ctx, p_expression->right);
-
+        ctx->is_left_expression = temp;
 
 
         bool bool_source_zero_value = constant_value_is_valid(&p_expression->right->constant_value) &&
