@@ -3190,5 +3190,18 @@ void nullderef() {
 	assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
 }
 
+void for_loop_visit()
+{
+	/* checks state of j #84 */
+	const char* source
+		=
+		"int main()\n"
+		"{\n"
+		"  int j;\n"
+		"  for (j = 0; j <10; j++) {}\n"
+		"  return j;\n"
+		"}";
+	assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
 #endif
 

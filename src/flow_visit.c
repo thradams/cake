@@ -1500,7 +1500,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 	case UNARY_EXPRESSION_BITNOT:
 	case UNARY_EXPRESSION_NEG:
 	case UNARY_EXPRESSION_PLUS:
-	
+
 	case UNARY_EXPRESSION_ADDRESSOF:
 		if (p_expression->right)
 		{
@@ -1538,7 +1538,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 			*/
 			if (ctx->is_left_expression)
 			{
-			    //is
+				//is
 			}
 			else
 			{
@@ -1569,7 +1569,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 		struct type dest_object_type = { 0 };
 		struct object* const p_dest_object = expression_get_object(p_expression->left, &dest_object_type);
 		//print_object(&dest_object_type, p_dest_object);
-		
+
 		bool temp = ctx->is_left_expression = true;
 		flow_visit_expression(ctx, p_expression->left);
 		ctx->is_left_expression = temp;
@@ -1761,6 +1761,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 		}
 	}
 }
+
 static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
 	assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
@@ -1835,19 +1836,54 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 	}
 }
 
+static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
+{
+	assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
+
+	struct object* p_object_compared_with_not_null = NULL;
+
+	if (p_iteration_statement->expression0)
+	{
+		flow_visit_expression(ctx, p_iteration_statement->expression0);
+	}
+
+	if (p_iteration_statement->expression1)
+	{
+		flow_visit_expression(ctx, p_iteration_statement->expression1);
+	}
+	if (p_iteration_statement->expression2)
+	{
+		flow_visit_expression(ctx, p_iteration_statement->expression2);
+	}
+
+
+	if (p_iteration_statement->secondary_block)
+	{
+		struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+		p_defer->p_iteration_statement = p_iteration_statement;
+		flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+		check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+		flow_visit_ctx_pop_tail_block(ctx);
+	}
+}
+
+
 static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
-	if (p_iteration_statement->first_token->type == TK_KEYWORD_WHILE)
+	switch (p_iteration_statement->first_token->type)
 	{
+	case  TK_KEYWORD_WHILE:
 		flow_visit_while_statement(ctx, p_iteration_statement);
-	}
-	else if (p_iteration_statement->first_token->type == TK_KEYWORD_DO)
-	{
+		break;
+	case TK_KEYWORD_DO:
 		flow_visit_do_while_statement(ctx, p_iteration_statement);
-	}
-	else if (p_iteration_statement->first_token->type == TK_KEYWORD_FOR)
-	{
-		//flow_visit_do_while_statement(ctx, p_iteration_statement);
+		break;
+	case TK_KEYWORD_FOR:
+		flow_visit_for_statement(ctx, p_iteration_statement);
+		break;
+	default:
+		assert(false); 
+		break;
 	}
 }
 
@@ -2272,10 +2308,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 					set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
 				}
 				type_destroy(&t2);
-		}
+			}
 #endif
+		}
 	}
-}
 
 	/*if (p_declarator->pointer)
 	{
