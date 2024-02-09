@@ -10320,7 +10320,7 @@ struct generic_selection
     struct token* last_token;
 };
 
-void generic_selection_delete(struct generic_selection * owner p);
+void generic_selection_delete(struct generic_selection * owner opt p);
 
 enum constant_value_type {
     TYPE_NOT_CONSTANT,
@@ -10384,7 +10384,7 @@ struct expression
     struct expression* owner right;
 };
 
-void expression_delete(struct expression* owner p);
+void expression_delete(struct expression* owner opt p);
 
 struct expression* owner assignment_expression(struct parser_ctx* ctx);
 struct expression* owner expression(struct parser_ctx* ctx);
@@ -10484,7 +10484,7 @@ struct object
     struct object_state_stack object_state_stack;
 };
 void object_destroy(struct object* obj_owner p);
-void object_delete(struct object* owner p);
+void object_delete(struct object* owner opt p);
 void object_swap(struct object* a, struct object* b);
 
 struct declarator;
@@ -10632,7 +10632,7 @@ void print_scope(struct scope_list* e);
 
 char* CompileText(const char* options, const char* content);
 
-void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* opt p_token, const char* fmt, ...);
 _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
@@ -11263,7 +11263,7 @@ struct braced_initializer
     struct initializer_list* owner initializer_list;
 };
 struct braced_initializer*  owner braced_initializer(struct parser_ctx* ctx);
-void braced_initializer_delete(struct braced_initializer*  owner p);
+void braced_initializer_delete(struct braced_initializer*  owner opt p);
 
 struct type_specifier_qualifier
 {
@@ -11402,7 +11402,7 @@ struct member_declarator_list*  owner member_declarator_list(struct parser_ctx* 
      struct struct_or_union_specifier* ,
     const struct specifier_qualifier_list* specifier_qualifier_list
     );
-void member_declarator_list_delete(struct member_declarator_list*  owner p);
+void member_declarator_list_delete(struct member_declarator_list*  owner opt p);
 
 struct block_item_list
 {
@@ -12450,7 +12450,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
     }
     return list;
 }
-void generic_association_delete(struct generic_association* owner p)
+void generic_association_delete(struct generic_association* owner opt p)
 {
     if (p)
     {
@@ -12487,7 +12487,7 @@ void generic_assoc_list_destroy(struct generic_assoc_list* obj_owner p)
         item = next;
     }
 }
-void generic_selection_delete(struct generic_selection* owner p)
+void generic_selection_delete(struct generic_selection* owner opt p)
 {
     if (p)
     {
@@ -13223,7 +13223,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
 }
 
 
-void argument_expression_delete(struct argument_expression* owner p)
+void argument_expression_delete(struct argument_expression* owner opt p)
 {
     if (p)
     {
@@ -15377,7 +15377,7 @@ void argument_expression_list_destroy(struct argument_expression_list* obj_owner
     }
 }
 
-void expression_delete(struct expression* owner p)
+void expression_delete(struct expression* owner opt p)
 {
     if (p)
     {
@@ -21415,7 +21415,7 @@ struct flow_visit_ctx
     int parameter_list;
     struct jump_statement* view p_last_jump_statement;
 
-    bool is_left_expression; //true when visiting left expression  in assigment
+    bool is_left_expression; //true when visiting left expression  in assignment
     bool is_size_of_expression; //true when is expression for sizeof
 };
 
@@ -21723,7 +21723,7 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 }
 
 
-void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* opt p_token, const char* fmt, ...)
 {
 	if (p_token == NULL)
 		return;
@@ -23346,7 +23346,7 @@ int add_specifier(struct parser_ctx* ctx,
 	return 0;
 }
 
-void declaration_specifiers_delete(struct declaration_specifiers* owner p)
+void declaration_specifiers_delete(struct declaration_specifiers* owner opt p)
 {
 	if (p)
 	{
@@ -24706,7 +24706,7 @@ void member_declarator_delete(struct member_declarator* owner p)
 	}
 }
 
-void member_declarator_list_delete(struct member_declarator_list* owner p)
+void member_declarator_list_delete(struct member_declarator_list* owner opt p)
 {
 	if (p)
 	{
@@ -26248,7 +26248,7 @@ struct type_name* owner type_name(struct parser_ctx* ctx)
 	return p_type_name;
 }
 
-void braced_initializer_delete(struct braced_initializer* owner p)
+void braced_initializer_delete(struct braced_initializer* owner opt p)
 {
 	if (p)
 	{

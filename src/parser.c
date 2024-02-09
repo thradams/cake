@@ -276,7 +276,7 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 }
 
 
-void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* opt p_token, const char* fmt, ...)
 {
 	if (p_token == NULL)
 		return;
@@ -1899,7 +1899,7 @@ int add_specifier(struct parser_ctx* ctx,
 	return 0;
 }
 
-void declaration_specifiers_delete(struct declaration_specifiers* owner p)
+void declaration_specifiers_delete(struct declaration_specifiers* owner opt p)
 {
 	if (p)
 	{
@@ -3259,7 +3259,7 @@ void member_declarator_delete(struct member_declarator* owner p)
 	}
 }
 
-void member_declarator_list_delete(struct member_declarator_list* owner p)
+void member_declarator_list_delete(struct member_declarator_list* owner opt p)
 {
 	if (p)
 	{
@@ -4801,7 +4801,7 @@ struct type_name* owner type_name(struct parser_ctx* ctx)
 	return p_type_name;
 }
 
-void braced_initializer_delete(struct braced_initializer* owner p)
+void braced_initializer_delete(struct braced_initializer* owner opt p)
 {
 	if (p)
 	{

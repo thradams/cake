@@ -77,7 +77,7 @@ struct object
     struct object_state_stack object_state_stack;
 };
 void object_destroy(struct object* obj_owner p);
-void object_delete(struct object* owner p);
+void object_delete(struct object* owner opt p);
 void object_swap(struct object* a, struct object* b);
 
 struct declarator;

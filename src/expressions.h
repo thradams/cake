@@ -151,7 +151,7 @@ struct generic_selection
     struct token* last_token;
 };
 
-void generic_selection_delete(struct generic_selection * owner p);
+void generic_selection_delete(struct generic_selection * owner opt p);
 
 enum constant_value_type {
     TYPE_NOT_CONSTANT,
@@ -215,7 +215,7 @@ struct expression
     struct expression* owner right;
 };
 
-void expression_delete(struct expression* owner p);
+void expression_delete(struct expression* owner opt p);
 
 struct expression* owner assignment_expression(struct parser_ctx* ctx);
 struct expression* owner expression(struct parser_ctx* ctx);
