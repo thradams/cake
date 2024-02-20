@@ -15,7 +15,6 @@
 #include <debugapi.h>
 #endif
 
-
 /*contexto expressoes preprocessador*/
 struct pre_expression_ctx
 {
@@ -23,38 +22,35 @@ struct pre_expression_ctx
     long long value;
 };
 
-
-static void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-
-
+static void pre_postfix_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_cast_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_multiplicative_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_unary_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_additive_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_shift_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_relational_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_equality_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_and_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_exclusive_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_inclusive_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_logical_and_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_logical_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_conditional_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_conditional_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
 
 /*
-* preprocessor uses long long
-*/
-static int ppnumber_to_longlong(struct token* token, long long* result)
+ * preprocessor uses long long
+ */
+static int ppnumber_to_longlong(struct token *token, long long *result)
 {
 
     /*copia removendo os separadores*/
-    //um dos maiores buffer necessarios seria 128 bits binario...
-    //0xb1'1'1.... 
+    // um dos maiores buffer necessarios seria 128 bits binario...
+    // 0xb1'1'1....
     int c = 0;
-    char buffer[128 * 2 + 4] = { 0 };
-    const char* s = token->lexeme;
+    char buffer[128 * 2 + 4] = {0};
+    const char *s = token->lexeme;
     while (*s)
     {
         if (*s != '\'')
@@ -68,27 +64,26 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
     if (buffer[0] == '0' &&
         buffer[1] == 'x')
     {
-        //hex
+        // hex
         *result = strtoll(buffer + 2, 0, 16);
     }
     else if (buffer[0] == '0' &&
-        buffer[1] == 'b')
+             buffer[1] == 'b')
     {
-        //binario
+        // binario
         *result = strtoll(buffer + 2, 0, 2);
     }
     else if (buffer[0] == '0')
     {
-        //octal
+        // octal
         *result = strtoll(buffer, 0, 8);
     }
     else
     {
-        //decimal
+        // decimal
         *result = strtoll(buffer, 0, 10);
     }
 
-    
     return 0;
 }
 
@@ -98,7 +93,7 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
   into another so the head of the input list is the current.
   We could use the same concept here removing current.
 */
-static struct token* pre_match(struct preprocessor_ctx* ctx)
+static struct token *pre_match(struct preprocessor_ctx *ctx)
 {
     ctx->current = ctx->current->next;
 
@@ -110,7 +105,7 @@ static struct token* pre_match(struct preprocessor_ctx* ctx)
     return ctx->current;
 }
 
-static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_primary_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      primary-expression:
@@ -124,7 +119,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
     {
         if (ctx->current->type == TK_CHAR_CONSTANT)
         {
-            const char* p = ctx->current->lexeme + 1;
+            const char *p = ctx->current->lexeme + 1;
             ectx->value = 0;
             int count = 0;
             while (*p != '\'')
@@ -148,8 +143,9 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
         else if (ctx->current->type == '(')
         {
             pre_match(ctx);
-            pre_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
             if (ctx->current && ctx->current->type != ')')
             {
                 preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "expected )");
@@ -160,12 +156,11 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
         else
         {
             preprocessor_set_error_with_token(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
-                ctx, 
-                ctx->current, 
-                "token '%s' is not valid in preprocessor expressions", 
-                ctx->current->lexeme);
+                                              ctx,
+                                              ctx->current,
+                                              "token '%s' is not valid in preprocessor expressions",
+                                              ctx->current->lexeme);
             throw;
-
         }
     }
     catch
@@ -173,10 +168,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
     }
 }
 
-
-
-
-static void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_postfix_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
       postfix-expression:
@@ -196,16 +188,16 @@ static void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expre
         */
     try
     {
-        pre_primary_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_primary_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
     }
     catch
     {
     }
 }
 
-
-static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_unary_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     unary-expression:
@@ -224,24 +216,20 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_express
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
             preprocessor_set_error_with_token(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
-                ctx, 
-                ctx->current, 
-                "token '%s' is not valid in preprocessor expressions",
-                ctx->current->lexeme);
+                                              ctx,
+                                              ctx->current,
+                                              "token '%s' is not valid in preprocessor expressions",
+                                              ctx->current->lexeme);
             throw;
         }
         else if (ctx->current != NULL &&
-            (ctx->current->type == '&'
-                || ctx->current->type == '*'
-                || ctx->current->type == '+'
-                || ctx->current->type == '-'
-                || ctx->current->type == '~'
-                || ctx->current->type == '!'))
+                 (ctx->current->type == '&' || ctx->current->type == '*' || ctx->current->type == '+' || ctx->current->type == '-' || ctx->current->type == '~' || ctx->current->type == '!'))
         {
             enum token_type op = ctx->current->type;
             pre_match(ctx);
-            pre_cast_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_cast_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '!')
                 ectx->value = !ectx->value;
@@ -264,9 +252,9 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_express
                 preprocessor_set_error_with_token(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
         }
-        else 
+        else
         {
-            pre_postfix_expression(ctx,  ectx);
+            pre_postfix_expression(ctx, ectx);
         }
     }
     catch
@@ -274,17 +262,17 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_express
     }
 }
 
-static void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_cast_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      cast-expression:
       unary-expression
       ( type-name ) cast-expression
     */
-    pre_unary_expression(ctx,  ectx);    
+    pre_unary_expression(ctx, ectx);
 }
 
-static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_multiplicative_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      multiplicative-expression:
@@ -295,19 +283,21 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pr
     */
     try
     {
-        pre_cast_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_cast_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '*' ||
+               (ctx->current->type == '*' ||
                 ctx->current->type == '/' ||
                 ctx->current->type == '%'))
         {
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_cast_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_cast_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '*')
             {
@@ -328,7 +318,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pr
     }
 }
 
-static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_additive_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      additive-expression:
@@ -338,11 +328,12 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expr
     */
     try
     {
-        pre_multiplicative_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_multiplicative_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '+' ||
+               (ctx->current->type == '+' ||
                 ctx->current->type == '-'))
         {
             enum token_type op = ctx->current->type;
@@ -353,8 +344,9 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expr
                 throw;
             }
             long long left_value = ectx->value;
-            pre_multiplicative_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_multiplicative_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '+')
             {
@@ -371,7 +363,7 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expr
     }
 }
 
-static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_shift_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      shift-expression:
@@ -381,18 +373,20 @@ static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_express
     */
     try
     {
-        pre_additive_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_additive_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '>>' ||
+               (ctx->current->type == '>>' ||
                 ctx->current->type == '<<'))
         {
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_multiplicative_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_multiplicative_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '>>')
             {
@@ -409,7 +403,7 @@ static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_express
     }
 }
 
-static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_relational_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     relational-expression:
@@ -421,11 +415,12 @@ static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_ex
     */
     try
     {
-        pre_shift_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_shift_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '>' ||
+               (ctx->current->type == '>' ||
                 ctx->current->type == '<' ||
                 ctx->current->type == '>=' ||
                 ctx->current->type == '<='))
@@ -433,8 +428,9 @@ static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_ex
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_shift_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_shift_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '>')
             {
@@ -459,7 +455,7 @@ static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_ex
     }
 }
 
-static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_equality_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
       equality-expression:
@@ -479,18 +475,20 @@ static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expr
     */
     try
     {
-        pre_relational_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_relational_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '==' ||
+               (ctx->current->type == '==' ||
                 ctx->current->type == '!='))
         {
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_multiplicative_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_multiplicative_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '==')
             {
@@ -499,7 +497,7 @@ static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expr
             else if (op == '!=')
             {
                 ectx->value = left_value != ectx->value;
-            }            
+            }
         }
     }
     catch
@@ -507,7 +505,7 @@ static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expr
     }
 }
 
-static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_and_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      AND-expression:
@@ -516,15 +514,17 @@ static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expressio
     */
     try
     {
-        pre_equality_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_equality_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
         while (ctx->current != NULL &&
-            (ctx->current->type == '&'))
+               (ctx->current->type == '&'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_equality_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_equality_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
             ectx->value = left_value & ectx->value;
         }
     }
@@ -533,7 +533,7 @@ static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expressio
     }
 }
 
-static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_exclusive_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      exclusive-OR-expression:
@@ -543,16 +543,17 @@ static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_
     try
     {
         pre_and_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
-        
         while (ctx->current != NULL &&
-            (ctx->current->type == '^'))
+               (ctx->current->type == '^'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_and_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_and_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
             ectx->value = left_value ^ ectx->value;
         }
     }
@@ -561,7 +562,7 @@ static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_
     }
 }
 
-static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_inclusive_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     inclusive-OR-expression:
@@ -571,15 +572,17 @@ static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_
     try
     {
         pre_exclusive_or_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '|'))
+               (ctx->current->type == '|'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
             pre_exclusive_or_expression(ctx, ectx);
-            if (ctx->n_errors > 0) throw;
+            if (ctx->n_errors > 0)
+                throw;
 
             ectx->value = left_value | ectx->value;
         }
@@ -589,7 +592,7 @@ static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_
     }
 }
 
-static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_logical_and_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     logical-AND-expression:
@@ -599,15 +602,17 @@ static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_e
     try
     {
         pre_inclusive_or_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '&&'))
+               (ctx->current->type == '&&'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_inclusive_or_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_inclusive_or_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             ectx->value = left_value && ectx->value;
         }
@@ -617,7 +622,7 @@ static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_e
     }
 }
 
-static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_logical_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
       logical-OR-expression:
@@ -626,19 +631,20 @@ static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_ex
     */
     try
     {
-        pre_logical_and_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_logical_and_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '||'))
+               (ctx->current->type == '||'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_logical_and_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_logical_and_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             ectx->value = left_value || ectx->value;
-
         }
     }
     catch
@@ -646,30 +652,28 @@ static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_ex
     }
 }
 
-
-
-static void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_assignment_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     assignment-expression:
        conditional-expression
        unary-expression assignment-operator assignment-expression
        */
-       /*
-          assignment-operator: one of
-          = *= /= %= += -= <<= >>= &= ^= |=
-       */
-       //aqui eh duvidoso mas conditional faz a unary tb.
-       //a diferenca q nao eh qualquer expressao
-       //que pode ser de atribuicao
+    /*
+       assignment-operator: one of
+       = *= /= %= += -= <<= >>= &= ^= |=
+    */
+    // aqui eh duvidoso mas conditional faz a unary tb.
+    // a diferenca q nao eh qualquer expressao
+    // que pode ser de atribuicao
     try
     {
         pre_conditional_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
-        
         while (ctx->current != NULL &&
-            (ctx->current->type == '=' ||
+               (ctx->current->type == '=' ||
                 ctx->current->type == '*=' ||
                 ctx->current->type == '/=' ||
                 ctx->current->type == '+=' ||
@@ -689,7 +693,7 @@ static void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_ex
     }
 }
 
-static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*expression:
       assignment-expression
@@ -698,13 +702,15 @@ static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ct
     try
     {
         pre_assignment_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
-        
+        if (ctx->n_errors > 0)
+            throw;
+
         while (ctx->current->type == ',')
         {
             pre_match(ctx);
             pre_expression(ctx, ectx);
-            if (ctx->n_errors > 0) throw;            
+            if (ctx->n_errors > 0)
+                throw;
         }
     }
     catch
@@ -712,9 +718,7 @@ static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ct
     }
 }
 
-
-
-static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_conditional_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
       conditional-expression:
@@ -724,7 +728,8 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_e
     try
     {
         pre_logical_or_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
         if (ctx->current && ctx->current->type == '?')
         {
@@ -732,22 +737,26 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_e
             if (ectx->value)
             {
                 pre_expression(ctx, ectx);
-                if (ctx->n_errors > 0) throw;
+                if (ctx->n_errors > 0)
+                    throw;
 
                 pre_match(ctx); //:
                 struct pre_expression_ctx temp = {0};
-                pre_conditional_expression(ctx, &temp);                
-                if (ctx->n_errors > 0) throw;
+                pre_conditional_expression(ctx, &temp);
+                if (ctx->n_errors > 0)
+                    throw;
             }
             else
             {
                 struct pre_expression_ctx temp = {0};
                 pre_expression(ctx, &temp);
-                if (ctx->n_errors > 0) throw;
+                if (ctx->n_errors > 0)
+                    throw;
 
                 pre_match(ctx); //:
                 pre_conditional_expression(ctx, ectx);
-                if (ctx->n_errors > 0) throw;
+                if (ctx->n_errors > 0)
+                    throw;
             }
         }
     }
@@ -756,11 +765,10 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_e
     }
 }
 
-int pre_constant_expression(struct preprocessor_ctx* ctx,long long* pvalue)
+int pre_constant_expression(struct preprocessor_ctx *ctx, long long *pvalue)
 {
-    struct pre_expression_ctx ectx = { 0 };
+    struct pre_expression_ctx ectx = {0};
     pre_conditional_expression(ctx, &ectx);
     *pvalue = ectx.value;
     return ctx->n_errors > 0;
 }
-
