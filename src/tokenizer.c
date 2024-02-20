@@ -4421,7 +4421,7 @@ void include_config_header(struct preprocessor_ctx* ctx)
 	char executable_path[MAX_PATH] = { 0 };
 	get_self_path(executable_path, sizeof(executable_path));
 	dirname(executable_path);
-	char path[MAX_PATH] = { 0 };
+	char path[MAX_PATH+64] = { 0 };
 	snprintf(path, sizeof path, "%s/cakeconfig.h", executable_path);
 	/*
 	* windows

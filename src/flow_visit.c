@@ -7,6 +7,9 @@
 #include "expressions.h"
 #include "ownership.h"
 #include <ctype.h>
+#ifndef __STDC_OWNERSHIP__
+#include <stdlib.h>
+#endif
 
 /*
               NULL
@@ -23,8 +26,8 @@ struct flow_defer_scope
 {
 
     //things must called at end of scope
-    struct declarator* declarator; // declarator 
-    struct defer_statement* defer_statement; // defer 
+    struct declarator* declarator; // declarator
+    struct defer_statement* defer_statement; // defer
 
     //statements for controling where jump like break, throw stop.
 
@@ -521,7 +524,7 @@ static struct object* expression_is_comparing_owner_with_not_null(struct express
         expression_is_null_pointer_constant(p_expression->right) &&
         type_is_pointer(&p_expression->left->type))
     {
-        //NULL != p 
+        //NULL != p
         struct type type = { 0 };
         struct object* p_object = expression_get_object(p_expression->right, &type);
         type_destroy(&type);
@@ -1331,7 +1334,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             //TODO inside sizeof(v)  is not an error. :D
             //TODO function type...
 
-            if (!ctx->is_left_expression && 
+            if (!ctx->is_left_expression &&
                 !ctx->is_size_of_expression)
             {
                 compiler_set_warning_with_token(W_UNINITIALZED,
@@ -1371,7 +1374,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
     case POSTFIX_DECREMENT:
         break;
-    case POSTFIX_ARRAY:
+    case POSTFIX_ARRAY: {
 
         flow_visit_expression(ctx, p_expression->left);
         flow_visit_expression(ctx, p_expression->right);
@@ -1392,7 +1395,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 p_expression->left->first_token, "maybe using a uninitialized object");
         }
         type_destroy(&t);
-
+	}
         break;
 
     case POSTFIX_FUNCTION_CALL:
@@ -1481,7 +1484,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-    
+
         if (p_expression->right)
         {
             const bool t = ctx->is_size_of_expression;
@@ -1496,7 +1499,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             flow_visit_type_name(ctx, p_expression->type_name);
         }
 
-        
+
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
@@ -1755,7 +1758,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
         }
         else
         {
-            //do { } while (p); 
+            //do { } while (p);
 
             if (p_object_compared_with_not_null)
             {
@@ -1843,7 +1846,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
 
-    struct object* p_object_compared_with_not_null = NULL;
+    //struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression0)
     {
@@ -2185,7 +2188,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
                 if (strcmp(lexeme, "\"zero\"") == 0)
                 {
-                    //gives the semantics of {0} or calloc                    
+                    //gives the semantics of {0} or calloc
                     set_direct_state(&t, p_obj, OBJECT_STATE_ZERO);
                 }
                 else
