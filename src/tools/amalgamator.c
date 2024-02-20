@@ -131,6 +131,7 @@ bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** 
 
     if (input)
     {
+        fprintf(out, "/* Start of: %s */\n", name);
         found = true;
         char c = '\0';
 
@@ -295,6 +296,7 @@ bool Write(const char* name, bool bHeaderMode, FILE* out, struct strlist_node** 
             free(pCurrent);
             pCurrent = pNext;
         }
+        fprintf(out, "/* End of: %s */\n", name);
 
         fclose(input);
     }

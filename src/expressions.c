@@ -5,9 +5,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "expressions.h"
-#include "hash.h"
 #include <string.h>
-#include "console.h"
 #include "parser.h"
 #include "type.h"
 
@@ -623,7 +621,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
     }
     return list;
 }
-void generic_association_delete(struct generic_association* owner p)
+void generic_association_delete(struct generic_association* owner opt p)
 {
     if (p)
     {
@@ -660,7 +658,7 @@ void generic_assoc_list_destroy(struct generic_assoc_list* obj_owner p)
         item = next;
     }
 }
-void generic_selection_delete(struct generic_selection* owner p)
+void generic_selection_delete(struct generic_selection* owner opt p)
 {
     if (p)
     {
@@ -1396,7 +1394,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
 }
 
 
-void argument_expression_delete(struct argument_expression* owner p)
+void argument_expression_delete(struct argument_expression* owner opt p)
 {
     if (p)
     {
@@ -3550,7 +3548,7 @@ void argument_expression_list_destroy(struct argument_expression_list* obj_owner
     }
 }
 
-void expression_delete(struct expression* owner p)
+void expression_delete(struct expression* owner opt p)
 {
     if (p)
     {

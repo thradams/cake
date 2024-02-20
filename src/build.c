@@ -30,8 +30,8 @@
     " pre_expressions.h " \
     " expressions.h "     \
     " visit.h "           \
-    " format_visit.h "    
-    
+    " format_visit.h "
+
 
 #define SOURCE_FILES      \
     " token.c "           \
@@ -52,7 +52,7 @@
     " error.c "           \
     " format_visit.c "  \
     " tests.c "
-    
+
 
 void compile_cake()
 {
@@ -254,7 +254,7 @@ int main()
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../warnings.md", "./web/warnings.html");
     generate_doc("../ownership.md", "./web/ownership.html");
-    
+
 
     remove("hoedown.exe");
 
@@ -277,7 +277,7 @@ int main()
       running cake on its own source code
     */
 
-    //-flow-analysis 
+    //-flow-analysis
     //-nullchecks
 #ifdef NULLCHECKS
 #define NC " -nullchecks "
@@ -292,17 +292,20 @@ int main()
 #if defined BUILD_LINUX_GCC
     /*
       running cake on its own source code
-      To find GCC directories use 
+      To find GCC directories use
       echo | gcc -E -Wp,-v -
     */
-    if (system("./cake " 
+    const char *cake_cmd = "./cake "
                " -D__x86_64__ "
                " -I/usr/lib/gcc/x86_64-linux-gnu/11/include/ "
                " -I/usr/local/include/ "
                " -I/usr/include/x86_64-linux-gnu/ "
-               " -I/usr/include/ "               
+               " -I/usr/include/ "
                HEADER_FILES
-               SOURCE_FILES) != 0)
+               SOURCE_FILES;
+    printf("%s\n", cake_cmd);
+    fflush(stdout);
+    if (system(cake_cmd) != 0)
     {
        exit(1);
     }

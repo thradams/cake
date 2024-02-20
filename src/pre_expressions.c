@@ -3,11 +3,9 @@
 */
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <assert.h>
 #include "tokenizer.h"
 #include "pre_expressions.h"
-#include <string.h>
+
 #ifdef _WIN32
 #include <Windows.h>
 #endif

@@ -235,6 +235,7 @@ int copy_file(const char* pathfrom, const char* pathto)
 
 int copy_folder(const char* from, const char* to)
 {
+#if !defined __EMSCRIPTEN__
     int errcode = mkdir(to, 0700);
     if (errcode != 0)
     {
@@ -278,6 +279,9 @@ int copy_folder(const char* from, const char* to)
 
     closedir(dir);
     return errcode;
+#else
+    return -1;
+#endif
 }
 
 #ifdef _WIN32

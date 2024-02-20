@@ -105,7 +105,7 @@ void print_scope(struct scope_list* e);
 
 char* CompileText(const char* options, const char* content);
 
-void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* opt p_token, const char* fmt, ...);
 _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 void compiler_set_info_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
@@ -442,7 +442,7 @@ struct member_declaration_list
     struct member_declaration* tail;
 };
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier*);
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
 void member_declaration_list_destroy(struct member_declaration_list * obj_owner p );
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
@@ -736,7 +736,7 @@ struct braced_initializer
     struct initializer_list* owner initializer_list;
 };
 struct braced_initializer*  owner braced_initializer(struct parser_ctx* ctx);
-void braced_initializer_delete(struct braced_initializer*  owner p);
+void braced_initializer_delete(struct braced_initializer*  owner opt p);
 
 struct type_specifier_qualifier
 {
@@ -875,7 +875,7 @@ struct member_declarator_list*  owner member_declarator_list(struct parser_ctx* 
      struct struct_or_union_specifier* ,
     const struct specifier_qualifier_list* specifier_qualifier_list
     );
-void member_declarator_list_delete(struct member_declarator_list*  owner p);
+void member_declarator_list_delete(struct member_declarator_list*  owner opt p);
 
 struct block_item_list
 {

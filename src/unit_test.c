@@ -218,6 +218,7 @@ void bounds_check2(void);
 void uninitialized_objects_passed_to_variadic_function(void);
 void nullderef(void);
 void for_loop_visit(void);
+void uninitialized_object(void);
 
 /*end of forward declarations*/
 
@@ -429,6 +430,7 @@ g_unit_test_success_count = 0;
     uninitialized_objects_passed_to_variadic_function();
     nullderef();
     for_loop_visit();
+    uninitialized_object();
 return g_unit_test_error_count;
 
 }

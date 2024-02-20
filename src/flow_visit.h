@@ -19,7 +19,8 @@ struct flow_visit_ctx
     int parameter_list;
     struct jump_statement* view p_last_jump_statement;
 
-    bool is_left_expression; //a = b
+    bool is_left_expression; //true when visiting left expression  in assignment
+    bool is_size_of_expression; //true when is expression for sizeof
 };
 
 

@@ -1,12 +1,13 @@
 #include "ownership.h"
-#include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include "console.h"
 #include "osstream.h"
 #include "tokenizer.h"
-
+#ifndef __STDC_OWNERSHIP__
+#include <stdlib.h>
+#endif
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -82,7 +83,7 @@ void token_range_add_flag(struct token* first, struct token* last, enum token_fl
 void token_list_pop_back(struct token_list* list) unchecked
 {
     if (list->head == NULL)
-        return ;
+        return;
 
     struct token* p = list->tail;
     if (list->head == list->tail)
@@ -102,7 +103,7 @@ void token_list_pop_back(struct token_list* list) unchecked
     p->next = NULL;
     p->prev = NULL;
     p->next = NULL;
-    token_delete(p);    
+    token_delete(p);
 }
 
 void token_list_pop_front(struct token_list* list) unchecked
@@ -122,7 +123,7 @@ void token_list_pop_front(struct token_list* list) unchecked
         list->head = list->head->next;
     }
     p->next = NULL;
-    p->prev = NULL;    
+    p->prev = NULL;
     token_delete(p);
 }
 
@@ -148,7 +149,7 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     return p;
 }
 
-void token_list_swap(struct token_list*  a, struct token_list* b)
+void token_list_swap(struct token_list* a, struct token_list* b)
 {
     struct token_list temp = *a;
     *a = *b;
@@ -196,7 +197,7 @@ void token_list_destroy(struct token_list* obj_owner list)
 
 char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
 {
-    struct osstream ss = {0};
+    struct osstream ss = { 0 };
     if (bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
@@ -241,7 +242,7 @@ char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
     return cstr;
 }
 
-void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list) 
+void token_list_insert_after(struct token_list* token_list, struct token* after, struct token_list* append_list)
 {
     if (append_list->head == NULL)
         return;
@@ -349,7 +350,7 @@ void token_list_append_list_at_beginning(struct token_list* dest, struct token_l
     source->tail = NULL;
 }
 
-void token_list_append_list(struct token_list* dest, struct token_list* source) 
+void token_list_append_list(struct token_list* dest, struct token_list* source)
 {
     if (source->head == NULL)
     {
@@ -377,7 +378,7 @@ struct token* owner clone_token(struct token* p) unchecked
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
     {
-        *token = *p;        
+        *token = *p;
         token->lexeme = strdup(p->lexeme);
         token->next = NULL;
         token->prev = NULL;
@@ -388,7 +389,7 @@ struct token* owner clone_token(struct token* p) unchecked
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last) unchecked
 {
 
-    struct token_list r = {0};
+    struct token_list r = { 0 };
 
     struct token* before_first = first->prev;
     struct token* owner after_last = last->next;
@@ -434,7 +435,7 @@ void print_list(struct token_list* list)
             //printf("`");
         }
         print_literal2(current->lexeme);
-        printf(RESET);
+        COLOR_ESC_PRINT(printf(RESET));
         if (current == list->tail)
         {
             //printf("`");
@@ -457,11 +458,11 @@ void print_literal2(const char* s)
     {
         switch (*s)
         {
-            case '\n':
-                printf("\\n");
-                break;
-            default:
-                printf("%c", *s);
+        case '\n':
+            printf("\\n");
+            break;
+        default:
+            printf("%c", *s);
         }
         s++;
     }
@@ -476,18 +477,18 @@ void print_token(struct token* p_token)
         printf("  ");
     }
     if (p_token->flags & TK_FLAG_FINAL)
-        printf(LIGHTGREEN);
+        COLOR_ESC_PRINT(printf(LIGHTGREEN));
     else
-        printf(LIGHTGRAY);
-    char buffer0[50] = {0};
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
+    char buffer0[50] = { 0 };
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
-        printf(LIGHTCYAN);
+        COLOR_ESC_PRINT(printf(LIGHTCYAN));
     }
-    char buffer[50] = {0};
+    char buffer[50] = { 0 };
     strcat(buffer, "[");
     if (p_token->flags & TK_FLAG_FINAL)
     {
@@ -513,7 +514,7 @@ void print_token(struct token* p_token)
     printf("%-20s ", buffer);
     print_literal2(p_token->lexeme);
     printf("\n");
-    printf(RESET);
+    COLOR_ESC_PRINT(printf(RESET));
 }
 
 void print_tokens(struct token* p_token)
@@ -527,7 +528,7 @@ void print_tokens(struct token* p_token)
     }
     printf("\n");
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    printf(RESET);
+    COLOR_ESC_PRINT(printf(RESET));
 }
 
 
@@ -641,9 +642,9 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     int line = p_token->line;
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGRAY);
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
 
-    char nbuffer[20] = {0};
+    char nbuffer[20] = { 0 };
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
 
@@ -688,7 +689,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     printf("\n");
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGRAY);
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
 
     printf(" %*s |", n, " ");
     if (p_token)
@@ -700,7 +701,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     }
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGREEN);
+        COLOR_ESC_PRINT(printf(LIGHTGREEN));
 
     printf("^");
 
@@ -712,7 +713,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     }
 
     if (!visual_studio_ouput_format)
-        printf(RESET);
+        COLOR_ESC_PRINT(printf(RESET));
 
     printf("\n");
 }
