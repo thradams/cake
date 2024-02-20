@@ -1,3 +1,4 @@
+#include "ownership.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -5,7 +6,6 @@
 #include <stdlib.h>
 #include "error.h"
 #include "hash.h"
-#include "ownership.h"
 #include "parser.h"
 #include "type.h"
 

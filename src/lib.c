@@ -53,6 +53,9 @@ int fclose(FILE* owner _Stream);
 #include <string.h>
 
 
+#include <stdlib.h>
+
+
 //#pragma once
 
 
@@ -888,6 +891,7 @@ int string_literal_byte_size(const char* s);
 int get_char_type(const char* s);
 void include_config_header(struct preprocessor_ctx* ctx);
 
+
 #ifdef _WIN32
 
 
@@ -1630,9 +1634,6 @@ unsigned int string_hash(const char* key)
 }
 
 
-
-
-#include <stdlib.h>
 #ifdef _WIN32
 #endif
 
@@ -2070,9 +2071,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2089,9 +2087,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
@@ -6555,7 +6550,7 @@ void check_unused_macros(struct owner_hash_map* map)
 
 void include_config_header(struct preprocessor_ctx* ctx)
 {
-	char executable_path[MAX_PATH] = { 0 };
+	char executable_path[MAX_PATH - sizeof("/cakeconfig.h")] = { 0 };
 	get_self_path(executable_path, sizeof(executable_path));
 	dirname(executable_path);
 	char path[MAX_PATH] = { 0 };
@@ -31278,6 +31273,7 @@ void visit(struct visit_ctx* ctx)
 	//    token_list_append_list(&ctx->ast.token_list, &ctx->instanciations);
 	//}
 }
+
 
 
 

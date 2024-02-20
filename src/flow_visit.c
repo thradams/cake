@@ -7,6 +7,8 @@
 #include "expressions.h"
 #include "ownership.h"
 #include <ctype.h>
+#include <stdlib.h>
+
 
 /*
               NULL

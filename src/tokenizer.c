@@ -4418,7 +4418,7 @@ void check_unused_macros(struct owner_hash_map* map)
 
 void include_config_header(struct preprocessor_ctx* ctx)
 {
-	char executable_path[MAX_PATH] = { 0 };
+	char executable_path[MAX_PATH - sizeof("/cakeconfig.h")] = { 0 };
 	get_self_path(executable_path, sizeof(executable_path));
 	dirname(executable_path);
 	char path[MAX_PATH] = { 0 };

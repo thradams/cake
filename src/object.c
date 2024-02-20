@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 
 void object_swap(struct object* a, struct object* b)

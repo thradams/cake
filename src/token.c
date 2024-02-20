@@ -2,9 +2,11 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "console.h"
 #include "osstream.h"
 #include "tokenizer.h"
+
 
 #ifdef _WIN32
 #include <Windows.h>
