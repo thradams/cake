@@ -1486,10 +1486,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     
         if (p_expression->right)
         {
-            const bool t = ctx->is_size_of_expression;
+            const bool t2 = ctx->is_size_of_expression;
             ctx->is_size_of_expression = true;
             flow_visit_expression(ctx, p_expression->right);
-            ctx->is_size_of_expression = t;
+            ctx->is_size_of_expression = t2;
         }
 
         if (p_expression->type_name)
@@ -1844,8 +1844,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
-
-    struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression0)
     {
