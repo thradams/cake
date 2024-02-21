@@ -8,6 +8,20 @@
 
 #include "build.h"
 
+static int mysytem(const char *cmd)
+{
+    printf("%s\n", cmd);
+    fflush(stdout);
+    return system(cmd);
+}
+
+static int mychdir(const char *path)
+{
+    printf("chdir: %s\n", path);
+    fflush(stdout);
+    return chdir(path);
+}
+
 #ifdef BUILD_WINDOWS
 #define OUTPUT "cake.exe"
 #else
@@ -58,7 +72,7 @@ void compile_cake()
 {
 
 #ifdef BUILD_WINDOWS_MSC
-    if (system("cl  " SOURCE_FILES " main.c "
+    if (mysytem("cl  " SOURCE_FILES " main.c "
 
 #ifdef DISABLE_COLORS
                " /DDISABLE_COLORS "
@@ -106,7 +120,7 @@ void compile_cake()
 
 #ifdef BUILD_WINDOWS_CLANG
 
-    system("clang " SOURCE_FILES " main.c "
+    mysytem("clang " SOURCE_FILES " main.c "
 #if defined DEBUG
            " -D_DEBUG"
 #else
@@ -129,7 +143,7 @@ void compile_cake()
 #endif
 
 #ifdef BUILD_LINUX_CLANG
-    system("clang " SOURCE_FILES " main.c "
+    mysytem("clang " SOURCE_FILES " main.c "
 #ifdef TEST
            "-DTEST"
 #endif
@@ -141,11 +155,10 @@ void compile_cake()
 #if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC
 
     // #define GCC_ANALIZER  " -fanalyzer "
-    system("gcc "
+    mysytem("gcc "
            " -Wall "
            " -Wno-multichar "
-           " -Wno-switch "
-           " -g " SOURCE_FILES " main.c "
+           " -g -O2 " SOURCE_FILES " main.c "
 
 #if defined DEBUG
            " -D_DEBUG"
@@ -160,7 +173,7 @@ void compile_cake()
 #endif
 
 #ifdef BUILD_WINDOWS_TCC
-    system(CC
+    mysytem(CC
                SOURCE_FILES " main.c "
 
 #if defined DEBUG
@@ -204,11 +217,11 @@ void generate_doc(const char *mdfilename, const char *outfile)
     }
     char cmd[200];
     snprintf(cmd, sizeof cmd, RUN "hoedown.exe --html-toc --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
-    if (system(cmd) != 0)
+    if (mysytem(cmd) != 0)
         exit(1);
 
     snprintf(cmd, sizeof cmd, RUN "hoedown.exe  --toc-level 3 --autolink --fenced-code %s >> %s", mdfilename, outfile);
-    if (system(cmd) != 0)
+    if (mysytem(cmd) != 0)
         exit(1);
 
     FILE *f3 = fopen(outfile /*"./web/index.html"*/, "a");
@@ -229,22 +242,22 @@ int main()
 #endif
 
     printf("Building tools-------------------------------------------\n");
-    chdir("./tools");
+    mychdir("./tools");
 
-    if (system(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe") != 0)
+    if (mysytem(CC " -D_CRT_SECURE_NO_WARNINGS maketest.c " OUT_OPT "../maketest.exe") != 0)
         exit(1);
-    if (system(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe") != 0)
+    if (mysytem(CC " -D_CRT_SECURE_NO_WARNINGS amalgamator.c " OUT_OPT "../amalgamator.exe") != 0)
         exit(1);
 
-    chdir("./hoedown");
+    mychdir("./hoedown");
 
 #define HOEDOWN_SRC " autolink.c buffer.c document.c escape.c hoedown.c html.c html_blocks.c html_smartypants.c stack.c version.c"
 
-    if (system(CC HOEDOWN_SRC OUT_OPT "../../hoedown.exe") != 0)
+    if (mysytem(CC HOEDOWN_SRC OUT_OPT "../../hoedown.exe") != 0)
         exit(1);
 
-    chdir("..");
-    chdir("..");
+    mychdir("..");
+    mychdir("..");
 
     /*
      * Generates documentation from md files
@@ -258,11 +271,11 @@ int main()
 
     remove("hoedown.exe");
 
-    if (system(RUN "maketest.exe unit_test.c " SOURCE_FILES) != 0)
+    if (mysytem(RUN "maketest.exe unit_test.c " SOURCE_FILES) != 0)
         exit(1);
     remove("maketest.exe");
 
-    if (system(RUN "amalgamator.exe -olib.c" SOURCE_FILES) != 0)
+    if (mysytem(RUN "amalgamator.exe -olib.c" SOURCE_FILES) != 0)
         exit(1);
     remove("amalgamator.exe");
 
@@ -285,7 +298,7 @@ int main()
 #define NC "  "
 #endif
 
-    if (system("cake.exe  " NC " -Wstyle -analyze -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    if (mysytem("cake.exe  " NC " -Wstyle -analyze -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 
@@ -295,7 +308,7 @@ int main()
       To find GCC directories use
       echo | gcc -E -Wp,-v -
     */
-    const char *cake_cmd = "./cake "
+    if (mysytem("./cake "
                " -D__x86_64__ "
                " -analyze "
                " -I/usr/lib/gcc/x86_64-linux-gnu/11/include/ "
@@ -303,10 +316,7 @@ int main()
                " -I/usr/include/x86_64-linux-gnu/ "
                " -I/usr/include/ "
                HEADER_FILES
-               SOURCE_FILES;
-    printf("%s\n", cake_cmd);
-    fflush(stdout);
-    if (system(cake_cmd) != 0)
+               SOURCE_FILES) != 0)
     {
        exit(1);
     }
@@ -315,7 +325,7 @@ int main()
 #endif
 
 #ifdef TEST
-    int test_result = system(RUN OUTPUT);
+    int test_result = mysytem(RUN OUTPUT);
     if (test_result)
     {
         printf("\n");

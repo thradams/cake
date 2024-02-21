@@ -76,7 +76,7 @@ int fclose(FILE* owner _Stream);
 bool enable_vt_mode(void);
 
 /*
-  DISABLE_COLORS is defined to generate a 
+  DISABLE_COLORS is defined to generate a
   version of cake that does not ouput colors
   A runtime flag msvcouput is already used..
   but some utility functions are not using
@@ -237,6 +237,7 @@ void* owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const
 
 enum token_type
 {
+    /*When changing here we need also change in tokenizer.c::get_token_name*/
     TK_NONE = 0,
     TK_NEWLINE = '\n',
     TK_WHITE_SPACE = ' ',
@@ -756,6 +757,11 @@ struct options
       -msvc-output
     */
     bool visual_studio_ouput_format;
+
+    /*
+      -dump-tokens
+    */
+    bool dump_tokens;
 
     /*
       -o filename
@@ -6798,9 +6804,9 @@ const char* get_token_name(enum token_type tk)
 {
 	switch (tk)
 	{
-	case TK_NONE: return "NONE";
-	case TK_NEWLINE: return "NEWLINE";
-	case TK_WHITE_SPACE: return "SPACE";
+	case TK_NONE: return "TK_NONE";
+	case TK_NEWLINE: return "TK_NEWLINE";
+	case TK_WHITE_SPACE: return "TK_WHITE_SPACE";
 	case TK_EXCLAMATION_MARK: return "TK_EXCLAMATION_MARK";
 	case TK_QUOTATION_MARK: return "TK_QUOTATION_MARK";
 	case TK_NUMBER_SIGN: return "TK_NUMBER_SIGN";
@@ -6834,11 +6840,16 @@ const char* get_token_name(enum token_type tk)
 	case TK_RIGHT_CURLY_BRACKET: return "TK_RIGHT_CURLY_BRACKET";
 	case TK_TILDE: return "TK_TILDE";
 	case TK_PREPROCESSOR_LINE: return "TK_PREPROCESSOR_LINE";
+	case TK_PRAGMA: return "TK_PRAGMA";
 	case TK_STRING_LITERAL: return "TK_STRING_LITERAL";
+	case TK_CHAR_CONSTANT: return "TK_CHAR_CONSTANT";
 	case TK_LINE_COMMENT: return "TK_LINE_COMMENT";
-	case TK_COMMENT: return "TK_COMENT";
+	case TK_COMMENT: return "TK_COMMENT";
 	case TK_PPNUMBER: return "TK_PPNUMBER";
-	case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN";
+
+	case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
+
+	/*PPNUMBER sao convertidos para constantes antes do parse*/
 	case TK_COMPILER_DECIMAL_CONSTANT: return "TK_COMPILER_DECIMAL_CONSTANT";
 	case TK_COMPILER_OCTAL_CONSTANT: return "TK_COMPILER_OCTAL_CONSTANT";
 	case TK_COMPILER_HEXADECIMAL_CONSTANT: return "TK_COMPILER_HEXADECIMAL_CONSTANT";
@@ -6846,7 +6857,9 @@ const char* get_token_name(enum token_type tk)
 	case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_DECIMAL_FLOATING_CONSTANT";
 	case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT";
 
+
 	case TK_PLACEMARKER: return "TK_PLACEMARKER";
+
 	case TK_BLANKS: return "TK_BLANKS";
 	case TK_PLUSPLUS: return "TK_PLUSPLUS";
 	case TK_MINUSMINUS: return "TK_MINUSMINUS";
@@ -6855,10 +6868,15 @@ const char* get_token_name(enum token_type tk)
 	case TK_SHIFTRIGHT: return "TK_SHIFTRIGHT";
 	case TK_LOGICAL_OPERATOR_OR: return "TK_LOGICAL_OPERATOR_OR";
 	case TK_LOGICAL_OPERATOR_AND: return "TK_LOGICAL_OPERATOR_AND";
+
 	case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
+
 	case TK_IDENTIFIER: return "TK_IDENTIFIER";
-	case TK_IDENTIFIER_RECURSIVE_MACRO: return "TK_IDENTIFIER_RECURSIVE_MACRO";
+	case TK_IDENTIFIER_RECURSIVE_MACRO: return "TK_IDENTIFIER_RECURSIVE_MACRO"; /*usado para evitar recursao expansao macro*/
+
 	case TK_BEGIN_OF_FILE: return "TK_BEGIN_OF_FILE";
+
+	//C23 keywords
 	case TK_KEYWORD_AUTO: return "TK_KEYWORD_AUTO";
 	case TK_KEYWORD_BREAK: return "TK_KEYWORD_BREAK";
 	case TK_KEYWORD_CASE: return "TK_KEYWORD_CASE";
@@ -6866,8 +6884,10 @@ const char* get_token_name(enum token_type tk)
 	case TK_KEYWORD_CHAR: return "TK_KEYWORD_CHAR";
 	case TK_KEYWORD_CONST: return "TK_KEYWORD_CONST";
 	case TK_KEYWORD_CONTINUE: return "TK_KEYWORD_CONTINUE";
+	case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH"; /*extension*/
 	case TK_KEYWORD_DEFAULT: return "TK_KEYWORD_DEFAULT";
 	case TK_KEYWORD_DO: return "TK_KEYWORD_DO";
+	case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER"; /*extension*/
 	case TK_KEYWORD_DOUBLE: return "TK_KEYWORD_DOUBLE";
 	case TK_KEYWORD_ELSE: return "TK_KEYWORD_ELSE";
 	case TK_KEYWORD_ENUM: return "TK_KEYWORD_ENUM";
@@ -6883,27 +6903,35 @@ const char* get_token_name(enum token_type tk)
 	case TK_KEYWORD__INT16: return "TK_KEYWORD__INT16";
 	case TK_KEYWORD__INT32: return "TK_KEYWORD__INT32";
 	case TK_KEYWORD__INT64: return "TK_KEYWORD__INT64";
+
 	case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
 	case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
 	case TK_KEYWORD_RETURN: return "TK_KEYWORD_RETURN";
 	case TK_KEYWORD_SHORT: return "TK_KEYWORD_SHORT";
 	case TK_KEYWORD_SIGNED: return "TK_KEYWORD_SIGNED";
 	case TK_KEYWORD_SIZEOF: return "TK_KEYWORD_SIZEOF";
-	case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG";
-	case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE";
-	case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET";
+
 	case TK_KEYWORD_STATIC: return "TK_KEYWORD_STATIC";
 	case TK_KEYWORD_STRUCT: return "TK_KEYWORD_STRUCT";
 	case TK_KEYWORD_SWITCH: return "TK_KEYWORD_SWITCH";
 	case TK_KEYWORD_TYPEDEF: return "TK_KEYWORD_TYPEDEF";
+	case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY"; /*extension*/
+	case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW"; /*extension*/
 	case TK_KEYWORD_UNION: return "TK_KEYWORD_UNION";
 	case TK_KEYWORD_UNSIGNED: return "TK_KEYWORD_UNSIGNED";
 	case TK_KEYWORD_VOID: return "TK_KEYWORD_VOID";
 	case TK_KEYWORD_VOLATILE: return "TK_KEYWORD_VOLATILE";
 	case TK_KEYWORD_WHILE: return "TK_KEYWORD_WHILE";
+
 	case TK_KEYWORD__ALIGNAS: return "TK_KEYWORD__ALIGNAS";
 	case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
 	case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
+	//microsoft
+	//KEYWORD__FASTCALL,
+	//KEYWORD__STDCALL
+	//
+	case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
+	//end microsoft
 	case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
 	case TK_KEYWORD__COMPLEX: return "TK_KEYWORD__COMPLEX";
 	case TK_KEYWORD__DECIMAL128: return "TK_KEYWORD__DECIMAL128";
@@ -6913,23 +6941,50 @@ const char* get_token_name(enum token_type tk)
 	case TK_KEYWORD__IMAGINARY: return "TK_KEYWORD__IMAGINARY";
 	case TK_KEYWORD__NORETURN: return "TK_KEYWORD__NORETURN";
 	case TK_KEYWORD__STATIC_ASSERT: return "TK_KEYWORD__STATIC_ASSERT";
+	case TK_KEYWORD_ASSERT: return "TK_KEYWORD_ASSERT"; /*extension*/
 	case TK_KEYWORD__THREAD_LOCAL: return "TK_KEYWORD__THREAD_LOCAL";
-	case TK_KEYWORD_TYPEOF: return "TK_KEYWORD_TYPEOF";
+
+	case TK_KEYWORD_TYPEOF: return "TK_KEYWORD_TYPEOF"; /*C23*/
+
+	case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE";  /*C23*/
+	case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE";  /*C23*/
+	case TK_KEYWORD_NULLPTR: return "TK_KEYWORD_NULLPTR";  /*C23*/
+	case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL"; /*C23*/
+	case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT";  /*C23*/
 
 
-	case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE";
-	case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE";
-	case TK_KEYWORD_NULLPTR: return "TK_KEYWORD_NULLPTR";
-	case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER";
-	case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT";
-	case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
-	case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH";
-	case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY";
-	case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW";
 
-	case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL";
+	/*cake extension*/
+	case TK_KEYWORD__OWNER: return "TK_KEYWORD__OWNER";
+	case TK_KEYWORD__OUT: return "TK_KEYWORD__OUT";
+	case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
+	case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
+	case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
+
+	/*extension compile time functions*/
+	case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
+	case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
+	case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
+	case TK_KEYWORD_ATTR_ADD: return "TK_KEYWORD_ATTR_ADD"; /*extension*/
+	case TK_KEYWORD_ATTR_REMOVE: return "TK_KEYWORD_ATTR_REMOVE"; /*extension*/
+	case TK_KEYWORD_ATTR_HAS: return "TK_KEYWORD_ATTR_HAS"; /*extension*/
+
+	/*https://en.cppreference.com/w/cpp/header/type_traits*/
+
+	case TK_KEYWORD_IS_POINTER: return "TK_KEYWORD_IS_POINTER";
+	case TK_KEYWORD_IS_LVALUE: return "TK_KEYWORD_IS_LVALUE";
+	case TK_KEYWORD_IS_CONST: return "TK_KEYWORD_IS_CONST";
+	case TK_KEYWORD_IS_OWNER: return "TK_KEYWORD_IS_OWNER";
+	case TK_KEYWORD_IS_ARRAY: return "TK_KEYWORD_IS_ARRAY";
+	case TK_KEYWORD_IS_FUNCTION: return "TK_KEYWORD_IS_FUNCTION";
+	case TK_KEYWORD_IS_SCALAR: return "TK_KEYWORD_IS_SCALAR";
+	case TK_KEYWORD_IS_ARITHMETIC: return "TK_KEYWORD_IS_ARITHMETIC";
+	case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
+	case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
+
+        default:
+            return "TK_X_MISSING_NAME";
 	}
-	assert(false);
 	return "";
 };
 
@@ -9507,6 +9562,8 @@ bool is_ownership_error(enum error e)
         case C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN:
         case C_OWNERSHIP_FLOW_MISSING_DTOR:
             return true;
+        default:
+            return false;
     }
     return false;
 }
@@ -9793,6 +9850,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-dump-tokens") == 0)
+        {
+            options->dump_tokens = true;
+            continue;
+        }
+
         printf("unknown option '%s'", argv[i]);
         return 1;
     }
@@ -9854,6 +9917,8 @@ void print_help()
         WHITE "  -sarif                " RESET "Generates sarif files\n"
         "\n"
         WHITE "  -msvc-output          " RESET "Ouput is compatible with visual studio\n"
+        "\n"
+        WHITE "-dump-tokens            " RESET "Output tokens before preprocessor\n"
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;
@@ -11866,6 +11931,8 @@ double constant_value_to_double(const struct constant_value* a)
         case TYPE_LONG_LONG: return (double) a->llvalue;
         case TYPE_DOUBLE: return  a->dvalue;
         case TYPE_UNSIGNED_LONG_LONG: return (double) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -11892,6 +11959,8 @@ void constant_value_to_string(const struct constant_value* a, char buffer[], int
         case TYPE_UNSIGNED_LONG_LONG:
             snprintf(buffer, sz, "%llu", a->ullvalue);
             break;
+        default:
+            return;
     }
 }
 
@@ -11902,6 +11971,8 @@ unsigned long long constant_value_to_ull(const struct constant_value* a)
         case TYPE_LONG_LONG: return (unsigned long long)a->llvalue;
         case TYPE_DOUBLE: return  (unsigned long long)a->dvalue;
         case TYPE_UNSIGNED_LONG_LONG: return (unsigned long long) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -11913,6 +11984,8 @@ long long constant_value_to_ll(const struct constant_value* a)
         case TYPE_LONG_LONG: return (long long) a->llvalue;
         case TYPE_DOUBLE: return  (long long) a->dvalue;
         case TYPE_UNSIGNED_LONG_LONG: return (long long) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -11924,6 +11997,8 @@ bool constant_value_to_bool(const struct constant_value* a)
         case TYPE_LONG_LONG: return a->llvalue != 0;
         case TYPE_DOUBLE: return  a->dvalue != 0;
         case TYPE_UNSIGNED_LONG_LONG: return a->ullvalue != 0;
+        default:
+            return 0;
     }
 
     return 0;
@@ -15725,10 +15800,10 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
         case POSTFIX_INCREMENT:
         case POSTFIX_DECREMENT:
             return false;
+        default:
+            if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+                return true;
     }
-
-    if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-        return true;
 
     return true;
 }
@@ -21465,6 +21540,12 @@ void visit(struct visit_ctx* ctx);
 void visit_ctx_destroy( struct visit_ctx* obj_owner ctx);
 
 
+#ifdef PATH_MAX
+#define MYMAX_PATH PATH_MAX //Linux uses it in realpath
+#else
+#define MYMAX_PATH MAX_PATH
+#endif
+
 
 void object_state_to_string(enum object_state e)
 {
@@ -24409,6 +24490,9 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 		parser_match(ctx);
 		return p_type_specifier;
 
+        default:
+                // Do nothing
+                break;
 
 	}
 
@@ -25413,7 +25497,9 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 	case TK_KEYWORD__VIEW:
 		p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
 		break;
-
+        default:
+                // do nothing
+                break;
 	}
 
 	p_type_qualifier->token = ctx->current;
@@ -28163,6 +28249,11 @@ int compile_one_file(const char* file_name,
 
 		tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
 
+		if (options->dump_tokens)
+		{
+                    print_tokens(tokens.head);
+        }
+
 		ast.token_list = preprocessor(&prectx, &tokens, 0);
 		if (prectx.n_errors > 0) throw;
 
@@ -28266,7 +28357,7 @@ int compile_one_file(const char* file_name,
 	return report->error_count > 0;
 }
 
-static void longest_common_path(int argc, const char** argv, char root_dir[MAX_PATH])
+static void longest_common_path(int argc, const char** argv, char root_dir[MYMAX_PATH])
 {
 	/*
 	 find the longest common path
@@ -28276,12 +28367,12 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MAX_P
 		if (argv[i][0] == '-')
 			continue;
 
-		char fullpath_i[MAX_PATH] = { 0 };
+		char fullpath_i[MYMAX_PATH] = { 0 };
 		realpath(argv[i], fullpath_i);
 		strcpy(root_dir, fullpath_i);
 		dirname(root_dir);
 
-		for (int k = 0; ; k++)
+		for (int k = 0; k < MYMAX_PATH ; k++)
 		{
 			const char ch = fullpath_i[k];
 			for (int j = 2; j < argc; j++)
@@ -28289,7 +28380,7 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MAX_P
 				if (argv[j][0] == '-')
 					continue;
 
-				char fullpath_j[MAX_PATH] = { 0 };
+				char fullpath_j[MYMAX_PATH] = { 0 };
 				realpath(argv[j], fullpath_j);
 				if (fullpath_j[k] != ch)
 				{
@@ -28323,7 +28414,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 			continue;
 		}
 
-		char temp[MAX_PATH] = { 0 };
+		char temp[MYMAX_PATH] = { 0 };
 		strncpy(temp, outdir, p - outdir);
 
 		int er = mkdir(temp, 0777);
@@ -28357,7 +28448,7 @@ int compile(int argc, const char** argv, struct report* report)
 	clock_t begin_clock = clock();
 	int no_files = 0;
 
-	char root_dir[MAX_PATH] = { 0 };
+	char root_dir[MYMAX_PATH] = { 0 };
 
 	if (!options.no_output)
 	{
@@ -28372,7 +28463,7 @@ int compile(int argc, const char** argv, struct report* report)
 		if (argv[i][0] == '-')
 			continue;
 		no_files++;
-		char output_file[400] = { 0 };
+		char output_file[MYMAX_PATH] = { 0 };
 
 		if (!options.no_output)
 		{
@@ -28386,7 +28477,7 @@ int compile(int argc, const char** argv, struct report* report)
 			}
 			else
 			{
-				char fullpath[MAX_PATH] = { 0 };
+				char fullpath[MYMAX_PATH] = { 0 };
 				realpath(argv[i], fullpath);
 
 				strcpy(output_file, root_dir);
@@ -28394,7 +28485,7 @@ int compile(int argc, const char** argv, struct report* report)
 
 				strcat(output_file, fullpath + root_dir_len);
 
-				char outdir[MAX_PATH];
+				char outdir[MYMAX_PATH];
 				strcpy(outdir, output_file);
 				dirname(outdir);
 				if (create_multiple_paths(root_dir, outdir) != 0)
@@ -28404,7 +28495,7 @@ int compile(int argc, const char** argv, struct report* report)
 			}
 		}
 
-		char fullpath[260];
+		char fullpath[MYMAX_PATH];
 		realpath(argv[i], fullpath);
 		compile_one_file(fullpath, &options, output_file, argc, argv, report);
 	}
@@ -33109,6 +33200,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
+
 
     if (p_iteration_statement->expression0)
     {

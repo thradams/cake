@@ -105,16 +105,12 @@
 
 #endif
 
-/*
-  WITH_ANSI_COLOR - Controls the build output colors
-*/
 
 #ifdef WITH_ANSI_COLOR
 #define COLOR_ESC(x) x
 #else
 #define COLOR_ESC(x) ""
 #endif
-
 #define ESC COLOR_ESC("\x1b")
 #define CSI COLOR_ESC("\x1b[")
 #define RESET ESC COLOR_ESC("[0m")

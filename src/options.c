@@ -15,6 +15,8 @@ bool is_ownership_error(enum error e)
         case C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN:
         case C_OWNERSHIP_FLOW_MISSING_DTOR:
             return true;
+        default:
+            return false;
     }
     return false;
 }
@@ -301,6 +303,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-dump-tokens") == 0)
+        {
+            options->dump_tokens = true;
+            continue;
+        }
+
         printf("unknown option '%s'", argv[i]);
         return 1;
     }
@@ -362,6 +370,8 @@ void print_help()
         WHITE "  -sarif                " RESET "Generates sarif files\n"
         "\n"
         WHITE "  -msvc-output          " RESET "Ouput is compatible with visual studio\n"
+        "\n"
+        WHITE "   -dump-tokens         " RESET "Output tokens before preprocessor\n"
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;

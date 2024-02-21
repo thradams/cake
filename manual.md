@@ -89,6 +89,9 @@ output code as compiler sees it without macros.
 Output target C standard (c89, c99, c11, c2x, cxx)
 C99 is the default and C89 (ANSI C) is the minimum target
 
+#### -dump-tokens            
+Output tokens before preprocessor
+
 #### -fi
 Format input (format before language conversion)
 

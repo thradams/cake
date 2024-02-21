@@ -13,7 +13,7 @@
 bool enable_vt_mode(void);
 
 /*
-  DISABLE_COLORS is defined to generate a 
+  DISABLE_COLORS is defined to generate a
   version of cake that does not ouput colors
   A runtime flag msvcouput is already used..
   but some utility functions are not using
