@@ -1676,7 +1676,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 		struct token* first = p_struct_or_union_specifier->first_token;
 
 		const char* tag = p_struct_or_union_specifier->tag_name;
-		char buffer[200] = { 0 };
+		char buffer[sizeof(p_struct_or_union_specifier->tag_name)+8] = { 0 };
 		snprintf(buffer, sizeof buffer, " %s", tag);
 		struct tokenizer_ctx tctx = { 0 };
 		struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
