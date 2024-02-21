@@ -5,9 +5,8 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdint.h>
-#ifndef __STDC_OWNERSHIP__
 #include <stdlib.h>
-#endif
+
 
 void object_swap(struct object* a, struct object* b)
 {

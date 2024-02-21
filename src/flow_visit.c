@@ -7,9 +7,8 @@
 #include "expressions.h"
 #include "ownership.h"
 #include <ctype.h>
-#ifndef __STDC_OWNERSHIP__
 #include <stdlib.h>
-#endif
+
 
 /*
               NULL
@@ -1376,26 +1375,26 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
     case POSTFIX_ARRAY: {
 
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->left);
+            flow_visit_expression(ctx, p_expression->right);
 
-        struct type t = { 0 };
-        struct object* p_object = expression_get_object(p_expression->left, &t);
+            struct type t = { 0 };
+            struct object* p_object = expression_get_object(p_expression->left, &t);
 
-        if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
-        {
-            compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
-                ctx->ctx,
-                p_expression->left->first_token, "using a uninitialized object");
+            if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+            {
+                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+                    ctx->ctx,
+                    p_expression->left->first_token, "using a uninitialized object");
+            }
+            else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
+            {
+                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+                    ctx->ctx,
+                    p_expression->left->first_token, "maybe using a uninitialized object");
+            }
+            type_destroy(&t);
         }
-        else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
-        {
-            compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
-                ctx->ctx,
-                p_expression->left->first_token, "maybe using a uninitialized object");
-        }
-        type_destroy(&t);
-	}
         break;
 
     case POSTFIX_FUNCTION_CALL:
@@ -1487,10 +1486,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            const bool t = ctx->is_size_of_expression;
+            const bool t2 = ctx->is_size_of_expression;
             ctx->is_size_of_expression = true;
             flow_visit_expression(ctx, p_expression->right);
-            ctx->is_size_of_expression = t;
+            ctx->is_size_of_expression = t2;
         }
 
         if (p_expression->type_name)

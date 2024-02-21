@@ -4418,11 +4418,13 @@ void check_unused_macros(struct owner_hash_map* map)
 
 void include_config_header(struct preprocessor_ctx* ctx)
 {
-	char executable_path[MAX_PATH] = { 0 };
+#define CAKE_CFG_FNAME "/cakeconfig.h"
+	char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
 	get_self_path(executable_path, sizeof(executable_path));
 	dirname(executable_path);
-	char path[MAX_PATH+64] = { 0 };
-	snprintf(path, sizeof path, "%s/cakeconfig.h", executable_path);
+	char path[MAX_PATH] = { 0 };
+	snprintf(path, sizeof path, "%s" CAKE_CFG_FNAME, executable_path);
+#undef CAKE_CFG_FNAME
 	/*
 	* windows
 	 echo %INCLUDE%

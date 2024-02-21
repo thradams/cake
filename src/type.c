@@ -1,15 +1,11 @@
+#include "ownership.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
-#ifndef __STDC_OWNERSHIP__
 #include <string.h>
 #include <stdlib.h>
-#else
-extern int strcmp (const char *, const char *);
-#endif
 #include "error.h"
 #include "hash.h"
-#include "ownership.h"
 #include "parser.h"
 #include "type.h"
 
