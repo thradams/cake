@@ -1,4 +1,3 @@
-
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -22,7 +21,8 @@ bool enable_vt_mode(void)
 
 int c_kbhit(void)
 {
-    struct termios oldt, newt;
+    struct termios oldt = {0};
+    struct termios newt = {0};
     int ch;
     int oldf;
 
@@ -50,7 +50,8 @@ int c_kbhit(void)
 /* Read 1 character without echo */
 int c_getch(void)
 {
-    struct termios old, new;
+    struct termios old = {0};
+    struct termios new = {0};
     int ch;
 
     tcgetattr(0, &old);
@@ -72,7 +73,7 @@ int c_getch(void)
 bool enable_vt_mode(void)
 {
 //missing in mingw (installed with codeblocs)
-#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING  
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
 #endif
 

@@ -12,20 +12,27 @@
 
 bool enable_vt_mode(void);
 
-//#define DISABLE_COLORS 1
-
-#ifdef WITH_ANSI_COLOR
+/*
+  DISABLE_COLORS is defined to generate a
+  version of cake that does not ouput colors
+  A runtime flag msvcouput is already used..
+  but some utility functions are not using
+*/
+#ifdef ENABLE_COLORS
 #define COLOR_ESC(x) x
 #define COLOR_ESC_PRINT(x) x
+#define ESC "\x1b"
+#define CSI "\x1b["
 #else
 #define COLOR_ESC(x) ""
 #define COLOR_ESC_PRINT(x)
+#define ESC ""
+#define CSI ""
+
 #endif
 
 /*change foreground color*/
 
-#define ESC COLOR_ESC("\x1b")
-#define CSI COLOR_ESC("\x1b[")
 
 #define BLACK     COLOR_ESC("\x1b[30m")
 #define BLUE     COLOR_ESC("\x1b[34m")

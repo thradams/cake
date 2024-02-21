@@ -75,7 +75,7 @@ struct dirent* readdir(DIR* dirp);
 
 typedef struct __dirstream DIR;
 DIR * owner opendir (const char *__name);
-
+int closedir(DIR* owner dirp);
 
 #define MAX_PATH 500
 

@@ -59,6 +59,7 @@ int fclose(FILE* owner _Stream);
 #include <stdlib.h>
 
 
+
 /* Start of: console.h */
 //#pragma once
 
@@ -78,20 +79,27 @@ int fclose(FILE* owner _Stream);
 
 bool enable_vt_mode(void);
 
-//#define DISABLE_COLORS 1
-
-#ifdef WITH_ANSI_COLOR
+/*
+  DISABLE_COLORS is defined to generate a
+  version of cake that does not ouput colors
+  A runtime flag msvcouput is already used..
+  but some utility functions are not using
+*/
+#ifdef ENABLE_COLORS
 #define COLOR_ESC(x) x
 #define COLOR_ESC_PRINT(x) x
+#define ESC "\x1b"
+#define CSI "\x1b["
 #else
 #define COLOR_ESC(x) ""
 #define COLOR_ESC_PRINT(x)
+#define ESC ""
+#define CSI ""
+
 #endif
 
 /*change foreground color*/
 
-#define ESC COLOR_ESC("\x1b")
-#define CSI COLOR_ESC("\x1b[")
 
 #define BLACK     COLOR_ESC("\x1b[30m")
 #define BLUE     COLOR_ESC("\x1b[34m")
@@ -1935,7 +1943,8 @@ bool enable_vt_mode(void)
 
 int c_kbhit(void)
 {
-    struct termios oldt, newt;
+    struct termios oldt = {0};
+    struct termios newt = {0};
     int ch;
     int oldf;
 
@@ -1963,7 +1972,8 @@ int c_kbhit(void)
 /* Read 1 character without echo */
 int c_getch(void)
 {
-    struct termios old, new;
+    struct termios old = {0};
+    struct termios new = {0};
     int ch;
 
     tcgetattr(0, &old);
@@ -2144,7 +2154,7 @@ struct dirent* readdir(DIR* dirp);
 
 typedef struct __dirstream DIR;
 DIR * owner opendir (const char *__name);
-
+int closedir(DIR* owner dirp);
 
 #define MAX_PATH 500
 
@@ -2168,6 +2178,7 @@ const char* get_posix_error_message(int error);
 
 bool path_is_relative(const char* path);
 bool path_is_absolute(const char* path);
+
 /* End of: fs.h */
 
 
