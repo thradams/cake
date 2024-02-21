@@ -2319,7 +2319,7 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
 	{
 		printf("note: " "%s\n", buffer);
 	}
-	else 
+	else
 	{
 		printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 	}
@@ -3373,11 +3373,11 @@ struct token* owner ppnumber(struct stream* stream)
 			(stream->current[1] == '+' || stream->current[1] == '-'))
 		{
 			stream_match(stream);//e E  p P
-			stream_match(stream);//sign            
+			stream_match(stream);//sign
 		}
 		else if (stream->current[0] == '.')
 		{
-			stream_match(stream);//.            
+			stream_match(stream);//.
 		}
 		else if (is_digit(stream) || is_nondigit(stream))
 		{
@@ -3418,7 +3418,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 		}
 #else
 		/*web versions only text files that are included*/
-		const char* textfile = read_file(filename_opt);
+		char* textfile = read_file(filename_opt);
 		if (textfile == NULL)
 		{
 			preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
@@ -3437,7 +3437,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 		{
 			ch = *pch;
 			pch++;
-#endif                    
+#endif
 			if (b_first)
 			{
 				b_first = false;
@@ -3480,7 +3480,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
 			count++;
 		}
-#ifdef MOCKFILES   
+#ifdef MOCKFILES
 		free(textfile);
 #endif
 	}
@@ -4159,7 +4159,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 						strcat(path, input_list->head->lexeme);
 						token_list_pop_front(input_list); //pop (
 					}
-					token_list_pop_front(input_list); //pop >					
+					token_list_pop_front(input_list); //pop >
 				}
 
 				char fullpath[300] = { 0 };
@@ -4201,7 +4201,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 					strcat(path, input_list->head->lexeme);
 					token_list_pop_front(input_list); //pop (
 				}
-				token_list_pop_front(input_list); //pop >					
+				token_list_pop_front(input_list); //pop >
 
 				/*nodiscard
 				* The __has_c_attribute conditional inclusion expression (6.10.1) shall
@@ -5170,7 +5170,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			if (strcmp(macro->name, "assert") == 0)
 			{
 				// TODO create option for this?
-				// Cake overrides the definition of macro to be 
+				// Cake overrides the definition of macro to be
 				// #define assert(...) assert(__VA_ARGS__)
 				// and assert is a keyword. The reason is the send
 				// information to the static analyzer
@@ -6640,7 +6640,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define _WIN32 " TOSTRING(_WIN32) "\n"
 #endif
 
-#ifdef _WIN64 
+#ifdef _WIN64
 		"#define _WIN64 " TOSTRING(_WIN64) "\n"
 #endif
 
