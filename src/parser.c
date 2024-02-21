@@ -185,7 +185,7 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
 		}
 	}
 }
-
+/*
 static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* token)
 {
 	//token points to {
@@ -207,7 +207,7 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
 		}
 	}
 }
-
+*/
 
 #ifdef TEST
 int printf_nothing(const char* fmt, ...) { return 0; }
@@ -798,7 +798,7 @@ struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* l
 		}
 		scope = scope->previous;
 	}
-	return best; //mesmo que nao seja tao completo vamos retornar.    
+	return best; //mesmo que nao seja tao completo vamos retornar.
 }
 
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme)
@@ -1949,7 +1949,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
 					//typedef tem que aparecer sozinho
 					//exemplo Socket eh nome e nao typdef
 					//typedef int Socket;
-					//struct X {int Socket;}; 
+					//struct X {int Socket;};
 					break;
 				}
 			}
@@ -2014,7 +2014,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
 				p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
 			{
 				//typedef nao pode aparecer com outro especifier
-				//entao ja tem tem algo e vier identifier signfica que acabou 
+				//entao ja tem tem algo e vier identifier signfica que acabou
 				//exemplo
 				/*
 				 typedef char X;
@@ -3302,7 +3302,7 @@ void member_declaration_list_destroy(struct member_declaration_list* obj_owner p
 	}
 }
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
 	struct member_declaration_list list = { 0 };
 	//member_declaration
@@ -3510,7 +3510,7 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
 					//typedef tem que aparecer sozinho
 					//exemplo Socket eh nome e nao typdef
 					//typedef int Socket;
-					//struct X {int Socket;}; 
+					//struct X {int Socket;};
 					break;
 				}
 			}
@@ -4618,11 +4618,11 @@ struct parameter_declaration* owner parameter_declaration(struct parser_ctx* ctx
 
 	//coloca o pametro no escpo atual que deve apontar para escopo paramtros
 	// da funcao .
-	// 
+	//
 	//assert ctx->current_scope->variables parametrosd
 	if (p_parameter_declaration->declarator->name)
 	{
-		//parametro void nao te name 
+		//parametro void nao te name
 		hashmap_set(&ctx->scopes.tail->variables,
 			p_parameter_declaration->declarator->name->lexeme,
 			p_parameter_declaration->declarator,
@@ -6530,7 +6530,7 @@ unsigned long GetEnvironmentVariableA(
 	unsigned long nsize
 )
 {
-
+    return 0;
 }
 #endif
 
@@ -6878,7 +6878,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 	   root   : C:/folder
 	   outdir : C:/folder/folder1/folder2 ...
 	*/
-
+#if !defined __EMSCRIPTEN__
 	const char* p = outdir + strlen(root) + 1;
 	for (;;)
 	{
@@ -6906,6 +6906,9 @@ static int create_multiple_paths(const char* root, const char* outdir)
 		p++;
 	}
 	return 0;
+#else
+	return -1;
+#endif
 }
 
 int compile(int argc, const char** argv, struct report* report)

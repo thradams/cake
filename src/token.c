@@ -435,7 +435,7 @@ void print_list(struct token_list* list)
             //printf("`");
         }
         print_literal2(current->lexeme);
-        printf(RESET);
+        COLOR_ESC_PRINT(printf(RESET));
         if (current == list->tail)
         {
             //printf("`");
@@ -477,16 +477,16 @@ void print_token(struct token* p_token)
         printf("  ");
     }
     if (p_token->flags & TK_FLAG_FINAL)
-        printf(LIGHTGREEN);
+        COLOR_ESC_PRINT(printf(LIGHTGREEN));
     else
-        printf(LIGHTGRAY);
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
     char buffer0[50] = { 0 };
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
-        printf(LIGHTCYAN);
+        COLOR_ESC_PRINT(printf(LIGHTCYAN));
     }
     char buffer[50] = { 0 };
     strcat(buffer, "[");
@@ -514,7 +514,7 @@ void print_token(struct token* p_token)
     printf("%-20s ", buffer);
     print_literal2(p_token->lexeme);
     printf("\n");
-    printf(RESET);
+    COLOR_ESC_PRINT(printf(RESET));
 }
 
 void print_tokens(struct token* p_token)
@@ -528,7 +528,7 @@ void print_tokens(struct token* p_token)
     }
     printf("\n");
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    printf(RESET);
+    COLOR_ESC_PRINT(printf(RESET));
 }
 
 
@@ -642,7 +642,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     int line = p_token->line;
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGRAY);
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
 
     char nbuffer[20] = { 0 };
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
@@ -689,7 +689,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     printf("\n");
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGRAY);
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
 
     printf(" %*s |", n, " ");
     if (p_token)
@@ -701,7 +701,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     }
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGREEN);
+        COLOR_ESC_PRINT(printf(LIGHTGREEN));
 
     printf("^");
 
@@ -713,7 +713,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     }
 
     if (!visual_studio_ouput_format)
-        printf(RESET);
+        COLOR_ESC_PRINT(printf(RESET));
 
     printf("\n");
 }

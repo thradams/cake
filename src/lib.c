@@ -74,98 +74,64 @@ int fclose(FILE* owner _Stream);
 
 bool enable_vt_mode(void);
 
-//#define DISABLE_COLORS 1
-
-#ifdef DISABLE_COLORS
-
-#define ESC ""
-#define CSI ""
-
-#define BLACK      ""
-#define BLUE      ""
-#define GREEN     ""
-#define CYAN     ""
-#define RED ""
-#define MAGENTA      ""
-#define BROWN     ""
-#define LIGHTGRAY  ""
-#define DARKGRAY ""
-#define LIGHTBLUE ""
-#define  LIGHTGREEN ""
-#define LIGHTCYAN  ""
-#define LIGHTRED ""
-#define LIGHTMAGENTA  ""
-#define YELLOW ""
-#define WHITE ""
-
-//https//en.wikipedia.org/wiki/ANSI_escape_code
-
-
-#define BK_BLACK "" 
-#define BK_BLUE ""
-#define BK_GREEN  ""
-#define BK_CYAN ""
-#define BK_RED ""
-#define BK_MAGENTA ""
-#define BK_BROWN ""
-#define BK_LIGHTGRAY ""
-#define BK_DARKGRAY ""
-#define BK_LIGHTBLUE ""
-#define BK_LIGHTGREEN ""
-#define BK_LIGHTCYAN ""
-#define BK_LIGHTRED ""
-#define BK_LIGHTMAGENTA ""
-#define BK_YELLOW       ""
-#define BK_WHITE        ""
-#define BK_BLINK ""
-#define RESET ESC ""
+/*
+  DISABLE_COLORS is defined to generate a 
+  version of cake that does not ouput colors
+  A runtime flag msvcouput is already used..
+  but some utility functions are not using
+*/
+#ifndef DISABLE_COLORS
+#define COLOR_ESC(x) x
+#define COLOR_ESC_PRINT(x) x
 #else
+#define COLOR_ESC(x) ""
+#define COLOR_ESC_PRINT(x)
+#endif
+
 /*change foreground color*/
 
-#define ESC "\x1b"
-#define CSI "\x1b["
+#define ESC COLOR_ESC("\x1b")
+#define CSI COLOR_ESC("\x1b[")
 
-#define BLACK     "\x1b[30m"
-#define BLUE     "\x1b[34m"
-#define GREEN     "\x1b[32m"
-#define CYAN     "\x1b[36m"
-#define RED "\x1b[31;1m"
-#define MAGENTA     "\x1b[35m"
-#define BROWN     "\x1b[31m"
-#define LIGHTGRAY "\x1b[37m"
-#define DARKGRAY "\x1b[90m"
-#define LIGHTBLUE    "\x1b[34;1m"
-#define  LIGHTGREEN "\x1b[92m"
-#define LIGHTCYAN "\x1b[36;1m"
-#define LIGHTRED "\x1b[91m"
-#define LIGHTMAGENTA "\x1b[95m"
-#define YELLOW "\x1b[93m"
-#define WHITE "\x1b[97m"
+#define BLACK     COLOR_ESC("\x1b[30m")
+#define BLUE     COLOR_ESC("\x1b[34m")
+#define GREEN     COLOR_ESC("\x1b[32m")
+#define CYAN     COLOR_ESC("\x1b[36m")
+#define RED COLOR_ESC("\x1b[31;1m")
+#define MAGENTA     COLOR_ESC("\x1b[35m")
+#define BROWN     COLOR_ESC("\x1b[31m")
+#define LIGHTGRAY COLOR_ESC("\x1b[37m")
+#define DARKGRAY COLOR_ESC("\x1b[90m")
+#define LIGHTBLUE    COLOR_ESC("\x1b[34;1m")
+#define  LIGHTGREEN COLOR_ESC("\x1b[92m")
+#define LIGHTCYAN COLOR_ESC("\x1b[36;1m")
+#define LIGHTRED COLOR_ESC("\x1b[91m")
+#define LIGHTMAGENTA COLOR_ESC("\x1b[95m")
+#define YELLOW COLOR_ESC("\x1b[93m")
+#define WHITE COLOR_ESC("\x1b[97m")
 
     //https//en.wikipedia.org/wiki/ANSI_escape_code
 
 
-#define BK_BLACK "\x1b[40m"
-#define BK_BLUE "\x1b[44m"
-#define BK_GREEN  "\x1b[42m"
-#define BK_CYAN "\x1b[46m"
-#define BK_RED "\x1b[41;1m"
-#define BK_MAGENTA "\x1b[45m"
-#define BK_BROWN "\x1b[41m"
-#define BK_LIGHTGRAY "\x1b[40;1m"
-#define BK_DARKGRAY "\x1b[40m"
-#define BK_LIGHTBLUE "\x1b[44;1m"
-#define BK_LIGHTGREEN "\x1b[42,1m"
-#define BK_LIGHTCYAN "\x1b[46;1m"
-#define BK_LIGHTRED "\x1b[41;1m"
-#define BK_LIGHTMAGENTA "\x1b[45;1m"
-#define BK_YELLOW             "\x1b[43;1m"
-#define BK_WHITE             "\x1b[47;1m"
-#define BK_BLINK "\x1b[40m"
-            
-#define RESET ESC "[0m"
+#define BK_BLACK COLOR_ESC("\x1b[40m")
+#define BK_BLUE COLOR_ESC("\x1b[44m")
+#define BK_GREEN  COLOR_ESC("\x1b[42m")
+#define BK_CYAN COLOR_ESC("\x1b[46m")
+#define BK_RED COLOR_ESC("\x1b[41;1m")
+#define BK_MAGENTA COLOR_ESC("\x1b[45m")
+#define BK_BROWN COLOR_ESC("\x1b[41m")
+#define BK_LIGHTGRAY COLOR_ESC("\x1b[40;1m")
+#define BK_DARKGRAY COLOR_ESC("\x1b[40m")
+#define BK_LIGHTBLUE COLOR_ESC("\x1b[44;1m")
+#define BK_LIGHTGREEN COLOR_ESC("\x1b[42,1m")
+#define BK_LIGHTCYAN COLOR_ESC("\x1b[46;1m")
+#define BK_LIGHTRED COLOR_ESC("\x1b[41;1m")
+#define BK_LIGHTMAGENTA COLOR_ESC("\x1b[45;1m")
+#define BK_YELLOW             COLOR_ESC("\x1b[43;1m")
+#define BK_WHITE             COLOR_ESC("\x1b[47;1m")
+#define BK_BLINK COLOR_ESC("\x1b[40m")
 
-#endif
+#define RESET COLOR_ESC(ESC "[0m")
 
 
 int c_kbhit(void);
@@ -1324,7 +1290,7 @@ void print_list(struct token_list* list)
             //printf("`");
         }
         print_literal2(current->lexeme);
-        printf(RESET);
+        COLOR_ESC_PRINT(printf(RESET));
         if (current == list->tail)
         {
             //printf("`");
@@ -1366,16 +1332,16 @@ void print_token(struct token* p_token)
         printf("  ");
     }
     if (p_token->flags & TK_FLAG_FINAL)
-        printf(LIGHTGREEN);
+        COLOR_ESC_PRINT(printf(LIGHTGREEN));
     else
-        printf(LIGHTGRAY);
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
     char buffer0[50] = { 0 };
     snprintf(buffer0, sizeof buffer0, "%d:%d", p_token->line, p_token->col);
     printf("%-6s ", buffer0);
     printf("%-20s ", get_token_name(p_token->type));
     if (p_token->flags & TK_FLAG_MACRO_EXPANDED)
     {
-        printf(LIGHTCYAN);
+        COLOR_ESC_PRINT(printf(LIGHTCYAN));
     }
     char buffer[50] = { 0 };
     strcat(buffer, "[");
@@ -1403,7 +1369,7 @@ void print_token(struct token* p_token)
     printf("%-20s ", buffer);
     print_literal2(p_token->lexeme);
     printf("\n");
-    printf(RESET);
+    COLOR_ESC_PRINT(printf(RESET));
 }
 
 void print_tokens(struct token* p_token)
@@ -1417,7 +1383,7 @@ void print_tokens(struct token* p_token)
     }
     printf("\n");
     printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" RESET);
-    printf(RESET);
+    COLOR_ESC_PRINT(printf(RESET));
 }
 
 
@@ -1531,7 +1497,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     int line = p_token->line;
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGRAY);
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
 
     char nbuffer[20] = { 0 };
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
@@ -1578,7 +1544,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     printf("\n");
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGRAY);
+        COLOR_ESC_PRINT(printf(LIGHTGRAY));
 
     printf(" %*s |", n, " ");
     if (p_token)
@@ -1590,7 +1556,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     }
 
     if (!visual_studio_ouput_format)
-        printf(LIGHTGREEN);
+        COLOR_ESC_PRINT(printf(LIGHTGREEN));
 
     printf("^");
 
@@ -1602,7 +1568,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
     }
 
     if (!visual_studio_ouput_format)
-        printf(RESET);
+        COLOR_ESC_PRINT(printf(RESET));
 
     printf("\n");
 }
@@ -2071,6 +2037,9 @@ void c_clrscr()
 #include <ctype.h>
 
 
+#include <sys/stat.h>
+
+
 #include <errno.h>
 
 
@@ -2087,6 +2056,9 @@ void c_clrscr()
 
 
 #include <direct.h>
+
+
+#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
@@ -2326,7 +2298,7 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
 	{
 		printf("note: " "%s\n", buffer);
 	}
-	else 
+	else
 	{
 		printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
 	}
@@ -3380,11 +3352,11 @@ struct token* owner ppnumber(struct stream* stream)
 			(stream->current[1] == '+' || stream->current[1] == '-'))
 		{
 			stream_match(stream);//e E  p P
-			stream_match(stream);//sign            
+			stream_match(stream);//sign
 		}
 		else if (stream->current[0] == '.')
 		{
-			stream_match(stream);//.            
+			stream_match(stream);//.
 		}
 		else if (is_digit(stream) || is_nondigit(stream))
 		{
@@ -3425,7 +3397,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 		}
 #else
 		/*web versions only text files that are included*/
-		const char* textfile = read_file(filename_opt);
+		char* textfile = read_file(filename_opt);
 		if (textfile == NULL)
 		{
 			preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
@@ -3444,7 +3416,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 		{
 			ch = *pch;
 			pch++;
-#endif                    
+#endif
 			if (b_first)
 			{
 				b_first = false;
@@ -3487,7 +3459,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
 			count++;
 		}
-#ifdef MOCKFILES   
+#ifdef MOCKFILES
 		free(textfile);
 #endif
 	}
@@ -4166,7 +4138,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 						strcat(path, input_list->head->lexeme);
 						token_list_pop_front(input_list); //pop (
 					}
-					token_list_pop_front(input_list); //pop >					
+					token_list_pop_front(input_list); //pop >
 				}
 
 				char fullpath[300] = { 0 };
@@ -4208,7 +4180,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 					strcat(path, input_list->head->lexeme);
 					token_list_pop_front(input_list); //pop (
 				}
-				token_list_pop_front(input_list); //pop >					
+				token_list_pop_front(input_list); //pop >
 
 				/*nodiscard
 				* The __has_c_attribute conditional inclusion expression (6.10.1) shall
@@ -5177,7 +5149,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			if (strcmp(macro->name, "assert") == 0)
 			{
 				// TODO create option for this?
-				// Cake overrides the definition of macro to be 
+				// Cake overrides the definition of macro to be
 				// #define assert(...) assert(__VA_ARGS__)
 				// and assert is a keyword. The reason is the send
 				// information to the static analyzer
@@ -6550,11 +6522,13 @@ void check_unused_macros(struct owner_hash_map* map)
 
 void include_config_header(struct preprocessor_ctx* ctx)
 {
-	char executable_path[MAX_PATH - sizeof("/cakeconfig.h")] = { 0 };
+#define CAKE_CFG_FNAME "/cakeconfig.h"
+	char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
 	get_self_path(executable_path, sizeof(executable_path));
 	dirname(executable_path);
 	char path[MAX_PATH] = { 0 };
-	snprintf(path, sizeof path, "%s/cakeconfig.h", executable_path);
+	snprintf(path, sizeof path, "%s" CAKE_CFG_FNAME, executable_path);
+#undef CAKE_CFG_FNAME
 	/*
 	* windows
 	 echo %INCLUDE%
@@ -6645,7 +6619,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define _WIN32 " TOSTRING(_WIN32) "\n"
 #endif
 
-#ifdef _WIN64 
+#ifdef _WIN64
 		"#define _WIN64 " TOSTRING(_WIN64) "\n"
 #endif
 
@@ -8748,6 +8722,7 @@ int copy_file(const char* pathfrom, const char* pathto)
 
 int copy_folder(const char* from, const char* to)
 {
+#if !defined __EMSCRIPTEN__
     int errcode = mkdir(to, 0700);
     if (errcode != 0)
     {
@@ -8791,6 +8766,9 @@ int copy_folder(const char* from, const char* to)
 
     closedir(dir);
     return errcode;
+#else
+    return -1;
+#endif
 }
 
 #ifdef _WIN32
@@ -10542,12 +10520,12 @@ struct scope
     int scope_level;
     struct hash_map tags;
     struct hash_map variables;
-        
+
     struct scope* next;
-    struct scope* previous;        
+    struct scope* previous;
 };
 
-void scope_destroy( struct scope* obj_owner p);
+void scope_destroy(struct scope* obj_owner p);
 
 struct scope_list
 {
@@ -10574,12 +10552,12 @@ struct report
 struct parser_ctx
 {
     struct options options;
-    
+
     /*
       file scope -> function params -> function -> inner scope
     */
     struct scope_list scopes;
-    
+
     /*
     * Points to the function we're in. Or null in file scope.
     */
@@ -10603,12 +10581,12 @@ struct parser_ctx
     bool evaluation_is_disabled;
 
     struct report* p_report;
-    
+
 };
 
 ///////////////////////////////////////////////////////
 
-void parser_ctx_destroy( struct parser_ctx* obj_owner ctx);
+void parser_ctx_destroy(struct parser_ctx* obj_owner ctx);
 
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
@@ -10653,7 +10631,7 @@ struct declaration_specifier
     struct storage_class_specifier* owner storage_class_specifier;
 
     struct type_specifier_qualifier* owner  type_specifier_qualifier;
-    
+
     struct function_specifier* owner function_specifier;
 
     struct declaration_specifier* owner next;
@@ -10703,20 +10681,20 @@ struct static_assert_declaration
 
     /*
       I am keeping the name static_assert_declaration but better is
-      
+
       static_declaration:
        static_assert_declaration
        static_debug_declaration
 
       extension:
-      "static_debug" ( constant-expression ) ;      
-      "static_debug" ( constant-expression , string-literal) ;      
+      "static_debug" ( constant-expression ) ;
+      "static_debug" ( constant-expression , string-literal) ;
     */
-    
-    struct token*  first_token;
-    struct token*  last_token;
+
+    struct token* first_token;
+    struct token* last_token;
     struct expression* owner constant_expression;
-    struct token*  string_literal_opt;
+    struct token* string_literal_opt;
 };
 struct static_assert_declaration* owner static_assert_declaration(struct parser_ctx* ctx);
 void static_assert_declaration_delete(struct static_assert_declaration* owner p);
@@ -10736,7 +10714,7 @@ struct attribute_specifier_sequence
     struct attribute_specifier* tail;
 };
 struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(struct parser_ctx* ctx);
-void attribute_specifier_sequence_delete( struct attribute_specifier_sequence* owner p);
+void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner p);
 
 struct attribute_specifier
 {
@@ -10750,8 +10728,8 @@ struct attribute_specifier
     struct attribute_specifier* owner next;
 };
 
-struct attribute_specifier*  owner attribute_specifier(struct parser_ctx* ctx);
-void attribute_specifier_delete( struct attribute_specifier*  owner p);
+struct attribute_specifier* owner attribute_specifier(struct parser_ctx* ctx);
+void attribute_specifier_delete(struct attribute_specifier* owner p);
 
 struct attribute* owner attribute(struct parser_ctx* ctx);
 
@@ -10784,8 +10762,8 @@ struct function_specifier
     */
     struct token* token;
 };
-struct function_specifier*  owner function_specifier(struct parser_ctx* ctx);
-void function_specifier_delete(struct function_specifier*  owner p);
+struct function_specifier* owner function_specifier(struct parser_ctx* ctx);
+void function_specifier_delete(struct function_specifier* owner p);
 
 struct typeof_specifier_argument
 {
@@ -10808,10 +10786,10 @@ struct typeof_specifier
     */
     struct token* first_token;
     struct token* last_token;
-    struct typeof_specifier_argument*  owner typeof_specifier_argument;
-    struct type type;    
+    struct typeof_specifier_argument* owner typeof_specifier_argument;
+    struct type type;
 };
-void typeof_specifier_delete(struct typeof_specifier * owner p);
+void typeof_specifier_delete(struct typeof_specifier* owner p);
 
 struct type_specifier
 {
@@ -10841,14 +10819,14 @@ struct type_specifier
     enum type_specifier_flags flags;
     struct token* token;
     struct struct_or_union_specifier* owner struct_or_union_specifier;
-    struct typeof_specifier*  owner  typeof_specifier;
-    struct enum_specifier*  owner enum_specifier;
-    struct declarator*  view typedef_declarator;
+    struct typeof_specifier* owner  typeof_specifier;
+    struct enum_specifier* owner enum_specifier;
+    struct declarator* view typedef_declarator;
     struct atomic_type_specifier* owner atomic_type_specifier;
 };
 
-struct type_specifier*  owner type_specifier(struct parser_ctx* ctx);
-void type_specifier_delete(struct type_specifier*  owner p);
+struct type_specifier* owner type_specifier(struct parser_ctx* ctx);
+void type_specifier_delete(struct type_specifier* owner p);
 
 struct init_declarator_list
 {
@@ -10858,13 +10836,13 @@ struct init_declarator_list
        init-declarator-list , init-declarator
     */
     struct init_declarator* owner head;
-    struct init_declarator* tail;    
+    struct init_declarator* tail;
 };
 
 struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers);
 
-void init_declarator_list_destroy(struct init_declarator_list * obj_owner p);
+void init_declarator_list_destroy(struct init_declarator_list* obj_owner p);
 
 struct declaration
 {
@@ -10876,23 +10854,23 @@ struct declaration
         attribute-declaration
     */
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
-    
+
     struct static_assert_declaration* owner static_assert_declaration;
-    
+
 
     struct declaration_specifiers* owner declaration_specifiers;
     struct init_declarator_list init_declarator_list;
 
     struct compound_statement* owner function_body;
-    struct declarator*  contract_declarator;
+    struct declarator* contract_declarator;
 
     struct token* first_token;
     struct token* last_token;
 
     struct declaration* owner next;
 };
-void declaration_delete( struct declaration* owner p);
-struct declaration*  owner external_declaration(struct parser_ctx* ctx);
+void declaration_delete(struct declaration* owner p);
+struct declaration* owner external_declaration(struct parser_ctx* ctx);
 
 struct atomic_type_specifier
 {
@@ -10904,8 +10882,8 @@ struct atomic_type_specifier
     struct type_name* owner type_name;
 };
 
-struct atomic_type_specifier*  owner atomic_type_specifier(struct parser_ctx* ctx);
-void atomic_type_specifier_delete(struct atomic_type_specifier*  owner p);
+struct atomic_type_specifier* owner atomic_type_specifier(struct parser_ctx* ctx);
+void atomic_type_specifier_delete(struct atomic_type_specifier* owner p);
 
 struct enumerator_list
 {
@@ -10919,36 +10897,36 @@ struct enumerator_list
 };
 
 struct enumerator_list enumerator_list(struct parser_ctx* ctx,
-    const struct enum_specifier*  p_enum_specifier
-    );
+    const struct enum_specifier* p_enum_specifier
+);
 
-void enumerator_list_destroy(struct enumerator_list*  obj_owner p_enum_specifier);
-    
+void enumerator_list_destroy(struct enumerator_list* obj_owner p_enum_specifier);
+
 struct enum_specifier
 {
     /*
      enum-type-specifier:
        : specifier-qualifier-lis
-    
+
      enum-specifier:
        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list }
        "enum" attribute-specifier-sequence opt identifier opt enum-type-specifier opt  { enumerator-list , }
        "enum" identifier enum-type-specifier opt
     */
-    struct attribute_specifier_sequence*  owner attribute_specifier_sequence_opt;
-    struct specifier_qualifier_list*  owner specifier_qualifier_list;
-    
+    struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
+    struct specifier_qualifier_list* owner specifier_qualifier_list;
+
 
     struct enumerator_list enumerator_list;
-    
+
     struct token* tag_token;
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
     struct enum_specifier* complete_enum_specifier;
 };
 
-struct enum_specifier*  owner enum_specifier(struct parser_ctx*);
-void enum_specifier_delete(struct enum_specifier*  owner p);
+struct enum_specifier* owner enum_specifier(struct parser_ctx*);
+void enum_specifier_delete(struct enum_specifier* owner p);
 
 struct member_declaration_list
 {
@@ -10964,8 +10942,8 @@ struct member_declaration_list
     struct member_declaration* tail;
 };
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier*);
-void member_declaration_list_destroy(struct member_declaration_list * obj_owner p );
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+void member_declaration_list_destroy(struct member_declaration_list* obj_owner p);
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
 
@@ -10978,10 +10956,10 @@ struct struct_or_union_specifier
     */
     struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
     struct member_declaration_list member_declaration_list;
-    
+
     struct token* first_token;
     struct token* last_token;
-        
+
     bool is_owner;
 
     /*
@@ -10997,7 +10975,7 @@ struct struct_or_union_specifier
 
     int scope_level; /*nivel escopo 0 global*/
     int visit_moved; /*nivel escopo 0 global*/
-        
+
     /*
     * This points to the first struct_or_union_specifier that will have it´s
     * complete_struct_or_union_specifier_indirection pointing to the complete
@@ -11022,13 +11000,13 @@ struct init_declarator
 
     struct declarator* owner p_declarator;
     struct initializer* owner initializer;
-    struct init_declarator* owner next;    
+    struct init_declarator* owner next;
 };
 
-void init_declarator_delete(struct init_declarator*  owner p);
-struct init_declarator*  owner init_declarator(struct parser_ctx* ctx,
+void init_declarator_delete(struct init_declarator* owner p);
+struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers
-    );
+);
 
 struct initializer
 {
@@ -11038,11 +11016,11 @@ struct initializer
        braced-initializer
     */
     struct token* first_token;
-    struct designation*  owner designation; /*auxiliar para list??*/
-    struct braced_initializer*  owner braced_initializer;
-    struct expression*  owner assignment_expression;
+    struct designation* owner designation; /*auxiliar para list??*/
+    struct braced_initializer* owner braced_initializer;
+    struct expression* owner assignment_expression;
     struct initializer* owner next;
-    
+
     /*
        cake extension
        int * p = [[cake::move]] p2;
@@ -11066,24 +11044,24 @@ struct declarator
     struct token* last_token;
 
 
-    struct pointer*  owner pointer;
-    struct direct_declarator*  owner direct_declarator;
+    struct pointer* owner pointer;
+    struct direct_declarator* owner direct_declarator;
 
-    
+
     struct declaration_specifiers* view declaration_specifiers;
     const struct specifier_qualifier_list* view specifier_qualifier_list;
 
     struct token* name; //shortcut
 
     struct compound_statement* view function_body;
-           
+
     int num_uses; /*used to show not used warnings*/
-    
+
     /*user by flow analysis*/
     struct object object;
 
     /*final declarator type (after auto, typeof etc)*/
-    struct type type;    
+    struct type type;
 };
 
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
@@ -11111,7 +11089,7 @@ struct array_declarator
     struct expression* owner assignment_expression;
     struct expression* owner expression;
     struct type_qualifier_list* owner type_qualifier_list_opt;
-    
+
     struct token* token;
     struct token* static_token_opt;
 };
@@ -11131,7 +11109,7 @@ struct function_declarator
     struct scope parameters_scope; //usado para escopo parametros
     struct parameter_type_list* owner parameter_type_list_opt;
 };
-void function_declarator_delete(struct function_declarator * owner p);
+void function_declarator_delete(struct function_declarator* owner p);
 
 struct direct_declarator
 {
@@ -11146,17 +11124,17 @@ struct direct_declarator
     struct declarator* owner declarator;
     struct array_declarator* owner array_declarator;
     struct function_declarator* owner function_declarator;
-    struct attribute_specifier_sequence * owner p_attribute_specifier_sequence_opt;
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
 };
 
 void direct_declarator_delete(struct direct_declarator* owner p);
 
-struct direct_declarator*  owner  direct_declarator(struct parser_ctx* ctx,
+struct direct_declarator* owner  direct_declarator(struct parser_ctx* ctx,
     const struct specifier_qualifier_list* specifier_qualifier_list,
     struct declaration_specifiers* declaration_specifiers,
     bool abstract_acceptable,
     struct token** pptoken_name
-    );
+);
 
 struct parameter_type_list
 {
@@ -11171,15 +11149,15 @@ struct parameter_type_list
     struct parameter_list* owner parameter_list;
 };
 
-struct parameter_type_list*  owner parameter_type_list(struct parser_ctx* ctx);
-void parameter_type_list_delete(struct parameter_type_list*  owner p);
+struct parameter_type_list* owner parameter_type_list(struct parser_ctx* ctx);
+void parameter_type_list_delete(struct parameter_type_list* owner p);
 
 struct pointer
 {
     /*
      pointer:
         * attribute-specifier-sequence opt type-qualifier-list opt
-        * attribute-specifier-sequence opt type-qualifier-list opt pointer    
+        * attribute-specifier-sequence opt type-qualifier-list opt pointer
     */
     struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
     struct type_qualifier_list* owner type_qualifier_list_opt;
@@ -11187,8 +11165,8 @@ struct pointer
     struct pointer* owner pointer;
 };
 
-struct pointer*  owner pointer_opt(struct parser_ctx* ctx);
-void pointer_delete(struct pointer*  owner p);
+struct pointer* owner pointer_opt(struct parser_ctx* ctx);
+void pointer_delete(struct pointer* owner p);
 struct parameter_list
 {
     /*
@@ -11199,8 +11177,8 @@ struct parameter_list
     struct parameter_declaration* owner head;
     struct parameter_declaration* tail;
 };
-struct parameter_list*  owner  parameter_list(struct parser_ctx* ctx);
-void parameter_list_delete(struct parameter_list*  owner  p);
+struct parameter_list* owner  parameter_list(struct parser_ctx* ctx);
+void parameter_list_delete(struct parameter_list* owner  p);
 
 struct parameter_declaration
 {
@@ -11210,14 +11188,14 @@ struct parameter_declaration
       attribute-specifier-sequence opt declaration-specifiers abstract-declarator opt
     */
     struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
-    
+
     struct declaration_specifiers* owner declaration_specifiers;
     struct declarator* owner declarator;
-    struct token * implicit_token;
+    struct token* implicit_token;
     struct parameter_declaration* owner next;
 };
-struct parameter_declaration*  owner parameter_declaration(struct parser_ctx* ctx);
-void parameter_declaration_delete(struct parameter_declaration*  owner p);
+struct parameter_declaration* owner parameter_declaration(struct parser_ctx* ctx);
+void parameter_declaration_delete(struct parameter_declaration* owner p);
 
 
 struct type_name
@@ -11234,12 +11212,12 @@ struct type_name
     struct type type;
 };
 
-struct type_name*  owner type_name(struct parser_ctx* ctx);
-void type_name_delete(struct type_name*  owner p);
+struct type_name* owner type_name(struct parser_ctx* ctx);
+void type_name_delete(struct type_name* owner p);
 void print_type_name(struct osstream* ss, struct type_name* p);
 
 struct argument_expression
-{    
+{
     struct expression* owner expression;
     struct argument_expression* owner next;
 };
@@ -11247,7 +11225,7 @@ struct argument_expression
 void argument_expression_delete(struct argument_expression* owner p);
 
 struct braced_initializer
-{    
+{
     /*
       { }
       { initializer-list }
@@ -11257,8 +11235,8 @@ struct braced_initializer
     struct token* first_token;
     struct initializer_list* owner initializer_list;
 };
-struct braced_initializer*  owner braced_initializer(struct parser_ctx* ctx);
-void braced_initializer_delete(struct braced_initializer*  owner opt p);
+struct braced_initializer* owner braced_initializer(struct parser_ctx* ctx);
+void braced_initializer_delete(struct braced_initializer* owner opt p);
 
 struct type_specifier_qualifier
 {
@@ -11275,8 +11253,8 @@ struct type_specifier_qualifier
 
     struct type_specifier_qualifier* owner next;
 };
-struct type_specifier_qualifier*  owner type_specifier_qualifier(struct parser_ctx* ctx);
-void type_specifier_qualifier_delete(struct type_specifier_qualifier*  owner p);
+struct type_specifier_qualifier* owner type_specifier_qualifier(struct parser_ctx* ctx);
+void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner p);
 
 
 struct specifier_qualifier_list
@@ -11296,13 +11274,13 @@ struct specifier_qualifier_list
     struct enum_specifier* view enum_specifier;
     struct typeof_specifier* view typeof_specifier;
     struct declarator* view typedef_declarator;
-    
+
     struct type_specifier_qualifier* owner head;
     struct type_specifier_qualifier* tail;
     struct token* first_token;
     struct token* last_token;
 
-    struct attribute_specifier_sequence * owner p_attribute_specifier_sequence;
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence;
 
 };
 
@@ -11319,12 +11297,12 @@ struct alignment_specifier
        "alignas" ( type-name )
        "alignas" ( constant-expression )
     */
-    struct type_name * owner type_name;
-    struct expression * owner constant_expression;
+    struct type_name* owner type_name;
+    struct expression* owner constant_expression;
     struct token* token;
 };
-struct alignment_specifier*  owner alignment_specifier(struct parser_ctx* ctx);
-void alignment_specifier_delete(struct alignment_specifier*  owner p);
+struct alignment_specifier* owner alignment_specifier(struct parser_ctx* ctx);
+void alignment_specifier_delete(struct alignment_specifier* owner p);
 
 
 struct type_qualifier
@@ -11341,12 +11319,12 @@ struct type_qualifier
 
     /*
       Next is used when inside struct type_qualifier_list
-      Not used when inside struct type_specifier_qualifier    
+      Not used when inside struct type_specifier_qualifier
     */
     struct type_qualifier* owner next;
 };
 
-struct type_qualifier*  owner type_qualifier(struct parser_ctx* ctx);
+struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx);
 
 struct member_declaration
 {
@@ -11361,29 +11339,29 @@ struct member_declaration
     struct static_assert_declaration* owner static_assert_declaration;
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     struct member_declaration* owner next;
-    
+
 };
 
-struct member_declaration*  owner member_declaration(struct parser_ctx* ctx,  struct struct_or_union_specifier*);
-void member_declaration_delete(struct member_declaration*  owner p);
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+void member_declaration_delete(struct member_declaration* owner p);
 
 struct member_declarator
 {
-    /*    
+    /*
      member-declarator:
        declarator
        declarator opt : constant-expression
     */
-    
+
     struct declarator* owner declarator;
     struct expression* owner constant_expression;
     struct member_declarator* owner next;
 };
-void member_declarator_delete(struct member_declarator * owner p);
+void member_declarator_delete(struct member_declarator* owner p);
 
 struct member_declarator_list
 {
-    /*    
+    /*
      member-declarator-list:
         member-declarator
         member-declarator-list , member-declarator
@@ -11393,11 +11371,11 @@ struct member_declarator_list
     struct member_declarator* tail;
 };
 
-struct member_declarator_list*  owner member_declarator_list(struct parser_ctx* ctx,
-     struct struct_or_union_specifier* ,
+struct member_declarator_list* owner member_declarator_list(struct parser_ctx* ctx,
+    struct struct_or_union_specifier*,
     const struct specifier_qualifier_list* specifier_qualifier_list
-    );
-void member_declarator_list_delete(struct member_declarator_list*  owner opt p);
+);
+void member_declarator_list_delete(struct member_declarator_list* owner opt p);
 
 struct block_item_list
 {
@@ -11411,7 +11389,7 @@ struct block_item_list
 };
 
 struct block_item_list block_item_list(struct parser_ctx* ctx);
-void block_item_list_destroy( struct block_item_list * obj_owner p);
+void block_item_list_destroy(struct block_item_list* obj_owner p);
 
 struct compound_statement
 {
@@ -11424,40 +11402,40 @@ struct compound_statement
 
     struct block_item_list block_item_list;
 };
-struct compound_statement*  owner compound_statement(struct parser_ctx* ctx);
-void compound_statement_delete( struct compound_statement*  owner p);
+struct compound_statement* owner compound_statement(struct parser_ctx* ctx);
+void compound_statement_delete(struct compound_statement* owner p);
 
 struct defer_statement
 {
     /*
      defer-statement: (extension)
-       "defer" secondary-block     
+       "defer" secondary-block
     */
     struct token* first_token;
     struct token* last_token;
     struct secondary_block* owner secondary_block;
 };
 
-void defer_statement_delete(struct defer_statement * owner opt p);
+void defer_statement_delete(struct defer_statement* owner opt p);
 
 struct try_statement
-{   
-   /*
-     try-statement: (extension)
-      "try" secondary-block
-      "try" secondary-block "catch" secondary-block
-   */
+{
+    /*
+      try-statement: (extension)
+       "try" secondary-block
+       "try" secondary-block "catch" secondary-block
+    */
     struct secondary_block* owner secondary_block;
     struct secondary_block* owner catch_secondary_block_opt;
     struct token* first_token; /*try*/
     struct token* last_token;
-    struct token*  catch_token_opt; /*catch*/
+    struct token* catch_token_opt; /*catch*/
     /*Used to generate label names*/
     int try_catch_block_index;
 };
 
-struct try_statement*  owner try_statement(struct parser_ctx* ctx);
-void try_statement_delete(struct try_statement*  owner p);
+struct try_statement* owner try_statement(struct parser_ctx* ctx);
+void try_statement_delete(struct try_statement* owner p);
 
 struct selection_statement
 {
@@ -11478,10 +11456,10 @@ struct selection_statement
 
     struct token* first_token;
     struct token* last_token;
-    struct token* else_token_opt;    
+    struct token* else_token_opt;
 };
 
-struct selection_statement*  owner selection_statement(struct parser_ctx* ctx);
+struct selection_statement* owner selection_statement(struct parser_ctx* ctx);
 void selection_statement_delete(struct selection_statement* owner p);
 struct iteration_statement
 {
@@ -11493,7 +11471,7 @@ struct iteration_statement
         "for" ( declaration expression opt ; expression opt ) secondary-block
         "repeat" secondary-block  (extension)
     */
-    
+
     struct token* first_token;
     struct token* second_token; /*do {} while*/
 
@@ -11501,11 +11479,11 @@ struct iteration_statement
     struct expression* owner expression1;
     struct expression* owner expression2;
     struct expression* owner expression0;
-    struct declaration * owner declaration;
+    struct declaration* owner declaration;
 };
 
-struct iteration_statement*  owner iteration_statement(struct parser_ctx* ctx);
-void iteration_statement_delete(struct iteration_statement*owner p);
+struct iteration_statement* owner iteration_statement(struct parser_ctx* ctx);
+void iteration_statement_delete(struct iteration_statement* owner p);
 
 struct jump_statement
 {
@@ -11516,17 +11494,17 @@ struct jump_statement
        "break" ;
        "return" expression opt ;
     */
-    
+
     struct token* label;
     struct token* first_token;
     struct token* last_token;
     struct expression* owner expression_opt;
-    
+
     int try_catch_block_index;
 };
 
-struct jump_statement*  owner jump_statement(struct parser_ctx* ctx);
-void jump_statement_delete(struct jump_statement*  owner p);
+struct jump_statement* owner jump_statement(struct parser_ctx* ctx);
+void jump_statement_delete(struct jump_statement* owner p);
 
 struct expression_statement
 {
@@ -11535,13 +11513,13 @@ struct expression_statement
        expression opt;
        attribute-specifier-sequence expression ;
     */
-    
+
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     struct expression* owner expression_opt;
 };
 
-struct expression_statement*  owner expression_statement(struct parser_ctx* ctx);
-void expression_statement_delete(struct expression_statement*  owner p);
+struct expression_statement* owner expression_statement(struct parser_ctx* ctx);
+void expression_statement_delete(struct expression_statement* owner p);
 
 struct block_item
 {
@@ -11552,17 +11530,17 @@ struct block_item
       label
     */
     struct token* first_token; //?necessary
-    struct declaration* owner declaration;    
+    struct declaration* owner declaration;
     struct unlabeled_statement* owner unlabeled_statement;
     struct label* owner label;
 
     struct block_item* owner next;
 };
 
-struct block_item*  owner block_item(struct parser_ctx* ctx);
-void block_item_delete( struct block_item*  owner p);
+struct block_item* owner block_item(struct parser_ctx* ctx);
+void block_item_delete(struct block_item* owner p);
 
-struct compound_statement*  owner function_body(struct parser_ctx* ctx);
+struct compound_statement* owner function_body(struct parser_ctx* ctx);
 
 struct designator
 {
@@ -11575,8 +11553,8 @@ struct designator
     struct token* token;
     struct designator* owner next;
 };
-struct designator*  owner designator(struct parser_ctx* ctx);
-void designator_delete(struct designator*  owner p);
+struct designator* owner designator(struct parser_ctx* ctx);
+void designator_delete(struct designator* owner p);
 struct initializer_list
 {
     /*
@@ -11589,8 +11567,8 @@ struct initializer_list
     struct initializer* tail;
     int size;
 };
-struct initializer_list*  owner initializer_list(struct parser_ctx* ctx);
-void initializer_list_delete(struct initializer_list*  owner p);
+struct initializer_list* owner initializer_list(struct parser_ctx* ctx);
+void initializer_list_delete(struct initializer_list* owner p);
 
 struct primary_block
 {
@@ -11602,7 +11580,7 @@ struct primary_block
          defer-statement (extension)
          try-statement (extension)
     */
-    
+
     struct compound_statement* owner compound_statement;
     struct selection_statement* owner selection_statement;
     struct iteration_statement* owner iteration_statement;
@@ -11610,7 +11588,7 @@ struct primary_block
     struct try_statement* owner try_statement;
 };
 
-void primary_block_delete(struct primary_block * owner p);
+void primary_block_delete(struct primary_block* owner p);
 
 struct secondary_block
 {
@@ -11623,7 +11601,7 @@ struct secondary_block
     struct statement* owner statement;
 };
 
-void secondary_block_delete(struct secondary_block * owner opt p);
+void secondary_block_delete(struct secondary_block* owner opt p);
 
 struct unlabeled_statement
 {
@@ -11634,13 +11612,13 @@ struct unlabeled_statement
         attribute-specifier-sequence opt jump-statement
      */
 
-    struct expression_statement*  owner expression_statement;
-    struct primary_block*  owner primary_block;
-    struct jump_statement*  owner jump_statement;
+    struct expression_statement* owner expression_statement;
+    struct primary_block* owner primary_block;
+    struct jump_statement* owner jump_statement;
 };
 
 struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx);
-void unlabeled_statement_delete( struct unlabeled_statement* owner p);
+void unlabeled_statement_delete(struct unlabeled_statement* owner p);
 
 struct labeled_statement
 {
@@ -11652,10 +11630,10 @@ struct labeled_statement
     struct statement* owner statement;
 };
 struct labeled_statement* owner labeled_statement(struct parser_ctx* ctx);
-void labeled_statement_delete(struct labeled_statement * owner p);
+void labeled_statement_delete(struct labeled_statement* owner p);
 
 struct statement
-{    
+{
     /*
      statement:
        labeled-statement
@@ -11687,7 +11665,7 @@ struct designation
      designation:
        designator-list =
     */
-    struct designator_list * owner designator_list;
+    struct designator_list* owner designator_list;
     struct token* token;
 };
 struct designation* owner designation(struct parser_ctx* ctx);
@@ -11722,7 +11700,7 @@ struct attribute
     struct attribute_argument_clause* owner attribute_argument_clause;
     struct attribute* owner next;
 };
-void attribute_delete(struct attribute * owner p);
+void attribute_delete(struct attribute* owner p);
 
 struct attribute_list
 {
@@ -11731,34 +11709,34 @@ struct attribute_list
     struct attribute* tail;
 };
 struct attribute_list* owner attribute_list(struct parser_ctx* ctx);
-void attribute_list_destroy( struct attribute_list* obj_owner p);
+void attribute_list_destroy(struct attribute_list* obj_owner p);
 
 struct enumerator
 {
     /*
       enumeration-constant:
         identifier
-   
+
       enumerator:
         enumeration-constant attribute-specifier-sequence opt
         enumeration-constant attribute-specifier-sequence opt = constant-expression
     */
-    
+
     struct token* token;
     struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
 
     struct expression* owner constant_expression_opt;
-    
+
     /*
       having the enum specifier we have better information about the type
     */
     const struct enum_specifier* view enum_specifier;
 
     struct enumerator* owner next;
-    long long value;    
+    long long value;
 };
 
-struct enumerator* owner enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long *p_enumerator_value);
+struct enumerator* owner enumerator(struct parser_ctx* ctx, const struct enum_specifier* p_enum_specifier, long long* p_enumerator_value);
 void enumerator_delete(struct enumerator* owner p);
 
 struct attribute_argument_clause
@@ -11767,7 +11745,7 @@ struct attribute_argument_clause
      attribute-argument-clause:
        ( balanced-token-sequence opt )
     */
-    struct balanced_token_sequence * owner p_balanced_token_sequence;
+    struct balanced_token_sequence* owner p_balanced_token_sequence;
     struct token* token;
 };
 
@@ -11778,7 +11756,7 @@ bool first_of_attribute(struct parser_ctx* ctx);
 
 struct balanced_token
 {
-    struct token * token;
+    struct token* token;
     struct balanced_token* owner next;
 };
 
@@ -11803,7 +11781,7 @@ struct declaration_list
 };
 
 struct declaration_list translation_unit(struct parser_ctx* ctx);
-void declaration_list_destroy( struct declaration_list* obj_owner list);
+void declaration_list_destroy(struct declaration_list* obj_owner list);
 
 struct label
 {
@@ -11818,7 +11796,7 @@ struct label
 };
 
 struct label* owner label(struct parser_ctx* ctx);
-void label_delete( struct label* owner p);
+void label_delete(struct label* owner p);
 
 struct ast
 {
@@ -11828,7 +11806,7 @@ struct ast
 
 
 struct ast get_ast(struct options* options, const char* filename, const char* source, struct report* report);
-void ast_destroy( struct ast* obj_owner ast);
+void ast_destroy(struct ast* obj_owner ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
@@ -15761,7 +15739,6 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
 #if defined _MSC_VER && !defined __POCC__
 #endif
 
-
 /*contexto expressoes preprocessador*/
 struct pre_expression_ctx
 {
@@ -15769,38 +15746,35 @@ struct pre_expression_ctx
     long long value;
 };
 
-
-static void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx);
-
-
+static void pre_postfix_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_cast_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_multiplicative_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_unary_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_additive_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_shift_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_relational_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_equality_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_and_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_exclusive_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_inclusive_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_logical_and_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_logical_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_conditional_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
+static void pre_conditional_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx);
 
 /*
-* preprocessor uses long long
-*/
-static int ppnumber_to_longlong(struct token* token, long long* result)
+ * preprocessor uses long long
+ */
+static int ppnumber_to_longlong(struct token *token, long long *result)
 {
 
     /*copia removendo os separadores*/
-    //um dos maiores buffer necessarios seria 128 bits binario...
-    //0xb1'1'1.... 
+    // um dos maiores buffer necessarios seria 128 bits binario...
+    // 0xb1'1'1....
     int c = 0;
-    char buffer[128 * 2 + 4] = { 0 };
-    const char* s = token->lexeme;
+    char buffer[128 * 2 + 4] = {0};
+    const char *s = token->lexeme;
     while (*s)
     {
         if (*s != '\'')
@@ -15814,27 +15788,26 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
     if (buffer[0] == '0' &&
         buffer[1] == 'x')
     {
-        //hex
+        // hex
         *result = strtoll(buffer + 2, 0, 16);
     }
     else if (buffer[0] == '0' &&
-        buffer[1] == 'b')
+             buffer[1] == 'b')
     {
-        //binario
+        // binario
         *result = strtoll(buffer + 2, 0, 2);
     }
     else if (buffer[0] == '0')
     {
-        //octal
+        // octal
         *result = strtoll(buffer, 0, 8);
     }
     else
     {
-        //decimal
+        // decimal
         *result = strtoll(buffer, 0, 10);
     }
 
-    
     return 0;
 }
 
@@ -15844,7 +15817,7 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
   into another so the head of the input list is the current.
   We could use the same concept here removing current.
 */
-static struct token* pre_match(struct preprocessor_ctx* ctx)
+static struct token *pre_match(struct preprocessor_ctx *ctx)
 {
     ctx->current = ctx->current->next;
 
@@ -15856,7 +15829,7 @@ static struct token* pre_match(struct preprocessor_ctx* ctx)
     return ctx->current;
 }
 
-static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_primary_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      primary-expression:
@@ -15870,7 +15843,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
     {
         if (ctx->current->type == TK_CHAR_CONSTANT)
         {
-            const char* p = ctx->current->lexeme + 1;
+            const char *p = ctx->current->lexeme + 1;
             ectx->value = 0;
             int count = 0;
             while (*p != '\'')
@@ -15894,8 +15867,9 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
         else if (ctx->current->type == '(')
         {
             pre_match(ctx);
-            pre_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
             if (ctx->current && ctx->current->type != ')')
             {
                 preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "expected )");
@@ -15906,12 +15880,11 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
         else
         {
             preprocessor_set_error_with_token(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
-                ctx, 
-                ctx->current, 
-                "token '%s' is not valid in preprocessor expressions", 
-                ctx->current->lexeme);
+                                              ctx,
+                                              ctx->current,
+                                              "token '%s' is not valid in preprocessor expressions",
+                                              ctx->current->lexeme);
             throw;
-
         }
     }
     catch
@@ -15919,10 +15892,7 @@ static void pre_primary_expression(struct preprocessor_ctx* ctx,struct pre_expre
     }
 }
 
-
-
-
-static void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_postfix_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
       postfix-expression:
@@ -15942,16 +15912,16 @@ static void pre_postfix_expression(struct preprocessor_ctx* ctx,struct pre_expre
         */
     try
     {
-        pre_primary_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_primary_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
     }
     catch
     {
     }
 }
 
-
-static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_unary_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     unary-expression:
@@ -15970,24 +15940,20 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_express
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
             preprocessor_set_error_with_token(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
-                ctx, 
-                ctx->current, 
-                "token '%s' is not valid in preprocessor expressions",
-                ctx->current->lexeme);
+                                              ctx,
+                                              ctx->current,
+                                              "token '%s' is not valid in preprocessor expressions",
+                                              ctx->current->lexeme);
             throw;
         }
         else if (ctx->current != NULL &&
-            (ctx->current->type == '&'
-                || ctx->current->type == '*'
-                || ctx->current->type == '+'
-                || ctx->current->type == '-'
-                || ctx->current->type == '~'
-                || ctx->current->type == '!'))
+                 (ctx->current->type == '&' || ctx->current->type == '*' || ctx->current->type == '+' || ctx->current->type == '-' || ctx->current->type == '~' || ctx->current->type == '!'))
         {
             enum token_type op = ctx->current->type;
             pre_match(ctx);
-            pre_cast_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_cast_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '!')
                 ectx->value = !ectx->value;
@@ -16010,9 +15976,9 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_express
                 preprocessor_set_error_with_token(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
         }
-        else 
+        else
         {
-            pre_postfix_expression(ctx,  ectx);
+            pre_postfix_expression(ctx, ectx);
         }
     }
     catch
@@ -16020,17 +15986,17 @@ static void pre_unary_expression(struct preprocessor_ctx* ctx,struct pre_express
     }
 }
 
-static void pre_cast_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_cast_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      cast-expression:
       unary-expression
       ( type-name ) cast-expression
     */
-    pre_unary_expression(ctx,  ectx);    
+    pre_unary_expression(ctx, ectx);
 }
 
-static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_multiplicative_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      multiplicative-expression:
@@ -16041,19 +16007,21 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pr
     */
     try
     {
-        pre_cast_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_cast_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '*' ||
+               (ctx->current->type == '*' ||
                 ctx->current->type == '/' ||
                 ctx->current->type == '%'))
         {
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_cast_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_cast_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '*')
             {
@@ -16074,7 +16042,7 @@ static void pre_multiplicative_expression(struct preprocessor_ctx* ctx,struct pr
     }
 }
 
-static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_additive_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      additive-expression:
@@ -16084,11 +16052,12 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expr
     */
     try
     {
-        pre_multiplicative_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_multiplicative_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '+' ||
+               (ctx->current->type == '+' ||
                 ctx->current->type == '-'))
         {
             enum token_type op = ctx->current->type;
@@ -16099,8 +16068,9 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expr
                 throw;
             }
             long long left_value = ectx->value;
-            pre_multiplicative_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_multiplicative_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '+')
             {
@@ -16117,7 +16087,7 @@ static void pre_additive_expression(struct preprocessor_ctx* ctx,struct pre_expr
     }
 }
 
-static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_shift_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      shift-expression:
@@ -16127,18 +16097,20 @@ static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_express
     */
     try
     {
-        pre_additive_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_additive_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '>>' ||
+               (ctx->current->type == '>>' ||
                 ctx->current->type == '<<'))
         {
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_multiplicative_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_multiplicative_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '>>')
             {
@@ -16155,7 +16127,7 @@ static void pre_shift_expression(struct preprocessor_ctx* ctx,struct pre_express
     }
 }
 
-static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_relational_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     relational-expression:
@@ -16167,11 +16139,12 @@ static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_ex
     */
     try
     {
-        pre_shift_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_shift_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '>' ||
+               (ctx->current->type == '>' ||
                 ctx->current->type == '<' ||
                 ctx->current->type == '>=' ||
                 ctx->current->type == '<='))
@@ -16179,8 +16152,9 @@ static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_ex
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_shift_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_shift_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '>')
             {
@@ -16205,7 +16179,7 @@ static void pre_relational_expression(struct preprocessor_ctx* ctx,struct pre_ex
     }
 }
 
-static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_equality_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
       equality-expression:
@@ -16225,18 +16199,20 @@ static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expr
     */
     try
     {
-        pre_relational_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_relational_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '==' ||
+               (ctx->current->type == '==' ||
                 ctx->current->type == '!='))
         {
             enum token_type op = ctx->current->type;
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_multiplicative_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_multiplicative_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             if (op == '==')
             {
@@ -16245,7 +16221,7 @@ static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expr
             else if (op == '!=')
             {
                 ectx->value = left_value != ectx->value;
-            }            
+            }
         }
     }
     catch
@@ -16253,7 +16229,7 @@ static void pre_equality_expression(struct preprocessor_ctx* ctx,struct pre_expr
     }
 }
 
-static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_and_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      AND-expression:
@@ -16262,15 +16238,17 @@ static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expressio
     */
     try
     {
-        pre_equality_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_equality_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
         while (ctx->current != NULL &&
-            (ctx->current->type == '&'))
+               (ctx->current->type == '&'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_equality_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_equality_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
             ectx->value = left_value & ectx->value;
         }
     }
@@ -16279,7 +16257,7 @@ static void pre_and_expression(struct preprocessor_ctx* ctx,struct pre_expressio
     }
 }
 
-static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_exclusive_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
      exclusive-OR-expression:
@@ -16289,16 +16267,17 @@ static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_
     try
     {
         pre_and_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
-        
         while (ctx->current != NULL &&
-            (ctx->current->type == '^'))
+               (ctx->current->type == '^'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_and_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_and_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
             ectx->value = left_value ^ ectx->value;
         }
     }
@@ -16307,7 +16286,7 @@ static void pre_exclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_
     }
 }
 
-static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_inclusive_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     inclusive-OR-expression:
@@ -16317,15 +16296,17 @@ static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_
     try
     {
         pre_exclusive_or_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '|'))
+               (ctx->current->type == '|'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
             pre_exclusive_or_expression(ctx, ectx);
-            if (ctx->n_errors > 0) throw;
+            if (ctx->n_errors > 0)
+                throw;
 
             ectx->value = left_value | ectx->value;
         }
@@ -16335,7 +16316,7 @@ static void pre_inclusive_or_expression(struct preprocessor_ctx* ctx,struct pre_
     }
 }
 
-static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_logical_and_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     logical-AND-expression:
@@ -16345,15 +16326,17 @@ static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_e
     try
     {
         pre_inclusive_or_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '&&'))
+               (ctx->current->type == '&&'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_inclusive_or_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_inclusive_or_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             ectx->value = left_value && ectx->value;
         }
@@ -16363,7 +16346,7 @@ static void pre_logical_and_expression(struct preprocessor_ctx* ctx,struct pre_e
     }
 }
 
-static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_logical_or_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
       logical-OR-expression:
@@ -16372,19 +16355,20 @@ static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_ex
     */
     try
     {
-        pre_logical_and_expression(ctx,  ectx);
-        if (ctx->n_errors > 0) throw;
+        pre_logical_and_expression(ctx, ectx);
+        if (ctx->n_errors > 0)
+            throw;
 
         while (ctx->current != NULL &&
-            (ctx->current->type == '||'))
+               (ctx->current->type == '||'))
         {
             pre_match(ctx);
             long long left_value = ectx->value;
-            pre_logical_and_expression(ctx,  ectx);
-            if (ctx->n_errors > 0) throw;
+            pre_logical_and_expression(ctx, ectx);
+            if (ctx->n_errors > 0)
+                throw;
 
             ectx->value = left_value || ectx->value;
-
         }
     }
     catch
@@ -16392,30 +16376,28 @@ static void pre_logical_or_expression(struct preprocessor_ctx* ctx,struct pre_ex
     }
 }
 
-
-
-static void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_assignment_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
     assignment-expression:
        conditional-expression
        unary-expression assignment-operator assignment-expression
        */
-       /*
-          assignment-operator: one of
-          = *= /= %= += -= <<= >>= &= ^= |=
-       */
-       //aqui eh duvidoso mas conditional faz a unary tb.
-       //a diferenca q nao eh qualquer expressao
-       //que pode ser de atribuicao
+    /*
+       assignment-operator: one of
+       = *= /= %= += -= <<= >>= &= ^= |=
+    */
+    // aqui eh duvidoso mas conditional faz a unary tb.
+    // a diferenca q nao eh qualquer expressao
+    // que pode ser de atribuicao
     try
     {
         pre_conditional_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
-        
         while (ctx->current != NULL &&
-            (ctx->current->type == '=' ||
+               (ctx->current->type == '=' ||
                 ctx->current->type == '*=' ||
                 ctx->current->type == '/=' ||
                 ctx->current->type == '+=' ||
@@ -16435,7 +16417,7 @@ static void pre_assignment_expression(struct preprocessor_ctx* ctx,struct pre_ex
     }
 }
 
-static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*expression:
       assignment-expression
@@ -16444,13 +16426,15 @@ static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ct
     try
     {
         pre_assignment_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
-        
+        if (ctx->n_errors > 0)
+            throw;
+
         while (ctx->current->type == ',')
         {
             pre_match(ctx);
             pre_expression(ctx, ectx);
-            if (ctx->n_errors > 0) throw;            
+            if (ctx->n_errors > 0)
+                throw;
         }
     }
     catch
@@ -16458,9 +16442,7 @@ static void pre_expression(struct preprocessor_ctx* ctx,struct pre_expression_ct
     }
 }
 
-
-
-static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_expression_ctx* ectx)
+static void pre_conditional_expression(struct preprocessor_ctx *ctx, struct pre_expression_ctx *ectx)
 {
     /*
       conditional-expression:
@@ -16470,7 +16452,8 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_e
     try
     {
         pre_logical_or_expression(ctx, ectx);
-        if (ctx->n_errors > 0) throw;
+        if (ctx->n_errors > 0)
+            throw;
 
         if (ctx->current && ctx->current->type == '?')
         {
@@ -16478,22 +16461,26 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_e
             if (ectx->value)
             {
                 pre_expression(ctx, ectx);
-                if (ctx->n_errors > 0) throw;
+                if (ctx->n_errors > 0)
+                    throw;
 
                 pre_match(ctx); //:
                 struct pre_expression_ctx temp = {0};
-                pre_conditional_expression(ctx, &temp);                
-                if (ctx->n_errors > 0) throw;
+                pre_conditional_expression(ctx, &temp);
+                if (ctx->n_errors > 0)
+                    throw;
             }
             else
             {
                 struct pre_expression_ctx temp = {0};
                 pre_expression(ctx, &temp);
-                if (ctx->n_errors > 0) throw;
+                if (ctx->n_errors > 0)
+                    throw;
 
                 pre_match(ctx); //:
                 pre_conditional_expression(ctx, ectx);
-                if (ctx->n_errors > 0) throw;
+                if (ctx->n_errors > 0)
+                    throw;
             }
         }
     }
@@ -16502,14 +16489,13 @@ static void pre_conditional_expression(struct preprocessor_ctx* ctx,struct pre_e
     }
 }
 
-int pre_constant_expression(struct preprocessor_ctx* ctx,long long* pvalue)
+int pre_constant_expression(struct preprocessor_ctx *ctx, long long *pvalue)
 {
-    struct pre_expression_ctx ectx = { 0 };
+    struct pre_expression_ctx ectx = {0};
     pre_conditional_expression(ctx, &ectx);
     *pvalue = ectx.value;
     return ctx->n_errors > 0;
 }
-
 
 
 
@@ -17374,7 +17360,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 			}
 			else
 			{
-				//pointer object is owner 
+				//pointer object is owner
 				if (!argument_type->address_of)
 				{
 					//we need something created with address of.
@@ -17493,7 +17479,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 	if (is_null_pointer_constant && type_is_pointer(paramer_type))
 	{
 		//TODO void F(int * [[opt]] p)
-		// F(0) when passing null we will check if the parameter 
+		// F(0) when passing null we will check if the parameter
 		//have the anotation [[opt]]
 
 		/*can be converted to any type*/
@@ -17680,7 +17666,7 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 				right->first_token,
 				"function returns address of local variable");
 		}
-		if (type_is_array(&right->type) &&			
+		if (type_is_array(&right->type) &&
 			right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
 		{
 			compiler_set_warning_with_token(W_RETURN_LOCAL_ADDR,
@@ -17697,8 +17683,8 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 		{
 			if (type_is_owner(left_type))
 			{
-				//returning a owning variable to a owner result                                
-				// * explicit if local variable                
+				//returning a owning variable to a owner result
+				// * explicit if local variable
 				// * non explicit if param or external
 				// ok if external
 
@@ -17893,7 +17879,7 @@ void check_assigment(struct parser_ctx* ctx,
 	if (is_null_pointer_constant && type_is_pointer(left_type))
 	{
 		//TODO void F(int * [[opt]] p)
-		// F(0) when passing null we will check if the parameter 
+		// F(0) when passing null we will check if the parameter
 		//have the anotation [[opt]]
 
 		/*can be converted to any type*/
@@ -18016,7 +18002,7 @@ void check_assigment(struct parser_ctx* ctx,
 	if (!type_is_same(left_type, &lvalue_right_type, false))
 	{
 		//TODO more rules..but it is good to check worst case!
-		// 
+		//
 		//  compiler_set_error_with_token(C1, ctx,
 		//      right->first_token,
 		//      " incompatible types ");
@@ -18827,7 +18813,7 @@ void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
-#if 0    
+#if 0
 /*this sample is useful to try in compiler explorer*/
 
 
@@ -19120,7 +19106,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 			if (pa->struct_or_union_specifier->complete_struct_or_union_specifier_indirection !=
 				pb->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
 			{
-				//this should work but it is not... 
+				//this should work but it is not...
 			}
 
 			if (strcmp(pa->struct_or_union_specifier->tag_name, pb->struct_or_union_specifier->tag_name) != 0)
@@ -19663,6 +19649,7 @@ const struct type* type_get_specifer_part(const struct type* p_type)
 	while (p->next) p = p->next;
 	return p;
 }
+
 
 
 
@@ -21627,7 +21614,7 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
 		}
 	}
 }
-
+/*
 static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* token)
 {
 	//token points to {
@@ -21649,7 +21636,7 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
 		}
 	}
 }
-
+*/
 
 #ifdef TEST
 int printf_nothing(const char* fmt, ...) { return 0; }
@@ -22240,7 +22227,7 @@ struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* l
 		}
 		scope = scope->previous;
 	}
-	return best; //mesmo que nao seja tao completo vamos retornar.    
+	return best; //mesmo que nao seja tao completo vamos retornar.
 }
 
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme)
@@ -23391,7 +23378,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
 					//typedef tem que aparecer sozinho
 					//exemplo Socket eh nome e nao typdef
 					//typedef int Socket;
-					//struct X {int Socket;}; 
+					//struct X {int Socket;};
 					break;
 				}
 			}
@@ -23456,7 +23443,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
 				p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
 			{
 				//typedef nao pode aparecer com outro especifier
-				//entao ja tem tem algo e vier identifier signfica que acabou 
+				//entao ja tem tem algo e vier identifier signfica que acabou
 				//exemplo
 				/*
 				 typedef char X;
@@ -24744,7 +24731,7 @@ void member_declaration_list_destroy(struct member_declaration_list* obj_owner p
 	}
 }
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
 	struct member_declaration_list list = { 0 };
 	//member_declaration
@@ -24952,7 +24939,7 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
 					//typedef tem que aparecer sozinho
 					//exemplo Socket eh nome e nao typdef
 					//typedef int Socket;
-					//struct X {int Socket;}; 
+					//struct X {int Socket;};
 					break;
 				}
 			}
@@ -26060,11 +26047,11 @@ struct parameter_declaration* owner parameter_declaration(struct parser_ctx* ctx
 
 	//coloca o pametro no escpo atual que deve apontar para escopo paramtros
 	// da funcao .
-	// 
+	//
 	//assert ctx->current_scope->variables parametrosd
 	if (p_parameter_declaration->declarator->name)
 	{
-		//parametro void nao te name 
+		//parametro void nao te name
 		hashmap_set(&ctx->scopes.tail->variables,
 			p_parameter_declaration->declarator->name->lexeme,
 			p_parameter_declaration->declarator,
@@ -27972,7 +27959,7 @@ unsigned long GetEnvironmentVariableA(
 	unsigned long nsize
 )
 {
-
+    return 0;
 }
 #endif
 
@@ -28320,7 +28307,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 	   root   : C:/folder
 	   outdir : C:/folder/folder1/folder2 ...
 	*/
-
+#if !defined __EMSCRIPTEN__
 	const char* p = outdir + strlen(root) + 1;
 	for (;;)
 	{
@@ -28348,6 +28335,9 @@ static int create_multiple_paths(const char* root, const char* outdir)
 		p++;
 	}
 	return 0;
+#else
+	return -1;
+#endif
 }
 
 int compile(int argc, const char** argv, struct report* report)
@@ -31294,8 +31284,8 @@ struct flow_defer_scope
 {
 
     //things must called at end of scope
-    struct declarator* declarator; // declarator 
-    struct defer_statement* defer_statement; // defer 
+    struct declarator* declarator; // declarator
+    struct defer_statement* defer_statement; // defer
 
     //statements for controling where jump like break, throw stop.
 
@@ -31792,7 +31782,7 @@ static struct object* expression_is_comparing_owner_with_not_null(struct express
         expression_is_null_pointer_constant(p_expression->right) &&
         type_is_pointer(&p_expression->left->type))
     {
-        //NULL != p 
+        //NULL != p
         struct type type = { 0 };
         struct object* p_object = expression_get_object(p_expression->right, &type);
         type_destroy(&type);
@@ -32602,7 +32592,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             //TODO inside sizeof(v)  is not an error. :D
             //TODO function type...
 
-            if (!ctx->is_left_expression && 
+            if (!ctx->is_left_expression &&
                 !ctx->is_size_of_expression)
             {
                 compiler_set_warning_with_token(W_UNINITIALZED,
@@ -32642,28 +32632,28 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
     case POSTFIX_DECREMENT:
         break;
-    case POSTFIX_ARRAY:
+    case POSTFIX_ARRAY: {
 
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->left);
+            flow_visit_expression(ctx, p_expression->right);
 
-        struct type t = { 0 };
-        struct object* p_object = expression_get_object(p_expression->left, &t);
+            struct type t = { 0 };
+            struct object* p_object = expression_get_object(p_expression->left, &t);
 
-        if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
-        {
-            compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
-                ctx->ctx,
-                p_expression->left->first_token, "using a uninitialized object");
+            if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+            {
+                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+                    ctx->ctx,
+                    p_expression->left->first_token, "using a uninitialized object");
+            }
+            else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
+            {
+                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+                    ctx->ctx,
+                    p_expression->left->first_token, "maybe using a uninitialized object");
+            }
+            type_destroy(&t);
         }
-        else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
-        {
-            compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
-                ctx->ctx,
-                p_expression->left->first_token, "maybe using a uninitialized object");
-        }
-        type_destroy(&t);
-
         break;
 
     case POSTFIX_FUNCTION_CALL:
@@ -32752,13 +32742,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-    
+
         if (p_expression->right)
         {
-            const bool t = ctx->is_size_of_expression;
+            const bool t2 = ctx->is_size_of_expression;
             ctx->is_size_of_expression = true;
             flow_visit_expression(ctx, p_expression->right);
-            ctx->is_size_of_expression = t;
+            ctx->is_size_of_expression = t2;
         }
 
         if (p_expression->type_name)
@@ -32767,7 +32757,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             flow_visit_type_name(ctx, p_expression->type_name);
         }
 
-        
+
         break;
 
     case UNARY_EXPRESSION_SIZEOF_TYPE:
@@ -33026,7 +33016,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
         }
         else
         {
-            //do { } while (p); 
+            //do { } while (p);
 
             if (p_object_compared_with_not_null)
             {
@@ -33113,8 +33103,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
-
-    struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression0)
     {
@@ -33456,7 +33444,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
                 if (strcmp(lexeme, "\"zero\"") == 0)
                 {
-                    //gives the semantics of {0} or calloc                    
+                    //gives the semantics of {0} or calloc
                     set_direct_state(&t, p_obj, OBJECT_STATE_ZERO);
                 }
                 else

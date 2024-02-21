@@ -870,7 +870,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 			}
 			else
 			{
-				//pointer object is owner 
+				//pointer object is owner
 				if (!argument_type->address_of)
 				{
 					//we need something created with address of.
@@ -989,7 +989,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 	if (is_null_pointer_constant && type_is_pointer(paramer_type))
 	{
 		//TODO void F(int * [[opt]] p)
-		// F(0) when passing null we will check if the parameter 
+		// F(0) when passing null we will check if the parameter
 		//have the anotation [[opt]]
 
 		/*can be converted to any type*/
@@ -1176,7 +1176,7 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 				right->first_token,
 				"function returns address of local variable");
 		}
-		if (type_is_array(&right->type) &&			
+		if (type_is_array(&right->type) &&
 			right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
 		{
 			compiler_set_warning_with_token(W_RETURN_LOCAL_ADDR,
@@ -1193,8 +1193,8 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 		{
 			if (type_is_owner(left_type))
 			{
-				//returning a owning variable to a owner result                                
-				// * explicit if local variable                
+				//returning a owning variable to a owner result
+				// * explicit if local variable
 				// * non explicit if param or external
 				// ok if external
 
@@ -1389,7 +1389,7 @@ void check_assigment(struct parser_ctx* ctx,
 	if (is_null_pointer_constant && type_is_pointer(left_type))
 	{
 		//TODO void F(int * [[opt]] p)
-		// F(0) when passing null we will check if the parameter 
+		// F(0) when passing null we will check if the parameter
 		//have the anotation [[opt]]
 
 		/*can be converted to any type*/
@@ -1512,7 +1512,7 @@ void check_assigment(struct parser_ctx* ctx,
 	if (!type_is_same(left_type, &lvalue_right_type, false))
 	{
 		//TODO more rules..but it is good to check worst case!
-		// 
+		//
 		//  compiler_set_error_with_token(C1, ctx,
 		//      right->first_token,
 		//      " incompatible types ");
@@ -2323,7 +2323,7 @@ void type_set_attributes(struct type* p_type, struct declarator* pdeclarator)
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
-#if 0    
+#if 0
 /*this sample is useful to try in compiler explorer*/
 #include <stdio.h>
 #include <typeinfo>
@@ -2613,7 +2613,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 			if (pa->struct_or_union_specifier->complete_struct_or_union_specifier_indirection !=
 				pb->struct_or_union_specifier->complete_struct_or_union_specifier_indirection)
 			{
-				//this should work but it is not... 
+				//this should work but it is not...
 			}
 
 			if (strcmp(pa->struct_or_union_specifier->tag_name, pb->struct_or_union_specifier->tag_name) != 0)
