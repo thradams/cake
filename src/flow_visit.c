@@ -1340,7 +1340,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     ctx->ctx,
                     p_expression->first_token,
                     "'%s' is uninitialized ",
-                    p_expression->declarator->name->token_origin->lexeme);
+                    p_expression->declarator->name->lexeme);
             }
         }
 

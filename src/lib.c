@@ -2049,9 +2049,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2068,9 +2065,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
@@ -9918,7 +9912,7 @@ void print_help()
         "\n"
         WHITE "  -msvc-output          " RESET "Ouput is compatible with visual studio\n"
         "\n"
-        WHITE "-dump-tokens            " RESET "Output tokens before preprocessor\n"
+        WHITE "   -dump-tokens         " RESET "Output tokens before preprocessor\n"
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;
@@ -32696,7 +32690,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     ctx->ctx,
                     p_expression->first_token,
                     "'%s' is uninitialized ",
-                    p_expression->declarator->name->token_origin->lexeme);
+                    p_expression->declarator->name->lexeme);
             }
         }
 
