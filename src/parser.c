@@ -2980,6 +2980,9 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 		parser_match(ctx);
 		return p_type_specifier;
 
+        default:
+                // Do nothing
+                break;
 
 	}
 
@@ -3984,7 +3987,9 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 	case TK_KEYWORD__VIEW:
 		p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
 		break;
-
+        default:
+                // do nothing
+                break;
 	}
 
 	p_type_qualifier->token = ctx->current;

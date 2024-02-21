@@ -58,6 +58,8 @@ double constant_value_to_double(const struct constant_value* a)
         case TYPE_LONG_LONG: return (double) a->llvalue;
         case TYPE_DOUBLE: return  a->dvalue;
         case TYPE_UNSIGNED_LONG_LONG: return (double) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -84,6 +86,8 @@ void constant_value_to_string(const struct constant_value* a, char buffer[], int
         case TYPE_UNSIGNED_LONG_LONG:
             snprintf(buffer, sz, "%llu", a->ullvalue);
             break;
+        default:
+            return;
     }
 }
 
@@ -94,6 +98,8 @@ unsigned long long constant_value_to_ull(const struct constant_value* a)
         case TYPE_LONG_LONG: return (unsigned long long)a->llvalue;
         case TYPE_DOUBLE: return  (unsigned long long)a->dvalue;
         case TYPE_UNSIGNED_LONG_LONG: return (unsigned long long) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -105,6 +111,8 @@ long long constant_value_to_ll(const struct constant_value* a)
         case TYPE_LONG_LONG: return (long long) a->llvalue;
         case TYPE_DOUBLE: return  (long long) a->dvalue;
         case TYPE_UNSIGNED_LONG_LONG: return (long long) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -116,6 +124,8 @@ bool constant_value_to_bool(const struct constant_value* a)
         case TYPE_LONG_LONG: return a->llvalue != 0;
         case TYPE_DOUBLE: return  a->dvalue != 0;
         case TYPE_UNSIGNED_LONG_LONG: return a->ullvalue != 0;
+        default:
+            return 0;
     }
 
     return 0;
@@ -3917,10 +3927,10 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
         case POSTFIX_INCREMENT:
         case POSTFIX_DECREMENT:
             return false;
+        default:
+            if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+                return true;
     }
-
-    if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-        return true;
 
     return true;
 }

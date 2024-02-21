@@ -158,7 +158,6 @@ void compile_cake()
     mysytem("gcc "
            " -Wall "
            " -Wno-multichar "
-           " -Wno-switch "
            " -g -O2 " SOURCE_FILES " main.c "
 
 #if defined DEBUG

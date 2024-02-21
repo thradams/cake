@@ -4,6 +4,7 @@
 
 enum token_type
 {
+    /*When changing here we need also change in tokenizer.c::get_token_name*/
     TK_NONE = 0,
     TK_NEWLINE = '\n',
     TK_WHITE_SPACE = ' ',

@@ -15,6 +15,8 @@ bool is_ownership_error(enum error e)
         case C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN:
         case C_OWNERSHIP_FLOW_MISSING_DTOR:
             return true;
+        default:
+            return false;
     }
     return false;
 }
