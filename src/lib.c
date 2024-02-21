@@ -1,6 +1,18 @@
 
 
 
+#include <assert.h>
+
+
+#include <stdio.h>
+
+
+#include <string.h>
+
+
+#include <stdlib.h>
+
+
 
 
 #ifndef __OWNERSHIP_H__
@@ -44,18 +56,6 @@ int fclose(FILE* owner _Stream);
 
 
 
-#include <assert.h>
-
-
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <stdlib.h>
-
-
 //#pragma once
 
 
@@ -83,15 +83,18 @@ bool enable_vt_mode(void);
 #ifndef DISABLE_COLORS
 #define COLOR_ESC(x) x
 #define COLOR_ESC_PRINT(x) x
+#define ESC "\x1b"
+#define CSI "\x1b["
 #else
 #define COLOR_ESC(x) ""
 #define COLOR_ESC_PRINT(x)
+#define ESC ""
+#define CSI ""
+
 #endif
 
 /*change foreground color*/
 
-#define ESC COLOR_ESC("\x1b")
-#define CSI COLOR_ESC("\x1b[")
 
 #define BLACK     COLOR_ESC("\x1b[30m")
 #define BLUE     COLOR_ESC("\x1b[34m")

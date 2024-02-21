@@ -21,15 +21,18 @@ bool enable_vt_mode(void);
 #ifndef DISABLE_COLORS
 #define COLOR_ESC(x) x
 #define COLOR_ESC_PRINT(x) x
+#define ESC "\x1b"
+#define CSI "\x1b["
 #else
 #define COLOR_ESC(x) ""
 #define COLOR_ESC_PRINT(x)
+#define ESC ""
+#define CSI ""
+
 #endif
 
 /*change foreground color*/
 
-#define ESC COLOR_ESC("\x1b")
-#define CSI COLOR_ESC("\x1b[")
 
 #define BLACK     COLOR_ESC("\x1b[30m")
 #define BLUE     COLOR_ESC("\x1b[34m")
