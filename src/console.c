@@ -22,7 +22,8 @@ bool enable_vt_mode(void)
 
 int c_kbhit(void)
 {
-    struct termios oldt, newt;
+    struct termios oldt = {0};
+    struct termios newt = {0};
     int ch;
     int oldf;
 
@@ -50,7 +51,8 @@ int c_kbhit(void)
 /* Read 1 character without echo */
 int c_getch(void)
 {
-    struct termios old, new;
+    struct termios old = {0};
+    struct termios new = {0};
     int ch;
 
     tcgetattr(0, &old);

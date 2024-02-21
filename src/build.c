@@ -297,6 +297,7 @@ int main()
     */
     const char *cake_cmd = "./cake "
                " -D__x86_64__ "
+               " -analyze "
                " -I/usr/lib/gcc/x86_64-linux-gnu/11/include/ "
                " -I/usr/local/include/ "
                " -I/usr/include/x86_64-linux-gnu/ "

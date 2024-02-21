@@ -1,18 +1,6 @@
 
 
 
-#include <assert.h>
-
-
-#include <stdio.h>
-
-
-#include <string.h>
-
-
-#include <stdlib.h>
-
-
 
 
 #ifndef __OWNERSHIP_H__
@@ -53,6 +41,19 @@ int fclose(FILE* owner _Stream);
 
 #endif
 
+
+
+
+#include <assert.h>
+
+
+#include <stdio.h>
+
+
+#include <string.h>
+
+
+#include <stdlib.h>
 
 
 
@@ -1918,7 +1919,8 @@ bool enable_vt_mode(void)
 
 int c_kbhit(void)
 {
-    struct termios oldt, newt;
+    struct termios oldt = {0};
+    struct termios newt = {0};
     int ch;
     int oldf;
 
@@ -1946,7 +1948,8 @@ int c_kbhit(void)
 /* Read 1 character without echo */
 int c_getch(void)
 {
-    struct termios old, new;
+    struct termios old = {0};
+    struct termios new = {0};
     int ch;
 
     tcgetattr(0, &old);
@@ -2040,9 +2043,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2059,9 +2059,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
@@ -2130,7 +2127,7 @@ struct dirent* readdir(DIR* dirp);
 
 typedef struct __dirstream DIR;
 DIR * owner opendir (const char *__name);
-
+int closedir(DIR* owner dirp);
 
 #define MAX_PATH 500
 
