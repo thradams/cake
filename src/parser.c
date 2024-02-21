@@ -30,6 +30,12 @@
 #include "visit.h"
 #include <time.h>
 
+#ifdef PATH_MAX
+#define MYMAX_PATH PATH_MAX //Linux uses it in realpath
+#else
+#define MYMAX_PATH MAX_PATH
+#endif
+
 
 void object_state_to_string(enum object_state e)
 {
@@ -6831,7 +6837,7 @@ int compile_one_file(const char* file_name,
 	return report->error_count > 0;
 }
 
-static void longest_common_path(int argc, const char** argv, char root_dir[MAX_PATH])
+static void longest_common_path(int argc, const char** argv, char root_dir[MYMAX_PATH])
 {
 	/*
 	 find the longest common path
@@ -6841,12 +6847,12 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MAX_P
 		if (argv[i][0] == '-')
 			continue;
 
-		char fullpath_i[MAX_PATH] = { 0 };
+		char fullpath_i[MYMAX_PATH] = { 0 };
 		realpath(argv[i], fullpath_i);
 		strcpy(root_dir, fullpath_i);
 		dirname(root_dir);
 
-		for (int k = 0; ; k++)
+		for (int k = 0; k < MYMAX_PATH ; k++)
 		{
 			const char ch = fullpath_i[k];
 			for (int j = 2; j < argc; j++)
@@ -6854,7 +6860,7 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MAX_P
 				if (argv[j][0] == '-')
 					continue;
 
-				char fullpath_j[MAX_PATH] = { 0 };
+				char fullpath_j[MYMAX_PATH] = { 0 };
 				realpath(argv[j], fullpath_j);
 				if (fullpath_j[k] != ch)
 				{
@@ -6888,7 +6894,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 			continue;
 		}
 
-		char temp[MAX_PATH] = { 0 };
+		char temp[MYMAX_PATH] = { 0 };
 		strncpy(temp, outdir, p - outdir);
 
 		int er = mkdir(temp, 0777);
@@ -6922,7 +6928,7 @@ int compile(int argc, const char** argv, struct report* report)
 	clock_t begin_clock = clock();
 	int no_files = 0;
 
-	char root_dir[MAX_PATH] = { 0 };
+	char root_dir[MYMAX_PATH] = { 0 };
 
 	if (!options.no_output)
 	{
@@ -6951,7 +6957,7 @@ int compile(int argc, const char** argv, struct report* report)
 			}
 			else
 			{
-				char fullpath[MAX_PATH] = { 0 };
+				char fullpath[MYMAX_PATH] = { 0 };
 				realpath(argv[i], fullpath);
 
 				strcpy(output_file, root_dir);
@@ -6959,7 +6965,7 @@ int compile(int argc, const char** argv, struct report* report)
 
 				strcat(output_file, fullpath + root_dir_len);
 
-				char outdir[MAX_PATH];
+				char outdir[MYMAX_PATH];
 				strcpy(outdir, output_file);
 				dirname(outdir);
 				if (create_multiple_paths(root_dir, outdir) != 0)
@@ -6969,7 +6975,7 @@ int compile(int argc, const char** argv, struct report* report)
 			}
 		}
 
-		char fullpath[260];
+		char fullpath[MYMAX_PATH];
 		realpath(argv[i], fullpath);
 		compile_one_file(fullpath, &options, output_file, argc, argv, report);
 	}
