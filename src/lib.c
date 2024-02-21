@@ -4803,7 +4803,7 @@ struct token_list replacement_list(struct preprocessor_ctx* ctx, struct macro* m
 struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level)
 {
 	struct token_list r = { 0 };
-	while (input_list->head->type != TK_NEWLINE)
+	while (input_list->head && input_list->head->type != TK_NEWLINE)
 	{
 		prematch_level(&r, input_list, level);
 	}
