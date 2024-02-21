@@ -773,6 +773,11 @@ struct options
     bool visual_studio_ouput_format;
 
     /*
+      -dump-tokens
+    */
+    bool dump_tokens;
+
+    /*
       -o filename
       defines the ouputfile when 1 file is used
     */
@@ -9823,6 +9828,12 @@ int fill_options(struct options* options,
             {
                 options->enabled_warnings_stack[0] |= w;
             }
+            continue;
+        }
+
+        if (strcmp(argv[i], "-dump-tokens") == 0)
+        {
+            options->dump_tokens = true;
             continue;
         }
 
@@ -28226,6 +28237,11 @@ int compile_one_file(const char* file_name,
 
 		tokens = tokenizer(&tctx, content, file_name, 0, TK_FLAG_NONE);
 
+		if (options->dump_tokens)
+		{
+                    print_tokens(tokens.head);
+                }
+
 		ast.token_list = preprocessor(&prectx, &tokens, 0);
 		if (prectx.n_errors > 0) throw;
 
@@ -28435,7 +28451,7 @@ int compile(int argc, const char** argv, struct report* report)
 		if (argv[i][0] == '-')
 			continue;
 		no_files++;
-		char output_file[400] = { 0 };
+		char output_file[MYMAX_PATH] = { 0 };
 
 		if (!options.no_output)
 		{

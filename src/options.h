@@ -226,6 +226,11 @@ struct options
     bool visual_studio_ouput_format;
 
     /*
+      -dump-tokens
+    */
+    bool dump_tokens;
+
+    /*
       -o filename
       defines the ouputfile when 1 file is used
     */

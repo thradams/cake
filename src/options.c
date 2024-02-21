@@ -301,6 +301,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-dump-tokens") == 0)
+        {
+            options->dump_tokens = true;
+            continue;
+        }
+
         printf("unknown option '%s'", argv[i]);
         return 1;
     }
