@@ -410,6 +410,8 @@ primary-expression ::=
 //(6.5.1.1)
 generic-selection ::=
 	"_Generic" '(' assignment-expression ',' generic-assoc-list ')'
+	|
+	"_Generic" '(' type-name ',' generic-assoc-list ')'
 
 //(6.5.1.1)
 generic-assoc-list ::=
@@ -874,12 +876,25 @@ balanced-token ::=
 statement ::=
 	labeled-statement
 	| unlabeled-statement
+	
 
 //(6.8)
 unlabeled-statement ::=
 	expression-statement
 	| attribute-specifier-sequence? primary-block
 	| attribute-specifier-sequence? jump-statement
+	| defer-statement
+	| try-block
+
+	
+//extension
+defer-statement ::=
+    "defer secondary-block
+
+ try-block ::= 
+   "try" compound-statement
+   |
+   "try" compound-statement "catch" compound-statement
 
 //(6.8)
 primary-block ::=
