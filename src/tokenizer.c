@@ -1435,7 +1435,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
 			//windows have case insensive paths
 			for (char* p = p_new->lexeme; *p; p++)
 			{
-				*p = tolower(*p);
+				*p = (char)tolower(*p);
 			}
 #endif
 			p_new->level = level;
