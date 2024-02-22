@@ -1004,25 +1004,23 @@ void token_list_pop_back(struct token_list* list) unchecked
     if (list->head == NULL)
         return;
 
-    struct token* p = list->tail;
     if (list->head == list->tail)
     {
+        token_delete(list->head);
         list->head = NULL;
         list->tail = NULL;
     }
     else
     {
-        list->tail = list->tail->prev;
+        struct token* owner p = list->tail->prev->next;
+        list->tail = p->prev;
         list->tail->next = NULL;
         if (list->tail == list->head)
         {
             list->tail->prev = NULL;
         }
+        token_delete(p);
     }
-    p->next = NULL;
-    p->prev = NULL;
-    p->next = NULL;
-    token_delete(p);
 }
 
 void token_list_pop_front(struct token_list* list) unchecked
@@ -1039,7 +1037,7 @@ void token_list_pop_front(struct token_list* list) unchecked
     }
     else
     {
-        list->head = list->head->next;
+        list->head = p->next;
     }
     p->next = NULL;
     p->prev = NULL;
@@ -1051,7 +1049,7 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     if (list->head == NULL)
         return NULL;
 
-    struct token* p = list->head;
+    struct token* owner p = list->head;
 
     if (list->head == list->tail)
     {
@@ -1060,7 +1058,7 @@ struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
     }
     else
     {
-        list->head = list->head->next;
+        list->head = p->next;
     }
     p->next = NULL;
     p->prev = NULL;
