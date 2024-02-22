@@ -91,8 +91,8 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->enabled_warnings_stack[0] = ~0;
-    options->enabled_warnings_stack[0] &= ~(W_STYLE | W_UNUSED_PARAMETER | W_UNUSED_VARIABLE); //default is OFF
+    options->diagnostic_stack[0].warnings = ~0;
+    options->diagnostic_stack[0].warnings &= ~(W_NOTE | W_STYLE | W_UNUSED_PARAMETER | W_UNUSED_VARIABLE); //default is OFF
     
     
     
@@ -273,7 +273,7 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-Wall") == 0)
             {
-                options->enabled_warnings_stack[0] = ~0;
+                options->diagnostic_stack[0].warnings = ~0;
                 continue;
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
@@ -294,11 +294,11 @@ int fill_options(struct options* options,
 
             if (disable_warning)
             {
-                options->enabled_warnings_stack[0] &= ~w;
+                options->diagnostic_stack[0].warnings &= ~w;
             }
             else
             {
-                options->enabled_warnings_stack[0] |= w;
+                options->diagnostic_stack[0].warnings |= w;
             }
             continue;
         }

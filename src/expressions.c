@@ -1711,7 +1711,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                     struct type item_type = {0};
                     if (type_is_array(&p_expression_node->type))
                     {
-                        compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "using '->' in array as pointer to struct");
+                        compiler_set_warning_with_token(W_STYLE, ctx, ctx->current, "using '->' in array as pointer to struct");
                         item_type = get_array_item_type(&p_expression_node->type);
                     }
                     else
@@ -2070,7 +2070,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             //visual studio formater is adding spaces..
             if (style_has_space(ctx->current))
             {
-                compiler_set_info_with_token(W_STYLE, ctx, ctx->current, "don't use spaces");
+                compiler_set_warning_with_token(W_STYLE, ctx, ctx->current, "don't use spaces");
             }
 #endif
 

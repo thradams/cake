@@ -80,7 +80,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum warning w)
 {
 	return
-		(ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] & w) != 0;
+		(ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & w) != 0;
 }
 
 struct macro_parameter
@@ -3197,21 +3197,22 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					{
 						match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
 						//#pragma GCC diagnostic push
-						if (ctx->options.enabled_warnings_stack_top_index <
-							sizeof(ctx->options.enabled_warnings_stack) / sizeof(ctx->options.enabled_warnings_stack[0]))
+						if (ctx->options.diagnostic_stack_top_index <
+							sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
 						{
-							ctx->options.enabled_warnings_stack_top_index++;
-							ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] =
-								ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index - 1];
+							ctx->options.diagnostic_stack_top_index++;
+
+							ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
+								ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index - 1];
 						}
 					}
 					else if (input_list->head && strcmp(input_list->head->lexeme, "pop") == 0)
 					{
 						//#pragma GCC diagnostic pop
 						match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pop
-						if (ctx->options.enabled_warnings_stack_top_index > 0)
+						if (ctx->options.diagnostic_stack_top_index > 0)
 						{
-							ctx->options.enabled_warnings_stack_top_index--;
+							ctx->options.diagnostic_stack_top_index--;
 						}
 					}
 					else if (input_list->head && strcmp(input_list->head->lexeme, "warning") == 0)
@@ -3226,7 +3227,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 							match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
 
 							enum warning  w = get_warning_flag(input_list->head->lexeme + 1 + 2);
-							ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] |= w;
+							ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
 						}
 					}
 					else if (input_list->head && strcmp(input_list->head->lexeme, "ignore") == 0)
@@ -3239,7 +3240,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 						if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
 						{
 							enum warning  w = get_warning_flag(input_list->head->lexeme + 1 + 2);
-							ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] &= ~w;
+							ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
 						}
 					}
 				}
@@ -4436,7 +4437,7 @@ void include_config_header(struct preprocessor_ctx* ctx)
 
 
 	const enum warning w =
-		ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index];
+		ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
 
 
 
@@ -4449,7 +4450,7 @@ void include_config_header(struct preprocessor_ctx* ctx)
 	token_list_destroy(&l10);
 
 	/*restore*/
-	ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = w;
+	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
 }
 
 void add_standard_macros(struct preprocessor_ctx* ctx)
@@ -4459,10 +4460,10 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 	  echo | gcc -dM -E -
 	*/
 	const enum warning w =
-		ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index];
+		ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
 
 	/*we dont want warnings here*/
-	ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = W_NONE;
+	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = W_NONE;
 
 	static char mon[][4] = {
 		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -4678,7 +4679,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 	token_list_destroy(&l10);
 
 	/*restore*/
-	ctx->options.enabled_warnings_stack[ctx->options.enabled_warnings_stack_top_index] = w;
+	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
 }
 
 

@@ -35,6 +35,7 @@ enum warning {
     W_UNINITIALZED  = 1 << 17,
     
     W_RETURN_LOCAL_ADDR = 1 << 20,
+    W_NOTE = 1 << 21,
     
 };
 
@@ -149,6 +150,13 @@ enum style
 const char* get_warning_name(enum warning w);
 enum warning  get_warning_flag(const char* wname);
 
+struct diagnostic
+{
+    enum warning errors;
+    enum warning warnings;
+    enum warning notes;
+};
+
 struct options
 {
     /*
@@ -165,8 +173,8 @@ struct options
       #pragma CAKE diagnostic push
       #pragma CAKE diagnostic pop
     */
-    int enabled_warnings_stack_top_index;
-    enum warning enabled_warnings_stack[10];
+    int diagnostic_stack_top_index;
+    struct diagnostic diagnostic_stack[10];
 
     enum style style;
 

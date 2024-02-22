@@ -154,7 +154,7 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
                 warnings_count != ctx->ctx->p_report->warnings_count ||
                 info_count != ctx->ctx->p_report->info_count)
             {
-                compiler_set_info_with_token(0, ctx->ctx, position_token, "defer end of scope");
+                compiler_set_warning_with_token(0, ctx->ctx, position_token, "defer end of scope");
             }
         }
         else if (deferchild->declarator)
@@ -2131,7 +2131,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
     if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
     {
-        compiler_set_info_with_token(W_NONE, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
+        compiler_set_warning_with_token(W_NOTE, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
         struct type t = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);

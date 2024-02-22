@@ -129,7 +129,7 @@ static void pre_primary_expression(struct preprocessor_ctx *ctx, struct pre_expr
                 count++;
                 if (count > 4)
                 {
-                    preprocessor_set_warning_with_token(W_NONE, ctx, ctx->current, "character constant too long for its type");
+                    preprocessor_set_warning_with_token(W_NOTE, ctx, ctx->current, "character constant too long for its type");
                 }
             }
 
