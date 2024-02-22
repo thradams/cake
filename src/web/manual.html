@@ -273,23 +273,23 @@
 </ul>
 <h2 id="toc_0">Intro</h2>
 
-<p>Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. </p>
+<p>Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs.</p>
 
 <p>When applicable, Cake uses the same command line options of MSVC and GCC.</p>
 
 <h2 id="toc_1">Include directories</h2>
 
-<p>On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file &#39;cakeconfig.h&#39; and specifying the directories using <code>pragma dir</code>. </p>
+<p>On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file &#39;cakeconfig.h&#39; and specifying the directories using <code>pragma dir</code>.</p>
 
 <p>To discover what directories are included, you can run the command &#39;echo %INCLUDE%&#39; at Visual Studio command prompt.</p>
 
 <pre><code>echo %INCLUDE%
 </code></pre>
 
-<p>Copy this output to <code>cakeconfig.h</code>.<br>
+<p>Copy this output to <code>cakeconfig.h</code>.
 For instance:</p>
 
-<pre><code> 
+<pre><code>
 #pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Tools/MSVC/14.37.32820/include&quot;
 #pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Auxiliary/VS/include&quot;
 #pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/ucrt&quot;
@@ -300,7 +300,7 @@ For instance:</p>
 
 </code></pre>
 
-<p>When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.  </p>
+<p>When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.</p>
 
 <p>On Linux, the same file <code>cakeconfig.h</code> is used. To find out what are the directories used by GCC type</p>
 
@@ -326,7 +326,7 @@ cake file.c -o file.cc &amp;&amp; cl file.cc
 
 cake file.c -direct-compilation -o file.cc &amp;&amp; cl file.cc
     Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc
-  
+
 </code></pre>
 
 <h3 id="toc_3">OPTIONS</h3>
@@ -395,7 +395,7 @@ See <a href="warnings.html">warnings</a></p>
 
 <h4>-msvc-output</h4>
 
-<p>Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. </p>
+<p>Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line.</p>
 
 <h3 id="toc_4">-analyze</h3>
 
@@ -465,7 +465,7 @@ See <a href="warnings.html">warnings</a></p>
 
 <p>However the idea if C89 target is NOT support very old compilers, but generate code that can be compiled with C++.</p>
 
-<p>C89 
+<p>C89
 <a href="https://port70.net/%7Ensz/c/c89/c89-draft.html">https://port70.net/~nsz/c/c89/c89-draft.html</a></p>
 
 <p>C99
@@ -488,7 +488,7 @@ See <a href="warnings.html">warnings</a></p>
 
 <h3 id="toc_12">C99 Variable-length array (VLA)</h3>
 
-<p>The idea is not implement variable length arrays with automatic storage duration. (__STDC_NO_VLA__ 1). </p>
+<p>The idea is not implement variable length arrays with automatic storage duration. (__STDC_NO_VLA__ 1).</p>
 
 <p>But there are other uses of VLA.</p>
 
@@ -515,11 +515,11 @@ int main() {
 int main() {
     int n = 2;
     int m = 3;
-    
+
     /*these variables are created to store the dynamic size*/
     const int vla_1_n = n;
     const int vla_1_m = m;
-    
+
     int (*p)[n][m] = malloc((vla_1_n*vla_1_m)*sizeof(int));
 
     printf(&quot;%zu\n&quot;, (vla_1_n*vla_1_m)*sizeof(int));
@@ -535,7 +535,7 @@ int main() {
 
 <pre><code class="language-c">struct s {
     int n;
-    double d[]; 
+    double d[];
 };
 </code></pre>
 
@@ -554,17 +554,17 @@ int main() {
 void F(int a[static 5]) {
 }
 
-int main() 
-{    
+int main()
+{
     F(0);
     F(NULL);
     F(nullptr);
 
-    int a[] = {1, 2, 3};    
+    int a[] = {1, 2, 3};
     F(a);//error
-    
+
     int b[] = { 1, 2, 3 , 4, 5};
-    F(b); 
+    F(b);
 
     int c[] = { 1, 2, 3 , 4, 5, 6};
     F(c);
@@ -663,7 +663,7 @@ int f(void) {
 
 <h3 id="toc_20">C99 Line comments</h3>
 
-<p>When compiling to C89 line comments are converted to 
+<p>When compiling to C89 line comments are converted to
 /<em>comments</em>/.</p>
 
 <h3 id="toc_21">C99 inline functions</h3>
@@ -673,7 +673,7 @@ int f(void) {
 
 <h3 id="toc_22">C99 _Pragma preprocessing operator</h3>
 
-<p>TODO </p>
+<p>TODO</p>
 
 <h3 id="toc_23">C99 __func__ predefined identifier</h3>
 
@@ -884,7 +884,7 @@ char * s2 = &quot;maca&quot;;
 
 <h3 id="toc_35">C11 _Alignas or C23 alignas</h3>
 
-<p>Not implemented. </p>
+<p>Not implemented.</p>
 
 <h2 id="toc_36">C23 Transformations</h2>
 
@@ -908,7 +908,7 @@ char * s2 = &quot;maca&quot;;
 <a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf</a></p>
 
 <pre><code class="language-c">int main()
-{    
+{
     static_assert(1 == 1, &quot;error message&quot;);
     static_assert(1 == 1);
 }
@@ -918,7 +918,7 @@ char * s2 = &quot;maca&quot;;
 <p>Becomes in C11</p>
 
 <pre><code class="language-c">int main()
-{    
+{
     _Static_assert(1 == 1, &quot;error message&quot;);
     _Static_assert(1 == 1, &quot;error&quot;);
 }
@@ -940,7 +940,7 @@ char * s2 = &quot;maca&quot;;
 }
 </code></pre>
 
-<p>See also Remove support for function definitions with identifier lists  </p>
+<p>See also Remove support for function definitions with identifier lists</p>
 
 <p><a href="https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf">https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf</a></p>
 
@@ -993,7 +993,7 @@ int f(int ) {
 <pre><code class="language-c">int main()
 {
     int a = 100000;
-}  
+}
 </code></pre>
 
 <p>This transformation happens at token level, so even preprocessor and inactive blocks are transformed.</p>
@@ -1053,9 +1053,9 @@ int main()
 
 <h3 id="toc_46">C23 Make false and true first-class language features</h3>
 
-<p>When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0. </p>
+<p>When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0.</p>
 
-<p>When compiling to C99 and C11 bool is replaced with <strong>_Bool</strong>, true is replaced with <code>((_Bool)1)</code> 
+<p>When compiling to C99 and C11 bool is replaced with <strong>_Bool</strong>, true is replaced with <code>((_Bool)1)</code>
 and false with <strong>(_Bool)0)</strong></p>
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf</a></p>
@@ -1075,7 +1075,7 @@ int main()
     {
         struct X x;
     } y = { {} };
-}  
+}
 
 </code></pre>
 
@@ -1154,7 +1154,7 @@ int main()
    /*Things get a little more complicated*/
    int *array[2];
    typeof(array) a1, a2;
-   
+
    typeof(array) a3[3];
    typeof(array) *a4[4];
 
@@ -1198,13 +1198,13 @@ int main()
    /*Things get a little more complicated*/
    int *array[2];
    int  *a1[2],  *a2[2];
-   
+
    int  *(a3[3])[2];
    int  *(*a4[4])[2];
 
    /*abstract declarator*/
    int k = sizeof(int*[2]);
-   
+
    /*new way to declare pointer to functions?*/
    void  (*pf)(int) = ((void*)0);
 }
@@ -1266,7 +1266,7 @@ int main()
 };
 
 int main() {
-   enum X x = A;   
+   enum X x = A;
 }
 </code></pre>
 
@@ -1277,7 +1277,7 @@ int main() {
 };
 
 int main() {
-   short x = ((short)A);   
+   short x = ((short)A);
 }
 </code></pre>
 
@@ -1352,7 +1352,7 @@ Conversion &lt; C23 not defined. Maybe a define.</p>
 
 <pre><code class="language-c">int main()
 {
-  #warning my warning message  
+  #warning my warning message
 }
 </code></pre>
 
@@ -1360,7 +1360,7 @@ Conversion &lt; C23 not defined. Maybe a define.</p>
 
 <pre><code class="language-c">int main()
 {
-  /* #warning my warning message */  
+  /* #warning my warning message */
 }
 </code></pre>
 
@@ -1470,7 +1470,7 @@ int main()
   int a = 1;
   int b = 2;
   int c = 3;
-  
+
   F(a, b, c);
   F();
   F(EMP);
@@ -1504,7 +1504,7 @@ int main()
   int a = 1;
   int b = 2;
   int c = 3;
-  
+
    f(0, a, b, c);
    f(0 );
    f(0);
@@ -1556,7 +1556,7 @@ x   }
 
 <pre><code>   try-statement:
       try secondary-block
-      try secondary-block catch secondary-block   
+      try secondary-block catch secondary-block
 </code></pre>
 
 <pre><code>jump-statement:
@@ -1573,7 +1573,7 @@ x   }
 {
    for (int i = 0 ; i &lt; 10; i++) {
       for (int j = 0 ; j &lt; 10; j++) {
-        ... 
+        ...
         if (error) throw;
         ...
       }
@@ -1605,7 +1605,7 @@ int main() {
      FILE* f2 = fopen(&quot;out.txt&quot;, &quot;w&quot;);
      if (f2 == NULL) break;
      defer fclose(f2);
-     //...    
+     //...
   }
   while(0);
 }
@@ -1622,7 +1622,7 @@ int main() {
 
      FILE* f2 = fopen(&quot;out.txt&quot;, &quot;w&quot;);
      if (f2 == ((void*)0)) {  fclose(f); break;}
-     
+
      fclose(f2); fclose(f);
    }
   while(0);
@@ -1683,8 +1683,8 @@ void create_app(const char* appname)
   } capture = { .name = strdup(appname) };
 
   (void (void* p)) {
-    struct capture* capture = p;    
-  }(&amp;capture); 
+    struct capture* capture = p;
+  }(&amp;capture);
 }
 </code></pre>
 
@@ -1695,15 +1695,15 @@ void create_app(const char* appname)
 struct _capture0 {
      char * name;
   };
-  
+
 void _lit_func_0(void *p) {
-    struct _capture0* capture = p;    
+    struct _capture0* capture = p;
   }
 
 void create_app(const char* appname)
 {
   struct _capture0  capture = { .name = strdup(appname) };
-  _lit_func_0(&amp;capture);  
+  _lit_func_0(&amp;capture);
 }
 </code></pre>
 
@@ -1772,7 +1772,7 @@ _is_array
 Array type
 
 _is_function
-A function type describes a function with specified return type. 
+A function type describes a function with specified return type.
 
 _is_floating_point
 float, double, and long double return true
@@ -1782,7 +1782,7 @@ The standard signed integer types and standard unsigned integer types are collec
 standard integer types;
 
 _is_arithmetic
-Integer and floating types are collectively called arithmetic types. 
+Integer and floating types are collectively called arithmetic types.
 
 _is_scalar
 Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
@@ -1806,7 +1806,7 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 <pre><code class="language-c">    int a[2];
     static_assert( a == (int[2]) );
 
-    /* is array of ints? */    
+    /* is array of ints? */
     static_assert( _is_array(a) &amp;&amp; a[0] == (int) );
 </code></pre>
 
@@ -1816,11 +1816,11 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 int main()
 {
     int a;
-    
-    int t1 = 
+
+    int t1 =
        a == (int) ? 1 : a == (double) ? 2 : 0;
-    
-    int t2 = 
+
+    int t2 =
        _Generic(a, int: 1, double: 2, default: 0);
 
     typeof( 1 ? (int) : (double)) b;
@@ -1845,22 +1845,22 @@ int main()
 
 </code></pre>
 
-<p>and the lvalue conversion will not happen, allowing 
+<p>and the lvalue conversion will not happen, allowing
 more precise (with qualifiers) type match.</p>
 
 <h3 id="toc_79">Extension assert declaration</h3>
 
-<p>Standard says &quot;If NDEBUG is defined as a macro name at the point in the source file 
+<p>Standard says &quot;If NDEBUG is defined as a macro name at the point in the source file
 where <assert.h> is included, the assert macro is defined simply as</p>
 
-<pre><code class="language-c">#define assert(...) ((void)0)  
+<pre><code class="language-c">#define assert(...) ((void)0)
 </code></pre>
 
-<p>Cake keeps that. </p>
+<p>Cake keeps that.</p>
 
 <p>If NDEBUG is NOT defined cake defines assert as</p>
 
-<pre><code class="language-c">#define assert(...) assert(__VA_ARGS__) 
+<pre><code class="language-c">#define assert(...) assert(__VA_ARGS__)
 </code></pre>
 
 <p>Because Cake can be used as a static analyzer, reading existing headers not previously known by Cake,

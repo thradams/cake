@@ -3516,6 +3516,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
+                p_expression_node = NULL;
                 throw;
             }
 
