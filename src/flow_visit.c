@@ -154,7 +154,7 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
                 warnings_count != ctx->ctx->p_report->warnings_count ||
                 info_count != ctx->ctx->p_report->info_count)
             {
-                compiler_set_info_with_token(0, ctx->ctx, position_token, "defer end of scope");
+                compiler_diagnostic_message(0, ctx->ctx, position_token, "defer end of scope");
             }
         }
         else if (deferchild->declarator)
@@ -1201,7 +1201,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 if (p_argument_object2 &&
                     p_argument_object2->state & OBJECT_STATE_NULL)
                 {
-                    compiler_set_error_with_token(C_OWNERSHIP_FLOW_MISSING_DTOR,
+                    compiler_diagnostic_message(C_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
@@ -1336,11 +1336,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (!ctx->is_left_expression &&
                 !ctx->is_size_of_expression)
             {
-                compiler_set_warning_with_token(W_UNINITIALZED,
+                compiler_diagnostic_message(W_UNINITIALZED,
                     ctx->ctx,
                     p_expression->first_token,
                     "'%s' is uninitialized ",
-                    p_expression->declarator->name->token_origin->lexeme);
+                    p_expression->declarator->name->lexeme);
             }
         }
 
@@ -1383,13 +1383,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+                compiler_diagnostic_message(C_MAYBE_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->left->first_token, "using a uninitialized object");
             }
             else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+                compiler_diagnostic_message(C_MAYBE_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->left->first_token, "maybe using a uninitialized object");
             }
@@ -1535,7 +1535,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
         {
-            compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+            compiler_diagnostic_message(C_MAYBE_UNINITIALIZED,
                 ctx->ctx,
                 p_expression->right->first_token, "using a uninitialized object");
         }
@@ -1551,7 +1551,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
                 {
 
-                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED,
+                    compiler_diagnostic_message(C_NULL_DEREFERENCE,
                         ctx->ctx,
                         p_expression->right->first_token, "dereference a NULL object");
                 }
@@ -1845,7 +1845,6 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
 
-    //struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression0)
     {
@@ -2132,7 +2131,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
     if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
     {
-        compiler_set_info_with_token(W_NONE, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
+        compiler_diagnostic_message(W_NOTE, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
         struct type t = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
@@ -2161,12 +2160,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 {
                     if (e != p_obj->state)
                     {
-                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+                        compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
                     }
                 }
                 else
                 {
-                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                    compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                 }
             }
 
@@ -2202,7 +2201,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     }
                     else
                     {
-                        compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                        compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                     }
                 }
             }

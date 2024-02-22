@@ -1,26 +1,26 @@
 
 ## Intro
-Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs. 
+Cake works as an extension for MSVC on Windows and as an extension for GCC on Linux. This approach makes Cake useful in real and existing programs.
 
 When applicable, Cake uses the same command line options of MSVC and GCC.
 
 
 ## Include directories
 
-On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file 'cakeconfig.h' and specifying the directories using `pragma dir`. 
+On Windows, Cake can be used on the command line in the same way as MSVC. Cake will read the variable INCLUDE, which is the same variable used by MSVC to find the include directories. Additionally, you can run Cake outside the Visual Studio command prompt by adding the file 'cakeconfig.h' and specifying the directories using `pragma dir`.
 
 To discover what directories are included, you can run the command 'echo %INCLUDE%' at Visual Studio command prompt.
-  
+
 ```
 echo %INCLUDE%
-```  
+```
 
- 
-Copy this output to `cakeconfig.h`.  
+
+Copy this output to `cakeconfig.h`.
 For instance:
 
-```  
- 
+```
+
 #pragma dir "C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Tools/MSVC/14.37.32820/include"
 #pragma dir "C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Auxiliary/VS/include"
 #pragma dir "C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/ucrt"
@@ -30,15 +30,15 @@ For instance:
 #pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt"
 
 ```
-  
-When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.  
-  
+
+When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.
+
 On Linux, the same file `cakeconfig.h` is used. To find out what are the directories used by GCC type
 
 ```
 echo | gcc -E -Wp,-v -
 ```
-  
+
 
 Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on `cakeconfig.h` but mixing cake headers with other headers is not recommended.
 
@@ -60,7 +60,7 @@ cake file.c -o file.cc && cl file.cc
 
 cake file.c -direct-compilation -o file.cc && cl file.cc
     Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc
-  
+
 ```
 
 ### OPTIONS
@@ -78,16 +78,19 @@ Copies preprocessor output to standard output
 
 #### -o name.c (same as GCC and MSVC)
   Defines the output name. used when we compile one file
-  
-#### -remove-comments      
+
+#### -remove-comments
 Remove all comments from the output file
 
-#### -direct-compilation   
+#### -direct-compilation
 output code as compiler sees it without macros.
 
-#### -target=standard      
+#### -target=standard
 Output target C standard (c89, c99, c11, c2x, cxx)
 C99 is the default and C89 (ANSI C) is the minimum target
+
+#### -dump-tokens
+Output tokens before preprocessor
 
 #### -fi
 Format input (format before language conversion)
@@ -96,7 +99,7 @@ Format input (format before language conversion)
 Format output (format after language conversion, result parsed again)
 
 
-#### -Wname -Wno-name  (same as GCC)   
+#### -Wname -Wno-name  (same as GCC)
 Enables or disable warnings.
 See [warnings](warnings.html)
 
@@ -107,11 +110,11 @@ Causes the compiler to output a list of the include files. The option also displ
 #### -Wall
 Enables all warnings
 
-#### -sarif               
+#### -sarif
 Generates sarif files
 
-#### -msvc-output          
-Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. 
+#### -msvc-output
+Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line.
 
 ### -analyze
 Runs flow analysis and ownership checks
@@ -154,7 +157,7 @@ output
           ├── file2.c
 ```
 
-## Setting the path  
+## Setting the path
 This command is useful on windows to add the current path to system path. (This is not persistent)
 
 ```
@@ -185,7 +188,7 @@ C89 is the minimum target.
 
 However the idea if C89 target is NOT support very old compilers, but generate code that can be compiled with C++.
 
-C89 
+C89
 https://port70.net/~nsz/c/c89/c89-draft.html
 
 C99
@@ -209,9 +212,9 @@ void f(const char* /*restrict*/ s);
 
 N448
 
-###  C99 Variable-length array (VLA) 
+###  C99 Variable-length array (VLA)
 
-The idea is not implement variable length arrays with automatic storage duration. (\_\_STDC\_NO\_VLA\_\_ 1). 
+The idea is not implement variable length arrays with automatic storage duration. (\_\_STDC\_NO\_VLA\_\_ 1).
 
 But there are other uses of VLA.
 
@@ -241,11 +244,11 @@ Becomes C89 (not implemented)
 int main() {
 	int n = 2;
 	int m = 3;
-    
+
     /*these variables are created to store the dynamic size*/
     const int vla_1_n = n;
 	const int vla_1_m = m;
-    
+
 	int (*p)[n][m] = malloc((vla_1_n*vla_1_m)*sizeof(int));
 
 	printf("%zu\n", (vla_1_n*vla_1_m)*sizeof(int));
@@ -262,7 +265,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n683.htm
 ```c
 struct s {
     int n;
-    double d[]; 
+    double d[];
 };
 ```
 
@@ -284,28 +287,28 @@ struct s {
 void F(int a[static 5]) {
 }
 
-int main() 
-{    
+int main()
+{
     F(0);
     F(NULL);
     F(nullptr);
 
-    int a[] = {1, 2, 3};    
+    int a[] = {1, 2, 3};
     F(a);//error
-    
+
     int b[] = { 1, 2, 3 , 4, 5};
-    F(b); 
+    F(b);
 
     int c[] = { 1, 2, 3 , 4, 5, 6};
     F(c);
 }
 
 ```
-  
+
 `static` is removed when target is < c99.
 
 Cakes verifies that the argument is an array of with equal or more elements.
-  
+
 Cakes extend this check for arrays without static as well.
 
 ### C99 Complex and imaginary support
@@ -319,7 +322,7 @@ TODO
 ```c
 double d = 0x1p+1;
 ```
-  
+
 Becomes in C89
 
 ```c
@@ -396,7 +399,7 @@ N494
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n494.pdf
 
 ### C99 Line comments
-When compiling to C89 line comments are converted to 
+When compiling to C89 line comments are converted to
 /*comments*/.
 
 ### C99 inline functions
@@ -404,7 +407,7 @@ TODO
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n741.htm
 
 ### C99 _Pragma preprocessing operator
-TODO 
+TODO
 
 ### C99 \_\_func\_\_ predefined identifier
 Parsed. C89 conversion not implemented yet.
@@ -429,7 +432,7 @@ int main()
   debug("X = %d\n", 1);
 }
 ```
-  
+
 Becomes
 
 ```c
@@ -628,7 +631,7 @@ Becomes < C11
 
 ### C11 _Alignas or C23 alignas
 
-Not implemented. 
+Not implemented.
 
 ## C23 Transformations
 
@@ -652,23 +655,23 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1330.pdf
 
 ```c
 int main()
-{    
+{
     static_assert(1 == 1, "error message");
     static_assert(1 == 1);
 }
 
 ```
-  
+
 Becomes in C11
 
 ```c
 int main()
-{    
+{
     _Static_assert(1 == 1, "error message");
     _Static_assert(1 == 1, "error");
 }
 ```
-  
+
 In < C11 it is replaced by one space;
 
 ###  C23 u8 character prefix
@@ -685,16 +688,16 @@ int main(){
 ```
 
 
-See also Remove support for function definitions with identifier lists  
+See also Remove support for function definitions with identifier lists
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n2432.pdf
 
 
 ### C23 Improved Tag Compatibility
 Not implemented yet.
-  
+
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3037.pdf
-  
+
 ```c
 struct foo { int a; } p;
 void bar(void)
@@ -716,7 +719,7 @@ void bar(void)
 ```
 
 ### C23 Unnamed parameters in function definitions
-  
+
 ```c
 int f(int );
 
@@ -736,21 +739,21 @@ int main()
     int a = 1000'00;
 }
 ```
-  
+
 Becomes in < C23
 
 ```c
 int main()
 {
     int a = 100000;
-}  
+}
 ```
 
 This transformation happens at token level, so even preprocessor and inactive blocks are transformed.
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2626.pdf
 
-### C23 Binary literals 
+### C23 Binary literals
 
 ```c
 #define X  0b1010
@@ -807,9 +810,9 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n3042.htm
 
 ### C23 Make false and true first-class language features
 
-When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0. 
+When compiling to C89 bool is replaced by unsigned char,  true by 1 and false by 0.
 
-When compiling to C99 and C11 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)` 
+When compiling to C99 and C11 bool is replaced with **_Bool**, true is replaced with `((_Bool)1)`
 and false with **(_Bool)0)**
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2935.pdf
@@ -830,7 +833,7 @@ int main()
     {
         struct X x;
     } y = { {} };
-}  
+}
 
 ```
 
@@ -913,7 +916,7 @@ int main()
    /*Things get a little more complicated*/
    int *array[2];
    typeof(array) a1, a2;
-   
+
    typeof(array) a3[3];
    typeof(array) *a4[4];
 
@@ -925,7 +928,7 @@ int main()
 }
 
 ```
-  
+
 Becomes in < C23
 
 ```c
@@ -958,13 +961,13 @@ int main()
    /*Things get a little more complicated*/
    int *array[2];
    int  *a1[2],  *a2[2];
-   
+
    int  *(a3[3])[2];
    int  *(*a4[4])[2];
 
    /*abstract declarator*/
    int k = sizeof(int*[2]);
-   
+
    /*new way to declare pointer to functions?*/
    void  (*pf)(int) = ((void*)0);
 }
@@ -977,7 +980,7 @@ https://open-std.org/JTC1/SC22/WG14/www/docs/n2930.pdf
 
 https://open-std.org/JTC1/SC22/WG14/www/docs/n3029.htm
 
-###  C23 constexpr 
+###  C23 constexpr
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3018.htm
 
@@ -1001,7 +1004,7 @@ int main()
 }
 
 ```
-  
+
 Becomes < C23
 
 ```c
@@ -1018,7 +1021,7 @@ int main()
    printf("%f", ((double)3.140000));
 }
 ```
-  
+
 TODO: Maybe suffix like ULL etc makes the code easier to read.
 
 ###  C23 Enhancements to Enumerations
@@ -1029,7 +1032,7 @@ enum X : short {
 };
 
 int main() {
-   enum X x = A;   
+   enum X x = A;
 }
 ```
 
@@ -1041,7 +1044,7 @@ enum X {
 };
 
 int main() {
-   short x = ((short)A);   
+   short x = ((short)A);
 }
 ```
 
@@ -1110,13 +1113,13 @@ Its is implemented in cake.
 Conversion < C23 not defined. Maybe a define.
 
 ###  C23 \#warning
-  
+
 When compiling to versions < 23 it is commented out.
 
 ```c
 int main()
 {
-  #warning my warning message  
+  #warning my warning message
 }
 ```
 
@@ -1125,7 +1128,7 @@ When target < C23 becomes
 ```c
 int main()
 {
-  /* #warning my warning message */  
+  /* #warning my warning message */
 }
 ```
 
@@ -1216,7 +1219,7 @@ Becomes < C23
 #endif
 
 ```
-  
+
 ###  C23 \_\_VA_OPT\_\_
 Implemented.
 Requires #pragma expand. (TODO make the expansion automatic)
@@ -1242,7 +1245,7 @@ int main()
   int a = 1;
   int b = 2;
   int c = 3;
-  
+
   F(a, b, c);
   F();
   F(EMP);
@@ -1278,7 +1281,7 @@ int main()
   int a = 1;
   int b = 2;
   int c = 3;
-  
+
    f(0, a, b, c);
    f(0 );
    f(0);
@@ -1296,7 +1299,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3033.htm
 Not implemented
 
 ### C23 Compound Literals with storage specifier
-  
+
 Not implemented yet.
 
 ```c
@@ -1334,7 +1337,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 ```
    try-statement:
       try secondary-block
-      try secondary-block catch secondary-block   
+      try secondary-block catch secondary-block
 ```
 
 ```
@@ -1354,7 +1357,7 @@ try
 {
    for (int i = 0 ; i < 10; i++) {
       for (int j = 0 ; j < 10; j++) {
-        ... 
+        ...
         if (error) throw;
         ...
       }
@@ -1388,7 +1391,7 @@ int main() {
      FILE* f2 = fopen("out.txt", "w");
      if (f2 == NULL) break;
      defer fclose(f2);
-     //...    
+     //...
   }
   while(0);
 }
@@ -1406,7 +1409,7 @@ int main() {
 
      FILE* f2 = fopen("out.txt", "w");
      if (f2 == ((void*)0)) {  fclose(f); break;}
-     
+
      fclose(f2); fclose(f);
    }
   while(0);
@@ -1469,8 +1472,8 @@ void create_app(const char* appname)
   } capture = { .name = strdup(appname) };
 
   (void (void* p)) {
-    struct capture* capture = p;    
-  }(&capture); 
+    struct capture* capture = p;
+  }(&capture);
 }
 ```
 Because struct capture was in function scope and the lambda function will be created at file scope the type **struct capture** had to be moved from function scope to file scope.
@@ -1481,24 +1484,24 @@ extern char* strdup(const char* s);
 struct _capture0 {
      char * name;
   };
-  
+
 void _lit_func_0(void *p) {
-    struct _capture0* capture = p;    
+    struct _capture0* capture = p;
   }
 
 void create_app(const char* appname)
 {
   struct _capture0  capture = { .name = strdup(appname) };
-  _lit_func_0(&capture);  
+  _lit_func_0(&capture);
 }
 ```
 
-### Extension #pragma dir  
+### Extension #pragma dir
 
-```c 
+```c
 #pragma dir "C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt"
-```  
-  
+```
+
 pragma dir makes the preprocessor include the directory when searching for includes.
 
 ### Extension #pragma expand
@@ -1564,7 +1567,7 @@ _is_array
 Array type
 
 _is_function
-A function type describes a function with specified return type. 
+A function type describes a function with specified return type.
 
 _is_floating_point
 float, double, and long double return true
@@ -1574,7 +1577,7 @@ The standard signed integer types and standard unsigned integer types are collec
 standard integer types;
 
 _is_arithmetic
-Integer and floating types are collectively called arithmetic types. 
+Integer and floating types are collectively called arithmetic types.
 
 _is_scalar
 Arithmetic types, pointer types, and the nullptr_t type are collectively called scalar types
@@ -1587,7 +1590,7 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 
 Syntax:
 
-``` 
+```
   cast-expression:
     unary-expression
     ( type-name ) cast-expression
@@ -1602,22 +1605,22 @@ Sample
     int a[2];
     static_assert( a == (int[2]) );
 
-    /* is array of ints? */    
+    /* is array of ints? */
     static_assert( _is_array(a) && a[0] == (int) );
 ```
 
 Making operator ? be decided in compile time, this also could be an alternative to _Generic.
-  
+
 ```c
 
 int main()
 {
     int a;
-    
-    int t1 = 
+
+    int t1 =
        a == (int) ? 1 : a == (double) ? 2 : 0;
-    
-    int t2 = 
+
+    int t2 =
        _Generic(a, int: 1, double: 2, default: 0);
 
     typeof( 1 ? (int) : (double)) b;
@@ -1643,26 +1646,26 @@ See [ownership](ownership.html)
 
 ```
 
-and the lvalue conversion will not happen, allowing 
+and the lvalue conversion will not happen, allowing
 more precise (with qualifiers) type match.
 
 ### Extension assert declaration
 
-Standard says "If NDEBUG is defined as a macro name at the point in the source file 
+Standard says "If NDEBUG is defined as a macro name at the point in the source file
 where <assert.h> is included, the assert macro is defined simply as
 
 ```c
-#define assert(...) ((void)0)  
+#define assert(...) ((void)0)
 ```
 
-Cake keeps that. 
+Cake keeps that.
 
 
 
 If NDEBUG is NOT defined cake defines assert as
 
 ```c
-#define assert(...) assert(__VA_ARGS__) 
+#define assert(...) assert(__VA_ARGS__)
 ```
 
 Because Cake can be used as a static analyzer, reading existing headers not previously known by Cake,

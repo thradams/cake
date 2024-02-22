@@ -14,36 +14,68 @@ enum language_version
     LANGUAGE_CXX = 3, //experimental
 };
 
-enum warning {    
+enum diagnostic_id {
     W_NONE = 0,  /*not a real warning, used in especial cases*/
-    W_UNUSED_VARIABLE = 1 << 1, //-Wunused-variable
-    W_DEPRECATED = 1 << 2,
-    W_ENUN_CONVERSION = 1 << 3 ,//-Wenum-conversion
-    W_NON_NULL = 1 << 4, //-Wnonnull
-    W_ADDRESS = 1 << 5, //-Waddress (always true)
-    W_UNUSED_PARAMETER = 1 << 6, //-Wno-unused-parameter
-    W_DECLARATOR_HIDE = 1 << 7, // gcc no
-    W_TYPEOF_ARRAY_PARAMETER = 1 << 8,//
-    W_ATTRIBUTES = 1 << 9, //-Wattributes
-    W_UNUSED_VALUE = 1 << 10, //-Wunused-value
-    W_STYLE = 1 << 11, //-Wstyle
-    W_COMMENT = 1 << 12,
-    W_LINE_SLICING = 1 << 13,
-    W_STRING_SLICED = 1 << 14,
-    W_DISCARDED_QUALIFIERS = 1 << 15,
-    W_DECLARATOR_STATE = 1 << 16,
-    W_UNINITIALZED  = 1 << 17,
-    
-    W_RETURN_LOCAL_ADDR = 1 << 20,
-    
-};
+    W_UNUSED_VARIABLE, //-Wunused-variable
+    W_DEPRECATED,
+    W_ENUN_CONVERSION,//-Wenum-conversion
+    W_NON_NULL, //-Wnonnull
+    W_ADDRESS, //-Waddress (always true)
+    W_UNUSED_PARAMETER, //-Wno-unused-parameter
+    W_DECLARATOR_HIDE, // gcc no
+    W_TYPEOF_ARRAY_PARAMETER,//
+    W_ATTRIBUTES, //-Wattributes
+    W_UNUSED_VALUE, //-Wunused-value
+    W_STYLE, //-Wstyle
+    W_COMMENT,
+    W_LINE_SLICING,
+    W_STRING_SLICED,
+    W_DISCARDED_QUALIFIERS,
+    W_DECLARATOR_STATE,
+    W_UNINITIALZED,
 
-enum error
-{ 
-    C_SUCCESS = 0,
-    C_UNEXPECTED,    
-    C_TOO_MANY_ARGUMENTS,
-    C_TOO_FEW_ARGUMENTS,
+    W_RETURN_LOCAL_ADDR,
+
+
+    /*ownership type system errors*/
+    C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+    C_OWNERSHIP_NOT_OWNER,
+    C_OWNERSHIP_USING_TEMPORARY_OWNER,
+    C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+
+    C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
+    C_DISCARDING_OWNER,
+
+    /*flow analysis errors*/
+    C_OWNERSHIP_FLOW_MISSING_DTOR,
+    C_OWNERSHIP_NON_OWNER_MOVE,
+
+    C_MAYBE_UNINITIALIZED,
+    C_NULL_DEREFERENCE,
+
+    W_NOTE,
+    //AFTER THIS POINT (W_NOTE) MESSAGES ARE ALWAYS ERRORS
+    ////////////////////////////////////////
+
+    //constraints violations are errors
+    C_UNEXPECTED,
+    //TODO ERROR MESSAGE MUST BE BASED ON CONSTRAINS
+    // 
+    
+    /*
+    * 5.1.1.3 Diagnostics
+      A conforming implementation shall produce at least one diagnostic message (identified in an
+      implementation-defined manner) if a preprocessing translation unit or translation unit contains a
+      violation of any syntax rule or constraint, even if the behavior is also explicitly specified as undefined
+      or implementation-defined. Diagnostic messages need not be produced in other circumstances.9
+    */
+
+    //SAMPLE
+    //Constrain : The number of arguments shall agree with the number of parameters.
+    ERROR_TOO_MANY_ARGUMENTS,
+    ERROR_TOO_FEW_ARGUMENTS,
+    
+    //TODO.... more constrains
     C_NOT_FOUND,
     C_NO_MATCH_FOR_GENERIC,
     C_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
@@ -84,7 +116,7 @@ enum error
     C_MISSING_ENUM_TAG_NAME,
     C_MULTIPLE_DEFINITION_ENUM,
     C_STATIC_ASSERT_FAILED,
-    C_ATTR_UNBALANCED,    
+    C_ATTR_UNBALANCED,
     C_UNEXPECTED_END_OF_FILE,
     C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK,
     C_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
@@ -104,22 +136,13 @@ enum error
     C_OPERATOR_NEEDS_LVALUE, //C2105
     C_MULTICHAR_ERROR,
     C_CHARACTER_TOO_LARGE,
-    C_OWNERSHIP_NON_OWNER_MOVE,
+
     C_PRAGMA_ERROR,
-    /*ownership type system errors*/
-    C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
-    C_OWNERSHIP_NOT_OWNER,
-    C_OWNERSHIP_USING_TEMPORARY_OWNER,
-    C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-    
-    C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
-    C_DISCARDING_OWNER,
-    
-    /*flow analysis errors*/
-    C_OWNERSHIP_FLOW_MISSING_DTOR,    
+
 };
 
-bool is_ownership_error(enum error e);
+
+
 
 enum style
 {
@@ -127,27 +150,42 @@ enum style
 
     // https://llvm.org/docs/CodingStandards.html
     STYLE_LLVM,// A style complying with the LLVM coding standards
-    
+
     //https://google.github.io/styleguide/cppguide.html
     STYLE_GOOGLE,// A style complying with Google’s C++ style guide
 
     //https://chromium.googlesource.com/chromium/src/+/refs/heads/main/styleguide/styleguide.md
     //https://www.kernel.org/doc/html/latest/process/coding-style.html
     STYLE_CHROMIUM,// A style complying with Chromium’s style guide
-    
+
     //https://firefox-source-docs.mozilla.org/code-quality/coding-style/index.html
     STYLE_MOZILLA,// A style complying with Mozilla’s style guide
-    
+
     //https://www.webkit.org/code-style-guidelines/
     STYLE_WEBKIT,// A style complying with WebKit’s style guide
-    
+
     STYLE_MICROSOFT,// A style complying with Microsoft’s style guide
-    
+
     STYLE_GNU,// A style complying with the GNU coding standards
-    
+
 };
-const char* get_warning_name(enum warning w);
-enum warning  get_warning_flag(const char* wname);
+const char* get_warning_name(enum diagnostic_id w);
+unsigned long long  get_warning_bit_mask(const char* wname);
+
+struct diagnostic
+{
+    /*
+      each message has number (0-63) that corresponds to the bit index
+      Messages bigger than W_NOTE are errors or bigger than 63
+    */
+
+    /*set of diagnostics reported as errors*/
+    unsigned long long errors;
+    /*set of diagnostics reported as warnings*/
+    unsigned long long warnings;
+    /*set of diagnostics reported as notes*/
+    unsigned long long notes;
+};
 
 struct options
 {
@@ -160,27 +198,27 @@ struct options
        -target=c99
     */
     enum language_version target;
-    
+
     /*
       #pragma CAKE diagnostic push
       #pragma CAKE diagnostic pop
     */
-    int enabled_warnings_stack_top_index;
-    enum warning enabled_warnings_stack[10];
+    int diagnostic_stack_top_index;
+    struct diagnostic diagnostic_stack[10];
 
     enum style style;
 
     /*
        Causes the compiler to output a list of the include files.
-       The option also displays nested include files, that is, 
+       The option also displays nested include files, that is,
        the files included by the files that you include.
     */
     bool show_includes;
 
     /*
-       -remove-comments  
+       -remove-comments
     */
-    bool remove_comments;    
+    bool remove_comments;
 
     /*
        -flow-analysis
@@ -188,7 +226,7 @@ struct options
     bool flow_analysis;
 
     /*
-      -E 
+      -E
     */
     bool preprocess_only;
 
@@ -206,17 +244,17 @@ struct options
 
     bool format_input;
     bool format_ouput;
-    
-    
+
+
     /*
       -no-output
       if true cake does not generate ouput
     */
     bool no_output;
-    
-    /* 
+
+    /*
     -nullchecks
-     
+
     */
     bool null_checks;
 
