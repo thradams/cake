@@ -2049,6 +2049,9 @@ void c_clrscr()
 #include <ctype.h>
 
 
+#include <sys/stat.h>
+
+
 #include <errno.h>
 
 
@@ -2065,6 +2068,9 @@ void c_clrscr()
 
 
 #include <direct.h>
+
+
+#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
@@ -3545,7 +3551,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
 			//windows have case insensive paths
 			for (char* p = p_new->lexeme; *p; p++)
 			{
-				*p = tolower(*p);
+				*p = (char)tolower(*p);
 			}
 #endif
 			p_new->level = level;
@@ -8587,7 +8593,7 @@ caso nao tenha este arquivos apt-get install uuid-dev
 bool path_is_absolute(const char* path)
 {
 #ifdef _WINDOWS_
-    const char ch = tolower(path[0]);
+    const char ch = (char)tolower(path[0]);
     if (ch >= 'a' && ch <= 'z')
     {
         /*  c:/ or c:\ */
@@ -12998,7 +13004,7 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
                 return &p_obj->pointed->members.data[p_expression->member_index];
             else
             {
-                assert(false);
+                return NULL;
             }
         }
     }
