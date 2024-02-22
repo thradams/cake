@@ -1131,7 +1131,7 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
                 return &p_obj->pointed->members.data[p_expression->member_index];
             else
             {
-                assert(false);
+                return NULL;
             }
         }
     }
