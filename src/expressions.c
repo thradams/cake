@@ -3484,6 +3484,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; //MOVED
 
             enum type_category category =
                 type_get_category(&new_expression->left->type);
