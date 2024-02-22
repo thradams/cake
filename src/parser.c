@@ -1505,7 +1505,10 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
         ctx->current = ctx->current->next;
         pragma_skip_blanks(ctx);
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "CAKE") == 0)
+        if (ctx->current &&
+            (strcmp(ctx->current->lexeme, "CAKE") == 0 ||
+                strcmp(ctx->current->lexeme, "cake") == 0)
+            )
         {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
@@ -1562,22 +1565,17 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
             }
-            else if (ctx->current && strcmp(ctx->current->lexeme, "warning") == 0)
+            else if (ctx->current &&
+                (strcmp(ctx->current->lexeme, "error") == 0 ||
+                 strcmp(ctx->current->lexeme, "warning") == 0 ||
+                 strcmp(ctx->current->lexeme, "note") == 0 ||
+                 strcmp(ctx->current->lexeme, "ignored") == 0)
+                )
             {
-                //#pragma CAKE diagnostic warning "-Wenum-compare"
-
-                ctx->current = ctx->current->next;
-                pragma_skip_blanks(ctx);
-
-                if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
-                {
-                    unsigned long long  w =  get_warning_bit_mask(ctx->current->lexeme + 1 + 2);
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
-                }
-            }
-            else if (ctx->current && strcmp(ctx->current->lexeme, "ignore") == 0)
-            {
-                //#pragma CAKE diagnostic ignore "-Wenum-compare"
+                const bool is_error = strcmp(ctx->current->lexeme, "error") == 0;
+                const bool is_warning = strcmp(ctx->current->lexeme, "warning") == 0;
+                const bool is_note = strcmp(ctx->current->lexeme, "note") == 0;
+                const bool ignore = strcmp(ctx->current->lexeme, "ignored") == 0;
 
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
@@ -1585,13 +1583,23 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
                 {
                     unsigned long long  w = get_warning_bit_mask(ctx->current->lexeme + 1 + 2);
+
+                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
                     ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+                    if (is_error)
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors |= w;
+                    else if (is_warning)
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+                    else if (is_note)
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes |= w;
                 }
             }
+
         }
     }
 }
-
 static struct token* parser_skip_blanks(struct parser_ctx* ctx)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
