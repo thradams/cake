@@ -117,14 +117,14 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum warning w)
+static bool parser_is_warning_enabled(const struct parser_ctx* ctx, enum diagnostic_id w)
 {
     return
         (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & w) != 0;
 
 }
 
-static bool parser_is_warning_disabled(const struct parser_ctx* ctx, enum warning w)
+static bool parser_is_warning_disabled(const struct parser_ctx* ctx, enum diagnostic_id w)
 {
     return
         (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & w) != 0 &&
@@ -150,7 +150,7 @@ static void check_open_brace_style(struct parser_ctx* ctx, struct token* token)
             }
             else
             {
-                compiler_set_warning_with_token(W_STYLE, ctx, token, "not following correct brace style {");
+                compiler_diagnostic_message(W_STYLE, ctx, token, "not following correct brace style {");
             }
         }
     }
@@ -173,7 +173,7 @@ static void check_close_brace_style(struct parser_ctx* ctx, struct token* token)
             }
             else
             {
-                compiler_set_warning_with_token(W_STYLE, ctx, token, "not following correct close brace style }");
+                compiler_diagnostic_message(W_STYLE, ctx, token, "not following correct close brace style }");
             }
         }
     }
@@ -195,7 +195,7 @@ static void check_func_open_brace_style(struct parser_ctx* ctx, struct token* to
             }
             else
             {
-                compiler_set_warning_with_token(W_STYLE, ctx, token, "not following correct brace style {");
+                compiler_diagnostic_message(W_STYLE, ctx, token, "not following correct brace style {");
             }
         }
     }
@@ -217,7 +217,7 @@ static void check_func_close_brace_style(struct parser_ctx* ctx, struct token* t
             }
             else
             {
-                compiler_set_warning_with_token(W_STYLE, ctx, token, "not following correct close brace style }");
+                compiler_diagnostic_message(W_STYLE, ctx, token, "not following correct close brace style }");
             }
         }
     }
@@ -291,129 +291,36 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 }
 
 
-void compiler_set_error_with_token(enum error error, struct parser_ctx* ctx, const struct token* opt p_token, const char* fmt, ...)
-{
-    if (p_token == NULL)
-        return;
-    if (p_token->level > 0)
-        return;
-
-    if (ctx->options.disable_ownership_errors && is_ownership_error(error))
-    {
-        return;
-    }
-
-
-    ctx->p_report->error_count++;
-    ctx->p_report->last_error = error;
-    char buffer[200] = { 0 };
-
-#ifndef TEST
-
-    if (p_token)
-        print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
-
-
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-    if (ctx->options.visual_studio_ouput_format)
-    {
-        printf("error: " "%s\n", buffer);
-    }
-    else
-    {
-        printf(LIGHTRED "error: " WHITE "%s\n", buffer);
-
-    }
-
-    print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
-#endif
-    const char* func_name = "module";
-    if (ctx->p_current_function_opt)
-    {
-        func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
-    }
-
-    if (ctx->sarif_file)
-    {
-        const char* file_name = "?";
-        int line = 0;
-        int col = 0;
-        if (p_token)
-        {
-            file_name = p_token->token_origin->lexeme;
-            line = p_token->line;
-            col = p_token->col;
-        }
-
-        if (ctx->p_report->error_count + ctx->p_report->warnings_count + ctx->p_report->info_count > 1)
-        {
-            fprintf(ctx->sarif_file, ",\n");
-        }
-
-        fprintf(ctx->sarif_file, "   {\n");
-        fprintf(ctx->sarif_file, "     \"ruleId\":\"%s\",\n", "error");
-        fprintf(ctx->sarif_file, "     \"level\":\"error\",\n");
-        fprintf(ctx->sarif_file, "     \"message\": {\n");
-        fprintf(ctx->sarif_file, "            \"text\": \"%s\"\n", buffer);
-        fprintf(ctx->sarif_file, "      },\n");
-        fprintf(ctx->sarif_file, "      \"locations\": [\n");
-        fprintf(ctx->sarif_file, "       {\n");
-
-        fprintf(ctx->sarif_file, "       \"physicalLocation\": {\n");
-
-        fprintf(ctx->sarif_file, "             \"artifactLocation\": {\n");
-        fprintf(ctx->sarif_file, "                 \"uri\": \"file:///%s\"\n", file_name);
-        fprintf(ctx->sarif_file, "              },\n");
-
-        fprintf(ctx->sarif_file, "              \"region\": {\n");
-        fprintf(ctx->sarif_file, "                  \"startLine\": %d,\n", line);
-        fprintf(ctx->sarif_file, "                  \"startColumn\": %d,\n", col);
-        fprintf(ctx->sarif_file, "                  \"endLine\": %d,\n", line);
-        fprintf(ctx->sarif_file, "                  \"endColumn\": %d\n", col);
-        fprintf(ctx->sarif_file, "               }\n");
-        fprintf(ctx->sarif_file, "         },\n");
-
-        fprintf(ctx->sarif_file, "         \"logicalLocations\": [\n");
-        fprintf(ctx->sarif_file, "          {\n");
-
-        fprintf(ctx->sarif_file, "              \"fullyQualifiedName\": \"%s\",\n", func_name);
-        fprintf(ctx->sarif_file, "              \"decoratedName\": \"%s\",\n", func_name);
-
-        fprintf(ctx->sarif_file, "              \"kind\": \"%s\"\n", "function");
-        fprintf(ctx->sarif_file, "          }\n");
-
-        fprintf(ctx->sarif_file, "         ]\n");
-
-        fprintf(ctx->sarif_file, "       }\n");
-        fprintf(ctx->sarif_file, "     ]\n");
-
-        fprintf(ctx->sarif_file, "   }\n");
-    }
-
-}
-
-_Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+_Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
 
     if (p_token && p_token->level != 0)
     {
         return false;
     }
+    bool is_error = false;
+    bool is_warning = false;
+    bool is_note = false;
+
+    if (w > W_NOTE)
+    {
+        is_error = true;
+    }
+    else
+    {
+        is_error =
+            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & (1ULL << w)) != 0;
+        
+        is_warning =
+            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
+
+        is_note =
+            w == W_NOTE ||
+            ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
+    }
 
 
 
-    const bool is_error =
-        (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & w) != 0;
-
-    const bool is_warning =
-        (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & w) != 0;
-
-    const bool is_note =
-        w == W_NOTE || 
-            ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & w) != 0);
 
 
     if (is_error)
@@ -435,7 +342,7 @@ _Bool compiler_set_warning_with_token(enum warning w, struct parser_ctx* ctx, co
 
 
 
-    ctx->p_report->last_warning |= w;
+    ctx->p_report->last_diagnostic_id |= w;
 
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
@@ -1623,7 +1530,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             }
             else
             {
-                compiler_set_error_with_token(C_PRAGMA_ERROR, ctx, ctx->current, "nullchecks pragma needs to use ON OFF");
+                compiler_diagnostic_message(C_PRAGMA_ERROR, ctx, ctx->current, "nullchecks pragma needs to use ON OFF");
             }
             ctx->options.null_checks = onoff;
         }
@@ -1665,7 +1572,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 
                 if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
                 {
-                    enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
+                    unsigned long long  w =  get_warning_bit_mask(ctx->current->lexeme + 1 + 2);
                     ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
                 }
             }
@@ -1678,7 +1585,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
 
                 if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
                 {
-                    enum warning  w = get_warning_flag(ctx->current->lexeme + 1 + 2);
+                    unsigned long long  w = get_warning_bit_mask(ctx->current->lexeme + 1 + 2);
                     ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
                 }
             }
@@ -1728,7 +1635,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     {
         if (ctx->current->type != type)
         {
-            compiler_set_error_with_token(C_UNEXPECTED_TOKEN, ctx, ctx->current, "expected %s", get_token_name(type));
+            compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->current, "expected %s", get_token_name(type));
             error = 1;
         }
 
@@ -1738,7 +1645,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     }
     else
     {
-        compiler_set_error_with_token(C_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected end of file after");
+        compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected end of file after");
         error = 1;
     }
 
@@ -1822,7 +1729,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
-            compiler_set_error_with_token(C_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
+            compiler_diagnostic_message(C_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
             return 1;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) //ja tinha um long
@@ -2068,11 +1975,11 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
         {
             if (ctx->current->type == TK_IDENTIFIER)
             {
-                compiler_set_error_with_token(C_INVALID_TYPE, ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
+                compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
             }
             else
             {
-                compiler_set_error_with_token(C_EXPECTED_DECLARATION, ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
+                compiler_diagnostic_message(C_EXPECTED_DECLARATION, ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
             }
             parser_match(ctx); //we need to go ahead
         }
@@ -2188,7 +2095,7 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
                     parameter->declarator->name->level == 0 /*direct source*/
                     )
                 {
-                    compiler_set_warning_with_token(W_UNUSED_PARAMETER,
+                    compiler_diagnostic_message(W_UNUSED_PARAMETER,
                         ctx,
                         parameter->declarator->name,
                         "'%s': unreferenced formal parameter",
@@ -2255,7 +2162,7 @@ struct declaration_specifier* owner declaration_specifier(struct parser_ctx* ctx
     }
     else
     {
-        compiler_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "unexpected");
+        compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "unexpected");
     }
     return p_declaration_specifier;
 }
@@ -2293,7 +2200,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
 
         if (tkname == NULL)
         {
-            compiler_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "empty declarator name?? unexpected");
+            compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "empty declarator name?? unexpected");
             return p_init_declarator;
         }
 
@@ -2357,8 +2264,8 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_set_error_with_token(C_REDECLARATION, ctx, ctx->current, "redeclaration");
-                        compiler_set_warning_with_token(W_NOTE, ctx, previous->name, "previous declaration");
+                        compiler_diagnostic_message(C_REDECLARATION, ctx, ctx->current, "redeclaration");
+                        compiler_diagnostic_message(W_NOTE, ctx, previous->name, "previous declaration");
                     }
                 }
                 else
@@ -2369,9 +2276,9 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     if (out_scope->scope_level != 0)
                     {
                         /*but redeclaration at function scope we show warning*/
-                        if (compiler_set_warning_with_token(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token, "declaration of '%s' hides previous declaration", name))
+                        if (compiler_diagnostic_message(W_DECLARATOR_HIDE, ctx, p_init_declarator->p_declarator->first_token, "declaration of '%s' hides previous declaration", name))
                         {
-                            compiler_set_warning_with_token(W_NOTE, ctx, previous->first_token, "previous declaration is here");
+                            compiler_diagnostic_message(W_NOTE, ctx, previous->first_token, "previous declaration is here");
                         }
                     }
                 }
@@ -2450,7 +2357,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     if (p_init_declarator->p_declarator &&
                         !type_is_pointer_to_const(&p_init_declarator->p_declarator->type))
                     {
-                        compiler_set_warning_with_token(W_DISCARDED_QUALIFIERS, ctx, ctx->current, "const qualifier discarded");
+                        compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx, ctx->current, "const qualifier discarded");
                     }
                 }
 
@@ -2461,7 +2368,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                         //type * p = f();
                         if (!type_is_owner(&p_init_declarator->p_declarator->type))
                         {
-                            compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+                            compiler_diagnostic_message(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
                         }
                     }
                 }
@@ -2476,7 +2383,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
 
                         if (!is_zero)
                         {
-                            compiler_set_error_with_token(C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+                            compiler_diagnostic_message(C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
                                 ctx,
                                 p_init_declarator->p_declarator->first_token, "cannot initialize an owner type with a non owner");
                         }
@@ -2505,7 +2412,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
                 p_init_declarator->p_declarator->type.static_array)
             {
-                compiler_set_error_with_token(C_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+                compiler_diagnostic_message(C_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
                     ctx,
                     p_init_declarator->p_declarator->first_token,
                     "static or type qualifiers are not allowed in non-parameter array declarator");
@@ -2515,7 +2422,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         if (!type_is_pointer(&p_init_declarator->p_declarator->type) &&
             p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
         {
-            compiler_set_error_with_token(C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+            compiler_diagnostic_message(C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
                 ctx,
                 p_init_declarator->p_declarator->first_token,
                 "obj_owner qualifier can only be used with pointers");
@@ -2698,7 +2605,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
 
         if (p_typeof_specifier->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
         {
-            compiler_set_warning_with_token(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, "typeof used in array arguments");
+            compiler_diagnostic_message(W_TYPEOF_ARRAY_PARAMETER, ctx, ctx->current, "typeof used in array arguments");
 
             if (type_is_array(&p_typeof_specifier->type))
             {
@@ -3059,7 +2966,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
             }
             else
             {
-                compiler_set_error_with_token(C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                compiler_diagnostic_message(C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
                     ctx,
                     ctx->current,
                     "use of '%s' with tag type that does not match previous declaration.",
@@ -3144,11 +3051,11 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
             if (p_struct_or_union_specifier->tagtoken)
             {
                 //TODO add deprecated message
-                compiler_set_warning_with_token(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                compiler_diagnostic_message(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
             }
             else
             {
-                compiler_set_warning_with_token(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "deprecated");
+                compiler_diagnostic_message(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "deprecated");
             }
         }
     }
@@ -3632,7 +3539,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
         {
             if (!has_identifier)
             {
-                compiler_set_error_with_token(C_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
+                compiler_diagnostic_message(C_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
                 throw;
             }
         }
@@ -3659,7 +3566,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
                 if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
                     p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    compiler_set_error_with_token(C_MULTIPLE_DEFINITION_ENUM,
+                    compiler_diagnostic_message(C_MULTIPLE_DEFINITION_ENUM,
                         ctx,
                         p_enum_specifier->tag_token,
                         "multiple definition of 'enum %s'",
@@ -3676,7 +3583,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
             }
             else
             {
-                compiler_set_error_with_token(C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                compiler_diagnostic_message(C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
                     ctx,
                     ctx->current, "use of '%s' with tag type that does not match previous declaration.",
                     ctx->current->lexeme);
@@ -3963,7 +3870,7 @@ struct function_specifier* owner function_specifier(struct parser_ctx* ctx)
 {
     if (ctx->current->type == TK_KEYWORD__NORETURN)
     {
-        compiler_set_warning_with_token(W_STYLE, ctx, ctx->current, "_Noreturn is deprecated use attributes");
+        compiler_diagnostic_message(W_STYLE, ctx, ctx->current, "_Noreturn is deprecated use attributes");
     }
 
     struct function_specifier* owner p_function_specifier = NULL;
@@ -5037,12 +4944,12 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
             {
                 if (p_static_assert_declaration->string_literal_opt)
                 {
-                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
+                    compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
                         p_static_assert_declaration->string_literal_opt->lexeme);
                 }
                 else
                 {
-                    compiler_set_error_with_token(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
+                    compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
                 }
             }
         }
@@ -5264,7 +5171,7 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
         if (is_cake_attr)
         {
 
-            compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
+            compiler_diagnostic_message(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
 
         }
         parser_match_tk(ctx, TK_IDENTIFIER);
@@ -5278,7 +5185,7 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
         */
         if (!is_standard_attribute)
         {
-            compiler_set_warning_with_token(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
+            compiler_diagnostic_message(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an standard attribute", attr_token->lexeme);
         }
     }
     return p_attribute_token;
@@ -5351,12 +5258,12 @@ struct balanced_token_sequence* owner balanced_token_sequence_opt(struct parser_
     }
     if (count2 != 0)
     {
-        compiler_set_error_with_token(C_ATTR_UNBALANCED, ctx, ctx->current, "expected ']' before ')'");
+        compiler_diagnostic_message(C_ATTR_UNBALANCED, ctx, ctx->current, "expected ']' before ')'");
 
     }
     if (count3 != 0)
     {
-        compiler_set_error_with_token(C_ATTR_UNBALANCED, ctx, ctx->current, "expected '}' before ')'");
+        compiler_diagnostic_message(C_ATTR_UNBALANCED, ctx, ctx->current, "expected '}' before ')'");
 
     }
     return p_balanced_token_sequence;
@@ -5412,7 +5319,7 @@ struct primary_block* owner primary_block(struct parser_ctx* ctx)
     }
     else
     {
-        compiler_set_error_with_token(C_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
+        compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
     }
     return p_primary_block;
 }
@@ -5511,7 +5418,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
 
                     if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
                     {
-                        compiler_set_warning_with_token(W_ATTRIBUTES, ctx,
+                        compiler_diagnostic_message(W_ATTRIBUTES, ctx,
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "ignoring return value of function declared with 'nodiscard' attribute");
                     }
@@ -5523,7 +5430,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
 
                     if (p_unlabeled_statement->expression_statement->expression_opt->first_token->level == 0)
                     {
-                        compiler_set_warning_with_token(W_ATTRIBUTES, ctx,
+                        compiler_diagnostic_message(W_ATTRIBUTES, ctx,
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "ignoring the result of owner type ");
                     }
@@ -5561,16 +5468,16 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
 #if 0
                         //too many false..alerts.
                         //make list of for sure ...
-                        compiler_set_warning_with_token(W_UNUSED_VALUE,
+                        compiler_diagnostic_message(W_UNUSED_VALUE,
                             ctx,
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
                     }
-                }
             }
-                    }
-                }
+        }
+    }
+}
 
     return p_unlabeled_statement;
             }
@@ -5692,7 +5599,7 @@ struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
                 {
                     if (p_declarator->name->token_origin->level == 0)
                     {
-                        compiler_set_warning_with_token(W_UNUSED_VARIABLE,
+                        compiler_diagnostic_message(W_UNUSED_VARIABLE,
                             ctx,
                             p_declarator->name,
                             "'%s': unreferenced declarator",
@@ -5948,7 +5855,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         if (!(ctx->current->flags & TK_FLAG_MACRO_EXPANDED)
             && !style_has_one_space(ctx->current))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, ctx->current, "one space");
+            compiler_diagnostic_message(W_STYLE, ctx, ctx->current, "one space");
         }
 
         parser_match_tk(ctx, '(');
@@ -5972,7 +5879,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         if (type_is_function(&p_selection_statement->expression->type) ||
             type_is_array(&p_selection_statement->expression->type))
         {
-            compiler_set_warning_with_token(W_ADDRESS, ctx, ctx->current, "always true");
+            compiler_diagnostic_message(W_ADDRESS, ctx, ctx->current, "always true");
         }
 
         parser_match_tk(ctx, ')');
@@ -5990,7 +5897,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         }
         else
         {
-            compiler_set_error_with_token(C_UNEXPECTED_END_OF_FILE, ctx, ctx->input_list.tail, "unexpected end of file");
+            compiler_diagnostic_message(C_UNEXPECTED_END_OF_FILE, ctx, ctx->input_list.tail, "unexpected end of file");
         }
     }
     else if (ctx->current->type == TK_KEYWORD_SWITCH)
@@ -6007,7 +5914,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
     else
     {
         assert(false);
-        compiler_set_error_with_token(C_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected token");
+        compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected token");
     }
 
     p_selection_statement->last_token = ctx->previous;
@@ -6174,7 +6081,7 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
         if (ctx->p_current_try_statement_opt == NULL)
         {
 
-            compiler_set_error_with_token(C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, "throw statement not within try block");
+            compiler_diagnostic_message(C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, "throw statement not within try block");
         }
         else
         {
@@ -6204,7 +6111,7 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
 
                 if (type_is_void(&return_type))
                 {
-                    compiler_set_error_with_token(C_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
+                    compiler_diagnostic_message(C_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
                         ctx,
                         p_return_token,
                         "void function '%s' should not return a value",
@@ -6387,7 +6294,7 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                 if (!type_is_maybe_unused(&p_declarator->type) &&
                     p_declarator->num_uses == 0)
                 {
-                    compiler_set_warning_with_token(W_UNUSED_VARIABLE,
+                    compiler_diagnostic_message(W_UNUSED_VARIABLE,
                         ctx,
                         p_declarator->name,
                         "declarator '%s' not used", p_declarator->name->lexeme);
@@ -6525,7 +6432,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
     }
 #endif
 
-        }
+}
 
 const char* owner format_code(struct options* options, const char* content)
 {
@@ -6853,17 +6760,17 @@ static int create_multiple_paths(const char* root, const char* outdir)
             {
                 printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
                 return er;
-            }
         }
+    }
         if (*p == '\0')
             break;
         p++;
-    }
+}
     return 0;
 #else
     return -1;
 #endif
-}
+    }
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -7208,14 +7115,14 @@ void naming_convention_struct_tag(struct parser_ctx* ctx, struct token* token)
     {
         if (!is_snake_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use snake_case for struct/union tags");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use snake_case for struct/union tags");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
         if (!is_pascal_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use camelCase for struct/union tags");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use camelCase for struct/union tags");
         }
     }
 }
@@ -7232,14 +7139,14 @@ void naming_convention_enum_tag(struct parser_ctx* ctx, struct token* token)
     {
         if (!is_snake_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use snake_case for enum tags");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use snake_case for enum tags");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
         if (!is_pascal_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use PascalCase for enum tags");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use PascalCase for enum tags");
         }
     }
 }
@@ -7258,14 +7165,14 @@ void naming_convention_function(struct parser_ctx* ctx, struct token* token)
     {
         if (!is_snake_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use snake_case for functions");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use snake_case for functions");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
         if (!is_pascal_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use PascalCase for functions");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use PascalCase for functions");
         }
     }
 }
@@ -7284,12 +7191,12 @@ void naming_convention_global_var(struct parser_ctx* ctx, struct token* token, s
         {
             if (token->lexeme[0] != 's' || token->lexeme[1] != '_')
             {
-                compiler_set_warning_with_token(W_STYLE, ctx, token, "use prefix s_ for static global variables");
+                compiler_diagnostic_message(W_STYLE, ctx, token, "use prefix s_ for static global variables");
             }
         }
         if (!is_snake_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use snake_case global variables");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use snake_case global variables");
         }
     }
 }
@@ -7306,14 +7213,14 @@ void naming_convention_local_var(struct parser_ctx* ctx, struct token* token, st
     {
         if (!is_snake_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use snake_case for local variables");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use snake_case for local variables");
         }
     }
     else if (ctx->options.style == STYLE_MICROSOFT)
     {
         if (!is_camel_case(token->lexeme))
         {
-            compiler_set_warning_with_token(W_STYLE, ctx, token, "use camelCase for local variables");
+            compiler_diagnostic_message(W_STYLE, ctx, token, "use camelCase for local variables");
         }
     }
 
@@ -7328,7 +7235,7 @@ void naming_convention_enumerator(struct parser_ctx* ctx, struct token* token)
 
     if (!is_all_upper(token->lexeme))
     {
-        compiler_set_warning_with_token(W_STYLE, ctx, token, "use UPPERCASE for enumerators");
+        compiler_diagnostic_message(W_STYLE, ctx, token, "use UPPERCASE for enumerators");
     }
 }
 
@@ -7341,7 +7248,7 @@ void naming_convention_struct_member(struct parser_ctx* ctx, struct token* token
 
     if (!is_snake_case(token->lexeme))
     {
-        compiler_set_warning_with_token(W_STYLE, ctx, token, "use snake_case for struct members");
+        compiler_diagnostic_message(W_STYLE, ctx, token, "use snake_case for struct members");
     }
 }
 
@@ -7354,7 +7261,7 @@ void naming_convention_parameter(struct parser_ctx* ctx, struct token* token, st
 
     if (!is_snake_case(token->lexeme))
     {
-        compiler_set_warning_with_token(W_STYLE, ctx, token, "use snake_case for arguments");
+        compiler_diagnostic_message(W_STYLE, ctx, token, "use snake_case for arguments");
     }
 }
 

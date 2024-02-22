@@ -1,5 +1,4 @@
+void f(int i) {}
 int main() {
-    int i;
-    int k;
-    k = 1 + i;
+    f(2, 4);
 }

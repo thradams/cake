@@ -4,25 +4,10 @@
 #include <stdio.h>
 #include <assert.h>
 
-bool is_ownership_error(enum error e)
-{
-    switch (e)
-    {
-        case C_OWNERSHIP_MISSING_OWNER_QUALIFIER:
-        case C_OWNERSHIP_NOT_OWNER:
-        case C_OWNERSHIP_USING_TEMPORARY_OWNER:
-        case C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER:        
-        case C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN:
-        case C_OWNERSHIP_FLOW_MISSING_DTOR:
-            return true;
-        default:
-            return false;
-    }
-    return false;
-}
+
 
 static struct w {
-    enum warning w;
+    enum diagnostic_id w;
     const char* name;
 }
 s_warnings[] = {
@@ -42,20 +27,20 @@ s_warnings[] = {
     {W_RETURN_LOCAL_ADDR, "return-local-addr"}
 };
 
-enum warning  get_warning_flag(const char* wname)
+unsigned long long  get_warning_bit_mask(const char* wname)
 {
 
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
     {
         if (strncmp(s_warnings[j].name, wname, strlen(s_warnings[j].name)) == 0)
         {
-            return s_warnings[j].w;
+            return 1ULL << s_warnings[j].w;
         }
     }
     return 0;
 }
 
-const char* get_warning_name(enum warning w)
+const char* get_warning_name(enum diagnostic_id w)
 {
     int lower_index = 0;
     int upper_index = sizeof(s_warnings) / sizeof(s_warnings[0]) - 1;
@@ -79,7 +64,7 @@ const char* get_warning_name(enum warning w)
         }
     }
 
-    assert(false);
+    //assert(false);
     return "";
 }
 
@@ -91,8 +76,12 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->diagnostic_stack[0].warnings = ~0;
-    options->diagnostic_stack[0].warnings &= ~(W_NOTE | W_STYLE | W_UNUSED_PARAMETER | W_UNUSED_VARIABLE); //default is OFF
+    options->diagnostic_stack[0].warnings = ~0ULL;
+    options->diagnostic_stack[0].warnings &= ~(
+        (1ULL << W_NOTE) |
+        (1ULL << W_STYLE) |
+        (1ULL << W_UNUSED_PARAMETER) |
+        (1ULL << W_UNUSED_VARIABLE)); //default is OFF
     
     
     
@@ -273,17 +262,17 @@ int fill_options(struct options* options,
         {
             if (strcmp(argv[i], "-Wall") == 0)
             {
-                options->diagnostic_stack[0].warnings = ~0;
+                options->diagnostic_stack[0].warnings = ~0ULL;
                 continue;
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
-            enum warning  w = 0;
+            enum diagnostic_id  w = 0;
 
             if (disable_warning)
-                w = get_warning_flag(argv[i] + 5);
+                w =  get_warning_bit_mask(argv[i] + 5);
             else
-                w = get_warning_flag(argv[i] + 2);
+                w =  get_warning_bit_mask(argv[i] + 2);
 
             if (w == 0)
             {

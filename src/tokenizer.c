@@ -77,7 +77,7 @@
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum warning w)
+static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum diagnostic_id w)
 {
 	return
 		(ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & w) != 0;
@@ -203,7 +203,7 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
 
 }
 
-void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+void preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
 	if (w != W_NONE)
 	{
@@ -245,35 +245,6 @@ void preprocessor_set_warning_with_token(enum warning w, struct preprocessor_ctx
 #endif
 
 }
-
-void preprocessor_set_error_with_token(enum error error, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
-{
-	ctx->n_errors++;
-
-#ifndef TEST
-
-	if (p_token)
-		print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
-
-	char buffer[200] = { 0 };
-	va_list args;
-	va_start(args, fmt);
-	/*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-	va_end(args);
-
-	if (ctx->options.visual_studio_ouput_format)
-	{
-		printf("error: " "%s\n", buffer);
-	}
-	else
-	{
-		printf(LIGHTRED"error: " WHITE "%s\n", buffer);
-	}
-
-	print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
-#endif
-}
-
 
 
 
@@ -1288,7 +1259,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 		file = (FILE * owner)fopen(filename_opt, "rb");
 		if (file == NULL)
 		{
-			preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
+			preprocessor_diagnostic_message(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
 			throw;
 		}
 #else
@@ -1296,7 +1267,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 		char* textfile = read_file(filename_opt);
 		if (textfile == NULL)
 		{
-			preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
+			preprocessor_diagnostic_message(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
 			throw;
 		}
 
@@ -1999,7 +1970,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 				{
 					if (input_list->head->type != ')')
 					{
-						preprocessor_set_error_with_token(C_MISSING_CLOSE_PARENTHESIS, ctx, input_list->head, "missing )");
+						preprocessor_diagnostic_message(C_MISSING_CLOSE_PARENTHESIS, ctx, input_list->head, "missing )");
 						throw;
 					}
 					token_list_pop_front(input_list);
@@ -2269,7 +2240,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 	long long value = 0;
 	if (pre_constant_expression(&pre_ctx, &value) != 0)
 	{
-		preprocessor_set_error_with_token(C_EXPRESSION_ERROR, ctx, first, "expression error");
+		preprocessor_diagnostic_message(C_EXPRESSION_ERROR, ctx, first, "expression error");
 	}
 
 	ctx->conditional_inclusion = false;
@@ -2307,9 +2278,9 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
 			else
 			{
 				if (input_list->head)
-					preprocessor_set_error_with_token(C_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
+					preprocessor_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
 				else
-					preprocessor_set_error_with_token(C_UNEXPECTED_TOKEN, ctx, dest->tail, "expected EOF \n");
+					preprocessor_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, dest->tail, "expected EOF \n");
 
 				throw;
 			}
@@ -2394,7 +2365,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 		else
 		{
 
-			preprocessor_set_error_with_token(C_UNEXPECTED, ctx, input_list->head, "unexpected");
+			preprocessor_diagnostic_message(C_UNEXPECTED, ctx, input_list->head, "unexpected");
 			throw;
 		}
 		struct token_list r2 = group_opt(ctx, input_list, is_active && *p_result, level);
@@ -2833,7 +2804,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			{
 				if (!already_included)
 				{
-					preprocessor_set_error_with_token(C_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
+					preprocessor_diagnostic_message(C_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
 
 					for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
 					{
@@ -2938,7 +2909,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			struct macro* owner macro = calloc(1, sizeof * macro);
 			if (macro == NULL)
 			{
-				preprocessor_set_error_with_token(C_UNEXPECTED, ctx, ctx->current, "out of mem");
+				preprocessor_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "out of mem");
 				throw;
 			}
 
@@ -3110,7 +3081,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			ctx->n_warnings++;
 			match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//error
 			struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-			preprocessor_set_error_with_token(C_PREPROCESSOR_ERROR_DIRECTIVE, ctx, input_list->head, "#error");
+			preprocessor_diagnostic_message(C_PREPROCESSOR_ERROR_DIRECTIVE, ctx, input_list->head, "#error");
 			token_list_append_list(&r, &r6);
 			token_list_destroy(&r6);
 			match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
@@ -3132,7 +3103,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
 
 			struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-			preprocessor_set_warning_with_token(W_NONE, ctx, input_list->head, "#warning");
+			preprocessor_diagnostic_message(W_NONE, ctx, input_list->head, "#warning");
 			token_list_append_list(&r, &r6);
 			match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 			token_list_destroy(&r6);
@@ -3226,7 +3197,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 						{
 							match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
 
-							enum warning  w = get_warning_flag(input_list->head->lexeme + 1 + 2);
+							unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
 							ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
 						}
 					}
@@ -3239,7 +3210,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
 						if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
 						{
-							enum warning  w = get_warning_flag(input_list->head->lexeme + 1 + 2);
+							unsigned long long w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
 							ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
 						}
 					}
@@ -3338,7 +3309,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 						}
 						else
 						{
-							preprocessor_set_error_with_token(C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
+							preprocessor_diagnostic_message(C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
 							throw;
 						}
 					}
@@ -3369,7 +3340,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 					p_current_parameter = p_current_parameter->next;
 					if (p_current_parameter == NULL)
 					{
-						preprocessor_set_error_with_token(C_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
+						preprocessor_diagnostic_message(C_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
 						macro_argument_delete(p_argument);
 						p_argument = NULL; //DELETED
 						throw;
@@ -3426,7 +3397,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
 		{
 			if (r.tail == NULL)
 			{
-				preprocessor_set_error_with_token(C_MISSING_MACRO_ARGUMENT, ctx, input_list->head, "missing macro argument (should be checked before)");
+				preprocessor_diagnostic_message(C_MISSING_MACRO_ARGUMENT, ctx, input_list->head, "missing macro argument (should be checked before)");
 				break;
 			}
 			/*
@@ -3609,7 +3580,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
 					if (s == NULL)
 					{
 						token_list_destroy(&argumentlist);
-						preprocessor_set_error_with_token(C_UNEXPECTED, ctx, input_list->head, "unexpected");
+						preprocessor_diagnostic_message(C_UNEXPECTED, ctx, input_list->head, "unexpected");
 						throw;
 					}
 					struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
@@ -4229,9 +4200,9 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 							preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
 					}
 					else if (input_list->head->type == TK_LINE_COMMENT)
-						preprocessor_set_warning_with_token(W_COMMENT, ctx, input_list->head, "multi-line //comment");
+						preprocessor_diagnostic_message(W_COMMENT, ctx, input_list->head, "multi-line //comment");
 					else
-						preprocessor_set_warning_with_token(W_LINE_SLICING, ctx, input_list->head, "unnecessary line-slicing");
+						preprocessor_diagnostic_message(W_LINE_SLICING, ctx, input_list->head, "unnecessary line-slicing");
 				}
 
 				bool blanks = token_is_blank(input_list->head) || input_list->head->type == TK_NEWLINE;
@@ -4436,7 +4407,7 @@ void include_config_header(struct preprocessor_ctx* ctx)
 	char* owner str = read_file(path);
 
 
-	const enum warning w =
+	const enum diagnostic_id w =
 		ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
 
 
@@ -4459,7 +4430,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 	  This command prints all macros used by gcc
 	  echo | gcc -dM -E -
 	*/
-	const enum warning w =
+	const enum diagnostic_id w =
 		ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
 
 	/*we dont want warnings here*/
