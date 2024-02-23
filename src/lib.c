@@ -15364,12 +15364,9 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
        //aqui eh duvidoso mas conditional faz a unary tb.
        //a diferenca q nao eh qualquer expressao
        //que pode ser de atribuicao
-    struct expression* owner p_expression_node = NULL;
-    try
+    struct expression* owner p_expression_node = conditional_expression(ctx);
+    if (p_expression_node)
     {
-        p_expression_node = conditional_expression(ctx);
-        if (p_expression_node == NULL) throw;
-
         while (ctx->current != NULL &&
             (ctx->current->type == '=' ||
                 ctx->current->type == '*=' ||
@@ -15388,7 +15385,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
 
 
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
+            if (new_expression == NULL) break;
 
             static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
@@ -15426,8 +15423,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                p_expression_node = NULL;
-                throw;
+                return NULL;
             }
 
 
@@ -15440,7 +15436,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             new_expression->last_token = new_expression->right->last_token;
 
             new_expression->type = type_dup(&new_expression->right->type);
-            
+
 
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD;
@@ -15450,9 +15446,6 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
 
             p_expression_node = new_expression;
         }
-    }
-    catch
-    {
     }
     return p_expression_node;
 }
