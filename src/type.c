@@ -24,58 +24,58 @@ bool print_type_specifier_flags(struct osstream* ss, bool* first, enum type_spec
 	if (e_type_specifier_flags & TYPE_SPECIFIER_VOID)
 		print_item(ss, first, "void");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_SIGNED)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_SIGNED)
 		print_item(ss, first, "signed");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_UNSIGNED)
 		print_item(ss, first, "unsigned");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_INT)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_INT)
 		print_item(ss, first, "int");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_SHORT)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_SHORT)
 		print_item(ss, first, "short");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_LONG)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_LONG)
 		print_item(ss, first, "long");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
 		print_item(ss, first, "long long");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_INT16)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_INT16)
 		print_item(ss, first, "__int16");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_INT32)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_INT32)
 		print_item(ss, first, "__int32");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_INT64)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_INT64)
 		print_item(ss, first, "__int64");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_CHAR)
 		print_item(ss, first, "char");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
 		print_item(ss, first, "double");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_FLOAT)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_FLOAT)
 		print_item(ss, first, "float");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_BOOL)
 		print_item(ss, first, "_Bool");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_COMPLEX)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_COMPLEX)
 		print_item(ss, first, "_Complex");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL32)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL32)
 		print_item(ss, first, "_Decimal32");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL64)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL64)
 		print_item(ss, first, "_Decimal64");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_DECIMAL128)
 		print_item(ss, first, "_Decimal128");
 
-	if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
+	else if (e_type_specifier_flags & TYPE_SPECIFIER_NULLPTR_T)
 		print_item(ss, first, "nullptr_t");
 
 	return *first;
@@ -89,10 +89,10 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
 	if (e_type_qualifier_flags & TYPE_QUALIFIER_CONST)
 		print_item(ss, first, "const");
 
-	if (e_type_qualifier_flags & TYPE_QUALIFIER_RESTRICT)
+	else if (e_type_qualifier_flags & TYPE_QUALIFIER_RESTRICT)
 		print_item(ss, first, "restrict");
 
-	if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
+	else if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
 		print_item(ss, first, "volatile");
 
 }
@@ -264,7 +264,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 					ss_fprintf(ss, " ");
 					first = false;
 				}
-				ss_fprintf(ss, "%s", p->name_opt);
+				ss_fprintf(ss, " => %s", p->name_opt);
 			}
 
 			struct osstream local2 = { 0 };
@@ -403,7 +403,7 @@ void type_print(const struct type* a)
 	struct osstream ss = { 0 };
 	print_type(&ss, a);
 	puts(ss.c_str);
-	puts("\n");
+	//puts("\n"); //it seems to have a better output without it
 	ss_close(&ss);
 }
 
@@ -1086,6 +1086,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
 		if (!type_is_same(&argument_type_converted, &parameter_type_converted, false))
 		{
+			puts("type mismatch:");
 			type_print(&argument_type_converted);
 			type_print(&parameter_type_converted);
 
