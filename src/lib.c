@@ -13292,7 +13292,11 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             p_expression_node->right = expression(ctx);
             
-            if (p_expression_node->right == NULL) throw;
+            if (p_expression_node->right == NULL)
+            {
+                expression_delete(p_expression_node);
+                return NULL;
+            }
 
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
@@ -15336,7 +15340,7 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(C_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, "right type is not scalar for or expression");
-                throw;
+                return NULL;
             }
 
             new_expression->type = type_make_int_bool_like();
