@@ -269,6 +269,11 @@ struct options
     bool dump_tokens;
 
     /*
+      -dump-pp-tokens
+    */
+    bool dump_pptokens;
+
+    /*
       -o filename
       defines the ouputfile when 1 file is used
     */

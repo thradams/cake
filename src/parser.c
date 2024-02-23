@@ -1092,6 +1092,8 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
         else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
 
+        else if (strcmp("__typeof__", text) == 0) result = TK_KEYWORD_TYPEOF; /*C23*/
+
 
 
         break;
@@ -6589,6 +6591,11 @@ int compile_one_file(const char* file_name,
 
         ast.token_list = preprocessor(&prectx, &tokens, 0);
         if (prectx.n_errors > 0) throw;
+
+        if (options->dump_pptokens)
+        {
+            print_tokens(ast.token_list.head);
+        }
 
         if (options->preprocess_only)
         {

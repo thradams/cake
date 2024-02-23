@@ -298,6 +298,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-dump-pp-tokens") == 0)
+        {
+            options->dump_pptokens = true;
+            continue;
+        }
+
         printf("unknown option '%s'", argv[i]);
         return 1;
     }
