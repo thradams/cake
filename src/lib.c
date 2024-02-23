@@ -14057,7 +14057,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                         op_position,
                         "indirection requires pointer operand");
                 }
-                new_expression->type = type_remove_pointer(&new_expression->right->type);
+                else new_expression->type = type_remove_pointer(&new_expression->right->type);
             }
             else if (op == '&')
             {
