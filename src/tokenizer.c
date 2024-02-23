@@ -304,7 +304,8 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 	/*realpath returns empty on emscriptem*/
 	snprintf(full_path_out, full_path_out_size, "%s", newpath);
 #else
-	realpath(newpath, full_path_out);
+	if(!realpath(newpath, full_path_out))
+            full_path_out[0] = '\0';
 #endif
 
 

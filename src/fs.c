@@ -176,12 +176,15 @@ char* realpath(const char* restrict path, char* restrict resolved_path)
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
     char* p = _fullpath(resolved_path, path, MAX_PATH);
-    char* p2 = resolved_path;
-    while (*p2)
+    if(p)
     {
-        if (*p2 == '\\')
-            *p2 = '/';
-        p2++;
+        char* p2 = resolved_path;
+        while (*p2)
+        {
+            if (*p2 == '\\')
+                *p2 = '/';
+            p2++;
+        }
     }
     return p;
 }

@@ -36,7 +36,6 @@
 #define MYMAX_PATH MAX_PATH
 #endif
 
-
 void object_state_to_string(enum object_state e)
 {
     bool  first = true;
@@ -6701,8 +6700,9 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MYMAX
         if (argv[i][0] == '-')
             continue;
 
-        char fullpath_i[MYMAX_PATH] = { 0 };
-        realpath(argv[i], fullpath_i);
+        char fullpath_i[MYMAX_PATH];
+        if(!realpath(argv[i], fullpath_i))
+            fullpath_i[0] = '\0';
         strcpy(root_dir, fullpath_i);
         dirname(root_dir);
 
@@ -6714,8 +6714,9 @@ static void longest_common_path(int argc, const char** argv, char root_dir[MYMAX
                 if (argv[j][0] == '-')
                     continue;
 
-                char fullpath_j[MYMAX_PATH] = { 0 };
-                realpath(argv[j], fullpath_j);
+                char fullpath_j[MYMAX_PATH];
+                if(!realpath(argv[j], fullpath_j))
+                    fullpath_j[0] = '\0';
                 if (fullpath_j[k] != ch)
                 {
                     strncpy(root_dir, fullpath_j, k);
@@ -6782,7 +6783,8 @@ int compile(int argc, const char** argv, struct report* report)
     clock_t begin_clock = clock();
     int no_files = 0;
 
-    char root_dir[MYMAX_PATH] = { 0 };
+    char root_dir[MYMAX_PATH];
+    root_dir[0] = '\0';
 
     if (!options.no_output)
     {
@@ -6797,7 +6799,8 @@ int compile(int argc, const char** argv, struct report* report)
         if (argv[i][0] == '-')
             continue;
         no_files++;
-        char output_file[MYMAX_PATH] = { 0 };
+        char output_file[MYMAX_PATH];
+        output_file[0] = '\0';
 
         if (!options.no_output)
         {
@@ -6811,8 +6814,9 @@ int compile(int argc, const char** argv, struct report* report)
             }
             else
             {
-                char fullpath[MYMAX_PATH] = { 0 };
-                realpath(argv[i], fullpath);
+                char fullpath[MYMAX_PATH];
+                if(!realpath(argv[i], fullpath))
+                    fullpath[0] = '\0';
 
                 strcpy(output_file, root_dir);
                 strcat(output_file, "/out");
@@ -6830,7 +6834,8 @@ int compile(int argc, const char** argv, struct report* report)
         }
 
         char fullpath[MYMAX_PATH];
-        realpath(argv[i], fullpath);
+        if(!realpath(argv[i], fullpath))
+            fullpath[0] = '\0';
         compile_one_file(fullpath, &options, output_file, argc, argv, report);
     }
 
