@@ -15352,6 +15352,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; //MOVED
 
             enum type_category category =
                 type_get_category(&new_expression->left->type);
@@ -23072,9 +23073,9 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             }
             else if (ctx->current &&
                 (strcmp(ctx->current->lexeme, "error") == 0 ||
-                    strcmp(ctx->current->lexeme, "warning") == 0 ||
-                    strcmp(ctx->current->lexeme, "note") == 0 ||
-                    strcmp(ctx->current->lexeme, "ignored") == 0)
+                 strcmp(ctx->current->lexeme, "warning") == 0 ||
+                 strcmp(ctx->current->lexeme, "note") == 0 ||
+                 strcmp(ctx->current->lexeme, "ignored") == 0)
                 )
             {
                 const bool is_error = strcmp(ctx->current->lexeme, "error") == 0;
