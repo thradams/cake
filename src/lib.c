@@ -13288,11 +13288,10 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             parser_match(ctx);
             p_expression_node->right = expression(ctx);
             
-            
+            if (p_expression_node->right == NULL) throw;
 
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
-            if (p_expression_node->right == NULL) throw;
             p_expression_node->last_token = ctx->current;
             parser_match_tk(ctx, ')');
 
@@ -15385,7 +15384,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
 
 
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) break;
+            if (new_expression == NULL) break; //will return a half parsed expression
 
             static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
