@@ -3601,7 +3601,7 @@ struct expression* owner expression(struct parser_ctx* ctx)
                 if (p_expression_node_new->right == NULL)
                 {
                     expression_delete(p_expression_node_new);
-                    throw;
+                    return NULL;
                 }
                 p_expression_node->last_token = p_expression_node_new->right->last_token;
 

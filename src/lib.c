@@ -15535,7 +15535,7 @@ struct expression* owner expression(struct parser_ctx* ctx)
 
             if (p_expression_node->right == NULL)
             {
-                throw;
+                return NULL;
             }
 
             /*same type of the last expression*/
@@ -29520,7 +29520,7 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
 	struct generic_association* p = p_generic_selection->generic_assoc_list.head;
 	while (p)
 	{
-		visit_type_name(ctx, p->p_type_name);
+		if(p->p_type_name) visit_type_name(ctx, p->p_type_name);
 		visit_expression(ctx, p->expression);
 		p = p->next;
 	}
