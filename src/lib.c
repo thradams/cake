@@ -14573,7 +14573,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid type multiplicative expression");
-                throw;
+                return NULL;
             }
 
             p_expression_node = new_expression;
