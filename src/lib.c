@@ -13195,9 +13195,9 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             if (get_char_type(ctx->current->lexeme) == 2)
             {
                 if (sizeof(wchar_t) == 2)
-                    char_type = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
+                    char_type = /*TYPE_SPECIFIER_UNSIGNED |*/ TYPE_SPECIFIER_SHORT;
                 else if (sizeof(wchar_t) == 4)
-                    char_type = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+                    char_type = /*TYPE_SPECIFIER_UNSIGNED |*/ TYPE_SPECIFIER_INT;
             }
 
             p_expression_node->type = type_make_literal_string(string_literal_byte_size(ctx->current->lexeme), char_type);
