@@ -1622,6 +1622,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 (strcmp(ctx->current->lexeme, "check") == 0)
                 )
             {
+                //TODO better name .  Ack. : means ‘alarm acknowledged’ ?
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
 
@@ -1630,7 +1631,19 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                     enum diagnostic_id id = get_warning(ctx->current->lexeme + 1 + 2);
                     if (ctx->p_report->last_diagnostic_id == id)
                     {
-                        *ctx->p_report = (struct report){ 0 };
+                        //lets remove this error/warning/info from the final report.
+
+                        int t = 
+                            get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                                id);
+                        if (t == 3)
+                            ctx->p_report->error_count--;
+                        else if (t == 2)
+                            ctx->p_report->warnings_count--;
+                        else if (t == 1)
+                            ctx->p_report->info_count--;
+                        
+                        
                     }
                     else
                     {

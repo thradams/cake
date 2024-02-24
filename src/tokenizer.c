@@ -3008,8 +3008,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					skip_blanks_level(ctx, &r, input_list, level);
 				}
 				else
+#ifdef __CAKE__
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wuninitialized"
+#endif
 					/*
 					  flow analysys says macro is unitialized, this is because it has been moved
 					  to a map, but we know it still exist. A refactroing map returning a view solve.
@@ -3038,7 +3040,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					skip_blanks_level(ctx, &r, input_list, level);
 					match_token_level(&r, input_list, ')', level, ctx);
 				}
+#ifdef __CAKE__
 #pragma cake diagnostic pop
+#endif
 			}
 			else
 			{

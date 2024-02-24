@@ -26,11 +26,13 @@
   PROVISORY - unchecked was removed, now we control flow ownerhip error with pragma
   TODO review alternatives from Domingo's branch.
 */
+#ifdef __CAKE__
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wdiscard-owner"
 #pragma cake diagnostic ignored "-Wmissing-destructor"
 #pragma cake diagnostic ignored "-Wnon-owner-move"
 #pragma cake diagnostic ignored "-Wnon-owner-to-owner-move"
+#endif
 
 //#pragma cake diagnostic pop
 

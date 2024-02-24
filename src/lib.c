@@ -13182,7 +13182,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
 
 
 
-             if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
+            if (p_entry && p_entry->type == TAG_TYPE_ENUMERATOR)
             {
                 struct enumerator* p_enumerator = p_entry->p;
                 p_expression_node->expression_type = PRIMARY_EXPRESSION_ENUMERATOR;
@@ -23286,7 +23286,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->current, "pragma check failed");
+                        compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "pragma check failed");
 
                     }
                 }

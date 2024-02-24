@@ -8,10 +8,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-
+#ifdef __CAKE__
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wstyle"
-
+#endif
 
 
 //https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?view=msvc-160
@@ -19,9 +19,9 @@
 #define rmdir _rmdir
 #define chdir _chdir
 
-
+#ifdef __CAKE__
 #pragma cake diagnostic pop
-
+#endif
 
 /*
  opendir,  readdir closedir for windows.

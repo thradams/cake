@@ -192,7 +192,7 @@ struct diagnostic
     /*set of diagnostics reported as notes*/
     unsigned long long notes;
 };
-
+int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
 struct options

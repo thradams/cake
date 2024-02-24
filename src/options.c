@@ -14,7 +14,7 @@ static struct w {
     enum diagnostic_id w;
     const char* name;
 }
-s_warnings[] = {    
+s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
@@ -34,8 +34,8 @@ s_warnings[] = {
     {W_UNINITIALZED, "uninitialized"},
     {W_RETURN_LOCAL_ADDR, "return-local-addr"},
     {W_DIVIZION_BY_ZERO,"div-by-zero"},
-    
-    
+
+
     {W_STRING_SLICED,"string-slicing"},
     {W_DECLARATOR_STATE,"declarator-state"},
     {W_OWNERSHIP_MISSING_OWNER_QUALIFIER, "missing-owner-qualifier"},
@@ -49,8 +49,23 @@ s_warnings[] = {
     {W_MAYBE_UNINITIALIZED, "uninitialized"},
     {W_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
     {W_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"}
-    
+
 };
+
+int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
+{
+    if ((d->errors & (1ULL << w)) != 0)
+        return 3;
+
+    if ((d->warnings & (1ULL << w)) != 0)
+        return 2;
+
+    if ((d->notes & (1ULL << w)) != 0)
+        return 1;
+
+    return 0;
+
+}
 
 enum diagnostic_id  get_warning(const char* wname)
 {
@@ -106,9 +121,9 @@ int fill_options(struct options* options,
         (1ULL << W_STYLE) |
         (1ULL << W_UNUSED_PARAMETER) |
         (1ULL << W_UNUSED_VARIABLE)); //default is OFF
-    
-    
-    
+
+
+
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;
@@ -148,7 +163,7 @@ int fill_options(struct options* options,
             }
             continue;
         }
-        
+
         if (strcmp(argv[i], "-showIncludes") == 0)
         {
             options->show_includes = true;
@@ -294,9 +309,9 @@ int fill_options(struct options* options,
             enum diagnostic_id  w = 0;
 
             if (disable_warning)
-                w =  get_warning_bit_mask(argv[i] + 5);
+                w = get_warning_bit_mask(argv[i] + 5);
             else
-                w =  get_warning_bit_mask(argv[i] + 2);
+                w = get_warning_bit_mask(argv[i] + 2);
 
             if (w == 0)
             {
@@ -413,7 +428,7 @@ void test_get_warning_name()
     assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
 
 
-        const char* name2 = get_warning_name(W_STYLE);
+    const char* name2 = get_warning_name(W_STYLE);
     assert(strcmp(name2, "style") == 0);
 
     unsigned long long  flags2 = get_warning_bit_mask(name2);
