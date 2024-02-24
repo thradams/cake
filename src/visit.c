@@ -1586,7 +1586,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 			}
 			else
 			{
-				assert(p_init_declarator->initializer->braced_initializer != NULL);
+				//assert(p_init_declarator->initializer->braced_initializer != NULL);
 				if (p_init_declarator->initializer->braced_initializer)
 				{
 					visit_bracket_initializer_list(ctx,

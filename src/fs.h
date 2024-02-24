@@ -8,10 +8,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#ifdef __CAKE__
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wstyle"
-#endif
+
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wstyle"
+
 
 
 //https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?view=msvc-160
@@ -20,9 +20,7 @@
 #define chdir _chdir
 
 
-#ifdef __CAKE__
-#pragma CAKE diagnostic pop
-#endif
+#pragma cake diagnostic pop
 
 
 /*
@@ -57,7 +55,7 @@ struct dirent
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wstyle"
+#pragma CAKE diagnostic ignored "-Wstyle"
 #endif
 struct TAGDIR;
 typedef struct TAGDIR DIR;

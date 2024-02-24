@@ -43,7 +43,7 @@ struct preprocessor_ctx
 };
 void preprocessor_ctx_destroy( struct preprocessor_ctx* obj_owner p);
 
-void preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...);
 
 
 struct tokenizer_ctx

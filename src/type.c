@@ -811,7 +811,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 		//ok
 		if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
 		{
-			compiler_diagnostic_message(C_OWNERSHIP_USING_TEMPORARY_OWNER,
+			compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
 				ctx,
 				current_argument->expression->first_token,
 				"passing a temporary owner to a view");
@@ -820,7 +820,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 	}////////////////////////////////////////////////////////////
 	else if (argument_is_obj_owner && paramer_is_owner)
 	{
-		compiler_diagnostic_message(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+		compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 			ctx,
 			current_argument->expression->first_token,
 			"cannot move obj_owner to owner");
@@ -835,7 +835,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 		//ok
 		if (current_argument->expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
 		{
-			compiler_diagnostic_message(C_OWNERSHIP_USING_TEMPORARY_OWNER,
+			compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
 				ctx,
 				current_argument->expression->first_token,
 				"passing a temporary owner to a view");
@@ -847,7 +847,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 	{
 		if (!expression_is_zero(current_argument->expression))
 		{
-			compiler_diagnostic_message(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+			compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 				ctx,
 				current_argument->expression->first_token,
 				"passing a view argument to a owner parameter");
@@ -862,7 +862,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 			if (!type_is_owner(&t2))
 			{
 
-				compiler_diagnostic_message(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+				compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 					ctx,
 					current_argument->expression->first_token,
 					"pointed object is not owner");
@@ -874,7 +874,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 				if (!argument_type->address_of)
 				{
 					//we need something created with address of.
-					compiler_diagnostic_message(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+					compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 						ctx,
 						current_argument->expression->first_token,
 						"obj_owner pointer must be created using address of operator &");
@@ -887,7 +887,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 		{
 			if (!expression_is_zero(current_argument->expression))
 			{
-				compiler_diagnostic_message(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+				compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 					ctx,
 					current_argument->expression->first_token,
 					"passing a view argument to a obj_owner parameter");
@@ -916,7 +916,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 				if (type_is_pointer(&current_argument->expression->type) &&
 					!type_is_pointer_to_owner(&current_argument->expression->type))
 				{
-					compiler_diagnostic_message(C_OWNERSHIP_NOT_OWNER, ctx,
+					compiler_diagnostic_message(W_OWNERSHIP_NOT_OWNER, ctx,
 						current_argument->expression->first_token,
 						"parameter %d requires a pointer to owner object",
 						param_num);
@@ -924,7 +924,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 			}
 			else
 			{
-				compiler_diagnostic_message(C_OWNERSHIP_NOT_OWNER, ctx,
+				compiler_diagnostic_message(W_OWNERSHIP_NOT_OWNER, ctx,
 					current_argument->expression->first_token,
 					"parameter %d requires a pointer to owner type",
 					param_num);
@@ -1207,7 +1207,7 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 				// * ok if external or param
 				if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
 				{
-					compiler_diagnostic_message(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+					compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 						ctx,
 						right->first_token,
 						"returning a owner variable to a non owner result");
@@ -1227,7 +1227,7 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 				else
 				{
 					//returning a non owning variable to owner
-					compiler_diagnostic_message(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+					compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 						ctx,
 						right->first_token,
 						"returning a non owner variable to a owner");
@@ -1254,7 +1254,7 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 				//owner = non-owner
 				if (!is_null_pointer_constant)
 				{
-					compiler_diagnostic_message(C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+					compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 						ctx,
 						right->first_token,
 						"move assignment needs a owner type on right side");
@@ -1270,7 +1270,7 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 				if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
 				{
 					//non owner = (owner) f()
-					compiler_diagnostic_message(C_OWNERSHIP_NON_OWNER_MOVE,
+					compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_MOVE,
 						ctx,
 						right->first_token,
 						"cannot move a temporary owner to non-owner");
@@ -1294,7 +1294,7 @@ void check_owner_rules_assigment(struct parser_ctx* ctx,
 			//p = f();
 			if (!type_is_owner(left_type))
 			{
-				compiler_diagnostic_message(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
+				compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, right->first_token, "left type must be owner qualified ");
 			}
 		}
 	}
@@ -1339,7 +1339,7 @@ void check_assigment(struct parser_ctx* ctx,
 	{
 		if (!is_null_pointer_constant)
 		{
-			compiler_diagnostic_message(C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
+			compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
 
 			check_owner_rules_assigment(ctx,
 				left_type,

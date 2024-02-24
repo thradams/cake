@@ -1201,7 +1201,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 if (p_argument_object2 &&
                     p_argument_object2->state & OBJECT_STATE_NULL)
                 {
-                    compiler_diagnostic_message(C_OWNERSHIP_FLOW_MISSING_DTOR,
+                    compiler_diagnostic_message(W_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
                         ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
@@ -1228,9 +1228,9 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 struct type t2 = type_remove_pointer(&p_current_parameter_type->type);
                 if (type_is_out(&t2))
                 {
-                    pointer_to_out = true;
-                    type_destroy(&t2);
+                    pointer_to_out = true;                    
                 }
+                type_destroy(&t2);
             }
 
             if (!pointer_to_out)
@@ -1334,7 +1334,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             //TODO function type...
 
             if (!ctx->is_left_expression &&
-                !ctx->is_size_of_expression)
+                !ctx->expression_is_not_evaluated)
             {
                 compiler_diagnostic_message(W_UNINITIALZED,
                     ctx->ctx,
@@ -1383,13 +1383,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_diagnostic_message(C_MAYBE_UNINITIALIZED,
+                compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->left->first_token, "using a uninitialized object");
             }
             else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_diagnostic_message(C_MAYBE_UNINITIALIZED,
+                compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->left->first_token, "maybe using a uninitialized object");
             }
@@ -1486,10 +1486,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            const bool t2 = ctx->is_size_of_expression;
-            ctx->is_size_of_expression = true;
+            const bool t2 = ctx->expression_is_not_evaluated;
+            ctx->expression_is_not_evaluated = true;
             flow_visit_expression(ctx, p_expression->right);
-            ctx->is_size_of_expression = t2;
+            ctx->expression_is_not_evaluated = t2;
         }
 
         if (p_expression->type_name)
@@ -1535,7 +1535,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
         {
-            compiler_diagnostic_message(C_MAYBE_UNINITIALIZED,
+            compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
                 ctx->ctx,
                 p_expression->right->first_token, "using a uninitialized object");
         }
@@ -1545,13 +1545,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
               *p = 1*
             */
             if (!ctx->is_left_expression &&
-                !ctx->is_size_of_expression)
+                !ctx->expression_is_not_evaluated)
             {
                 //TO many errors because the pointer can be null.
                 if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
                 {
 
-                    compiler_diagnostic_message(C_NULL_DEREFERENCE,
+                    compiler_diagnostic_message(W_NULL_DEREFERENCE,
                         ctx->ctx,
                         p_expression->right->first_token, "dereference a NULL object");
                 }
@@ -1703,6 +1703,15 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
 
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement)
 {
+
+    /*let's make a copy of the current post function diagnostic*/
+    struct diagnostic current = ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
+
+    /*lets restore the diagnostic state it was initialize because static analysis is a second pass*/
+    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = p_compound_statement->diagnostic_flags;
+
+    
+
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_compound_statement = p_compound_statement;
 
@@ -1710,6 +1719,10 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
     check_defer_and_variables(ctx, p_defer, p_compound_statement->last_token);
 
     flow_visit_ctx_pop_tail_block(ctx);
+
+    /*restore the state we change*/
+    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = current;
+
 }
 
 static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -2127,7 +2140,13 @@ enum object_state parse_string_state(const char* s, bool* invalid)
 
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
+    const bool t2 = ctx->expression_is_not_evaluated;    
+    ctx->expression_is_not_evaluated = true;
+
     flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
+
+    ctx->expression_is_not_evaluated = t2; //restore
+
 
     if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
     {
