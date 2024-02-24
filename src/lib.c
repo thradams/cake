@@ -12881,7 +12881,7 @@ const unsigned char* utf8_decode(const unsigned char* s, int* c)
             ((int)(s[1] & 0x3f) << 12) |
             ((int)(s[2] & 0x3f) << 6) |
             ((int)(s[3] & 0x3f) << 0);
-        assert(*c >= 0x100000 && *c <= 0x10FFFF);
+        assert(*c >= 0x10000 && *c <= 0x10FFFF);
         next = s + 4;
     }
     else
