@@ -22,6 +22,20 @@
 #include <debugapi.h>
 #endif
 
+/*
+  PROVISORY - unchecked was removed, now we control flow ownerhip error with pragma
+  TODO review alternatives from Domingo's branch.
+*/
+#ifdef __CAKE__
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wdiscard-owner"
+#pragma cake diagnostic ignored "-Wmissing-destructor"
+#pragma cake diagnostic ignored "-Wnon-owner-move"
+#pragma cake diagnostic ignored "-Wnon-owner-to-owner-move"
+#endif
+
+//#pragma cake diagnostic pop
+
 bool style_has_space(const struct token* token)
 {
     return token_is_blank(token->prev);
@@ -81,7 +95,7 @@ void token_range_add_flag(struct token* first, struct token* last, enum token_fl
     }
 }
 
-void token_list_pop_back(struct token_list* list) unchecked
+void token_list_pop_back(struct token_list* list) /*unchecked*/
 {
     if (list->head == NULL)
         return;
@@ -105,7 +119,7 @@ void token_list_pop_back(struct token_list* list) unchecked
     }
 }
 
-void token_list_pop_front(struct token_list* list) unchecked
+void token_list_pop_front(struct token_list* list) /*unchecked*/
 {
     if (list->head == NULL)
         return;
@@ -126,7 +140,7 @@ void token_list_pop_front(struct token_list* list) unchecked
     token_delete(p);
 }
 
-struct token* owner token_list_pop_front_get(struct token_list* list)  unchecked
+struct token* owner token_list_pop_front_get(struct token_list* list)  /*unchecked*/
 {
     if (list->head == NULL)
         return NULL;
@@ -278,7 +292,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
 
 }
 
-struct token* token_list_add(struct token_list* list, struct token* owner pnew) unchecked
+struct token* token_list_add(struct token_list* list, struct token* owner pnew) /*unchecked*/
 {
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);
@@ -372,7 +386,7 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 }
 
 
-struct token* owner clone_token(struct token* p) unchecked
+struct token* owner clone_token(struct token* p) /*unchecked*/
 {
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
@@ -385,7 +399,9 @@ struct token* owner clone_token(struct token* p) unchecked
     return token;
 }
 
-struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last) unchecked
+
+
+struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last) /*unchecked*/
 {
 
     struct token_list r = { 0 };
@@ -404,6 +420,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 
     return r;
 }
+
 
 
 void token_list_remove(struct token_list* list, struct token* first, struct token* last)
@@ -716,3 +733,5 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
 
     printf("\n");
 }
+
+

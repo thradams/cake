@@ -178,9 +178,63 @@ static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stre
 #endif
 }
 
-void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+
+bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
 {
+	bool is_error = false;
+    bool is_warning = false;
+    bool is_note = false;
+
+	if (p_token && p_token->level != 0)
+    {
+		//no message for include dir
+        return false;
+    }
+
+    if (w > W_NOTE)
+    {
+        is_error = true;
+    }
+    else
+    {
+        is_error =
+            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & (1ULL << w)) != 0;
+
+        is_warning =
+            (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
+
+        is_note =
+            w == W_NOTE ||
+            ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
+    }
+
+
+
+
+
+    if (is_error)
+    {
+        ctx->n_errors++;
+    }
+    else if (is_warning)
+    {
+        ctx->n_warnings++;
+    }
+    else if (is_note)
+    {
+
+    }
+    else
+    {
+        return false;
+    }
+
+
+
+
+
 #ifndef TEST
+
 	if (p_token)
 		print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
@@ -192,58 +246,29 @@ void preprocessor_set_info_with_token(struct preprocessor_ctx* ctx, const struct
 
 	if (ctx->options.visual_studio_ouput_format)
 	{
-		printf("note: " "%s\n", buffer);
-	}
-	else
-	{
-		printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
-	}
-	print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
-#endif
+		if (is_warning)
+		  printf("warning: " "%s\n", buffer);
+		else if (is_error)
+		  printf("warning: " "%s\n", buffer);
+		else if (is_note)
+		  printf("note: " "%s\n", buffer);
 
-}
-
-void preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_ctx* ctx, const struct token* p_token, const char* fmt, ...)
-{
-	if (w != W_NONE)
-	{
-		/*
-		 we dont warn ing code inside includes, except #warning (w == 0)
-		*/
-		if (p_token->level != 0)
-			return;
-
-		if (!preprocessor_is_warning_enabled(ctx, w))
-		{
-			return;
-		}
-	}
-
-	ctx->n_warnings++;
-#ifndef TEST
-
-	if (p_token)
-		print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
-
-	char buffer[200] = { 0 };
-	va_list args;
-	va_start(args, fmt);
-	/*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
-	va_end(args);
-
-	if (ctx->options.visual_studio_ouput_format)
-	{
-		printf("warning: " "%s\n", buffer);
 		print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 	}
 	else
 	{
-		printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+		if (is_error)
+		  printf(LIGHTRED "error: " WHITE "%s\n", buffer);
+		else if (is_warning)
+		  printf(LIGHTMAGENTA "warning: " WHITE "%s\n", buffer);
+		else if (is_note)
+		  printf(LIGHTCYAN "note: " WHITE "%s\n", buffer);
+
 		print_line_and_token(p_token, ctx->options.visual_studio_ouput_format);
 
 	}
 #endif
-
+	return true;
 }
 
 
@@ -2810,7 +2835,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
 					{
 						/*let's print the include path*/
-						preprocessor_set_info_with_token(ctx, r.tail, "dir = '%s'", p->path);
+						preprocessor_diagnostic_message(W_NOTE, ctx, r.tail, "dir = '%s'", p->path);
 					}
 				}
 				else
@@ -2942,6 +2967,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			macro->name = strdup(input_list->head->lexeme);
 			struct macro* owner previous =
 				owner_hashmap_set(&ctx->macros, input_list->head->lexeme, (void* owner)macro, 0);
+
+
+			/*macro still alive...but flow analsys will (correclty) think it is not*/
+
+
 			if (previous)
 			{
 				delete_macro(previous);
@@ -2979,7 +3009,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					skip_blanks_level(ctx, &r, input_list, level);
 				}
 				else
+#ifdef __CAKE__
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wuninitialized"
+#endif
+					/*
+					  flow analysys says macro is unitialized, this is because it has been moved
+					  to a map, but we know it still exist. A refactroing map returning a view solve.
+					*/
 				{
+
 					struct token_list r3 = identifier_list(ctx, macro, input_list, level);
 					token_list_append_list(&r, &r3);
 					token_list_destroy(&r3);
@@ -3002,6 +3041,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					skip_blanks_level(ctx, &r, input_list, level);
 					match_token_level(&r, input_list, ')', level, ctx);
 				}
+#ifdef __CAKE__
+#pragma cake diagnostic pop
+#endif
 			}
 			else
 			{
@@ -4198,7 +4240,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 					if (input_list->head->type == TK_STRING_LITERAL)
 					{
 						if (preprocessor_is_warning_enabled(ctx, W_STRING_SLICED))
-							preprocessor_set_info_with_token(ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+							preprocessor_diagnostic_message(W_NOTE, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
 					}
 					else if (input_list->head->type == TK_LINE_COMMENT)
 						preprocessor_diagnostic_message(W_COMMENT, ctx, input_list->head, "multi-line //comment");
@@ -4478,6 +4520,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __COUNT__ 0\n"
 		"#define _CONSOLE\n"
 		"#define __STDC_OWNERSHIP__\n"
+		"#define _W_DIVIZION_BY_ZERO_ 29\n"
 
 #ifdef WIN32
 
@@ -4551,6 +4594,17 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
 		"#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
 		"#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
+
+		"#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
+		"#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
+		"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
+		"#define __FLT_EPSILON__ " TOSTRING(__FLT_EPSILON__) "\n"
+		"#define __DBL_EPSILON__ " TOSTRING(__DBL_EPSILON__) "\n"
+		"#define __LDBL_EPSILON__ " TOSTRING(__LDBL_EPSILON__) "\n"
+		"#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
+		"#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
+		"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
+
 
 		"#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
 		"#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
@@ -5118,11 +5172,7 @@ static bool is_screaming_case(const char* text)
 	if (text == NULL)
 		return true;
 
-	if (!(text[0] >= 'A' && text[0] <= 'Z'))
-	{
-		/*first letter lower case*/
-		return false;
-	}
+    bool screaming_case = false;
 
 	while (*text)
 	{
@@ -5131,14 +5181,14 @@ static bool is_screaming_case(const char* text)
 			(*text == '_'))
 		{
 			//ok
+			screaming_case = true;
 		}
 		else
 			return false;
 		text++;
 	}
 
-	return true;
-
+	return screaming_case;
 }
 
 void print_all_macros(struct preprocessor_ctx* prectx)
@@ -5187,7 +5237,7 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 
 	if (!is_screaming_case(token->lexeme))
 	{
-		preprocessor_set_info_with_token(ctx, token, "use SCREAMING_CASE for macros");
+		preprocessor_diagnostic_message(W_NOTE, ctx, token, "use SCREAMING_CASE for macros");
 	}
 
 }

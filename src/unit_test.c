@@ -66,6 +66,9 @@ int test_predefined_macros(void);
 int test_utf8(void);
 int test_line_continuation(void);
 
+/* tests from options.c*/
+void test_get_warning_name(void);
+
 /* tests from tests.c*/
 void parser_specifier_test(void);
 void char_constants(void);
@@ -279,6 +282,7 @@ g_unit_test_success_count = 0;
     test_predefined_macros();
     test_utf8();
     test_line_continuation();
+    test_get_warning_name();
     parser_specifier_test();
     char_constants();
     array_item_type_test();

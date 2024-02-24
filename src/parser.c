@@ -36,6 +36,7 @@
 #define MYMAX_PATH MAX_PATH
 #endif
 
+
 void object_state_to_string(enum object_state e)
 {
     bool  first = true;
@@ -125,7 +126,7 @@ static bool parser_is_diagnostic_enabled(const struct parser_ctx* ctx, enum diag
         ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & w) != 0) ||
         ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & w) != 0) ||
         ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & w) != 0);
-        
+
 
 }
 
@@ -308,7 +309,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     {
         is_error =
             (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors & (1ULL << w)) != 0;
-        
+
         is_warning =
             (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
 
@@ -338,9 +339,8 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
         return false;
     }
 
-
-
-    ctx->p_report->last_diagnostic_id |= w;
+    if (w != W_NOTE)
+       ctx->p_report->last_diagnostic_id = w;
 
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
@@ -348,7 +348,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
         func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
     }
 
-    char buffer[200] = { 0 };
+    char buffer[200] = {0};
 
 #ifndef TEST
     if (p_token)
@@ -360,24 +360,46 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
+    bool show_warning_name = w < W_NOTE;
 
     if (ctx->options.visual_studio_ouput_format)
     {
         if (is_error)
-            printf("error: " "%s [" "-W%s" "]\n", buffer, get_warning_name(w));
+            printf("error: ");
         else if (is_warning)
-            printf("warning: " "%s [" "-W%s" "]\n", buffer, get_warning_name(w));
+            printf("warning: ");
         else if (is_note)
-            printf("note: " "%s [" "-W%s" "]\n", buffer, get_warning_name(w));
+            printf("note: ");
+
+        printf("%s", buffer);
+
+        if (show_warning_name)
+            printf(" [" "-W%s" "]\n", get_warning_name(w));
     }
     else
     {
         if (is_error)
-            printf(LIGHTRED "error: " WHITE "%s [" LIGHTRED "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+        {
+            if (show_warning_name)
+                printf(LIGHTRED "error: " WHITE "%s [" LIGHTRED "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+            else
+                printf(LIGHTRED "error: " WHITE "%s\n" RESET, buffer);
+        }
         else if (is_warning)
-            printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+        {
+            if (show_warning_name)
+                printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+            else
+                printf(LIGHTMAGENTA "warning: " WHITE "%s\n" RESET, buffer);
+
+        }
         else if (is_note)
-            printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+        {
+            if (show_warning_name)
+                printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
+            else
+                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
+        }
 
     }
 
@@ -678,7 +700,7 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
             struct init_declarator* p_init_declarator = p_entry->p;
-            return (struct declarator*)p_init_declarator->p_declarator;
+            return (struct declarator*) p_init_declarator->p_declarator;
         }
         else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
         {
@@ -1484,7 +1506,7 @@ enum token_type parse_number_core(struct stream* stream, enum type_specifier_fla
 
 enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flags_opt)
 {
-    struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
+    struct stream stream = {.source = lexeme, .current = lexeme, .line = 1, .col = 1};
     return parse_number_core(&stream, flags_opt);
 }
 
@@ -1506,7 +1528,10 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
         ctx->current = ctx->current->next;
         pragma_skip_blanks(ctx);
 
-        if (ctx->current && strcmp(ctx->current->lexeme, "CAKE") == 0)
+        if (ctx->current &&
+            (strcmp(ctx->current->lexeme, "CAKE") == 0 ||
+                strcmp(ctx->current->lexeme, "cake") == 0)
+            )
         {
             ctx->current = ctx->current->next;
             pragma_skip_blanks(ctx);
@@ -1563,36 +1588,63 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
             }
-            else if (ctx->current && strcmp(ctx->current->lexeme, "warning") == 0)
+            else if (ctx->current &&
+                (strcmp(ctx->current->lexeme, "error") == 0 ||
+                    strcmp(ctx->current->lexeme, "warning") == 0 ||
+                    strcmp(ctx->current->lexeme, "note") == 0 ||
+                    strcmp(ctx->current->lexeme, "ignored") == 0)
+                )
             {
-                //#pragma CAKE diagnostic warning "-Wenum-compare"
+                const bool is_error = strcmp(ctx->current->lexeme, "error") == 0;
+                const bool is_warning = strcmp(ctx->current->lexeme, "warning") == 0;
+                const bool is_note = strcmp(ctx->current->lexeme, "note") == 0;
+
 
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
 
                 if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
                 {
-                    unsigned long long  w =  get_warning_bit_mask(ctx->current->lexeme + 1 + 2);
-                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
-                }
-            }
-            else if (ctx->current && strcmp(ctx->current->lexeme, "ignore") == 0)
-            {
-                //#pragma CAKE diagnostic ignore "-Wenum-compare"
 
-                ctx->current = ctx->current->next;
-                pragma_skip_blanks(ctx);
-
-                if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
-                {
                     unsigned long long  w = get_warning_bit_mask(ctx->current->lexeme + 1 + 2);
+
+                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
                     ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+                    if (is_error)
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors |= w;
+                    else if (is_warning)
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+                    else if (is_note)
+                        ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes |= w;
                 }
             }
+            else if (ctx->current &&
+                (strcmp(ctx->current->lexeme, "check") == 0)
+                )
+            {
+                ctx->current = ctx->current->next;
+                pragma_skip_blanks(ctx);
+
+                if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
+                {
+                    enum diagnostic_id id = get_warning(ctx->current->lexeme + 1 + 2);
+                    if (ctx->p_report->last_diagnostic_id == id)
+                    {
+                        *ctx->p_report = (struct report){ 0 };
+                    }
+                    else
+                    {
+                        compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "pragma check failed");
+
+                    }
+                }
+            }
+
         }
     }
 }
-
 static struct token* parser_skip_blanks(struct parser_ctx* ctx)
 {
     while (ctx->current && !(ctx->current->flags & TK_FLAG_FINAL))
@@ -1901,8 +1953,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
 struct declaration* owner declaration_core(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt /*SINK*/,
     bool can_be_function_definition,
-    bool* is_function_definition,
-    bool* flow_analysis,
+    bool* is_function_definition,    
     enum storage_class_specifier_flags default_storage_class_specifier_flags
 )
 {
@@ -1957,17 +2008,7 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
             {
                 if (can_be_function_definition)
                     *is_function_definition = true;
-            }
-            else if (ctx->current->type == TK_STRING_LITERAL &&
-                strcmp(ctx->current->lexeme, "\"unchecked\"") == 0)
-            {
-                parser_match(ctx);
-                if (can_be_function_definition)
-                    *is_function_definition = true;
-                if (flow_analysis)
-                    *flow_analysis = false;
-
-            }
+            }            
             else
                 parser_match_tk(ctx, ';');
         }
@@ -2009,8 +2050,8 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
 
     bool is_function_definition = false;
-    bool flow_analysis = true;
-    struct declaration* owner p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, &flow_analysis, STORAGE_SPECIFIER_EXTERN);
+    
+    struct declaration* owner p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, STORAGE_SPECIFIER_EXTERN);
     if (is_function_definition)
     {
 
@@ -2048,22 +2089,17 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
         check_func_open_brace_style(ctx, ctx->current);
 
-        bool disable_ownership_errors = ctx->options.disable_ownership_errors;
-        if (!flow_analysis)
-        {
-            /*let's disable ownership type error*/
-            ctx->options.disable_ownership_errors = true;
-        }
+        
 
         assert(p_declaration->function_body == NULL);
         p_declaration->function_body = function_body(ctx);
 
-        ctx->options.disable_ownership_errors = disable_ownership_errors; /*restore*/
+        
 
         p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
 
-        if (ctx->options.flow_analysis && flow_analysis)
+        if (ctx->options.flow_analysis)
         {
             /*
              Now we have the full function AST let´s visit to analise
@@ -2119,9 +2155,8 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
     enum storage_class_specifier_flags storage_specifier_flags
 )
 {
-    bool is_function_definition = false;
-    bool flow_analysis = false;
-    return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, &flow_analysis, storage_specifier_flags);
+    bool is_function_definition = false;    
+    return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, storage_specifier_flags);
 }
 
 
@@ -2368,7 +2403,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                         //type * p = f();
                         if (!type_is_owner(&p_init_declarator->p_declarator->type))
                         {
-                            compiler_diagnostic_message(C_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
+                            compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
                         }
                     }
                 }
@@ -2383,7 +2418,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
 
                         if (!is_zero)
                         {
-                            compiler_diagnostic_message(C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+                            compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
                                 ctx,
                                 p_init_declarator->p_declarator->first_token, "cannot initialize an owner type with a non owner");
                         }
@@ -4924,6 +4959,7 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
             show_error_if_not_constant = true;
         }
 
+
         p_static_assert_declaration->constant_expression = constant_expression(ctx, show_error_if_not_constant);
         if (p_static_assert_declaration->constant_expression == NULL) throw;
 
@@ -5545,9 +5581,17 @@ void compound_statement_delete(struct compound_statement* owner p)
 
 struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
 {
+    
+
     //'{' block_item_list_opt '}'
     struct compound_statement* owner p_compound_statement = calloc(1, sizeof(struct compound_statement));
-    struct scope block_scope = { .variables.capacity = 10 };
+
+    if (p_compound_statement == NULL)
+        return NULL;
+    
+    p_compound_statement->diagnostic_flags = ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
+
+    struct scope block_scope = {.variables.capacity = 10};
     scope_list_push(&ctx->scopes, &block_scope);
 
     p_compound_statement->first_token = ctx->current;
@@ -6246,6 +6290,7 @@ struct declaration* owner external_declaration(struct parser_ctx* ctx)
 
 struct compound_statement* owner function_body(struct parser_ctx* ctx)
 {
+    
     /*
     * Used to give an unique index (inside the function)
     * for try-catch blocks
@@ -6346,7 +6391,7 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
         }
         if (argv[i][1] == 'D')
         {
-            char buffer[200];
+            char buffer[200] = { 0 };
             snprintf(buffer, sizeof buffer, "#define %s \n", argv[i] + 2);
 
             /*TODO make it more precise*/
@@ -6615,7 +6660,7 @@ int compile_one_file(const char* file_name,
             {
                 if (options->format_input)
                 {
-                    struct format_visit_ctx f = { .ast = ast, .indentation = 4 };
+                    struct format_visit_ctx f = {.ast = ast, .indentation = 4};
                     format_visit(&f);
                 }
 
@@ -6767,12 +6812,12 @@ static int create_multiple_paths(const char* root, const char* outdir)
             {
                 printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
                 return er;
+            }
         }
-    }
         if (*p == '\0')
             break;
         p++;
-}
+    }
     return 0;
 #else
     return -1;
@@ -6848,7 +6893,7 @@ int compile(int argc, const char** argv, struct report* report)
 
 
     clock_t end_clock = clock();
-    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
+    double cpu_time_used = ((double) (end_clock - begin_clock)) / CLOCKS_PER_SEC;
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
     return 0;
@@ -6929,7 +6974,7 @@ const char* owner compile_source(const char* pszoptions, const char* content, st
 
     struct preprocessor_ctx prectx = { 0 };
     struct ast ast = { 0 };
-    struct options options = { .input = LANGUAGE_CXX };
+    struct options options = {.input = LANGUAGE_CXX};
 
     struct visit_ctx visit_ctx = { 0 };
     try

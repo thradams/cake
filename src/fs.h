@@ -9,8 +9,8 @@
 #include <sys/stat.h>
 
 #ifdef __CAKE__
-#pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wstyle"
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wstyle"
 #endif
 
 
@@ -21,7 +21,7 @@
 
 
 #ifdef __CAKE__
-#pragma CAKE diagnostic pop
+#pragma cake diagnostic pop
 #endif
 
 
@@ -57,7 +57,7 @@ struct dirent
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wstyle"
+#pragma CAKE diagnostic ignored "-Wstyle"
 #endif
 struct TAGDIR;
 typedef struct TAGDIR DIR;

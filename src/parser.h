@@ -899,6 +899,9 @@ struct compound_statement
     struct token* last_token; /*}*/
 
     struct block_item_list block_item_list;
+
+    //flow analysys flags
+    struct diagnostic diagnostic_flags;
 };
 struct compound_statement* owner compound_statement(struct parser_ctx* ctx);
 void compound_statement_delete(struct compound_statement* owner p);

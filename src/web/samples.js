@@ -1149,11 +1149,28 @@ enum E2 { B };
 int main() {
 
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wenum-compare"
+#pragma CAKE diagnostic error "-Wenum-conversion"
     if (A == B){}
 #pragma CAKE diagnostic pop
 
-    if (A == B) {}
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic warning "-Wenum-conversion"
+    if (A == B){}
+#pragma CAKE diagnostic pop
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic note "-Wenum-conversion"
+    if (A == B){}
+#pragma CAKE diagnostic pop
+
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wenum-conversion"
+    if (A == B){}
+#pragma CAKE diagnostic pop
+
+
+
 
 }
 

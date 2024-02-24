@@ -5,6 +5,10 @@
 #include <assert.h>
 
 
+struct diagnostic default_diagnostic = {
+
+      .warnings = ~0ULL
+};
 
 static struct w {
     enum diagnostic_id w;
@@ -22,10 +26,44 @@ s_warnings[] = {
     {W_ATTRIBUTES, "attributes"},
     {W_UNUSED_VALUE, "unused-value"},
     {W_STYLE, "style"},
+    {W_COMMENT,"comment"},
+    {W_LINE_SLICING,"line-slicing"},
+
+
     {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"},
     {W_UNINITIALZED, "uninitialized"},
-    {W_RETURN_LOCAL_ADDR, "return-local-addr"}
+    {W_RETURN_LOCAL_ADDR, "return-local-addr"},
+    {W_DIVIZION_BY_ZERO,"div-by-zero"},
+    
+    
+    {W_STRING_SLICED,"string-slicing"},
+    {W_DECLARATOR_STATE,"declarator-state"},
+    {W_OWNERSHIP_MISSING_OWNER_QUALIFIER, "missing-owner-qualifier"},
+    {W_OWNERSHIP_NOT_OWNER,"not-owner"},
+    {W_OWNERSHIP_USING_TEMPORARY_OWNER,"temp-owner"},
+    {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
+    {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
+    {W_DISCARDING_OWNER, "discard-owner"},
+    {W_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
+    {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
+    {W_MAYBE_UNINITIALIZED, "uninitialized"},
+    {W_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
+    {W_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"}
+    
 };
+
+enum diagnostic_id  get_warning(const char* wname)
+{
+
+    for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+    {
+        if (strncmp(s_warnings[j].name, wname, strlen(s_warnings[j].name)) == 0)
+        {
+            return s_warnings[j].w;
+        }
+    }
+    return 0;
+}
 
 unsigned long long  get_warning_bit_mask(const char* wname)
 {
@@ -34,7 +72,7 @@ unsigned long long  get_warning_bit_mask(const char* wname)
     {
         if (strncmp(s_warnings[j].name, wname, strlen(s_warnings[j].name)) == 0)
         {
-            return 1ULL << s_warnings[j].w;
+            return (1ULL << s_warnings[j].w);
         }
     }
     return 0;
@@ -42,29 +80,15 @@ unsigned long long  get_warning_bit_mask(const char* wname)
 
 const char* get_warning_name(enum diagnostic_id w)
 {
-    int lower_index = 0;
-    int upper_index = sizeof(s_warnings) / sizeof(s_warnings[0]) - 1;
-
-    while (lower_index <= upper_index)
+    //TODO because s_warnings is out of order ....
+    //this is a linear seatch instead of just index! TODOD
+    for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
     {
-        const int mid = (lower_index + upper_index) / 2;
-        const int cmp = w - s_warnings[mid].w;
-
-        if (cmp == 0)
+        if (s_warnings[j].w == w)
         {
-            return s_warnings[mid].name;
-        }
-        else if (cmp < 0)
-        {
-            upper_index = mid - 1;
-        }
-        else
-        {
-            lower_index = mid + 1;
+            return s_warnings[j].name;
         }
     }
-
-    //assert(false);
     return "";
 }
 
@@ -366,10 +390,34 @@ void print_help()
         "\n"
         WHITE "  -msvc-output          " RESET "Ouput is compatible with visual studio\n"
         "\n"
-        WHITE "   -dump-tokens         " RESET "Output tokens before preprocessor\n"
+        WHITE "  -dump-tokens          " RESET "Output tokens before preprocessor\n"
+        "\n"
+        WHITE "  -dump-pp-tokens       " RESET "Output tokens after preprocessor\n"
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;
 
     printf("%s", options);
 }
+
+#ifdef TEST
+#include "unit_test.h"
+#include <string.h>
+
+void test_get_warning_name()
+{
+    const char* name = get_warning_name(W_OWNERSHIP_FLOW_MISSING_DTOR);
+    assert(strcmp(name, "missing-destructor") == 0);
+
+    unsigned long long  flags = get_warning_bit_mask(name);
+    assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
+
+
+        const char* name2 = get_warning_name(W_STYLE);
+    assert(strcmp(name2, "style") == 0);
+
+    unsigned long long  flags2 = get_warning_bit_mask(name2);
+    assert(flags2 == (1ULL << W_STYLE));
+}
+
+#endif

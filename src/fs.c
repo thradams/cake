@@ -75,7 +75,7 @@ bool path_is_relative(const char* path)
 
 #ifdef __CAKE__
 #pragma CAKE diagnostic push
-#pragma CAKE diagnostic ignore "-Wstyle"
+#pragma CAKE diagnostic ignored "-Wstyle"
 #endif
 
 struct TAGDIR
@@ -960,7 +960,7 @@ const char* file_ownership_h =
  "#define owner _Owner\n"
  "#define obj_owner  _Obj_owner\n"
  "#define view _View\n"
- "#define unchecked \"unchecked\"\n"
+ 
  "\n"
  "#else\n"
  "#define out \n"
@@ -970,7 +970,7 @@ const char* file_ownership_h =
  "#define view\n"
  "#define static_debug(x)\n"
  "#define static_set(x, s)\n"
- "#define unchecked\n"
+ 
  "#endif\n"
  "\n"
  "#endif\n"

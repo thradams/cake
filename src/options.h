@@ -38,20 +38,24 @@ enum diagnostic_id {
 
 
     /*ownership type system errors*/
-    C_OWNERSHIP_MISSING_OWNER_QUALIFIER,
-    C_OWNERSHIP_NOT_OWNER,
-    C_OWNERSHIP_USING_TEMPORARY_OWNER,
-    C_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+    W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+    W_OWNERSHIP_NOT_OWNER,
+    W_OWNERSHIP_USING_TEMPORARY_OWNER,
+    W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
 
-    C_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
-    C_DISCARDING_OWNER,
+    W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
+    W_DISCARDING_OWNER,
 
     /*flow analysis errors*/
-    C_OWNERSHIP_FLOW_MISSING_DTOR,
-    C_OWNERSHIP_NON_OWNER_MOVE,
+    W_OWNERSHIP_FLOW_MISSING_DTOR,
+    W_OWNERSHIP_NON_OWNER_MOVE,
 
-    C_MAYBE_UNINITIALIZED,
-    C_NULL_DEREFERENCE,
+    W_MAYBE_UNINITIALIZED,
+    W_NULL_DEREFERENCE,
+
+    W_DIVIZION_BY_ZERO,
+
+    W_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
 
     W_NOTE,
     //AFTER THIS POINT (W_NOTE) MESSAGES ARE ALWAYS ERRORS
@@ -92,7 +96,7 @@ enum diagnostic_id {
     C_EXPECTED_TYPE_NAME,
     C_LEFT_IS_NOT_ARITHMETIC,
     C_RIGHT_IS_NOT_ARITHMETIC,
-    C_DIVIZION_BY_ZERO,
+    
     C_LEFT_IS_NOT_INTEGER,
     C_RIGHT_IS_NOT_INTEGER,
     C_INVALID_TYPE,
@@ -172,6 +176,8 @@ enum style
 const char* get_warning_name(enum diagnostic_id w);
 unsigned long long  get_warning_bit_mask(const char* wname);
 
+enum diagnostic_id  get_warning(const char* wname);
+
 struct diagnostic
 {
     /*
@@ -186,6 +192,8 @@ struct diagnostic
     /*set of diagnostics reported as notes*/
     unsigned long long notes;
 };
+
+extern struct diagnostic default_diagnostic;
 
 struct options
 {
@@ -230,7 +238,7 @@ struct options
     */
     bool preprocess_only;
 
-    bool disable_ownership_errors;
+    bool clear_error_at_end; //used by tests
     /*
       -rm
       -direct-compilation
@@ -265,11 +273,13 @@ struct options
 
     /*
       -dump-tokens
+      print tokens before preprocessor
     */
     bool dump_tokens;
 
     /*
       -dump-pp-tokens
+      (print tokens after preprocessor)
     */
     bool dump_pptokens;
 
