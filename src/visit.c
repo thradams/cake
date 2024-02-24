@@ -671,7 +671,7 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
 	struct generic_association* p = p_generic_selection->generic_assoc_list.head;
 	while (p)
 	{
-		visit_type_name(ctx, p->p_type_name);
+		if(p->p_type_name) visit_type_name(ctx, p->p_type_name);
 		visit_expression(ctx, p->expression);
 		p = p->next;
 	}
@@ -1586,7 +1586,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 			}
 			else
 			{
-				//assert(p_init_declarator->initializer->braced_initializer != NULL);
 				if (p_init_declarator->initializer->braced_initializer)
 				{
 					visit_bracket_initializer_list(ctx,
@@ -1676,7 +1675,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 		struct token* first = p_struct_or_union_specifier->first_token;
 
 		const char* tag = p_struct_or_union_specifier->tag_name;
-		char buffer[200] = { 0 };
+		char buffer[sizeof(p_struct_or_union_specifier->tag_name)+8] = { 0 };
 		snprintf(buffer, sizeof buffer, " %s", tag);
 		struct tokenizer_ctx tctx = { 0 };
 		struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);

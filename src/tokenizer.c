@@ -184,7 +184,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
 	bool is_error = false;
     bool is_warning = false;
     bool is_note = false;
-	
+
 	if (p_token && p_token->level != 0)
     {
 		//no message for include dir
@@ -222,7 +222,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
     }
     else if (is_note)
     {
-        
+
     }
     else
     {
@@ -230,9 +230,9 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
     }
 
 
-	
 
-	
+
+
 #ifndef TEST
 
 	if (p_token)
@@ -329,7 +329,8 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 	/*realpath returns empty on emscriptem*/
 	snprintf(full_path_out, full_path_out_size, "%s", newpath);
 #else
-	realpath(newpath, full_path_out);
+	if(!realpath(newpath, full_path_out))
+            full_path_out[0] = '\0';
 #endif
 
 
@@ -2937,7 +2938,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 				preprocessor_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "out of mem");
 				throw;
 			}
-			
+
 			/*
 				# define identifier                           replacement-list new-line
 				# define identifier ( identifier-list_opt )    replacement-list new-line
@@ -2966,7 +2967,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			macro->name = strdup(input_list->head->lexeme);
 			struct macro* owner previous =
 				owner_hashmap_set(&ctx->macros, input_list->head->lexeme, (void* owner)macro, 0);
-			
+
 
 			/*macro still alive...but flow analsys will (correclty) think it is not*/
 
@@ -3017,7 +3018,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					  to a map, but we know it still exist. A refactroing map returning a view solve.
 					*/
 				{
-					
+
 					struct token_list r3 = identifier_list(ctx, macro, input_list, level);
 					token_list_append_list(&r, &r3);
 					token_list_destroy(&r3);
@@ -4556,7 +4557,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __builtin_va_list\n"
 		"#define __builtin_va_start(a, b)\n"
 		"#define __builtin_va_end(a)\n"
-		"#define __builtin_va_arg(a, b)\n"
+		"#define __builtin_va_arg(a, b) ((b)a)\n"
 		"#define __builtin_va_copy(a, b)\n"
 
 		"#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
@@ -4592,8 +4593,8 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
 		"#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
 		"#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
-		"#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"		
-		
+		"#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
+
 		"#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
 		"#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
 		"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
@@ -4603,7 +4604,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
 		"#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
 		"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-		
+
 
 		"#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
 		"#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
