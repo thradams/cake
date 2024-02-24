@@ -972,7 +972,7 @@ void simple_move_error()
         "#pragma cake diagnostic check \"-Wnon-owner-move\"\n"
         "}\n";
 
-        assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void parameter_view()
@@ -1192,12 +1192,11 @@ void error_using_temporary_owner()
         "int main()\n"
         "{\n"
         "    F(make());\n"
-        "}";
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_USING_TEMPORARY_OWNER*/);
+        "}\n"
+        "#pragma cake diagnostic check \"-Wtemp-owner\"\n"
+        "";
 
+    assert(compile_without_errors(true, false, source));
 }
 
 void passing_view_to_owner()
@@ -1208,15 +1207,13 @@ void passing_view_to_owner()
         "\n"
         "int main()\n"
         "{\n"
-        "  _Owner int i = 0;\n"
-        "  int v = i;\n"
-        "  destroy(v);\n"
+        "    _Owner int i = 0;\n"
+        "    int v = i;\n"
+        "    destroy(v);\n"
         "}\n"
-        "";
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER*/);
+        "\n"
+        "#pragma cake diagnostic check \"-Wnon-owner-move\"";
+    assert(compile_without_errors(true, false, source));
 }
 
 void obj_owner_cannot_be_used_in_non_pointer()
@@ -1252,15 +1249,23 @@ void ownership_flow_test_pointer_must_be_deleted()
         "\n"
         "int* _Owner  get();\n"
         "\n"
-        "void f() {\n"
-        "    int * _Owner p = 0;\n"
+        "void f() \n"
+        "{\n"
+        "    int* _Owner p = 0;\n"
         "    p = get();\n"
         "}\n"
-        " ";
-    struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
+        "";
+
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_basic_pointer_check()

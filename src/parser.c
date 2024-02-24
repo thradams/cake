@@ -305,6 +305,10 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     {
         is_error = true;
     }
+    else if (w == W_LOCATION)
+    {
+        is_note = true;
+    }
     else
     {
         is_error =
@@ -332,14 +336,15 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     }
     else if (is_note)
     {
-        ctx->p_report->info_count++;
+        if (w != W_LOCATION)
+          ctx->p_report->info_count++;
     }
     else
     {
         return false;
     }
 
-    if (w != W_NOTE)
+    if (w != W_LOCATION)
        ctx->p_report->last_diagnostic_id = w;
 
     const char* func_name = "module";

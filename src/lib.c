@@ -589,8 +589,9 @@ enum diagnostic_id {
     W_DIVIZION_BY_ZERO,
 
     W_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
-
+    W_LOCATION,
     W_NOTE,
+
     //AFTER THIS POINT (W_NOTE) MESSAGES ARE ALWAYS ERRORS
     ////////////////////////////////////////
 
@@ -725,7 +726,7 @@ struct diagnostic
     /*set of diagnostics reported as notes*/
     unsigned long long notes;
 };
-
+int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
 struct options
@@ -941,11 +942,13 @@ void include_config_header(struct preprocessor_ctx* ctx);
   PROVISORY - unchecked was removed, now we control flow ownerhip error with pragma
   TODO review alternatives from Domingo's branch.
 */
+#ifdef __CAKE__
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wdiscard-owner"
 #pragma cake diagnostic ignored "-Wmissing-destructor"
 #pragma cake diagnostic ignored "-Wnon-owner-move"
 #pragma cake diagnostic ignored "-Wnon-owner-to-owner-move"
+#endif
 
 //#pragma cake diagnostic pop
 
@@ -2140,10 +2143,10 @@ void c_clrscr()
 
 #include <sys/types.h>
 
-
+#ifdef __CAKE__
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wstyle"
-
+#endif
 
 
 //https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?view=msvc-160
@@ -2151,9 +2154,9 @@ void c_clrscr()
 #define rmdir _rmdir
 #define chdir _chdir
 
-
+#ifdef __CAKE__
 #pragma cake diagnostic pop
-
+#endif
 
 /*
  opendir,  readdir closedir for windows.
@@ -2366,7 +2369,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
 	bool is_error = false;
     bool is_warning = false;
     bool is_note = false;
-	
+
 	if (p_token && p_token->level != 0)
     {
 		//no message for include dir
@@ -2404,7 +2407,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
     }
     else if (is_note)
     {
-        
+
     }
     else
     {
@@ -2412,9 +2415,9 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
     }
 
 
-	
 
-	
+
+
 #ifndef TEST
 
 	if (p_token)
@@ -2511,7 +2514,8 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 	/*realpath returns empty on emscriptem*/
 	snprintf(full_path_out, full_path_out_size, "%s", newpath);
 #else
-	realpath(newpath, full_path_out);
+	if(!realpath(newpath, full_path_out))
+            full_path_out[0] = '\0';
 #endif
 
 
@@ -5119,7 +5123,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 				preprocessor_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "out of mem");
 				throw;
 			}
-			
+
 			/*
 				# define identifier                           replacement-list new-line
 				# define identifier ( identifier-list_opt )    replacement-list new-line
@@ -5148,7 +5152,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			macro->name = strdup(input_list->head->lexeme);
 			struct macro* owner previous =
 				owner_hashmap_set(&ctx->macros, input_list->head->lexeme, (void* owner)macro, 0);
-			
+
 
 			/*macro still alive...but flow analsys will (correclty) think it is not*/
 
@@ -5190,14 +5194,16 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					skip_blanks_level(ctx, &r, input_list, level);
 				}
 				else
+#ifdef __CAKE__
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wuninitialized"
+#endif
 					/*
 					  flow analysys says macro is unitialized, this is because it has been moved
 					  to a map, but we know it still exist. A refactroing map returning a view solve.
 					*/
 				{
-					
+
 					struct token_list r3 = identifier_list(ctx, macro, input_list, level);
 					token_list_append_list(&r, &r3);
 					token_list_destroy(&r3);
@@ -5220,7 +5226,9 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					skip_blanks_level(ctx, &r, input_list, level);
 					match_token_level(&r, input_list, ')', level, ctx);
 				}
+#ifdef __CAKE__
 #pragma cake diagnostic pop
+#endif
 			}
 			else
 			{
@@ -6734,7 +6742,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __builtin_va_list\n"
 		"#define __builtin_va_start(a, b)\n"
 		"#define __builtin_va_end(a)\n"
-		"#define __builtin_va_arg(a, b)\n"
+		"#define __builtin_va_arg(a, b) ((b)a)\n"
 		"#define __builtin_va_copy(a, b)\n"
 
 		"#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
@@ -6770,8 +6778,8 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __UINT_FAST32_TYPE__ " TOSTRING(__UINT_FAST32_TYPE__) "\n"
 		"#define __UINT_FAST64_TYPE__ " TOSTRING(__UINT_FAST64_TYPE__) "\n"
 		"#define __INTPTR_TYPE__ " TOSTRING(__INTPTR_TYPE__) "\n"
-		"#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"		
-		
+		"#define __UINTPTR_TYPE__ " TOSTRING(__UINTPTR_TYPE__) "\n"
+
 		"#define __DBL_MAX__ " TOSTRING(__DBL_MAX__) "\n"
 		"#define __DBL_MIN__ " TOSTRING(__DBL_MIN__) "\n"
 		"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
@@ -6781,7 +6789,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __DBL_DECIMAL_DIG__ " TOSTRING(__DBL_DECIMAL_DIG__) "\n"
 		"#define __FLT_EVAL_METHOD__ " TOSTRING(__FLT_EVAL_METHOD__) "\n"
 		"#define __FLT_RADIX__ " TOSTRING(__FLT_RADIX__) "\n"
-		
+
 
 		"#define __SCHAR_MAX__ " TOSTRING(__SCHAR_MAX__) "\n"
 		"#define __WCHAR_MAX__ " TOSTRING(__WCHAR_MAX__) "\n"
@@ -8808,12 +8816,15 @@ char* realpath(const char* restrict path, char* restrict resolved_path)
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
     char* p = _fullpath(resolved_path, path, MAX_PATH);
-    char* p2 = resolved_path;
-    while (*p2)
+    if(p)
     {
-        if (*p2 == '\\')
-            *p2 = '/';
-        p2++;
+        char* p2 = resolved_path;
+        while (*p2)
+        {
+            if (*p2 == '\\')
+                *p2 = '/';
+            p2++;
+        }
     }
     return p;
 }
@@ -9645,7 +9656,7 @@ static struct w {
     enum diagnostic_id w;
     const char* name;
 }
-s_warnings[] = {    
+s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
@@ -9665,8 +9676,8 @@ s_warnings[] = {
     {W_UNINITIALZED, "uninitialized"},
     {W_RETURN_LOCAL_ADDR, "return-local-addr"},
     {W_DIVIZION_BY_ZERO,"div-by-zero"},
-    
-    
+
+
     {W_STRING_SLICED,"string-slicing"},
     {W_DECLARATOR_STATE,"declarator-state"},
     {W_OWNERSHIP_MISSING_OWNER_QUALIFIER, "missing-owner-qualifier"},
@@ -9680,8 +9691,23 @@ s_warnings[] = {
     {W_MAYBE_UNINITIALIZED, "uninitialized"},
     {W_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
     {W_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"}
-    
+
 };
+
+int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
+{
+    if ((d->errors & (1ULL << w)) != 0)
+        return 3;
+
+    if ((d->warnings & (1ULL << w)) != 0)
+        return 2;
+
+    if ((d->notes & (1ULL << w)) != 0)
+        return 1;
+
+    return 0;
+
+}
 
 enum diagnostic_id  get_warning(const char* wname)
 {
@@ -9737,9 +9763,9 @@ int fill_options(struct options* options,
         (1ULL << W_STYLE) |
         (1ULL << W_UNUSED_PARAMETER) |
         (1ULL << W_UNUSED_VARIABLE)); //default is OFF
-    
-    
-    
+
+
+
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;
@@ -9779,7 +9805,7 @@ int fill_options(struct options* options,
             }
             continue;
         }
-        
+
         if (strcmp(argv[i], "-showIncludes") == 0)
         {
             options->show_includes = true;
@@ -9925,9 +9951,9 @@ int fill_options(struct options* options,
             enum diagnostic_id  w = 0;
 
             if (disable_warning)
-                w =  get_warning_bit_mask(argv[i] + 5);
+                w = get_warning_bit_mask(argv[i] + 5);
             else
-                w =  get_warning_bit_mask(argv[i] + 2);
+                w = get_warning_bit_mask(argv[i] + 2);
 
             if (w == 0)
             {
@@ -10042,7 +10068,7 @@ void test_get_warning_name()
     assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
 
 
-        const char* name2 = get_warning_name(W_STYLE);
+    const char* name2 = get_warning_name(W_STYLE);
     assert(strcmp(name2, "style") == 0);
 
     unsigned long long  flags2 = get_warning_bit_mask(name2);
@@ -12827,7 +12853,7 @@ const unsigned char* utf8_decode(const unsigned char* s, int* c)
             ((int)(s[1] & 0x3f) << 12) |
             ((int)(s[2] & 0x3f) << 6) |
             ((int)(s[3] & 0x3f) << 0);
-        assert(*c >= 0x100000 && *c <= 0x10FFFF);
+        assert(*c >= 0x10000 && *c <= 0x10FFFF);
         next = s + 4;
     }
     else
@@ -21108,7 +21134,7 @@ void checked_moved(struct parser_ctx* ctx,
                 parameter_name,
                 name))
             {
-                compiler_diagnostic_message(W_NOTE, ctx, name_pos, "parameter", name);
+                compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
             }
         }
 
@@ -21126,7 +21152,7 @@ void checked_moved(struct parser_ctx* ctx,
                 parameter_name,
                 name);
 
-            compiler_diagnostic_message(W_NOTE, ctx, name_pos, "parameter", name);
+            compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
         }
     }
 }
@@ -21279,7 +21305,7 @@ void visit_object(struct parser_ctx* ctx,
                 previous_names);
 
             if (p_object->declarator)
-                compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", previous_names);
+                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", previous_names);
         }
         else
         {
@@ -21418,7 +21444,7 @@ void visit_object(struct parser_ctx* ctx,
                                 name);
                             if (p_object->declarator)
                             {
-                                compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", name);
+                                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
                             }
                         }
                     }
@@ -21442,7 +21468,7 @@ void visit_object(struct parser_ctx* ctx,
                             name);
                         if (p_object->declarator)
                         {
-                            compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", name);
+                            compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
                         }
                     }
                 }
@@ -21957,6 +21983,10 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     {
         is_error = true;
     }
+    else if (w == W_LOCATION)
+    {
+        is_note = true;
+    }
     else
     {
         is_error =
@@ -21984,14 +22014,15 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     }
     else if (is_note)
     {
-        ctx->p_report->info_count++;
+        if (w != W_LOCATION)
+          ctx->p_report->info_count++;
     }
     else
     {
         return false;
     }
 
-    if (w != W_NOTE)
+    if (w != W_LOCATION)
        ctx->p_report->last_diagnostic_id = w;
 
     const char* func_name = "module";
@@ -23274,6 +23305,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 (strcmp(ctx->current->lexeme, "check") == 0)
                 )
             {
+                //TODO better name .  Ack. : means ‘alarm acknowledged’ ?
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
 
@@ -23282,7 +23314,19 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                     enum diagnostic_id id = get_warning(ctx->current->lexeme + 1 + 2);
                     if (ctx->p_report->last_diagnostic_id == id)
                     {
-                        *ctx->p_report = (struct report){ 0 };
+                        //lets remove this error/warning/info from the final report.
+
+                        int t = 
+                            get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                                id);
+                        if (t == 3)
+                            ctx->p_report->error_count--;
+                        else if (t == 2)
+                            ctx->p_report->warnings_count--;
+                        else if (t == 1)
+                            ctx->p_report->info_count--;
+                        
+                        
                     }
                     else
                     {
@@ -29633,7 +29677,7 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
 	struct generic_association* p = p_generic_selection->generic_assoc_list.head;
 	while (p)
 	{
-		visit_type_name(ctx, p->p_type_name);
+		if(p->p_type_name) visit_type_name(ctx, p->p_type_name);
 		visit_expression(ctx, p->expression);
 		p = p->next;
 	}
@@ -30548,7 +30592,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 			}
 			else
 			{
-				//assert(p_init_declarator->initializer->braced_initializer != NULL);
 				if (p_init_declarator->initializer->braced_initializer)
 				{
 					visit_bracket_initializer_list(ctx,
@@ -30638,7 +30681,7 @@ static void visit_struct_or_union_specifier(struct visit_ctx* ctx, struct struct
 		struct token* first = p_struct_or_union_specifier->first_token;
 
 		const char* tag = p_struct_or_union_specifier->tag_name;
-		char buffer[200] = { 0 };
+		char buffer[sizeof(p_struct_or_union_specifier->tag_name)+8] = { 0 };
 		snprintf(buffer, sizeof buffer, " %s", tag);
 		struct tokenizer_ctx tctx = { 0 };
 		struct token_list l2 = tokenizer(&tctx, buffer, NULL, 0, TK_FLAG_FINAL);
@@ -35994,7 +36037,7 @@ void simple_move_error()
         "#pragma cake diagnostic check \"-Wnon-owner-move\"\n"
         "}\n";
 
-        assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void parameter_view()
@@ -36214,12 +36257,11 @@ void error_using_temporary_owner()
         "int main()\n"
         "{\n"
         "    F(make());\n"
-        "}";
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_USING_TEMPORARY_OWNER*/);
+        "}\n"
+        "#pragma cake diagnostic check \"-Wtemp-owner\"\n"
+        "";
 
+    assert(compile_without_errors(true, false, source));
 }
 
 void passing_view_to_owner()
@@ -36230,15 +36272,13 @@ void passing_view_to_owner()
         "\n"
         "int main()\n"
         "{\n"
-        "  _Owner int i = 0;\n"
-        "  int v = i;\n"
-        "  destroy(v);\n"
+        "    _Owner int i = 0;\n"
+        "    int v = i;\n"
+        "    destroy(v);\n"
         "}\n"
-        "";
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER*/);
+        "\n"
+        "#pragma cake diagnostic check \"-Wnon-owner-move\"";
+    assert(compile_without_errors(true, false, source));
 }
 
 void obj_owner_cannot_be_used_in_non_pointer()
@@ -36274,15 +36314,23 @@ void ownership_flow_test_pointer_must_be_deleted()
         "\n"
         "int* _Owner  get();\n"
         "\n"
-        "void f() {\n"
-        "    int * _Owner p = 0;\n"
+        "void f() \n"
+        "{\n"
+        "    int* _Owner p = 0;\n"
         "    p = get();\n"
         "}\n"
-        " ";
-    struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
+        "";
+
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_basic_pointer_check()

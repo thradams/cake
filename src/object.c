@@ -1240,7 +1240,7 @@ void checked_moved(struct parser_ctx* ctx,
                 parameter_name,
                 name))
             {
-                compiler_diagnostic_message(W_NOTE, ctx, name_pos, "parameter", name);
+                compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
             }
         }
 
@@ -1258,7 +1258,7 @@ void checked_moved(struct parser_ctx* ctx,
                 parameter_name,
                 name);
 
-            compiler_diagnostic_message(W_NOTE, ctx, name_pos, "parameter", name);
+            compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
         }
     }
 }
@@ -1411,7 +1411,7 @@ void visit_object(struct parser_ctx* ctx,
                 previous_names);
 
             if (p_object->declarator)
-                compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", previous_names);
+                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", previous_names);
         }
         else
         {
@@ -1550,7 +1550,7 @@ void visit_object(struct parser_ctx* ctx,
                                 name);
                             if (p_object->declarator)
                             {
-                                compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", name);
+                                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
                             }
                         }
                     }
@@ -1574,7 +1574,7 @@ void visit_object(struct parser_ctx* ctx,
                             name);
                         if (p_object->declarator)
                         {
-                            compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", name);
+                            compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
                         }
                     }
                 }

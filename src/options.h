@@ -56,8 +56,9 @@ enum diagnostic_id {
     W_DIVIZION_BY_ZERO,
 
     W_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
-
+    W_LOCATION,
     W_NOTE,
+
     //AFTER THIS POINT (W_NOTE) MESSAGES ARE ALWAYS ERRORS
     ////////////////////////////////////////
 

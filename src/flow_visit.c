@@ -2166,6 +2166,10 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
+        /*TODO
+           check state
+        
+        */
         struct type t = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
         if (p_obj)
