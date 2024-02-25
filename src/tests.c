@@ -709,7 +709,7 @@ void const_member()
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&&
-        report.last_error == C_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
+        report.last_error == ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
 }
 
 void register_struct_member()
@@ -884,7 +884,7 @@ void address_of_register()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == C_ADDRESS_OF_REGISTER*/);
+    assert(report.error_count == 1 /*&& report.last_error == ERROR_ADDRESS_OF_REGISTER*/);
 }
 
 void return_address_of_local()
@@ -943,7 +943,7 @@ void assignment_of_read_only_object()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == C_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
+    assert(report.error_count == 1 /*&& report.last_error == ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1227,7 +1227,7 @@ void obj_owner_cannot_be_used_in_non_pointer()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER*/);
+    assert(report.error_count == 1 /*&& report.last_error == ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER*/);
 
 }
 
@@ -1474,7 +1474,7 @@ void ownership_flow_test_missing_destructor()
         "\n"
         "";
     assert(compile_without_errors(true, false, source));
-    
+
 }
 
 void ownership_flow_test_no_warning()
@@ -1647,7 +1647,7 @@ void ownership_flow_test_moving_owner_pointer()
         "\n"
         "";
     assert(compile_without_errors(true, false, source));
-   
+
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -1708,22 +1708,22 @@ void ownership_flow_test_setting_owner_pointer_to_null()
     const char* source
         =
         "\n"
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void* _Owner malloc(int i);\n"
+        "void free(void* _Owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
         "int main() {\n"
-        "   struct X * _Owner p = malloc(sizeof * p);   \n"
-        "   p = 0;\n"
-        "} \n"
-        "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+        "    struct X* _Owner p = malloc(sizeof * p);\n"
+        "    p = 0;\n"
+        "}\n"
+        "\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_while_not_null()
@@ -1789,15 +1789,17 @@ void ownership_types_test_error_owner()
 {
     const char* source
         =
-        "void * f();\n"
+        "void* f();\n"
         "int main() {\n"
-        "   void * _Owner p = f();   \n"
+        "    void* _Owner p = f();\n"
+        "#pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
         "}\n"
-        ;
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+        "\n"
+        "\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_if_variant()
@@ -1824,21 +1826,19 @@ void check_leaks_on_else_block()
 {
     const char* source
         =
-        "void * _Owner malloc(int sz);\n"
+        "void* _Owner malloc(int sz);\n"
         "\n"
-        "void f(int i) {   \n"
-        "        if (i){\n"
-        "        }   \n"
-        "        else {\n"
-        "            int * _Owner p3 = malloc(1);\n"
-        "        }\n"
+        "void f(int i) {\n"
+        "    if (i) {\n"
+        "    }\n"
+        "    else {\n"
+        "        int* _Owner p3 = malloc(1);\n"
+        "    }\n"
         "}\n"
-        ;
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_two_ifs()
@@ -2014,7 +2014,7 @@ void pointer_argument()
         "  x_change(x);\n"
         "}\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true , .diagnostic_stack[0] = default_diagnostic};
+    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true , .diagnostic_stack[0] = default_diagnostic };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 3);
@@ -3343,5 +3343,53 @@ void uninitialized_object()
     assert(report.warnings_count == 1);
 }
 
+void  calloc_builtin_semantics() {
+    const char* source
+        =
+        "struct X { int i; void* p; };\n"
+        "void* _Owner calloc(int i, int sz);\n"
+        "int main() \n"
+        "{\n"
+        "    struct X* _Owner p = calloc(1, 1);\n"
+        "    static_state(p, \"maybe-null\");\n"
+        "    static_state(p->i, \"zero\");\n"  //if p is not null then..
+        "    static_state(p->p, \"null\");\n"  //if p is not null then..
+        "}\n"
+        "";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
+void  malloc_builtin_semantics() {
+const char* source
+=
+"struct X { int i; void* p; };\n"
+"void* _Owner malloc(int sz);\n"
+"int main() \n"
+"{\n"
+"    struct X* _Owner p = malloc(1);\n"
+"    static_state(p, \"maybe-null\");\n"
+"    static_state(p->i, \"uninitialized\");\n"
+"    static_state(p->p, \"uninitialized\");\n"
+"}\n"
+"\n"
+"\n"
+"void dummy() {}\n"
+"#pragma cake diagnostic check \"-Wmissing-destructor\"";
+assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
+void discard_qualifier_test()
+{
+    const char* source
+        =
+        "struct X { int i; void* p; };\n"
+        "void f(struct X* p) {}\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    const struct X x = {0};\n"
+        "    f(&x);\n"
+        "}\n"
+        "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
 #endif
 
