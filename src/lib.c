@@ -38284,11 +38284,21 @@ void uninitialized_objects_passed_to_variadic_function()
         =
         "void f(char* s, ...);\n"
         "int main() {\n"
-        "   int i;\n"
-        "   f(\"\", i);\n"
-        "   return 0;\n"
-        "}";
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+        "    int i;\n"
+        "    f(\"\", i);\n"
+        "//first pass analyze\n"
+        "#pragma cake diagnostic check \"-uninitialized\"\n"
+        "    return 0;\n"
+        "}\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "\n"
+        "";
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void nullderef() {

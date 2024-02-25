@@ -1,14 +1,14 @@
-
+void f(char* s, ...);
 int main() {
-    int* ptr = 0;
-    int k = *ptr;
-    k = 0;
+    int i;
+    f("", i);
+//first pass analyze
+#pragma cake diagnostic check "-uninitialized"
     return 0;
 }
-
 void dummy()
 {
 } 
-
-#pragma cake diagnostic check "-Wanalyzer-null-dereference"
+//flow analyze
+#pragma cake diagnostic check "-Wmaybe-uninitialized"
 
