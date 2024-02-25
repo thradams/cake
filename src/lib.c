@@ -38441,6 +38441,39 @@ void uninitialized_object()
     assert(report.warnings_count == 1);
 }
 
+void  calloc_builtin_semantics() {
+    const char* source
+        =
+        "struct X { int i; void* p; };\n"
+        "void* _Owner calloc(int i, int sz);\n"
+        "int main() \n"
+        "{\n"
+        "    struct X* _Owner p = calloc(1, 1);\n"
+        "    static_state(p, \"maybe-null\");\n"
+        "    static_state(p->i, \"zero\");\n"  //if p is not null then..
+        "    static_state(p->p, \"null\");\n"  //if p is not null then..
+        "}\n"
+        "";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
+void  malloc_builtin_semantics() {
+const char* source
+=
+"struct X { int i; void* p; };\n"
+"void* _Owner malloc(int sz);\n"
+"int main() \n"
+"{\n"
+"    struct X* _Owner p = malloc(1);\n"
+"    static_state(p, \"maybe-null\");\n"
+"    static_state(p->i, \"uninitialized\");\n"
+"    static_state(p->p, \"uninitialized\");\n"
+"}\n"
+"\n"
+"\n"
+"void dummy() {}\n"
+"#pragma cake diagnostic check \"-Wmissing-destructor\"";
+assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
 #endif
 
 
