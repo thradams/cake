@@ -318,7 +318,6 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
             (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
 
         is_note =
-            w == W_NOTE ||
             ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
     }
 
@@ -365,7 +364,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    bool show_warning_name = w < W_NOTE;
+    bool show_warning_name = w < W_NOTE && w != W_LOCATION;
 
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -984,6 +983,9 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
         else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
         else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
+#ifdef CAKE_ASSERT_IS_KEYWORD
+        else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
+#endif
         break;
     case 'b':
         if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;

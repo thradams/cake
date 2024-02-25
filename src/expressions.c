@@ -957,6 +957,12 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             if (p == 0)
                 break;
             value = value * 256 + c;
+            if (value > INT_MAX)
+            {
+                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+
+                break;
+            }
         }
 
         p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
@@ -984,6 +990,11 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             if (p == 0)
                 break;
             value = value * 256 + c;
+            if (value > INT_MAX)
+            {
+                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+                break;
+            }
         }
         p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
     }
@@ -1002,7 +1013,7 @@ int convert_to_number(struct token* token, struct expression* p_expression_node,
 
     /*copia removendo os separadores*/
     //um dos maiores buffer necessarios seria 128 bits binario...
-    //0xb1'1'1.... 
+    //0xb1'1'1....
     int c = 0;
     char buffer[128 * 2 + 4] = { 0 };
     const char* s = token->lexeme;
@@ -1387,15 +1398,11 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
             p_expression_node->right = expression(ctx);
-            
-            if (p_expression_node->right == NULL)
-            {
-                expression_delete(p_expression_node);
-                return NULL;
-            }
+            if (p_expression_node->right == NULL) throw;
 
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
+
             p_expression_node->last_token = ctx->current;
             parser_match_tk(ctx, ')');
 
@@ -1601,7 +1608,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         {
                             if (index >= (unsigned long long) p_expression_node->type.array_size)
                             {
-                                compiler_diagnostic_message(ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                                compiler_diagnostic_message(W_OUT_OF_BOUNDS,
                                     ctx,
                                     ctx->current,
                                     "index %d is past the end of the array", index);
@@ -1656,14 +1663,15 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node = NULL; /*MOVED*/
 
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
 
                 parser_match(ctx);
-                if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+                if (p_expression_node_new->left->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p =
-                        find_struct_or_union_specifier(ctx, p_expression_node->type.struct_or_union_specifier->tag_name);
+                        find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
                     p = get_complete_struct_or_union_specifier(p);
                     if (p)
                     {
@@ -2135,14 +2143,25 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 //the result of the indirection(unary*) operator applied to a pointer to object
 
 
-                if (!type_is_pointer(&new_expression->right->type))
+                if (!type_is_pointer_or_array(&new_expression->right->type))
                 {
                     compiler_diagnostic_message(ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND,
                         ctx,
                         op_position,
                         "indirection requires pointer operand");
                 }
-                else new_expression->type = type_remove_pointer(&new_expression->right->type);
+                if (type_is_pointer(&new_expression->right->type))
+                {
+                    new_expression->type = type_remove_pointer(&new_expression->right->type);
+                }
+                else
+                {
+                    compiler_diagnostic_message(W_ARRAY_INDIRECTION,
+                        ctx,
+                        op_position,
+                        "array indirection");
+                    new_expression->type = get_array_item_type(&new_expression->right->type);
+                }
             }
             else if (op == '&')
             {
@@ -2576,6 +2595,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; //MOVED
 
             new_expression->right = cast_expression(ctx);
 
@@ -2583,7 +2603,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
                 new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                return NULL;
+                throw;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -2659,7 +2679,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type multiplicative expression");
-                return NULL;
+                throw;
             }
 
             p_expression_node = new_expression;
@@ -2681,13 +2701,16 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     */
 
     struct expression* owner p_expression_node = NULL;
-    struct expression* owner new_expression = NULL;
+
 
     try
     {
         p_expression_node = multiplicative_expression(ctx);
-        if (p_expression_node == NULL) throw;
-
+        if (p_expression_node == NULL)
+        {
+            compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+            throw;
+        }
 
         while (ctx->current != NULL &&
             (ctx->current->type == '+' ||
@@ -2695,14 +2718,20 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
         {
             struct token* operator_position = ctx->current;
 
-            assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL)
+            {
+                compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+                throw;
+            }
+
             new_expression->first_token = ctx->current;
 
             static_set(*new_expression, "zero");
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
             static int count = 0;
             count++;
@@ -2710,7 +2739,8 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                return NULL;
+                new_expression = NULL;
+                throw;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -2817,6 +2847,9 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                     int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
                     if (code != 0)
                     {
+                        expression_delete(new_expression);
+                        new_expression = NULL;
+
                         compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "internal error type_common");
                         throw;
                     }
@@ -2871,14 +2904,6 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     }
     catch
     {
-        if (p_expression_node)
-        {
-            //expression_node_delete(p_expression_node);
-        }
-        if (new_expression)
-        {
-            //expression_node_delete(p_expression_node);
-        }
     }
 
 
@@ -2912,6 +2937,8 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = multiplicative_expression(ctx);
             if (new_expression->left == NULL || new_expression->right == NULL)
             {
@@ -2940,7 +2967,7 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type shift expression");
-                return NULL;
+                throw;
             }
 
             p_expression_node = new_expression;
@@ -2990,13 +3017,14 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
             new_expression->right = shift_expression(ctx);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
                 new_expression = NULL;
-                return NULL;
+                throw;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -3130,6 +3158,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
             struct  token* operator_token = ctx->current;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = relational_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -3202,6 +3232,8 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = AND_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = equality_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -3256,6 +3288,8 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = and_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -3307,6 +3341,8 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = exclusive_or_expression(ctx);
             if (new_expression->right == NULL)
             {
@@ -3324,7 +3360,7 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types inclusive or expression");
-                return NULL;
+                throw;
             }
 
             p_expression_node = new_expression;
@@ -3361,11 +3397,13 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_AND_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = inclusive_or_expression(ctx);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                return NULL;
+                throw;
             }
             new_expression->last_token = new_expression->right->last_token;
             new_expression->constant_value =
@@ -3379,7 +3417,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
                 type_print(&new_expression->right->type);
                 compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
                 expression_delete(new_expression);
-                return NULL;
+                throw;
             }
             p_expression_node = new_expression;
         }
@@ -3415,11 +3453,13 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = LOGICAL_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = logical_and_expression(ctx);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                return NULL;
+                throw;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -3431,14 +3471,14 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, "left type is not scalar for or expression");
-                return NULL;
+                throw;
             }
 
             if (!type_is_scalar(&new_expression->right->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, "right type is not scalar for or expression");
-                return NULL;
+                throw;
             }
 
             new_expression->type = type_make_int_bool_like();
@@ -3608,14 +3648,15 @@ struct expression* owner expression(struct parser_ctx* ctx)
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node = NULL; /*MOVED*/
 
                 p_expression_node_new->right = expression(ctx);
                 if (p_expression_node_new->right == NULL)
                 {
                     expression_delete(p_expression_node_new);
-                    return NULL;
+                    throw;
                 }
-                p_expression_node->last_token = p_expression_node_new->right->last_token;
+                p_expression_node_new->left->last_token = p_expression_node_new->right->last_token;
 
                 p_expression_node = p_expression_node_new;
             }
@@ -3680,6 +3721,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             p_conditional_expression->first_token = ctx->current;
             p_conditional_expression->expression_type = CONDITIONAL_EXPRESSION;
             p_conditional_expression->condition_expr = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
 
             parser_match(ctx); //?
@@ -3688,7 +3730,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             if (p_conditional_expression->left == NULL)
             {
                 expression_delete(p_conditional_expression);
-                return NULL;
+                throw;
             }
 
             parser_match(ctx); //:
@@ -3696,7 +3738,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             if (p_conditional_expression->right == NULL)
             {
                 expression_delete(p_conditional_expression);
-                return NULL;
+                throw;
             }
 
 

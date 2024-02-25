@@ -594,7 +594,7 @@ enum diagnostic_id {
     W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
     W_DISCARDING_OWNER,
     W_OWNERSHIP_NON_OWNER_MOVE,
-
+    W_ARRAY_INDIRECTION,
     /*flow analysis errors*/
     W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
 
@@ -607,6 +607,11 @@ enum diagnostic_id {
     W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
     W_INCOMPATIBLE_ENUN_TYPES,
     W_MULTICHAR_ERROR,   
+    W_OUT_OF_BOUNDS,
+
+
+
+
     W_LOCATION,
     W_NOTE,
 
@@ -2290,11 +2295,7 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum diagnostic_id w)
-{
-	return
-		(ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & w) != 0;
-}
+
 
 struct macro_parameter
 {
@@ -2416,8 +2417,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
         is_warning =
             (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
 
-        is_note =
-            w == W_NOTE ||
+        is_note =            
             ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
     }
 
@@ -5293,7 +5293,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			token_list_destroy(&r4);
 
 			match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-
+#ifdef CAKE_ASSERT_IS_KEYWORD
 			if (strcmp(macro->name, "assert") == 0)
 			{
 				// TODO create option for this?
@@ -5302,6 +5302,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 				// and assert is a keyword. The reason is the send
 				// information to the static analyzer
 
+				//TODO detect GCC ((void)0)
 
 				if (!is_empty_assert(&macro->replacement_list))
 				{
@@ -5316,6 +5317,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
 				}
 			}
+#endif
 
 			if (macro_name_token)
 				naming_convention_macro(ctx, macro_name_token);
@@ -6477,8 +6479,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 					*/
 					if (input_list->head->type == TK_STRING_LITERAL)
 					{
-						if (preprocessor_is_warning_enabled(ctx, W_STRING_SLICED))
-							preprocessor_diagnostic_message(W_NOTE, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+   					preprocessor_diagnostic_message(W_NOTE, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
 					}
 					else if (input_list->head->type == TK_LINE_COMMENT)
 						preprocessor_diagnostic_message(W_COMMENT, ctx, input_list->head, "multi-line //comment");
@@ -6711,11 +6712,12 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 	  This command prints all macros used by gcc
 	  echo | gcc -dM -E -
 	*/
-	const enum diagnostic_id w =
-		ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
+	const struct diagnostic w =
+		ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
 
 	/*we dont want warnings here*/
-	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = W_NONE;
+	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] = 
+		(struct diagnostic){0};
 
 	static char mon[][4] = {
 		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -6783,7 +6785,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __pragma(a)\n"
 		"#define __declspec(a)\n"
 		"#define __crt_va_start(X) \n"
-		"#define __builtin_offsetof(type, member) 0\n"; //como nao defini msver ele pensa que eh gcc aqui
+		"#define __builtin_offsetof(type, member) 0\n"; 
 
 #endif
 
@@ -6797,6 +6799,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __builtin_va_end(a)\n"
 		"#define __builtin_va_arg(a, b) ((b)a)\n"
 		"#define __builtin_va_copy(a, b)\n"
+		"#define __builtin_offsetof(type, member) 0\n"
 
 		"#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
 		"#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
@@ -6943,7 +6946,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 	token_list_destroy(&l10);
 
 	/*restore*/
-	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
+	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] = w;
 }
 
 
@@ -7468,10 +7471,7 @@ void print_all_macros(struct preprocessor_ctx* prectx)
 }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
-	if (!preprocessor_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
-	{
-		return;
-	}
+	
 
 	if (!is_screaming_case(token->lexeme))
 	{
@@ -13060,6 +13060,12 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             if (p == 0)
                 break;
             value = value * 256 + c;
+            if (value > INT_MAX)
+            {
+                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+
+                break;
+            }
         }
 
         p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
@@ -13087,6 +13093,11 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             if (p == 0)
                 break;
             value = value * 256 + c;
+            if (value > INT_MAX)
+            {
+                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+                break;
+            }
         }
         p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
     }
@@ -13490,15 +13501,11 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
             p_expression_node->right = expression(ctx);
-            
-            if (p_expression_node->right == NULL)
-            {
-                expression_delete(p_expression_node);
-                return NULL;
-            }
+            if (p_expression_node->right == NULL) throw;
 
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
+            
             p_expression_node->last_token = ctx->current;
             parser_match_tk(ctx, ')');
 
@@ -13704,7 +13711,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         {
                             if (index >= (unsigned long long) p_expression_node->type.array_size)
                             {
-                                compiler_diagnostic_message(ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                                compiler_diagnostic_message(W_OUT_OF_BOUNDS,
                                     ctx,
                                     ctx->current,
                                     "index %d is past the end of the array", index);
@@ -13759,14 +13766,15 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node = NULL; /*MOVED*/
 
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
 
                 parser_match(ctx);
-                if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+                if (p_expression_node_new->left->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p =
-                        find_struct_or_union_specifier(ctx, p_expression_node->type.struct_or_union_specifier->tag_name);
+                        find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
                     p = get_complete_struct_or_union_specifier(p);
                     if (p)
                     {
@@ -14238,14 +14246,28 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 //the result of the indirection(unary*) operator applied to a pointer to object
 
 
-                if (!type_is_pointer(&new_expression->right->type))
+                if (!type_is_pointer_or_array(&new_expression->right->type))
                 {
                     compiler_diagnostic_message(ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND,
                         ctx,
                         op_position,
                         "indirection requires pointer operand");
                 }
-                else new_expression->type = type_remove_pointer(&new_expression->right->type);
+                if (type_is_pointer(&new_expression->right->type))
+                {
+                    new_expression->type = type_remove_pointer(&new_expression->right->type);
+                }
+                else
+                {
+                    compiler_diagnostic_message(W_ARRAY_INDIRECTION,
+                        ctx,
+                        op_position,
+                        "array indirection");
+                    if(new_expression->right->type.next)
+                        new_expression->type = get_array_item_type(&new_expression->right->type);
+                    else
+                        new_expression->type = (struct type){0};
+                }
             }
             else if (op == '&')
             {
@@ -14679,6 +14701,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; //MOVED
 
             new_expression->right = cast_expression(ctx);
 
@@ -14686,7 +14709,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
                 new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                return NULL;
+                throw;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -14762,7 +14785,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type multiplicative expression");
-                return NULL;
+                throw;
             }
 
             p_expression_node = new_expression;
@@ -14784,13 +14807,16 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     */
 
     struct expression* owner p_expression_node = NULL;
-    struct expression* owner new_expression = NULL;
+
 
     try
     {
         p_expression_node = multiplicative_expression(ctx);
-        if (p_expression_node == NULL) throw;
-
+        if (p_expression_node == NULL)
+        {
+            compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+            throw;
+        }
 
         while (ctx->current != NULL &&
             (ctx->current->type == '+' ||
@@ -14798,14 +14824,20 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
         {
             struct token* operator_position = ctx->current;
 
-            assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL)
+            {
+                compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+                throw;
+            }
+
             new_expression->first_token = ctx->current;
 
             static_set(*new_expression, "zero");
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
             static int count = 0;
             count++;
@@ -14813,7 +14845,8 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                return NULL;
+                new_expression = NULL;
+                throw;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -14920,6 +14953,9 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                     int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
                     if (code != 0)
                     {
+                        expression_delete(new_expression);
+                        new_expression = NULL;
+
                         compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "internal error type_common");
                         throw;
                     }
@@ -14974,14 +15010,6 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     }
     catch
     {
-        if (p_expression_node)
-        {
-            //expression_node_delete(p_expression_node);
-        }
-        if (new_expression)
-        {
-            //expression_node_delete(p_expression_node);
-        }
     }
 
 
@@ -15015,6 +15043,8 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = multiplicative_expression(ctx);
             if (new_expression->left == NULL || new_expression->right == NULL)
             {
@@ -15043,7 +15073,7 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type shift expression");
-                return NULL;
+                throw;
             }
 
             p_expression_node = new_expression;
@@ -15093,13 +15123,14 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
             new_expression->right = shift_expression(ctx);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
                 new_expression = NULL;
-                return NULL;
+                throw;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -15233,6 +15264,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
             struct  token* operator_token = ctx->current;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = relational_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -15305,6 +15338,8 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = AND_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = equality_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -15359,6 +15394,8 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = and_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -15410,6 +15447,8 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = exclusive_or_expression(ctx);
             if (new_expression->right == NULL)
             {
@@ -15427,7 +15466,7 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types inclusive or expression");
-                return NULL;
+                throw;
             }
 
             p_expression_node = new_expression;
@@ -15464,11 +15503,13 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_AND_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = inclusive_or_expression(ctx);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                return NULL;
+                throw;
             }
             new_expression->last_token = new_expression->right->last_token;
             new_expression->constant_value =
@@ -15482,7 +15523,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
                 type_print(&new_expression->right->type);
                 compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
                 expression_delete(new_expression);
-                return NULL;
+                throw;
             }
             p_expression_node = new_expression;
         }
@@ -15518,11 +15559,13 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = LOGICAL_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = logical_and_expression(ctx);
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                return NULL;
+                throw;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -15534,14 +15577,14 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, "left type is not scalar for or expression");
-                return NULL;
+                throw;
             }
 
             if (!type_is_scalar(&new_expression->right->type))
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, "right type is not scalar for or expression");
-                return NULL;
+                throw;
             }
 
             new_expression->type = type_make_int_bool_like();
@@ -15711,14 +15754,15 @@ struct expression* owner expression(struct parser_ctx* ctx)
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node = NULL; /*MOVED*/
 
                 p_expression_node_new->right = expression(ctx);
                 if (p_expression_node_new->right == NULL)
                 {
                     expression_delete(p_expression_node_new);
-                    return NULL;
+                    throw;
                 }
-                p_expression_node->last_token = p_expression_node_new->right->last_token;
+                p_expression_node_new->left->last_token = p_expression_node_new->right->last_token;
 
                 p_expression_node = p_expression_node_new;
             }
@@ -15783,6 +15827,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             p_conditional_expression->first_token = ctx->current;
             p_conditional_expression->expression_type = CONDITIONAL_EXPRESSION;
             p_conditional_expression->condition_expr = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
 
             parser_match(ctx); //?
@@ -15791,7 +15836,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             if (p_conditional_expression->left == NULL)
             {
                 expression_delete(p_conditional_expression);
-                return NULL;
+                throw;
             }
 
             parser_match(ctx); //:
@@ -15799,7 +15844,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             if (p_conditional_expression->right == NULL)
             {
                 expression_delete(p_conditional_expression);
-                return NULL;
+                throw;
             }
 
 
@@ -22087,7 +22132,6 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
             (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
 
         is_note =
-            w == W_NOTE ||
             ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
     }
 
@@ -22134,7 +22178,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    bool show_warning_name = w < W_NOTE;
+    bool show_warning_name = w < W_NOTE && w != W_LOCATION;
 
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -22753,6 +22797,9 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
         else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
         else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
+#ifdef CAKE_ASSERT_IS_KEYWORD
+        else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
+#endif
         break;
     case 'b':
         if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
@@ -38436,10 +38483,12 @@ void bounds_check1()
     const char* source
         =
         "int main() {\n"
-        "	int a[5];\n"
+        "	int a[5] = {0};\n"
         "	int i = a[5];\n"
-        "}";
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+        "}\n"
+        "#pragma cake diagnostic check \"-Wout-of-bounds\"";
+
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
 void bounds_check2()
@@ -38450,9 +38499,8 @@ void bounds_check2()
         "{\n"
         "    int i = array[5];\n"
         "}\n"
-        "";
-
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+        "#pragma cake diagnostic check \"-Wout-of-bounds\"\n";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
 void uninitialized_objects_passed_to_variadic_function()

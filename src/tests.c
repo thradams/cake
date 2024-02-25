@@ -3248,10 +3248,12 @@ void bounds_check1()
     const char* source
         =
         "int main() {\n"
-        "	int a[5];\n"
+        "	int a[5] = {0};\n"
         "	int i = a[5];\n"
-        "}";
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+        "}\n"
+        "#pragma cake diagnostic check \"-Wout-of-bounds\"";
+
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
 void bounds_check2()
@@ -3262,9 +3264,8 @@ void bounds_check2()
         "{\n"
         "    int i = array[5];\n"
         "}\n"
-        "";
-
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+        "#pragma cake diagnostic check \"-Wout-of-bounds\"\n";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
 void uninitialized_objects_passed_to_variadic_function()
