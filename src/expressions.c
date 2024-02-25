@@ -2679,7 +2679,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     */
 
     struct expression* owner p_expression_node = NULL;
-    struct expression* owner new_expression = NULL;
+   
 
     try
     {
@@ -2693,14 +2693,16 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
         {
             struct token* operator_position = ctx->current;
 
-            assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
             new_expression->first_token = ctx->current;
 
             static_set(*new_expression, "zero");
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
             static int count = 0;
             count++;
@@ -2870,11 +2872,8 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     {
         if (p_expression_node)
         {
-            //expression_node_delete(p_expression_node);
-        }
-        if (new_expression)
-        {
-            //expression_node_delete(p_expression_node);
+            expression_node_delete(p_expression_node);
+            p_expression_node = NULL;
         }
     }
 
