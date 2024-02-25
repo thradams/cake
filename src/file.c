@@ -1,14 +1,21 @@
-void f(char* s, ...);
+struct X {
+    char* _Owner text;
+};
+
+void x_destroy(struct X* _Obj_owner p);
+
+
 int main() {
-    int i;
-    f("", i);
-//first pass analyze
-#pragma cake diagnostic check "-uninitialized"
-    return 0;
+    struct X x;
+    x_destroy(&x);
 }
+
+
+
 void dummy()
 {
 } 
+
 //flow analyze
 #pragma cake diagnostic check "-Wmaybe-uninitialized"
 

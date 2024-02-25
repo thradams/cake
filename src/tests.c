@@ -1409,7 +1409,7 @@ void ownership_flow_test_jump_labels()
     struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
+    assert(report.error_count == 1 /*&& report.last_error == W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR*/);
 }
 
 void ownership_flow_test_owner_if_pattern_1()
@@ -2527,20 +2527,29 @@ void using_uninitialized_struct()
     const char* source
         =
         "struct X {\n"
-        "  char * _Owner text;\n"
+        "    char* _Owner text;\n"
         "};\n"
         "\n"
-        "void x_destroy(struct X * _Obj_owner p);\n"
+        "void x_destroy(struct X* _Obj_owner p);\n"
         "\n"
         "\n"
-        "int main() {   \n"
-        "   struct X x;\n"
-        "   x_destroy(&x);\n"
+        "int main() {\n"
+        "    struct X x;\n"
+        "    x_destroy(&x);\n"
         "}\n"
         "\n"
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
         "";
 
-    assert(compile_with_errors(true, false, source));
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void zero_initialized()

@@ -1201,7 +1201,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 if (p_argument_object2 &&
                     p_argument_object2->state & OBJECT_STATE_NULL)
                 {
-                    compiler_diagnostic_message(W_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
+                    compiler_diagnostic_message(W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
                         ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
@@ -1383,13 +1383,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->left->first_token, "using a uninitialized object");
             }
             else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->left->first_token, "maybe using a uninitialized object");
             }
@@ -1535,7 +1535,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
         {
-            compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
+            compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                 ctx->ctx,
                 p_expression->right->first_token, "using a uninitialized object");
         }
@@ -1551,7 +1551,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
                 {
 
-                    compiler_diagnostic_message(W_NULL_DEREFERENCE,
+                    compiler_diagnostic_message(W_ANALYZER_NULL_DEREFERENCE,
                         ctx->ctx,
                         p_expression->right->first_token, "dereference a NULL object");
                 }
@@ -2183,12 +2183,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 {
                     if (e != p_obj->state)
                     {
-                        compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+                        compiler_diagnostic_message(C_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
                     }
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                    compiler_diagnostic_message(C_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                 }
             }
 
