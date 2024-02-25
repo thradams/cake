@@ -3233,9 +3233,18 @@ void nullderef() {
         "    int k = *ptr;\n"
         "    k = 0;\n"
         "    return 0;\n"
-        "}";
+        "}\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-null-dereference\"\n"
+        "";
 
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void for_loop_visit()
