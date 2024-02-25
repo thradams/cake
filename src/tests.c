@@ -2226,16 +2226,25 @@ void owner_to_non_owner()
 {
     const char* source
         =
-        "void * f();\n"
+        "\n"
+        "void* f();\n"
         "int main() {\n"
-        "  void * _Owner p = f();\n"
-        "}";
+        "    void* _Owner p = f();\n"
+        "   #pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
+        "}\n"
+        "\n"
+        "void dummy() {}\n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "";
 
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void owner_to_non_owner_zero()
 {
+
+
     const char* source
         =
         "void * f();\n"

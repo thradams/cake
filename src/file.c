@@ -1,10 +1,10 @@
-struct X {
-    char* _Owner p;
-};
-void x_destroy(struct X* _Obj_owner p);
-void f(struct X* x)
-{
-    x_destroy(x);
+
+void* f();
+int main() {
+    void* _Owner p = f();
+   #pragma cake diagnostic check "-Wmissing-owner-qualifier"
 }
 
-#pragma cake diagnostic check "-Wmust-use-address-of"
+void dummy() {}
+
+#pragma cake diagnostic check "-Wmissing-destructor"
