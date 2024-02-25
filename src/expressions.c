@@ -2708,7 +2708,6 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
         p_expression_node = multiplicative_expression(ctx);
         if (p_expression_node == NULL)
         {
-            compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
             throw;
         }
 
