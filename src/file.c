@@ -1,35 +1,32 @@
-void free(void* _Owner ptr);
-void* _Owner malloc(int size);
-char* _Owner strdup(const char*);
 
+char* _Owner strdup(const char* s);
+void* _Owner malloc(unsigned size);
+void free(void* _Owner ptr);
 struct X {
     char* _Owner name;
 };
 
-struct Y {
-    struct X x;
-    struct X* px;
-};
-
-void x_destroy(struct X* _Obj_owner p)
-{
+void x_destroy(struct X* _Obj_owner p) {
     free(p->name);
 }
 
-void f(struct Y* p)
+void x_print(struct X* p)
 {
-    x_destroy(p->px);
+    //printf("%s", p->name);
 }
 
 int main() {
-    struct Y  y = {};
-    struct* p = &y.x;
-    x_destroy(&y.x);
+    struct X x = { 0 };
+    x.name = strdup("a");
+    x_destroy(&x);
+    x_print(&x);
 }
 
 
-
+void dummy()
+{
+} 
 
 //flow analyze
-#pragma cake diagnostic check "-Wmust-use-address-of"
+#pragma cake diagnostic check "-Wmaybe-uninitialized"
 
