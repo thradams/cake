@@ -21538,7 +21538,7 @@ void object_assignment(struct parser_ctx* ctx,
         }
         */
 
-        compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+        compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
             ctx,
             error_position,
             "Object must be owner qualified.");
@@ -37559,14 +37559,24 @@ void discarding_owner()
         "void free(void* _Owner ptr);\n"
         "\n"
         "struct X {\n"
-        "  char *_Owner name;\n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
         "int main()\n"
-        "{  \n"
-        "  struct X * p = (struct X * _Owner) malloc(1);\n"
-        "}";
-    assert(compile_with_errors(true, false, source));
+        "{\n"
+        "    struct X* p = (struct X* _Owner) malloc(1);\n"
+        "}\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
+        "\n"
+        "";
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void using_uninitialized()

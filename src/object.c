@@ -1644,7 +1644,7 @@ void object_assignment(struct parser_ctx* ctx,
         }
         */
 
-        compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+        compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
             ctx,
             error_position,
             "Object must be owner qualified.");
