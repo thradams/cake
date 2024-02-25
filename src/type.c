@@ -943,7 +943,8 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 		type_lvalue_conversion(paramer_type) :
 		type_dup(paramer_type);
 
-
+        //why we get current_argument->expression == NULL here ?
+        assert(current_argument->expression != NULL);
 	struct type argument_type_converted =
 		expression_is_subjected_to_lvalue_conversion(current_argument->expression) ?
 		type_lvalue_conversion(argument_type) :

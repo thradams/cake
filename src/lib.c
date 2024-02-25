@@ -1659,7 +1659,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
 
     printf("^");
 
-    char* p = p_token->lexeme + 1;
+    char* p = (p_token->lexeme && *p_token->lexeme) ? p_token->lexeme + 1 : NULL;
     while (p && *p)
     {
         printf("~");
@@ -2448,7 +2448,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
 
 #ifndef TEST
 
-	if (p_token)
+	if (p_token && p_token->token_origin)
 		print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
 	char buffer[200] = { 0 };
@@ -12843,7 +12843,7 @@ struct generic_selection* owner generic_selection(struct parser_ctx* ctx)
             }
 
         }
-        else
+        else if(p_generic_selection->type_name)
         {
             p_type = &p_generic_selection->type_name->declarator->type;
         }
@@ -15468,7 +15468,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                throw;
+                return NULL;
             }
             new_expression->last_token = new_expression->right->last_token;
             new_expression->constant_value =
@@ -15522,7 +15522,7 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                throw;
+                return NULL;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -15534,7 +15534,7 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, "left type is not scalar for or expression");
-                throw;
+                return NULL;
             }
 
             if (!type_is_scalar(&new_expression->right->type))
@@ -17758,7 +17758,8 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 		type_lvalue_conversion(paramer_type) :
 		type_dup(paramer_type);
 
-
+        //why we get current_argument->expression == NULL here ?
+        assert(current_argument->expression != NULL);
 	struct type argument_type_converted =
 		expression_is_subjected_to_lvalue_conversion(current_argument->expression) ?
 		type_lvalue_conversion(argument_type) :
@@ -22241,26 +22242,33 @@ void print_scope(struct scope_list* e)
     int level = 0;
     while (p)
     {
-        for (int i = 0; i < p->variables.capacity; i++)
+        if(p->variables.table) //we start with capacity=5 and no allocations ?
         {
-            if (p->variables.table[i])
+            for (int i = 0; i < p->variables.capacity; i++)
             {
-                for (int k = 0; k < level; k++)
-                    printf(" ");
-                printf("%s\n", p->variables.table[i]->key);
+                if (p->variables.table[i])
+                {
+                    for (int k = 0; k < level; k++)
+                        printf(" ");
+                    printf("%s\n", p->variables.table[i]->key);
+                }
             }
         }
 
-        for (int i = 0; i < p->tags.capacity; i++)
+        if(p->tags.table) //we start with capacity=1 and no allocations ?
         {
-            if (p->tags.table[i])
+            for (int i = 0; i < p->tags.capacity; i++)
             {
-                for (int k = 0; k < level; k++)
-                    printf(" ");
-                printf("tag %s\n", p->tags.table[i]->key);
+                if (p->tags.table[i])
+                {
+                    for (int k = 0; k < level; k++)
+                        printf(" ");
+                    printf("tag %s\n", p->tags.table[i]->key);
+                }
             }
         }
 
+        if(p == e->tail) break; //somehow we are going after tail
         level++;
         p = p->next;
     }
@@ -24120,7 +24128,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         {
             parser_match(ctx);
             p_init_declarator->initializer = initializer(ctx);
-            if (p_init_declarator->initializer->braced_initializer)
+            if (p_init_declarator->initializer && p_init_declarator->initializer->braced_initializer)
             {
                 if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
@@ -24128,6 +24136,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     if (sz == 0)
                     {
                         /*int a[] = {1, 2, 3}*/
+                        assert(p_init_declarator->initializer->braced_initializer->initializer_list != NULL);
                         const int braced_initializer_size =
                             p_init_declarator->initializer->braced_initializer->initializer_list->size;
                         type_set_array_size(&p_init_declarator->p_declarator->type, braced_initializer_size);

@@ -235,7 +235,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
 
 #ifndef TEST
 
-	if (p_token)
+	if (p_token && p_token->token_origin)
 		print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
 	char buffer[200] = { 0 };

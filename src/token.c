@@ -721,7 +721,7 @@ void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_
 
     printf("^");
 
-    char* p = p_token->lexeme + 1;
+    char* p = (p_token->lexeme && *p_token->lexeme) ? p_token->lexeme + 1 : NULL;
     while (p && *p)
     {
         printf("~");

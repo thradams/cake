@@ -740,7 +740,7 @@ struct generic_selection* owner generic_selection(struct parser_ctx* ctx)
             }
 
         }
-        else
+        else if(p_generic_selection->type_name)
         {
             p_type = &p_generic_selection->type_name->declarator->type;
         }
@@ -3365,7 +3365,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                throw;
+                return NULL;
             }
             new_expression->last_token = new_expression->right->last_token;
             new_expression->constant_value =
@@ -3419,7 +3419,7 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                throw;
+                return NULL;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -3431,7 +3431,7 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, "left type is not scalar for or expression");
-                throw;
+                return NULL;
             }
 
             if (!type_is_scalar(&new_expression->right->type))
