@@ -37084,10 +37084,10 @@ void pointer_argument()
         "  x_change(x);\n"
         "}\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
+    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true , .diagnostic_stack[0] = default_diagnostic};
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 3);
+    assert(report.warnings_count == 3);
 }
 
 void do_while()
