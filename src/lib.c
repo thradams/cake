@@ -36757,21 +36757,20 @@ void ownership_flow_test_error()
         "\n"
         "void* _Owner malloc(int size);\n"
         "\n"
-        "struct X {    \n"
-        "    char * _Owner name;\n"
+        "struct X {\n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
-        "void * _Owner f1(){\n"
-        "  struct X * _Owner p = malloc(sizeof (struct X));\n"
-        "  p->name = malloc(1);  \n"
-        "  return p;\n"
+        "void* _Owner f1() {\n"
+        "    struct X* _Owner p = malloc(sizeof(struct X));\n"
+        "    p->name = malloc(1);\n"
+        "    return p;\n"
         "}\n"
-        "";
+        "\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_setting_owner_pointer_to_null()
@@ -36875,23 +36874,20 @@ void ownership_flow_test_if_variant()
 {
     const char* source
         =
-        "void * _Owner f();\n"
-        "void free( void *_Owner p);\n"
+        "void* _Owner f();\n"
+        "void free(void* _Owner p);\n"
         "int main() {\n"
-        "   void * _Owner p = f();   \n"
-        "   if (p)\n"
-        "   {\n"
-        "       free(p);\n"
-        "       p = f();   \n"
-        "   }\n"
+        "    void* _Owner p = f();\n"
+        "    if (p)\n"
+        "    {\n"
+        "        free(p);\n"
+        "        p = f();\n"
+        "    }\n"
         "}\n"
-        "";
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+    assert(compile_without_errors(true, false, source));
 }
 
 void check_leaks_on_else_block()

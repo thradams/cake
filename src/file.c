@@ -1,22 +1,15 @@
-void* _Owner malloc(int sz);
-void free(void* _Owner _Opt p);
 
+void* _Owner malloc(int size);
 
-void f(int i) {
-    void* _Owner p = 0;
-    if (i)
-    {
-        if (i)
-        {
-            p = malloc(1);
-        }
-        else
-        {
-            p = malloc(1);
-        }
-    }
+struct X {
+    char* _Owner name;
+};
 
-    free(p);
+void* _Owner f1() {
+    struct X* _Owner p = malloc(sizeof(struct X));
+    p->name = malloc(1);
+    return p;
 }
 
-
+void dummy() {}
+#pragma cake diagnostic check "-Wmissing-destructor"
