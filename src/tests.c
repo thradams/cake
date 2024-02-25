@@ -1655,26 +1655,29 @@ void ownership_flow_test_moving_owner_pointer_missing()
     const char* source
         =
         "\n"
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void* _Owner malloc(int i);\n"
+        "void free(void* _Owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
-        "void x_delete( struct X * _Owner p)\n"
+        "void x_delete(struct X* _Owner p)\n"
         "{\n"
-        "  if (p) {\n"
-        "      //free(p->name);\n"
-        "      free(p);\n"
-        "  }\n"
+        "    if (p) {\n"
+        "        //free(p->name);\n"
+        "        free(p);\n"
+        "    }\n"
         "}\n"
         "\n"
+        "\n"
+        "void dummy() {}\n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_error()
@@ -1847,7 +1850,7 @@ void ownership_flow_test_two_ifs()
     const char* source
         =
         "void * _Owner malloc(int sz);\n"
-        "void free( void * _Owner opt p);\n"
+        "void free( void * _Owner _Opt p);\n"
         "\n"
         "\n"
         "void f(int i) {   \n"

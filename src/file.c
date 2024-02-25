@@ -1,21 +1,22 @@
-void* _Owner malloc(int i);
+void* _Owner malloc(int sz);
+void free(void* _Owner _Opt p);
 
-struct X {
-    void* _Owner text;
-};
 
-void x_change(struct X* list);
+void f(int i) {
+    void* _Owner p = 0;
+    if (i)
+    {
+        if (i)
+        {
+            p = malloc(1);
+        }
+        else
+        {
+            p = malloc(1);
+        }
+    }
 
-int main()
-{
-    struct X* _Owner x = malloc(sizeof * x);
-    x_change(x);
-#pragma cake diagnostic check "-Wmaybe-uninitialized"
-
+    free(p);
 }
 
-
-void dummy() {}
-
-#pragma cake diagnostic check "-Wmissing-destructor"
 
