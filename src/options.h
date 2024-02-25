@@ -145,6 +145,7 @@ enum diagnostic_id {
     C_CHARACTER_TOO_LARGE,
 
     C_PRAGMA_ERROR,
+    E_OUT_OF_MEM,
 
 };
 

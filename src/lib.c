@@ -13679,6 +13679,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node = NULL; /*MOVED*/
 
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
 
@@ -14705,7 +14706,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     */
 
     struct expression* owner p_expression_node = NULL;
-    struct expression* owner new_expression = NULL;
+   
 
     try
     {
@@ -14719,14 +14720,16 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
         {
             struct token* operator_position = ctx->current;
 
-            assert(new_expression == NULL);
-            new_expression = calloc(1, sizeof * new_expression);
+            struct expression* owner new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
             new_expression->first_token = ctx->current;
 
             static_set(*new_expression, "zero");
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
             static int count = 0;
             count++;
@@ -14896,11 +14899,8 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     {
         if (p_expression_node)
         {
-            //expression_node_delete(p_expression_node);
-        }
-        if (new_expression)
-        {
-            //expression_node_delete(p_expression_node);
+            expression_node_delete(p_expression_node);
+            p_expression_node = NULL;
         }
     }
 
@@ -14935,6 +14935,8 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = multiplicative_expression(ctx);
             if (new_expression->left == NULL || new_expression->right == NULL)
             {
@@ -15013,6 +15015,7 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
             enum token_type op = ctx->current->type;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
             new_expression->right = shift_expression(ctx);
             if (new_expression->right == NULL)
@@ -15153,6 +15156,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
             struct  token* operator_token = ctx->current;
             parser_match(ctx);
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = relational_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -15225,6 +15230,8 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = AND_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = equality_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -15279,6 +15286,8 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = and_expression(ctx);
             if (new_expression->right == NULL) throw;
 
@@ -15330,6 +15339,8 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = exclusive_or_expression(ctx);
             if (new_expression->right == NULL)
             {
@@ -15384,6 +15395,8 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = INCLUSIVE_AND_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = inclusive_or_expression(ctx);
             if (new_expression->right == NULL)
             {
@@ -15438,6 +15451,8 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             new_expression->expression_type = LOGICAL_OR_EXPRESSION;
             new_expression->left = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
+
             new_expression->right = logical_and_expression(ctx);
             if (new_expression->right == NULL)
             {
@@ -15638,6 +15653,7 @@ struct expression* owner expression(struct parser_ctx* ctx)
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
+                p_expression_node = NULL; /*MOVED*/
 
                 p_expression_node_new->right = expression(ctx);
                 if (p_expression_node_new->right == NULL)
@@ -15710,6 +15726,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             p_conditional_expression->first_token = ctx->current;
             p_conditional_expression->expression_type = CONDITIONAL_EXPRESSION;
             p_conditional_expression->condition_expr = p_expression_node;
+            p_expression_node = NULL; /*MOVED*/
 
 
             parser_match(ctx); //?
