@@ -291,15 +291,43 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
 	return list->tail;
 }
 
+static char * owner readFilePath(struct preprocessor_ctx* ctx,
+        const char *current_file_dir, const char *path,
+        bool* p_already_included,
+        char full_path_out[], /*this is the final full path of the file*/
+	int full_path_out_size)
+{
+	char newpath[200] = { 0 };
+	snprintf(newpath, sizeof newpath, "%s/%s", current_file_dir, path);
+
+#ifdef __EMSCRIPTEN__
+	/*realpath returns empty on emscriptem*/
+	snprintf(full_path_out, full_path_out_size, "%s", newpath);
+#else
+	if(!realpath(newpath, full_path_out))
+            full_path_out[0] = '\0';
+#endif
+
+
+	if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
+	{
+		*p_already_included = true;
+		return NULL;
+	}
+
+	return read_file(full_path_out);
+}
+
 
 const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 	const char* path, /*as in include*/
 	const char* current_file_dir, /*this is the dir of the file that includes*/
 	bool* p_already_included, /*out file alread included pragma once*/
+        bool is_system_include, /* to decide the search order */
 	char full_path_out[], /*this is the final full path of the file*/
 	int full_path_out_size)
 {
-
+        char* owner content;
 	full_path_out[0] = '\0';
 
 	if (path_is_absolute(path))
@@ -321,29 +349,15 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 	}
 
 
-
-	char newpath[200] = { 0 };
-	snprintf(newpath, sizeof newpath, "%s/%s", current_file_dir, path);
-
-#ifdef __EMSCRIPTEN__
-	/*realpath returns empty on emscriptem*/
-	snprintf(full_path_out, full_path_out_size, "%s", newpath);
-#else
-	if(!realpath(newpath, full_path_out))
-            full_path_out[0] = '\0';
-#endif
-
-
-	if (hashmap_find(&ctx->pragma_once_map, full_path_out) != NULL)
-	{
-		*p_already_included = true;
-		return NULL;
-	}
-
-	char* owner content = read_file(full_path_out);
-	if (content != NULL)
-		return content;
-
+        if(!is_system_include)
+        {
+            content = readFilePath(ctx, current_file_dir, path,
+                    p_already_included, full_path_out, full_path_out_size);
+            if (content != NULL)
+                    return content;
+            if (*p_already_included)
+                return NULL;
+        }
 
 	struct include_dir* current = ctx->include_dir.head;
 	while (current)
@@ -371,6 +385,15 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 		}
 		current = current->next;
 	}
+        if(is_system_include)
+        {
+            content = readFilePath(ctx, current_file_dir, path,
+                    p_already_included, full_path_out, full_path_out_size);
+            if (content != NULL)
+                    return content;
+            if (*p_already_included)
+                return NULL;
+        }
 	full_path_out[0] = '\0';
 	return NULL;
 }
@@ -2043,7 +2066,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 				const char* owner s = find_and_read_include_file(ctx,
 					path,
 					fullpath,
-					&already_included,
+					&already_included, false,
 					full_path_result,
 					sizeof full_path_result);
 
@@ -2791,6 +2814,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
 
 			path[strlen(path) - 1] = '\0';
+                        bool is_system_included = path[0] == '<';
 
 			/*this is the dir of the current file*/
 			char current_file_dir[300] = { 0 };
@@ -2804,6 +2828,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 				path + 1,
 				current_file_dir,
 				&already_included,
+                                is_system_included,
 				full_path_result,
 				sizeof full_path_result);
 
