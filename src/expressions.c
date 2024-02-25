@@ -1598,7 +1598,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         {
                             if (index >= (unsigned long long) p_expression_node->type.array_size)
                             {
-                                compiler_diagnostic_message(ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                                compiler_diagnostic_message(W_OUT_OF_BOUNDS,
                                     ctx,
                                     ctx->current,
                                     "index %d is past the end of the array", index);

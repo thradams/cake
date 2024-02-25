@@ -1,10 +1,15 @@
+void puts(const char*);
 
-int main(void)
+#define DETECT_NULL_POINTER_CONSTANT(e) \
+    _Generic(e,                         \
+        void* : puts("void*"),          \
+        nullptr_t : puts("nullptr_t"),  \
+        default : puts("other")       \
+    )
+
+int main()
 {
-    int n = 1;
-    int a[n]; // re-allocated 10 times, each with a different size
-    int k = (sizeof a / sizeof * a);
-
-    int b[2];
-    int k2 = (sizeof b / sizeof * b);
+    DETECT_NULL_POINTER_CONSTANT(((void*)0));
+    DETECT_NULL_POINTER_CONSTANT(0);
+    DETECT_NULL_POINTER_CONSTANT(nullptr);
 }

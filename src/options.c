@@ -58,6 +58,7 @@ s_warnings[] = {
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
     {W_MULTICHAR_ERROR, "multi-char"},
     {W_ARRAY_INDIRECTION,"array-indirection"},
+    {W_OUT_OF_BOUNDS, "out-of-bounds"}
 
 };
 

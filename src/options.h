@@ -59,6 +59,11 @@ enum diagnostic_id {
     W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
     W_INCOMPATIBLE_ENUN_TYPES,
     W_MULTICHAR_ERROR,   
+    W_OUT_OF_BOUNDS,
+
+
+
+
     W_LOCATION,
     W_NOTE,
 
