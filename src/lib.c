@@ -588,8 +588,10 @@ enum diagnostic_id {
     W_ANALYZER_NULL_DEREFERENCE,
 
     W_DIVIZION_BY_ZERO,
-
+    W_PASSING_NULL_AS_ARRAY,
     W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
+    W_INCOMPATIBLE_ENUN_TYPES,
+    W_MULTICHAR_ERROR,
     W_LOCATION,
     W_NOTE,
 
@@ -615,70 +617,70 @@ enum diagnostic_id {
     ERROR_TOO_FEW_ARGUMENTS,
     
     //TODO.... more constrains
-    C_NOT_FOUND,
-    C_NO_MATCH_FOR_GENERIC,
-    C_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
-    C_CALLED_OBJECT_IS_NOT_FUNCTION_OR_FUNCTION_POINTER,
-    C_STRUCT_MEMBER_NOT_FOUND,
-    C_STRUCTURE_OR_UNION_REQUIRED,
-    C_STRUCT_IS_INCOMPLETE,
-    C_DECLARATOR_NOT_FOUND,
-    C_EXPECTED_DECLARATOR_NAME,
-    C_UNKNOWN_ATTRIBUTE_NAME,
-    C_INDIRECTION_REQUIRES_POINTER_OPERAND,
-    C_INVALID_TOKEN,
-    C_EXPECTED_STRUCT_TYPE,
-    C_EXPECTED_TYPE_NAME,
-    C_LEFT_IS_NOT_ARITHMETIC,
-    C_RIGHT_IS_NOT_ARITHMETIC,
+    ERROR_NOT_FOUND,
+    ERROR_NO_MATCH_FOR_GENERIC,
+    ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+    ERROR_CALLED_OBJECT_IS_NOT_FUNCTION_OR_FUNCTION_POINTER,
+    ERROR_STRUCT_MEMBER_NOT_FOUND,
+    ERROR_STRUCTURE_OR_UNION_REQUIRED,
+    ERROR_STRUCT_IS_INCOMPLETE,
+    ERROR_DECLARATOR_NOT_FOUND,
+    ERROR_EXPECTED_DECLARATOR_NAME,
+    ERROR_UNKNOWN_ATTRIBUTE_NAME,
+    ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND,
+    ERROR_INVALID_TOKEN,
+    ERROR_EXPECTED_STRUCT_TYPE,
+    ERROR_EXPECTED_TYPE_NAME,
+    ERROR_LEFT_IS_NOT_ARITHMETIC,
+    ERROR_RIGHT_IS_NOT_ARITHMETIC,
     
-    C_LEFT_IS_NOT_INTEGER,
-    C_RIGHT_IS_NOT_INTEGER,
-    C_INVALID_TYPE,
-    C_LEFT_IS_NOT_SCALAR,
-    C_RIGHT_IS_NOT_SCALAR,
-    C_INCOMPATIBLE_POINTER_TYPES,
-    C_ASSIGNMENT_OF_FUNCTION,
-    C_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE,
-    C_ASSIGNMENT_OF_READ_ONLY_OBJECT,
-    C_LVALUE_ASSIGNMENT,
-    C_CONDITION_MUST_HAVE_SCALAR_TYPE,
-    C_INCOMPATIBLE_TYPES,
-    C_EXPECTED_CONSTANT_EXPRESSION,
-    C_UNEXPECTED_TOKEN,
-    C_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
-    C_EXPECTED_DECLARATION,
-    C_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
-    C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
-    C_REDECLARATION,
-    C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
-    C_MISSING_ENUM_TAG_NAME,
-    C_MULTIPLE_DEFINITION_ENUM,
-    C_STATIC_ASSERT_FAILED,
-    C_STATIC_STATE_FAILED,
-    C_ATTR_UNBALANCED,
-    C_UNEXPECTED_END_OF_FILE,
-    C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK,
-    C_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
-    C_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
-    C_PASSING_NULL_AS_ARRAY,
-    C_DISCARDING_CONST_AT_ARGUMENT,
-    C_INCOMPATIBLE_ENUN_TYPES,
-    C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
-    C_FILE_NOT_FOUND,
-    C_MISSING_CLOSE_PARENTHESIS,
-    C_EXPRESSION_ERROR,
-    C_PREPROCESSOR_ERROR_DIRECTIVE,
-    C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
-    C_MACRO_INVALID_ARG,
-    C_MISSING_MACRO_ARGUMENT,
-    C_ADDRESS_OF_REGISTER,
-    C_OPERATOR_NEEDS_LVALUE, //C2105
-    C_MULTICHAR_ERROR,
-    C_CHARACTER_TOO_LARGE,
+    ERROR_LEFT_IS_NOT_INTEGER,
+    ERROR_RIGHT_IS_NOT_INTEGER,
+    ERROR_INVALID_TYPE,
+    ERROR_LEFT_IS_NOT_SCALAR,
+    ERROR_RIGHT_IS_NOT_SCALAR,
+    ERROR_INCOMPATIBLE_POINTER_TYPES, //warning?
+    ERROR_ASSIGNMENT_OF_FUNCTION,
+    ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE,
+    ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT,
+    ERROR_LVALUE_ASSIGNMENT,
+    ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE,
+    ERROR_INCOMPATIBLE_TYPES,
+    ERROR_EXPECTED_CONSTANT_EXPRESSION,
+    ERROR_UNEXPECTED_TOKEN,
+    ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
+    ERROR_EXPECTED_DECLARATION,
+    ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+    ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+    ERROR_REDECLARATION,
+    ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+    ERROR_MISSING_ENUM_TAG_NAME,
+    ERROR_MULTIPLE_DEFINITION_ENUM,
+    ERROR_STATIC_ASSERT_FAILED,
+    ERROR_STATIC_STATE_FAILED,
+    ERROR_ATTR_UNBALANCED,
+    ERROR_UNEXPECTED_END_OF_FILE,
+    ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK,
+    ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
+    ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
 
-    C_PRAGMA_ERROR,
-    E_OUT_OF_MEM,
+    C_DISCARDING_CONST_AT_ARGUMENT, //warning?
+      
+    ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
+    ERROR_FILE_NOT_FOUND,
+    ERROR_MISSING_CLOSE_PARENTHESIS,
+    ERROR_EXPRESSION_ERROR,
+    ERROR_PREPROCESSOR_ERROR_DIRECTIVE,
+    ERROR_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO,
+    ERROR_PREPROCESSOR_MACRO_INVALID_ARG,
+    ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT,
+    ERROR_ADDRESS_OF_REGISTER,
+    ERROR_OPERATOR_NEEDS_LVALUE, //C2105
+    
+    ERROR_CHARACTER_TOO_LARGE,
+
+    ERROR_PRAGMA_ERROR,
+    ERROR_OUT_OF_MEM,
 
 };
 
@@ -3473,7 +3475,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 		file = (FILE * owner)fopen(filename_opt, "rb");
 		if (file == NULL)
 		{
-			preprocessor_diagnostic_message(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
+			preprocessor_diagnostic_message(ERROR_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
 			throw;
 		}
 #else
@@ -3481,7 +3483,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 		char* textfile = read_file(filename_opt);
 		if (textfile == NULL)
 		{
-			preprocessor_diagnostic_message(C_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
+			preprocessor_diagnostic_message(ERROR_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
 			throw;
 		}
 
@@ -4184,7 +4186,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 				{
 					if (input_list->head->type != ')')
 					{
-						preprocessor_diagnostic_message(C_MISSING_CLOSE_PARENTHESIS, ctx, input_list->head, "missing )");
+						preprocessor_diagnostic_message(ERROR_MISSING_CLOSE_PARENTHESIS, ctx, input_list->head, "missing )");
 						throw;
 					}
 					token_list_pop_front(input_list);
@@ -4454,7 +4456,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 	long long value = 0;
 	if (pre_constant_expression(&pre_ctx, &value) != 0)
 	{
-		preprocessor_diagnostic_message(C_EXPRESSION_ERROR, ctx, first, "expression error");
+		preprocessor_diagnostic_message(ERROR_EXPRESSION_ERROR, ctx, first, "expression error");
 	}
 
 	ctx->conditional_inclusion = false;
@@ -4492,9 +4494,9 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
 			else
 			{
 				if (input_list->head)
-					preprocessor_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
+					preprocessor_diagnostic_message(ERROR_UNEXPECTED_TOKEN, ctx, input_list->head, "expected token %s got %s\n", get_token_name(type), get_token_name(input_list->head->type));
 				else
-					preprocessor_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, dest->tail, "expected EOF \n");
+					preprocessor_diagnostic_message(ERROR_UNEXPECTED_TOKEN, ctx, dest->tail, "expected EOF \n");
 
 				throw;
 			}
@@ -5018,7 +5020,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			{
 				if (!already_included)
 				{
-					preprocessor_diagnostic_message(C_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
+					preprocessor_diagnostic_message(ERROR_FILE_NOT_FOUND, ctx, r.tail, "file %s not found", path + 1);
 
 					for (struct include_dir* p = ctx->include_dir.head; p; p = p->next)
 					{
@@ -5312,7 +5314,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			ctx->n_warnings++;
 			match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//error
 			struct token_list r6 = pp_tokens_opt(ctx, input_list, level);
-			preprocessor_diagnostic_message(C_PREPROCESSOR_ERROR_DIRECTIVE, ctx, input_list->head, "#error");
+			preprocessor_diagnostic_message(ERROR_PREPROCESSOR_ERROR_DIRECTIVE, ctx, input_list->head, "#error");
 			token_list_append_list(&r, &r6);
 			token_list_destroy(&r6);
 			match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
@@ -5540,7 +5542,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 						}
 						else
 						{
-							preprocessor_diagnostic_message(C_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
+							preprocessor_diagnostic_message(ERROR_TOO_FEW_ARGUMENTS_TO_FUNCTION_LIKE_MACRO, ctx, macro_name_token, "too few arguments provided to function-like macro invocation\n");
 							throw;
 						}
 					}
@@ -5571,7 +5573,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 					p_current_parameter = p_current_parameter->next;
 					if (p_current_parameter == NULL)
 					{
-						preprocessor_diagnostic_message(C_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
+						preprocessor_diagnostic_message(ERROR_PREPROCESSOR_MACRO_INVALID_ARG, ctx, macro_name_token, "invalid args");
 						macro_argument_delete(p_argument);
 						p_argument = NULL; //DELETED
 						throw;
@@ -5628,7 +5630,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
 		{
 			if (r.tail == NULL)
 			{
-				preprocessor_diagnostic_message(C_MISSING_MACRO_ARGUMENT, ctx, input_list->head, "missing macro argument (should be checked before)");
+				preprocessor_diagnostic_message(ERROR_PREPROCESSOR_MISSING_MACRO_ARGUMENT, ctx, input_list->head, "missing macro argument (should be checked before)");
 				break;
 			}
 			/*
@@ -9698,9 +9700,14 @@ s_warnings[] = {
     {W_ANALYZER_UNINITIALIZED, "maybe-uninitialized"},
     {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
     {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"},
-    {W_MUST_USE_ADDRESSOF, "must-use-address-of"}
+    {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
+    {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
+    {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
+    {W_MULTICHAR_ERROR, "multi-char"}
 
 };
+
+static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64);
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
@@ -12902,12 +12909,12 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
 
         if (p && *p != '\'')
         {
-            compiler_diagnostic_message(C_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
+            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
         }
 
         if (c > 0x80)
         {
-            compiler_diagnostic_message(C_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
+            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
         }
 
 
@@ -12926,12 +12933,12 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
 
         if (p && *p != '\'')
         {
-            compiler_diagnostic_message(C_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
+            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
         }
 
         if (c > USHRT_MAX)
         {
-            compiler_diagnostic_message(C_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
+            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
         }
 
         p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
@@ -12949,7 +12956,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
 
         if (p && *p != '\'')
         {
-            compiler_diagnostic_message(C_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
+            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
         }
 
 
@@ -13282,7 +13289,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                compiler_diagnostic_message(C_NOT_FOUND, ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
+                compiler_diagnostic_message(ERROR_NOT_FOUND, ctx, ctx->current, "not found '%s'", ctx->current->lexeme);
                 throw;
             }
             parser_match(ctx);
@@ -13407,7 +13414,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             }
             else
             {
-                compiler_diagnostic_message(C_NO_MATCH_FOR_GENERIC, ctx, ctx->current, "no match for generic");
+                compiler_diagnostic_message(ERROR_NO_MATCH_FOR_GENERIC, ctx, ctx->current, "no match for generic");
             }
         }
         else if (ctx->current->type == '(')
@@ -13593,7 +13600,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
 
                 if (!type_is_pointer_or_array(&p_expression_node->type))
                 {
-                    compiler_diagnostic_message(C_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                    compiler_diagnostic_message(ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
                         ctx,
                         ctx->current,
                         "subscripted value is neither array nor pointer");
@@ -13628,7 +13635,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         {
                             if (index >= (unsigned long long) p_expression_node->type.array_size)
                             {
-                                compiler_diagnostic_message(C_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
+                                compiler_diagnostic_message(ERROR_SUBSCRIPTED_VALUE_IS_NEITHER_ARRAY_NOR_POINTER,
                                     ctx,
                                     ctx->current,
                                     "index %d is past the end of the array", index);
@@ -13653,7 +13660,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
 
                 if (!type_is_function_or_function_pointer(&p_expression_node->type))
                 {
-                    compiler_diagnostic_message(C_CALLED_OBJECT_IS_NOT_FUNCTION_OR_FUNCTION_POINTER,
+                    compiler_diagnostic_message(ERROR_CALLED_OBJECT_IS_NOT_FUNCTION_OR_FUNCTION_POINTER,
                         ctx,
                         ctx->current,
                         "called object is not attr function or function pointer");
@@ -13710,7 +13717,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         }
                         else
                         {
-                            compiler_diagnostic_message(C_STRUCT_MEMBER_NOT_FOUND,
+                            compiler_diagnostic_message(ERROR_STRUCT_MEMBER_NOT_FOUND,
                                 ctx,
                                 ctx->current,
                                 "struct member '%s' not found in '%s'",
@@ -13726,7 +13733,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_STRUCTURE_OR_UNION_REQUIRED,
+                    compiler_diagnostic_message(ERROR_STRUCTURE_OR_UNION_REQUIRED,
                         ctx,
                         ctx->current,
                         "structure or union required");
@@ -13779,7 +13786,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                             }
                             else
                             {
-                                compiler_diagnostic_message(C_STRUCT_MEMBER_NOT_FOUND,
+                                compiler_diagnostic_message(ERROR_STRUCT_MEMBER_NOT_FOUND,
                                     ctx,
                                     ctx->current,
                                     "member '%s' not found in struct '%s'",
@@ -13790,7 +13797,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         }
                         else
                         {
-                            compiler_diagnostic_message(C_STRUCT_IS_INCOMPLETE,
+                            compiler_diagnostic_message(ERROR_STRUCT_IS_INCOMPLETE,
                                 ctx,
                                 ctx->current,
                                 "struct '%s' is incomplete.",
@@ -13800,7 +13807,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_STRUCTURE_OR_UNION_REQUIRED,
+                        compiler_diagnostic_message(ERROR_STRUCTURE_OR_UNION_REQUIRED,
                             ctx,
                             ctx->current,
                             "structure or union required");
@@ -13809,7 +13816,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_STRUCTURE_OR_UNION_REQUIRED,
+                    compiler_diagnostic_message(ERROR_STRUCTURE_OR_UNION_REQUIRED,
                         ctx,
                         ctx->current,
                         "structure or union required");
@@ -13822,7 +13829,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             {
                 if (!expression_is_lvalue(p_expression_node))
                 {
-                    compiler_diagnostic_message(C_OPERATOR_NEEDS_LVALUE,
+                    compiler_diagnostic_message(ERROR_OPERATOR_NEEDS_LVALUE,
                         ctx,
                         p_expression_node->first_token,
                         "lvalue required as increment operand");
@@ -13843,7 +13850,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             {
                 if (!expression_is_lvalue(p_expression_node))
                 {
-                    compiler_diagnostic_message(C_OPERATOR_NEEDS_LVALUE,
+                    compiler_diagnostic_message(ERROR_OPERATOR_NEEDS_LVALUE,
                         ctx,
                         p_expression_node->first_token,
                         "lvalue required as decrement operand");
@@ -14165,7 +14172,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
                 if (!type_is_pointer(&new_expression->right->type))
                 {
-                    compiler_diagnostic_message(C_INDIRECTION_REQUIRES_POINTER_OPERAND,
+                    compiler_diagnostic_message(ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND,
                         ctx,
                         op_position,
                         "indirection requires pointer operand");
@@ -14183,7 +14190,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
                 if (!expression_is_lvalue(new_expression->right))
                 {
-                    compiler_diagnostic_message(C_ADDRESS_OF_REGISTER,
+                    compiler_diagnostic_message(ERROR_ADDRESS_OF_REGISTER,
                         ctx,
                         new_expression->right->first_token,
                         "lvalue required as unary '&' operand");
@@ -14193,7 +14200,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 {
                     if (new_expression->right->declarator)
                     {
-                        compiler_diagnostic_message(C_ADDRESS_OF_REGISTER,
+                        compiler_diagnostic_message(ERROR_ADDRESS_OF_REGISTER,
                             ctx,
                             new_expression->right->first_token,
                             "address of register variable 'x' requested",
@@ -14201,7 +14208,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_ADDRESS_OF_REGISTER,
+                        compiler_diagnostic_message(ERROR_ADDRESS_OF_REGISTER,
                             ctx,
                             new_expression->right->first_token,
                             "address of register variable requested - declarator?");
@@ -14215,7 +14222,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             else
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_INVALID_TOKEN,
+                compiler_diagnostic_message(ERROR_INVALID_TOKEN,
                     ctx,
                     ctx->current,
                     "invalid token");
@@ -14390,7 +14397,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             /*if (constant_value_is_valid(&new_expression->right->constant_value) &&
                 !constant_value_to_bool(&new_expression->right->constant_value))
             {
-                compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx,
+                compiler_diagnostic_message(ERROR_STATIC_ASSERT_FAILED, ctx,
                     new_expression->right->first_token, "assert failed");
             }*/
 
@@ -14624,12 +14631,12 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
 
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    compiler_diagnostic_message(C_LEFT_IS_NOT_ARITHMETIC, ctx, ctx->current, "left * is not arithmetic");
+                    compiler_diagnostic_message(ERROR_LEFT_IS_NOT_ARITHMETIC, ctx, ctx->current, "left * is not arithmetic");
 
                 }
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    compiler_diagnostic_message(C_RIGHT_IS_NOT_ARITHMETIC, ctx, ctx->current, "right * is not arithmetic");
+                    compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_ARITHMETIC, ctx, ctx->current, "right * is not arithmetic");
                 }
 
             }
@@ -14649,12 +14656,12 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
 
                 if (!type_is_arithmetic(&new_expression->left->type))
                 {
-                    compiler_diagnostic_message(C_LEFT_IS_NOT_ARITHMETIC, ctx, ctx->current, "left / is not arithmetic");
+                    compiler_diagnostic_message(ERROR_LEFT_IS_NOT_ARITHMETIC, ctx, ctx->current, "left / is not arithmetic");
 
                 }
                 if (!type_is_arithmetic(&new_expression->right->type))
                 {
-                    compiler_diagnostic_message(C_RIGHT_IS_NOT_ARITHMETIC, ctx, ctx->current, "right / is not arithmetic");
+                    compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_ARITHMETIC, ctx, ctx->current, "right / is not arithmetic");
                 }
             }
             else if (op == '%')
@@ -14664,12 +14671,12 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
 
                 if (!type_is_integer(&new_expression->left->type))
                 {
-                    compiler_diagnostic_message(C_LEFT_IS_NOT_INTEGER, ctx, ctx->current, "left is not integer");
+                    compiler_diagnostic_message(ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, "left is not integer");
 
                 }
                 if (!type_is_integer(&new_expression->right->type))
                 {
-                    compiler_diagnostic_message(C_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, "right is not integer");
+                    compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, "right is not integer");
                 }
 
                 if (constant_value_is_valid(&new_expression->right->constant_value) &&
@@ -14687,7 +14694,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
             if (code != 0)
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid type multiplicative expression");
+                compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type multiplicative expression");
                 throw;
             }
 
@@ -14717,7 +14724,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
         p_expression_node = multiplicative_expression(ctx);
         if (p_expression_node == NULL)
         {
-            compiler_diagnostic_message(E_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+            compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
             throw;
         }
 
@@ -14730,7 +14737,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) 
             {
-                compiler_diagnostic_message(E_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+                compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
                 throw;
             }
 
@@ -14756,11 +14763,11 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
 
             if (!type_is_scalar(&new_expression->left->type))
             {
-                compiler_diagnostic_message(C_LEFT_IS_NOT_SCALAR, ctx, operator_position, "left operator is not scalar");
+                compiler_diagnostic_message(ERROR_LEFT_IS_NOT_SCALAR, ctx, operator_position, "left operator is not scalar");
             }
             if (!type_is_scalar(&new_expression->right->type))
             {
-                compiler_diagnostic_message(C_RIGHT_IS_NOT_SCALAR, ctx, operator_position, "right operator is not scalar");
+                compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_SCALAR, ctx, operator_position, "right operator is not scalar");
             }
 
 
@@ -14810,7 +14817,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                         }
                         else
                         {
-                            compiler_diagnostic_message(C_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, "expected integer type on right");
+                            compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, "expected integer type on right");
                         }
                     }
                     else if (right_category == TYPE_CATEGORY_POINTER || right_category == TYPE_CATEGORY_ARRAY /*|| right_category == TYPE_CATEGORY_FUNCTION*/)
@@ -14828,12 +14835,12 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                         }
                         else
                         {
-                            compiler_diagnostic_message(C_LEFT_IS_NOT_INTEGER, ctx, ctx->current, "expected integer type on left");
+                            compiler_diagnostic_message(ERROR_LEFT_IS_NOT_INTEGER, ctx, ctx->current, "expected integer type on left");
                         }
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid types additive expression");
+                        compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types additive expression");
                     }
                 }
             }
@@ -14859,7 +14866,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                         expression_delete(new_expression);
                         new_expression = NULL;
 
-                        compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "internal error type_common");
+                        compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "internal error type_common");
                         throw;
                     }
                 }
@@ -14876,7 +14883,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
 
                             if (!type_is_same(&t1, &t2, false))
                             {
-                                compiler_diagnostic_message(C_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, "incompatible pointer types");
+                                compiler_diagnostic_message(ERROR_INCOMPATIBLE_POINTER_TYPES, ctx, ctx->current, "incompatible pointer types");
                             }
 
                             new_expression->type = type_make_int();
@@ -14892,13 +14899,13 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                             }
                             else
                             {
-                                compiler_diagnostic_message(C_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, "right must be integer type");
+                                compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_INTEGER, ctx, ctx->current, "right must be integer type");
                             }
                         }
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid types for operator -");
+                        compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types for operator -");
                     }
                 }
             }
@@ -14975,7 +14982,7 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
             if (code != 0)
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid type shift expression");
+                compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type shift expression");
                 throw;
             }
 
@@ -15254,7 +15261,7 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid types and expression");
+                compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types and expression");
                 throw;
             }
 
@@ -15310,7 +15317,7 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid types or expression");
+                compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types or expression");
                 throw;
             }
 
@@ -15368,7 +15375,7 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             if (code != 0)
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid types inclusive or expression");
+                compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types inclusive or expression");
                 throw;
             }
 
@@ -15425,7 +15432,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
                 expression_delete(new_expression);
                 type_print(&new_expression->left->type);
                 type_print(&new_expression->right->type);
-                compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
+                compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
                 throw;
             }
             p_expression_node = new_expression;
@@ -15479,14 +15486,14 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
             if (!type_is_scalar(&new_expression->left->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_LEFT_IS_NOT_SCALAR, ctx, ctx->current, "left type is not scalar for or expression");
+                compiler_diagnostic_message(ERROR_LEFT_IS_NOT_SCALAR, ctx, ctx->current, "left type is not scalar for or expression");
                 throw;
             }
 
             if (!type_is_scalar(&new_expression->right->type))
             {
                 expression_delete(new_expression);
-                compiler_diagnostic_message(C_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, "right type is not scalar for or expression");
+                compiler_diagnostic_message(ERROR_RIGHT_IS_NOT_SCALAR, ctx, ctx->current, "right type is not scalar for or expression");
                 throw;
             }
 
@@ -15555,23 +15562,23 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
 
             if (category == TYPE_CATEGORY_FUNCTION)
             {
-                compiler_diagnostic_message(C_ASSIGNMENT_OF_FUNCTION, ctx, ctx->current, "assignment of function");
+                compiler_diagnostic_message(ERROR_ASSIGNMENT_OF_FUNCTION, ctx, ctx->current, "assignment of function");
             }
             else if (category == TYPE_CATEGORY_ARRAY)
             {
-                compiler_diagnostic_message(C_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE, ctx, ctx->current, "assignment to expression with array type");
+                compiler_diagnostic_message(ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE, ctx, ctx->current, "assignment to expression with array type");
             }
             else
             {
                 if (type_is_const(&new_expression->left->type))
                 {
-                    compiler_diagnostic_message(C_ASSIGNMENT_OF_READ_ONLY_OBJECT, ctx, ctx->current, "assignment of read-only object");
+                    compiler_diagnostic_message(ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT, ctx, ctx->current, "assignment of read-only object");
                 }
             }
 
             if (!expression_is_lvalue(new_expression->left))
             {
-                compiler_diagnostic_message(C_OPERATOR_NEEDS_LVALUE,
+                compiler_diagnostic_message(ERROR_OPERATOR_NEEDS_LVALUE,
                     ctx,
                     op_token,
                     "lvalue required as left operand of assignment");
@@ -15798,7 +15805,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             /*The first operand shall have scalar type*/
             if (!type_is_scalar(&p_conditional_expression->condition_expr->type))
             {
-                compiler_diagnostic_message(C_CONDITION_MUST_HAVE_SCALAR_TYPE, ctx, ctx->current, "condition must have scalar type");
+                compiler_diagnostic_message(ERROR_CONDITION_MUST_HAVE_SCALAR_TYPE, ctx, ctx->current, "condition must have scalar type");
             }
             else if (type_is_arithmetic(&left_type) &&
                 type_is_arithmetic(&right_type))
@@ -15816,7 +15823,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
         */
                 if (!type_is_same(&left_type, &right_type, true))
                 {
-                    compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
+                    compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
                 }
                 type_swap(&p_conditional_expression->type, &right_type);
 
@@ -15860,7 +15867,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
                     {
                         //type_print(&left_type);
                         //type_print(&right_type);
-                        compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx, ctx->current, "incompatible types");
+                        compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx, ctx->current, "incompatible types");
                     }
                     else
                     {
@@ -15869,7 +15876,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
+                    compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
                 }
 
             }
@@ -15891,7 +15898,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
                     }
                     else if (!type_is_same(&left_type, &right_type, false))
                     {
-                        compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
+                        compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
 
                     }
                     else
@@ -15901,12 +15908,12 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
+                    compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types");
                 }
             }
             else
             {
-                compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types??");
+                compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types??");
                 assert(false);
             }
             p_expression_node = p_conditional_expression;
@@ -15931,7 +15938,7 @@ struct expression* owner constant_expression(struct parser_ctx* ctx, bool show_e
         p_expression &&
         !constant_value_is_valid(&p_expression->constant_value))
     {
-        compiler_diagnostic_message(C_EXPECTED_CONSTANT_EXPRESSION, ctx, ctx->current, "expected constant expression");
+        compiler_diagnostic_message(ERROR_EXPECTED_CONSTANT_EXPRESSION, ctx, ctx->current, "expected constant expression");
     }
 
     return p_expression;
@@ -16154,7 +16161,7 @@ static void pre_primary_expression(struct preprocessor_ctx *ctx, struct pre_expr
         }
         else
         {
-            preprocessor_diagnostic_message(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
+            preprocessor_diagnostic_message(ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
                                               ctx,
                                               ctx->current,
                                               "token '%s' is not valid in preprocessor expressions",
@@ -16214,7 +16221,7 @@ static void pre_unary_expression(struct preprocessor_ctx *ctx, struct pre_expres
     {
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
-            preprocessor_diagnostic_message(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
+            preprocessor_diagnostic_message(ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
                                               ctx,
                                               ctx->current,
                                               "token '%s' is not valid in preprocessor expressions",
@@ -16240,15 +16247,15 @@ static void pre_unary_expression(struct preprocessor_ctx *ctx, struct pre_expres
                 ectx->value = +ectx->value;
             else if (op == '*')
             {
-                preprocessor_diagnostic_message(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_diagnostic_message(ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
             else if (op == '&')
             {
-                preprocessor_diagnostic_message(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_diagnostic_message(ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
             else
             {
-                preprocessor_diagnostic_message(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+                preprocessor_diagnostic_message(ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             }
         }
         else
@@ -16339,7 +16346,7 @@ static void pre_additive_expression(struct preprocessor_ctx *ctx, struct pre_exp
             pre_match(ctx);
             if (ctx->current == NULL)
             {
-                preprocessor_diagnostic_message(C_UNEXPECTED_END_OF_FILE, ctx, ctx->current, "unexpected end of file");
+                preprocessor_diagnostic_message(ERROR_UNEXPECTED_END_OF_FILE, ctx, ctx->current, "unexpected end of file");
                 throw;
             }
             long long left_value = ectx->value;
@@ -16683,7 +16690,7 @@ static void pre_assignment_expression(struct preprocessor_ctx *ctx, struct pre_e
                 ctx->current->type == '^=' ||
                 ctx->current->type == '|='))
         {
-            preprocessor_diagnostic_message(C_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
+            preprocessor_diagnostic_message(ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS, ctx, ctx->current, "token '%s' is not valid in preprocessor expressions", ctx->current->lexeme);
             throw;
         }
     }
@@ -17722,7 +17729,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 	{
 		if (!type_is_same(argument_type, paramer_type, false))
 		{
-			compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx,
+			compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx,
 				current_argument->expression->first_token,
 				" incompatible types at argument %d", param_num);
 		}
@@ -17832,7 +17839,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 				if (parameter_array_size != 0 &&
 					argument_array_size < parameter_array_size)
 				{
-					compiler_diagnostic_message(C_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
+					compiler_diagnostic_message(ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
 						ctx,
 						current_argument->expression->first_token,
 						" argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
@@ -17840,7 +17847,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 			}
 			else if (is_null_pointer_constant || type_is_nullptr_t(argument_type))
 			{
-				compiler_diagnostic_message(C_PASSING_NULL_AS_ARRAY,
+				compiler_diagnostic_message(W_PASSING_NULL_AS_ARRAY,
 					ctx,
 					current_argument->expression->first_token,
 					" passing null as array");
@@ -17854,7 +17861,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 			type_print(&argument_type_converted);
 			type_print(&parameter_type_converted);
 
-			compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx,
+			compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx,
 				current_argument->expression->first_token,
 				" incompatible types at argument %d", param_num);
 			//disabled for now util it works correctly
@@ -18126,7 +18133,7 @@ void check_assigment(struct parser_ctx* ctx,
 	{
 		if (!type_is_same(p_right_type, left_type, false))
 		{
-			compiler_diagnostic_message(C_INCOMPATIBLE_ENUN_TYPES, ctx,
+			compiler_diagnostic_message(W_INCOMPATIBLE_ENUN_TYPES, ctx,
 				right->first_token,
 				" incompatible types ");
 		}
@@ -18224,14 +18231,14 @@ void check_assigment(struct parser_ctx* ctx,
 				if (parameter_array_size != 0 &&
 					argument_array_size < parameter_array_size)
 				{
-					compiler_diagnostic_message(C_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
+					compiler_diagnostic_message(ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
 						right->first_token,
 						" argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
 				}
 			}
 			else if (is_null_pointer_constant || type_is_nullptr_t(p_right_type))
 			{
-				compiler_diagnostic_message(C_PASSING_NULL_AS_ARRAY, ctx,
+				compiler_diagnostic_message(W_PASSING_NULL_AS_ARRAY, ctx,
 					right->first_token,
 					" passing null as array");
 			}
@@ -18249,7 +18256,7 @@ void check_assigment(struct parser_ctx* ctx,
 			type_print(&lvalue_right_type);
 			type_print(&t2);
 
-			compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx,
+			compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx,
 				right->first_token,
 				" incompatible types at argument ");
 			//disabled for now util it works correctly
@@ -23265,7 +23272,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             }
             else
             {
-                compiler_diagnostic_message(C_PRAGMA_ERROR, ctx, ctx->current, "nullchecks pragma needs to use ON OFF");
+                compiler_diagnostic_message(ERROR_PRAGMA_ERROR, ctx, ctx->current, "nullchecks pragma needs to use ON OFF");
             }
             ctx->options.null_checks = onoff;
         }
@@ -23410,7 +23417,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     {
         if (ctx->current->type != type)
         {
-            compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->current, "expected %s", get_token_name(type));
+            compiler_diagnostic_message(ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, "expected %s", get_token_name(type));
             error = 1;
         }
 
@@ -23420,7 +23427,7 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
     }
     else
     {
-        compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected end of file after");
+        compiler_diagnostic_message(ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected end of file after");
         error = 1;
     }
 
@@ -23504,7 +23511,7 @@ int add_specifier(struct parser_ctx* ctx,
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) //ja tinha long long
         {
-            compiler_diagnostic_message(C_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
+            compiler_diagnostic_message(ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG, ctx, ctx->current, "cannot combine with previous 'long long' declaration specifier");
             return 1;
         }
         else if ((*flags) & TYPE_SPECIFIER_LONG) //ja tinha um long
@@ -23739,11 +23746,11 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
         {
             if (ctx->current->type == TK_IDENTIFIER)
             {
-                compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
+                compiler_diagnostic_message(ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
             }
             else
             {
-                compiler_diagnostic_message(C_EXPECTED_DECLARATION, ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
+                compiler_diagnostic_message(ERROR_EXPECTED_DECLARATION, ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
             }
             parser_match(ctx); //we need to go ahead
         }
@@ -24022,7 +24029,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_REDECLARATION, ctx, ctx->current, "redeclaration");
+                        compiler_diagnostic_message(ERROR_REDECLARATION, ctx, ctx->current, "redeclaration");
                         compiler_diagnostic_message(W_NOTE, ctx, previous->name, "previous declaration");
                     }
                 }
@@ -24170,7 +24177,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             if (p_init_declarator->p_declarator->type.type_qualifier_flags != 0 ||
                 p_init_declarator->p_declarator->type.static_array)
             {
-                compiler_diagnostic_message(C_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
+                compiler_diagnostic_message(ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
                     ctx,
                     p_init_declarator->p_declarator->first_token,
                     "static or type qualifiers are not allowed in non-parameter array declarator");
@@ -24180,7 +24187,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         if (!type_is_pointer(&p_init_declarator->p_declarator->type) &&
             p_init_declarator->p_declarator->type.type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
         {
-            compiler_diagnostic_message(C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
+            compiler_diagnostic_message(ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
                 ctx,
                 p_init_declarator->p_declarator->first_token,
                 "obj_owner qualifier can only be used with pointers");
@@ -24724,7 +24731,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
             }
             else
             {
-                compiler_diagnostic_message(C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                compiler_diagnostic_message(ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
                     ctx,
                     ctx->current,
                     "use of '%s' with tag type that does not match previous declaration.",
@@ -25297,7 +25304,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
         {
             if (!has_identifier)
             {
-                compiler_diagnostic_message(C_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
+                compiler_diagnostic_message(ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
                 throw;
             }
         }
@@ -25324,7 +25331,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
                 if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
                     p_enum_specifier->enumerator_list.head != NULL)
                 {
-                    compiler_diagnostic_message(C_MULTIPLE_DEFINITION_ENUM,
+                    compiler_diagnostic_message(ERROR_MULTIPLE_DEFINITION_ENUM,
                         ctx,
                         p_enum_specifier->tag_token,
                         "multiple definition of 'enum %s'",
@@ -25341,7 +25348,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
             }
             else
             {
-                compiler_diagnostic_message(C_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                compiler_diagnostic_message(ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
                     ctx,
                     ctx->current, "use of '%s' with tag type that does not match previous declaration.",
                     ctx->current->lexeme);
@@ -26703,12 +26710,12 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
             {
                 if (p_static_assert_declaration->string_literal_opt)
                 {
-                    compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
+                    compiler_diagnostic_message(ERROR_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed %s\n",
                         p_static_assert_declaration->string_literal_opt->lexeme);
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
+                    compiler_diagnostic_message(ERROR_STATIC_ASSERT_FAILED, ctx, position, "_Static_assert failed");
                 }
             }
         }
@@ -27017,12 +27024,12 @@ struct balanced_token_sequence* owner balanced_token_sequence_opt(struct parser_
     }
     if (count2 != 0)
     {
-        compiler_diagnostic_message(C_ATTR_UNBALANCED, ctx, ctx->current, "expected ']' before ')'");
+        compiler_diagnostic_message(ERROR_ATTR_UNBALANCED, ctx, ctx->current, "expected ']' before ')'");
 
     }
     if (count3 != 0)
     {
-        compiler_diagnostic_message(C_ATTR_UNBALANCED, ctx, ctx->current, "expected '}' before ')'");
+        compiler_diagnostic_message(ERROR_ATTR_UNBALANCED, ctx, ctx->current, "expected '}' before ')'");
 
     }
     return p_balanced_token_sequence;
@@ -27078,7 +27085,7 @@ struct primary_block* owner primary_block(struct parser_ctx* ctx)
     }
     else
     {
-        compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
+        compiler_diagnostic_message(ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
     }
     return p_primary_block;
 }
@@ -27664,7 +27671,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         }
         else
         {
-            compiler_diagnostic_message(C_UNEXPECTED_END_OF_FILE, ctx, ctx->input_list.tail, "unexpected end of file");
+            compiler_diagnostic_message(ERROR_UNEXPECTED_END_OF_FILE, ctx, ctx->input_list.tail, "unexpected end of file");
         }
     }
     else if (ctx->current->type == TK_KEYWORD_SWITCH)
@@ -27681,7 +27688,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
     else
     {
         assert(false);
-        compiler_diagnostic_message(C_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected token");
+        compiler_diagnostic_message(ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected token");
     }
 
     p_selection_statement->last_token = ctx->previous;
@@ -27848,7 +27855,7 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
         if (ctx->p_current_try_statement_opt == NULL)
         {
 
-            compiler_diagnostic_message(C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, "throw statement not within try block");
+            compiler_diagnostic_message(ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK, ctx, ctx->current, "throw statement not within try block");
         }
         else
         {
@@ -27878,7 +27885,7 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
 
                 if (type_is_void(&return_type))
                 {
-                    compiler_diagnostic_message(C_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
+                    compiler_diagnostic_message(ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
                         ctx,
                         p_return_token,
                         "void function '%s' should not return a value",
@@ -33646,12 +33653,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 {
                     if (e != p_obj->state)
                     {
-                        compiler_diagnostic_message(C_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+                        compiler_diagnostic_message(ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
                     }
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                    compiler_diagnostic_message(ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                 }
             }
 
@@ -33687,7 +33694,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                        compiler_diagnostic_message(ERROR_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                     }
                 }
             }
@@ -35807,7 +35814,7 @@ void const_member()
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&&
-        report.last_error == C_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
+        report.last_error == ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
 }
 
 void register_struct_member()
@@ -35982,7 +35989,7 @@ void address_of_register()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == C_ADDRESS_OF_REGISTER*/);
+    assert(report.error_count == 1 /*&& report.last_error == ERROR_ADDRESS_OF_REGISTER*/);
 }
 
 void return_address_of_local()
@@ -36041,7 +36048,7 @@ void assignment_of_read_only_object()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == C_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
+    assert(report.error_count == 1 /*&& report.last_error == ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36325,7 +36332,7 @@ void obj_owner_cannot_be_used_in_non_pointer()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == C_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER*/);
+    assert(report.error_count == 1 /*&& report.last_error == ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER*/);
 
 }
 

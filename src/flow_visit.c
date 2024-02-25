@@ -2183,12 +2183,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 {
                     if (e != p_obj->state)
                     {
-                        compiler_diagnostic_message(C_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+                        compiler_diagnostic_message(ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
                     }
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                    compiler_diagnostic_message(ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                 }
             }
 
@@ -2224,7 +2224,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                        compiler_diagnostic_message(ERROR_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                     }
                 }
             }

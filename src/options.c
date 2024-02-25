@@ -53,9 +53,14 @@ s_warnings[] = {
     {W_ANALYZER_UNINITIALIZED, "maybe-uninitialized"},
     {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
     {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"},
-    {W_MUST_USE_ADDRESSOF, "must-use-address-of"}
+    {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
+    {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
+    {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
+    {W_MULTICHAR_ERROR, "multi-char"}
 
 };
+
+static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64);
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
