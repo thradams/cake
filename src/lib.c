@@ -36945,10 +36945,11 @@ void ownership_no_name_parameter()
 {
     const char* source
         =
-        "void free( void * _Owner){ }\n"
-        "";
+        "void free(void* _Owner) { }\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_switch_case()
