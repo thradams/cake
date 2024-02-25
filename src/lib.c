@@ -37463,9 +37463,11 @@ void partially_owner_moved()
 {
     const char* source
         =
-        "void free( void* _Owner ptr);\n"
+        "#pragma cake diagnostic error \"-Wmissing-destructor\"\n"
+        "\n"
+        "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
-        "struct X { char * _Owner text; };\n"
+        "struct X { char* _Owner text; };\n"
         "\n"
         "void x_destroy(struct X* _Obj_owner p)\n"
         "{\n"
@@ -37478,7 +37480,12 @@ void partially_owner_moved()
         "    {\n"
         "        x_destroy(p);\n"
         "    }\n"
-        "}";
+        "}\n"
+        "\n"
+        "\n"
+        "\n"
+        "";
+
     assert(compile_with_errors(true, false, source));
 
 }

@@ -1,32 +1,21 @@
+#pragma cake diagnostic error "-Wmissing-destructor"
 
-char* _Owner strdup(const char* s);
-void* _Owner malloc(unsigned size);
 void free(void* _Owner ptr);
-struct X {
-    char* _Owner name;
-};
+void* _Owner malloc(int size);
+struct X { char* _Owner text; };
 
-void x_destroy(struct X* _Obj_owner p) {
-    free(p->name);
-}
-
-void x_print(struct X* p)
+void x_destroy(struct X* _Obj_owner p)
 {
-    //printf("%s", p->name);
+    free(p->text);
 }
 
-int main() {
-    struct X x = { 0 };
-    x.name = strdup("a");
-    x_destroy(&x);
-    x_print(&x);
-}
-
-
-void dummy()
+void x_delete(struct X* _Owner p)
 {
-} 
+    if (p)
+    {
+        x_destroy(p);
+    }
+}
 
-//flow analyze
-#pragma cake diagnostic check "-Wmaybe-uninitialized"
+
 
