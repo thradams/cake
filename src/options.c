@@ -56,7 +56,8 @@ s_warnings[] = {
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
-    {W_MULTICHAR_ERROR, "multi-char"}
+    {W_MULTICHAR_ERROR, "multi-char"},
+    {W_ARRAY_INDIRECTION,"array-indirection"},
 
 };
 
@@ -127,7 +128,8 @@ int fill_options(struct options* options,
     */
     options->diagnostic_stack[0] = default_diagnostic;
 
-
+    options->diagnostic_stack[0].warnings &= ~(1ULL << W_STYLE);
+    //&~items;
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;

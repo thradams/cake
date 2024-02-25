@@ -2133,14 +2133,25 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 //the result of the indirection(unary*) operator applied to a pointer to object
 
 
-                if (!type_is_pointer(&new_expression->right->type))
+                if (!type_is_pointer_or_array(&new_expression->right->type))
                 {
                     compiler_diagnostic_message(ERROR_INDIRECTION_REQUIRES_POINTER_OPERAND,
                         ctx,
                         op_position,
                         "indirection requires pointer operand");
                 }
-                new_expression->type = type_remove_pointer(&new_expression->right->type);
+                if (type_is_pointer(&new_expression->right->type))
+                {
+                    new_expression->type = type_remove_pointer(&new_expression->right->type);
+                }
+                else
+                {
+                    compiler_diagnostic_message(W_ARRAY_INDIRECTION,
+                        ctx,
+                        op_position,
+                        "array indirection");
+                    new_expression->type = get_array_item_type(&new_expression->right->type);
+                }
             }
             else if (op == '&')
             {
@@ -2698,7 +2709,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             struct token* operator_position = ctx->current;
 
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) 
+            if (new_expression == NULL)
             {
                 compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
                 throw;

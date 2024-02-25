@@ -1228,7 +1228,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 struct type t2 = type_remove_pointer(&p_current_parameter_type->type);
                 if (type_is_out(&t2))
                 {
-                    pointer_to_out = true;                    
+                    pointer_to_out = true;
                 }
                 type_destroy(&t2);
             }
@@ -1328,11 +1328,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
 
-        if (p_expression->declarator->object.state & OBJECT_STATE_UNINITIALIZED)
+        if (!ctx->expression_is_not_evaluated &&
+            p_expression->declarator->object.state & OBJECT_STATE_UNINITIALIZED)
         {
-            //TODO inside sizeof(v)  is not an error. :D
-            //TODO function type...
-
             if (!ctx->is_left_expression &&
                 !ctx->expression_is_not_evaluated)
             {
@@ -1375,12 +1373,14 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
     case POSTFIX_ARRAY: {
 
-            flow_visit_expression(ctx, p_expression->left);
-            flow_visit_expression(ctx, p_expression->right);
+        flow_visit_expression(ctx, p_expression->left);
+        flow_visit_expression(ctx, p_expression->right);
 
-            struct type t = { 0 };
-            struct object* p_object = expression_get_object(p_expression->left, &t);
+        struct type t = { 0 };
+        struct object* p_object = expression_get_object(p_expression->left, &t);
 
+        if (!ctx->expression_is_not_evaluated)
+        {
             if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
             {
                 compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
@@ -1393,9 +1393,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     ctx->ctx,
                     p_expression->left->first_token, "maybe using a uninitialized object");
             }
-            type_destroy(&t);
         }
-        break;
+
+        type_destroy(&t);
+    }
+                      break;
 
     case POSTFIX_FUNCTION_CALL:
 
@@ -1535,9 +1537,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
         {
-            compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
-                ctx->ctx,
-                p_expression->right->first_token, "using a uninitialized object");
+            if (!ctx->expression_is_not_evaluated)
+            {
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->right->first_token, "using a uninitialized object");
+            }
         }
         else if (p_object && p_object->state & OBJECT_STATE_NULL)
         {
@@ -1710,7 +1715,7 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
     /*lets restore the diagnostic state it was initialize because static analysis is a second pass*/
     ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = p_compound_statement->diagnostic_flags;
 
-    
+
 
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_compound_statement = p_compound_statement;
@@ -2140,7 +2145,7 @@ enum object_state parse_string_state(const char* s, bool* invalid)
 
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
-    const bool t2 = ctx->expression_is_not_evaluated;    
+    const bool t2 = ctx->expression_is_not_evaluated;
     ctx->expression_is_not_evaluated = true;
 
     flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
@@ -2168,7 +2173,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     {
         /*TODO
            check state
-        
+
         */
         struct type t = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
@@ -2333,12 +2338,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 if (p_declarator->object.pointed)
                 {
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                }
-                type_destroy(&t2);
             }
-#endif
+                type_destroy(&t2);
         }
+#endif
     }
+}
 
     /*if (p_declarator->pointer)
     {

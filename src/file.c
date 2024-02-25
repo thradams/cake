@@ -1,9 +1,10 @@
-struct X { int i; void* p; };
-void f(struct X* p) {}
 
-int main()
+int main(void)
 {
-    const struct X x = {0};
-    f(&x);
+    int n = 1;
+    int a[n]; // re-allocated 10 times, each with a different size
+    int k = (sizeof a / sizeof * a);
+
+    int b[2];
+    int k2 = (sizeof b / sizeof * b);
 }
-#pragma cake diagnostic check "-Wdiscarded-qualifiers"

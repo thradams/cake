@@ -9773,7 +9773,8 @@ int fill_options(struct options* options,
     */
     options->diagnostic_stack[0] = default_diagnostic;
 
-
+    options->diagnostic_stack[0].warnings &= ~(1ULL << W_STYLE);
+    //&~items;
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;
