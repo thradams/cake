@@ -592,6 +592,7 @@ enum diagnostic_id {
     W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
     W_INCOMPATIBLE_ENUN_TYPES,
     W_MULTICHAR_ERROR,
+   
     W_LOCATION,
     W_NOTE,
 
@@ -664,8 +665,8 @@ enum diagnostic_id {
     ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
     ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
 
-    C_DISCARDING_CONST_AT_ARGUMENT, //warning?
-      
+ 
+    
     ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
     ERROR_FILE_NOT_FOUND,
     ERROR_MISSING_CLOSE_PARENTHESIS,
@@ -17878,7 +17879,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 				!type_is_const(&parameter_pointer_to) &&
 				!type_is_any_owner(&parameter_pointer_to))
 			{
-				compiler_diagnostic_message(C_DISCARDING_CONST_AT_ARGUMENT, ctx,
+				compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
 					current_argument->expression->first_token,
 					" discarding const at argument %d", param_num);
 			}
@@ -18271,7 +18272,7 @@ void check_assigment(struct parser_ctx* ctx,
 			struct type parameter_pointer_to = type_remove_pointer(&t2);
 			if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
 			{
-				compiler_diagnostic_message(C_DISCARDING_CONST_AT_ARGUMENT, ctx,
+				compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
 					right->first_token,
 					" discarding const at argument ");
 			}

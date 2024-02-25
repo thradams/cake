@@ -1106,7 +1106,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 				!type_is_const(&parameter_pointer_to) &&
 				!type_is_any_owner(&parameter_pointer_to))
 			{
-				compiler_diagnostic_message(C_DISCARDING_CONST_AT_ARGUMENT, ctx,
+				compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
 					current_argument->expression->first_token,
 					" discarding const at argument %d", param_num);
 			}
@@ -1499,7 +1499,7 @@ void check_assigment(struct parser_ctx* ctx,
 			struct type parameter_pointer_to = type_remove_pointer(&t2);
 			if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
 			{
-				compiler_diagnostic_message(C_DISCARDING_CONST_AT_ARGUMENT, ctx,
+				compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
 					right->first_token,
 					" discarding const at argument ");
 			}
