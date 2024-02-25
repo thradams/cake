@@ -5933,14 +5933,15 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
 
         p_selection_statement->expression = expression(ctx);
 
-        if (constant_value_is_valid(&p_selection_statement->expression->constant_value))
+        if (p_selection_statement->expression && constant_value_is_valid(&p_selection_statement->expression->constant_value))
         {
             //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
         }
 
 
-        if (type_is_function(&p_selection_statement->expression->type) ||
-            type_is_array(&p_selection_statement->expression->type))
+        if (p_selection_statement->expression &&
+            (type_is_function(&p_selection_statement->expression->type) ||
+            type_is_array(&p_selection_statement->expression->type)))
         {
             compiler_diagnostic_message(W_ADDRESS, ctx, ctx->current, "always true");
         }

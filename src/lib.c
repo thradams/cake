@@ -2562,7 +2562,7 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 
         if(!is_system_include)
         {
-            content = readFilePath(ctx, current_file_dir, path, 
+            content = readFilePath(ctx, current_file_dir, path,
                     p_already_included, full_path_out, full_path_out_size);
             if (content != NULL)
                     return content;
@@ -2598,7 +2598,7 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 	}
         if(is_system_include)
         {
-            content = readFilePath(ctx, current_file_dir, path, 
+            content = readFilePath(ctx, current_file_dir, path,
                     p_already_included, full_path_out, full_path_out_size);
             if (content != NULL)
                     return content;
@@ -14676,7 +14676,7 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
                 new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                throw;
+                return NULL;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -15031,7 +15031,7 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid type shift expression");
-                throw;
+                return NULL;
             }
 
             p_expression_node = new_expression;
@@ -15087,7 +15087,7 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 new_expression = NULL;
-                throw;
+                return NULL;
             }
 
             new_expression->last_token = new_expression->right->last_token;
@@ -15415,7 +15415,7 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
             {
                 expression_delete(new_expression);
                 compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid types inclusive or expression");
-                throw;
+                return NULL;
             }
 
             p_expression_node = new_expression;
@@ -15466,11 +15466,11 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                expression_delete(new_expression);
                 type_print(&new_expression->left->type);
                 type_print(&new_expression->right->type);
                 compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
-                throw;
+                expression_delete(new_expression);
+                return NULL;
             }
             p_expression_node = new_expression;
         }
@@ -15779,7 +15779,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             if (p_conditional_expression->left == NULL)
             {
                 expression_delete(p_conditional_expression);
-                throw;
+                return NULL;
             }
 
             parser_match(ctx); //:
@@ -15787,7 +15787,7 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             if (p_conditional_expression->right == NULL)
             {
                 expression_delete(p_conditional_expression);
-                throw;
+                return NULL;
             }
 
 
@@ -15940,7 +15940,8 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
             else
             {
                 compiler_diagnostic_message(C_INCOMPATIBLE_TYPES, ctx, p_conditional_expression->condition_expr->first_token, "incompatible types??");
-                assert(false);
+                //assert(false);
+                return NULL;
             }
             p_expression_node = p_conditional_expression;
         }
@@ -27688,14 +27689,15 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
 
         p_selection_statement->expression = expression(ctx);
 
-        if (constant_value_is_valid(&p_selection_statement->expression->constant_value))
+        if (p_selection_statement->expression && constant_value_is_valid(&p_selection_statement->expression->constant_value))
         {
             //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
         }
 
 
-        if (type_is_function(&p_selection_statement->expression->type) ||
-            type_is_array(&p_selection_statement->expression->type))
+        if (p_selection_statement->expression &&
+            (type_is_function(&p_selection_statement->expression->type) ||
+            type_is_array(&p_selection_statement->expression->type)))
         {
             compiler_diagnostic_message(W_ADDRESS, ctx, ctx->current, "always true");
         }
