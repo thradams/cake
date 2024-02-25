@@ -2710,8 +2710,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             if (new_expression->right == NULL)
             {
                 expression_delete(new_expression);
-                new_expression = NULL;
-                throw;
+                return NULL;
             }
 
             new_expression->last_token = new_expression->right->last_token;
