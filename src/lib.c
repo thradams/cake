@@ -36567,7 +36567,7 @@ void ownership_flow_test_missing_destructor()
         "\n"
         "";
     assert(compile_without_errors(true, false, source));
-    
+
 }
 
 void ownership_flow_test_no_warning()
@@ -36740,7 +36740,7 @@ void ownership_flow_test_moving_owner_pointer()
         "\n"
         "";
     assert(compile_without_errors(true, false, source));
-   
+
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -36801,22 +36801,22 @@ void ownership_flow_test_setting_owner_pointer_to_null()
     const char* source
         =
         "\n"
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void* _Owner malloc(int i);\n"
+        "void free(void* _Owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
         "int main() {\n"
-        "   struct X * _Owner p = malloc(sizeof * p);   \n"
-        "   p = 0;\n"
-        "} \n"
-        "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+        "    struct X* _Owner p = malloc(sizeof * p);\n"
+        "    p = 0;\n"
+        "}\n"
+        "\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_while_not_null()
@@ -36882,15 +36882,17 @@ void ownership_types_test_error_owner()
 {
     const char* source
         =
-        "void * f();\n"
+        "void* f();\n"
         "int main() {\n"
-        "   void * _Owner p = f();   \n"
+        "    void* _Owner p = f();\n"
+        "#pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
         "}\n"
-        ;
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+        "\n"
+        "\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_if_variant()
@@ -37105,7 +37107,7 @@ void pointer_argument()
         "  x_change(x);\n"
         "}\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true , .diagnostic_stack[0] = default_diagnostic};
+    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true , .diagnostic_stack[0] = default_diagnostic };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 3);

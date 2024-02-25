@@ -1,11 +1,24 @@
 void* _Owner malloc(int sz);
+void free(void* _Owner _Opt p);
+
 
 void f(int i) {
-    if (i) {
+    void* _Owner p = 0;
+    if (i)
+    {
+        if (i)
+        {
+            p = malloc(1);
+        }
+        else
+        {
+            p = malloc(1);
+        }
     }
-    else {
-        int* _Owner p3 = malloc(1);
-    }
+
+    free(p);
 }
+
+
 void dummy() {}
 #pragma cake diagnostic check "-Wmissing-destructor"
