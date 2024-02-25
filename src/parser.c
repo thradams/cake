@@ -976,7 +976,9 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
             else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
             else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+#ifdef CAKE_ASSERT_IS_KEYWORD
             else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
+#endif
             break;
         case 'b':
             if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;

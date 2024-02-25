@@ -3055,7 +3055,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			token_list_destroy(&r4);
 
 			match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-
+#ifdef CAKE_ASSERT_IS_KEYWORD
 			if (strcmp(macro->name, "assert") == 0)
 			{
 				// TODO create option for this?
@@ -3064,6 +3064,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 				// and assert is a keyword. The reason is the send
 				// information to the static analyzer
 
+				//TODO detect GCC ((void)0)
 
 				if (!is_empty_assert(&macro->replacement_list))
 				{
@@ -3078,6 +3079,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
 				}
 			}
+#endif
 
 			if (macro_name_token)
 				naming_convention_macro(ctx, macro_name_token);
@@ -4545,7 +4547,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __pragma(a)\n"
 		"#define __declspec(a)\n"
 		"#define __crt_va_start(X) \n"
-		"#define __builtin_offsetof(type, member) 0\n"; //como nao defini msver ele pensa que eh gcc aqui
+		"#define __builtin_offsetof(type, member) 0\n"; 
 
 #endif
 
@@ -4559,6 +4561,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __builtin_va_end(a)\n"
 		"#define __builtin_va_arg(a, b) ((b)a)\n"
 		"#define __builtin_va_copy(a, b)\n"
+		"#define __builtin_offsetof(type, member) 0\n"
 
 		"#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
 		"#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"

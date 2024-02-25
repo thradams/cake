@@ -1,15 +1,7 @@
-void puts(const char*);
 
-#define DETECT_NULL_POINTER_CONSTANT(e) \
-    _Generic(e,                         \
-        void* : puts("void*"),          \
-        nullptr_t : puts("nullptr_t"),  \
-        default : puts("other")       \
-    )
+#define assert(x) ((void) 0)
 
 int main()
 {
-    DETECT_NULL_POINTER_CONSTANT(((void*)0));
-    DETECT_NULL_POINTER_CONSTANT(0);
-    DETECT_NULL_POINTER_CONSTANT(nullptr);
+    assert(F());
 }
