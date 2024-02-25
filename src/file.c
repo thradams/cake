@@ -1,15 +1,16 @@
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
+
 struct X {
     char* _Owner text;
 };
 
-void x_destroy(struct X* _Obj_owner p);
-
+void x_delete(struct X* _Owner  p);
 
 int main() {
-    struct X x;
-    x_destroy(&x);
+    struct X* _Owner p = malloc(sizeof(struct X));
+    x_delete(p); /*uninitialized*/
 }
-
 
 
 void dummy()

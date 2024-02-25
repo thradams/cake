@@ -37577,18 +37577,26 @@ void using_uninitialized()
         "void free(void* _Owner ptr);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner text;\n"
+        "    char* _Owner text;\n"
         "};\n"
         "\n"
-        "void x_delete(struct X * _Owner  p);\n"
+        "void x_delete(struct X* _Owner  p);\n"
         "\n"
-        "int main() {   \n"
-        "   struct X * _Owner p = malloc(sizeof(struct X));      \n"
-        "   x_delete(p); /*uninitialized*/\n"
+        "int main() {\n"
+        "    struct X* _Owner p = malloc(sizeof(struct X));\n"
+        "    x_delete(p); /*uninitialized*/\n"
         "}\n"
         "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "\n"
         "";
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void using_uninitialized_struct()

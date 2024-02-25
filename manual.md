@@ -117,7 +117,8 @@ Generates sarif files
 Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. 
 
 ### -analyze
-Runs flow analysis and ownership checks
+This option enables an static analysis of program flow. This is required for some
+ownership checks
 
 ## Output
 
