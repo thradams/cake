@@ -50,7 +50,7 @@ s_warnings[] = {
     {W_DISCARDING_OWNER, "discard-owner"},
     {W_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
-    {W_MAYBE_UNINITIALIZED, "uninitialized"},
+    {W_MAYBE_UNINITIALIZED, "maybe-uninitialized"},
     {W_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
     {W_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"}
 
