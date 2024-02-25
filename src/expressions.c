@@ -2680,7 +2680,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     */
 
     struct expression* owner p_expression_node = NULL;
-   
+
 
     try
     {
@@ -2698,7 +2698,11 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             struct token* operator_position = ctx->current;
 
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
+            if (new_expression == NULL) 
+            {
+                compiler_diagnostic_message(E_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+                throw;
+            }
 
             new_expression->first_token = ctx->current;
 
