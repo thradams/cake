@@ -1824,21 +1824,19 @@ void check_leaks_on_else_block()
 {
     const char* source
         =
-        "void * _Owner malloc(int sz);\n"
+        "void* _Owner malloc(int sz);\n"
         "\n"
-        "void f(int i) {   \n"
-        "        if (i){\n"
-        "        }   \n"
-        "        else {\n"
-        "            int * _Owner p3 = malloc(1);\n"
-        "        }\n"
+        "void f(int i) {\n"
+        "    if (i) {\n"
+        "    }\n"
+        "    else {\n"
+        "        int* _Owner p3 = malloc(1);\n"
+        "    }\n"
         "}\n"
-        ;
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_two_ifs()
