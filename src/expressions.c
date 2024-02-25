@@ -2755,6 +2755,8 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                     int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
                     if (code != 0)
                     {
+                        expression_delete(new_expression);
+                        new_expression = NULL;
                         compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "internal error");
                         throw;
                     }
@@ -2824,6 +2826,9 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                     int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
                     if (code != 0)
                     {
+                        expression_delete(new_expression);
+                        new_expression = NULL;
+
                         compiler_diagnostic_message(C_INVALID_TYPE, ctx, ctx->current, "internal error type_common");
                         throw;
                     }
