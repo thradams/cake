@@ -77,11 +77,7 @@
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 ///////////////////////////////////////////////////////////////////////////////
 
-static bool preprocessor_is_warning_enabled(const struct preprocessor_ctx* ctx, enum diagnostic_id w)
-{
-	return
-		(ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & w) != 0;
-}
+
 
 struct macro_parameter
 {
@@ -203,8 +199,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
         is_warning =
             (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
 
-        is_note =
-            w == W_NOTE ||
+        is_note =            
             ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
     }
 
@@ -4241,8 +4236,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
 					*/
 					if (input_list->head->type == TK_STRING_LITERAL)
 					{
-						if (preprocessor_is_warning_enabled(ctx, W_STRING_SLICED))
-							preprocessor_diagnostic_message(W_NOTE, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
+   					preprocessor_diagnostic_message(W_NOTE, ctx, input_list->head, "you can use \"adjacent\" \"strings\"");
 					}
 					else if (input_list->head->type == TK_LINE_COMMENT)
 						preprocessor_diagnostic_message(W_COMMENT, ctx, input_list->head, "multi-line //comment");
@@ -4475,11 +4469,12 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 	  This command prints all macros used by gcc
 	  echo | gcc -dM -E -
 	*/
-	const enum diagnostic_id w =
-		ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings;
+	const struct diagnostic w =
+		ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
 
 	/*we dont want warnings here*/
-	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = W_NONE;
+	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] = 
+		(struct diagnostic){0};
 
 	static char mon[][4] = {
 		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -4708,7 +4703,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 	token_list_destroy(&l10);
 
 	/*restore*/
-	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
+	ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] = w;
 }
 
 
@@ -5233,10 +5228,7 @@ void print_all_macros(struct preprocessor_ctx* prectx)
 }
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token)
 {
-	if (!preprocessor_is_warning_enabled(ctx, W_STYLE) || token->level != 0)
-	{
-		return;
-	}
+	
 
 	if (!is_screaming_case(token->lexeme))
 	{

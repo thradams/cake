@@ -318,7 +318,6 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
             (ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings & (1ULL << w)) != 0;
 
         is_note =
-            w == W_NOTE ||
             ((ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes & (1ULL << w)) != 0);
     }
 
@@ -365,7 +364,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    bool show_warning_name = w < W_NOTE;
+    bool show_warning_name = w < W_NOTE && w != W_LOCATION;
 
     if (ctx->options.visual_studio_ouput_format)
     {

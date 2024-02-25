@@ -1,3 +1,4 @@
+#define m 0
 int main() {
 	int a[5] = {0};
 	int i = a[5];
