@@ -325,7 +325,10 @@ int fill_options(struct options* options,
             }
             else
             {
-                options->diagnostic_stack[0].warnings |= w;
+                if (w == W_STYLE)
+                 options->diagnostic_stack[0].warnings |= w;
+                else 
+                    options->diagnostic_stack[0].notes |= w;
             }
             continue;
         }
