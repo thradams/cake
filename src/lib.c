@@ -5249,7 +5249,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			token_list_destroy(&r4);
 
 			match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-
+#ifdef CAKE_ASSERT_IS_KEYWORD
 			if (strcmp(macro->name, "assert") == 0)
 			{
 				// TODO create option for this?
@@ -5258,6 +5258,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 				// and assert is a keyword. The reason is the send
 				// information to the static analyzer
 
+				//TODO detect GCC ((void)0)
 
 				if (!is_empty_assert(&macro->replacement_list))
 				{
@@ -5272,6 +5273,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
 				}
 			}
+#endif
 
 			if (macro_name_token)
 				naming_convention_macro(ctx, macro_name_token);
@@ -6739,7 +6741,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __pragma(a)\n"
 		"#define __declspec(a)\n"
 		"#define __crt_va_start(X) \n"
-		"#define __builtin_offsetof(type, member) 0\n"; //como nao defini msver ele pensa que eh gcc aqui
+		"#define __builtin_offsetof(type, member) 0\n"; 
 
 #endif
 
@@ -6753,6 +6755,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __builtin_va_end(a)\n"
 		"#define __builtin_va_arg(a, b) ((b)a)\n"
 		"#define __builtin_va_copy(a, b)\n"
+		"#define __builtin_offsetof(type, member) 0\n"
 
 		"#define __CHAR_BIT__ " TOSTRING(__CHAR_BIT__) "\n"
 		"#define __SIZE_TYPE__ " TOSTRING(__SIZE_TYPE__) "\n"
@@ -22707,7 +22710,9 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
             else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
             else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+#ifdef CAKE_ASSERT_IS_KEYWORD
             else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
+#endif
             break;
         case 'b':
             if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
@@ -38375,10 +38380,12 @@ void bounds_check1()
     const char* source
         =
         "int main() {\n"
-        "	int a[5];\n"
+        "	int a[5] = {0};\n"
         "	int i = a[5];\n"
-        "}";
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+        "}\n"
+        "#pragma cake diagnostic check \"-Wout-of-bounds\"";
+
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
 void bounds_check2()
@@ -38389,9 +38396,8 @@ void bounds_check2()
         "{\n"
         "    int i = array[5];\n"
         "}\n"
-        "";
-
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+        "#pragma cake diagnostic check \"-Wout-of-bounds\"\n";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 
 void uninitialized_objects_passed_to_variadic_function()
