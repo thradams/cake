@@ -2160,8 +2160,10 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                         ctx,
                         op_position,
                         "array indirection");
-                    new_expression->type = get_array_item_type(&new_expression->right->type);
-                }
+                    if(new_expression->right->type.next)
+                        new_expression->type = get_array_item_type(&new_expression->right->type);
+                    else
+                        new_expression->type = (struct type){0};                }
             }
             else if (op == '&')
             {
