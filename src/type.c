@@ -957,7 +957,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 	{
 		if (!type_is_same(argument_type, paramer_type, false))
 		{
-			compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx,
+			compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES, ctx,
 				current_argument->expression->first_token,
 				" incompatible types at argument %d", param_num);
 		}
@@ -1067,7 +1067,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 				if (parameter_array_size != 0 &&
 					argument_array_size < parameter_array_size)
 				{
-					compiler_diagnostic_message(ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
+					compiler_diagnostic_message(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
 						ctx,
 						current_argument->expression->first_token,
 						" argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
@@ -1089,7 +1089,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 			type_print(&argument_type_converted);
 			type_print(&parameter_type_converted);
 
-			compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx,
+			compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES, ctx,
 				current_argument->expression->first_token,
 				" incompatible types at argument %d", param_num);
 			//disabled for now util it works correctly
@@ -1459,7 +1459,7 @@ void check_assigment(struct parser_ctx* ctx,
 				if (parameter_array_size != 0 &&
 					argument_array_size < parameter_array_size)
 				{
-					compiler_diagnostic_message(ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
+					compiler_diagnostic_message(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
 						right->first_token,
 						" argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
 				}
@@ -1484,7 +1484,7 @@ void check_assigment(struct parser_ctx* ctx,
 			type_print(&lvalue_right_type);
 			type_print(&t2);
 
-			compiler_diagnostic_message(ERROR_INCOMPATIBLE_TYPES, ctx,
+			compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES, ctx,
 				right->first_token,
 				" incompatible types at argument ");
 			//disabled for now util it works correctly

@@ -709,7 +709,7 @@ void const_member()
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&&
-        report.last_error == ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
+        report.last_error == C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
 }
 
 void register_struct_member()
@@ -884,7 +884,7 @@ void address_of_register()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == ERROR_ADDRESS_OF_REGISTER*/);
+    assert(report.error_count == 1 /*&& report.last_error == C_ERROR_ADDRESS_OF_REGISTER*/);
 }
 
 void return_address_of_local()
@@ -943,7 +943,7 @@ void assignment_of_read_only_object()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
+    assert(report.error_count == 1 /*&& report.last_error == C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1227,7 +1227,7 @@ void obj_owner_cannot_be_used_in_non_pointer()
     struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER*/);
+    assert(report.error_count == 1 /*&& report.last_error == C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER*/);
 
 }
 
