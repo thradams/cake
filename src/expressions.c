@@ -1658,10 +1658,10 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
 
                 parser_match(ctx);
-                if (p_expression_node->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+                if (p_expression_node_new->left->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p =
-                        find_struct_or_union_specifier(ctx, p_expression_node->type.struct_or_union_specifier->tag_name);
+                        find_struct_or_union_specifier(ctx, p_expression_node_new->left->type.struct_or_union_specifier->tag_name);
                     p = get_complete_struct_or_union_specifier(p);
                     if (p)
                     {
@@ -3637,7 +3637,7 @@ struct expression* owner expression(struct parser_ctx* ctx)
                     expression_delete(p_expression_node_new);
                     throw;
                 }
-                p_expression_node->last_token = p_expression_node_new->right->last_token;
+                p_expression_node_new->left->last_token = p_expression_node_new->right->last_token;
 
                 p_expression_node = p_expression_node_new;
             }

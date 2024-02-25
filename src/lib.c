@@ -678,6 +678,7 @@ enum diagnostic_id {
     C_CHARACTER_TOO_LARGE,
 
     C_PRAGMA_ERROR,
+    E_OUT_OF_MEM,
 
 };
 
@@ -14706,13 +14707,16 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     */
 
     struct expression* owner p_expression_node = NULL;
-   
+
 
     try
     {
         p_expression_node = multiplicative_expression(ctx);
-        if (p_expression_node == NULL) throw;
-
+        if (p_expression_node == NULL)
+        {
+            compiler_diagnostic_message(E_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+            throw;
+        }
 
         while (ctx->current != NULL &&
             (ctx->current->type == '+' ||
@@ -14721,7 +14725,11 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             struct token* operator_position = ctx->current;
 
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
-            if (new_expression == NULL) throw;
+            if (new_expression == NULL) 
+            {
+                compiler_diagnostic_message(E_OUT_OF_MEM, ctx, ctx->current, "out of mem");
+                throw;
+            }
 
             new_expression->first_token = ctx->current;
 
@@ -14897,11 +14905,6 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     }
     catch
     {
-        if (p_expression_node)
-        {
-            expression_node_delete(p_expression_node);
-            p_expression_node = NULL;
-        }
     }
 
 
