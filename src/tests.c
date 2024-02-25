@@ -2082,23 +2082,21 @@ void switch_break()
 
 void passing_non_owner()
 {
-    /*
-      We need to analuse better this case...
-
-    */
     const char* source
         =
-        "struct X { \n"
-        "    char * _Owner p;\n"
+        "struct X {\n"
+        "    char* _Owner p;\n"
         "};\n"
-        "void x_destroy(struct X * _Obj_owner p);\n"
+        "void x_destroy(struct X* _Obj_owner p);\n"
         "void f(struct X* x)\n"
         "{\n"
-        "    x_destroy(x);        \n"
+        "    x_destroy(x);\n"
         "}\n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
         "";
 
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void flow_analysis_else()
