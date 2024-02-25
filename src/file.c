@@ -1,6 +1,5 @@
-#define m 0
-int main() {
-	int a[5] = {0};
-	int i = a[5];
+
+int main() 
+{
+	int i = 'qaaaaaaaaaaaaaaa';
 }
-#pragma cake diagnostic check "-Wout-of-bounds"

@@ -957,6 +957,12 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             if (p == 0)
                 break;
             value = value * 256 + c;
+            if (value > INT_MAX)
+            {
+                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+
+                break;
+            }
         }
 
         p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
@@ -984,6 +990,11 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             if (p == 0)
                 break;
             value = value * 256 + c;
+            if (value > INT_MAX)
+            {
+                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+                break;
+            }
         }
         p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
     }
