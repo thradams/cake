@@ -410,8 +410,7 @@ primary-expression ::=
 //(6.5.1.1)
 generic-selection ::=
 	"_Generic" '(' assignment-expression ',' generic-assoc-list ')'
-	|
-	"_Generic" '(' type-name ',' generic-assoc-list ')'
+	| "_Generic" '(' type-name ',' generic-assoc-list ')'
 
 //(6.5.1.1)
 generic-assoc-list ::=
