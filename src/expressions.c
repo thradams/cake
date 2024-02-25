@@ -1387,12 +1387,11 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
             p_expression_node->right = expression(ctx);
-
-
+            if (p_expression_node->right == NULL) throw;
 
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
-            if (p_expression_node->right == NULL) throw;
+            
             p_expression_node->last_token = ctx->current;
             parser_match_tk(ctx, ')');
 
