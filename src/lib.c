@@ -569,7 +569,7 @@ enum diagnostic_id {
 
     W_RETURN_LOCAL_ADDR,
 
-
+    W_MUST_USE_ADDRESSOF,
     /*ownership type system errors*/
     W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
     W_OWNERSHIP_NOT_OWNER,
@@ -9696,7 +9696,8 @@ s_warnings[] = {
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
     {W_ANALYZER_UNINITIALIZED, "maybe-uninitialized"},
     {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"}
+    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"},
+    {W_MUST_USE_ADDRESSOF, "must-use-address-of"}
 
 };
 
@@ -17610,7 +17611,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 				if (!argument_type->address_of)
 				{
 					//we need something created with address of.
-					compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+					compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
 						ctx,
 						current_argument->expression->first_token,
 						"obj_owner pointer must be created using address of operator &");
@@ -37520,35 +37521,42 @@ void obj_owner_must_be_from_addressof()
         =
         "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
-        "char * _Owner strdup(const char* );\n"
+        "char* _Owner strdup(const char*);\n"
         "\n"
         "struct X {\n"
-        "  char *_Owner name;\n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
         "struct Y {\n"
-        "  struct X x;\n"
-        "  struct X * px;\n"
+        "    struct X x;\n"
+        "    struct X* px;\n"
         "};\n"
         "\n"
-        "void x_destroy(struct X * _Obj_owner p) \n"
+        "void x_destroy(struct X* _Obj_owner p)\n"
         "{\n"
-        "  free(p->name);\n"
+        "    free(p->name);\n"
         "}\n"
         "\n"
-        "void f(struct Y * p)\n"
-        "{    \n"
+        "void f(struct Y* p)\n"
+        "{\n"
         "    x_destroy(p->px);\n"
         "}\n"
         "\n"
         "int main() {\n"
-        "   struct Y  y = {};   \n"
-        "   struct * p = &y.x;\n"
-        "   x_destroy(&y.x);\n"
+        "    struct Y  y = {};\n"
+        "    struct* p = &y.x;\n"
+        "    x_destroy(&y.x);\n"
         "}\n"
         "\n"
+        "\n"
+        "\n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
+        "\n"
         "";
-    assert(compile_with_errors(true, false, source));
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void discarding_owner()

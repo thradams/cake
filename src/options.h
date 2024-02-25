@@ -36,7 +36,7 @@ enum diagnostic_id {
 
     W_RETURN_LOCAL_ADDR,
 
-
+    W_MUST_USE_ADDRESSOF,
     /*ownership type system errors*/
     W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
     W_OWNERSHIP_NOT_OWNER,

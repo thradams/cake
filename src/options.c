@@ -52,7 +52,8 @@ s_warnings[] = {
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
     {W_ANALYZER_UNINITIALIZED, "maybe-uninitialized"},
     {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"}
+    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"},
+    {W_MUST_USE_ADDRESSOF, "must-use-address-of"}
 
 };
 
