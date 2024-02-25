@@ -2518,7 +2518,7 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
 	/*realpath returns empty on emscriptem*/
 	snprintf(full_path_out, full_path_out_size, "%s", newpath);
 #else
-	if(!realpath(newpath, full_path_out))
+	if (!realpath(newpath, full_path_out))
             full_path_out[0] = '\0';
 #endif
 
@@ -8820,7 +8820,7 @@ char* realpath(const char* restrict path, char* restrict resolved_path)
       created absolute path name (absPath) is greater than maxLength), the function returns NULL.
     */
     char* p = _fullpath(resolved_path, path, MAX_PATH);
-    if(p)
+    if (p)
     {
         char* p2 = resolved_path;
         while (*p2)
@@ -14747,7 +14747,6 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
         p_expression_node = multiplicative_expression(ctx);
         if (p_expression_node == NULL)
         {
-            compiler_diagnostic_message(ERROR_OUT_OF_MEM, ctx, ctx->current, "out of mem");
             throw;
         }
 
@@ -29737,7 +29736,7 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
 	struct generic_association* p = p_generic_selection->generic_assoc_list.head;
 	while (p)
 	{
-		if(p->p_type_name) visit_type_name(ctx, p->p_type_name);
+		if (p->p_type_name) visit_type_name(ctx, p->p_type_name);
 		visit_expression(ctx, p->expression);
 		p = p->next;
 	}
