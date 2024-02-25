@@ -672,7 +672,7 @@ void set_object_state(
             {
                 char buffer[100] = {0};
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
-                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
                     error_position,
                     "source object '%s' is uninitialized", buffer);
@@ -682,7 +682,7 @@ void set_object_state(
                 char buffer[100] = {0};
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
                     error_position,
                     "source object '%s' may be uninitialized", buffer);
@@ -696,7 +696,7 @@ void set_object_state(
                     char buffer[100] = {0};
                     object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                    compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         error_position,
                         "source object '%s' have been moved", buffer);
@@ -706,7 +706,7 @@ void set_object_state(
                     char buffer[100] = {0};
                     object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                    compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         error_position,
                         "source object '%s' may have been moved", buffer);
@@ -1233,14 +1233,14 @@ void checked_moved(struct parser_ctx* ctx,
 
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
-            if (compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a moved object '%s'",
                 parameter_name,
                 name))
             {
-                compiler_diagnostic_message(W_NOTE, ctx, name_pos, "parameter", name);
+                compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
             }
         }
 
@@ -1251,14 +1251,14 @@ void checked_moved(struct parser_ctx* ctx,
 
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a uninitialized object '%s'",
                 parameter_name,
                 name);
 
-            compiler_diagnostic_message(W_NOTE, ctx, name_pos, "parameter", name);
+            compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
         }
     }
 }
@@ -1336,7 +1336,7 @@ void checked_read_object(struct parser_ctx* ctx,
 
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "object '%s' was moved",
@@ -1347,7 +1347,7 @@ void checked_read_object(struct parser_ctx* ctx,
         {
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
+            compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                 ctx,
                 position_token,
                 "uninitialized object '%s'",
@@ -1404,14 +1404,14 @@ void visit_object(struct parser_ctx* ctx,
             *  have been moved.
             */
             const struct token* const name = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 name,
                 "object '%s' was not moved/destroyed",
                 previous_names);
 
             if (p_object->declarator)
-                compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", previous_names);
+                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", previous_names);
         }
         else
         {
@@ -1535,7 +1535,7 @@ void visit_object(struct parser_ctx* ctx,
                     {
                         if (is_assigment)
                         {
-                            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                                 ctx,
                                 position_token,
                                 "memory pointed by '%s' was not released before assignment.",
@@ -1543,14 +1543,14 @@ void visit_object(struct parser_ctx* ctx,
                         }
                         else
                         {
-                            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                                 ctx,
                                 position,
                                 "memory pointed by '%s' was not released.",
                                 name);
                             if (p_object->declarator)
                             {
-                                compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", name);
+                                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
                             }
                         }
                     }
@@ -1559,7 +1559,7 @@ void visit_object(struct parser_ctx* ctx,
                 {
                     if (is_assigment)
                     {
-                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                        compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                             ctx,
                             position_token,
                             "previous members of '%s' were not moved before this assignment.",
@@ -1567,14 +1567,14 @@ void visit_object(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                        compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                             ctx,
                             position,
                             "object '%s' was not moved.",
                             name);
                         if (p_object->declarator)
                         {
-                            compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", name);
+                            compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
                         }
                     }
                 }
@@ -1644,7 +1644,7 @@ void object_assignment(struct parser_ctx* ctx,
         }
         */
 
-        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+        compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
             ctx,
             error_position,
             "Object must be owner qualified.");

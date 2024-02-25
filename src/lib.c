@@ -584,7 +584,7 @@ enum diagnostic_id {
 
     W_RETURN_LOCAL_ADDR,
 
-
+    W_MUST_USE_ADDRESSOF,
     /*ownership type system errors*/
     W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
     W_OWNERSHIP_NOT_OWNER,
@@ -593,19 +593,21 @@ enum diagnostic_id {
 
     W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
     W_DISCARDING_OWNER,
-
-    /*flow analysis errors*/
-    W_OWNERSHIP_FLOW_MISSING_DTOR,
     W_OWNERSHIP_NON_OWNER_MOVE,
 
-    W_MAYBE_UNINITIALIZED,
-    W_NULL_DEREFERENCE,
+    /*flow analysis errors*/
+    W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+
+
+    W_ANALYZER_UNINITIALIZED,
+    W_ANALYZER_NULL_DEREFERENCE,
 
     W_DIVIZION_BY_ZERO,
 
-    W_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
-
+    W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
+    W_LOCATION,
     W_NOTE,
+
     //AFTER THIS POINT (W_NOTE) MESSAGES ARE ALWAYS ERRORS
     ////////////////////////////////////////
 
@@ -668,6 +670,7 @@ enum diagnostic_id {
     C_MISSING_ENUM_TAG_NAME,
     C_MULTIPLE_DEFINITION_ENUM,
     C_STATIC_ASSERT_FAILED,
+    C_STATIC_STATE_FAILED,
     C_ATTR_UNBALANCED,
     C_UNEXPECTED_END_OF_FILE,
     C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK,
@@ -740,7 +743,7 @@ struct diagnostic
     /*set of diagnostics reported as notes*/
     unsigned long long notes;
 };
-
+int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
 struct options
@@ -2173,11 +2176,9 @@ void c_clrscr()
 #define rmdir _rmdir
 #define chdir _chdir
 
-
 #ifdef __CAKE__
 #pragma cake diagnostic pop
 #endif
-
 
 /*
  opendir,  readdir closedir for windows.
@@ -9682,7 +9683,11 @@ char* owner read_file(const char* path)
 
 struct diagnostic default_diagnostic = {
 
-      .warnings = ~0ULL
+      .warnings = (~0ULL) & ~(
+        (1ULL << W_NOTE) |
+        (1ULL << W_STYLE) |
+        (1ULL << W_UNUSED_PARAMETER) |
+        (1ULL << W_UNUSED_VARIABLE))
 };
 
 static struct w {
@@ -9709,8 +9714,8 @@ s_warnings[] = {
     {W_UNINITIALZED, "uninitialized"},
     {W_RETURN_LOCAL_ADDR, "return-local-addr"},
     {W_DIVIZION_BY_ZERO,"div-by-zero"},
-    
-    
+
+
     {W_STRING_SLICED,"string-slicing"},
     {W_DECLARATOR_STATE,"declarator-state"},
     {W_OWNERSHIP_MISSING_OWNER_QUALIFIER, "missing-owner-qualifier"},
@@ -9719,13 +9724,29 @@ s_warnings[] = {
     {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
     {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
     {W_DISCARDING_OWNER, "discard-owner"},
-    {W_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
+    {W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
-    {W_MAYBE_UNINITIALIZED, "uninitialized"},
-    {W_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"}
-    
+    {W_ANALYZER_UNINITIALIZED, "maybe-uninitialized"},
+    {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
+    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"},
+    {W_MUST_USE_ADDRESSOF, "must-use-address-of"}
+
 };
+
+int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
+{
+    if ((d->errors & (1ULL << w)) != 0)
+        return 3;
+
+    if ((d->warnings & (1ULL << w)) != 0)
+        return 2;
+
+    if ((d->notes & (1ULL << w)) != 0)
+        return 1;
+
+    return 0;
+
+}
 
 enum diagnostic_id  get_warning(const char* wname)
 {
@@ -9775,15 +9796,9 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->diagnostic_stack[0].warnings = ~0ULL;
-    options->diagnostic_stack[0].warnings &= ~(
-        (1ULL << W_NOTE) |
-        (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER) |
-        (1ULL << W_UNUSED_VARIABLE)); //default is OFF
-    
-    
-    
+    options->diagnostic_stack[0] = default_diagnostic;
+
+
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;
@@ -9823,7 +9838,7 @@ int fill_options(struct options* options,
             }
             continue;
         }
-        
+
         if (strcmp(argv[i], "-showIncludes") == 0)
         {
             options->show_includes = true;
@@ -9969,9 +9984,9 @@ int fill_options(struct options* options,
             enum diagnostic_id  w = 0;
 
             if (disable_warning)
-                w =  get_warning_bit_mask(argv[i] + 5);
+                w = get_warning_bit_mask(argv[i] + 5);
             else
-                w =  get_warning_bit_mask(argv[i] + 2);
+                w = get_warning_bit_mask(argv[i] + 2);
 
             if (w == 0)
             {
@@ -10079,14 +10094,14 @@ void print_help()
 
 void test_get_warning_name()
 {
-    const char* name = get_warning_name(W_OWNERSHIP_FLOW_MISSING_DTOR);
+    const char* name = get_warning_name(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR);
     assert(strcmp(name, "missing-destructor") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(name);
-    assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
+    assert(flags == (1ULL << W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR));
 
 
-        const char* name2 = get_warning_name(W_STYLE);
+    const char* name2 = get_warning_name(W_STYLE);
     assert(strcmp(name2, "style") == 0);
 
     unsigned long long  flags2 = get_warning_bit_mask(name2);
@@ -13324,10 +13339,18 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
 
             if (get_char_type(ctx->current->lexeme) == 2)
             {
-                if (sizeof(wchar_t) == 2)
-                    char_type = /*TYPE_SPECIFIER_UNSIGNED |*/ TYPE_SPECIFIER_SHORT;
-                else if (sizeof(wchar_t) == 4)
-                    char_type = /*TYPE_SPECIFIER_UNSIGNED |*/ TYPE_SPECIFIER_INT;
+                /*
+                   automatically finding out the type of wchar_t to copy
+                   GCC or MSVC.
+                   windows it is short linux is
+                */
+                char_type =
+                    _Generic((wchar_t)0,
+                        short:  TYPE_SPECIFIER_SHORT,
+                        unsigned short : TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT,
+                        int : TYPE_SPECIFIER_INT,
+                        unsigned int : TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT
+                        );
             }
 
             p_expression_node->type = type_make_literal_string(string_literal_byte_size(ctx->current->lexeme), char_type);
@@ -17629,7 +17652,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 				if (!argument_type->address_of)
 				{
 					//we need something created with address of.
-					compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+					compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
 						ctx,
 						current_argument->expression->first_token,
 						"obj_owner pointer must be created using address of operator &");
@@ -20588,7 +20611,7 @@ void set_object_state(
             {
                 char buffer[100] = {0};
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
-                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
                     error_position,
                     "source object '%s' is uninitialized", buffer);
@@ -20598,7 +20621,7 @@ void set_object_state(
                 char buffer[100] = {0};
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
                     error_position,
                     "source object '%s' may be uninitialized", buffer);
@@ -20612,7 +20635,7 @@ void set_object_state(
                     char buffer[100] = {0};
                     object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                    compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         error_position,
                         "source object '%s' have been moved", buffer);
@@ -20622,7 +20645,7 @@ void set_object_state(
                     char buffer[100] = {0};
                     object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                    compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         error_position,
                         "source object '%s' may have been moved", buffer);
@@ -21149,14 +21172,14 @@ void checked_moved(struct parser_ctx* ctx,
 
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
-            if (compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a moved object '%s'",
                 parameter_name,
                 name))
             {
-                compiler_diagnostic_message(W_NOTE, ctx, name_pos, "parameter", name);
+                compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
             }
         }
 
@@ -21167,14 +21190,14 @@ void checked_moved(struct parser_ctx* ctx,
 
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a uninitialized object '%s'",
                 parameter_name,
                 name);
 
-            compiler_diagnostic_message(W_NOTE, ctx, name_pos, "parameter", name);
+            compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
         }
     }
 }
@@ -21252,7 +21275,7 @@ void checked_read_object(struct parser_ctx* ctx,
 
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "object '%s' was moved",
@@ -21263,7 +21286,7 @@ void checked_read_object(struct parser_ctx* ctx,
         {
             char name[200] = {0};
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
+            compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                 ctx,
                 position_token,
                 "uninitialized object '%s'",
@@ -21320,14 +21343,14 @@ void visit_object(struct parser_ctx* ctx,
             *  have been moved.
             */
             const struct token* const name = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 name,
                 "object '%s' was not moved/destroyed",
                 previous_names);
 
             if (p_object->declarator)
-                compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", previous_names);
+                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", previous_names);
         }
         else
         {
@@ -21451,7 +21474,7 @@ void visit_object(struct parser_ctx* ctx,
                     {
                         if (is_assigment)
                         {
-                            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                                 ctx,
                                 position_token,
                                 "memory pointed by '%s' was not released before assignment.",
@@ -21459,14 +21482,14 @@ void visit_object(struct parser_ctx* ctx,
                         }
                         else
                         {
-                            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                                 ctx,
                                 position,
                                 "memory pointed by '%s' was not released.",
                                 name);
                             if (p_object->declarator)
                             {
-                                compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", name);
+                                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
                             }
                         }
                     }
@@ -21475,7 +21498,7 @@ void visit_object(struct parser_ctx* ctx,
                 {
                     if (is_assigment)
                     {
-                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                        compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                             ctx,
                             position_token,
                             "previous members of '%s' were not moved before this assignment.",
@@ -21483,14 +21506,14 @@ void visit_object(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                        compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                             ctx,
                             position,
                             "object '%s' was not moved.",
                             name);
                         if (p_object->declarator)
                         {
-                            compiler_diagnostic_message(W_NOTE, ctx, position_token, "end of '%s' scope", name);
+                            compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
                         }
                     }
                 }
@@ -21560,7 +21583,7 @@ void object_assignment(struct parser_ctx* ctx,
         }
         */
 
-        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+        compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
             ctx,
             error_position,
             "Object must be owner qualified.");
@@ -22013,6 +22036,10 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     {
         is_error = true;
     }
+    else if (w == W_LOCATION)
+    {
+        is_note = true;
+    }
     else
     {
         is_error =
@@ -22040,14 +22067,15 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     }
     else if (is_note)
     {
-        ctx->p_report->info_count++;
+        if (w != W_LOCATION)
+          ctx->p_report->info_count++;
     }
     else
     {
         return false;
     }
 
-    if (w != W_NOTE)
+    if (w != W_LOCATION)
        ctx->p_report->last_diagnostic_id = w;
 
     const char* func_name = "module";
@@ -22776,7 +22804,8 @@ enum token_type is_keyword(const char* text)
         else if (strcmp("__int64", text) == 0) result = TK_KEYWORD__INT64;
         else if (strcmp("__forceinline", text) == 0) result = TK_KEYWORD_INLINE;
         else if (strcmp("__inline", text) == 0) result = TK_KEYWORD_INLINE;
-        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0) result = TK_KEYWORD__ASM;
+        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0 
+                || strcmp("__asm__", text) == 0) result = TK_KEYWORD__ASM;
         else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
         //
         //end microsoft
@@ -23332,6 +23361,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 (strcmp(ctx->current->lexeme, "check") == 0)
                 )
             {
+                //TODO better name .  Ack. : means ‘alarm acknowledged’ ?
                 ctx->current = ctx->current->next;
                 pragma_skip_blanks(ctx);
 
@@ -23340,7 +23370,19 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                     enum diagnostic_id id = get_warning(ctx->current->lexeme + 1 + 2);
                     if (ctx->p_report->last_diagnostic_id == id)
                     {
-                        *ctx->p_report = (struct report){ 0 };
+                        //lets remove this error/warning/info from the final report.
+
+                        int t = 
+                            get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                                id);
+                        if (t == 3)
+                            ctx->p_report->error_count--;
+                        else if (t == 2)
+                            ctx->p_report->warnings_count--;
+                        else if (t == 1)
+                            ctx->p_report->info_count--;
+                        
+                        
                     }
                     else
                     {
@@ -30614,7 +30656,6 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 			}
 			else
 			{
-				assert(p_init_declarator->initializer->braced_initializer != NULL);
 				if (p_init_declarator->initializer->braced_initializer)
 				{
 					visit_bracket_initializer_list(ctx,
@@ -32660,7 +32701,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 if (p_argument_object2 &&
                     p_argument_object2->state & OBJECT_STATE_NULL)
                 {
-                    compiler_diagnostic_message(W_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
+                    compiler_diagnostic_message(W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
                         ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
@@ -32842,13 +32883,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
             if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->left->first_token, "using a uninitialized object");
             }
             else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
             {
-                compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->left->first_token, "maybe using a uninitialized object");
             }
@@ -32994,7 +33035,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
         {
-            compiler_diagnostic_message(W_MAYBE_UNINITIALIZED,
+            compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                 ctx->ctx,
                 p_expression->right->first_token, "using a uninitialized object");
         }
@@ -33010,7 +33051,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
                 {
 
-                    compiler_diagnostic_message(W_NULL_DEREFERENCE,
+                    compiler_diagnostic_message(W_ANALYZER_NULL_DEREFERENCE,
                         ctx->ctx,
                         p_expression->right->first_token, "dereference a NULL object");
                 }
@@ -33625,6 +33666,10 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
+        /*TODO
+           check state
+        
+        */
         struct type t = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
         if (p_obj)
@@ -33638,12 +33683,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 {
                     if (e != p_obj->state)
                     {
-                        compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+                        compiler_diagnostic_message(C_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
                     }
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                    compiler_diagnostic_message(C_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                 }
             }
 
@@ -36068,7 +36113,7 @@ void simple_move_error()
         "#pragma cake diagnostic check \"-Wnon-owner-move\"\n"
         "}\n";
 
-        assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void parameter_view()
@@ -36288,12 +36333,11 @@ void error_using_temporary_owner()
         "int main()\n"
         "{\n"
         "    F(make());\n"
-        "}";
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_USING_TEMPORARY_OWNER*/);
+        "}\n"
+        "#pragma cake diagnostic check \"-Wtemp-owner\"\n"
+        "";
 
+    assert(compile_without_errors(true, false, source));
 }
 
 void passing_view_to_owner()
@@ -36304,15 +36348,13 @@ void passing_view_to_owner()
         "\n"
         "int main()\n"
         "{\n"
-        "  _Owner int i = 0;\n"
-        "  int v = i;\n"
-        "  destroy(v);\n"
+        "    _Owner int i = 0;\n"
+        "    int v = i;\n"
+        "    destroy(v);\n"
         "}\n"
-        "";
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER*/);
+        "\n"
+        "#pragma cake diagnostic check \"-Wnon-owner-move\"";
+    assert(compile_without_errors(true, false, source));
 }
 
 void obj_owner_cannot_be_used_in_non_pointer()
@@ -36348,15 +36390,23 @@ void ownership_flow_test_pointer_must_be_deleted()
         "\n"
         "int* _Owner  get();\n"
         "\n"
-        "void f() {\n"
-        "    int * _Owner p = 0;\n"
+        "void f() \n"
+        "{\n"
+        "    int* _Owner p = 0;\n"
         "    p = get();\n"
         "}\n"
-        " ";
-    struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
+        "";
+
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_basic_pointer_check()
@@ -36382,25 +36432,30 @@ void ownership_flow_test_struct_member_missing_free()
 {
     const char* source
         =
-        "\n"
-        "char * _Owner strdup(const char* s);\n"
+        "char* _Owner strdup(const char* s);\n"
         "void free(void* _Owner p);\n"
         "\n"
-        "struct X {\n"
-        "  char * _Owner text;\n"
+        "struct X \n"
+        "{\n"
+        "    char* _Owner text;\n"
         "};\n"
         "\n"
         "void f(int a)\n"
         "{\n"
-        "    struct X x = {0};\n"
+        "    struct X x = { 0 };\n"
         "    x.text = strdup(\"a\");\n"
         "}\n"
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
         "";
-    struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
-    ////TODO return ROOT object!
+
+    assert(compile_without_errors(true, false, source));
 
 }
 
@@ -36431,21 +36486,26 @@ void ownership_flow_test_move_inside_if()
 {
     const char* source
         =
-        "void free( void* _Owner ptr);\n"
+        "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
-        "void f(int c) \n"
+        "void f(int c)\n"
         "{\n"
-        "    int * _Owner p = malloc(sizeof (int));    \n"
+        "    int* _Owner p = malloc(sizeof(int));\n"
         "    if (c) {\n"
-        "      free(p);\n"
+        "        free(p);\n"
         "    }\n"
         "}\n"
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
-    struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1);
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_goto_same_scope()
@@ -36490,7 +36550,7 @@ void ownership_flow_test_jump_labels()
     struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
+    assert(report.error_count == 1 /*&& report.last_error == W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR*/);
 }
 
 void ownership_flow_test_owner_if_pattern_1()
@@ -36540,19 +36600,22 @@ void ownership_flow_test_missing_destructor()
     const char* source
         =
         "struct X {\n"
-        "  _Owner i;\n"
+        "    _Owner i;\n"
         "};\n"
         "void f() {\n"
-        "  const struct X x = {0};\n"
+        "    const struct X x = { 0 };\n"
         "}\n"
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
         "";
-
-
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
-
+    assert(compile_without_errors(true, false, source));
+    
 }
 
 void ownership_flow_test_no_warning()
@@ -36697,27 +36760,35 @@ void ownership_flow_test_moving_owner_pointer()
     const char* source
         =
         "\n"
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void* _Owner malloc(int i);\n"
+        "void free(void* _Owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
-        "void x_delete( struct X * _Owner p)\n"
+        "void x_delete(struct X* _Owner p)\n"
         "{\n"
-        "  if (p) {\n"
-        "      free(p->name);\n"
-        "      free(p);\n"
-        "  }\n"
+        "    if (p) {\n"
+        "        free(p->name);\n"
+        "        free(p);\n"
+        "    }\n"
         "}\n"
         "\n"
         "int main() {\n"
-        "   struct X * _Owner p = malloc(sizeof * p);   \n"
-        "   x_delete(p);      \n"
+        "    struct X* _Owner p = malloc(sizeof * p);\n"
+        "    x_delete(p);\n"
+        "}\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
         "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "\n"
         "";
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
+   
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -36725,26 +36796,29 @@ void ownership_flow_test_moving_owner_pointer_missing()
     const char* source
         =
         "\n"
-        "void * _Owner malloc(int i);\n"
-        "void free( void * _Owner p);\n"
+        "void* _Owner malloc(int i);\n"
+        "void free(void* _Owner p);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner name;    \n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
-        "void x_delete( struct X * _Owner p)\n"
+        "void x_delete(struct X* _Owner p)\n"
         "{\n"
-        "  if (p) {\n"
-        "      //free(p->name);\n"
-        "      free(p);\n"
-        "  }\n"
+        "    if (p) {\n"
+        "        //free(p->name);\n"
+        "        free(p);\n"
+        "    }\n"
         "}\n"
         "\n"
+        "\n"
+        "void dummy() {}\n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_error()
@@ -36754,21 +36828,20 @@ void ownership_flow_test_error()
         "\n"
         "void* _Owner malloc(int size);\n"
         "\n"
-        "struct X {    \n"
-        "    char * _Owner name;\n"
+        "struct X {\n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
-        "void * _Owner f1(){\n"
-        "  struct X * _Owner p = malloc(sizeof (struct X));\n"
-        "  p->name = malloc(1);  \n"
-        "  return p;\n"
+        "void* _Owner f1() {\n"
+        "    struct X* _Owner p = malloc(sizeof(struct X));\n"
+        "    p->name = malloc(1);\n"
+        "    return p;\n"
         "}\n"
-        "";
+        "\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_test_setting_owner_pointer_to_null()
@@ -36872,23 +36945,20 @@ void ownership_flow_test_if_variant()
 {
     const char* source
         =
-        "void * _Owner f();\n"
-        "void free( void *_Owner p);\n"
+        "void* _Owner f();\n"
+        "void free(void* _Owner p);\n"
         "int main() {\n"
-        "   void * _Owner p = f();   \n"
-        "   if (p)\n"
-        "   {\n"
-        "       free(p);\n"
-        "       p = f();   \n"
-        "   }\n"
+        "    void* _Owner p = f();\n"
+        "    if (p)\n"
+        "    {\n"
+        "        free(p);\n"
+        "        p = f();\n"
+        "    }\n"
         "}\n"
-        "";
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 && report.warnings_count == 0);
+    assert(compile_without_errors(true, false, source));
 }
 
 void check_leaks_on_else_block()
@@ -36917,7 +36987,7 @@ void ownership_flow_test_two_ifs()
     const char* source
         =
         "void * _Owner malloc(int sz);\n"
-        "void free( void * _Owner opt p);\n"
+        "void free( void * _Owner _Opt p);\n"
         "\n"
         "\n"
         "void f(int i) {   \n"
@@ -36946,10 +37016,11 @@ void ownership_no_name_parameter()
 {
     const char* source
         =
-        "void free( void * _Owner){ }\n"
-        "";
+        "void free(void* _Owner) { }\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void ownership_flow_switch_case()
@@ -37084,10 +37155,10 @@ void pointer_argument()
         "  x_change(x);\n"
         "}\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
+    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true , .diagnostic_stack[0] = default_diagnostic};
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 3);
+    assert(report.warnings_count == 3);
 }
 
 void do_while()
@@ -37152,23 +37223,21 @@ void switch_break()
 
 void passing_non_owner()
 {
-    /*
-      We need to analuse better this case...
-
-    */
     const char* source
         =
-        "struct X { \n"
-        "    char * _Owner p;\n"
+        "struct X {\n"
+        "    char* _Owner p;\n"
         "};\n"
-        "void x_destroy(struct X * _Obj_owner p);\n"
+        "void x_destroy(struct X* _Obj_owner p);\n"
         "void f(struct X* x)\n"
         "{\n"
-        "    x_destroy(x);        \n"
+        "    x_destroy(x);\n"
         "}\n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
         "";
 
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void flow_analysis_else()
@@ -37298,16 +37367,25 @@ void owner_to_non_owner()
 {
     const char* source
         =
-        "void * f();\n"
+        "\n"
+        "void* f();\n"
         "int main() {\n"
-        "  void * _Owner p = f();\n"
-        "}";
+        "    void* _Owner p = f();\n"
+        "   #pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
+        "}\n"
+        "\n"
+        "void dummy() {}\n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "";
 
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void owner_to_non_owner_zero()
 {
+
+
     const char* source
         =
         "void * f();\n"
@@ -37463,9 +37541,11 @@ void partially_owner_moved()
 {
     const char* source
         =
-        "void free( void* _Owner ptr);\n"
+        "#pragma cake diagnostic error \"-Wmissing-destructor\"\n"
+        "\n"
+        "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
-        "struct X { char * _Owner text; };\n"
+        "struct X { char* _Owner text; };\n"
         "\n"
         "void x_destroy(struct X* _Obj_owner p)\n"
         "{\n"
@@ -37478,7 +37558,12 @@ void partially_owner_moved()
         "    {\n"
         "        x_destroy(p);\n"
         "    }\n"
-        "}";
+        "}\n"
+        "\n"
+        "\n"
+        "\n"
+        "";
+
     assert(compile_with_errors(true, false, source));
 
 }
@@ -37489,30 +37574,38 @@ void use_after_destroy()
         "\n"
         "char* _Owner strdup(const char* s);\n"
         "void* _Owner malloc(unsigned size);\n"
-        "void free(void* _Owner ptr);"
-        "\n"
+        "void free(void* _Owner ptr);\n"
         "struct X {\n"
-        "  char *_Owner name;\n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
-        "void x_destroy(struct X * _Obj_owner p) {\n"
-        "  free(p->name);\n"
+        "void x_destroy(struct X* _Obj_owner p) {\n"
+        "    free(p->name);\n"
         "}\n"
         "\n"
-        "void x_print(struct X * p) \n"
+        "void x_print(struct X* p)\n"
         "{\n"
-        "  //printf(\"%s\", p->name);\n"
+        "    //printf(\"%s\", p->name);\n"
         "}\n"
         "\n"
         "int main() {\n"
-        "   struct X x = {0};\n"
-        "   x.name = strdup(\"a\");\n"
-        "   x_destroy(&x);\n"
-        "   x_print(&x);\n"
+        "    struct X x = { 0 };\n"
+        "    x.name = strdup(\"a\");\n"
+        "    x_destroy(&x);\n"
+        "    x_print(&x);\n"
         "}\n"
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "\n"
         "";
-    assert(compile_with_errors(true, false, source));
 
+    assert(compile_without_errors(true, false, source));
 }
 
 void obj_owner_must_be_from_addressof()
@@ -37521,35 +37614,42 @@ void obj_owner_must_be_from_addressof()
         =
         "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
-        "char * _Owner strdup(const char* );\n"
+        "char* _Owner strdup(const char*);\n"
         "\n"
         "struct X {\n"
-        "  char *_Owner name;\n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
         "struct Y {\n"
-        "  struct X x;\n"
-        "  struct X * px;\n"
+        "    struct X x;\n"
+        "    struct X* px;\n"
         "};\n"
         "\n"
-        "void x_destroy(struct X * _Obj_owner p) \n"
+        "void x_destroy(struct X* _Obj_owner p)\n"
         "{\n"
-        "  free(p->name);\n"
+        "    free(p->name);\n"
         "}\n"
         "\n"
-        "void f(struct Y * p)\n"
-        "{    \n"
+        "void f(struct Y* p)\n"
+        "{\n"
         "    x_destroy(p->px);\n"
         "}\n"
         "\n"
         "int main() {\n"
-        "   struct Y  y = {};   \n"
-        "   struct * p = &y.x;\n"
-        "   x_destroy(&y.x);\n"
+        "    struct Y  y = {};\n"
+        "    struct* p = &y.x;\n"
+        "    x_destroy(&y.x);\n"
         "}\n"
         "\n"
+        "\n"
+        "\n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
+        "\n"
         "";
-    assert(compile_with_errors(true, false, source));
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void discarding_owner()
@@ -37560,14 +37660,24 @@ void discarding_owner()
         "void free(void* _Owner ptr);\n"
         "\n"
         "struct X {\n"
-        "  char *_Owner name;\n"
+        "    char* _Owner name;\n"
         "};\n"
         "\n"
         "int main()\n"
-        "{  \n"
-        "  struct X * p = (struct X * _Owner) malloc(1);\n"
-        "}";
-    assert(compile_with_errors(true, false, source));
+        "{\n"
+        "    struct X* p = (struct X* _Owner) malloc(1);\n"
+        "}\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
+        "\n"
+        "";
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void using_uninitialized()
@@ -37578,18 +37688,26 @@ void using_uninitialized()
         "void free(void* _Owner ptr);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner text;\n"
+        "    char* _Owner text;\n"
         "};\n"
         "\n"
-        "void x_delete(struct X * _Owner  p);\n"
+        "void x_delete(struct X* _Owner  p);\n"
         "\n"
-        "int main() {   \n"
-        "   struct X * _Owner p = malloc(sizeof(struct X));      \n"
-        "   x_delete(p); /*uninitialized*/\n"
+        "int main() {\n"
+        "    struct X* _Owner p = malloc(sizeof(struct X));\n"
+        "    x_delete(p); /*uninitialized*/\n"
         "}\n"
         "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "\n"
         "";
-    assert(compile_with_errors(true, false, source));
+    assert(compile_without_errors(true, false, source));
 }
 
 void using_uninitialized_struct()
@@ -37597,20 +37715,29 @@ void using_uninitialized_struct()
     const char* source
         =
         "struct X {\n"
-        "  char * _Owner text;\n"
+        "    char* _Owner text;\n"
         "};\n"
         "\n"
-        "void x_destroy(struct X * _Obj_owner p);\n"
+        "void x_destroy(struct X* _Obj_owner p);\n"
         "\n"
         "\n"
-        "int main() {   \n"
-        "   struct X x;\n"
-        "   x_destroy(&x);\n"
+        "int main() {\n"
+        "    struct X x;\n"
+        "    x_destroy(&x);\n"
         "}\n"
         "\n"
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
         "";
 
-    assert(compile_with_errors(true, false, source));
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void zero_initialized()
@@ -38287,11 +38414,21 @@ void uninitialized_objects_passed_to_variadic_function()
         =
         "void f(char* s, ...);\n"
         "int main() {\n"
-        "   int i;\n"
-        "   f(\"\", i);\n"
-        "   return 0;\n"
-        "}";
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+        "    int i;\n"
+        "    f(\"\", i);\n"
+        "//first pass analyze\n"
+        "#pragma cake diagnostic check \"-uninitialized\"\n"
+        "    return 0;\n"
+        "}\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "//flow analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "\n"
+        "";
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void nullderef() {
@@ -38303,9 +38440,18 @@ void nullderef() {
         "    int k = *ptr;\n"
         "    k = 0;\n"
         "    return 0;\n"
-        "}";
+        "}\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-null-dereference\"\n"
+        "";
 
-    assert(compile_with_errors(true, false /*nullcheck disabled*/, source));
+
+
+    assert(compile_without_errors(true, false, source));
 }
 
 void for_loop_visit()

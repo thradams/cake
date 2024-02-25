@@ -36,7 +36,7 @@ enum diagnostic_id {
 
     W_RETURN_LOCAL_ADDR,
 
-
+    W_MUST_USE_ADDRESSOF,
     /*ownership type system errors*/
     W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
     W_OWNERSHIP_NOT_OWNER,
@@ -45,19 +45,21 @@ enum diagnostic_id {
 
     W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
     W_DISCARDING_OWNER,
-
-    /*flow analysis errors*/
-    W_OWNERSHIP_FLOW_MISSING_DTOR,
     W_OWNERSHIP_NON_OWNER_MOVE,
 
-    W_MAYBE_UNINITIALIZED,
-    W_NULL_DEREFERENCE,
+    /*flow analysis errors*/
+    W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+
+
+    W_ANALYZER_UNINITIALIZED,
+    W_ANALYZER_NULL_DEREFERENCE,
 
     W_DIVIZION_BY_ZERO,
 
-    W_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
-
+    W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
+    W_LOCATION,
     W_NOTE,
+
     //AFTER THIS POINT (W_NOTE) MESSAGES ARE ALWAYS ERRORS
     ////////////////////////////////////////
 
@@ -120,6 +122,7 @@ enum diagnostic_id {
     C_MISSING_ENUM_TAG_NAME,
     C_MULTIPLE_DEFINITION_ENUM,
     C_STATIC_ASSERT_FAILED,
+    C_STATIC_STATE_FAILED,
     C_ATTR_UNBALANCED,
     C_UNEXPECTED_END_OF_FILE,
     C_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK,
@@ -192,7 +195,7 @@ struct diagnostic
     /*set of diagnostics reported as notes*/
     unsigned long long notes;
 };
-
+int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w);
 extern struct diagnostic default_diagnostic;
 
 struct options

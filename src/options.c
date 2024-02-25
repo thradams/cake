@@ -7,7 +7,11 @@
 
 struct diagnostic default_diagnostic = {
 
-      .warnings = ~0ULL
+      .warnings = (~0ULL) & ~(
+        (1ULL << W_NOTE) |
+        (1ULL << W_STYLE) |
+        (1ULL << W_UNUSED_PARAMETER) |
+        (1ULL << W_UNUSED_VARIABLE))
 };
 
 static struct w {
@@ -34,8 +38,8 @@ s_warnings[] = {
     {W_UNINITIALZED, "uninitialized"},
     {W_RETURN_LOCAL_ADDR, "return-local-addr"},
     {W_DIVIZION_BY_ZERO,"div-by-zero"},
-    
-    
+
+
     {W_STRING_SLICED,"string-slicing"},
     {W_DECLARATOR_STATE,"declarator-state"},
     {W_OWNERSHIP_MISSING_OWNER_QUALIFIER, "missing-owner-qualifier"},
@@ -44,13 +48,29 @@ s_warnings[] = {
     {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
     {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
     {W_DISCARDING_OWNER, "discard-owner"},
-    {W_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
+    {W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
-    {W_MAYBE_UNINITIALIZED, "uninitialized"},
-    {W_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"}
-    
+    {W_ANALYZER_UNINITIALIZED, "maybe-uninitialized"},
+    {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
+    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"},
+    {W_MUST_USE_ADDRESSOF, "must-use-address-of"}
+
 };
+
+int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
+{
+    if ((d->errors & (1ULL << w)) != 0)
+        return 3;
+
+    if ((d->warnings & (1ULL << w)) != 0)
+        return 2;
+
+    if ((d->notes & (1ULL << w)) != 0)
+        return 1;
+
+    return 0;
+
+}
 
 enum diagnostic_id  get_warning(const char* wname)
 {
@@ -100,15 +120,9 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->diagnostic_stack[0].warnings = ~0ULL;
-    options->diagnostic_stack[0].warnings &= ~(
-        (1ULL << W_NOTE) |
-        (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER) |
-        (1ULL << W_UNUSED_VARIABLE)); //default is OFF
-    
-    
-    
+    options->diagnostic_stack[0] = default_diagnostic;
+
+
 
 #ifdef __EMSCRIPTEN__
     options->flow_analysis = true;
@@ -148,7 +162,7 @@ int fill_options(struct options* options,
             }
             continue;
         }
-        
+
         if (strcmp(argv[i], "-showIncludes") == 0)
         {
             options->show_includes = true;
@@ -294,9 +308,9 @@ int fill_options(struct options* options,
             enum diagnostic_id  w = 0;
 
             if (disable_warning)
-                w =  get_warning_bit_mask(argv[i] + 5);
+                w = get_warning_bit_mask(argv[i] + 5);
             else
-                w =  get_warning_bit_mask(argv[i] + 2);
+                w = get_warning_bit_mask(argv[i] + 2);
 
             if (w == 0)
             {
@@ -406,14 +420,14 @@ void print_help()
 
 void test_get_warning_name()
 {
-    const char* name = get_warning_name(W_OWNERSHIP_FLOW_MISSING_DTOR);
+    const char* name = get_warning_name(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR);
     assert(strcmp(name, "missing-destructor") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(name);
-    assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
+    assert(flags == (1ULL << W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR));
 
 
-        const char* name2 = get_warning_name(W_STYLE);
+    const char* name2 = get_warning_name(W_STYLE);
     assert(strcmp(name2, "style") == 0);
 
     unsigned long long  flags2 = get_warning_bit_mask(name2);

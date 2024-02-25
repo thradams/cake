@@ -874,7 +874,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
 				if (!argument_type->address_of)
 				{
 					//we need something created with address of.
-					compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
+					compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
 						ctx,
 						current_argument->expression->first_token,
 						"obj_owner pointer must be created using address of operator &");

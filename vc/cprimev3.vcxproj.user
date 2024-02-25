@@ -6,7 +6,7 @@
     <LocalDebuggerWorkingDirectory>$(ProjectDir)/../src/</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugTest|Win32'">
-    <LocalDebuggerCommandArguments>file.c</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>file.c -Wall</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

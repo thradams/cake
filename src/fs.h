@@ -19,11 +19,9 @@
 #define rmdir _rmdir
 #define chdir _chdir
 
-
 #ifdef __CAKE__
 #pragma cake diagnostic pop
 #endif
-
 
 /*
  opendir,  readdir closedir for windows.
