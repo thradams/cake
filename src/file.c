@@ -1,10 +1,15 @@
+char* _Owner strdup(const char* s);
+void free(void* _Owner p);
 
-int* _Owner  get();
-
-void f() 
+struct X 
 {
-    int* _Owner p = 0;
-    p = get();
+    char* _Owner text;
+};
+
+void f(int a)
+{
+    struct X x = { 0 };
+    x.text = strdup("a");
 }
 
 

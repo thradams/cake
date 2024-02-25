@@ -7,7 +7,11 @@
 
 struct diagnostic default_diagnostic = {
 
-      .warnings = ~0ULL
+      .warnings = (~0ULL) & ~(
+        (1ULL << W_NOTE) |
+        (1ULL << W_STYLE) |
+        (1ULL << W_UNUSED_PARAMETER) |
+        (1ULL << W_UNUSED_VARIABLE))
 };
 
 static struct w {
@@ -115,13 +119,7 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->diagnostic_stack[0].warnings = ~0ULL;
-    options->diagnostic_stack[0].warnings &= ~(
-        (1ULL << W_NOTE) |
-        (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER) |
-        (1ULL << W_UNUSED_VARIABLE)); //default is OFF
-
+    options->diagnostic_stack[0] = default_diagnostic;
 
 
 

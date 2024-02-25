@@ -9649,7 +9649,11 @@ char* owner read_file(const char* path)
 
 struct diagnostic default_diagnostic = {
 
-      .warnings = ~0ULL
+      .warnings = (~0ULL) & ~(
+        (1ULL << W_NOTE) |
+        (1ULL << W_STYLE) |
+        (1ULL << W_UNUSED_PARAMETER) |
+        (1ULL << W_UNUSED_VARIABLE))
 };
 
 static struct w {
@@ -9757,13 +9761,7 @@ int fill_options(struct options* options,
     /*
        default at this moment is same as -Wall
     */
-    options->diagnostic_stack[0].warnings = ~0ULL;
-    options->diagnostic_stack[0].warnings &= ~(
-        (1ULL << W_NOTE) |
-        (1ULL << W_STYLE) |
-        (1ULL << W_UNUSED_PARAMETER) |
-        (1ULL << W_UNUSED_VARIABLE)); //default is OFF
-
+    options->diagnostic_stack[0] = default_diagnostic;
 
 
 
@@ -33600,6 +33598,10 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
+        /*TODO
+           check state
+        
+        */
         struct type t = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
         if (p_obj)
@@ -36356,25 +36358,30 @@ void ownership_flow_test_struct_member_missing_free()
 {
     const char* source
         =
-        "\n"
-        "char * _Owner strdup(const char* s);\n"
+        "char* _Owner strdup(const char* s);\n"
         "void free(void* _Owner p);\n"
         "\n"
-        "struct X {\n"
-        "  char * _Owner text;\n"
+        "struct X \n"
+        "{\n"
+        "    char* _Owner text;\n"
         "};\n"
         "\n"
         "void f(int a)\n"
         "{\n"
-        "    struct X x = {0};\n"
+        "    struct X x = { 0 };\n"
         "    x.text = strdup(\"a\");\n"
         "}\n"
+        "\n"
+        "\n"
+        "void dummy()\n"
+        "{\n"
+        "} \n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
         "";
-    struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
-    ////TODO return ROOT object!
+
+    assert(compile_without_errors(true, false, source));
 
 }
 
