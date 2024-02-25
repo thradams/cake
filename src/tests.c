@@ -3376,5 +3376,20 @@ const char* source
 "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
+void discard_qualifier_test()
+{
+    const char* source
+        =
+        "struct X { int i; void* p; };\n"
+        "void f(struct X* p) {}\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    const struct X x = {0};\n"
+        "    f(&x);\n"
+        "}\n"
+        "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
 #endif
 

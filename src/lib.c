@@ -591,8 +591,7 @@ enum diagnostic_id {
     W_PASSING_NULL_AS_ARRAY,
     W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
     W_INCOMPATIBLE_ENUN_TYPES,
-    W_MULTICHAR_ERROR,
-   
+    W_MULTICHAR_ERROR,   
     W_LOCATION,
     W_NOTE,
 
@@ -664,7 +663,6 @@ enum diagnostic_id {
     ERROR_THROW_STATEMENT_NOT_WITHIN_TRY_BLOCK,
     ERROR_VOID_FUNCTION_SHOULD_NOT_RETURN_VALUE,
     ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE,
-
  
     
     ERROR_TOKEN_NOT_VALID_IN_PREPROCESSOR_EXPRESSIONS,
@@ -38481,6 +38479,21 @@ const char* source
 "void dummy() {}\n"
 "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
+void discard_qualifier_test()
+{
+    const char* source
+        =
+        "struct X { int i; void* p; };\n"
+        "void f(struct X* p) {}\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "    const struct X x = {0};\n"
+        "    f(&x);\n"
+        "}\n"
+        "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 #endif
 

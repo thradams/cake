@@ -224,6 +224,7 @@ void for_loop_visit(void);
 void uninitialized_object(void);
 void calloc_builtin_semantics(void);
 void malloc_builtin_semantics(void);
+void discard_qualifier_test(void);
 
 /*end of forward declarations*/
 
@@ -439,6 +440,7 @@ g_unit_test_success_count = 0;
     uninitialized_object();
     calloc_builtin_semantics();
     malloc_builtin_semantics();
+    discard_qualifier_test();
 return g_unit_test_error_count;
 
 }
