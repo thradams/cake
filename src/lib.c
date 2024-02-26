@@ -32858,8 +32858,28 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case POSTFIX_DOT:
         break;
+
     case POSTFIX_ARROW:
+        struct type t = { 0 };
+        struct object* p_object = expression_get_object(p_expression->left, &t);
+
+        if (!ctx->expression_is_not_evaluated)
+        {
+            if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+            {
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->left->first_token, "using a uninitialized object");
+            }
+            else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
+            {
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->left->first_token, "maybe using a uninitialized object");
+            }
+        }
         break;
+
     case POSTFIX_INCREMENT:
         break;
     case POSTFIX_DECREMENT:
