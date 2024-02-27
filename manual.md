@@ -116,7 +116,7 @@ Generates sarif files
 #### -msvc-output          
 Output is compatible with visual studio IDE. We can click on the error message and IDE selects the line. 
 
-### -analyze
+### -fanalyzer
 This option enables an static analysis of program flow. This is required for some
 ownership checks
 

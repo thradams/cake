@@ -188,7 +188,7 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-analyze") == 0)
+        if (strcmp(argv[i], "-fanalyzer") == 0)
         {
             options->flow_analysis = true;
             continue;
@@ -410,6 +410,8 @@ void print_help()
         WHITE "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
         WHITE "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
+        "\n"
+        WHITE "  -fanalyzer            " RESET "Runs flow analysis -  required for onwership\n"
         "\n"
         WHITE "  -sarif                " RESET "Generates sarif files\n"
         "\n"

@@ -298,7 +298,7 @@ int main()
 #define NC "  "
 #endif
 
-    if (mysytem("cake.exe  " NC " -Wstyle -analyze -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    if (mysytem("cake.exe  " NC " -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 
@@ -310,7 +310,7 @@ int main()
     */
     if (mysytem("./cake "
                " -D__x86_64__ "
-               " -analyze "
+               " -fanalyzer "
                " -I/usr/lib/gcc/x86_64-linux-gnu/11/include/ "
                " -I/usr/local/include/ "
                " -I/usr/include/x86_64-linux-gnu/ "
