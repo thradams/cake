@@ -5201,7 +5201,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 				while (input_list->head->type != TK_NEWLINE)
 				{
 					prematch_level(p_list, input_list, level);
-				}
+				 }
 			}
 			match_token_level(p_list, input_list, TK_NEWLINE, level, ctx);
 
@@ -6830,13 +6830,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __STDC_OWNERSHIP__\n"
 		"#define _W_DIVIZION_BY_ZERO_ 29\n"
 
-#ifdef WIN32
+#ifdef _WIN32
 
 		//see
 		//https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170
-
-#ifdef _WIN32
 		"#define _WIN32 " TOSTRING(_WIN32) "\n"
+
+#ifdef _WINDOWS_
+		"#define _WINDOWS_ " TOSTRING(_WINDOWS_) "\n"
 #endif
 
 #ifdef _WIN64
@@ -33164,27 +33165,27 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     {
         if (p_expression->right)
         {
-        struct type t = { 0 };
-        struct object* p_object = expression_get_object(p_expression->right, &t);
+            struct type t = { 0 };
+            struct object* p_object = expression_get_object(p_expression->right, &t);
 
-        if (!ctx->expression_is_not_evaluated)
-        {
-            if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+            if (!ctx->expression_is_not_evaluated)
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
-                    ctx->ctx,
-                    p_expression->right->first_token, "using a uninitialized object");
+                if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+                {
+                    compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                        ctx->ctx,
+                        p_expression->right->first_token, "using a uninitialized object");
+                }
+                else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
+                {
+                    compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                        ctx->ctx,
+                        p_expression->right->first_token, "maybe using a uninitialized object");
+                }
             }
-            else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
-            {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
-                    ctx->ctx,
-                    p_expression->right->first_token, "maybe using a uninitialized object");
-            }
-        }
-        type_destroy(&t);
+            type_destroy(&t);
 
-        
+
             flow_visit_expression(ctx, p_expression->right);
         }
 
@@ -34011,10 +34012,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-            }
-#endif
         }
+#endif
     }
+}
 
     /*if (p_declarator->pointer)
     {

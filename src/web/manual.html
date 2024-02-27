@@ -283,28 +283,47 @@
 
 <p>To discover what directories are included, you can run the command &#39;echo %INCLUDE%&#39; at Visual Studio command prompt.</p>
 
-<pre><code>echo %INCLUDE%
-</code></pre>
-
-<p>Copy this output to <code>cakeconfig.h</code>.<br>
-For instance:</p>
-
-<pre><code> 
-#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Tools/MSVC/14.37.32820/include&quot;
-#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Preview/VC/Auxiliary/VS/include&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/ucrt&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/um&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/shared&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/winrt&quot;
-#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
-
-</code></pre>
-
 <p>When cake runs it first tries to load cakeconfig.h, that must exist at same dir of cake.exe.  </p>
 
 <p>On Linux, the same file <code>cakeconfig.h</code> is used. To find out what are the directories used by GCC type</p>
 
 <pre><code>echo | gcc -E -Wp,-v -
+</code></pre>
+
+<p>Sample of cakeconfig.h</p>
+
+<pre><code>
+#ifdef __linux__
+/*
+   To find the include directories used my GCC type:   
+   echo | gcc -E -Wp,-v -
+*/
+#pragma dir &quot;/usr/lib/gcc/x86_64-linux-gnu/11/include&quot;
+#pragma dir &quot;/usr/local/include&quot;
+#pragma dir &quot;/usr/include/x86_64-linux-gnu&quot;
+#pragma dir &quot;/usr/include&quot;
+
+#endif
+
+#ifdef _WIN32
+/*
+   To find the include directories used my  MSVC,
+   open Visual Studio Developer Commmand prompt and type:
+   echo %INCLUDE%.
+   Running Cake inside mscv command prompt uses %INCLUDE% automatically.
+*/
+#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/include&quot;
+#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.38.33130/ATLMFC/include&quot;
+#pragma dir &quot;C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Auxiliary/VS/include&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/ucrt&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/um&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/shared&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/winrt&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10/include/10.0.22000.0/cppwinrt&quot;
+#pragma dir &quot;C:/Program Files (x86)/Windows Kits/NETFXSDK/4.8/include/um&quot;
+
+#endif
+
 </code></pre>
 
 <p>Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on <code>cakeconfig.h</code> but mixing cake headers with other headers is not recommended.</p>

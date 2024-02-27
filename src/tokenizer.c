@@ -4511,13 +4511,14 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 		"#define __STDC_OWNERSHIP__\n"
 		"#define _W_DIVIZION_BY_ZERO_ 29\n"
 
-#ifdef WIN32
+#ifdef _WIN32
 
 		//see
 		//https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170
-
-#ifdef _WIN32
 		"#define _WIN32 " TOSTRING(_WIN32) "\n"
+
+#ifdef _WINDOWS_
+		"#define _WINDOWS_ " TOSTRING(_WINDOWS_) "\n"
 #endif
 
 #ifdef _WIN64
