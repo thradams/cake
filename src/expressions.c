@@ -3412,10 +3412,10 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                expression_delete(new_expression);
                 type_print(&new_expression->left->type);
                 type_print(&new_expression->right->type);
                 compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
+                expression_delete(new_expression);
                 throw;
             }
             p_expression_node = new_expression;

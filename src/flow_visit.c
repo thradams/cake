@@ -1364,8 +1364,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case POSTFIX_DOT:
-        break;
-
     case POSTFIX_ARROW:
         struct type t = { 0 };
         struct object* p_object = expression_get_object(p_expression->left, &t);
@@ -1385,6 +1383,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     p_expression->left->first_token, "maybe using a uninitialized object");
             }
         }
+        type_destroy(&t);
         break;
 
     case POSTFIX_INCREMENT:
@@ -1532,8 +1531,30 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case UNARY_EXPRESSION_PLUS:
 
     case UNARY_EXPRESSION_ADDRESSOF:
+    {
         if (p_expression->right)
         {
+            struct type t = { 0 };
+            struct object* p_object = expression_get_object(p_expression->right, &t);
+
+            if (!ctx->expression_is_not_evaluated)
+            {
+                if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+                {
+                    compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                        ctx->ctx,
+                        p_expression->right->first_token, "using a uninitialized object");
+                }
+                else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
+                {
+                    compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                        ctx->ctx,
+                        p_expression->right->first_token, "maybe using a uninitialized object");
+                }
+            }
+            type_destroy(&t);
+
+
             flow_visit_expression(ctx, p_expression->right);
         }
 
@@ -1542,8 +1563,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             /*sizeof*/
             flow_visit_type_name(ctx, p_expression->type_name);
         }
-
-        break;
+    }
+    break;
 #if 1
     case UNARY_EXPRESSION_CONTENT:
     {
@@ -2358,7 +2379,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 if (p_declarator->object.pointed)
                 {
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-            }
+                }
                 type_destroy(&t2);
         }
 #endif

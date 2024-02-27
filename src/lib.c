@@ -15578,10 +15578,10 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                expression_delete(new_expression);
                 type_print(&new_expression->left->type);
                 type_print(&new_expression->right->type);
                 compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
+                expression_delete(new_expression);
                 throw;
             }
             p_expression_node = new_expression;
@@ -32994,8 +32994,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case POSTFIX_DOT:
-        break;
-
     case POSTFIX_ARROW:
         struct type t = { 0 };
         struct object* p_object = expression_get_object(p_expression->left, &t);
@@ -33015,6 +33013,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     p_expression->left->first_token, "maybe using a uninitialized object");
             }
         }
+        type_destroy(&t);
         break;
 
     case POSTFIX_INCREMENT:
@@ -33162,8 +33161,30 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case UNARY_EXPRESSION_PLUS:
 
     case UNARY_EXPRESSION_ADDRESSOF:
+    {
         if (p_expression->right)
         {
+        struct type t = { 0 };
+        struct object* p_object = expression_get_object(p_expression->right, &t);
+
+        if (!ctx->expression_is_not_evaluated)
+        {
+            if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+            {
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->right->first_token, "using a uninitialized object");
+            }
+            else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
+            {
+                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->right->first_token, "maybe using a uninitialized object");
+            }
+        }
+        type_destroy(&t);
+
+        
             flow_visit_expression(ctx, p_expression->right);
         }
 
@@ -33172,8 +33193,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             /*sizeof*/
             flow_visit_type_name(ctx, p_expression->type_name);
         }
-
-        break;
+    }
+    break;
 #if 1
     case UNARY_EXPRESSION_CONTENT:
     {
@@ -33988,12 +34009,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 if (p_declarator->object.pointed)
                 {
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-            }
+                }
                 type_destroy(&t2);
-        }
+            }
 #endif
+        }
     }
-}
 
     /*if (p_declarator->pointer)
     {
@@ -35299,7 +35320,7 @@ void format_visit(struct format_visit_ctx* ctx)
 
 
 #define WARNING_FLAG(x) (1ULL << (x))
-static bool compile_without_errors(bool flow_analysis, bool nullchecks, const char* src)
+static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks, const char* src)
 {
     struct options options = { .input = LANGUAGE_C99,
         .flow_analysis = flow_analysis,
@@ -35360,7 +35381,7 @@ void char_constants()
         "static_assert(TYPE_IS(u'a', unsigned short));\n"
         "static_assert(TYPE_IS(U'a', unsigned int));";
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void array_item_type_test()
@@ -35369,7 +35390,7 @@ void array_item_type_test()
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "void (*pf[10])(void* val);\n"
         "static_assert(_is_same(typeof(pf[0]), void (*)(void* val)));\n";
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void take_address_type_test()
@@ -35379,7 +35400,7 @@ void take_address_type_test()
         "{"
         "    (*p)[0] = 'a';"
         "}";
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void parser_scope_test()
@@ -35398,7 +35419,7 @@ void parser_tag_test()
 void string_concatenation_test()
 {
     const char* src = " const char* s = \"part1\" \"part2\";";
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void test_digit_separator()
@@ -35425,7 +35446,7 @@ void type_test2()
         " static_assert(_is_same(typeof(&a) ,int (*)[10]));\n"
         ;
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void type_test3()
@@ -35438,7 +35459,7 @@ void type_test3()
         " static_assert(_is_same(typeof(&f), int (**)(void)));"
         ;
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void crazy_decl()
@@ -35450,7 +35471,7 @@ void crazy_decl()
         "    return 0;\n"
         "}\n";
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void crazy_decl2()
@@ -35466,7 +35487,7 @@ void crazy_decl2()
         "  f(1);\n"
         "}\n";
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void crazy_decl4()
@@ -35478,17 +35499,17 @@ void crazy_decl4()
         "    PF(1, 2);\n"
         "}\n";
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void sizeof_not_evaluated()
 {
-    assert(compile_without_errors(false, false, "int i = sizeof(1/0);\n"));
+    assert(compile_without_errors_warnings(false, false, "int i = sizeof(1/0);\n"));
 }
 
 void sizeof_array_test()
 {
-    assert(compile_without_errors(false,
+    assert(compile_without_errors_warnings(false,
         false,
         "int main() {\n"
         "int a[] = { 1, 2, 3 };\n"
@@ -35516,7 +35537,7 @@ void sizeof_test()
         "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));"
         ;
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void alignof_test()
@@ -35527,7 +35548,7 @@ void alignof_test()
         "static_assert(sizeof(struct X) == 24);"
         ;
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void indirection_struct_size()
@@ -35540,7 +35561,7 @@ void indirection_struct_size()
         "static_assert(sizeof(X) == sizeof(void*));"
         ;
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void traits_test()
@@ -35555,7 +35576,7 @@ void traits_test()
         "int((a2))[10];\n"
         "static_assert(_is_array(a2));"
         ;
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void comp_error1()
@@ -35566,7 +35587,7 @@ void comp_error1()
         "    *z-- = '\\0';\n"
         "}\n";
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void array_size()
@@ -35579,7 +35600,7 @@ void array_size()
         "}"
         ;
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void expr_type()
@@ -35588,7 +35609,7 @@ void expr_type()
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "static_assert(_is_same(typeof(1 + 2.0), double));";
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 }
 
 void expand_test()
@@ -35600,7 +35621,7 @@ void expand_test()
         "static_assert(_is_same(typeof(B), int (*[1])[2]));";
     ;
 
-    assert(compile_without_errors(false, false, src));
+    assert(compile_without_errors_warnings(false, false, src));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -35629,7 +35650,7 @@ void expand_test2()
         "";
 
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -35643,7 +35664,7 @@ void expand_test3()
         "typedef T1(*f[3])(int); "
         "static_assert(_is_same(typeof(f), char* (* [3])(int)));";
 
-    assert(compile_without_errors(false, false, src3));
+    assert(compile_without_errors_warnings(false, false, src3));
 
     //https://godbolt.org/z/WbK9zP7zM
 }
@@ -35722,7 +35743,7 @@ void bigtest()
         "\n"
         "\n"
         ;
-    assert(compile_without_errors(false, false, str));
+    assert(compile_without_errors_warnings(false, false, str));
 }
 
 void literal_string_type()
@@ -35733,7 +35754,7 @@ void literal_string_type()
         "    static_assert(_is_same(typeof(\"AB\"),  char [3]));\n"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void digit_separator_test()
@@ -35742,7 +35763,7 @@ void digit_separator_test()
         "static_assert(1'00'00 == 10000);"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void numbers_test()
@@ -35753,7 +35774,7 @@ void numbers_test()
         "#endif"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void binary_digits_test()
@@ -35764,7 +35785,7 @@ void binary_digits_test()
         "_Static_assert(052 == 42);"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void type_suffix_test()
@@ -35808,7 +35829,7 @@ void type_suffix_test()
         ;
 
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void type_test()
@@ -35819,7 +35840,7 @@ void type_test()
         "static_assert(_is_same( typeof( *(p + 1) ), int)   );"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void is_pointer_test()
@@ -35854,7 +35875,7 @@ void is_pointer_test()
         "\n"
         "}\n"
         ;
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void params_test()
@@ -35872,7 +35893,7 @@ void params_test()
         "}"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void test_compiler_constant_expression()
@@ -35887,7 +35908,7 @@ void test_compiler_constant_expression()
         "}"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void zerodiv()
@@ -35901,7 +35922,7 @@ void zerodiv()
         "}\n"
         "";
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void function_result_test()
@@ -35913,7 +35934,7 @@ void function_result_test()
         "static_assert(_Generic(F2(), int (*)(int, int*) : 1));\n"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void type_normalization()
@@ -35933,7 +35954,7 @@ void type_normalization()
         ;
 
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void auto_test()
@@ -35955,7 +35976,7 @@ void auto_test()
         "    }\n"
         ;
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 
 }
 
@@ -35978,7 +35999,7 @@ void enum_scope()
         "  enum E { B } e2; \n"
         "  static_assert( (typeof(e2)), (enum E) ); \n"
         "}\n";
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void const_member()
@@ -36031,7 +36052,7 @@ void address_of_const()
         "static_assert(_Generic(&p, const int *  const * : 1 ));\n"
         "";
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void lvalue_test()
@@ -36115,7 +36136,7 @@ void lvalue_test()
     ;
 
 
-    assert(compile_without_errors(false, false, source));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void simple_no_discard_test()
@@ -36250,7 +36271,7 @@ void simple_move()
         "    char * _Owner p = 0;\n"
         "    return p; /*implicit move*/\n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void simple_move_error()
@@ -36262,7 +36283,7 @@ void simple_move_error()
         "#pragma cake diagnostic check \"-Wnon-owner-move\"\n"
         "}\n";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void parameter_view()
@@ -36276,7 +36297,7 @@ void parameter_view()
         "    return parameter->owner_variable;\n"  //ok to move from parameter
         "}\n";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void move_from_extern()
@@ -36290,7 +36311,7 @@ void move_from_extern()
         "    return global.owner_variable;\n" /*makes a _View*/
         "}\n";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void owner_type_test()
@@ -36337,7 +36358,7 @@ void owner_type_test()
         "    static_assert(_is_owner(typeof(*p)));    \n"
         "}\n";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void correct_move_assigment()
@@ -36364,7 +36385,7 @@ void correct_move_assigment()
         "    x1 = x2; //ok\n"
         "\n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void no_explicit_move_required()
@@ -36380,7 +36401,7 @@ void no_explicit_move_required()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 
 }
 
@@ -36396,7 +36417,7 @@ void no_explicit_move_with_function_result()
         "  destroy(get());\n"
         "}\n";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void cannot_ignore_owner_result()
@@ -36435,7 +36456,7 @@ void can_ignore_owner_result()
         "  f();\n"
         "}\n";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void move_not_necessary_on_return()
@@ -36452,7 +36473,7 @@ void move_not_necessary_on_return()
         "    return f();\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void explicit_move_not_required()
@@ -36469,7 +36490,7 @@ void explicit_move_not_required()
         "    s = nullptr;    \n"
         "}\n"
         ;
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void error_using_temporary_owner()
@@ -36486,7 +36507,7 @@ void error_using_temporary_owner()
         "#pragma cake diagnostic check \"-Wtemp-owner\"\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void passing_view_to_owner()
@@ -36503,7 +36524,7 @@ void passing_view_to_owner()
         "}\n"
         "\n"
         "#pragma cake diagnostic check \"-Wnon-owner-move\"";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void obj_owner_cannot_be_used_in_non_pointer()
@@ -36529,7 +36550,7 @@ void ownership_flow_test_null_ptr_at_end_of_scope()
         "    _Owner int * p = 0;\n"
         "}\n"
         " ";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_pointer_must_be_deleted()
@@ -36555,7 +36576,7 @@ void ownership_flow_test_pointer_must_be_deleted()
         "";
 
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_basic_pointer_check()
@@ -36574,7 +36595,7 @@ void ownership_flow_test_basic_pointer_check()
         "}\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_struct_member_missing_free()
@@ -36604,7 +36625,7 @@ void ownership_flow_test_struct_member_missing_free()
         "\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 
 }
 
@@ -36627,7 +36648,7 @@ void ownership_flow_test_struct_member_free()
         "    free(x.text);\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 
 }
 
@@ -36654,7 +36675,7 @@ void ownership_flow_test_move_inside_if()
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_goto_same_scope()
@@ -36674,7 +36695,7 @@ void ownership_flow_test_goto_same_scope()
         "    free(p);\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_jump_labels()
@@ -36720,7 +36741,7 @@ void ownership_flow_test_owner_if_pattern_1()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_owner_if_pattern_2()
@@ -36741,7 +36762,7 @@ void ownership_flow_test_owner_if_pattern_2()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_missing_destructor()
@@ -36763,7 +36784,7 @@ void ownership_flow_test_missing_destructor()
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 
 }
 
@@ -36784,7 +36805,7 @@ void ownership_flow_test_no_warning()
         "    }\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_moved_if_not_null()
@@ -36807,7 +36828,7 @@ void ownership_flow_test_moved_if_not_null()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_struct_moved()
@@ -36830,7 +36851,7 @@ void ownership_flow_test_struct_moved()
         "   x_destroy(&p->x);\n"
         "}\n"
         ;
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_scope_error()
@@ -36857,7 +36878,7 @@ void ownership_flow_test_scope_error()
         "    {\n"
         "    }\n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 
@@ -36879,7 +36900,7 @@ void ownership_flow_test_void_destroy()
         "} \n"
         ;
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_void_destroy_ok()
@@ -36901,7 +36922,7 @@ void ownership_flow_test_void_destroy_ok()
         "   free(p);   \n"
         "} \n"
         ;
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_moving_owner_pointer()
@@ -36936,7 +36957,7 @@ void ownership_flow_test_moving_owner_pointer()
         "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 
 }
 
@@ -36967,7 +36988,7 @@ void ownership_flow_test_moving_owner_pointer_missing()
         "\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_error()
@@ -36990,7 +37011,7 @@ void ownership_flow_test_error()
         "void dummy() {}\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_setting_owner_pointer_to_null()
@@ -37013,7 +37034,7 @@ void ownership_flow_test_setting_owner_pointer_to_null()
         "void dummy() {}\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_while_not_null()
@@ -37040,7 +37061,7 @@ void ownership_flow_test_while_not_null()
         "      p = next;\n"
         "  }  \n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_if_state()
@@ -37072,7 +37093,7 @@ void ownership_flow_test_if_state()
         "\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_types_test_error_owner()
@@ -37089,7 +37110,7 @@ void ownership_types_test_error_owner()
         "void dummy() {}\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_if_variant()
@@ -37109,7 +37130,7 @@ void ownership_flow_test_if_variant()
         "void dummy() {}\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void check_leaks_on_else_block()
@@ -37128,7 +37149,7 @@ void check_leaks_on_else_block()
         "void dummy() {}\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_two_ifs()
@@ -37157,7 +37178,7 @@ void ownership_flow_test_two_ifs()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 
 }
 
@@ -37169,7 +37190,7 @@ void ownership_no_name_parameter()
         "void dummy() {}\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_switch_case()
@@ -37202,7 +37223,7 @@ void ownership_flow_switch_case()
         "            break;\n"
         "    }        \n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void state_inner_objects_preserved()
@@ -37230,7 +37251,7 @@ void state_inner_objects_preserved()
         "    free(p->name);\n"
         "    free(p);\n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 //TODO make test with
@@ -37239,7 +37260,7 @@ void state_inner_objects_preserved()
 void owner_parameter_must_be_ignored()
 {
     const char* source = "void f(void (*pf)(void* _Owner p)){}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void taking_address()
@@ -37283,7 +37304,7 @@ void taking_address_const()
         "  f(&x);\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void pointer_argument()
@@ -37326,7 +37347,7 @@ void do_while()
         "   while(0);   \n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void switch_cases_state()
@@ -37350,7 +37371,7 @@ void switch_cases_state()
         "    return p;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void switch_break()
@@ -37367,7 +37388,7 @@ void switch_break()
         "    }\n"
         "    return p;\n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void passing_non_owner()
@@ -37386,7 +37407,7 @@ void passing_non_owner()
         "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void flow_analysis_else()
@@ -37415,7 +37436,7 @@ void flow_analysis_else()
 
     "}";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 void moving_content_of_owner()
 {
@@ -37435,7 +37456,7 @@ void moving_content_of_owner()
         "    y->x = *p;\n"
         "}\n"
         ;
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void switch_scope()
@@ -37471,7 +37492,7 @@ void switch_scope()
         "    return p1;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void swith_and_while()
@@ -37509,7 +37530,7 @@ void swith_and_while()
         "    return p1;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void owner_to_non_owner()
@@ -37528,7 +37549,7 @@ void owner_to_non_owner()
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void owner_to_non_owner_zero()
@@ -37542,7 +37563,7 @@ void owner_to_non_owner_zero()
         "  void * _Owner p = 0;\n"
         "}";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void incomplete_struct()
@@ -37558,7 +37579,7 @@ void incomplete_struct()
         "    struct X x = 1 ? f() : f(); \n"
         "    free(x.p);\n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 
 }
 
@@ -37595,7 +37616,7 @@ void switch_pop_problem()
         "  \n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void switch_pop2()
@@ -37627,7 +37648,7 @@ void switch_pop2()
         "\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void scopes_pop()
@@ -37659,7 +37680,7 @@ void scopes_pop()
         "    }\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 void owner_moved()
 {
@@ -37682,7 +37703,7 @@ void owner_moved()
         "        free(p);\n"
         "    }\n"
         "}";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 
 }
 
@@ -37754,7 +37775,7 @@ void use_after_destroy()
         "\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void obj_owner_must_be_from_addressof()
@@ -37798,7 +37819,7 @@ void obj_owner_must_be_from_addressof()
         "\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void discarding_owner()
@@ -37826,7 +37847,7 @@ void discarding_owner()
         "\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void using_uninitialized()
@@ -37856,7 +37877,7 @@ void using_uninitialized()
         "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void using_uninitialized_struct()
@@ -37886,7 +37907,7 @@ void using_uninitialized_struct()
         "";
 
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void zero_initialized()
@@ -37918,7 +37939,7 @@ void zero_initialized()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 
@@ -37951,7 +37972,7 @@ void empty_initialized()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void calloc_state()
@@ -37989,7 +38010,7 @@ void calloc_state()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void malloc_initialization()
@@ -38027,7 +38048,7 @@ void malloc_initialization()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void valid_but_unkown_result()
@@ -38067,7 +38088,7 @@ void valid_but_unkown_result()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void calling_non_const_func()
@@ -38109,7 +38130,7 @@ void calling_non_const_func()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 void calling_const_func()
 {
@@ -38149,7 +38170,7 @@ void calling_const_func()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 void pointer_to_owner()
 {
@@ -38179,7 +38200,7 @@ void pointer_to_owner()
         "\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void socket_sample()
@@ -38203,7 +38224,7 @@ void socket_sample()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void return_object()
@@ -38224,7 +38245,7 @@ void return_object()
         "  return x;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 void return_bad_object()
 {
@@ -38262,7 +38283,7 @@ void null_to_owner()
         "   f((void *) 0);\n"
         "   f(nullptr);\n"
         "}\n";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void return_true_branch()
@@ -38285,7 +38306,7 @@ void return_true_branch()
         "    static_state(p, \"null\");    \n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 void flow_tests()
 {
@@ -38376,7 +38397,7 @@ void flow_tests()
         "}\n"
         "\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void member()
@@ -38397,7 +38418,7 @@ void member()
         "    t.u.view.pSelect = 0;\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 void loop_leak()
 {
@@ -38443,7 +38464,7 @@ void out_parameter()
         "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"";
 
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void lvalue_required_1()
@@ -38508,7 +38529,7 @@ void null_check_1()
         " static_state(p, \"not-null\");\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, true, source));
+    assert(compile_without_errors_warnings(true, true, source));
 }
 
 void null_check_2()
@@ -38520,7 +38541,7 @@ void null_check_2()
         " static_state(p, \"maybe-null\");\n"
         "}\n"
         "";
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void compound_literal_object()
@@ -38534,7 +38555,7 @@ void compound_literal_object()
         "	static_state(x.i, \"zero\");\n"
         "	static_state(x.p, \"null\");\n"
         "}";
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void bounds_check1()
@@ -38547,7 +38568,7 @@ void bounds_check1()
         "}\n"
         "#pragma cake diagnostic check \"-Wout-of-bounds\"";
 
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void bounds_check2()
@@ -38559,7 +38580,7 @@ void bounds_check2()
         "    int i = array[5];\n"
         "}\n"
         "#pragma cake diagnostic check \"-Wout-of-bounds\"\n";
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void uninitialized_objects_passed_to_variadic_function()
@@ -38582,7 +38603,7 @@ void uninitialized_objects_passed_to_variadic_function()
         "\n"
         "";
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void nullderef()
@@ -38606,7 +38627,7 @@ void nullderef()
 
 
 
-    assert(compile_without_errors(true, false, source));
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void for_loop_visit()
@@ -38620,7 +38641,7 @@ void for_loop_visit()
         "  for (j = 0; j <10; j++) {}\n"
         "  return j;\n"
         "}";
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void uninitialized_object()
@@ -38657,7 +38678,7 @@ void  calloc_builtin_semantics()
         "}\n"
         "";
 
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 void  malloc_builtin_semantics()
 {
@@ -38677,7 +38698,7 @@ void  malloc_builtin_semantics()
         "}\n"
         "";
 
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 void discard_qualifier_test()
 {
@@ -38692,7 +38713,7 @@ void discard_qualifier_test()
         "    f(&x);\n"
         "}\n"
         "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"";
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 void keywords_inside_attr()
 {
@@ -38700,7 +38721,7 @@ void keywords_inside_attr()
         =
         "[[gnu::const, gnu::hot, nodiscard]]\n"
         "int f(void);    ";
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void assertbuiltin()
@@ -38718,7 +38739,7 @@ void assertbuiltin()
         "}\n"
         "";
 
-    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 
 }
 #endif

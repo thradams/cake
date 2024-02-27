@@ -2882,7 +2882,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 				while (input_list->head->type != TK_NEWLINE)
 				{
 					prematch_level(p_list, input_list, level);
-				}
+				 }
 			}
 			match_token_level(p_list, input_list, TK_NEWLINE, level, ctx);
 
