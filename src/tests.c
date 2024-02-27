@@ -3136,7 +3136,7 @@ void out_parameter()
         "struct X {\n"
         "    char* _Owner s;\n"
         "};\n"
-        "void init(_Out struct X *  px)\n"
+        "void init(_Out struct X* px)\n"
         "{\n"
         "    static_state(px, \"maybe-null\");\n"
         "    static_state(px->s, \"uninitialized\");\n"
@@ -3147,7 +3147,11 @@ void out_parameter()
         "    struct X x;\n"
         "    init(&x);\n"
         "    free(x.s);\n"
-        "}";
+        "}\n"
+        "void dummy() {}\n"
+        "\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"";
+
 
     assert(compile_without_errors(true, false, source));
 }
@@ -3351,14 +3355,18 @@ void  calloc_builtin_semantics()
         =
         "struct X { int i; void* p; };\n"
         "void* _Owner calloc(int i, int sz);\n"
-        "int main() \n"
+        "void free(void* _Owner p);\n"
+        "\n"
+        "int main()\n"
         "{\n"
         "    struct X* _Owner p = calloc(1, 1);\n"
         "    static_state(p, \"maybe-null\");\n"
-        "    static_state(p->i, \"zero\");\n"  //if p is not null then..
-        "    static_state(p->p, \"null\");\n"  //if p is not null then..
+        "    static_state(p->i, \"zero\");\n"
+        "    static_state(p->p, \"null\");\n"
+        "    free(p);\n"
         "}\n"
         "";
+
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 void  malloc_builtin_semantics()
@@ -3366,18 +3374,19 @@ void  malloc_builtin_semantics()
     const char* source
         =
         "struct X { int i; void* p; };\n"
-        "void* _Owner malloc(int sz);\n"
-        "int main() \n"
+        "void* _Owner malloc(int i, int sz);\n"
+        "void free(void* _Owner p);\n"
+        "\n"
+        "int main()\n"
         "{\n"
-        "    struct X* _Owner p = malloc(1);\n"
+        "    struct X* _Owner p = malloc(1, 1);\n"
         "    static_state(p, \"maybe-null\");\n"
         "    static_state(p->i, \"uninitialized\");\n"
         "    static_state(p->p, \"uninitialized\");\n"
+        "    free(p);\n"
         "}\n"
-        "\n"
-        "\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "";
+
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 void discard_qualifier_test()
