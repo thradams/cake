@@ -234,6 +234,12 @@ struct options
     bool show_includes;
 
     /*
+       -disable-assert
+    */
+    bool disable_assert;
+
+
+    /*
        -remove-comments
     */
     bool remove_comments;

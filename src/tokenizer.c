@@ -3050,17 +3050,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 			token_list_destroy(&r4);
 
 			match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
-#ifdef CAKE_ASSERT_IS_KEYWORD
-			if (strcmp(macro->name, "assert") == 0)
+			if (!ctx->options.disable_assert && strcmp(macro->name, "assert") == 0)
 			{
-				// TODO create option for this?
-				// Cake overrides the definition of macro to be
-				// #define assert(...) assert(__VA_ARGS__)
-				// and assert is a keyword. The reason is the send
-				// information to the static analyzer
-
-				//TODO detect GCC ((void)0)
-
+				//cake overrides macro assert in debug and release to be defined as 
+				//assert(__VA_ARGS__)
 				if (!is_empty_assert(&macro->replacement_list))
 				{
 					macro_parameters_delete(macro->parameters);
@@ -3074,7 +3067,6 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 					macro->replacement_list = tokenizer(&tctx, "assert(__VA_ARGS__)", NULL, level, TK_FLAG_NONE);
 				}
 			}
-#endif
 
 			if (macro_name_token)
 				naming_convention_macro(ctx, macro_name_token);

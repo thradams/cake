@@ -1,5 +1,2 @@
-
-int main() 
-{
-	int i = 'qaaaaaaaaaaaaaaa';
-}
+[[gnu::const, gnu::hot, nodiscard]]
+int f(void);

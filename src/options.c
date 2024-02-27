@@ -353,6 +353,12 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-disable-assert") == 0)
+        {
+            options->disable_assert = true;
+            continue;
+        }
+
         printf("unknown option '%s'", argv[i]);
         return 1;
     }
@@ -420,6 +426,8 @@ void print_help()
         WHITE "  -dump-tokens          " RESET "Output tokens before preprocessor\n"
         "\n"
         WHITE "  -dump-pp-tokens       " RESET "Output tokens after preprocessor\n"
+        "\n"
+        WHITE "  -disable-assert       " RESET "disables built-in assert\n"
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;

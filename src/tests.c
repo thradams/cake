@@ -18,7 +18,7 @@ static bool compile_without_errors(bool flow_analysis, bool nullchecks, const ch
     };
     struct report report = { 0 };
     get_ast(&options, "source", src, &report);
-    return report.error_count == 0;
+    return report.error_count == 0 && report.warnings_count == 0;
 }
 
 static bool compile_with_errors(bool flow_analysis, bool nullchecks, const char* src)
@@ -3402,6 +3402,25 @@ void keywords_inside_attr()
         "[[gnu::const, gnu::hot, nodiscard]]\n"
         "int f(void);    ";
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
+
+void assertbuiltin()
+{
+    const char* source
+        =
+        "struct X { const char* _Owner text; };\n"
+        "void destroyX(struct X x) \n"
+        "{\n"
+        "	assert(x.text == 0);\n"
+        "}\n"
+        "\n"
+        "int main() \n"
+        "{\n"
+        "}\n"
+        "";
+
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+
 }
 #endif
 
