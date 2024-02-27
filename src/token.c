@@ -329,6 +329,124 @@ int is_digit(struct stream* p)
     return (p->current[0] >= '0' && p->current[0] <= '9');
 }
 
+bool token_is_identifier_or_keyword(enum token_type t)
+{
+    switch (t)
+    {
+    case TK_IDENTIFIER: return true;
+
+    case TK_KEYWORD_AUTO:
+    case TK_KEYWORD_BREAK:
+    case TK_KEYWORD_CASE:
+    case TK_KEYWORD_CONSTEXPR:
+    case TK_KEYWORD_CHAR:
+    case TK_KEYWORD_CONST:
+    case TK_KEYWORD_CONTINUE:
+    case TK_KEYWORD_CATCH: /*extension*/
+    case TK_KEYWORD_DEFAULT:
+    case TK_KEYWORD_DO:
+    case TK_KEYWORD_DEFER: /*extension*/
+    case TK_KEYWORD_DOUBLE:
+    case TK_KEYWORD_ELSE:
+    case TK_KEYWORD_ENUM:
+    case TK_KEYWORD_EXTERN:
+    case TK_KEYWORD_FLOAT:
+    case TK_KEYWORD_FOR:
+    case TK_KEYWORD_GOTO:
+    case TK_KEYWORD_IF:
+    case TK_KEYWORD_INLINE:
+    case TK_KEYWORD_INT:
+    case TK_KEYWORD_LONG:
+    case TK_KEYWORD__INT8:
+    case TK_KEYWORD__INT16:
+    case TK_KEYWORD__INT32:
+    case TK_KEYWORD__INT64:
+
+    case TK_KEYWORD_REGISTER:
+    case TK_KEYWORD_RESTRICT:
+    case TK_KEYWORD_RETURN:
+    case TK_KEYWORD_SHORT:
+    case TK_KEYWORD_SIGNED:
+    case TK_KEYWORD_SIZEOF:
+
+    case TK_KEYWORD_STATIC:
+    case TK_KEYWORD_STRUCT:
+    case TK_KEYWORD_SWITCH:
+    case TK_KEYWORD_TYPEDEF:
+    case TK_KEYWORD_TRY: /*extension*/
+    case TK_KEYWORD_THROW: /*extension*/
+    case TK_KEYWORD_UNION:
+    case TK_KEYWORD_UNSIGNED:
+    case TK_KEYWORD_VOID:
+    case TK_KEYWORD_VOLATILE:
+    case TK_KEYWORD_WHILE:
+
+    case TK_KEYWORD__ALIGNAS:
+    case TK_KEYWORD__ALIGNOF:
+    case TK_KEYWORD__ATOMIC:
+        //microsoft
+        //KEYWORD__FASTCALL:
+        //KEYWORD__STDCALL
+        // 
+    case TK_KEYWORD__ASM:
+        //end microsoft
+    case TK_KEYWORD__BOOL:
+    case TK_KEYWORD__COMPLEX:
+    case TK_KEYWORD__DECIMAL128:
+    case TK_KEYWORD__DECIMAL32:
+    case TK_KEYWORD__DECIMAL64:
+    case TK_KEYWORD__GENERIC:
+    case TK_KEYWORD__IMAGINARY:
+    case TK_KEYWORD__NORETURN:
+    case TK_KEYWORD__STATIC_ASSERT:
+    case TK_KEYWORD_ASSERT: /*extension*/
+    case TK_KEYWORD__THREAD_LOCAL:
+
+    case TK_KEYWORD_TYPEOF: /*C23*/
+
+    case TK_KEYWORD_TRUE:  /*C23*/
+    case TK_KEYWORD_FALSE:  /*C23*/
+    case TK_KEYWORD_NULLPTR:  /*C23*/
+    case TK_KEYWORD_TYPEOF_UNQUAL: /*C23*/
+    case TK_KEYWORD__BITINT /*C23*/:
+
+
+
+        /*cake extension*/
+    case TK_KEYWORD__OWNER:
+    case TK_KEYWORD__OUT:
+    case TK_KEYWORD__OBJ_OWNER:
+    case TK_KEYWORD__VIEW:
+    case TK_KEYWORD__OPT:
+
+        /*extension compile time functions*/
+    case TK_KEYWORD_STATIC_DEBUG: /*extension*/
+    case TK_KEYWORD_STATIC_STATE: /*extension*/
+    case TK_KEYWORD_STATIC_SET: /*extension*/
+    case TK_KEYWORD_ATTR_ADD: /*extension*/
+    case TK_KEYWORD_ATTR_REMOVE: /*extension*/
+    case TK_KEYWORD_ATTR_HAS: /*extension*/
+
+        /*https://en.cppreference.com/w/cpp/header/type_traits*/
+
+    case TK_KEYWORD_IS_POINTER:
+    case TK_KEYWORD_IS_LVALUE:
+    case TK_KEYWORD_IS_CONST:
+    case TK_KEYWORD_IS_OWNER:
+    case TK_KEYWORD_IS_ARRAY:
+    case TK_KEYWORD_IS_FUNCTION:
+    case TK_KEYWORD_IS_SCALAR:
+    case TK_KEYWORD_IS_ARITHMETIC:
+    case TK_KEYWORD_IS_FLOATING_POINT:
+    case TK_KEYWORD_IS_INTEGRAL:
+        return true;
+    default:
+        break;
+    }
+
+    return false;
+}
+
 bool token_is_blank(struct token* p)
 {
     return p->type == TK_BEGIN_OF_FILE ||

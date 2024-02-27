@@ -477,6 +477,7 @@ struct token* token_list_clone_and_add(struct token_list* list, struct token* pn
 char* owner token_list_join_tokens(struct token_list* list, bool bliteral);
 void token_list_clear(struct token_list* list);
 bool token_is_blank(struct token* p);
+bool token_is_identifier_or_keyword(enum token_type t);
 void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag);
 void token_range_remove_flag(struct token* first, struct token* last, enum token_flags flag);
 void token_range_add_show(struct token* first, struct token* last);
@@ -1252,6 +1253,124 @@ int is_digit(struct stream* p)
      0 1 2 3 4 5 6 7 8 9
     */
     return (p->current[0] >= '0' && p->current[0] <= '9');
+}
+
+bool token_is_identifier_or_keyword(enum token_type t)
+{
+    switch (t)
+    {
+    case TK_IDENTIFIER: return true;
+
+    case TK_KEYWORD_AUTO:
+    case TK_KEYWORD_BREAK:
+    case TK_KEYWORD_CASE:
+    case TK_KEYWORD_CONSTEXPR:
+    case TK_KEYWORD_CHAR:
+    case TK_KEYWORD_CONST:
+    case TK_KEYWORD_CONTINUE:
+    case TK_KEYWORD_CATCH: /*extension*/
+    case TK_KEYWORD_DEFAULT:
+    case TK_KEYWORD_DO:
+    case TK_KEYWORD_DEFER: /*extension*/
+    case TK_KEYWORD_DOUBLE:
+    case TK_KEYWORD_ELSE:
+    case TK_KEYWORD_ENUM:
+    case TK_KEYWORD_EXTERN:
+    case TK_KEYWORD_FLOAT:
+    case TK_KEYWORD_FOR:
+    case TK_KEYWORD_GOTO:
+    case TK_KEYWORD_IF:
+    case TK_KEYWORD_INLINE:
+    case TK_KEYWORD_INT:
+    case TK_KEYWORD_LONG:
+    case TK_KEYWORD__INT8:
+    case TK_KEYWORD__INT16:
+    case TK_KEYWORD__INT32:
+    case TK_KEYWORD__INT64:
+
+    case TK_KEYWORD_REGISTER:
+    case TK_KEYWORD_RESTRICT:
+    case TK_KEYWORD_RETURN:
+    case TK_KEYWORD_SHORT:
+    case TK_KEYWORD_SIGNED:
+    case TK_KEYWORD_SIZEOF:
+
+    case TK_KEYWORD_STATIC:
+    case TK_KEYWORD_STRUCT:
+    case TK_KEYWORD_SWITCH:
+    case TK_KEYWORD_TYPEDEF:
+    case TK_KEYWORD_TRY: /*extension*/
+    case TK_KEYWORD_THROW: /*extension*/
+    case TK_KEYWORD_UNION:
+    case TK_KEYWORD_UNSIGNED:
+    case TK_KEYWORD_VOID:
+    case TK_KEYWORD_VOLATILE:
+    case TK_KEYWORD_WHILE:
+
+    case TK_KEYWORD__ALIGNAS:
+    case TK_KEYWORD__ALIGNOF:
+    case TK_KEYWORD__ATOMIC:
+        //microsoft
+        //KEYWORD__FASTCALL:
+        //KEYWORD__STDCALL
+        // 
+    case TK_KEYWORD__ASM:
+        //end microsoft
+    case TK_KEYWORD__BOOL:
+    case TK_KEYWORD__COMPLEX:
+    case TK_KEYWORD__DECIMAL128:
+    case TK_KEYWORD__DECIMAL32:
+    case TK_KEYWORD__DECIMAL64:
+    case TK_KEYWORD__GENERIC:
+    case TK_KEYWORD__IMAGINARY:
+    case TK_KEYWORD__NORETURN:
+    case TK_KEYWORD__STATIC_ASSERT:
+    case TK_KEYWORD_ASSERT: /*extension*/
+    case TK_KEYWORD__THREAD_LOCAL:
+
+    case TK_KEYWORD_TYPEOF: /*C23*/
+
+    case TK_KEYWORD_TRUE:  /*C23*/
+    case TK_KEYWORD_FALSE:  /*C23*/
+    case TK_KEYWORD_NULLPTR:  /*C23*/
+    case TK_KEYWORD_TYPEOF_UNQUAL: /*C23*/
+    case TK_KEYWORD__BITINT /*C23*/:
+
+
+
+        /*cake extension*/
+    case TK_KEYWORD__OWNER:
+    case TK_KEYWORD__OUT:
+    case TK_KEYWORD__OBJ_OWNER:
+    case TK_KEYWORD__VIEW:
+    case TK_KEYWORD__OPT:
+
+        /*extension compile time functions*/
+    case TK_KEYWORD_STATIC_DEBUG: /*extension*/
+    case TK_KEYWORD_STATIC_STATE: /*extension*/
+    case TK_KEYWORD_STATIC_SET: /*extension*/
+    case TK_KEYWORD_ATTR_ADD: /*extension*/
+    case TK_KEYWORD_ATTR_REMOVE: /*extension*/
+    case TK_KEYWORD_ATTR_HAS: /*extension*/
+
+        /*https://en.cppreference.com/w/cpp/header/type_traits*/
+
+    case TK_KEYWORD_IS_POINTER:
+    case TK_KEYWORD_IS_LVALUE:
+    case TK_KEYWORD_IS_CONST:
+    case TK_KEYWORD_IS_OWNER:
+    case TK_KEYWORD_IS_ARRAY:
+    case TK_KEYWORD_IS_FUNCTION:
+    case TK_KEYWORD_IS_SCALAR:
+    case TK_KEYWORD_IS_ARITHMETIC:
+    case TK_KEYWORD_IS_FLOATING_POINT:
+    case TK_KEYWORD_IS_INTEGRAL:
+        return true;
+    default:
+        break;
+    }
+
+    return false;
 }
 
 bool token_is_blank(struct token* p)
@@ -22072,7 +22191,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     else if (is_note)
     {
         if (w != W_LOCATION)
-          ctx->p_report->info_count++;
+            ctx->p_report->info_count++;
     }
     else
     {
@@ -22080,7 +22199,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     }
 
     if (w != W_LOCATION)
-       ctx->p_report->last_diagnostic_id = w;
+        ctx->p_report->last_diagnostic_id = w;
 
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
@@ -23375,17 +23494,17 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                     {
                         //lets remove this error/warning/info from the final report.
 
-                        int t = 
+                        int t =
                             get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
-                                                id);
+                                id);
                         if (t == 3)
                             ctx->p_report->error_count--;
                         else if (t == 2)
                             ctx->p_report->warnings_count--;
                         else if (t == 1)
                             ctx->p_report->info_count--;
-                        
-                        
+
+
                     }
                     else
                     {
@@ -23706,7 +23825,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
 struct declaration* owner declaration_core(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt /*SINK*/,
     bool can_be_function_definition,
-    bool* is_function_definition,    
+    bool* is_function_definition,
     enum storage_class_specifier_flags default_storage_class_specifier_flags
 )
 {
@@ -23761,7 +23880,7 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
             {
                 if (can_be_function_definition)
                     *is_function_definition = true;
-            }            
+            }
             else
                 parser_match_tk(ctx, ';');
         }
@@ -23803,7 +23922,7 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
 
     bool is_function_definition = false;
-    
+
     struct declaration* owner p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, STORAGE_SPECIFIER_EXTERN);
     if (is_function_definition)
     {
@@ -23842,12 +23961,12 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
         check_func_open_brace_style(ctx, ctx->current);
 
-        
+
 
         assert(p_declaration->function_body == NULL);
         p_declaration->function_body = function_body(ctx);
 
-        
+
 
         p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
@@ -23908,7 +24027,7 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
     enum storage_class_specifier_flags storage_specifier_flags
 )
 {
-    bool is_function_definition = false;    
+    bool is_function_definition = false;
     return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, storage_specifier_flags);
 }
 
@@ -26711,8 +26830,8 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         {
             show_error_if_not_constant = true;
         }
-        
-        
+
+
         p_static_assert_declaration->constant_expression = constant_expression(ctx, show_error_if_not_constant);
         if (p_static_assert_declaration->constant_expression == NULL) throw;
 
@@ -26952,7 +27071,14 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
     const bool is_cake_attr =
         strcmp(attr_token->lexeme, "cake") == 0;
 
-    parser_match_tk(ctx, TK_IDENTIFIER);
+    if (token_is_identifier_or_keyword(ctx->current->type))
+    {
+        parser_match(ctx);
+    }
+    else
+    {
+        compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "expected identifier");
+    }
 
     if (ctx->current->type == '::')
     {
@@ -26963,7 +27089,14 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
             compiler_diagnostic_message(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
 
         }
-        parser_match_tk(ctx, TK_IDENTIFIER);
+        if (token_is_identifier_or_keyword(ctx->current->type))
+        {
+            parser_match(ctx);
+        }
+        else
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "expected identifier");
+        }
     }
     else
     {
@@ -27253,14 +27386,14 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                 {
                     if (ctx->current &&
                         ctx->current->level == 0)
-                    {
+                {
 #if 0
-                        //too many false..alerts.
-                        //make list of for sure ...
-                        compiler_diagnostic_message(W_UNUSED_VALUE,
-                            ctx,
-                            p_unlabeled_statement->expression_statement->expression_opt->first_token,
-                            "expression not used");
+                    //too many false..alerts.
+                    //make list of for sure ...
+                    compiler_diagnostic_message(W_UNUSED_VALUE,
+                        ctx,
+                        p_unlabeled_statement->expression_statement->expression_opt->first_token,
+                        "expression not used");
 #endif
                 }
             }
@@ -27269,7 +27402,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
 }
 
     return p_unlabeled_statement;
-            }
+}
 
 void label_delete(struct label* owner p)
 {
@@ -27334,14 +27467,14 @@ void compound_statement_delete(struct compound_statement* owner p)
 
 struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
 {
-    
+
 
     //'{' block_item_list_opt '}'
     struct compound_statement* owner p_compound_statement = calloc(1, sizeof(struct compound_statement));
 
     if (p_compound_statement == NULL)
         return NULL;
-    
+
     p_compound_statement->diagnostic_flags = ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
 
     struct scope block_scope = {.variables.capacity = 10};
@@ -28043,14 +28176,14 @@ struct declaration* owner external_declaration(struct parser_ctx* ctx)
 
 struct compound_statement* owner function_body(struct parser_ctx* ctx)
 {
-    
+
     /*
     * Used to give an unique index (inside the function)
     * for try-catch blocks
     */
     ctx->try_catch_block_index = 0;
     ctx->p_current_try_statement_opt = NULL;
-    return compound_statement(ctx);    
+    return compound_statement(ctx);
 }
 
 static void show_unused_file_scope(struct parser_ctx* ctx)
@@ -28573,7 +28706,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-    }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -38444,7 +38577,8 @@ void uninitialized_objects_passed_to_variadic_function()
     assert(compile_without_errors(true, false, source));
 }
 
-void nullderef() {
+void nullderef()
+{
     const char* source
         =
         "\n"
@@ -38497,7 +38631,8 @@ void uninitialized_object()
     assert(report.warnings_count == 1);
 }
 
-void  calloc_builtin_semantics() {
+void  calloc_builtin_semantics()
+{
     const char* source
         =
         "struct X { int i; void* p; };\n"
@@ -38512,23 +38647,24 @@ void  calloc_builtin_semantics() {
         "";
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
-void  malloc_builtin_semantics() {
-const char* source
-=
-"struct X { int i; void* p; };\n"
-"void* _Owner malloc(int sz);\n"
-"int main() \n"
-"{\n"
-"    struct X* _Owner p = malloc(1);\n"
-"    static_state(p, \"maybe-null\");\n"
-"    static_state(p->i, \"uninitialized\");\n"
-"    static_state(p->p, \"uninitialized\");\n"
-"}\n"
-"\n"
-"\n"
-"void dummy() {}\n"
-"#pragma cake diagnostic check \"-Wmissing-destructor\"";
-assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+void  malloc_builtin_semantics()
+{
+    const char* source
+        =
+        "struct X { int i; void* p; };\n"
+        "void* _Owner malloc(int sz);\n"
+        "int main() \n"
+        "{\n"
+        "    struct X* _Owner p = malloc(1);\n"
+        "    static_state(p, \"maybe-null\");\n"
+        "    static_state(p->i, \"uninitialized\");\n"
+        "    static_state(p->p, \"uninitialized\");\n"
+        "}\n"
+        "\n"
+        "\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 void discard_qualifier_test()
 {
@@ -38543,6 +38679,14 @@ void discard_qualifier_test()
         "    f(&x);\n"
         "}\n"
         "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
+void keywords_inside_attr()
+{
+    const char* source
+        =
+        "[[gnu::const, gnu::hot, nodiscard]]\n"
+        "int f(void);    ";
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 #endif

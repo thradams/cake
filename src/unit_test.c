@@ -225,6 +225,7 @@ void uninitialized_object(void);
 void calloc_builtin_semantics(void);
 void malloc_builtin_semantics(void);
 void discard_qualifier_test(void);
+void keywords_inside_attr(void);
 
 /*end of forward declarations*/
 
@@ -441,6 +442,7 @@ g_unit_test_success_count = 0;
     calloc_builtin_semantics();
     malloc_builtin_semantics();
     discard_qualifier_test();
+    keywords_inside_attr();
 return g_unit_test_error_count;
 
 }

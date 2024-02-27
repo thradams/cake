@@ -3291,7 +3291,8 @@ void uninitialized_objects_passed_to_variadic_function()
     assert(compile_without_errors(true, false, source));
 }
 
-void nullderef() {
+void nullderef()
+{
     const char* source
         =
         "\n"
@@ -3344,7 +3345,8 @@ void uninitialized_object()
     assert(report.warnings_count == 1);
 }
 
-void  calloc_builtin_semantics() {
+void  calloc_builtin_semantics()
+{
     const char* source
         =
         "struct X { int i; void* p; };\n"
@@ -3359,23 +3361,24 @@ void  calloc_builtin_semantics() {
         "";
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
-void  malloc_builtin_semantics() {
-const char* source
-=
-"struct X { int i; void* p; };\n"
-"void* _Owner malloc(int sz);\n"
-"int main() \n"
-"{\n"
-"    struct X* _Owner p = malloc(1);\n"
-"    static_state(p, \"maybe-null\");\n"
-"    static_state(p->i, \"uninitialized\");\n"
-"    static_state(p->p, \"uninitialized\");\n"
-"}\n"
-"\n"
-"\n"
-"void dummy() {}\n"
-"#pragma cake diagnostic check \"-Wmissing-destructor\"";
-assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+void  malloc_builtin_semantics()
+{
+    const char* source
+        =
+        "struct X { int i; void* p; };\n"
+        "void* _Owner malloc(int sz);\n"
+        "int main() \n"
+        "{\n"
+        "    struct X* _Owner p = malloc(1);\n"
+        "    static_state(p, \"maybe-null\");\n"
+        "    static_state(p->i, \"uninitialized\");\n"
+        "    static_state(p->p, \"uninitialized\");\n"
+        "}\n"
+        "\n"
+        "\n"
+        "void dummy() {}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 void discard_qualifier_test()
 {
@@ -3390,6 +3393,14 @@ void discard_qualifier_test()
         "    f(&x);\n"
         "}\n"
         "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"";
+    assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
+}
+void keywords_inside_attr()
+{
+    const char* source
+        =
+        "[[gnu::const, gnu::hot, nodiscard]]\n"
+        "int f(void);    ";
     assert(compile_without_errors(true, false /*nullcheck disabled*/, source));
 }
 #endif

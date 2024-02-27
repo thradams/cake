@@ -336,7 +336,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     else if (is_note)
     {
         if (w != W_LOCATION)
-          ctx->p_report->info_count++;
+            ctx->p_report->info_count++;
     }
     else
     {
@@ -344,7 +344,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, 
     }
 
     if (w != W_LOCATION)
-       ctx->p_report->last_diagnostic_id = w;
+        ctx->p_report->last_diagnostic_id = w;
 
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
@@ -1639,17 +1639,17 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                     {
                         //lets remove this error/warning/info from the final report.
 
-                        int t = 
+                        int t =
                             get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
-                                                id);
+                                id);
                         if (t == 3)
                             ctx->p_report->error_count--;
                         else if (t == 2)
                             ctx->p_report->warnings_count--;
                         else if (t == 1)
                             ctx->p_report->info_count--;
-                        
-                        
+
+
                     }
                     else
                     {
@@ -1970,7 +1970,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
 struct declaration* owner declaration_core(struct parser_ctx* ctx,
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt /*SINK*/,
     bool can_be_function_definition,
-    bool* is_function_definition,    
+    bool* is_function_definition,
     enum storage_class_specifier_flags default_storage_class_specifier_flags
 )
 {
@@ -2025,7 +2025,7 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
             {
                 if (can_be_function_definition)
                     *is_function_definition = true;
-            }            
+            }
             else
                 parser_match_tk(ctx, ';');
         }
@@ -2067,7 +2067,7 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
 
     bool is_function_definition = false;
-    
+
     struct declaration* owner p_declaration = declaration_core(ctx, p_attribute_specifier_sequence_opt, true, &is_function_definition, STORAGE_SPECIFIER_EXTERN);
     if (is_function_definition)
     {
@@ -2106,12 +2106,12 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
         check_func_open_brace_style(ctx, ctx->current);
 
-        
+
 
         assert(p_declaration->function_body == NULL);
         p_declaration->function_body = function_body(ctx);
 
-        
+
 
         p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
@@ -2172,7 +2172,7 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
     enum storage_class_specifier_flags storage_specifier_flags
 )
 {
-    bool is_function_definition = false;    
+    bool is_function_definition = false;
     return declaration_core(ctx, p_attribute_specifier_sequence_opt, false, &is_function_definition, storage_specifier_flags);
 }
 
@@ -4975,8 +4975,8 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
         {
             show_error_if_not_constant = true;
         }
-        
-        
+
+
         p_static_assert_declaration->constant_expression = constant_expression(ctx, show_error_if_not_constant);
         if (p_static_assert_declaration->constant_expression == NULL) throw;
 
@@ -5216,7 +5216,14 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
     const bool is_cake_attr =
         strcmp(attr_token->lexeme, "cake") == 0;
 
-    parser_match_tk(ctx, TK_IDENTIFIER);
+    if (token_is_identifier_or_keyword(ctx->current->type))
+    {
+        parser_match(ctx);
+    }
+    else
+    {
+        compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "expected identifier");
+    }
 
     if (ctx->current->type == '::')
     {
@@ -5227,7 +5234,14 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
             compiler_diagnostic_message(W_ATTRIBUTES, ctx, attr_token, "warning '%s' is not an cake attribute", ctx->current->lexeme);
 
         }
-        parser_match_tk(ctx, TK_IDENTIFIER);
+        if (token_is_identifier_or_keyword(ctx->current->type))
+        {
+            parser_match(ctx);
+        }
+        else
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "expected identifier");
+        }
     }
     else
     {
@@ -5517,14 +5531,14 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                 {
                     if (ctx->current &&
                         ctx->current->level == 0)
-                    {
+                {
 #if 0
-                        //too many false..alerts.
-                        //make list of for sure ...
-                        compiler_diagnostic_message(W_UNUSED_VALUE,
-                            ctx,
-                            p_unlabeled_statement->expression_statement->expression_opt->first_token,
-                            "expression not used");
+                    //too many false..alerts.
+                    //make list of for sure ...
+                    compiler_diagnostic_message(W_UNUSED_VALUE,
+                        ctx,
+                        p_unlabeled_statement->expression_statement->expression_opt->first_token,
+                        "expression not used");
 #endif
                 }
             }
@@ -5533,7 +5547,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
 }
 
     return p_unlabeled_statement;
-            }
+}
 
 void label_delete(struct label* owner p)
 {
@@ -5598,14 +5612,14 @@ void compound_statement_delete(struct compound_statement* owner p)
 
 struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
 {
-    
+
 
     //'{' block_item_list_opt '}'
     struct compound_statement* owner p_compound_statement = calloc(1, sizeof(struct compound_statement));
 
     if (p_compound_statement == NULL)
         return NULL;
-    
+
     p_compound_statement->diagnostic_flags = ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
 
     struct scope block_scope = {.variables.capacity = 10};
@@ -6307,14 +6321,14 @@ struct declaration* owner external_declaration(struct parser_ctx* ctx)
 
 struct compound_statement* owner function_body(struct parser_ctx* ctx)
 {
-    
+
     /*
     * Used to give an unique index (inside the function)
     * for try-catch blocks
     */
     ctx->try_catch_block_index = 0;
     ctx->p_current_try_statement_opt = NULL;
-    return compound_statement(ctx);    
+    return compound_statement(ctx);
 }
 
 static void show_unused_file_scope(struct parser_ctx* ctx)
@@ -6837,7 +6851,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-    }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
