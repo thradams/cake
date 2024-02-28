@@ -483,8 +483,9 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
-void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_format);
+void print_line_and_token(const struct token* opt p_token, bool visual_studio_ouput_format);
 void print_position(const char* path, int line, int col, bool msvc_format);
+
 struct stream
 {
     const char* source;
@@ -925,7 +926,7 @@ const char* owner get_code_as_we_see(struct token_list* list, bool remove_commen
 void print_tokens(struct token* p_token);
 void print_preprocessed(struct token* p_token);
 const char* owner print_preprocessed_to_string(struct token* p_token);
-const char* owner print_preprocessed_to_string2(struct token* p_token);
+const char* owner print_preprocessed_to_string2(struct token* opt p_token);
 void check_unused_macros(struct owner_hash_map* map);
 
 char* owner read_file(const char* path);
@@ -1703,7 +1704,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     }
 }
 
-void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_format)
+void print_line_and_token(const struct token* opt p_token, bool visual_studio_ouput_format)
 {
     if (p_token == NULL)
         return;
@@ -2795,9 +2796,13 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
     {
         /*nunca eh vazio..se for ele colocar um TK_PLACEMARKER*/
         struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
-        p_new_token->lexeme = strdup("");
-        p_new_token->type = TK_PLACEMARKER;
-        token_list_add(&list, p_new_token);
+        if (p_new_token)
+        {
+            p_new_token->lexeme = strdup("");
+            p_new_token->type = TK_PLACEMARKER;
+            token_list_add(&list, p_new_token);
+
+        }
     }
     //print_list(&list);
     return list;
@@ -3032,228 +3037,228 @@ enum token_type is_punctuator(struct stream* stream)
     */
     switch (stream->current[0])
     {
-        case '[':
-            type = '[';
+    case '[':
+        type = '[';
+        stream_match(stream);
+        break;
+    case ']':
+        type = ']';
+        stream_match(stream);
+        break;
+    case '(':
+        type = '(';
+        stream_match(stream);
+        break;
+    case ')':
+        type = ')';
+        stream_match(stream);
+        break;
+    case '{':
+        type = '{';
+        stream_match(stream);
+        break;
+    case '}':
+        type = '}';
+        stream_match(stream);
+        break;
+    case ';':
+        type = ';';
+        stream_match(stream);
+        break;
+    case ',':
+        type = ',';
+        stream_match(stream);
+        break;
+    case '!':
+        type = '!';
+        stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '!=';
             stream_match(stream);
-            break;
-        case ']':
-            type = ']';
+        }
+        break;
+    case ':':
+        type = ':';
+        stream_match(stream);
+        if (stream->current[0] == ':')
+        {
+            type = '::';
             stream_match(stream);
-            break;
-        case '(':
-            type = '(';
+        }
+        break;
+    case '~':
+        type = '~';
+        stream_match(stream);
+        break;
+    case '?':
+        type = '?';
+        stream_match(stream);
+        break;
+    case '/':
+        type = '/';
+        stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '/=';
             stream_match(stream);
-            break;
-        case ')':
-            type = ')';
+        }
+        break;
+    case '*':
+        type = '*';
+        stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '*=';
             stream_match(stream);
-            break;
-        case '{':
-            type = '{';
+        }
+        break;
+    case '%':
+        type = '%';
+        stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '%=';
             stream_match(stream);
-            break;
-        case '}':
-            type = '}';
+        }
+        break;
+    case '-':
+        type = '-';
+        stream_match(stream);
+        if (stream->current[0] == '>')
+        {
+            type = '->';
             stream_match(stream);
-            break;
-        case ';':
-            type = ';';
+        }
+        else if (stream->current[0] == '-')
+        {
+            type = '--';
             stream_match(stream);
-            break;
-        case ',':
-            type = ',';
+        }
+        else if (stream->current[0] == '=')
+        {
+            type = '-=';
             stream_match(stream);
-            break;
-        case '!':
-            type = '!';
+        }
+        break;
+    case '|':
+        type = '|';
+        stream_match(stream);
+        if (stream->current[0] == '|')
+        {
+            type = '||';
+            stream_match(stream);
+        }
+        else if (stream->current[0] == '=')
+        {
+            type = '|=';
+            stream_match(stream);
+        }
+        break;
+    case '+':
+        type = '+';
+        stream_match(stream);
+        if (stream->current[0] == '+')
+        {
+            type = '++';
+            stream_match(stream);
+        }
+        else if (stream->current[0] == '=')
+        {
+            type = '+=';
+            stream_match(stream);
+        }
+        break;
+    case '=':
+        type = '=';
+        stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '==';
+            stream_match(stream);
+        }
+        break;
+    case '^':
+        type = '^';
+        stream_match(stream);
+        if (stream->current[0] == '=')
+        {
+            type = '^=';
+            stream_match(stream);
+        }
+        break;
+    case '&':
+        type = '&';
+        stream_match(stream);
+        if (stream->current[0] == '&')
+        {
+            type = '&&';
+            stream_match(stream);
+        }
+        else if (stream->current[0] == '=')
+        {
+            type = '&=';
+            stream_match(stream);
+        }
+        break;
+    case '>':
+        type = '>';
+        stream_match(stream);
+        if (stream->current[0] == '>')
+        {
+            type = '>>';
             stream_match(stream);
             if (stream->current[0] == '=')
             {
-                type = '!=';
+                type = '>>=';
                 stream_match(stream);
             }
-            break;
-        case ':':
-            type = ':';
+        }
+        else if (stream->current[0] == '=')
+        {
+            type = '>=';
             stream_match(stream);
-            if (stream->current[0] == ':')
-            {
-                type = '::';
-                stream_match(stream);
-            }
-            break;
-        case '~':
-            type = '~';
-            stream_match(stream);
-            break;
-        case '?':
-            type = '?';
-            stream_match(stream);
-            break;
-        case '/':
-            type = '/';
-            stream_match(stream);
-            if (stream->current[0] == '=')
-            {
-                type = '/=';
-                stream_match(stream);
-            }
-            break;
-        case '*':
-            type = '*';
-            stream_match(stream);
-            if (stream->current[0] == '=')
-            {
-                type = '*=';
-                stream_match(stream);
-            }
-            break;
-        case '%':
-            type = '%';
-            stream_match(stream);
-            if (stream->current[0] == '=')
-            {
-                type = '%=';
-                stream_match(stream);
-            }
-            break;
-        case '-':
-            type = '-';
-            stream_match(stream);
-            if (stream->current[0] == '>')
-            {
-                type = '->';
-                stream_match(stream);
-            }
-            else if (stream->current[0] == '-')
-            {
-                type = '--';
-                stream_match(stream);
-            }
-            else if (stream->current[0] == '=')
-            {
-                type = '-=';
-                stream_match(stream);
-            }
-            break;
-        case '|':
-            type = '|';
-            stream_match(stream);
-            if (stream->current[0] == '|')
-            {
-                type = '||';
-                stream_match(stream);
-            }
-            else if (stream->current[0] == '=')
-            {
-                type = '|=';
-                stream_match(stream);
-            }
-            break;
-        case '+':
-            type = '+';
-            stream_match(stream);
-            if (stream->current[0] == '+')
-            {
-                type = '++';
-                stream_match(stream);
-            }
-            else if (stream->current[0] == '=')
-            {
-                type = '+=';
-                stream_match(stream);
-            }
-            break;
-        case '=':
-            type = '=';
-            stream_match(stream);
-            if (stream->current[0] == '=')
-            {
-                type = '==';
-                stream_match(stream);
-            }
-            break;
-        case '^':
-            type = '^';
-            stream_match(stream);
-            if (stream->current[0] == '=')
-            {
-                type = '^=';
-                stream_match(stream);
-            }
-            break;
-        case '&':
-            type = '&';
-            stream_match(stream);
-            if (stream->current[0] == '&')
-            {
-                type = '&&';
-                stream_match(stream);
-            }
-            else if (stream->current[0] == '=')
-            {
-                type = '&=';
-                stream_match(stream);
-            }
-            break;
-        case '>':
-            type = '>';
-            stream_match(stream);
-            if (stream->current[0] == '>')
-            {
-                type = '>>';
-                stream_match(stream);
-                if (stream->current[0] == '=')
-                {
-                    type = '>>=';
-                    stream_match(stream);
-                }
-            }
-            else if (stream->current[0] == '=')
-            {
-                type = '>=';
-                stream_match(stream);
-            }
+        }
 
-            break;
-        case '<':
-            type = '<';
+        break;
+    case '<':
+        type = '<';
+        stream_match(stream);
+        if (stream->current[0] == '<')
+        {
+            type = '<<';
             stream_match(stream);
-            if (stream->current[0] == '<')
+            if (stream->current[0] == '=')
             {
-                type = '<<';
-                stream_match(stream);
-                if (stream->current[0] == '=')
-                {
-                    type = '<<=';
-                    stream_match(stream);
-                }
-            }
-            else if (stream->current[0] == '=')
-            {
-                type = '<=';
+                type = '<<=';
                 stream_match(stream);
             }
-            break;
-        case '#':
-            type = '#';
+        }
+        else if (stream->current[0] == '=')
+        {
+            type = '<=';
             stream_match(stream);
-            if (stream->current[0] == '#')
-            {
-                type = '##';
-                stream_match(stream);
-            }
-            break;
-        case '.':
-            type = '.';
+        }
+        break;
+    case '#':
+        type = '#';
+        stream_match(stream);
+        if (stream->current[0] == '#')
+        {
+            type = '##';
             stream_match(stream);
-            if (stream->current[0] == '.' && stream->current[1] == '.')
-            {
-                type = '...';
-                stream_match(stream);
-                stream_match(stream);
-            }
-            break;
+        }
+        break;
+    case '.':
+        type = '.';
+        stream_match(stream);
+        if (stream->current[0] == '.' && stream->current[1] == '.')
+        {
+            type = '...';
+            stream_match(stream);
+            stream_match(stream);
+        }
+        break;
     }
     return type;
 }
@@ -3654,7 +3659,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
             }
 
             char buffer[30] = { 0 };
-            int c = snprintf(buffer, sizeof buffer, "%d", (int) ch);
+            int c = snprintf(buffer, sizeof buffer, "%d", (int)ch);
 
             struct token* owner p_new_token = new_token(buffer, &buffer[c], TK_PPNUMBER);
             p_new_token->flags |= addflags;
@@ -3747,7 +3752,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             //windows have case insensive paths
             for (char* p = p_new->lexeme; *p; p++)
             {
-                *p = (char) tolower(*p);
+                *p = (char)tolower(*p);
             }
 #endif
             p_new->level = level;
@@ -5466,7 +5471,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 if (input_list->head && strcmp(input_list->head->lexeme, "once") == 0)
                 {
-                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*) 1, 0);
+                    hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*)1, 0);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
                 }
                 else if (input_list->head && strcmp(input_list->head->lexeme, "dir") == 0)
@@ -6162,7 +6167,7 @@ int lexeme_cmp(const char* s1, const char* s2)
         s2++;
     }
 
-    return *(const unsigned char*) s1 - *(const unsigned char*) s2;
+    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
 }
 
 void remove_line_continuation(char* s)
@@ -6817,9 +6822,9 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define _CONSOLE\n"
         "#define __STDC_OWNERSHIP__ 1\n"
         "#define _W_DIVIZION_BY_ZERO_ 29\n"
-        
-        
-        
+
+
+
 #ifdef _WIN32
 
         //see
@@ -7012,186 +7017,186 @@ const char* get_token_name(enum token_type tk)
 {
     switch (tk)
     {
-        case TK_NONE: return "TK_NONE";
-        case TK_NEWLINE: return "TK_NEWLINE";
-        case TK_WHITE_SPACE: return "TK_WHITE_SPACE";
-        case TK_EXCLAMATION_MARK: return "TK_EXCLAMATION_MARK";
-        case TK_QUOTATION_MARK: return "TK_QUOTATION_MARK";
-        case TK_NUMBER_SIGN: return "TK_NUMBER_SIGN";
-        case TK_DOLLAR_SIGN: return "TK_DOLLAR_SIGN";
-        case TK_PERCENT_SIGN: return "TK_PERCENT_SIGN";
-        case TK_AMPERSAND: return "TK_AMPERSAND";
-        case TK_APOSTROPHE: return "TK_APOSTROPHE";
-        case TK_LEFT_PARENTHESIS: return "TK_LEFT_PARENTHESIS";
-        case TK_RIGHT_PARENTHESIS: return "TK_RIGHT_PARENTHESIS";
-        case TK_ASTERISK: return "TK_ASTERISK";
-        case TK_PLUS_SIGN: return "TK_PLUS_SIGN";
-        case TK_COMMA: return "TK_COMMA";
-        case TK_HYPHEN_MINUS: return "TK_HYPHEN_MINUS";
-        case TK_FULL_STOP: return "TK_FULL_STOP";
-        case TK_SOLIDUS: return "TK_SOLIDUS";
-        case TK_COLON: return "TK_COLON";
-        case TK_SEMICOLON: return "TK_SEMICOLON";
-        case TK_LESS_THAN_SIGN: return "TK_LESS_THAN_SIGN";
-        case TK_EQUALS_SIGN: return "TK_EQUALS_SIGN";
-        case TK_GREATER_THAN_SIGN: return "TK_GREATER_THAN_SIGN";
-        case TK_QUESTION_MARK: return "TK_QUESTION_MARK";
-        case TK_COMMERCIAL_AT: return "TK_COMMERCIAL_AT";
-        case TK_LEFT_SQUARE_BRACKET: return "TK_LEFT_SQUARE_BRACKET";
-        case TK_REVERSE_SOLIDUS: return "TK_REVERSE_SOLIDUS";
-        case TK_RIGHT_SQUARE_BRACKET: return "TK_RIGHT_SQUARE_BRACKET";
-        case TK_CIRCUMFLEX_ACCENT: return "TK_CIRCUMFLEX_ACCENT";
-        case TK_FLOW_LINE: return "TK_FLOW_LINE";
-        case TK_GRAVE_ACCENT: return "TK_GRAVE_ACCENT";
-        case TK_LEFT_CURLY_BRACKET: return "TK_LEFT_CURLY_BRACKET";
-        case TK_VERTICAL_LINE: return "TK_VERTICAL_LINE";
-        case TK_RIGHT_CURLY_BRACKET: return "TK_RIGHT_CURLY_BRACKET";
-        case TK_TILDE: return "TK_TILDE";
-        case TK_PREPROCESSOR_LINE: return "TK_PREPROCESSOR_LINE";
-        case TK_PRAGMA: return "TK_PRAGMA";
-        case TK_STRING_LITERAL: return "TK_STRING_LITERAL";
-        case TK_CHAR_CONSTANT: return "TK_CHAR_CONSTANT";
-        case TK_LINE_COMMENT: return "TK_LINE_COMMENT";
-        case TK_COMMENT: return "TK_COMMENT";
-        case TK_PPNUMBER: return "TK_PPNUMBER";
+    case TK_NONE: return "TK_NONE";
+    case TK_NEWLINE: return "TK_NEWLINE";
+    case TK_WHITE_SPACE: return "TK_WHITE_SPACE";
+    case TK_EXCLAMATION_MARK: return "TK_EXCLAMATION_MARK";
+    case TK_QUOTATION_MARK: return "TK_QUOTATION_MARK";
+    case TK_NUMBER_SIGN: return "TK_NUMBER_SIGN";
+    case TK_DOLLAR_SIGN: return "TK_DOLLAR_SIGN";
+    case TK_PERCENT_SIGN: return "TK_PERCENT_SIGN";
+    case TK_AMPERSAND: return "TK_AMPERSAND";
+    case TK_APOSTROPHE: return "TK_APOSTROPHE";
+    case TK_LEFT_PARENTHESIS: return "TK_LEFT_PARENTHESIS";
+    case TK_RIGHT_PARENTHESIS: return "TK_RIGHT_PARENTHESIS";
+    case TK_ASTERISK: return "TK_ASTERISK";
+    case TK_PLUS_SIGN: return "TK_PLUS_SIGN";
+    case TK_COMMA: return "TK_COMMA";
+    case TK_HYPHEN_MINUS: return "TK_HYPHEN_MINUS";
+    case TK_FULL_STOP: return "TK_FULL_STOP";
+    case TK_SOLIDUS: return "TK_SOLIDUS";
+    case TK_COLON: return "TK_COLON";
+    case TK_SEMICOLON: return "TK_SEMICOLON";
+    case TK_LESS_THAN_SIGN: return "TK_LESS_THAN_SIGN";
+    case TK_EQUALS_SIGN: return "TK_EQUALS_SIGN";
+    case TK_GREATER_THAN_SIGN: return "TK_GREATER_THAN_SIGN";
+    case TK_QUESTION_MARK: return "TK_QUESTION_MARK";
+    case TK_COMMERCIAL_AT: return "TK_COMMERCIAL_AT";
+    case TK_LEFT_SQUARE_BRACKET: return "TK_LEFT_SQUARE_BRACKET";
+    case TK_REVERSE_SOLIDUS: return "TK_REVERSE_SOLIDUS";
+    case TK_RIGHT_SQUARE_BRACKET: return "TK_RIGHT_SQUARE_BRACKET";
+    case TK_CIRCUMFLEX_ACCENT: return "TK_CIRCUMFLEX_ACCENT";
+    case TK_FLOW_LINE: return "TK_FLOW_LINE";
+    case TK_GRAVE_ACCENT: return "TK_GRAVE_ACCENT";
+    case TK_LEFT_CURLY_BRACKET: return "TK_LEFT_CURLY_BRACKET";
+    case TK_VERTICAL_LINE: return "TK_VERTICAL_LINE";
+    case TK_RIGHT_CURLY_BRACKET: return "TK_RIGHT_CURLY_BRACKET";
+    case TK_TILDE: return "TK_TILDE";
+    case TK_PREPROCESSOR_LINE: return "TK_PREPROCESSOR_LINE";
+    case TK_PRAGMA: return "TK_PRAGMA";
+    case TK_STRING_LITERAL: return "TK_STRING_LITERAL";
+    case TK_CHAR_CONSTANT: return "TK_CHAR_CONSTANT";
+    case TK_LINE_COMMENT: return "TK_LINE_COMMENT";
+    case TK_COMMENT: return "TK_COMMENT";
+    case TK_PPNUMBER: return "TK_PPNUMBER";
 
-        case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
+    case ANY_OTHER_PP_TOKEN: return "ANY_OTHER_PP_TOKEN"; //@ por ex
 
-            /*PPNUMBER sao convertidos para constantes antes do parse*/
-        case TK_COMPILER_DECIMAL_CONSTANT: return "TK_COMPILER_DECIMAL_CONSTANT";
-        case TK_COMPILER_OCTAL_CONSTANT: return "TK_COMPILER_OCTAL_CONSTANT";
-        case TK_COMPILER_HEXADECIMAL_CONSTANT: return "TK_COMPILER_HEXADECIMAL_CONSTANT";
-        case TK_COMPILER_BINARY_CONSTANT: return "TK_COMPILER_BINARY_CONSTANT";
-        case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_DECIMAL_FLOATING_CONSTANT";
-        case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT";
-
-
-        case TK_PLACEMARKER: return "TK_PLACEMARKER";
-
-        case TK_BLANKS: return "TK_BLANKS";
-        case TK_PLUSPLUS: return "TK_PLUSPLUS";
-        case TK_MINUSMINUS: return "TK_MINUSMINUS";
-        case TK_ARROW: return "TK_ARROW";
-        case TK_SHIFTLEFT: return "TK_SHIFTLEFT";
-        case TK_SHIFTRIGHT: return "TK_SHIFTRIGHT";
-        case TK_LOGICAL_OPERATOR_OR: return "TK_LOGICAL_OPERATOR_OR";
-        case TK_LOGICAL_OPERATOR_AND: return "TK_LOGICAL_OPERATOR_AND";
-
-        case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
-
-        case TK_IDENTIFIER: return "TK_IDENTIFIER";
-        case TK_IDENTIFIER_RECURSIVE_MACRO: return "TK_IDENTIFIER_RECURSIVE_MACRO"; /*usado para evitar recursao expansao macro*/
-
-        case TK_BEGIN_OF_FILE: return "TK_BEGIN_OF_FILE";
-
-            //C23 keywords
-        case TK_KEYWORD_AUTO: return "TK_KEYWORD_AUTO";
-        case TK_KEYWORD_BREAK: return "TK_KEYWORD_BREAK";
-        case TK_KEYWORD_CASE: return "TK_KEYWORD_CASE";
-        case TK_KEYWORD_CONSTEXPR: return "TK_KEYWORD_CONSTEXPR";
-        case TK_KEYWORD_CHAR: return "TK_KEYWORD_CHAR";
-        case TK_KEYWORD_CONST: return "TK_KEYWORD_CONST";
-        case TK_KEYWORD_CONTINUE: return "TK_KEYWORD_CONTINUE";
-        case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH"; /*extension*/
-        case TK_KEYWORD_DEFAULT: return "TK_KEYWORD_DEFAULT";
-        case TK_KEYWORD_DO: return "TK_KEYWORD_DO";
-        case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER"; /*extension*/
-        case TK_KEYWORD_DOUBLE: return "TK_KEYWORD_DOUBLE";
-        case TK_KEYWORD_ELSE: return "TK_KEYWORD_ELSE";
-        case TK_KEYWORD_ENUM: return "TK_KEYWORD_ENUM";
-        case TK_KEYWORD_EXTERN: return "TK_KEYWORD_EXTERN";
-        case TK_KEYWORD_FLOAT: return "TK_KEYWORD_FLOAT";
-        case TK_KEYWORD_FOR: return "TK_KEYWORD_FOR";
-        case TK_KEYWORD_GOTO: return "TK_KEYWORD_GOTO";
-        case TK_KEYWORD_IF: return "TK_KEYWORD_IF";
-        case TK_KEYWORD_INLINE: return "TK_KEYWORD_INLINE";
-        case TK_KEYWORD_INT: return "TK_KEYWORD_INT";
-        case TK_KEYWORD_LONG: return "TK_KEYWORD_LONG";
-        case TK_KEYWORD__INT8: return "TK_KEYWORD__INT8";
-        case TK_KEYWORD__INT16: return "TK_KEYWORD__INT16";
-        case TK_KEYWORD__INT32: return "TK_KEYWORD__INT32";
-        case TK_KEYWORD__INT64: return "TK_KEYWORD__INT64";
-
-        case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
-        case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
-        case TK_KEYWORD_RETURN: return "TK_KEYWORD_RETURN";
-        case TK_KEYWORD_SHORT: return "TK_KEYWORD_SHORT";
-        case TK_KEYWORD_SIGNED: return "TK_KEYWORD_SIGNED";
-        case TK_KEYWORD_SIZEOF: return "TK_KEYWORD_SIZEOF";
-
-        case TK_KEYWORD_STATIC: return "TK_KEYWORD_STATIC";
-        case TK_KEYWORD_STRUCT: return "TK_KEYWORD_STRUCT";
-        case TK_KEYWORD_SWITCH: return "TK_KEYWORD_SWITCH";
-        case TK_KEYWORD_TYPEDEF: return "TK_KEYWORD_TYPEDEF";
-        case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY"; /*extension*/
-        case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW"; /*extension*/
-        case TK_KEYWORD_UNION: return "TK_KEYWORD_UNION";
-        case TK_KEYWORD_UNSIGNED: return "TK_KEYWORD_UNSIGNED";
-        case TK_KEYWORD_VOID: return "TK_KEYWORD_VOID";
-        case TK_KEYWORD_VOLATILE: return "TK_KEYWORD_VOLATILE";
-        case TK_KEYWORD_WHILE: return "TK_KEYWORD_WHILE";
-
-        case TK_KEYWORD__ALIGNAS: return "TK_KEYWORD__ALIGNAS";
-        case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
-        case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
-            //microsoft
-            //KEYWORD__FASTCALL,
-            //KEYWORD__STDCALL
-            //
-        case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
-            //end microsoft
-        case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
-        case TK_KEYWORD__COMPLEX: return "TK_KEYWORD__COMPLEX";
-        case TK_KEYWORD__DECIMAL128: return "TK_KEYWORD__DECIMAL128";
-        case TK_KEYWORD__DECIMAL32: return "TK_KEYWORD__DECIMAL32";
-        case TK_KEYWORD__DECIMAL64: return "TK_KEYWORD__DECIMAL64";
-        case TK_KEYWORD__GENERIC: return "TK_KEYWORD__GENERIC";
-        case TK_KEYWORD__IMAGINARY: return "TK_KEYWORD__IMAGINARY";
-        case TK_KEYWORD__NORETURN: return "TK_KEYWORD__NORETURN";
-        case TK_KEYWORD__STATIC_ASSERT: return "TK_KEYWORD__STATIC_ASSERT";
-        case TK_KEYWORD_ASSERT: return "TK_KEYWORD_ASSERT"; /*extension*/
-        case TK_KEYWORD__THREAD_LOCAL: return "TK_KEYWORD__THREAD_LOCAL";
-
-        case TK_KEYWORD_TYPEOF: return "TK_KEYWORD_TYPEOF"; /*C23*/
-
-        case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE";  /*C23*/
-        case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE";  /*C23*/
-        case TK_KEYWORD_NULLPTR: return "TK_KEYWORD_NULLPTR";  /*C23*/
-        case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL"; /*C23*/
-        case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT";  /*C23*/
+        /*PPNUMBER sao convertidos para constantes antes do parse*/
+    case TK_COMPILER_DECIMAL_CONSTANT: return "TK_COMPILER_DECIMAL_CONSTANT";
+    case TK_COMPILER_OCTAL_CONSTANT: return "TK_COMPILER_OCTAL_CONSTANT";
+    case TK_COMPILER_HEXADECIMAL_CONSTANT: return "TK_COMPILER_HEXADECIMAL_CONSTANT";
+    case TK_COMPILER_BINARY_CONSTANT: return "TK_COMPILER_BINARY_CONSTANT";
+    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_DECIMAL_FLOATING_CONSTANT";
+    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT: return "TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT";
 
 
+    case TK_PLACEMARKER: return "TK_PLACEMARKER";
 
-            /*cake extension*/
-        case TK_KEYWORD__OWNER: return "TK_KEYWORD__OWNER";
-        case TK_KEYWORD__OUT: return "TK_KEYWORD__OUT";
-        case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
-        case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
-        case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
+    case TK_BLANKS: return "TK_BLANKS";
+    case TK_PLUSPLUS: return "TK_PLUSPLUS";
+    case TK_MINUSMINUS: return "TK_MINUSMINUS";
+    case TK_ARROW: return "TK_ARROW";
+    case TK_SHIFTLEFT: return "TK_SHIFTLEFT";
+    case TK_SHIFTRIGHT: return "TK_SHIFTRIGHT";
+    case TK_LOGICAL_OPERATOR_OR: return "TK_LOGICAL_OPERATOR_OR";
+    case TK_LOGICAL_OPERATOR_AND: return "TK_LOGICAL_OPERATOR_AND";
 
-            /*extension compile time functions*/
-        case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
-        case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
-        case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
-        case TK_KEYWORD_ATTR_ADD: return "TK_KEYWORD_ATTR_ADD"; /*extension*/
-        case TK_KEYWORD_ATTR_REMOVE: return "TK_KEYWORD_ATTR_REMOVE"; /*extension*/
-        case TK_KEYWORD_ATTR_HAS: return "TK_KEYWORD_ATTR_HAS"; /*extension*/
+    case TK_MACRO_CONCATENATE_OPERATOR: return "TK_MACRO_CONCATENATE_OPERATOR";
 
-            /*https://en.cppreference.com/w/cpp/header/type_traits*/
+    case TK_IDENTIFIER: return "TK_IDENTIFIER";
+    case TK_IDENTIFIER_RECURSIVE_MACRO: return "TK_IDENTIFIER_RECURSIVE_MACRO"; /*usado para evitar recursao expansao macro*/
 
-        case TK_KEYWORD_IS_POINTER: return "TK_KEYWORD_IS_POINTER";
-        case TK_KEYWORD_IS_LVALUE: return "TK_KEYWORD_IS_LVALUE";
-        case TK_KEYWORD_IS_CONST: return "TK_KEYWORD_IS_CONST";
-        case TK_KEYWORD_IS_OWNER: return "TK_KEYWORD_IS_OWNER";
-        case TK_KEYWORD_IS_ARRAY: return "TK_KEYWORD_IS_ARRAY";
-        case TK_KEYWORD_IS_FUNCTION: return "TK_KEYWORD_IS_FUNCTION";
-        case TK_KEYWORD_IS_SCALAR: return "TK_KEYWORD_IS_SCALAR";
-        case TK_KEYWORD_IS_ARITHMETIC: return "TK_KEYWORD_IS_ARITHMETIC";
-        case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
-        case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
+    case TK_BEGIN_OF_FILE: return "TK_BEGIN_OF_FILE";
 
-        default:
-            return "TK_X_MISSING_NAME";
+        //C23 keywords
+    case TK_KEYWORD_AUTO: return "TK_KEYWORD_AUTO";
+    case TK_KEYWORD_BREAK: return "TK_KEYWORD_BREAK";
+    case TK_KEYWORD_CASE: return "TK_KEYWORD_CASE";
+    case TK_KEYWORD_CONSTEXPR: return "TK_KEYWORD_CONSTEXPR";
+    case TK_KEYWORD_CHAR: return "TK_KEYWORD_CHAR";
+    case TK_KEYWORD_CONST: return "TK_KEYWORD_CONST";
+    case TK_KEYWORD_CONTINUE: return "TK_KEYWORD_CONTINUE";
+    case TK_KEYWORD_CATCH: return "TK_KEYWORD_CATCH"; /*extension*/
+    case TK_KEYWORD_DEFAULT: return "TK_KEYWORD_DEFAULT";
+    case TK_KEYWORD_DO: return "TK_KEYWORD_DO";
+    case TK_KEYWORD_DEFER: return "TK_KEYWORD_DEFER"; /*extension*/
+    case TK_KEYWORD_DOUBLE: return "TK_KEYWORD_DOUBLE";
+    case TK_KEYWORD_ELSE: return "TK_KEYWORD_ELSE";
+    case TK_KEYWORD_ENUM: return "TK_KEYWORD_ENUM";
+    case TK_KEYWORD_EXTERN: return "TK_KEYWORD_EXTERN";
+    case TK_KEYWORD_FLOAT: return "TK_KEYWORD_FLOAT";
+    case TK_KEYWORD_FOR: return "TK_KEYWORD_FOR";
+    case TK_KEYWORD_GOTO: return "TK_KEYWORD_GOTO";
+    case TK_KEYWORD_IF: return "TK_KEYWORD_IF";
+    case TK_KEYWORD_INLINE: return "TK_KEYWORD_INLINE";
+    case TK_KEYWORD_INT: return "TK_KEYWORD_INT";
+    case TK_KEYWORD_LONG: return "TK_KEYWORD_LONG";
+    case TK_KEYWORD__INT8: return "TK_KEYWORD__INT8";
+    case TK_KEYWORD__INT16: return "TK_KEYWORD__INT16";
+    case TK_KEYWORD__INT32: return "TK_KEYWORD__INT32";
+    case TK_KEYWORD__INT64: return "TK_KEYWORD__INT64";
+
+    case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
+    case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
+    case TK_KEYWORD_RETURN: return "TK_KEYWORD_RETURN";
+    case TK_KEYWORD_SHORT: return "TK_KEYWORD_SHORT";
+    case TK_KEYWORD_SIGNED: return "TK_KEYWORD_SIGNED";
+    case TK_KEYWORD_SIZEOF: return "TK_KEYWORD_SIZEOF";
+
+    case TK_KEYWORD_STATIC: return "TK_KEYWORD_STATIC";
+    case TK_KEYWORD_STRUCT: return "TK_KEYWORD_STRUCT";
+    case TK_KEYWORD_SWITCH: return "TK_KEYWORD_SWITCH";
+    case TK_KEYWORD_TYPEDEF: return "TK_KEYWORD_TYPEDEF";
+    case TK_KEYWORD_TRY: return "TK_KEYWORD_TRY"; /*extension*/
+    case TK_KEYWORD_THROW: return "TK_KEYWORD_THROW"; /*extension*/
+    case TK_KEYWORD_UNION: return "TK_KEYWORD_UNION";
+    case TK_KEYWORD_UNSIGNED: return "TK_KEYWORD_UNSIGNED";
+    case TK_KEYWORD_VOID: return "TK_KEYWORD_VOID";
+    case TK_KEYWORD_VOLATILE: return "TK_KEYWORD_VOLATILE";
+    case TK_KEYWORD_WHILE: return "TK_KEYWORD_WHILE";
+
+    case TK_KEYWORD__ALIGNAS: return "TK_KEYWORD__ALIGNAS";
+    case TK_KEYWORD__ALIGNOF: return "TK_KEYWORD__ALIGNOF";
+    case TK_KEYWORD__ATOMIC: return "TK_KEYWORD__ATOMIC";
+        //microsoft
+        //KEYWORD__FASTCALL,
+        //KEYWORD__STDCALL
+        //
+    case TK_KEYWORD__ASM: return "TK_KEYWORD__ASM";
+        //end microsoft
+    case TK_KEYWORD__BOOL: return "TK_KEYWORD__BOOL";
+    case TK_KEYWORD__COMPLEX: return "TK_KEYWORD__COMPLEX";
+    case TK_KEYWORD__DECIMAL128: return "TK_KEYWORD__DECIMAL128";
+    case TK_KEYWORD__DECIMAL32: return "TK_KEYWORD__DECIMAL32";
+    case TK_KEYWORD__DECIMAL64: return "TK_KEYWORD__DECIMAL64";
+    case TK_KEYWORD__GENERIC: return "TK_KEYWORD__GENERIC";
+    case TK_KEYWORD__IMAGINARY: return "TK_KEYWORD__IMAGINARY";
+    case TK_KEYWORD__NORETURN: return "TK_KEYWORD__NORETURN";
+    case TK_KEYWORD__STATIC_ASSERT: return "TK_KEYWORD__STATIC_ASSERT";
+    case TK_KEYWORD_ASSERT: return "TK_KEYWORD_ASSERT"; /*extension*/
+    case TK_KEYWORD__THREAD_LOCAL: return "TK_KEYWORD__THREAD_LOCAL";
+
+    case TK_KEYWORD_TYPEOF: return "TK_KEYWORD_TYPEOF"; /*C23*/
+
+    case TK_KEYWORD_TRUE: return "TK_KEYWORD_TRUE";  /*C23*/
+    case TK_KEYWORD_FALSE: return "TK_KEYWORD_FALSE";  /*C23*/
+    case TK_KEYWORD_NULLPTR: return "TK_KEYWORD_NULLPTR";  /*C23*/
+    case TK_KEYWORD_TYPEOF_UNQUAL: return "TK_KEYWORD_TYPEOF_UNQUAL"; /*C23*/
+    case TK_KEYWORD__BITINT: return "TK_KEYWORD__BITINT";  /*C23*/
+
+
+
+        /*cake extension*/
+    case TK_KEYWORD__OWNER: return "TK_KEYWORD__OWNER";
+    case TK_KEYWORD__OUT: return "TK_KEYWORD__OUT";
+    case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
+    case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
+    case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
+
+        /*extension compile time functions*/
+    case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
+    case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
+    case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
+    case TK_KEYWORD_ATTR_ADD: return "TK_KEYWORD_ATTR_ADD"; /*extension*/
+    case TK_KEYWORD_ATTR_REMOVE: return "TK_KEYWORD_ATTR_REMOVE"; /*extension*/
+    case TK_KEYWORD_ATTR_HAS: return "TK_KEYWORD_ATTR_HAS"; /*extension*/
+
+        /*https://en.cppreference.com/w/cpp/header/type_traits*/
+
+    case TK_KEYWORD_IS_POINTER: return "TK_KEYWORD_IS_POINTER";
+    case TK_KEYWORD_IS_LVALUE: return "TK_KEYWORD_IS_LVALUE";
+    case TK_KEYWORD_IS_CONST: return "TK_KEYWORD_IS_CONST";
+    case TK_KEYWORD_IS_OWNER: return "TK_KEYWORD_IS_OWNER";
+    case TK_KEYWORD_IS_ARRAY: return "TK_KEYWORD_IS_ARRAY";
+    case TK_KEYWORD_IS_FUNCTION: return "TK_KEYWORD_IS_FUNCTION";
+    case TK_KEYWORD_IS_SCALAR: return "TK_KEYWORD_IS_SCALAR";
+    case TK_KEYWORD_IS_ARITHMETIC: return "TK_KEYWORD_IS_ARITHMETIC";
+    case TK_KEYWORD_IS_FLOATING_POINT: return "TK_KEYWORD_IS_FLOATING_POINT";
+    case TK_KEYWORD_IS_INTEGRAL: return "TK_KEYWORD_IS_INTEGRAL";
+
+    default:
+        return "TK_X_MISSING_NAME";
     }
     return "";
 };
@@ -7210,11 +7215,11 @@ void print_literal(const char* s)
     {
         switch (*s)
         {
-            case '\n':
-                printf("\\n");
-                break;
-            default:
-                printf("%c", *s);
+        case '\n':
+            printf("\\n");
+            break;
+        default:
+            printf("%c", *s);
         }
         s++;
     }
@@ -7327,7 +7332,7 @@ const char* owner get_code_as_compiler_see(struct token_list* list)
     return ss.c_str;
 }
 
-const char* owner print_preprocessed_to_string2(struct token* p_token)
+const char* owner print_preprocessed_to_string2(struct token* opt p_token)
 {
     /*
     * No nivel > 0 (ou seja dentro dos includes)
@@ -9650,6 +9655,8 @@ static const char* file_stdlib_h =
 "typedef long long fpos_t;\n"
 "typedef unsigned size_t;\n"
 "\n"
+"#define EXIT_SUCCESS 0\n"
+"#define EXIT_FAILURE 1\n"
 "#define NULL ((void*)0)\n"
 "typedef int wchar_t;\n"
 "[[nodiscard]] double atof(const char* nptr);\n"
@@ -9688,6 +9695,7 @@ static const char* file_stdlib_h =
 
 static const char* file_stddef_h =
 "\n"
+"#define unreachable() do {} while(0) \n"
 "typedef long int ptrdiff_t;\n"
 "typedef long unsigned int size_t;\n"
 "typedef int wchar_t;\n"
@@ -10964,7 +10972,10 @@ void print_scope(struct scope_list* e);
 
 char* CompileText(const char* options, const char* content);
 
-_Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+_Bool compiler_diagnostic_message(enum diagnostic_id w,
+    struct parser_ctx* ctx,
+    const struct token* opt p_token, 
+    const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
 
@@ -22166,13 +22177,17 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 }
 
 
-_Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+_Bool compiler_diagnostic_message(enum diagnostic_id w,
+    struct parser_ctx* ctx,
+    const struct token* opt p_token, 
+    const char* fmt, ...)
 {
 
     if (p_token && p_token->level != 0)
     {
         return false;
     }
+
     bool is_error = false;
     bool is_warning = false;
     bool is_note = false;

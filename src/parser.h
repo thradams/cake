@@ -103,7 +103,10 @@ void print_scope(struct scope_list* e);
 
 char* CompileText(const char* options, const char* content);
 
-_Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...);
+_Bool compiler_diagnostic_message(enum diagnostic_id w,
+    struct parser_ctx* ctx,
+    const struct token* opt p_token, 
+    const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
 

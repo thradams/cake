@@ -291,13 +291,17 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 }
 
 
-_Bool compiler_diagnostic_message(enum diagnostic_id w, struct parser_ctx* ctx, const struct token* p_token, const char* fmt, ...)
+_Bool compiler_diagnostic_message(enum diagnostic_id w,
+    struct parser_ctx* ctx,
+    const struct token* opt p_token, 
+    const char* fmt, ...)
 {
 
     if (p_token && p_token->level != 0)
     {
         return false;
     }
+
     bool is_error = false;
     bool is_warning = false;
     bool is_note = false;

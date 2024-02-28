@@ -82,7 +82,7 @@ const char* owner get_code_as_we_see(struct token_list* list, bool remove_commen
 void print_tokens(struct token* p_token);
 void print_preprocessed(struct token* p_token);
 const char* owner print_preprocessed_to_string(struct token* p_token);
-const char* owner print_preprocessed_to_string2(struct token* p_token);
+const char* owner print_preprocessed_to_string2(struct token* opt p_token);
 void check_unused_macros(struct owner_hash_map* map);
 
 char* owner read_file(const char* path);

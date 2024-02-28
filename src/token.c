@@ -770,7 +770,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     }
 }
 
-void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_format)
+void print_line_and_token(const struct token* opt p_token, bool visual_studio_ouput_format)
 {
     if (p_token == NULL)
         return;

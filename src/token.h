@@ -250,8 +250,9 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
-void print_line_and_token(const struct token* p_token, bool visual_studio_ouput_format);
+void print_line_and_token(const struct token* opt p_token, bool visual_studio_ouput_format);
 void print_position(const char* path, int line, int col, bool msvc_format);
+
 struct stream
 {
     const char* source;
