@@ -901,6 +901,8 @@ static const char* file_stdlib_h =
 "typedef long long fpos_t;\n"
 "typedef unsigned size_t;\n"
 "\n"
+"#define EXIT_SUCCESS 0\n"
+"#define EXIT_FAILURE 1\n"
 "#define NULL ((void*)0)\n"
 "typedef int wchar_t;\n"
 "[[nodiscard]] double atof(const char* nptr);\n"
@@ -939,6 +941,7 @@ static const char* file_stdlib_h =
 
 static const char* file_stddef_h =
 "\n"
+"#define unreachable() do {} while(0) \n"
 "typedef long int ptrdiff_t;\n"
 "typedef long unsigned int size_t;\n"
 "typedef int wchar_t;\n"
