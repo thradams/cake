@@ -1,1 +1,1 @@
-cake sqlite3.c  -DSQLITE_OMIT_SEH
+cake sqlite3.c  -DSQLITE_OMIT_SEH -fanalyzer

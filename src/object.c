@@ -41,7 +41,7 @@ int object_state_stack_reserve(struct object_state_stack* p, int n) /*unchecked*
 {
     if (n > p->capacity)
     {
-        if ((size_t) n > (SIZE_MAX / (sizeof(p->data[0]))))
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
         {
             return EOVERFLOW;
         }
@@ -105,14 +105,14 @@ int objects_reserve(struct objects* p, int n)
 {
     if (n > p->capacity)
     {
-        if ((size_t) n > (SIZE_MAX / (sizeof(p->data[0]))))
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
         {
             return EOVERFLOW;
         }
 
         void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
-        
+
         static_set(p->data, "moved"); //p->data was moved to pnew
 
         p->data = pnew;
@@ -184,7 +184,7 @@ bool has_name(const char* name, struct object_name_list* list)
 
 struct object make_object_core(struct type* p_type, struct object_name_list* list, int deep, const struct declarator* declarator)
 {
-    struct object obj = {0};
+    struct object obj = { 0 };
     obj.declarator = declarator;
 
     if (p_type->struct_or_union_specifier)
@@ -199,7 +199,7 @@ struct object make_object_core(struct type* p_type, struct object_name_list* lis
             struct member_declaration* p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
-            struct object_name_list l = {0};
+            struct object_name_list l = { 0 };
             l.name = p_struct_or_union_specifier->tag_name;
             l.previous = list;
             //int member_index = 0;
@@ -228,7 +228,7 @@ struct object make_object_core(struct type* p_type, struct object_name_list* lis
 
                             if (tag && has_name(tag, &l))
                             {
-                                struct object member_obj = {0};
+                                struct object member_obj = { 0 };
                                 member_obj.declarator = declarator;
                                 member_obj.state = OBJECT_STATE_NOT_APPLICABLE;
                                 objects_push_back(&obj.members, &member_obj);
@@ -253,7 +253,7 @@ struct object make_object_core(struct type* p_type, struct object_name_list* lis
                         //objects_push_back(&obj.members, &obj);
 
 
-                        struct type t = {0};
+                        struct type t = { 0 };
                         t.category = TYPE_CATEGORY_ITSELF;
                         t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                         t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
@@ -308,7 +308,7 @@ struct object make_object_core(struct type* p_type, struct object_name_list* lis
 struct object make_object(struct type* p_type, const struct declarator* declarator)
 {
     assert(declarator);
-    struct object_name_list list = {.name = ""};
+    struct object_name_list list = { .name = "" };
     return make_object_core(p_type, &list, 0, declarator);
 }
 
@@ -423,7 +423,7 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                         {
                             const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "";
 
-                            char buffer[200] = {0};
+                            char buffer[200] = { 0 };
                             if (is_pointer)
                                 snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
                             else
@@ -447,7 +447,7 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                     //else
                     //  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
 
-                    struct type t = {0};
+                    struct type t = { 0 };
                     t.category = TYPE_CATEGORY_ITSELF;
                     t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                     t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
@@ -500,7 +500,7 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 
             if (p_object->pointed)
             {
-                char buffer[200] = {0};
+                char buffer[200] = { 0 };
                 if (type_is_struct_or_union(&t2))
                 {
                     snprintf(buffer, sizeof buffer, "%s", previous_names);
@@ -574,7 +574,7 @@ void print_object(struct type* p_type, struct object* p_object, bool short_versi
         printf("null object");
         return;
     }
-    char name[100] = {0};
+    char name[100] = { 0 };
     object_get_name(p_type, p_object, name, sizeof name);
 
 
@@ -670,7 +670,7 @@ void set_object_state(
         {
             if (p_object_source->state == OBJECT_STATE_UNINITIALIZED)
             {
-                char buffer[100] = {0};
+                char buffer[100] = { 0 };
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
                 compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
@@ -679,7 +679,7 @@ void set_object_state(
             }
             else if (p_object_source->state & OBJECT_STATE_UNINITIALIZED)
             {
-                char buffer[100] = {0};
+                char buffer[100] = { 0 };
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
                 compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
@@ -693,7 +693,7 @@ void set_object_state(
             {
                 if (p_object_source->state == OBJECT_STATE_MOVED)
                 {
-                    char buffer[100] = {0};
+                    char buffer[100] = { 0 };
                     object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
                     compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
@@ -703,7 +703,7 @@ void set_object_state(
                 }
                 else if (p_object_source->state & OBJECT_STATE_MOVED)
                 {
-                    char buffer[100] = {0};
+                    char buffer[100] = { 0 };
                     object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
                     compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
@@ -1103,7 +1103,7 @@ void object_get_name_core(
                     if (p_member_declarator->declarator)
                     {
                         const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "";
-                        char buffer[200] = {0};
+                        char buffer[200] = { 0 };
                         if (type_is_pointer(p_type))
                             snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
                         else
@@ -1130,7 +1130,7 @@ void object_get_name_core(
     {
         if (type_is_pointer(p_type))
         {
-            char buffer[100] = {0};
+            char buffer[100] = { 0 };
             snprintf(buffer, sizeof buffer, "%s", previous_names);
 
             struct type t2 = type_remove_pointer(p_type);
@@ -1231,7 +1231,7 @@ void checked_moved(struct parser_ctx* ctx,
             struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
             const char* parameter_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
 
-            char name[200] = {0};
+            char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
             if (compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
@@ -1249,16 +1249,17 @@ void checked_moved(struct parser_ctx* ctx,
             struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
             const char* parameter_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
 
-            char name[200] = {0};
+            char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a uninitialized object '%s'",
                 parameter_name,
-                name);
-
-            compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
+                name))
+            {
+                compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
+            }
         }
     }
 }
@@ -1334,7 +1335,7 @@ void checked_read_object(struct parser_ctx* ctx,
             //struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
             //const char* parameter_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
 
-            char name[200] = {0};
+            char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
             compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
@@ -1345,7 +1346,7 @@ void checked_read_object(struct parser_ctx* ctx,
 
         if (p_object->state & OBJECT_STATE_UNINITIALIZED)
         {
-            char name[200] = {0};
+            char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
             compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
                 ctx,
@@ -1404,14 +1405,16 @@ void visit_object(struct parser_ctx* ctx,
             *  have been moved.
             */
             const struct token* const name = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 name,
                 "object '%s' was not moved/destroyed",
-                previous_names);
+                previous_names))
+            {
 
-            if (p_object->declarator)
-                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", previous_names);
+                if (p_object->declarator)
+                    compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", previous_names);
+            }
         }
         else
         {
@@ -1435,7 +1438,7 @@ void visit_object(struct parser_ctx* ctx,
                         {
                             const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "?";
 
-                            char buffer[200] = {0};
+                            char buffer[200] = { 0 };
                             if (type_is_pointer(p_type))
                                 snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
                             else
@@ -1498,7 +1501,7 @@ void visit_object(struct parser_ctx* ctx,
         {
             if (should_had_been_moved)
             {
-                char buffer[100] = {0};
+                char buffer[100] = { 0 };
                 snprintf(buffer, sizeof buffer, "%s", previous_names);
 
                 struct type t2 = type_remove_pointer(p_type);
@@ -1600,7 +1603,7 @@ void object_assignment(struct parser_ctx* ctx,
     {
         if (type_is_owner(p_dest_obj_type) && !type_is_out(p_dest_obj_type))
         {
-            char buffer[100] = {0};
+            char buffer[100] = { 0 };
             object_get_name(p_dest_obj_type, p_dest_obj_opt, buffer, sizeof buffer);
             visit_object(ctx,
                 p_dest_obj_type,

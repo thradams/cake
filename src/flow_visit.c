@@ -152,7 +152,7 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
                 warnings_count != ctx->ctx->p_report->warnings_count ||
                 info_count != ctx->ctx->p_report->info_count)
             {
-                compiler_diagnostic_message(0, ctx->ctx, position_token, "defer end of scope");
+                compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "defer end of scope");
             }
         }
         else if (deferchild->declarator)
@@ -2224,12 +2224,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 {
                     if (e != p_obj->state)
                     {
-                        compiler_diagnostic_message(C_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+                        compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
                     }
                 }
                 else
                 {
-                    compiler_diagnostic_message(C_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                    compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                 }
             }
 
@@ -2265,7 +2265,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     }
                     else
                     {
-                        compiler_diagnostic_message(C_ERROR_STATIC_ASSERT_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
+                        compiler_diagnostic_message(C_ERROR_STATIC_SET, ctx->ctx, p_static_assert_declaration->first_token, "invalid parameter %s", p_static_assert_declaration->string_literal_opt->lexeme);
                     }
                 }
             }

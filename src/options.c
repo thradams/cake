@@ -50,9 +50,9 @@ s_warnings[] = {
     {W_DISCARDING_OWNER, "discard-owner"},
     {W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
-    {W_ANALYZER_UNINITIALIZED, "maybe-uninitialized"},
+    {W_ANALYZER_UNINITIALIZED, "analyzer-maybe-uninitialized"},
     {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "non-opt-arg"},
+    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "analyzer-non-opt-arg"},
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
