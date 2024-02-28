@@ -1,5 +1,5 @@
   
-Last Updated 27/12/2023
+Last Updated 27/02/2024
   
 This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.
 
@@ -1092,32 +1092,24 @@ int main() {
 
 If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj\_view, etc., it must define  `__STDC_OWNERSHIP__`. 
 
-However, even if the compiler implements ownership, it is not active by default. The objective is to have a smooth transition allowing some files without checks. For instance, a thirty part code inside your project.
-
-For instance, when compiling this file, even if the compiler supports ownership we don't have errors or warnings because the checks are not enabled by default.
-
-```c
-#include <stdlib.h>
-
-int main() {
-  void * p = malloc(1);
-}
-```
-
-A second define `__OWNERSHIP_H__`, is used to enable ownership.
-This define is set when we include `<ownership.h>` at beginning. 
+We utilize a header with macro versions for each keyword. 
+For example, the macro owner corresponds to the keyword _Owner. 
+This approach offers the advantage that macros can be declared empty for compilers that 
+do not support ownership checks.
 
 ```c
 #include <ownership.h>
 #include <stdlib.h>
 
 int main() {
-  void * p = malloc(1); //error: missing owner qualifier
+  void * owner p = malloc(1); //error: missing owner qualifier
 }
 ```
 
-The other advantage of having a `<ownership.h>` is because owner is a macro that can be defined as empty in case the compiler does not support ownership, allowing the same code to be compiled in compilers without ownership support. 
-  
-  
-> Currently cake is using the same headers of VS and GCC that are not aware of ownership. For this reason, `ownership.h` itself is declaring malloc etc and the second declaration of malloc inside stdlib.h will not complain with the discrepancy of ownership qualifiers between declarations.
+> Currently cake is using the same headers of VS and GCC that are not aware of ownership. 
+For this reason, `ownership.h` itself is declaring malloc.
+When we parsing malloc from MSVC/GCC we ignore the diferences, but at the current version 
+`ownership.h` header must be included before to take efect.
+
+
 

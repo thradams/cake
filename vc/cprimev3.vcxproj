@@ -62,6 +62,7 @@
     <ClInclude Include="..\src\token.h" />
     <ClInclude Include="..\src\tokenizer.h" />
     <ClInclude Include="..\src\type.h" />
+    <ClInclude Include="..\src\version.h" />
     <ClInclude Include="..\src\visit.h" />
   </ItemGroup>
   <ItemGroup>

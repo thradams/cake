@@ -71,7 +71,7 @@ enum diagnostic_id {
     ////////////////////////////////////////
 
     //constraints violations are errors
-    C_UNEXPECTED,
+    C_ERROR_UNEXPECTED,
     //TODO ERROR MESSAGE MUST BE BASED ON CONSTRAINS
     // 
     

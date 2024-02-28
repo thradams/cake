@@ -6,10 +6,10 @@ const uint8_t image_data[] = {
 #embed "image.png"
 };
  
-const char message[] = {
-#embed "message.txt" if_empty('M', 'i', 's', 's', 'i', 'n', 'g', '\n')
-,'\0' // null terminator
-};
+//const char message[] = {
+//#embed "message.txt" if_empty('M', 'i', 's', 's', 'i', 'n', 'g', '\n')
+//,'\0' // null terminator
+//};
  
 void dump(const uint8_t arr[], size_t size)
 {
@@ -23,5 +23,5 @@ int main()
     puts("image_data[]:");
     dump(image_data, sizeof image_data);
     puts("message[]:");
-    dump((const uint8_t*)message, sizeof message);
+    //dump((const uint8_t*)message, sizeof message);
 }

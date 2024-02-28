@@ -77,6 +77,13 @@ enum type_specifier_flags
 
 
 };
+#ifdef _WIN32
+//Windows
+#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
+#else
+#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
+#endif
+
 
 enum type_qualifier_flags
 {

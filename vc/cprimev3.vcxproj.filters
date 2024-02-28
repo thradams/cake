@@ -114,6 +114,9 @@
     <ClInclude Include="..\src\flow_visit.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\version.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\src\object.h">

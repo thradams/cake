@@ -213,6 +213,9 @@ struct expression
     struct expression* owner condition_expr;
     struct expression* owner left;
     struct expression* owner right;
+
+    bool is_assigment_expression;
+    
 };
 
 void expression_delete(struct expression* owner opt p);

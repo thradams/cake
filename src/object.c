@@ -48,7 +48,7 @@ int object_state_stack_reserve(struct object_state_stack* p, int n) /*unchecked*
 
         void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
-
+        static_set(p->data, "moved");
         p->data = pnew;
         p->capacity = n;
     }

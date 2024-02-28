@@ -227,6 +227,7 @@ void malloc_builtin_semantics(void);
 void discard_qualifier_test(void);
 void keywords_inside_attr(void);
 void assertbuiltin(void);
+void valueoflit(void);
 
 /*end of forward declarations*/
 
@@ -445,6 +446,7 @@ g_unit_test_success_count = 0;
     discard_qualifier_test();
     keywords_inside_attr();
     assertbuiltin();
+    valueoflit();
 return g_unit_test_error_count;
 
 }

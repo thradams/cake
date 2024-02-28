@@ -12,8 +12,6 @@
 #include "options.h"
 #include "object.h"
 
-#define CAKE_VERSION "0.7.4"
-
 
 struct scope
 {
@@ -886,7 +884,7 @@ struct block_item_list
     struct block_item* tail;
 };
 
-struct block_item_list block_item_list(struct parser_ctx* ctx);
+struct block_item_list block_item_list(struct parser_ctx* ctx, bool *error);
 void block_item_list_destroy(struct block_item_list* obj_owner p);
 
 struct compound_statement
@@ -1281,7 +1279,7 @@ struct declaration_list
     struct declaration* tail;
 };
 
-struct declaration_list translation_unit(struct parser_ctx* ctx);
+struct declaration_list translation_unit(struct parser_ctx* ctx, bool * berror);
 void declaration_list_destroy(struct declaration_list* obj_owner list);
 
 struct label
@@ -1311,5 +1309,5 @@ void ast_destroy(struct ast* obj_owner ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
-struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list);
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool *berror);
 const char* owner compile_source(const char* pszoptions, const char* content, struct report* report);

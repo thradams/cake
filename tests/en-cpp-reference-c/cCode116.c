@@ -10,7 +10,7 @@ void g(int*)
 #define DETECT_NULL_POINTER_CONSTANT(e) \
     _Generic(e,                         \
         void* : puts("void*"),          \
-        nullptr_t : puts("nullptr_t"),  \
+        typeof(nullptr) : puts("nullptr_t"),  \
         default : puts("integer")       \
     )
  

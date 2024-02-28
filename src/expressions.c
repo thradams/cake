@@ -592,7 +592,7 @@ struct generic_association* owner generic_association(struct parser_ctx* ctx)
         }
         else
         {
-            compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "unexpected");
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "unexpected");
         }
         parser_match_tk(ctx, ':');
         p_generic_association->expression = assignment_expression(ctx);
@@ -713,10 +713,12 @@ struct generic_selection* owner generic_selection(struct parser_ctx* ctx)
         {
             /*extension*/
             p_generic_selection->type_name = type_name(ctx);
+            if (p_generic_selection->type_name == NULL) throw;
         }
         else
         {
             p_generic_selection->expression = assignment_expression(ctx);
+            if (p_generic_selection->expression == NULL) throw;
         }
 
         parser_match_tk(ctx, ',');
@@ -771,6 +773,8 @@ struct generic_selection* owner generic_selection(struct parser_ctx* ctx)
     }
     catch
     {
+        generic_selection_delete(p_generic_selection);
+        p_generic_selection = NULL;
     }
     return p_generic_selection;
 }
@@ -931,14 +935,9 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
         p++;
         p++;
 
-        if (sizeof(wchar_t) > sizeof(short))
-        {
-            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
-        }
-        else
-        {
-            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
-        }
+        
+        p_expression_node->type.type_specifier_flags = CAKE_WCHAR_T_TYPE_SPECIFIER;
+        
         /*
          wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
          the <stddef.h> header. The value of a wchar_t character constant containing a single multibyte
@@ -956,6 +955,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
             p = utf8_decode(p, &c);
             if (p == 0)
                 break;
+            //TODO \u
             value = value * 256 + c;
             if (value > INT_MAX)
             {
@@ -1080,6 +1080,8 @@ static bool is_integer_or_floating_constant(enum token_type type)
 
 struct object* expression_get_object(struct expression* p_expression, struct type* p_type)
 {
+    if (p_expression == NULL)
+        return NULL;
     if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
     {
         if (p_type)
@@ -1287,13 +1289,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
                    GCC or MSVC.
                    windows it is short linux is
                 */
-                char_type =
-                    _Generic((wchar_t)0,
-                        short:  TYPE_SPECIFIER_SHORT,
-                        unsigned short : TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT,
-                        int : TYPE_SPECIFIER_INT,
-                        unsigned int : TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT
-                        );
+                char_type = CAKE_WCHAR_T_TYPE_SPECIFIER;
             }
 
             p_expression_node->type = type_make_literal_string(string_literal_byte_size(ctx->current->lexeme), char_type);
@@ -1377,6 +1373,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
             p_expression_node->expression_type = PRIMARY_EXPRESSION_GENERIC;
 
             p_expression_node->generic_selection = generic_selection(ctx);
+            if (p_expression_node->generic_selection == NULL) throw;
 
             p_expression_node->last_token = p_expression_node->generic_selection->last_token;
 
@@ -1409,11 +1406,14 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
         }
         else
         {
-            compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "unexpected");
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "unexpected");
         }
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
+        
     }
 
 
@@ -2545,7 +2545,9 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
         }
         else
         {
-            compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "unexpected");
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "expected expression");
+            assert(p_expression_node == NULL);
+            throw;
         }
     }
     catch
@@ -2777,7 +2779,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
                     {
                         expression_delete(new_expression);
                         new_expression = NULL;
-                        compiler_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "internal error");
+                        compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "internal error");
                         throw;
                     }
                 }
@@ -3412,9 +3414,10 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
+                
                 type_print(&new_expression->left->type);
                 type_print(&new_expression->right->type);
-                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types logicl and expression");
+                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types logical and expression");
                 expression_delete(new_expression);
                 throw;
             }
@@ -3591,13 +3594,16 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
 
 
             check_diferent_enuns(ctx, op_token, new_expression->left, new_expression->right);
-
+            new_expression->left->is_assigment_expression = true;
+            if (new_expression->left->left)
+                new_expression->left->left->is_assigment_expression = true;
             p_expression_node = new_expression;
         }
     }
     catch
     {
     }
+    
     return p_expression_node;
 }
 

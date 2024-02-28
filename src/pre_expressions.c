@@ -148,7 +148,7 @@ static void pre_primary_expression(struct preprocessor_ctx *ctx, struct pre_expr
                 throw;
             if (ctx->current && ctx->current->type != ')')
             {
-                preprocessor_diagnostic_message(C_UNEXPECTED, ctx, ctx->current, "expected )");
+                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "expected )");
                 throw;
             }
             pre_match(ctx);

@@ -3431,5 +3431,17 @@ void assertbuiltin()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 
 }
+
+void valueoflit()
+{
+    const char* source
+        =
+        "int main(void)\n"
+        "{  \n"
+        "  static_assert(L'\\u0b83' == 0x0B83);\n"
+        "}\n"
+        "";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
 #endif
 

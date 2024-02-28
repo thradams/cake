@@ -1,38 +1,29 @@
-
-void* _Owner malloc(unsigned long size);
-void free(void* _Owner ptr);
-
-struct Y {
-    char* _Owner p0;
-    int* _Owner p2;
-    double i2;
+//en.cppreference.com/w/c/language/_Alignas.html
+#include <stdalign.h>
+#include <stdio.h>
+ 
+// every object of type struct sse_t will be aligned to 16-byte boundary
+// (note: needs support for DR 444)
+struct sse_t
+{
+    alignas(16) float sse_data[4];
 };
-
-struct X {
-    char* _Owner text;
-    int* _Owner p1;
-    int i;
-    struct Y* pY;
+ 
+// every object of type struct data will be aligned to 128-byte boundary
+struct data
+{
+    char x;
+    alignas(128) char cacheline[128]; // over-aligned array of char,
+                                      // not array of over-aligned chars
 };
-
-void init(struct X* p);
-
-int main() {
-    struct X x;
-    /*lying here, to avoid error of using uninitialized*/
-    static_set(x, "zero");
-    init(&x);
-
-    static_state(x.p1, "maybe-null");
-    static_state(x.i, "any");
-    static_state(x.pY, "maybe-null");
-    static_state(x.pY->p0, "maybe-null");
-    static_state(x.pY->p2, "maybe-null");
-    static_state(x.pY->i2, "any");
-    free(x);
+ 
+int main(void)
+{
+    printf("sizeof(data) = %zu (1 byte + 127 bytes padding + 128-byte array)\n",
+           sizeof(struct data));
+ 
+    printf("alignment of sse_t is %zu\n", alignof(struct sse_t));
+ 
+    alignas(2048) struct data d; // this instance of data is aligned even stricter
+    (void)d; // suppresses "maybe unused" warning
 }
-
-
-void dummy() {}
-
-#pragma cake diagnostic check "-Wmaybe-uninitialized"

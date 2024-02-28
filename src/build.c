@@ -267,6 +267,7 @@ int main()
     generate_doc("../README.md", "./web/index.html");
     generate_doc("../warnings.md", "./web/warnings.html");
     generate_doc("../ownership.md", "./web/ownership.html");
+    generate_doc("../ownership_samples.md", "./web/ownership_samples.html");
 
 
     remove("hoedown.exe");

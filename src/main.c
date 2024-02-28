@@ -5,6 +5,7 @@
 #include "visit.h"
 #include <stdlib.h>
 #include <time.h>
+#include "version.h"
 
 #ifdef _WIN32
 #include <crtdbg.h>
