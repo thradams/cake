@@ -228,6 +228,8 @@ void discard_qualifier_test(void);
 void keywords_inside_attr(void);
 void assertbuiltin(void);
 void valueoflit(void);
+void enum_type(void);
+void comflittype(void);
 
 /*end of forward declarations*/
 
@@ -447,6 +449,8 @@ g_unit_test_success_count = 0;
     keywords_inside_attr();
     assertbuiltin();
     valueoflit();
+    enum_type();
+    comflittype();
 return g_unit_test_error_count;
 
 }

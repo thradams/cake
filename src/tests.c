@@ -3443,5 +3443,27 @@ void valueoflit()
         "";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
+
+void enum_type()
+{
+    const char* source
+        =
+        "enum E : long long { R, G, B } e;\n"
+        "static_assert (_Generic (e, long long: 1, default: 0) == 1, \"E type\");\n"
+        "\n"
+        "";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+
+void comflittype()
+{
+    const char* str
+        =
+        "enum E { l = -1, z = 0, g = 1 };\n"
+        "int foo(void);\n"
+        "enum E foo(void) { return z; }";
+    //assert(compile_with_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+//https://developers.redhat.com/articles/2023/05/04/new-c-features-gcc-13#c2x_features]
 #endif
 
