@@ -21960,7 +21960,7 @@ void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_decla
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.5"
+#define CAKE_VERSION "0.7.6"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working

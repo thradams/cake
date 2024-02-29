@@ -1,28 +1,18 @@
-extern void puts(const char*);
+//#include <stdio.h>
 
-
-typedef struct {} x86_64;
-typedef struct {} i386;
-
-struct x86_64 { x86_64 type; };
-struct i386 { i386   type; };
-
-typedef union {
-    typeof(
-        _Generic(
-            &(char[sizeof sizeof 1]) { 0 },
-            char(*)[4]:(struct i386) {}.type,
-            char(*)[8] : (struct x86_64) {}.type)
-    ) cpu_type;
-} arch;
-
-int main(void)
+struct { bool success; int value; } parse(const char* s)
 {
-    puts(_Generic(
-        (arch*)
+    if (s == 0)
+        return (typeof(parse(0))) { false, 1 };
+
+    return (typeof(parse(0))) { true, 1 };
+};
+
+int main()
+{
+    auto r = parse("1");
+    if (r.success)
     {
-        0
-    }->cpu_type,
-        x86_64:"x86_64",
-            i386 : "i386"));
+       // printf("%d", r.value);
+    }
 }
