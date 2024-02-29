@@ -23008,6 +23008,9 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
             else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
             else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
+            else if (strcmp("__typeof__", text) == 0) result = TK_KEYWORD_TYPEOF; /*(C23)*/
+
+            
 
 
 

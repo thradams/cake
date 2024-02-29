@@ -41,7 +41,7 @@
 void object_state_to_string(enum object_state e)
 {
     bool  first = true;
-
+    printf(LIGHTCYAN);
     printf("\"");
     if (e & OBJECT_STATE_UNINITIALIZED)
     {
@@ -91,6 +91,7 @@ void object_state_to_string(enum object_state e)
     }
 
     printf("\"");
+    printf(RESET);
 }
 
 struct defer_statement* owner defer_statement(struct parser_ctx* ctx);
@@ -1122,6 +1123,9 @@ enum token_type is_keyword(const char* text)
             else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
             else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
             else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
+            else if (strcmp("__typeof__", text) == 0) result = TK_KEYWORD_TYPEOF; /*(C23)*/
+
+            
 
 
 
