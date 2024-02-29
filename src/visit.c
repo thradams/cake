@@ -588,8 +588,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
 			p_specifier_qualifier_list_opt->last_token, TK_FLAG_HIDE);
 
 		struct osstream ss = { 0 };
-		print_type(&ss, type_get_specifer_part(p_type));
-
+		print_type_no_names(&ss, type_get_specifer_part(p_type));
 
 		struct tokenizer_ctx tctx = { 0 };
 		struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, level, TK_FLAG_FINAL);
@@ -1138,6 +1137,9 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
 		const bool constant_expression =
 			p_jump_statement->expression_opt == NULL ||
 			constant_value_is_valid(&p_jump_statement->expression_opt->constant_value);
+		
+		if (p_jump_statement->expression_opt)
+			visit_expression(ctx, p_jump_statement->expression_opt);
 
 		if (constant_expression)
 		{

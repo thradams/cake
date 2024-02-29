@@ -71,6 +71,7 @@ void test_get_warning_name(void);
 
 /* tests from tests.c*/
 void parser_specifier_test(void);
+void character_constant_test(void);
 void char_constants(void);
 void array_item_type_test(void);
 void take_address_type_test(void);
@@ -292,6 +293,7 @@ g_unit_test_success_count = 0;
     test_line_continuation();
     test_get_warning_name();
     parser_specifier_test();
+    character_constant_test();
     char_constants();
     array_item_type_test();
     take_address_type_test();

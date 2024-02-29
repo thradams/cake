@@ -263,7 +263,7 @@
 <a href="#toc_78">Extension typename on _Generic</a>
 </li>
 <li>
-<a href="#toc_79">Extension assert declaration</a>
+<a href="#toc_79">Extension assert statement</a>
 </li>
 </ul>
 </li>
@@ -399,6 +399,10 @@ C99 is the default and C89 (ANSI C) is the minimum target</p>
 
 <p>Enables or disable warnings.
 See <a href="warnings.html">warnings</a></p>
+
+<h4>-disable-assert</h4>
+
+<p>disable cake extension where assert is an statement. See extensions</p>
 
 <h4>-showIncludes</h4>
 
@@ -1868,25 +1872,16 @@ int main()
 <p>and the lvalue conversion will not happen, allowing 
 more precise (with qualifiers) type match.</p>
 
-<h3 id="toc_79">Extension assert declaration</h3>
+<h3 id="toc_79">Extension assert statement</h3>
 
-<p>Standard says &quot;If NDEBUG is defined as a macro name at the point in the source file 
-where <assert.h> is included, the assert macro is defined simply as</p>
+<p>In cake assert is an statement. The reason is because it works as tips for flow analysis 
+and these checks are checked in runtime in debug bugs.
+The different is that assert is also evaluated in release.
+That means the expression must be valid.
+To disable this extension use -disable-assert options. </p>
 
-<pre><code class="language-c">#define assert(...) ((void)0)  
-</code></pre>
-
-<p>Cake keeps that. </p>
-
-<p>If NDEBUG is NOT defined cake defines assert as</p>
-
-<pre><code class="language-c">#define assert(...) assert(__VA_ARGS__) 
-</code></pre>
-
-<p>Because Cake can be used as a static analyzer, reading existing headers not previously known by Cake,
-it overrides the assert macro to retain information for its use in compiler phases.</p>
-
-<p>Then assert is also a keyword for a built-in expression.</p>
+<p>When cake reads GCC MSVC headers it overrides the macro assert to match the cake
+assert statement.</p>
 
 <h2 id="toc_80">Versions</h2>
 </article></body></html>

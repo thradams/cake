@@ -119,6 +119,8 @@ Format output (format after language conversion, result parsed again)
 Enables or disable warnings.
 See [warnings](warnings.html)
 
+#### -disable-assert
+disable cake extension where assert is an statement. See extensions
 
 #### -showIncludes
 Causes the compiler to output a list of the include files. The option also displays nested include files, that is, the files included by the files that you include.
@@ -1666,30 +1668,16 @@ See [ownership](ownership.html)
 and the lvalue conversion will not happen, allowing 
 more precise (with qualifiers) type match.
 
-### Extension assert declaration
+### Extension assert statement
 
-Standard says "If NDEBUG is defined as a macro name at the point in the source file 
-where <assert.h> is included, the assert macro is defined simply as
+In cake assert is an statement. The reason is because it works as tips for flow analysis 
+and these checks are checked in runtime in debug bugs.
+The different is that assert is also evaluated in release.
+That means the expression must be valid.
+To disable this extension use -disable-assert options. 
 
-```c
-#define assert(...) ((void)0)  
-```
-
-Cake keeps that. 
-
-
-
-If NDEBUG is NOT defined cake defines assert as
-
-```c
-#define assert(...) assert(__VA_ARGS__) 
-```
-
-Because Cake can be used as a static analyzer, reading existing headers not previously known by Cake,
-it overrides the assert macro to retain information for its use in compiler phases.
-
-Then assert is also a keyword for a built-in expression.
-
+When cake reads GCC MSVC headers it overrides the macro assert to match the cake
+assert statement.
 
 ## Versions
 

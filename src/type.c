@@ -223,7 +223,7 @@ struct type type_convert_to(const struct type* p_type, enum language_version tar
 	return type_dup(p_type);
 }
 
-void print_type_core(struct osstream* ss, const struct type* p_type, bool onlydeclarator)
+void print_type_core(struct osstream* ss, const struct type* p_type, bool onlydeclarator, bool printname)
 {
 	const struct type* p = p_type;
 
@@ -257,7 +257,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
 
 
-			if (p->name_opt)
+			if (printname && p->name_opt)
 			{
 				if (first)
 				{
@@ -281,7 +281,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 		case TYPE_CATEGORY_ARRAY:
 
 
-			if (p->name_opt)
+			if (printname && p->name_opt)
 			{
 				//if (first)
 				//{
@@ -314,7 +314,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 			break;
 		case TYPE_CATEGORY_FUNCTION:
 
-			if (p->name_opt)
+			if (printname && p->name_opt)
 			{
 				//if (first)
 				//{
@@ -357,7 +357,7 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 			bool first = false;
 			print_type_qualifier_flags(&local, &first, p->type_qualifier_flags);
 
-			if (p->name_opt)
+			if (printname && p->name_opt)
 			{
 				if (!first)
 				{
@@ -390,12 +390,17 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
 void print_type(struct osstream* ss, const struct type* p_type)
 {
-	print_type_core(ss, p_type, false);
+	print_type_core(ss, p_type, false, true);
+}
+
+void print_type_no_names(struct osstream* ss, const struct type* p_type)
+{
+	print_type_core(ss, p_type, false, false);
 }
 
 void print_type_declarator(struct osstream* ss, const struct type* p_type)
 {
-	print_type_core(ss, p_type, true);
+	print_type_core(ss, p_type, true, true);
 }
 
 void type_print(const struct type* a)

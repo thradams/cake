@@ -294,7 +294,7 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 
 _Bool compiler_diagnostic_message(enum diagnostic_id w,
     struct parser_ctx* ctx,
-    const struct token* opt p_token, 
+    const struct token* opt p_token,
     const char* fmt, ...)
 {
 
@@ -710,7 +710,7 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
             struct init_declarator* p_init_declarator = p_entry->p;
-            return (struct declarator*) p_init_declarator->p_declarator;
+            return (struct declarator*)p_init_declarator->p_declarator;
         }
         else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
         {
@@ -976,162 +976,162 @@ enum token_type is_keyword(const char* text)
     enum token_type result = 0;
     switch (text[0])
     {
-        case 'a':
-            if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-            else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
-            else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
-            else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
-            else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
-            break;
-        case 'b':
-            if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
-            else if (strcmp("bool", text) == 0) result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
+    case 'a':
+        if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+        else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
+        else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
+        else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+        else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
+        break;
+    case 'b':
+        if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
+        else if (strcmp("bool", text) == 0) result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
 
-            break;
-        case 'c':
-            if (strcmp("case", text) == 0) result = TK_KEYWORD_CASE;
-            else if (strcmp("char", text) == 0) result = TK_KEYWORD_CHAR;
-            else if (strcmp("const", text) == 0) result = TK_KEYWORD_CONST;
-            else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;
-            else if (strcmp("continue", text) == 0) result = TK_KEYWORD_CONTINUE;
-            else if (strcmp("catch", text) == 0) result = TK_KEYWORD_CATCH;
-            break;
-        case 'd':
-            if (strcmp("default", text) == 0) result = TK_KEYWORD_DEFAULT;
-            else if (strcmp("do", text) == 0) result = TK_KEYWORD_DO;
-            else if (strcmp("defer", text) == 0) result = TK_KEYWORD_DEFER;
-            else if (strcmp("double", text) == 0) result = TK_KEYWORD_DOUBLE;
-            break;
-        case 'e':
-            if (strcmp("else", text) == 0) result = TK_KEYWORD_ELSE;
-            else if (strcmp("enum", text) == 0) result = TK_KEYWORD_ENUM;
-            else if (strcmp("extern", text) == 0) result = TK_KEYWORD_EXTERN;
-            break;
-        case 'f':
-            if (strcmp("float", text) == 0) result = TK_KEYWORD_FLOAT;
-            else if (strcmp("for", text) == 0) result = TK_KEYWORD_FOR;
-            else if (strcmp("false", text) == 0) result = TK_KEYWORD_FALSE;
-            break;
-        case 'g':
-            if (strcmp("goto", text) == 0) result = TK_KEYWORD_GOTO;
-            break;
-        case 'i':
-            if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
-            else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
-            else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
-            break;
-        case 'n':
-            if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
-            break;
-
-
-        case 'l':
-            if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
-            break;
-        case 'r':
-            if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
-            else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
-            else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
-
-            break;
-        case 's':
-            if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
-            else if (strcmp("signed", text) == 0) result = TK_KEYWORD_SIGNED;
-            else if (strcmp("sizeof", text) == 0) result = TK_KEYWORD_SIZEOF;
-            else if (strcmp("static", text) == 0) result = TK_KEYWORD_STATIC;
-            else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
-            else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
-            else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
-            else if (strcmp("static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
-            else if (strcmp("static_state", text) == 0) result = TK_KEYWORD_STATIC_STATE;
-            else if (strcmp("static_set", text) == 0) result = TK_KEYWORD_STATIC_SET;
-
-            break;
-        case 't':
-            if (strcmp("typedef", text) == 0) result = TK_KEYWORD_TYPEDEF;
-            else if (strcmp("typeof", text) == 0) result = TK_KEYWORD_TYPEOF; /*C23*/
-            else if (strcmp("typeof_unqual", text) == 0) result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
-            else if (strcmp("true", text) == 0) result = TK_KEYWORD_TRUE; /*C23*/
-            else if (strcmp("thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
-            else if (strcmp("try", text) == 0) result = TK_KEYWORD_TRY;
-            else if (strcmp("throw", text) == 0) result = TK_KEYWORD_THROW;
-            break;
-        case 'u':
-            if (strcmp("union", text) == 0) result = TK_KEYWORD_UNION;
-            else if (strcmp("unsigned", text) == 0) result = TK_KEYWORD_UNSIGNED;
-            break;
-        case 'v':
-            if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
-            else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
-
-            break;
-        case 'w':
-            if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
-            break;
-        case '_':
+        break;
+    case 'c':
+        if (strcmp("case", text) == 0) result = TK_KEYWORD_CASE;
+        else if (strcmp("char", text) == 0) result = TK_KEYWORD_CHAR;
+        else if (strcmp("const", text) == 0) result = TK_KEYWORD_CONST;
+        else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;
+        else if (strcmp("continue", text) == 0) result = TK_KEYWORD_CONTINUE;
+        else if (strcmp("catch", text) == 0) result = TK_KEYWORD_CATCH;
+        break;
+    case 'd':
+        if (strcmp("default", text) == 0) result = TK_KEYWORD_DEFAULT;
+        else if (strcmp("do", text) == 0) result = TK_KEYWORD_DO;
+        else if (strcmp("defer", text) == 0) result = TK_KEYWORD_DEFER;
+        else if (strcmp("double", text) == 0) result = TK_KEYWORD_DOUBLE;
+        break;
+    case 'e':
+        if (strcmp("else", text) == 0) result = TK_KEYWORD_ELSE;
+        else if (strcmp("enum", text) == 0) result = TK_KEYWORD_ENUM;
+        else if (strcmp("extern", text) == 0) result = TK_KEYWORD_EXTERN;
+        break;
+    case 'f':
+        if (strcmp("float", text) == 0) result = TK_KEYWORD_FLOAT;
+        else if (strcmp("for", text) == 0) result = TK_KEYWORD_FOR;
+        else if (strcmp("false", text) == 0) result = TK_KEYWORD_FALSE;
+        break;
+    case 'g':
+        if (strcmp("goto", text) == 0) result = TK_KEYWORD_GOTO;
+        break;
+    case 'i':
+        if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
+        else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
+        break;
+    case 'n':
+        if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
+        break;
 
 
-            //begin microsoft
-            if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
-            else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
-            else if (strcmp("__int32", text) == 0) result = TK_KEYWORD__INT32;
-            else if (strcmp("__int64", text) == 0) result = TK_KEYWORD__INT64;
-            else if (strcmp("__forceinline", text) == 0) result = TK_KEYWORD_INLINE;
-            else if (strcmp("__inline", text) == 0) result = TK_KEYWORD_INLINE;
-            else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0) result = TK_KEYWORD__ASM;
-            else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-            //
-            //end microsoft
+    case 'l':
+        if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
+        break;
+    case 'r':
+        if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
+        else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
+        else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
 
-            /*ownership*/
-            else if (strcmp("_Out", text) == 0) result = TK_KEYWORD__OUT; /*extension*/
-            else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
-            else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
-            else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
-            else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
+        break;
+    case 's':
+        if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
+        else if (strcmp("signed", text) == 0) result = TK_KEYWORD_SIGNED;
+        else if (strcmp("sizeof", text) == 0) result = TK_KEYWORD_SIZEOF;
+        else if (strcmp("static", text) == 0) result = TK_KEYWORD_STATIC;
+        else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
+        else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
+        else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
+        else if (strcmp("static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
+        else if (strcmp("static_state", text) == 0) result = TK_KEYWORD_STATIC_STATE;
+        else if (strcmp("static_set", text) == 0) result = TK_KEYWORD_STATIC_SET;
 
-            /*EXPERIMENTAL EXTENSION*/
-            else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
-            else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
-            else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
-            /*EXPERIMENTAL EXTENSION*/
+        break;
+    case 't':
+        if (strcmp("typedef", text) == 0) result = TK_KEYWORD_TYPEDEF;
+        else if (strcmp("typeof", text) == 0) result = TK_KEYWORD_TYPEOF; /*C23*/
+        else if (strcmp("typeof_unqual", text) == 0) result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
+        else if (strcmp("true", text) == 0) result = TK_KEYWORD_TRUE; /*C23*/
+        else if (strcmp("thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
+        else if (strcmp("try", text) == 0) result = TK_KEYWORD_TRY;
+        else if (strcmp("throw", text) == 0) result = TK_KEYWORD_THROW;
+        break;
+    case 'u':
+        if (strcmp("union", text) == 0) result = TK_KEYWORD_UNION;
+        else if (strcmp("unsigned", text) == 0) result = TK_KEYWORD_UNSIGNED;
+        break;
+    case 'v':
+        if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
+        else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
 
-            /*TRAITS EXTENSION*/
-            else if (strcmp("_is_lvalue", text) == 0) result = TK_KEYWORD_IS_LVALUE;
-            else if (strcmp("_is_const", text) == 0) result = TK_KEYWORD_IS_CONST;
-            else if (strcmp("_is_owner", text) == 0) result = TK_KEYWORD_IS_OWNER;
-            else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
-            else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
-            else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
-            else if (strcmp("_is_arithmetic", text) == 0) result = TK_KEYWORD_IS_ARITHMETIC;
-            else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
-            else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
-            else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
-            /*TRAITS EXTENSION*/
+        break;
+    case 'w':
+        if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
+        break;
+    case '_':
 
-            else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-            else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
-            else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
-            else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
-            else if (strcmp("_Complex", text) == 0) result = TK_KEYWORD__COMPLEX;
-            else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL32;
-            else if (strcmp("_Decimal64", text) == 0) result = TK_KEYWORD__DECIMAL64;
-            else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL128;
-            else if (strcmp("_Generic", text) == 0) result = TK_KEYWORD__GENERIC;
-            else if (strcmp("_Imaginary", text) == 0) result = TK_KEYWORD__IMAGINARY;
-            else if (strcmp("_Noreturn", text) == 0) result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
-            else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
-            else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
-            else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
-            else if (strcmp("__typeof__", text) == 0) result = TK_KEYWORD_TYPEOF; /*(C23)*/
 
-            
+        //begin microsoft
+        if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
+        else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
+        else if (strcmp("__int32", text) == 0) result = TK_KEYWORD__INT32;
+        else if (strcmp("__int64", text) == 0) result = TK_KEYWORD__INT64;
+        else if (strcmp("__forceinline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("__inline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0) result = TK_KEYWORD__ASM;
+        else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+        //
+        //end microsoft
+
+        /*ownership*/
+        else if (strcmp("_Out", text) == 0) result = TK_KEYWORD__OUT; /*extension*/
+        else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+        else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+        else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
+        else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
+
+        /*EXPERIMENTAL EXTENSION*/
+        else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
+        else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
+        else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
+        /*EXPERIMENTAL EXTENSION*/
+
+        /*TRAITS EXTENSION*/
+        else if (strcmp("_is_lvalue", text) == 0) result = TK_KEYWORD_IS_LVALUE;
+        else if (strcmp("_is_const", text) == 0) result = TK_KEYWORD_IS_CONST;
+        else if (strcmp("_is_owner", text) == 0) result = TK_KEYWORD_IS_OWNER;
+        else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
+        else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
+        else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
+        else if (strcmp("_is_arithmetic", text) == 0) result = TK_KEYWORD_IS_ARITHMETIC;
+        else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
+        else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
+        else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
+        /*TRAITS EXTENSION*/
+
+        else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+        else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
+        else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
+        else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
+        else if (strcmp("_Complex", text) == 0) result = TK_KEYWORD__COMPLEX;
+        else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL32;
+        else if (strcmp("_Decimal64", text) == 0) result = TK_KEYWORD__DECIMAL64;
+        else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL128;
+        else if (strcmp("_Generic", text) == 0) result = TK_KEYWORD__GENERIC;
+        else if (strcmp("_Imaginary", text) == 0) result = TK_KEYWORD__IMAGINARY;
+        else if (strcmp("_Noreturn", text) == 0) result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
+        else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
+        else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
+        else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
+        else if (strcmp("__typeof__", text) == 0) result = TK_KEYWORD_TYPEOF; /*(C23)*/
 
 
 
-            break;
-        default:
-            break;
+
+
+        break;
+    default:
+        break;
     }
     return result;
 }
@@ -2570,32 +2570,32 @@ struct storage_class_specifier* owner storage_class_specifier(struct parser_ctx*
     new_storage_class_specifier->token = ctx->current;
     switch (ctx->current->type)
     {
-        case TK_KEYWORD_TYPEDEF:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
-            break;
-        case TK_KEYWORD_EXTERN:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
-            break;
-        case TK_KEYWORD_CONSTEXPR:
+    case TK_KEYWORD_TYPEDEF:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
+        break;
+    case TK_KEYWORD_EXTERN:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
+        break;
+    case TK_KEYWORD_CONSTEXPR:
 
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
-            if (ctx->scopes.tail->scope_level == 0)
-                new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
-            break;
-        case TK_KEYWORD_STATIC:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
-            break;
-        case TK_KEYWORD__THREAD_LOCAL:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
-            break;
-        case TK_KEYWORD_AUTO:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
-            break;
-        case TK_KEYWORD_REGISTER:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
-            break;
-        default:
-            assert(false);
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
+        if (ctx->scopes.tail->scope_level == 0)
+            new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
+        break;
+    case TK_KEYWORD_STATIC:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
+        break;
+    case TK_KEYWORD__THREAD_LOCAL:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
+        break;
+    case TK_KEYWORD_AUTO:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
+        break;
+    case TK_KEYWORD_REGISTER:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
+        break;
+    default:
+        assert(false);
     }
 
     /*
@@ -2773,132 +2773,132 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
     switch (ctx->current->type)
     {
-        case TK_KEYWORD_VOID:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_VOID;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_VOID:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_VOID;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_CHAR:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_CHAR:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_SHORT:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_SHORT:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_INT:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_INT:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-            //microsoft
-        case TK_KEYWORD__INT8:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT8;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+        //microsoft
+    case TK_KEYWORD__INT8:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__INT16:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT16;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
-        case TK_KEYWORD__INT32:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT32;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
-        case TK_KEYWORD__INT64:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT64;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
-            //end microsoft
+    case TK_KEYWORD__INT16:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
+    case TK_KEYWORD__INT32:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
+    case TK_KEYWORD__INT64:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
+        //end microsoft
 
-        case TK_KEYWORD_LONG:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_LONG;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_LONG:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_LONG;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_FLOAT:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_FLOAT:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_DOUBLE:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_DOUBLE:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_SIGNED:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_SIGNED:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_UNSIGNED:
+    case TK_KEYWORD_UNSIGNED:
 
-            p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+        p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__BOOL:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD__BOOL:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__COMPLEX:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD__COMPLEX:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__DECIMAL32:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD__DECIMAL32:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__DECIMAL64:
+    case TK_KEYWORD__DECIMAL64:
 
-            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__DECIMAL128:
-            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD__DECIMAL128:
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        default:
-            // Do nothing
-            break;
+    default:
+        // Do nothing
+        break;
 
     }
 
@@ -3097,8 +3097,10 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
 
         struct token* firsttoken = ctx->current;
         parser_match(ctx);
-
-        p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
+        if (ctx->current->type != '}') /*not official extensions yet..missing sizeof etc*/
+        {
+            p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
+        }
         p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
         p_struct_or_union_specifier->last_token = ctx->current;
         p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
@@ -3868,44 +3870,44 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 
     switch (ctx->current->type)
     {
-        case TK_KEYWORD_CONST:
-            p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
-            break;
-        case TK_KEYWORD_RESTRICT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
-            break;
-        case TK_KEYWORD_VOLATILE:
-            p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
-            break;
-        case TK_KEYWORD__ATOMIC:
-            p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
-            break;
+    case TK_KEYWORD_CONST:
+        p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
+        break;
+    case TK_KEYWORD_RESTRICT:
+        p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
+        break;
+    case TK_KEYWORD_VOLATILE:
+        p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
+        break;
+    case TK_KEYWORD__ATOMIC:
+        p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
+        break;
 
-            /*
-              ownership extensions
-            */
+        /*
+          ownership extensions
+        */
 
-        case TK_KEYWORD__OUT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
-            break;
+    case TK_KEYWORD__OUT:
+        p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
+        break;
 
-        case TK_KEYWORD__OWNER:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
-            break;
+    case TK_KEYWORD__OWNER:
+        p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+        break;
 
-        case TK_KEYWORD__OPT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
-            break;
+    case TK_KEYWORD__OPT:
+        p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
+        break;
 
-        case TK_KEYWORD__OBJ_OWNER:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
-            break;
-        case TK_KEYWORD__VIEW:
-            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
-            break;
-        default:
-            // do nothing
-            break;
+    case TK_KEYWORD__OBJ_OWNER:
+        p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
+        break;
+    case TK_KEYWORD__VIEW:
+        p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+        break;
+    default:
+        // do nothing
+        break;
     }
 
     p_type_qualifier->token = ctx->current;
@@ -6922,7 +6924,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-    }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -6989,7 +6991,7 @@ int compile(int argc, const char** argv, struct report* report)
 
 
     clock_t end_clock = clock();
-    double cpu_time_used = ((double) (end_clock - begin_clock)) / CLOCKS_PER_SEC;
+    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
     return 0;

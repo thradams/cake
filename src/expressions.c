@@ -848,6 +848,76 @@ const unsigned char* utf8_decode(const unsigned char* s, int* c)
 
     return next;
 }
+static bool is_hex_digit(unsigned  char c)
+{
+    if (c >= '0' && c <= '9')
+        return true;
+    else if (c >= 'a' && c <= 'f')
+        return true;
+    else if (c >= 'A' && c <= 'F')
+        return true;
+    return false;
+}
+
+static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, int* out_value)
+{
+    //TODO OVERFLOW CHECK
+    if (*p == 'x')
+    {
+        p++;
+        int result = 0;
+        while (is_hex_digit(*p))
+        {
+            int byte;
+            if (*p >= '0' && *p <= '9')
+                byte = (*p - '0');
+            else if (*p >= 'a' && *p <= 'f')
+                byte = (*p - 'a') + 10;
+            else if (*p >= 'A' && *p <= 'F')
+                byte = (*p - 'A') + 10;
+
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+
+        *out_value = result;
+    }
+    else if (*p == '0')
+    {
+        //octal digit        
+        p++;
+        int result = 0;
+        while ((*p >= '0' && *p <= '7'))
+        {
+            int byte;
+            byte = (*p - '0');
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+        *out_value = result;
+    }
+    else
+    {
+        switch (*p)
+        {        
+        case 'a': *out_value = '\a';  break;
+        case 'b': *out_value = '\b';  break;
+        case 'f': *out_value = '\f';  break;
+        case 'n': *out_value = '\n';  break;
+        case 'r': *out_value = '\r';  break;;
+        case 't': *out_value = '\t';  break;
+        case '\'': *out_value = '\'';  break;
+        case '\\': *out_value = '\\';  break;
+        default:
+            //assume this error is handled at tokenizer
+            assert(false);
+            break;
+        }
+        p++;
+    }
+
+    return p;
+}
 
 struct expression* owner character_constant_expression(struct parser_ctx* ctx)
 {
@@ -873,6 +943,8 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
 
         int c = 0;
         p = utf8_decode(p, &c);
+        if (c == '\\')
+            p = escape_sequences_decode_opt(p, &c);
 
         if (p && *p != '\'')
         {
@@ -897,6 +969,8 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
 
         int c = 0;
         p = utf8_decode(p, &c);
+        if (c == '\\')
+            p = escape_sequences_decode_opt(p, &c);
 
         if (p && *p != '\'')
         {
@@ -920,12 +994,18 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
 
         int c = 0;
         p = utf8_decode(p, &c);
+        if (c == '\\')
+            p = escape_sequences_decode_opt(p, &c);
 
         if (p && *p != '\'')
         {
             compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
         }
 
+        if (c > UINT_MAX)
+        {
+            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
+        }
 
         p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
     }
@@ -935,9 +1015,9 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
         p++;
         p++;
 
-        
+
         p_expression_node->type.type_specifier_flags = CAKE_WCHAR_T_TYPE_SPECIFIER;
-        
+
         /*
          wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
          the <stddef.h> header. The value of a wchar_t character constant containing a single multibyte
@@ -953,16 +1033,26 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
         {
             int c = 0;
             p = utf8_decode(p, &c);
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
             if (p == 0)
                 break;
             //TODO \u
             value = value * 256 + c;
-            if (value > INT_MAX)
+#ifdef _WIN32
+            if (value > USHRT_MAX)
             {
                 compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
-
                 break;
             }
+#else
+            if (value > UINT_MAX)
+            {
+                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+                break;
+            }
+#endif            
         }
 
         p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
@@ -987,6 +1077,8 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
         {
             int c = 0;
             p = utf8_decode(p, &c);
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
             if (p == 0)
                 break;
             value = value * 256 + c;
@@ -1399,7 +1491,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
 
             p_expression_node->type = type_dup(&p_expression_node->right->type);
             p_expression_node->constant_value = p_expression_node->right->constant_value;
-            
+
             p_expression_node->last_token = ctx->current;
             parser_match_tk(ctx, ')');
 
@@ -1413,7 +1505,7 @@ struct expression* owner primary_expression(struct parser_ctx* ctx)
     {
         expression_delete(p_expression_node);
         p_expression_node = NULL;
-        
+
     }
 
 
@@ -2213,7 +2305,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = new_expression;
-        }
+    }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
@@ -2416,7 +2508,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             p_expression_node = postfix_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
-    }
+}
     catch
     {
     }
@@ -3414,7 +3506,7 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
             int code = type_common(&new_expression->left->type, &new_expression->right->type, &new_expression->type);
             if (code != 0)
             {
-                
+
                 type_print(&new_expression->left->type);
                 type_print(&new_expression->right->type);
                 compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, "invalid types logical and expression");
@@ -3603,7 +3695,7 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
     catch
     {
     }
-    
+
     return p_expression_node;
 }
 

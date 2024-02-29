@@ -54,6 +54,37 @@ void parser_specifier_test()
     const char* src = "long long long i;";
     assert(compile_with_errors(false, false, src));
 }
+void character_constant_test()
+{
+
+    const char* source
+        =
+        "static_assert(92 == 0134);\n"
+        "\n"
+        "static_assert('\\0' == 0);\n"
+        "static_assert('\\n' == 10);\n"
+        "static_assert('\\r' == 13);\n"
+        "static_assert('\\'' == 0x27);\n"
+        "static_assert('\\\\' == 0x5C);\n"
+        "static_assert('\\x5C' == 0x5C);\n"
+        "static_assert('\\x5c' == 0x5C);\n"
+        "\n"
+        "static_assert('\\0' == 0);\n"
+        "static_assert('\\01' == 01);\n"
+        "static_assert('\\02' == 02);\n"
+        "\n"
+        "static_assert(u8'\\n' == 10);\n"
+        "static_assert(u8'\\r' == 13);\n"
+        "static_assert(u8'\\'' == 0x27);\n"
+        "static_assert(u8'\\\\' == 0x5C);\n"
+        "static_assert(u8'\\x5C' == 0x5C);\n"
+        "static_assert(u8'\\x5c' == 0x5C);\n"
+        "\n"
+        "\n"
+        "/*TODO MORE TESTS*/\n"
+        "";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
 
 void char_constants()
 {
@@ -3465,5 +3496,6 @@ void comflittype()
     //assert(compile_with_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 //https://developers.redhat.com/articles/2023/05/04/new-c-features-gcc-13#c2x_features]
+
 #endif
 

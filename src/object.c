@@ -37,7 +37,7 @@ void object_state_stack_destroy(struct object_state_stack* obj_owner p)
     free(p->data);
 }
 
-int object_state_stack_reserve(struct object_state_stack* p, int n) /*unchecked*/
+int object_state_stack_reserve(struct object_state_stack* p, int n)
 {
     if (n > p->capacity)
     {

@@ -1,8 +1,8 @@
 
 #ifdef __linux__
 /*
-   To find the include directories used my GCC type:   
-   echo | gcc -E -Wp,-v -
+   To find the include directories used my GCC type:      
+   cc -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'
 */
 #pragma dir "/usr/lib/gcc/x86_64-linux-gnu/11/include"
 #pragma dir "/usr/local/include"
