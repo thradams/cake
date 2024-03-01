@@ -283,7 +283,7 @@ enum token_type
 
     ANY_OTHER_PP_TOKEN, //@ por ex
 
-    /*PPNUMBER sao convertidos para constantes antes do parse*/
+    /*PPNUMBER is converted to one of these at parser phase*/
     TK_COMPILER_DECIMAL_CONSTANT,
     TK_COMPILER_OCTAL_CONSTANT,
     TK_COMPILER_HEXADECIMAL_CONSTANT,
@@ -306,7 +306,7 @@ enum token_type
     TK_MACRO_CONCATENATE_OPERATOR = '##',
 
     TK_IDENTIFIER,
-    TK_IDENTIFIER_RECURSIVE_MACRO, /*usado para evitar recursao expansao macro*/
+    TK_IDENTIFIER_RECURSIVE_MACRO, /*used to avoid macro recursion*/
 
     TK_BEGIN_OF_FILE,
 
@@ -451,7 +451,7 @@ struct token
     int line;
     int col;
 
-    /*nivel de includes, 0 primeiro arquivo*/
+    /*include level - 0 is the current file*/
     int level;
 
     enum token_flags flags;
@@ -500,7 +500,7 @@ struct stream
     int line;
     int col;
     int line_continuation_count;
-    const char* path; /*non owner*/
+    const char* view path;
 };
 
 int is_digit(struct stream* p);
@@ -21968,7 +21968,7 @@ void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_decla
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.7"
+#define CAKE_VERSION "0.7.8"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
@@ -30246,18 +30246,24 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
     case POSTFIX_DOT:
-        break;
     case POSTFIX_ARROW:
-        break;
     case POSTFIX_INCREMENT:
-        break;
     case POSTFIX_DECREMENT:
+        if (p_expression->left)
+            visit_expression(ctx, p_expression->left);
+        if (p_expression->right)
+            visit_expression(ctx, p_expression->right);
         break;
     case POSTFIX_ARRAY:
         //visit_expression(ctx, p_expression->left);
         break;
     case POSTFIX_FUNCTION_CALL:
+        
+        if (p_expression->left)
         visit_expression(ctx, p_expression->left);
+        if (p_expression->right)
+        visit_expression(ctx, p_expression->right);
+
         visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
         break;
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
