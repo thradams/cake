@@ -596,6 +596,7 @@ struct generic_association* owner generic_association(struct parser_ctx* ctx)
         }
         parser_match_tk(ctx, ':');
         p_generic_association->expression = assignment_expression(ctx);
+        p_generic_association->last_token = ctx->current;
     }
     catch
     {

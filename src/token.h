@@ -199,7 +199,8 @@ enum token_flags
     TK_FLAG_IDENTIFIER_IS_ENUMERATOR = 1 << 7, /*indica que eh identificador enumerator separar?*/
     TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8, /*indica que eh identificador enumerator separar?*/    
     TK_FLAG_SLICED = 1 << 9, /*line-slicing in the middle*/
-    TK_FLAG_LINE_CONTINUATION = 1 << 10 /*token has one or more line-slicing*/
+    TK_FLAG_LINE_CONTINUATION = 1 << 10 ,/*token has one or more line-slicing*/
+    TK_FLAG_SHOW_AGAIN = 1 << 11, /*was hidden but maybe reappears*/
 };
 
 struct token
