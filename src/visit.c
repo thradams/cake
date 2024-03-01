@@ -85,12 +85,12 @@ void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, boo
         l.head = defer_child->defer_statement->first_token;
         l.tail = defer_child->defer_statement->last_token;
 
-        l.head->flags |= TK_FLAG_HIDE;
+        l.head->flags |= TK_C_BACKEND_FLAG_HIDE;
         const char* owner s = get_code_as_compiler_see(&l);
         if (s != NULL)
         {
             if (hide_tokens)
-                token_range_add_flag(l.head, l.tail, TK_FLAG_HIDE);
+                token_range_add_flag(l.head, l.tail, TK_C_BACKEND_FLAG_HIDE);
 
             ss_fprintf(ss, "%s", s);
             free((void* owner)s);
@@ -107,7 +107,7 @@ void hide_block_defer(struct defer_scope* deferblock)
     {
         struct token* head = deferchild->defer_statement->first_token;
         struct token* tail = deferchild->defer_statement->last_token;
-        token_range_add_flag(head, tail, TK_FLAG_HIDE);
+        token_range_add_flag(head, tail, TK_C_BACKEND_FLAG_HIDE);
         deferchild = deferchild->previous;
     }
 }
@@ -585,7 +585,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
         const int level = p_specifier_qualifier_list_opt->first_token->level;
 
         token_range_add_flag(p_specifier_qualifier_list_opt->first_token,
-            p_specifier_qualifier_list_opt->last_token, TK_FLAG_HIDE);
+            p_specifier_qualifier_list_opt->last_token, TK_C_BACKEND_FLAG_HIDE);
 
         struct osstream ss = { 0 };
         print_type_no_names(&ss, type_get_specifer_part(p_type));
@@ -685,15 +685,15 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
                 current != p_generic_selection->p_view_selected_expression->last_token->next;
                 current = current->next)
             {
-                if (!(current->flags & TK_FLAG_HIDE))
+                if (!(current->flags & TK_C_BACKEND_FLAG_HIDE))
                 {
-                    current->flags |= TK_FLAG_SHOW_AGAIN;
+                    current->flags |= TK_C_BACKEND_FLAG_SHOW_AGAIN;
                 }
             }
         }
 
         /*let's hide everything first*/
-        token_range_add_flag(p_generic_selection->first_token, p_generic_selection->last_token, TK_FLAG_HIDE);
+        token_range_add_flag(p_generic_selection->first_token, p_generic_selection->last_token, TK_C_BACKEND_FLAG_HIDE);
 
         /*lets show again just the part of the select that was visible*/
         if (p_generic_selection->p_view_selected_expression)
@@ -702,10 +702,10 @@ static void visit_generic_selection(struct visit_ctx* ctx, struct generic_select
                 current != p_generic_selection->p_view_selected_expression->last_token->next;
                 current = current->next)
             {
-                if ((current->flags & TK_FLAG_HIDE) &&
-                    (current->flags & TK_FLAG_SHOW_AGAIN))
+                if ((current->flags & TK_C_BACKEND_FLAG_HIDE) &&
+                    (current->flags & TK_C_BACKEND_FLAG_SHOW_AGAIN))
                 {
-                    current->flags = current->flags & ~(TK_FLAG_SHOW_AGAIN | TK_FLAG_HIDE);
+                    current->flags = current->flags & ~(TK_C_BACKEND_FLAG_SHOW_AGAIN | TK_C_BACKEND_FLAG_HIDE);
                 }
             }
         }
@@ -894,7 +894,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
                 token_list_clone_and_add(&ctx->insert_before_declaration, current);
             }
 
-            token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
+            token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_C_BACKEND_FLAG_HIDE);
 
 
             struct token_list l3 = tokenizer(&tctx, "\n\n", NULL, 0, TK_FLAG_NONE);
@@ -927,7 +927,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         if (ctx->target < LANGUAGE_C11)
         {
             const int level = p_expression->first_token->level;
-            token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_FLAG_HIDE);
+            token_range_add_flag(p_expression->first_token, p_expression->last_token, TK_C_BACKEND_FLAG_HIDE);
             char buffer[30] = { 0 };
             snprintf(buffer, sizeof buffer, "%lld", constant_value_to_ll(&p_expression->constant_value));
             struct tokenizer_ctx tctx = { 0 };
@@ -1032,7 +1032,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
 
             token_range_add_flag(p_expression->first_token,
                 p_expression->last_token,
-                TK_FLAG_HIDE);
+                TK_C_BACKEND_FLAG_HIDE);
 
             token_list_destroy(&l2);
         }
@@ -1140,7 +1140,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             p_jump_statement->first_token->lexeme = ss.c_str;
 
 
-            p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
+            p_jump_statement->last_token->flags |= TK_C_BACKEND_FLAG_HIDE;
 
         }
         else
@@ -1235,7 +1235,7 @@ static void visit_jump_statement(struct visit_ctx* ctx, struct jump_statement* p
             p_jump_statement->first_token->lexeme = ss.c_str;
             ss.c_str = NULL;
 
-            p_jump_statement->last_token->flags |= TK_FLAG_HIDE;
+            p_jump_statement->last_token->flags |= TK_C_BACKEND_FLAG_HIDE;
             ss_close(&ss);
         }
 
@@ -1386,7 +1386,7 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
         /*let's hide everything first*/
         token_range_add_flag(p_static_assert_declaration->first_token,
             p_static_assert_declaration->last_token,
-            TK_FLAG_HIDE);
+            TK_C_BACKEND_FLAG_HIDE);
     }
     else if (ctx->target == LANGUAGE_C11)
     {
@@ -1461,7 +1461,7 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
             /*static and type qualifiers in parameter array declarators where added in C99*/
             if (p_direct_declarator->array_declarator->static_token_opt)
             {
-                p_direct_declarator->array_declarator->static_token_opt->flags |= TK_FLAG_HIDE;
+                p_direct_declarator->array_declarator->static_token_opt->flags |= TK_C_BACKEND_FLAG_HIDE;
 
                 if (p_direct_declarator->array_declarator->type_qualifier_list_opt)
                 {
@@ -1470,7 +1470,7 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
                     while (p_type_qualifier)
                     {
-                        p_type_qualifier->token->flags |= TK_FLAG_HIDE;
+                        p_type_qualifier->token->flags |= TK_C_BACKEND_FLAG_HIDE;
                         p_type_qualifier = p_type_qualifier->next;
                     }
                 }
@@ -1554,7 +1554,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
             {
                 l2.head->flags = p_declarator->first_token->flags;
                 token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, &l2);
-                token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_FLAG_HIDE);
+                token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_C_BACKEND_FLAG_HIDE);
             }
             else
             {
@@ -1570,7 +1570,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
                     l2.head->flags = p_declarator->first_token->flags;
                     /*it is a empty declarator, so first_token is not part of declarator it only marks de position*/
                     token_list_insert_after(&ctx->ast.token_list, p_declarator->last_token, &l2);
-                    token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_FLAG_HIDE);
+                    token_range_add_flag(p_declarator->first_token, p_declarator->last_token, TK_C_BACKEND_FLAG_HIDE);
                 }
 
             }
@@ -1671,7 +1671,7 @@ static void visit_attribute_specifier(struct visit_ctx* ctx, struct attribute_sp
 {
     if (ctx->target < LANGUAGE_C2X)
     {
-        token_range_add_flag(p_attribute_specifier->first_token, p_attribute_specifier->last_token, TK_FLAG_HIDE);
+        token_range_add_flag(p_attribute_specifier->first_token, p_attribute_specifier->last_token, TK_C_BACKEND_FLAG_HIDE);
     }
 }
 
@@ -1781,7 +1781,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
             }
             token_range_add_flag(tk,
                 p_enum_specifier->specifier_qualifier_list->last_token,
-                TK_FLAG_HIDE);
+                TK_C_BACKEND_FLAG_HIDE);
         }
 
 
@@ -1789,10 +1789,10 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
             p_enum_specifier != p_enum_specifier->complete_enum_specifier &&
             p_enum_specifier->complete_enum_specifier->specifier_qualifier_list)
         {
-            p_enum_specifier->first_token->flags |= TK_FLAG_HIDE;
+            p_enum_specifier->first_token->flags |= TK_C_BACKEND_FLAG_HIDE;
 
             if (p_enum_specifier->tag_token)
-                p_enum_specifier->tag_token->flags |= TK_FLAG_HIDE;
+                p_enum_specifier->tag_token->flags |= TK_C_BACKEND_FLAG_HIDE;
 
             struct osstream ss = { 0 };
             bool b_first = true;
@@ -1894,7 +1894,7 @@ static void visit_storage_class_specifier(struct visit_ctx* ctx, struct storage_
     {
         if (ctx->target < LANGUAGE_C2X)
         {
-            p_storage_class_specifier->token->flags |= TK_FLAG_HIDE;
+            p_storage_class_specifier->token->flags |= TK_C_BACKEND_FLAG_HIDE;
         }
     }
 }
@@ -1975,7 +1975,7 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
             {
                 if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
                 {
-                    p_declaration_specifier->type_specifier_qualifier->type_qualifier->token->flags |= TK_FLAG_HIDE;
+                    p_declaration_specifier->type_specifier_qualifier->type_qualifier->token->flags |= TK_C_BACKEND_FLAG_HIDE;
                 }
                 if (p_declaration_specifier->type_specifier_qualifier->type_specifier)
                 {
@@ -1983,9 +1983,9 @@ static void visit_declaration_specifiers(struct visit_ctx* ctx,
                     {
                         token_range_add_flag(p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier->first_token,
                             p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier->last_token,
-                            TK_FLAG_HIDE);
+                            TK_C_BACKEND_FLAG_HIDE);
                     }
-                    p_declaration_specifier->type_specifier_qualifier->type_specifier->token->flags |= TK_FLAG_HIDE;
+                    p_declaration_specifier->type_specifier_qualifier->type_specifier->token->flags |= TK_C_BACKEND_FLAG_HIDE;
                 }
             }
             p_declaration_specifier = p_declaration_specifier->next;
@@ -2164,7 +2164,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
         {
             token_range_add_flag(p_declaration->p_attribute_specifier_sequence_opt->first_token,
                 p_declaration->p_attribute_specifier_sequence_opt->last_token,
-                TK_FLAG_HIDE);
+                TK_C_BACKEND_FLAG_HIDE);
 
         }
     }
@@ -2209,13 +2209,13 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
                 {
                     token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->first_token,
                         p_declaration->declaration_specifiers->struct_or_union_specifier->last_token,
-                        TK_FLAG_HIDE);
+                        TK_C_BACKEND_FLAG_HIDE);
                 }
                 else
                 {
                     token_range_add_flag(p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.first_token,
                         p_declaration->declaration_specifiers->struct_or_union_specifier->member_declaration_list.last_token,
-                        TK_FLAG_HIDE);
+                        TK_C_BACKEND_FLAG_HIDE);
                 }
                 token_list_destroy(&list3);
             }
@@ -2284,7 +2284,7 @@ static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_decla
             /*
               transformations must keep first_token and last_token correct - updated
             */
-            token_range_add_flag(p_declaration->first_token, p_declaration->last_token, TK_FLAG_HIDE);
+            token_range_add_flag(p_declaration->first_token, p_declaration->last_token, TK_C_BACKEND_FLAG_HIDE);
         }
     }
 }

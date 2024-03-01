@@ -50,7 +50,7 @@ enum token_type
 
     ANY_OTHER_PP_TOKEN, //@ por ex
 
-    /*PPNUMBER sao convertidos para constantes antes do parse*/
+    /*PPNUMBER is converted to one of these at parser phase*/
     TK_COMPILER_DECIMAL_CONSTANT,
     TK_COMPILER_OCTAL_CONSTANT,
     TK_COMPILER_HEXADECIMAL_CONSTANT,
@@ -73,7 +73,7 @@ enum token_type
     TK_MACRO_CONCATENATE_OPERATOR = '##',
 
     TK_IDENTIFIER,
-    TK_IDENTIFIER_RECURSIVE_MACRO, /*usado para evitar recursao expansao macro*/
+    TK_IDENTIFIER_RECURSIVE_MACRO, /*used to avoid macro recursion*/
 
     TK_BEGIN_OF_FILE,
 
@@ -189,18 +189,24 @@ enum token_type
 enum token_flags
 {
     TK_FLAG_NONE = 0,
-    TK_FLAG_FINAL = 1 << 0,
-    TK_FLAG_MACRO_EXPANDED = 1 << 1,    /*tokens expandidos pela macro*/
-    TK_FLAG_HAS_SPACE_BEFORE = 1 << 2,
-    TK_FLAG_HAS_NEWLINE_BEFORE = 1 << 3,
-    TK_FLAG_IDENTIFIER_IS_TYPEDEF = 1 << 4, /*indica que eh identificador typedef*/
+    TK_FLAG_FINAL = 1 << 0,                    /*compiler will see this token*/
+    TK_FLAG_MACRO_EXPANDED = 1 << 1,           /*this token was generated from macro expansion*/
+    TK_FLAG_HAS_SPACE_BEFORE = 1 << 2,         /*this token has spaces before*/
+    TK_FLAG_HAS_NEWLINE_BEFORE = 1 << 3,       /*this token has newline before*/
+    TK_FLAG_IDENTIFIER_IS_TYPEDEF = 1 << 4,    /*saves time on typedef search*/
     TK_FLAG_IDENTIFIER_IS_NOT_TYPEDEF = 1 << 5,
-    TK_FLAG_HIDE = 1 << 6, /*alguem pediu p esconder*/
-    TK_FLAG_IDENTIFIER_IS_ENUMERATOR = 1 << 7, /*indica que eh identificador enumerator separar?*/
-    TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8, /*indica que eh identificador enumerator separar?*/    
-    TK_FLAG_SLICED = 1 << 9, /*line-slicing in the middle*/
-    TK_FLAG_LINE_CONTINUATION = 1 << 10 ,/*token has one or more line-slicing*/
-    TK_FLAG_SHOW_AGAIN = 1 << 11, /*was hidden but maybe reappears*/
+
+    TK_C_BACKEND_FLAG_HIDE = 1 << 6,                 /*c backend hidden*/
+    
+    TK_FLAG_IDENTIFIER_IS_ENUMERATOR = 1 << 7,       /*saves time on search*/
+
+    TK_FLAG_IDENTIFIER_IS_NOT_ENUMERATOR = 1 << 8,   /*we know it is not enumerator*/    
+
+    TK_FLAG_SLICED = 1 << 9,                         /*line-slicing in the middle*/
+
+    TK_FLAG_LINE_CONTINUATION = 1 << 10 ,            /*token has one or more line-slicing*/
+
+    TK_C_BACKEND_FLAG_SHOW_AGAIN = 1 << 11,          /*was hidden but maybe reappears*/
 };
 
 struct token
@@ -212,7 +218,7 @@ struct token
     int line;
     int col;
 
-    /*nivel de includes, 0 primeiro arquivo*/
+    /*include level - 0 is the current file*/
     int level;
 
     enum token_flags flags;
@@ -261,7 +267,7 @@ struct stream
     int line;
     int col;
     int line_continuation_count;
-    const char* path; /*non owner*/
+    const char* view path;
 };
 
 int is_digit(struct stream* p);

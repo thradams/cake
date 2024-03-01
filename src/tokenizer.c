@@ -4110,7 +4110,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                         current != arguments.tokens.tail->next;
                         current = current->next)
                     {
-                        current->flags |= TK_FLAG_HIDE;
+                        current->flags |= TK_C_BACKEND_FLAG_HIDE;
                     }
 
                     //mostra a expansao da macro
@@ -4944,7 +4944,7 @@ const char* owner get_code_as_we_see(struct token_list* list, bool remove_commen
     {
         if (current->level == 0 &&
             !(current->flags & TK_FLAG_MACRO_EXPANDED) &&
-            !(current->flags & TK_FLAG_HIDE) &&
+            !(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
             current->type != TK_BEGIN_OF_FILE)
         {
             if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
@@ -4988,7 +4988,7 @@ const char* owner get_code_as_compiler_see(struct token_list* list)
     struct token* current = list->head;
     while (current != list->tail->next)
     {
-        if (!(current->flags & TK_FLAG_HIDE) &&
+        if (!(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
             current->type != TK_BEGIN_OF_FILE &&
             (current->flags & TK_FLAG_FINAL))
         {

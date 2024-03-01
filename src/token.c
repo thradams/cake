@@ -71,7 +71,7 @@ void token_range_add_show(struct token* first, struct token* last)
         current != last->next;
         current = current->next)
     {
-        current->flags = current->flags & ~TK_FLAG_HIDE;
+        current->flags = current->flags & ~TK_C_BACKEND_FLAG_HIDE;
     }
 }
 
@@ -630,7 +630,7 @@ void print_token(struct token* p_token)
     {
         strcat(buffer, "final ");
     }
-    if (p_token->flags & TK_FLAG_HIDE)
+    if (p_token->flags & TK_C_BACKEND_FLAG_HIDE)
     {
         strcat(buffer, "hide ");
     }
@@ -682,7 +682,7 @@ void print_token_html(struct token* p_token)
     {
         printf("final ");
     }
-    if (p_token->flags & TK_FLAG_HIDE)
+    if (p_token->flags & TK_C_BACKEND_FLAG_HIDE)
     {
         printf("hide ");
     }
