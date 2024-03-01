@@ -832,18 +832,24 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         break;
 
     case POSTFIX_DOT:
-        break;
     case POSTFIX_ARROW:
-        break;
     case POSTFIX_INCREMENT:
-        break;
     case POSTFIX_DECREMENT:
+        if (p_expression->left)
+            visit_expression(ctx, p_expression->left);
+        if (p_expression->right)
+            visit_expression(ctx, p_expression->right);
         break;
     case POSTFIX_ARRAY:
         //visit_expression(ctx, p_expression->left);
         break;
     case POSTFIX_FUNCTION_CALL:
+        
+        if (p_expression->left)
         visit_expression(ctx, p_expression->left);
+        if (p_expression->right)
+        visit_expression(ctx, p_expression->right);
+
         visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
         break;
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
