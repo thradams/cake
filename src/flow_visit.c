@@ -2191,12 +2191,10 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
     if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
     {
-        compiler_diagnostic_message(W_NOTE, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
+        compiler_diagnostic_message(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
         struct type t = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &t);
-
-
 
         if (p_obj)
         {
