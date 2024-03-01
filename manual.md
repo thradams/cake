@@ -21,7 +21,7 @@ echo | gcc -E -Wp,-v -
   
 Sample of cakeconfig.h
 
-```
+```c
 
 #ifdef __linux__
 /*
