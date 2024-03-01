@@ -231,6 +231,7 @@ void assertbuiltin(void);
 void valueoflit(void);
 void enum_type(void);
 void comflittype(void);
+void linemacro(void);
 
 /*end of forward declarations*/
 
@@ -453,6 +454,7 @@ g_unit_test_success_count = 0;
     valueoflit();
     enum_type();
     comflittype();
+    linemacro();
 return g_unit_test_error_count;
 
 }

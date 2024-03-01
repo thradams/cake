@@ -3497,5 +3497,22 @@ void comflittype()
 }
 //https://developers.redhat.com/articles/2023/05/04/new-c-features-gcc-13#c2x_features]
 
+void linemacro()
+{
+    const char* source
+        =
+        "#if __LINE__ != 1 \n"
+        "#error\n"
+        "#endif\n"
+        "\n"
+        "\n"
+        "#if __LINE__ != 6 \n"
+        "#error\n"
+        "#endif\n"
+        "\n"
+        "";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+
 #endif
 

@@ -5716,7 +5716,7 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
     return macro_argument_list;
 }
 
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct macro* macro, struct macro_argument_list* arguments, int level);
+struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct macro* macro, struct macro_argument_list* arguments, int level, const struct token * origin);
 struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* oldlist, int level);
 
 
@@ -6021,7 +6021,11 @@ static bool macro_already_expanded(struct macro_expanded* p_list, const char* na
     return false;
 }
 
-struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* oldlist, int level)
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
+    struct macro_expanded* p_list,
+    struct token_list* oldlist, 
+    int level,
+    const struct token * origin)
 {
     struct token_list r = { 0 };
     try
@@ -6094,7 +6098,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, s
                 }
 
 
-                struct token_list r3 = expand_macro(ctx, p_list, macro, &arguments, level);
+                struct token_list r3 = expand_macro(ctx, p_list, macro, &arguments, level, origin);
                 if (ctx->n_errors > 0)
                 {
                     token_list_destroy(&new_list);
@@ -6246,14 +6250,18 @@ struct token_list  copy_replacement_list(struct token_list* list)
 
 
 
-struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro)
+struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin)
 {
     /*macros de conteudo dinamico*/
     if (strcmp(macro->name, "__LINE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
+        char line[50] = { 0 };
+        
+        assert(origin != NULL);
+        snprintf(line, sizeof line, "%d", origin->line);
 
-        struct token_list r = tokenizer(&tctx, "1", "", 0, TK_FLAG_NONE);
+        struct token_list r = tokenizer(&tctx, line, "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
         return r;
@@ -6290,7 +6298,12 @@ void print_literal2(const char* s);
     para o primeiro item da expansao
     caso contrario, se p nao for macro, retorna null.
 */
-struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* list, struct macro* macro, struct macro_argument_list* arguments, int level)
+struct token_list expand_macro(struct preprocessor_ctx* ctx, 
+    struct macro_expanded* list,
+    struct macro* macro,
+    struct macro_argument_list* arguments,
+    int level,
+    const struct token * origin)
 {
     macro->usage++;
 
@@ -6307,9 +6320,9 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
         macro_expanded.p_previous = list;
         if (macro->is_function)
         {
-            struct token_list copy = macro_copy_replacement_list(ctx, macro);
+            struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
             struct token_list copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments);
-            struct token_list r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level);
+            struct token_list r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level, origin);
 
             token_list_append_list(&r, &r2);
 
@@ -6321,8 +6334,8 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expand
         }
         else
         {
-            struct token_list copy = macro_copy_replacement_list(ctx, macro);
-            struct token_list r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level);
+            struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
+            struct token_list r3 = replacement_list_reexamination(ctx, &macro_expanded, &copy, level, origin);
             if (ctx->n_errors > 0)
             {
                 token_list_destroy(&copy);
@@ -6360,9 +6373,11 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
         {
             struct macro* macro = NULL;
             struct token* start_token = input_list->head;
+            const struct token* origin = NULL;
 
             if (is_active && input_list->head->type == TK_IDENTIFIER)
             {
+                origin = input_list->head;
                 macro = find_macro(ctx, input_list->head->lexeme);
                 if (macro &&
                     macro->is_function &&
@@ -6425,7 +6440,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                 }
 
 
-                struct token_list start_macro = expand_macro(ctx, NULL, macro, &arguments, level);
+                struct token_list start_macro = expand_macro(ctx, NULL, macro, &arguments, level, origin);
                 if (start_macro.head)
                 {
                     start_macro.head->flags |= flags;
@@ -6502,7 +6517,7 @@ static struct token_list text_line(struct preprocessor_ctx* ctx, struct token_li
                             }
 
 
-                            struct token_list r3 = expand_macro(ctx, NULL, macro, &arguments2, level);
+                            struct token_list r3 = expand_macro(ctx, NULL, macro, &arguments2, level, origin);
                             if (ctx->n_errors > 0)
                             {
                                 macro_argument_list_destroy(&arguments2);
@@ -39042,6 +39057,22 @@ void comflittype()
 }
 //https://developers.redhat.com/articles/2023/05/04/new-c-features-gcc-13#c2x_features]
 
+void linemacro()
+{
+    const char* source
+        =
+        "#if __LINE__ != 1 \n"
+        "#error\n"
+        "#endif\n"
+        "\n"
+        "\n"
+        "#if __LINE__ != 6 \n"
+        "#error\n"
+        "#endif\n"
+        "\n"
+        "";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
 #endif
 
 
