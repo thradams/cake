@@ -3463,7 +3463,7 @@ void assertbuiltin()
 
 }
 
-void valueoflit()
+void value_of_constant_char()
 {
     const char* source
         =

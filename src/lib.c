@@ -5717,10 +5717,10 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
 }
 
 struct token_list expand_macro(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct macro* macro, struct macro_argument_list* arguments, int level, const struct token * origin);
-struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* oldlist, int level);
+struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* oldlist, int level, const struct token* origin);
 
 
-struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro);
+struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin);
 
 /*#define hash_hash # ## #
 #define mkstr(a) # a
@@ -5822,7 +5822,8 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
 */
 static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
     struct macro_expanded* p_list,
-    struct macro_argument_list* p_macro_argument_list)
+    struct macro_argument_list* p_macro_argument_list,
+    const struct token* origin)
 {
     if (p_macro_argument_list->head == NULL)
         return true;
@@ -5837,7 +5838,7 @@ static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
 
         struct token_list argumentlist = copy_argument_list(p_va_args_argument);
 
-        struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
+        struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0, origin);
         const bool results_in_empty_substituition = (r4.head == NULL || r4.head->type == TK_PLACEMARKER);
         token_list_destroy(&r4);
 
@@ -5849,7 +5850,7 @@ static bool has_argument_list_empty_substitution(struct preprocessor_ctx* ctx,
     return false;
 }
 
-static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments)
+static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, struct macro_expanded* p_list, struct token_list* input_list, struct macro_argument_list* arguments, const struct token* origin)
 {
     struct token_list r = { 0 };
 
@@ -5870,7 +5871,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     int parenteses_count = 1;         //we already have one
 
                     const bool discard_va_opt =
-                        has_argument_list_empty_substitution(ctx, p_list, arguments);
+                        has_argument_list_empty_substitution(ctx, p_list, arguments, origin);
 
                     if (discard_va_opt)
                     {
@@ -5980,7 +5981,7 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                         argumentlist.head->flags = flags;
                     }
                     /*depois reescan vai corrigir level*/
-                    struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0);
+                    struct token_list r4 = replacement_list_reexamination(ctx, p_list, &argumentlist, 0, origin);
                     token_list_append_list(&r, &r4);
                     token_list_destroy(&r4);
                     if (ctx->n_errors > 0)
@@ -6025,7 +6026,7 @@ struct token_list replacement_list_reexamination(struct preprocessor_ctx* ctx,
     struct macro_expanded* p_list,
     struct token_list* oldlist, 
     int level,
-    const struct token * origin)
+    const struct token* origin)
 {
     struct token_list r = { 0 };
     try
@@ -6269,9 +6270,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     else if (strcmp(macro->name, "__FILE__") == 0)
     {
         struct tokenizer_ctx tctx = { 0 };
-
-
-        struct token_list r = tokenizer(&tctx, "\"file\"", "", 0, TK_FLAG_NONE);
+        struct token_list r = tokenizer(&tctx, origin->token_origin->lexeme, "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
         return r;
@@ -6321,7 +6320,7 @@ struct token_list expand_macro(struct preprocessor_ctx* ctx,
         if (macro->is_function)
         {
             struct token_list copy = macro_copy_replacement_list(ctx, macro, origin);
-            struct token_list copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments);
+            struct token_list copy2 = replace_macro_arguments(ctx, &macro_expanded, &copy, arguments, origin);
             struct token_list r2 = replacement_list_reexamination(ctx, &macro_expanded, &copy2, level, origin);
 
             token_list_append_list(&r, &r2);
@@ -8616,7 +8615,7 @@ int test_predefined_macros()
         ;
 
     struct tokenizer_ctx tctx = { 0 };
-    struct token_list list = tokenizer(&tctx, input, "", 0, TK_FLAG_NONE);
+    struct token_list list = tokenizer(&tctx, input, "source", 0, TK_FLAG_NONE);
 
     struct preprocessor_ctx prectx = { 0 };
     prectx.macros.capacity = 5000;
@@ -13066,7 +13065,7 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
         int result = 0;
         while (is_hex_digit(*p))
         {
-            int byte;
+            int byte = 0;
             if (*p >= '0' && *p <= '9')
                 byte = (*p - '0');
             else if (*p >= 'a' && *p <= 'f')
@@ -28473,9 +28472,9 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         ctx->current = ctx->input_list.head;
         parser_skip_blanks(ctx);
 
-        bool berror = false;
-        l = translation_unit(ctx, &berror);
-        if (berror) throw;
+        bool local_error = false;
+        l = translation_unit(ctx, &local_error);
+        if (local_error) throw;
         show_unused_file_scope(ctx); //cannot be executed on error becase scope have dangling pointers
     }
     catch
@@ -39023,7 +39022,7 @@ void assertbuiltin()
 
 }
 
-void valueoflit()
+void value_of_constant_char()
 {
     const char* source
         =
@@ -39073,6 +39072,7 @@ void linemacro()
         "";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
+
 #endif
 
 

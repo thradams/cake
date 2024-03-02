@@ -869,7 +869,7 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
         int result = 0;
         while (is_hex_digit(*p))
         {
-            int byte;
+            int byte = 0;
             if (*p >= '0' && *p <= '9')
                 byte = (*p - '0');
             else if (*p >= 'a' && *p <= 'f')

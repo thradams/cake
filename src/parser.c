@@ -6465,9 +6465,9 @@ struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, b
         ctx->current = ctx->input_list.head;
         parser_skip_blanks(ctx);
 
-        bool berror = false;
-        l = translation_unit(ctx, &berror);
-        if (berror) throw;
+        bool local_error = false;
+        l = translation_unit(ctx, &local_error);
+        if (local_error) throw;
         show_unused_file_scope(ctx); //cannot be executed on error becase scope have dangling pointers
     }
     catch
