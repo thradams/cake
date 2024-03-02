@@ -3947,7 +3947,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
         r.head->flags = 0;
         return r;
     }
-    else if (strcmp(macro->name, "__COUNT__") == 0)
+    else if (strcmp(macro->name, "__COUNTER__") == 0)
     {
         //TODO unit test
         char line[50] = { 0 };
@@ -4514,7 +4514,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __STDC_VERSION__ 202311L\n"
         "#define __FILE__ \"__FILE__\"\n"
         "#define __LINE__ 0\n"
-        "#define __COUNT__ 0\n"
+        "#define __COUNTER__ 0\n"
         "#define _CONSOLE\n"
         "#define __STDC_OWNERSHIP__ 1\n"
         "#define _W_DIVIZION_BY_ZERO_ 29\n"
