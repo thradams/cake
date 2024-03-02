@@ -3949,9 +3949,12 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     }
     else if (strcmp(macro->name, "__COUNT__") == 0)
     {
-        assert(false);//TODO
+        //TODO unit test
+        char line[50] = { 0 };
+        ctx->count_macro_value++;
+        snprintf(line, sizeof line, "%d", ctx->count_macro_value);
         struct tokenizer_ctx tctx = { 0 };
-        struct token_list r = tokenizer(&tctx, "1", "", 0, TK_FLAG_NONE);
+        struct token_list r = tokenizer(&tctx, line, "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
         return r;
