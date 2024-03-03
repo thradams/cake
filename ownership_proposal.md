@@ -33,6 +33,14 @@ Principles:
 1 - Each object has only one owner
 2 - Ownership can be transferred between owners.
 3 - Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.
+4 - The object referenced by non-owner (view) must have a valid lifetime.
+
+Some principles are not new. At C standard 
+
+"6.2.4 Storage durations of objects "...If an object is referred to outside of its lifetime, the behavior is undefined.
+If a pointer value is used in an evaluation after the object the pointer points to (or just past) reaches
+the end of its lifetime, the behavior is undefined. The representation of a pointer object becomes
+indeterminate when the object the pointer points to (or just past) reaches the end of its lifetime."
 
 
 Lets introduce the first qualifier `_Owner`.
@@ -54,6 +62,8 @@ int main(){
 This rule is necessary to ensure the principle number 3.
 "Before the end of its lifetime, the owner object must transfer the ownership of the object it owns."
 
+And to ensure the same principle 
+
 Constrain 2 - The result of a function returning a owner object must be transferred 
 to another owner object.
 
@@ -71,4 +81,35 @@ int main(){
 }
 ```
 
-TODO
+Constrain 3 - We cannot return owner object as non-owner except:
+ - If the storage duration is static
+ - If the owner returned is a function argument
+
+
+```c
+_Owner int i;
+int* f()
+{
+   return i; //ok
+}
+```
+ 
+
+```c
+int* f()
+{
+   _Owner int i;
+   return i; //error
+}
+```
+]TODO
+
+## Code transition
+TODO explain `ownerhip.h` strategy inspired by stdbool.h.
+macros owner etc.
+
+## Changes in standard
+
+
+
+

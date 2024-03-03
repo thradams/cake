@@ -13082,6 +13082,8 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
     }
     else if (*p == 'u' || *p == 'U')
     {
+        //TODO  assuming input is checked 
+        //missing tests
         const int num_of_hex_digits = *p == 'U' ? 8 : 4;
 
         p++;
@@ -25374,7 +25376,7 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
 
             while (p_member_declarator)
             {
-                if (strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
+                if (p_member_declarator->declarator->name && strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
                 {
                     *p_member_index = member_index;
                     return p_member_declarator;

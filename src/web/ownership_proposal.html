@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  
+    <link rel="stylesheet" href="default.min.css">
+    <script src="highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+    <link rel="stylesheet" href="style.css" />
+    <title>Cake Playground</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+    <article style="max-width: 40em; margin:auto">
+<p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
+<article>
+<h1>Cake - C23 and Beyond</h1>
+<ul>
+<li>
+<a href="#toc_0">New qualifiers to enable checked lifetime contracts</a>
+<ul>
+<li>
+<a href="#toc_1">Abstract</a>
+</li>
+<li>
+<a href="#toc_2">Introduction, Motivation</a>
+</li>
+<li>
+<a href="#toc_3">Design</a>
+</li>
+<li>
+<a href="#toc_4">Code transition</a>
+</li>
+<li>
+<a href="#toc_5">Changes in standard</a>
+</li>
+</ul>
+</li>
+</ul>
+<h1 id="toc_0">New qualifiers to enable checked lifetime contracts</h1>
+
+<h2 id="toc_1">Abstract</h2>
+
+<p>This proposal introduces new qualifiers to improve 
+safety regarding the misuse of object lifetimes. These new qualifiers add contracts 
+that can be checked at compile time.</p>
+
+<h2 id="toc_2">Introduction, Motivation</h2>
+
+<p>The motivation is to check at compile time the correct usage of patterns that already exist in C.
+For instance, how could we check at compile time the correct usage of <code>fopen</code> and <code>fclose</code>.</p>
+
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+int main()
+{
+  FILE * f = fopen(&quot;file.txt&quot;, &quot;r&quot;); 
+  if (f)
+    fclose(f);
+}
+</code></pre>
+
+<h2 id="toc_3">Design</h2>
+
+<p>We introduce several qualifiers called ownership qualifiers.
+Just like <code>const</code> has in its basic principle avoid the object to be modified, 
+Ownership qualifiers have principles in mind and all the rules serve to keep the objective.</p>
+
+<p>Principles:</p>
+
+<p>1 - Each object has only one owner
+2 - Ownership can be transferred between owners.
+3 - Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.
+4 - The object referenced by non-owner (view) must have a valid lifetime.</p>
+
+<p>Some principles are not new. At C standard </p>
+
+<p>&quot;6.2.4 Storage durations of objects &quot;...If an object is referred to outside of its lifetime, the behavior is undefined.
+If a pointer value is used in an evaluation after the object the pointer points to (or just past) reaches
+the end of its lifetime, the behavior is undefined. The representation of a pointer object becomes
+indeterminate when the object the pointer points to (or just past) reaches the end of its lifetime.&quot;</p>
+
+<p>Lets introduce the first qualifier <code>_Owner</code>.</p>
+
+<p><code>_Owner</code> indicates that an object works as a reference to another object, 
+managing its lifetime as its unique owner.</p>
+
+<p>So here is the first rule.</p>
+
+<p>Constrain 1 - The result of a function returning a owner object cannot be discarded.</p>
+
+<pre><code class="language-c">int* f();
+int main(){
+ f();
+}
+</code></pre>
+
+<p>This rule is necessary to ensure the principle number 3.
+&quot;Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.&quot;</p>
+
+<p>And to ensure the same principle </p>
+
+<p>Constrain 2 - The result of a function returning a owner object must be transferred 
+to another owner object.</p>
+
+<pre><code class="language-c">int* f();
+int main(){
+ int * p = f(); //warning/error
+}
+</code></pre>
+
+<pre><code class="language-c">int* f();
+int main(){
+ int * _Owner p = f(); //ok
+}
+</code></pre>
+
+<p>Constrain 3 - We cannot return owner object as non-owner except:
+ - If the storage duration is static
+ - If the owner returned is a function argument</p>
+
+<pre><code class="language-c">_Owner int i;
+int* f()
+{
+   return i; //ok
+}
+</code></pre>
+
+<pre><code class="language-c">int* f()
+{
+   _Owner int i;
+   return i; //error
+}
+</code></pre>
+
+<p>]TODO</p>
+
+<h2 id="toc_4">Code transition</h2>
+
+<p>TODO explain <code>ownerhip.h</code> strategy inspired by stdbool.h.
+macros owner etc.</p>
+
+<h2 id="toc_5">Changes in standard</h2>
+</article></body></html>
