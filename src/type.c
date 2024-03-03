@@ -1065,7 +1065,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
 		if (type_is_array(paramer_type))
 		{
-			int parameter_array_size = type_get_array_size(paramer_type);
+			int parameter_array_size = type_get_array_n_elements(paramer_type);
 			if (type_is_array(argument_type))
 			{
 				int argument_array_size = type_get_array_size(argument_type);

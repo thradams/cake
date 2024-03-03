@@ -1,4 +1,5 @@
-//#include <unistd.h>
+wchar_t s[] = L\"abcd\";
+static_assert(sizeof(s) == sizeof(wchar_t)*5);
 
 typeof
 (~*"")
