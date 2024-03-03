@@ -3343,7 +3343,7 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
 
             while (p_member_declarator)
             {
-                if (strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
+                if (p_member_declarator->declarator->name && strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
                 {
                     *p_member_index = member_index;
                     return p_member_declarator;
