@@ -310,7 +310,7 @@ void comp_error1()
     assert(compile_without_errors_warnings(false, false, src));
 }
 
-void array_size()
+void n_elements()
 {
     const char* src =
         "void (*f[2][3])(int i);\n"
@@ -1490,7 +1490,7 @@ void ownership_flow_test_missing_destructor()
     const char* source
         =
         "struct X {\n"
-        "    _Owner i;\n"
+        "    int _Owner i;\n"
         "};\n"
         "void f() {\n"
         "    const struct X x = { 0 };\n"
@@ -3308,20 +3308,22 @@ void uninitialized_objects_passed_to_variadic_function()
     const char* source
         =
         "void f(char* s, ...);\n"
-        "int main() {\n"
+        "int main()\n"
+        "{\n"
         "    int i;\n"
         "    f(\"\", i);\n"
-        "//first pass analyze\n"
-        "#pragma cake diagnostic check \"-uninitialized\"\n"
+        "    //first pass analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
         "    return 0;\n"
         "}\n"
         "void dummy()\n"
         "{\n"
-        "} \n"
+        "}\n"
         "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
-        "\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "";
+
+
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -3513,6 +3515,41 @@ void linemacro()
         "";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
+
+
+void sizeofstring()
+{
+    const char* source
+        =
+        "static_assert(sizeof(\"abc\") == 4);";
+
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+
+
+void sizeofarraychar()
+{
+    const char* source
+        =
+        "char s[] = \"abcd\";\n"
+        "static_assert(sizeof(s) == 5);";
+
+
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+
+void sizeofarraywchar()
+{
+    const char* source
+        =
+        "typedef unsigned short wchar_t;\n"
+        "wchar_t s[] = L\"abcd\";\n"
+        "static_assert(sizeof(s) == sizeof(wchar_t)*5);";
+
+
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+
 
 #endif
 

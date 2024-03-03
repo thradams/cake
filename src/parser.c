@@ -2296,7 +2296,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             if (tkname)
             {
                 /*
-                  Checking nameming conventions
+                  Checking naming conventions
                 */
                 if (ctx->scopes.tail->scope_level == 0)
                 {
@@ -2373,13 +2373,13 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             {
                 if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    const int sz = type_get_array_size(&p_init_declarator->p_declarator->type);
+                    const int sz = p_init_declarator->p_declarator->type.num_of_elements;
                     if (sz == 0)
                     {
                         /*int a[] = {1, 2, 3}*/
                         const int braced_initializer_size =
                             p_init_declarator->initializer->braced_initializer->initializer_list->size;
-                        type_set_array_size(&p_init_declarator->p_declarator->type, braced_initializer_size);
+                        p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
                     }
                 }
 
@@ -2390,6 +2390,21 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
+
+                if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                { 
+                    /*char a[] = "ab"*/
+                    if (type_is_array(&p_init_declarator->p_declarator->type))
+                    {
+                        const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
+                        if (array_size_elements == 0)
+                        {
+                            p_init_declarator->p_declarator->type.num_of_elements = 
+                                p_init_declarator->initializer->assignment_expression->type.num_of_elements;
+                        }
+                    }
+                }
+
                 /*
                   Fixing the type of auto declarator
                 */
@@ -2499,6 +2514,21 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 "obj_owner qualifier can only be used with pointers");
         }
     }
+
+    if (
+        !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) &&
+        !type_is_function(&p_init_declarator->p_declarator->type) &&
+        type_get_sizeof(&p_init_declarator->p_declarator->type) <= 0)
+    {
+        //clang warning: array 'c' assumed to have one element 
+        //gcc "error: storage size of '%s' isn't known"
+        compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
+            ctx,
+            p_init_declarator->p_declarator->name,
+            "error: storage size of '%s' isn't known",
+            p_init_declarator->p_declarator->name->lexeme);
+    }
+
 
     return p_init_declarator;
 }

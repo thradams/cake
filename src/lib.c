@@ -695,7 +695,7 @@ enum diagnostic_id {
 
     C_ERROR_PRAGMA_ERROR,
     C_ERROR_OUT_OF_MEM,
-
+    C_ERROR_STORAGE_SIZE,
 };
 
 
@@ -6275,7 +6275,7 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
         r.head->flags = 0;
         return r;
     }
-    else if (strcmp(macro->name, "__COUNT__") == 0)
+    else if (strcmp(macro->name, "__COUNTER__") == 0)
     {
         //TODO unit test
         char line[50] = { 0 };
@@ -6842,7 +6842,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __STDC_VERSION__ 202311L\n"
         "#define __FILE__ \"__FILE__\"\n"
         "#define __LINE__ 0\n"
-        "#define __COUNT__ 0\n"
+        "#define __COUNTER__ 0\n"
         "#define _CONSOLE\n"
         "#define __STDC_OWNERSHIP__ 1\n"
         "#define _W_DIVIZION_BY_ZERO_ 29\n"
@@ -10406,7 +10406,7 @@ struct type
     struct struct_or_union_specifier* struct_or_union_specifier;
     const struct enum_specifier* enum_specifier;
 
-    int array_size;
+    int num_of_elements;
     bool static_array;
 
     /*
@@ -10448,8 +10448,6 @@ void type_destroy(struct type* obj_owner p_type);
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
-int type_get_array_size(const struct type* p_type);
-int type_set_array_size(struct type* p_type, int size);
 
 bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);
@@ -13082,6 +13080,29 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
 
         *out_value = result;
     }
+    else if (*p == 'u' || *p == 'U')
+    {
+        const int num_of_hex_digits = *p == 'U' ? 8 : 4;
+
+        p++;
+        unsigned long long result = 0;
+        for (int i = 0; i < num_of_hex_digits; i++)
+        {
+            int byte = 0;
+            if (*p >= '0' && *p <= '9')
+                byte = (*p - '0');
+            else if (*p >= 'a' && *p <= 'f')
+                byte = (*p - 'a') + 10;
+            else if (*p >= 'A' && *p <= 'F')
+                byte = (*p - 'A') + 10;
+
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+
+        *out_value = result;
+
+    }
     else if (*p == '0')
     {
         //octal digit        
@@ -13896,9 +13917,9 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         constant_value_to_ull(&p_expression_node_new->right->constant_value);
                     if (type_is_array(&p_expression_node->type))
                     {
-                        if (p_expression_node->type.array_size > 0)
+                        if (p_expression_node->type.num_of_elements > 0)
                         {
-                            if (index >= (unsigned long long) p_expression_node->type.array_size)
+                            if (index >= (unsigned long long) p_expression_node->type.num_of_elements)
                             {
                                 compiler_diagnostic_message(W_OUT_OF_BOUNDS,
                                     ctx,
@@ -14024,7 +14045,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                     struct type item_type = { 0 };
                     if (type_is_array(&p_expression_node->type))
                     {
-                        compiler_diagnostic_message(W_STYLE, ctx, ctx->current, "using '->' in array as pointer to struct");
+                        compiler_diagnostic_message(W_ARRAY_INDIRECTION, ctx, ctx->current, "using indirection '->' in array");
                         item_type = get_array_item_type(&p_expression_node->type);
                     }
                     else
@@ -17355,12 +17376,12 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
 			print_type_qualifier_flags(ss, &b, p->type_qualifier_flags);
 
-			if (p->array_size > 0)
+			if (p->num_of_elements > 0)
 			{
 				if (!b)
 					ss_fprintf(ss, " ");
 
-				ss_fprintf(ss, "%d", p->array_size);
+				ss_fprintf(ss, "%d", p->num_of_elements);
 			}
 			ss_fprintf(ss, "]");
 
@@ -18118,10 +18139,10 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
 		if (type_is_array(paramer_type))
 		{
-			int parameter_array_size = type_get_array_size(paramer_type);
+			int parameter_array_size = paramer_type->num_of_elements;
 			if (type_is_array(argument_type))
 			{
-				int argument_array_size = type_get_array_size(argument_type);
+				int argument_array_size = argument_type->num_of_elements;
 				if (parameter_array_size != 0 &&
 					argument_array_size < parameter_array_size)
 				{
@@ -18510,10 +18531,10 @@ void check_assigment(struct parser_ctx* ctx,
 
 		if (type_is_array(left_type))
 		{
-			int parameter_array_size = type_get_array_size(left_type);
+			int parameter_array_size = left_type->num_of_elements;
 			if (type_is_array(p_right_type))
 			{
-				int argument_array_size = type_get_array_size(p_right_type);
+				int argument_array_size = p_right_type->num_of_elements;
 				if (parameter_array_size != 0 &&
 					argument_array_size < parameter_array_size)
 				{
@@ -18627,9 +18648,13 @@ struct type type_add_pointer(const struct type* p_type)
 
 struct type type_remove_pointer(const struct type* p_type)
 {
-	assert(type_is_pointer(p_type));
-
+	
 	struct type r = type_dup(p_type);
+	if (!type_is_pointer(p_type))
+	{
+		return r;
+	}
+
 
 	assert(r.next);
 	if (r.next)
@@ -18860,17 +18885,7 @@ struct type type_dup(const struct type* p_type)
 }
 
 
-int type_get_array_size(const struct type* p_type)
-{
-	return p_type->array_size;
-}
 
-
-int type_set_array_size(struct type* p_type, int size)
-{
-	p_type->array_size = size;
-	return 0;
-}
 int type_get_num_members(const struct type* type);
 int type_get_struct_num_members(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
@@ -19174,7 +19189,7 @@ int type_get_num_members(const struct type* p_type)
 	}
 	else if (category == TYPE_CATEGORY_ARRAY)
 	{
-		//int arraysize = type_get_array_size(p_type);
+		//int arraysize = type_get_array_bytes_size(p_type);
 		//struct type type = get_array_item_type(p_type);
 		//int sz = type_get_sizeof(&type);
 		//size = sz * arraysize;
@@ -19212,7 +19227,7 @@ int type_get_sizeof(const struct type* p_type)
 		}
 		else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
 		{
-			size = (int)sizeof(int);
+			size = (int)sizeof(short);
 		}
 		else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
 		{
@@ -19291,7 +19306,7 @@ int type_get_sizeof(const struct type* p_type)
 	}
 	else if (category == TYPE_CATEGORY_ARRAY)
 	{
-		int arraysize = type_get_array_size(p_type);
+		int arraysize = p_type->num_of_elements;
 		struct type type = get_array_item_type(p_type);
 		int sz = type_get_sizeof(&type);
 		size = sz * arraysize;
@@ -19539,11 +19554,17 @@ struct type type_make_int()
 	return t;
 }
 
-struct type type_make_literal_string(int size, enum type_specifier_flags chartype)
+struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flags chartype)
 {
+	struct type char_type = { 0 };
+	char_type.category = TYPE_CATEGORY_ITSELF;
+	char_type.type_specifier_flags = chartype;
+	int char_size = type_get_sizeof(&char_type);
+	type_destroy(&char_type);
+
 	struct type t = { 0 };
 	t.category = TYPE_CATEGORY_ARRAY;
-	t.array_size = size;
+	t.num_of_elements = size_in_bytes / char_size;
 
 	struct type* owner p2 = calloc(1, sizeof(struct type));
 	p2->category = TYPE_CATEGORY_ITSELF;
@@ -19610,7 +19631,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 	{
 
 
-		if (pa->array_size != pb->array_size) return false;
+		if (pa->num_of_elements != pb->num_of_elements) return false;
 
 		if (pa->category != pb->category) return false;
 
@@ -19930,7 +19951,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 		struct type* owner p = calloc(1, sizeof(struct type));
 		p->category = TYPE_CATEGORY_ARRAY;
 
-		p->array_size =
+		p->num_of_elements =
 			(int)array_declarator_get_size(pdirectdeclarator->array_declarator);
 
 
@@ -24306,7 +24327,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             if (tkname)
             {
                 /*
-                  Checking nameming conventions
+                  Checking naming conventions
                 */
                 if (ctx->scopes.tail->scope_level == 0)
                 {
@@ -24383,13 +24404,13 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             {
                 if (type_is_array(&p_init_declarator->p_declarator->type))
                 {
-                    const int sz = type_get_array_size(&p_init_declarator->p_declarator->type);
+                    const int sz = p_init_declarator->p_declarator->type.num_of_elements;
                     if (sz == 0)
                     {
                         /*int a[] = {1, 2, 3}*/
                         const int braced_initializer_size =
                             p_init_declarator->initializer->braced_initializer->initializer_list->size;
-                        type_set_array_size(&p_init_declarator->p_declarator->type, braced_initializer_size);
+                        p_init_declarator->p_declarator->type.num_of_elements = braced_initializer_size;
                     }
                 }
 
@@ -24400,6 +24421,21 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             }
             else if (p_init_declarator->initializer->assignment_expression)
             {
+
+                if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+                { 
+                    /*char a[] = "ab"*/
+                    if (type_is_array(&p_init_declarator->p_declarator->type))
+                    {
+                        const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
+                        if (array_size_elements == 0)
+                        {
+                            p_init_declarator->p_declarator->type.num_of_elements = 
+                                p_init_declarator->initializer->assignment_expression->type.num_of_elements;
+                        }
+                    }
+                }
+
                 /*
                   Fixing the type of auto declarator
                 */
@@ -24509,6 +24545,21 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 "obj_owner qualifier can only be used with pointers");
         }
     }
+
+    if (
+        !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) &&
+        !type_is_function(&p_init_declarator->p_declarator->type) &&
+        type_get_sizeof(&p_init_declarator->p_declarator->type) <= 0)
+    {
+        //clang warning: array 'c' assumed to have one element 
+        //gcc "error: storage size of '%s' isn't known"
+        compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
+            ctx,
+            p_init_declarator->p_declarator->name,
+            "error: storage size of '%s' isn't known",
+            p_init_declarator->p_declarator->name->lexeme);
+    }
+
 
     return p_init_declarator;
 }
@@ -35872,7 +35923,7 @@ void comp_error1()
     assert(compile_without_errors_warnings(false, false, src));
 }
 
-void array_size()
+void n_elements()
 {
     const char* src =
         "void (*f[2][3])(int i);\n"
@@ -37052,7 +37103,7 @@ void ownership_flow_test_missing_destructor()
     const char* source
         =
         "struct X {\n"
-        "    _Owner i;\n"
+        "    int _Owner i;\n"
         "};\n"
         "void f() {\n"
         "    const struct X x = { 0 };\n"
@@ -38870,20 +38921,22 @@ void uninitialized_objects_passed_to_variadic_function()
     const char* source
         =
         "void f(char* s, ...);\n"
-        "int main() {\n"
+        "int main()\n"
+        "{\n"
         "    int i;\n"
         "    f(\"\", i);\n"
-        "//first pass analyze\n"
-        "#pragma cake diagnostic check \"-uninitialized\"\n"
+        "    //first pass analyze\n"
+        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
         "    return 0;\n"
         "}\n"
         "void dummy()\n"
         "{\n"
-        "} \n"
+        "}\n"
         "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
-        "\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "";
+
+
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -39075,6 +39128,41 @@ void linemacro()
         "";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
+
+
+void sizeofstring()
+{
+    const char* source
+        =
+        "static_assert(sizeof(\"abc\") == 4);";
+
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+
+
+void sizeofarraychar()
+{
+    const char* source
+        =
+        "char s[] = \"abcd\";\n"
+        "static_assert(sizeof(s) == 5);";
+
+
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+
+void sizeofarraywchar()
+{
+    const char* source
+        =
+        "typedef unsigned short wchar_t;\n"
+        "wchar_t s[] = L\"abcd\";\n"
+        "static_assert(sizeof(s) == sizeof(wchar_t)*5);";
+
+
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
+
 
 #endif
 

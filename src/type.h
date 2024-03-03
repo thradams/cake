@@ -161,7 +161,7 @@ struct type
     struct struct_or_union_specifier* struct_or_union_specifier;
     const struct enum_specifier* enum_specifier;
 
-    int array_size;
+    int num_of_elements;
     bool static_array;
 
     /*
@@ -203,8 +203,6 @@ void type_destroy(struct type* obj_owner p_type);
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
-int type_get_array_size(const struct type* p_type);
-int type_set_array_size(struct type* p_type, int size);
 
 bool type_is_enum(const struct type* p_type);
 bool type_is_array(const struct type* p_type);

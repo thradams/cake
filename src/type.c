@@ -302,12 +302,12 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
 			print_type_qualifier_flags(ss, &b, p->type_qualifier_flags);
 
-			if (p->array_size > 0)
+			if (p->num_of_elements > 0)
 			{
 				if (!b)
 					ss_fprintf(ss, " ");
 
-				ss_fprintf(ss, "%d", p->array_size);
+				ss_fprintf(ss, "%d", p->num_of_elements);
 			}
 			ss_fprintf(ss, "]");
 
@@ -1065,10 +1065,10 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
 		if (type_is_array(paramer_type))
 		{
-			int parameter_array_size = type_get_array_n_elements(paramer_type);
+			int parameter_array_size = paramer_type->num_of_elements;
 			if (type_is_array(argument_type))
 			{
-				int argument_array_size = type_get_array_size(argument_type);
+				int argument_array_size = argument_type->num_of_elements;
 				if (parameter_array_size != 0 &&
 					argument_array_size < parameter_array_size)
 				{
@@ -1457,10 +1457,10 @@ void check_assigment(struct parser_ctx* ctx,
 
 		if (type_is_array(left_type))
 		{
-			int parameter_array_size = type_get_array_size(left_type);
+			int parameter_array_size = left_type->num_of_elements;
 			if (type_is_array(p_right_type))
 			{
-				int argument_array_size = type_get_array_size(p_right_type);
+				int argument_array_size = p_right_type->num_of_elements;
 				if (parameter_array_size != 0 &&
 					argument_array_size < parameter_array_size)
 				{
@@ -1574,9 +1574,13 @@ struct type type_add_pointer(const struct type* p_type)
 
 struct type type_remove_pointer(const struct type* p_type)
 {
-	assert(type_is_pointer(p_type));
-
+	
 	struct type r = type_dup(p_type);
+	if (!type_is_pointer(p_type))
+	{
+		return r;
+	}
+
 
 	assert(r.next);
 	if (r.next)
@@ -1807,17 +1811,7 @@ struct type type_dup(const struct type* p_type)
 }
 
 
-int type_get_array_size(const struct type* p_type)
-{
-	return p_type->array_size;
-}
 
-
-int type_set_array_size(struct type* p_type, int size)
-{
-	p_type->array_size = size;
-	return 0;
-}
 int type_get_num_members(const struct type* type);
 int type_get_struct_num_members(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
@@ -2121,7 +2115,7 @@ int type_get_num_members(const struct type* p_type)
 	}
 	else if (category == TYPE_CATEGORY_ARRAY)
 	{
-		//int arraysize = type_get_array_size(p_type);
+		//int arraysize = type_get_array_bytes_size(p_type);
 		//struct type type = get_array_item_type(p_type);
 		//int sz = type_get_sizeof(&type);
 		//size = sz * arraysize;
@@ -2159,7 +2153,7 @@ int type_get_sizeof(const struct type* p_type)
 		}
 		else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
 		{
-			size = (int)sizeof(int);
+			size = (int)sizeof(short);
 		}
 		else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
 		{
@@ -2238,7 +2232,7 @@ int type_get_sizeof(const struct type* p_type)
 	}
 	else if (category == TYPE_CATEGORY_ARRAY)
 	{
-		int arraysize = type_get_array_size(p_type);
+		int arraysize = p_type->num_of_elements;
 		struct type type = get_array_item_type(p_type);
 		int sz = type_get_sizeof(&type);
 		size = sz * arraysize;
@@ -2483,11 +2477,17 @@ struct type type_make_int()
 	return t;
 }
 
-struct type type_make_literal_string(int size, enum type_specifier_flags chartype)
+struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flags chartype)
 {
+	struct type char_type = { 0 };
+	char_type.category = TYPE_CATEGORY_ITSELF;
+	char_type.type_specifier_flags = chartype;
+	int char_size = type_get_sizeof(&char_type);
+	type_destroy(&char_type);
+
 	struct type t = { 0 };
 	t.category = TYPE_CATEGORY_ARRAY;
-	t.array_size = size;
+	t.num_of_elements = size_in_bytes / char_size;
 
 	struct type* owner p2 = calloc(1, sizeof(struct type));
 	p2->category = TYPE_CATEGORY_ITSELF;
@@ -2554,7 +2554,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 	{
 
 
-		if (pa->array_size != pb->array_size) return false;
+		if (pa->num_of_elements != pb->num_of_elements) return false;
 
 		if (pa->category != pb->category) return false;
 
@@ -2874,7 +2874,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 		struct type* owner p = calloc(1, sizeof(struct type));
 		p->category = TYPE_CATEGORY_ARRAY;
 
-		p->array_size =
+		p->num_of_elements =
 			(int)array_declarator_get_size(pdirectdeclarator->array_declarator);
 
 

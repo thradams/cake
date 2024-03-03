@@ -883,6 +883,31 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
 
         *out_value = result;
     }
+    else if (*p == 'u' || *p == 'U')
+    {
+        //TODO  assuming input is checked 
+        //missing tests
+        const int num_of_hex_digits = *p == 'U' ? 8 : 4;
+
+        p++;
+        unsigned long long result = 0;
+        for (int i = 0; i < num_of_hex_digits; i++)
+        {
+            int byte = 0;
+            if (*p >= '0' && *p <= '9')
+                byte = (*p - '0');
+            else if (*p >= 'a' && *p <= 'f')
+                byte = (*p - 'a') + 10;
+            else if (*p >= 'A' && *p <= 'F')
+                byte = (*p - 'A') + 10;
+
+            result = (result << 4) | (byte & 0xF);
+            p++;
+        }
+
+        *out_value = result;
+
+    }
     else if (*p == '0')
     {
         //octal digit        
@@ -1697,9 +1722,9 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                         constant_value_to_ull(&p_expression_node_new->right->constant_value);
                     if (type_is_array(&p_expression_node->type))
                     {
-                        if (p_expression_node->type.array_size > 0)
+                        if (p_expression_node->type.num_of_elements > 0)
                         {
-                            if (index >= (unsigned long long) p_expression_node->type.array_size)
+                            if (index >= (unsigned long long) p_expression_node->type.num_of_elements)
                             {
                                 compiler_diagnostic_message(W_OUT_OF_BOUNDS,
                                     ctx,
@@ -1825,7 +1850,7 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
                     struct type item_type = { 0 };
                     if (type_is_array(&p_expression_node->type))
                     {
-                        compiler_diagnostic_message(W_STYLE, ctx, ctx->current, "using '->' in array as pointer to struct");
+                        compiler_diagnostic_message(W_ARRAY_INDIRECTION, ctx, ctx->current, "using indirection '->' in array");
                         item_type = get_array_item_type(&p_expression_node->type);
                     }
                     else

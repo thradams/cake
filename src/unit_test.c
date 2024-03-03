@@ -92,7 +92,7 @@ void alignof_test(void);
 void indirection_struct_size(void);
 void traits_test(void);
 void comp_error1(void);
-void array_size(void);
+void n_elements(void);
 void expr_type(void);
 void expand_test(void);
 void expand_test2(void);
@@ -232,6 +232,9 @@ void value_of_constant_char(void);
 void enum_type(void);
 void comflittype(void);
 void linemacro(void);
+void sizeofstring(void);
+void sizeofarraychar(void);
+void sizeofarraywchar(void);
 
 /*end of forward declarations*/
 
@@ -315,7 +318,7 @@ g_unit_test_success_count = 0;
     indirection_struct_size();
     traits_test();
     comp_error1();
-    array_size();
+    n_elements();
     expr_type();
     expand_test();
     expand_test2();
@@ -455,6 +458,9 @@ g_unit_test_success_count = 0;
     enum_type();
     comflittype();
     linemacro();
+    sizeofstring();
+    sizeofarraychar();
+    sizeofarraywchar();
 return g_unit_test_error_count;
 
 }
