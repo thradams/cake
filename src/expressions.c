@@ -2353,7 +2353,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 parser_match_tk(ctx, '(');
                 new_expression->type_name = type_name(ctx);
 
-                new_expression->type = type_make_int();
+                new_expression->type = make_size_t_type();
 
                 parser_match_tk(ctx, ')');
 

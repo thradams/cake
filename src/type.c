@@ -2483,6 +2483,14 @@ struct type type_make_int_bool_like()
     return t;
 }
 
+struct type make_size_t_type()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = CAKE_SIZE_T_TYPE_SPECIFIER;    
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
 struct type type_make_int()
 {
     struct type t = { 0 };

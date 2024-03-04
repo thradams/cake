@@ -77,11 +77,29 @@ enum type_specifier_flags
 
 
 };
+
 #ifdef _WIN32
-//Windows
-#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
-#else
-#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
+
+    #define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
+
+    #ifdef _WIN64
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64)    
+    #else
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
+    #endif
+
+#else 
+
+    #define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
+
+    #if __x86_64__
+    /* 64-bit */
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG)    
+    #else
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
+    #endif
+
+
 #endif
 
 
@@ -265,6 +283,7 @@ struct type type_make_size_t();
 struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
+struct type make_size_t_type();
 
 struct type get_function_return_type(const struct type* p_type);
 
