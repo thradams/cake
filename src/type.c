@@ -669,6 +669,22 @@ bool type_is_character(const struct type* p_type)
         p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR;
 }
 
+bool type_is_vla(const struct type* p_type)
+{
+    if (type_is_array(p_type))
+    {
+        if (p_type->array_num_elements_expression)
+        {
+            if (!constant_value_is_valid(&p_type->array_num_elements_expression->constant_value))
+            {
+                //the expression is not constant so it is VLA
+                //
+                return true;
+            }
+        }
+    }
+    return false;
+}
 bool type_is_bool(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
@@ -2246,11 +2262,18 @@ int type_get_sizeof(const struct type* p_type)
     }
     else if (category == TYPE_CATEGORY_ARRAY)
     {
-        int arraysize = p_type->num_of_elements;
-        struct type type = get_array_item_type(p_type);
-        int sz = type_get_sizeof(&type);
-        size = sz * arraysize;
-        type_destroy(&type);
+        if (!type_is_vla(p_type))
+        {
+            int arraysize = p_type->num_of_elements;
+            struct type type = get_array_item_type(p_type);
+            int sz = type_get_sizeof(&type);
+            size = sz * arraysize;
+            type_destroy(&type);
+        }
+        else
+        {
+            size = -3; //sizeof vla
+        }
     }
 
     return size;
@@ -2899,6 +2922,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
         p->num_of_elements =
             (int)array_declarator_get_size(pdirectdeclarator->array_declarator);
 
+        p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
 
         if (pdirectdeclarator->array_declarator->static_token_opt)
         {

@@ -1,1 +1,5 @@
-typeof(sizeof 1) i;
+int a;
+int b()
+{
+    char c[a];
+}

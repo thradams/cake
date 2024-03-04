@@ -2392,14 +2392,14 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             {
 
                 if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
-                { 
+                {
                     /*char a[] = "ab"*/
                     if (type_is_array(&p_init_declarator->p_declarator->type))
                     {
                         const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
                         if (array_size_elements == 0)
                         {
-                            p_init_declarator->p_declarator->type.num_of_elements = 
+                            p_init_declarator->p_declarator->type.num_of_elements =
                                 p_init_declarator->initializer->assignment_expression->type.num_of_elements;
                         }
                     }
@@ -2517,16 +2517,28 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
 
     if (
         !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) &&
-        !type_is_function(&p_init_declarator->p_declarator->type) &&
-        type_get_sizeof(&p_init_declarator->p_declarator->type) <= 0)
+        !type_is_function(&p_init_declarator->p_declarator->type))
     {
-        //clang warning: array 'c' assumed to have one element 
-        //gcc "error: storage size of '%s' isn't known"
-        compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
-            ctx,
-            p_init_declarator->p_declarator->name,
-            "error: storage size of '%s' isn't known",
-            p_init_declarator->p_declarator->name->lexeme);
+        int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+
+        if (sz == -3)
+        {
+            /*type_get_sizeof returns -3 for VLAs*/
+        }
+        else if (sz < 0)
+        {
+            //clang warning: array 'c' assumed to have one element 
+            //gcc "error: storage size of '%s' isn't known"
+            compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_init_declarator->p_declarator->name,
+                "error: storage size of '%s' isn't known",
+                p_init_declarator->p_declarator->name->lexeme);
+        }
+        else
+        {
+            //ok
+        }
     }
 
 

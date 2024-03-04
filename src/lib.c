@@ -10322,11 +10322,29 @@ enum type_specifier_flags
 
 
 };
+
 #ifdef _WIN32
-//Windows
-#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
-#else
-#define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
+
+    #define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT)
+
+    #ifdef _WIN64
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64)    
+    #else
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
+    #endif
+
+#else 
+
+    #define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
+
+    #if __x86_64__
+    /* 64-bit */
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG)    
+    #else
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
+    #endif
+
+
 #endif
 
 
@@ -10406,6 +10424,9 @@ struct type
     struct struct_or_union_specifier* struct_or_union_specifier;
     const struct enum_specifier* enum_specifier;
 
+    //Expression used as array size. Can be constant or not constant (VLA)
+    const struct expression* array_num_elements_expression;
+
     int num_of_elements;
     bool static_array;
 
@@ -10481,6 +10502,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 bool type_is_scalar(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);
+bool type_is_vla(const struct type* p_type);
 
 struct type type_get_enum_type(const struct type* p_type);
 
@@ -10510,6 +10532,7 @@ struct type type_make_size_t();
 struct type type_make_enumerator(const struct enum_specifier* enum_specifier);
 struct type make_void_type();
 struct type make_void_ptr_type();
+struct type make_size_t_type();
 
 struct type get_function_return_type(const struct type* p_type);
 
@@ -14551,7 +14574,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 parser_match_tk(ctx, '(');
                 new_expression->type_name = type_name(ctx);
 
-                new_expression->type = type_make_int();
+                new_expression->type = make_size_t_type();
 
                 parser_match_tk(ctx, ')');
 
@@ -17749,6 +17772,22 @@ bool type_is_character(const struct type* p_type)
         p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR;
 }
 
+bool type_is_vla(const struct type* p_type)
+{
+    if (type_is_array(p_type))
+    {
+        if (p_type->array_num_elements_expression)
+        {
+            if (!constant_value_is_valid(&p_type->array_num_elements_expression->constant_value))
+            {
+                //the expression is not constant so it is VLA
+                //
+                return true;
+            }
+        }
+    }
+    return false;
+}
 bool type_is_bool(const struct type* p_type)
 {
     return type_get_category(p_type) == TYPE_CATEGORY_ITSELF &&
@@ -19326,11 +19365,18 @@ int type_get_sizeof(const struct type* p_type)
     }
     else if (category == TYPE_CATEGORY_ARRAY)
     {
-        int arraysize = p_type->num_of_elements;
-        struct type type = get_array_item_type(p_type);
-        int sz = type_get_sizeof(&type);
-        size = sz * arraysize;
-        type_destroy(&type);
+        if (!type_is_vla(p_type))
+        {
+            int arraysize = p_type->num_of_elements;
+            struct type type = get_array_item_type(p_type);
+            int sz = type_get_sizeof(&type);
+            size = sz * arraysize;
+            type_destroy(&type);
+        }
+        else
+        {
+            size = -3; //sizeof vla
+        }
     }
 
     return size;
@@ -19562,6 +19608,14 @@ struct type type_make_int_bool_like()
     struct type t = { 0 };
     t.type_specifier_flags = TYPE_SPECIFIER_INT;
     t.attributes_flags = CAKE_HIDDEN_ATTRIBUTE_LIKE_BOOL;
+    t.category = TYPE_CATEGORY_ITSELF;
+    return t;
+}
+
+struct type make_size_t_type()
+{
+    struct type t = { 0 };
+    t.type_specifier_flags = CAKE_SIZE_T_TYPE_SPECIFIER;    
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
@@ -19974,6 +20028,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
         p->num_of_elements =
             (int)array_declarator_get_size(pdirectdeclarator->array_declarator);
 
+        p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
 
         if (pdirectdeclarator->array_declarator->static_token_opt)
         {
@@ -24443,14 +24498,14 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             {
 
                 if (p_init_declarator->initializer->assignment_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
-                { 
+                {
                     /*char a[] = "ab"*/
                     if (type_is_array(&p_init_declarator->p_declarator->type))
                     {
                         const int array_size_elements = p_init_declarator->p_declarator->type.num_of_elements;
                         if (array_size_elements == 0)
                         {
-                            p_init_declarator->p_declarator->type.num_of_elements = 
+                            p_init_declarator->p_declarator->type.num_of_elements =
                                 p_init_declarator->initializer->assignment_expression->type.num_of_elements;
                         }
                     }
@@ -24568,16 +24623,28 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
 
     if (
         !(p_init_declarator->p_declarator->type.storage_class_specifier_flags & STORAGE_SPECIFIER_TYPEDEF) &&
-        !type_is_function(&p_init_declarator->p_declarator->type) &&
-        type_get_sizeof(&p_init_declarator->p_declarator->type) <= 0)
+        !type_is_function(&p_init_declarator->p_declarator->type))
     {
-        //clang warning: array 'c' assumed to have one element 
-        //gcc "error: storage size of '%s' isn't known"
-        compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
-            ctx,
-            p_init_declarator->p_declarator->name,
-            "error: storage size of '%s' isn't known",
-            p_init_declarator->p_declarator->name->lexeme);
+        int sz = type_get_sizeof(&p_init_declarator->p_declarator->type);
+
+        if (sz == -3)
+        {
+            /*type_get_sizeof returns -3 for VLAs*/
+        }
+        else if (sz < 0)
+        {
+            //clang warning: array 'c' assumed to have one element 
+            //gcc "error: storage size of '%s' isn't known"
+            compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
+                ctx,
+                p_init_declarator->p_declarator->name,
+                "error: storage size of '%s' isn't known",
+                p_init_declarator->p_declarator->name->lexeme);
+        }
+        else
+        {
+            //ok
+        }
     }
 
 

@@ -179,6 +179,9 @@ struct type
     struct struct_or_union_specifier* struct_or_union_specifier;
     const struct enum_specifier* enum_specifier;
 
+    //Expression used as array size. Can be constant or not constant (VLA)
+    const struct expression* array_num_elements_expression;
+
     int num_of_elements;
     bool static_array;
 
@@ -254,6 +257,7 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 bool type_is_scalar(const struct type* p_type);
 bool type_has_attribute(const struct type* p_type, enum attribute_flags attributes);
 bool type_is_bool(const struct type* p_type);
+bool type_is_vla(const struct type* p_type);
 
 struct type type_get_enum_type(const struct type* p_type);
 
