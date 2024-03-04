@@ -3550,6 +3550,23 @@ void sizeofarraywchar()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
+void integer_promotion()
+{ 
+    const char* source
+        =
+        "static_assert(_Generic(typeof(-*\"\"), int : 1));\n"
+        "#pragma cake diagnostic check \"-Warray-indirection\"\n"
+        "\n"
+        "static_assert(_Generic(typeof(~false), int : 1));\n"
+        "static_assert(_Generic(typeof(~0ULL), unsigned long long: 1));\n"
+        "static_assert(_Generic(typeof(~*\"\"), int : 1));\n"
+        "#pragma cake diagnostic check \"-Warray-indirection\"\n"
+        "\n"
+        "static_assert(_Generic(typeof(~(unsigned char)0), int : 1));\n"
+        "static_assert(_Generic(typeof(~(unsigned int)0), unsigned int : 1));\n"
+        "";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 
+}
 #endif
 

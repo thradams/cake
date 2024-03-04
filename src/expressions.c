@@ -2234,8 +2234,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             {
                 new_expression->expression_type = UNARY_EXPRESSION_BITNOT;
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
-
                 new_expression->type = type_dup(&new_expression->right->type);
+                type_integer_promotion(&new_expression->type);
             }
             else if (op == '-')
             {
@@ -2244,7 +2244,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
                 new_expression->type = type_dup(&new_expression->right->type);
-
+                type_integer_promotion(&new_expression->type);
             }
             else if (op == '+')
             {
@@ -2253,6 +2253,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 new_expression->constant_value = constant_value_unary_op(&new_expression->right->constant_value, op);
 
                 new_expression->type = type_dup(&new_expression->right->type);
+                type_integer_promotion(&new_expression->type);
 
             }
             else if (op == '*')
@@ -2280,6 +2281,8 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                         "array indirection");
                     new_expression->type = get_array_item_type(&new_expression->right->type);
                 }
+
+                
             }
             else if (op == '&')
             {

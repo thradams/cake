@@ -235,6 +235,7 @@ void linemacro(void);
 void sizeofstring(void);
 void sizeofarraychar(void);
 void sizeofarraywchar(void);
+void integer_promotion(void);
 
 /*end of forward declarations*/
 
@@ -461,6 +462,7 @@ g_unit_test_success_count = 0;
     sizeofstring();
     sizeofarraychar();
     sizeofarraywchar();
+    integer_promotion();
 return g_unit_test_error_count;
 
 }

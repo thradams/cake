@@ -28,10 +28,10 @@
 <a href="#toc_3">Design</a>
 </li>
 <li>
-<a href="#toc_4">Code transition</a>
+<a href="#toc_4">Ownership qualifiers</a>
 </li>
 <li>
-<a href="#toc_5">Changes in standard</a>
+<a href="#toc_5">Constrains that don&#39;t require flow analysis</a>
 </li>
 </ul>
 </li>
@@ -40,9 +40,8 @@
 
 <h2 id="toc_1">Abstract</h2>
 
-<p>This proposal introduces new qualifiers to improve 
-safety regarding the misuse of object lifetimes. These new qualifiers add contracts 
-that can be checked at compile time.</p>
+<p>This proposal introduces new qualifiers to improve safety regarding the misuse of object lifetimes.
+These new qualifiers add contracts that can be checked at compile time, but requiring flow analysis.</p>
 
 <h2 id="toc_2">Introduction, Motivation</h2>
 
@@ -60,50 +59,59 @@ int main()
 
 <h2 id="toc_3">Design</h2>
 
-<p>We introduce several qualifiers called ownership qualifiers.
-Just like <code>const</code> has in its basic principle avoid the object to be modified, 
-Ownership qualifiers have principles in mind and all the rules serve to keep the objective.</p>
+<p>We introduce several qualifiers called ownership qualifiers.</p>
+
+<p>Just like <code>const</code> has in its basic principle avoid the object to be modified, 
+ownership qualifiers have principles in mind and all the principles serve to keep the objective.</p>
 
 <p>Principles:</p>
 
 <p>1 - Each object has only one owner
-2 - Ownership can be transferred between owners.
-3 - Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.
-4 - The object referenced by non-owner (view) must have a valid lifetime.</p>
+ 2 - Ownership can be transferred between owners
+ 3 - Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.
+ 4 - The object referenced by non-owner (view) must have a valid lifetime.</p>
 
-<p>Some principles are not new. At C standard </p>
+<p>This principles serve as constrains to archive safety and avoid undefined behavior.</p>
 
-<p>&quot;6.2.4 Storage durations of objects &quot;...If an object is referred to outside of its lifetime, the behavior is undefined.
+<p>This part is from C23 standard.</p>
+
+<p>&quot;
+6.2.4 Storage durations of objects 
+...If an object is referred to outside of its lifetime, the behavior is undefined.
 If a pointer value is used in an evaluation after the object the pointer points to (or just past) reaches
-the end of its lifetime, the behavior is undefined. The representation of a pointer object becomes
-indeterminate when the object the pointer points to (or just past) reaches the end of its lifetime.&quot;</p>
+the end of its lifetime, the behavior is undefined.
+The representation of a pointer object becomes indeterminate when the object the pointer points to 
+(or just past) reaches the end of its lifetime.
+&quot;</p>
 
-<p>Lets introduce the first qualifier <code>_Owner</code>.</p>
+<h2 id="toc_4">Ownership qualifiers</h2>
 
 <p><code>_Owner</code> indicates that an object works as a reference to another object, 
-managing its lifetime as its unique owner.</p>
+managing its lifetime as its unique owner. When _Owner qualifier are aplied to pointes
+it means the pointer is the owner of two objects.</p>
 
-<p>So here is the first rule.</p>
+<p><code>_Obj_owner</code> It is a qualifier for pointer that indicates the pointer is the owner 
+of the pointed object but it not owner of the memory.</p>
 
-<p>Constrain 1 - The result of a function returning a owner object cannot be discarded.</p>
+<p><code>_View</code> qualifier is the opposite of _Owner.</p>
 
-<pre><code class="language-c">int* f();
+<p><code>_Opt</code> Used in function arguments to indicate the argument can be uninitialized.</p>
+
+<h2 id="toc_5">Constrains that don&#39;t require flow analysis</h2>
+
+<p>The result of a function returning a owner object cannot be discarded.</p>
+
+<pre><code class="language-c">int* _Owner f();
 int main(){
- f();
+ f(); //error discarding an owner object
 }
 </code></pre>
 
-<p>This rule is necessary to ensure the principle number 3.
-&quot;Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.&quot;</p>
-
-<p>And to ensure the same principle </p>
-
-<p>Constrain 2 - The result of a function returning a owner object must be transferred 
-to another owner object.</p>
+<p>The result of a function returning a owner object must be transferred to another owner object.</p>
 
 <pre><code class="language-c">int* f();
 int main(){
- int * p = f(); //warning/error
+ int * p = f(); //error
 }
 </code></pre>
 
@@ -113,30 +121,72 @@ int main(){
 }
 </code></pre>
 
-<p>Constrain 3 - We cannot return owner object as non-owner except:
- - If the storage duration is static
- - If the owner returned is a function argument</p>
+<p>The result of a function returning a owner object cannot be returned as non-owner.
+Except:
+ - If the storage duration is static, or function pointer</p>
 
 <pre><code class="language-c">_Owner int i;
 int* f()
 {
    return i; //ok
 }
-</code></pre>
+```
 
-<pre><code class="language-c">int* f()
+- If the owner returned is a function argument.
+ 
+ ```c
+int* f(int * _Owner p)
 {
-   _Owner int i;
-   return i; //error
+   return p;
 }
+```
+
+
+- A view object cannot be passed to a owner argument
+
+```c
+void fclose(_Owner int i);
+int* f()
+{
+   int i;
+   fclose(i); //error
+}
+```
+
+- A _Obj_Owner qualified object can assigned to owner object.
+
+
+
+# Semantics with flow analysis
+- Assignment of owner objects move the ownership.
+- Assignment of non-owner to owner creates a view reference
+- Assignment of owner pointer to _\Obj\_owner transfer the ownership of the object but not the memory
+
+## Flow analysis constrains
+
+- Only initialized objects can be passed to _Opt arguments
+
+Already moved to function because initialized. So they cannot be used for read.
+
+Before assignment of owner object the object cannot be owning resources
+
+Assignment transfer the ownership
+
+Function arguments cannot leva the function scope with uninitialized state
+
+Before the end of its lifetime owner objects must have moved the object they own
+
+Every function argument is considered initialized except if _Opt qualifier is used.]
+
+## Code transition
+
+TODO explain `ownerhip.h` strategy inspired by stdbool.h.
+macros owner etc.
+
+## Changes in standard
+
+
+
+
 </code></pre>
-
-<p>]TODO</p>
-
-<h2 id="toc_4">Code transition</h2>
-
-<p>TODO explain <code>ownerhip.h</code> strategy inspired by stdbool.h.
-macros owner etc.</p>
-
-<h2 id="toc_5">Changes in standard</h2>
 </article></body></html>

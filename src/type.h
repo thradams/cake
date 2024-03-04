@@ -250,6 +250,7 @@ struct type type_lvalue_conversion(struct type* p_type);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
+void type_integer_promotion(struct type* a);
 
 
 struct type type_remove_pointer(const struct type* p_type);
