@@ -25,4 +25,4 @@ struct flow_visit_ctx
 
 void flow_visit_ctx_destroy(struct flow_visit_ctx* obj_owner p);
 
-void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
+void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);

@@ -1,5 +1,7 @@
-void delete(void* _Owner p);
-void destroy(void* _Obj_owner p)
-{
-    delete(p);
-}
+union Foo {
+    char a;
+    char b;
+};
+
+static_assert(sizeof(union Foo) == 1);  // fails
+int main(){}

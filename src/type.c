@@ -131,7 +131,7 @@ void type_integer_promotion(struct type* a)
     if ((a->type_specifier_flags & TYPE_SPECIFIER_BOOL) ||
         (a->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||
         (a->type_specifier_flags & TYPE_SPECIFIER_SHORT) ||
-        (a->type_specifier_flags & TYPE_SPECIFIER_INT8) || 
+        (a->type_specifier_flags & TYPE_SPECIFIER_INT8) ||
         (a->type_specifier_flags & TYPE_SPECIFIER_INT16))
     {
         a->type_specifier_flags = (TYPE_SPECIFIER_INT);
@@ -154,45 +154,45 @@ struct type type_lvalue_conversion(struct type* p_type)
     enum type_category category = type_get_category(p_type);
     switch (category)
     {
-    case TYPE_CATEGORY_FUNCTION:
-    {
-        /*
-           "function returning type" is converted to an expression that has type
-           "pointer to function returning type".
-        */
-        struct type t = type_add_pointer(p_type);
-        t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
-        t.category = t.category;
-        return t;
-    }
-    break;
-    case TYPE_CATEGORY_ARRAY:
-    {
-        /*
-          An expression that has type "array of type" is converted
-          to an expression with type "pointer to type" that points to the initial element
-          of the array object and s not an lvalue.
-          If the array object has register storage class, the behavior is undefined.
-        */
-        struct type t = get_array_item_type(p_type);
-        struct type t2 = type_add_pointer(&t);
+        case TYPE_CATEGORY_FUNCTION:
+        {
+            /*
+               "function returning type" is converted to an expression that has type
+               "pointer to function returning type".
+            */
+            struct type t = type_add_pointer(p_type);
+            t.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
+            t.category = t.category;
+            return t;
+        }
+        break;
+        case TYPE_CATEGORY_ARRAY:
+        {
+            /*
+              An expression that has type "array of type" is converted
+              to an expression with type "pointer to type" that points to the initial element
+              of the array object and s not an lvalue.
+              If the array object has register storage class, the behavior is undefined.
+            */
+            struct type t = get_array_item_type(p_type);
+            struct type t2 = type_add_pointer(&t);
 
-        type_remove_qualifiers(&t2);
-        /*
-        int g(const int a[const 20]) {
-            // in this function, a has type const int* const (const pointer to const int)
-            }
-        */
-        type_destroy(&t);
-        t2.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
-        return t2;
-    }
-    break;
-    case TYPE_CATEGORY_POINTER:
+            type_remove_qualifiers(&t2);
+            /*
+            int g(const int a[const 20]) {
+                // in this function, a has type const int* const (const pointer to const int)
+                }
+            */
+            type_destroy(&t);
+            t2.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_PARAMETER;
+            return t2;
+        }
         break;
-    case TYPE_CATEGORY_ITSELF:
-    default:
-        break;
+        case TYPE_CATEGORY_POINTER:
+            break;
+        case TYPE_CATEGORY_ITSELF:
+        default:
+            break;
     }
 
     struct type t = type_dup(p_type);
@@ -248,153 +248,153 @@ void print_type_core(struct osstream* ss, const struct type* p_type, bool onlyde
 
         switch (p->category)
         {
-        case TYPE_CATEGORY_ITSELF:
-        {
-            struct osstream local = { 0 };
-            bool first = true;
-
-            print_type_qualifier_flags(&local, &first, p->type_qualifier_flags);
-
-            if (p->struct_or_union_specifier)
+            case TYPE_CATEGORY_ITSELF:
             {
-                ss_fprintf(&local, "struct %s", p->struct_or_union_specifier->tag_name);
-            }
-            else if (p->enum_specifier)
-            {
-                if (p->enum_specifier->tag_token->lexeme)
-                    ss_fprintf(&local, "enum %s", p->enum_specifier->tag_token->lexeme);
-            }
-            else
-            {
-                print_type_specifier_flags(&local, &first, p->type_specifier_flags);
-            }
+                struct osstream local = { 0 };
+                bool first = true;
 
+                print_type_qualifier_flags(&local, &first, p->type_qualifier_flags);
 
-
-            if (printname && p->name_opt)
-            {
-                if (first)
+                if (p->struct_or_union_specifier)
                 {
-                    ss_fprintf(ss, " ");
+                    ss_fprintf(&local, "struct %s", p->struct_or_union_specifier->tag_name);
+                }
+                else if (p->enum_specifier)
+                {
+                    if (p->enum_specifier->tag_token->lexeme)
+                        ss_fprintf(&local, "enum %s", p->enum_specifier->tag_token->lexeme);
+                }
+                else
+                {
+                    print_type_specifier_flags(&local, &first, p->type_specifier_flags);
+                }
+
+
+
+                if (printname && p->name_opt)
+                {
+                    if (first)
+                    {
+                        ss_fprintf(ss, " ");
+                        first = false;
+                    }
+                    ss_fprintf(ss, "%s", p->name_opt);
+                }
+
+                struct osstream local2 = { 0 };
+                if (ss->c_str)
+                    ss_fprintf(&local2, "%s %s", local.c_str, ss->c_str);
+                else
+                    ss_fprintf(&local2, "%s", local.c_str);
+
+                ss_swap(ss, &local2);
+                ss_close(&local);
+                ss_close(&local2);
+            }
+            break;
+            case TYPE_CATEGORY_ARRAY:
+
+
+                if (printname && p->name_opt)
+                {
+                    //if (first)
+                    //{
+                      //  ss_fprintf(ss, " ");
+                        //first = false;
+                    //}
+                    ss_fprintf(ss, "%s", p->name_opt);
+                }
+
+                ss_fprintf(ss, "[");
+
+                bool b = true;
+                if (p->static_array)
+                {
+                    ss_fprintf(ss, "static");
+                    b = false;
+                }
+
+                print_type_qualifier_flags(ss, &b, p->type_qualifier_flags);
+
+                if (p->num_of_elements > 0)
+                {
+                    if (!b)
+                        ss_fprintf(ss, " ");
+
+                    ss_fprintf(ss, "%d", p->num_of_elements);
+                }
+                ss_fprintf(ss, "]");
+
+                break;
+            case TYPE_CATEGORY_FUNCTION:
+
+                if (printname && p->name_opt)
+                {
+                    //if (first)
+                    //{
+                      //  ss_fprintf(ss, " ");
+                        //first = false;
+                    //}
+                    ss_fprintf(ss, "%s", p->name_opt);
+                }
+                ss_fprintf(ss, "(");
+
+
+
+
+                struct param* pa = p->params.head;
+
+                while (pa)
+                {
+                    struct osstream sslocal = { 0 };
+                    print_type(&sslocal, &pa->type);
+                    ss_fprintf(ss, "%s", sslocal.c_str);
+                    if (pa->next)
+                        ss_fprintf(ss, ",");
+                    ss_close(&sslocal);
+                    pa = pa->next;
+                }
+                ss_fprintf(ss, ")");
+                break;
+
+            case TYPE_CATEGORY_POINTER:
+            {
+                struct osstream local = { 0 };
+                if (p->next && (
+                    (p->next->category == TYPE_CATEGORY_FUNCTION ||
+                        p->next->category == TYPE_CATEGORY_ARRAY)))
+                {
+                    ss_fprintf(&local, "(");
+                }
+
+                ss_fprintf(&local, "*");
+                bool first = false;
+                print_type_qualifier_flags(&local, &first, p->type_qualifier_flags);
+
+                if (printname && p->name_opt)
+                {
+                    if (!first)
+                    {
+                        ss_fprintf(ss, " ");
+                    }
+                    ss_fprintf(ss, "%s", p->name_opt);
                     first = false;
                 }
-                ss_fprintf(ss, "%s", p->name_opt);
-            }
 
-            struct osstream local2 = { 0 };
-            if (ss->c_str)
-                ss_fprintf(&local2, "%s %s", local.c_str, ss->c_str);
-            else
-                ss_fprintf(&local2, "%s", local.c_str);
+                if (ss->c_str)
+                    ss_fprintf(&local, "%s", ss->c_str);
 
-            ss_swap(ss, &local2);
-            ss_close(&local);
-            ss_close(&local2);
-        }
-        break;
-        case TYPE_CATEGORY_ARRAY:
-
-
-            if (printname && p->name_opt)
-            {
-                //if (first)
-                //{
-                  //  ss_fprintf(ss, " ");
-                    //first = false;
-                //}
-                ss_fprintf(ss, "%s", p->name_opt);
-            }
-
-            ss_fprintf(ss, "[");
-
-            bool b = true;
-            if (p->static_array)
-            {
-                ss_fprintf(ss, "static");
-                b = false;
-            }
-
-            print_type_qualifier_flags(ss, &b, p->type_qualifier_flags);
-
-            if (p->num_of_elements > 0)
-            {
-                if (!b)
-                    ss_fprintf(ss, " ");
-
-                ss_fprintf(ss, "%d", p->num_of_elements);
-            }
-            ss_fprintf(ss, "]");
-
-            break;
-        case TYPE_CATEGORY_FUNCTION:
-
-            if (printname && p->name_opt)
-            {
-                //if (first)
-                //{
-                  //  ss_fprintf(ss, " ");
-                    //first = false;
-                //}
-                ss_fprintf(ss, "%s", p->name_opt);
-            }
-            ss_fprintf(ss, "(");
-
-
-
-
-            struct param* pa = p->params.head;
-
-            while (pa)
-            {
-                struct osstream sslocal = { 0 };
-                print_type(&sslocal, &pa->type);
-                ss_fprintf(ss, "%s", sslocal.c_str);
-                if (pa->next)
-                    ss_fprintf(ss, ",");
-                ss_close(&sslocal);
-                pa = pa->next;
-            }
-            ss_fprintf(ss, ")");
-            break;
-
-        case TYPE_CATEGORY_POINTER:
-        {
-            struct osstream local = { 0 };
-            if (p->next && (
-                (p->next->category == TYPE_CATEGORY_FUNCTION ||
-                    p->next->category == TYPE_CATEGORY_ARRAY)))
-            {
-                ss_fprintf(&local, "(");
-            }
-
-            ss_fprintf(&local, "*");
-            bool first = false;
-            print_type_qualifier_flags(&local, &first, p->type_qualifier_flags);
-
-            if (printname && p->name_opt)
-            {
-                if (!first)
+                if (p->next &&
+                    (p->next->category == TYPE_CATEGORY_FUNCTION ||
+                        p->next->category == TYPE_CATEGORY_ARRAY))
                 {
-                    ss_fprintf(ss, " ");
+                    ss_fprintf(&local, ")", ss->c_str);
                 }
-                ss_fprintf(ss, "%s", p->name_opt);
-                first = false;
+
+                ss_swap(ss, &local);
+                ss_close(&local);
             }
-
-            if (ss->c_str)
-                ss_fprintf(&local, "%s", ss->c_str);
-
-            if (p->next &&
-                (p->next->category == TYPE_CATEGORY_FUNCTION ||
-                    p->next->category == TYPE_CATEGORY_ARRAY))
-            {
-                ss_fprintf(&local, ")", ss->c_str);
-            }
-
-            ss_swap(ss, &local);
-            ss_close(&local);
-        }
-        break;
+            break;
         }
 
         p = p->next;
@@ -1867,6 +1867,9 @@ int type_get_struct_num_members(struct struct_or_union_specifier* complete_struc
 int type_get_sizeof(const struct type* p_type);
 int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
+    const bool is_union = 
+        (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
+
     int maxalign = 0;
     int size = 0;
     struct member_declaration* d = complete_struct_or_union_specifier->member_declaration_list.head;
@@ -1887,8 +1890,16 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
                 {
                     size += align - (size % align);
                 }
-
-                size += type_get_sizeof(&md->declarator->type);
+                const int item_size = type_get_sizeof(&md->declarator->type);
+                if (is_union)
+                {
+                    if (item_size > size)
+                        size = item_size;
+                }
+                else
+                {
+                    size += item_size;
+                }
                 md = md->next;
             }
         }
@@ -1911,7 +1922,16 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
                 {
                     size += align - (size % align);
                 }
-                size += type_get_sizeof(&t);
+                const int item_size = type_get_sizeof(&t);
+                if (is_union)
+                {
+                    if (item_size > size)
+                        size = item_size;
+                }
+                else
+                {
+                    size += item_size;
+                }
                 type_destroy(&t);
             }
         }
@@ -1931,6 +1951,7 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
 
     return size;
 }
+
 int type_get_alignof(const struct type* p_type);
 int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
@@ -2164,7 +2185,7 @@ int type_get_sizeof(const struct type* p_type)
 
     if (category == TYPE_CATEGORY_POINTER)
     {
-        size = (int)sizeof(void*);
+        size = (int) sizeof(void*);
     }
     else if (category == TYPE_CATEGORY_FUNCTION)
     {
@@ -2175,36 +2196,36 @@ int type_get_sizeof(const struct type* p_type)
     {
         if (p_type->type_specifier_flags & TYPE_SPECIFIER_CHAR)
         {
-            size = (int)sizeof(char);
+            size = (int) sizeof(char);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_BOOL)
         {
-            size = (int)sizeof(_Bool);
+            size = (int) sizeof(_Bool);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_SHORT)
         {
-            size = (int)sizeof(short);
+            size = (int) sizeof(short);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT)
         {
-            size = (int)sizeof(int);
+            size = (int) sizeof(int);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
             //TODO enum type
-            size = (int)sizeof(int);
+            size = (int) sizeof(int);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG)
         {
-            size = (int)sizeof(long);
+            size = (int) sizeof(long);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_LONG_LONG)
         {
-            size = (int)sizeof(long long);
+            size = (int) sizeof(long long);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT64)
         {
-            size = (int)sizeof(long long);
+            size = (int) sizeof(long long);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_INT32)
         {
@@ -2220,11 +2241,11 @@ int type_get_sizeof(const struct type* p_type)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_FLOAT)
         {
-            size = (int)sizeof(float);
+            size = (int) sizeof(float);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_DOUBLE)
         {
-            size = (int)sizeof(double);
+            size = (int) sizeof(double);
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
         {
@@ -2244,7 +2265,7 @@ int type_get_sizeof(const struct type* p_type)
         }
         else if (p_type->type_specifier_flags & TYPE_SPECIFIER_ENUM)
         {
-            size = (int)sizeof(int);
+            size = (int) sizeof(int);
         }
         else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NONE)
         {
@@ -2460,7 +2481,7 @@ struct type type_get_enum_type(const struct type* p_type)
     struct type t = { 0 };
     t.type_specifier_flags = TYPE_SPECIFIER_INT;
     return t;
-}
+    }
 
 struct type type_make_size_t()
 {
@@ -2509,7 +2530,7 @@ struct type type_make_int_bool_like()
 struct type make_size_t_type()
 {
     struct type t = { 0 };
-    t.type_specifier_flags = CAKE_SIZE_T_TYPE_SPECIFIER;    
+    t.type_specifier_flags = CAKE_SIZE_T_TYPE_SPECIFIER;
     t.category = TYPE_CATEGORY_ITSELF;
     return t;
 }
@@ -2920,7 +2941,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
         p->category = TYPE_CATEGORY_ARRAY;
 
         p->num_of_elements =
-            (int)array_declarator_get_size(pdirectdeclarator->array_declarator);
+            (int) array_declarator_get_size(pdirectdeclarator->array_declarator);
 
         p->array_num_elements_expression = pdirectdeclarator->array_declarator->assignment_expression;
 
@@ -3178,7 +3199,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     */
     free(list.head);
     return r;
-}
+    }
 
 void type_remove_names(struct type* p_type)
 {
