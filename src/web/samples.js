@@ -1585,6 +1585,30 @@ int main()
 }
 `;
 
+sample["Ownership (experimental)"]["using moved object"] =
+`
+#include <ownership.h>
+#include <string.h>
+#include <stdlib.h>
+
+struct user
+{
+  int id;
+  char* _Owner name;
+};
+
+void set_id(struct user* p, int id){}
+
+int main()
+{
+  struct user user = {};
+  user.name = strdup("a");
+  char* _Owner name = user.name;
+  free(name);
+  set_id(&user, 1); //warning: object 'user.name' was moved  
+}
+`;
+
 sample["Ownership (experimental)"]["static_set/realloc"] =
 `
 

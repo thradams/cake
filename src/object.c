@@ -1337,7 +1337,7 @@ void checked_read_object(struct parser_ctx* ctx,
 
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+            compiler_diagnostic_message(W_ANALYZER_MOVED,
                 ctx,
                 position_token,
                 "object '%s' was moved",

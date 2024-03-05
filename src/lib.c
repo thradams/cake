@@ -594,6 +594,7 @@ enum diagnostic_id {
 
 
     W_ANALYZER_UNINITIALIZED,
+    W_ANALYZER_MOVED,
     W_ANALYZER_NULL_DEREFERENCE,
 
     W_DIVIZION_BY_ZERO,
@@ -9940,6 +9941,7 @@ s_warnings[] = {
     {W_DISCARDING_OWNER, "discard-owner"},
     {W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
+    {W_ANALYZER_MOVED, "using-moved-object"},
     {W_ANALYZER_UNINITIALIZED, "analyzer-maybe-uninitialized"},
     {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
     {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "analyzer-non-opt-arg"},
@@ -21756,7 +21758,7 @@ void checked_read_object(struct parser_ctx* ctx,
 
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+            compiler_diagnostic_message(W_ANALYZER_MOVED,
                 ctx,
                 position_token,
                 "object '%s' was moved",
