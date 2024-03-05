@@ -1,9 +1,9 @@
-# New qualifiers to enable checked lifetime contracts
+# New qualifiers to enable lifetime memory safety
 
 ## Abstract
 
 This proposal introduces new qualifiers to improve safety regarding the misuse of object lifetimes.
-These new qualifiers add contracts that can be checked at compile time, but requiring flow analysis.
+These new qualifiers creates contracts that can be checked at compile time.
 
 
 ## Introduction, Motivation
@@ -24,48 +24,33 @@ int main()
 
 ## Design
 
-We introduce several qualifiers called ownership qualifiers.
+We introduce several qualifiers to established new compile time contracts.
 
-Just like `const` has in its basic principle avoid the object to be modified, 
-ownership qualifiers have principles in mind and all the principles serve to keep the objective.
+Principles for lifetime contracts
 
-Principles:
+ 1. Each object has only one owner
+ 2.  Ownership can be transferred between owners
+ 3. Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.
+ 4. The object referenced by non-owner (view) must have a valid lifetime.
 
- 1 - Each object has only one owner
- 2 - Ownership can be transferred between owners
- 3 - Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.
- 4 - The object referenced by non-owner (view) must have a valid lifetime.
-
-This principles serve as constrains to archive safety and avoid undefined behavior.
-
-This part is from C23 standard.
-
-"
-6.2.4 Storage durations of objects 
-...If an object is referred to outside of its lifetime, the behavior is undefined.
-If a pointer value is used in an evaluation after the object the pointer points to (or just past) reaches
-the end of its lifetime, the behavior is undefined.
-The representation of a pointer object becomes indeterminate when the object the pointer points to 
-(or just past) reaches the end of its lifetime.
-"
 
 ## Ownership qualifiers
 
-`_Owner` indicates that an object works as a reference to another object, 
-managing its lifetime as its unique owner. When _Owner qualifier are aplied to pointes
-it means the pointer is the owner of two objects.
+`_Owner` An owner qualified object is an object referencing another object and managing its lifetime. When _Owner qualifier is applied to pointer it means the pointer if the owner of the memory and the object.
 
-`_Obj_owner` It is a qualifier for pointer that indicates the pointer is the owner 
+`_Obj_owner` It is a qualifier for pointer only that indicates the pointer is the owner 
 of the pointed object but it not owner of the memory.
 
-`_View` qualifier is the opposite of _Owner.
+`_View` Qualifier is the opposite of _Owner.
 
-`_Opt` Used in function arguments to indicate the argument can be uninitialized.
+`_Opt` Used in function arguments, for pointer only, to indicate the argument can be null. 
+  
+`_Out` Indicates the object is uninitialized
 
 
-## Constrains that don't require flow analysis
+## Constrains
 
-The result of a function returning a owner object cannot be discarded.
+- The result of a function returning a owner object cannot be discarded.
 
 ```c
 int* _Owner f();
@@ -74,7 +59,7 @@ int main(){
 }
 ```
 
-The result of a function returning a owner object must be transferred to another owner object.
+- The result of a function returning a owner object must be transferred to another owner object.
 
 ```c
 int* f();
@@ -90,23 +75,14 @@ int main(){
 }
 ```
 
-The result of a function returning a owner object cannot be returned as non-owner.
-Except:
- - If the storage duration is static, or function pointer
+- The result of a function returning a owner object cannot be returned as non-owner, except if the storage duration is static, or function or if returns an argument.
  
- ```c
+```c
 _Owner int i;
-int* f()
-{
-   return i; //ok
+int* f() {
+	return i; //ok
 }
-```
-
-- If the owner returned is a function argument.
- 
- ```c
-int* f(int * _Owner p)
-{
+int* f(int * _Owner p) {
    return p;
 }
 ```
@@ -123,10 +99,27 @@ int* f()
 }
 ```
 
+ - The result of a function returning an owner object cannot be passed to a view parameter.
+ 
+```c
+void free(void* p);
+void * _Owner make();
+int main()
+{
+    free(make()); //error
+}
+ ```
+ 
 - A _Obj_Owner qualified object can assigned to owner object.
 
-
-
+```c
+void delete(void* _Owner p);
+void destroy(void* _Obj_owner p)
+{
+    delete(p); //error
+}
+```
+ 
 # Semantics with flow analysis
 - Assignment of owner objects move the ownership.
 - Assignment of non-owner to owner creates a view reference

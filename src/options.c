@@ -47,13 +47,13 @@ s_warnings[] = {
     {W_OWNERSHIP_USING_TEMPORARY_OWNER,"temp-owner"},
     {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
     {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
-    {W_DISCARDING_OWNER, "discard-owner"},
-    {W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
+    {W_OWNERSHIP_DISCARDING_OWNER, "discard-owner"},
+    {W_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
-    {W_ANALYZER_MOVED, "using-moved-object"},
-    {W_ANALYZER_UNINITIALIZED, "analyzer-maybe-uninitialized"},
-    {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "analyzer-non-opt-arg"},
+    {W_OWNERSHIP_FLOW_MOVED, "using-moved-object"},
+    {W_OWNERSHIP_FLOW_UNINITIALIZED, "analyzer-maybe-uninitialized"},
+    {W_OWNERSHIP_FLOW_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
+    {W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
@@ -442,11 +442,11 @@ void print_help()
 
 void test_get_warning_name()
 {
-    const char* name = get_warning_name(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR);
+    const char* name = get_warning_name(W_OWNERSHIP_FLOW_MISSING_DTOR);
     assert(strcmp(name, "missing-destructor") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(name);
-    assert(flags == (1ULL << W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR));
+    assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
 
 
     const char* name2 = get_warning_name(W_STYLE);

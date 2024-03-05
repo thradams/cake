@@ -1,13 +1,5 @@
-void free(void* _Owner p);
-struct X
+void delete(void* _Owner p);
+void destroy(void* _Obj_owner p)
 {
-    int i;
-    void* _Owner p;
-};
-void f(const struct X* p);
-int main()
-{
-    struct X x = { 0 };
-    f(x);
-    static_state(x.p, "null");    
+    delete(p);
 }

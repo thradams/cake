@@ -2612,11 +2612,11 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
                         if (type_is_pointer(&p_expression_node->left->type))
                         {
                             //(int*) malloc(1)
-                            compiler_diagnostic_message(W_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner pointer");
+                            compiler_diagnostic_message(W_OWNERSHIP_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner pointer");
                         }
                         else
                         {
-                            compiler_diagnostic_message(W_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner");
+                            compiler_diagnostic_message(W_OWNERSHIP_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner");
                         }
                     }
                 }

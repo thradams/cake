@@ -1440,7 +1440,7 @@ void ownership_flow_test_jump_labels()
     struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR*/);
+    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
 }
 
 void ownership_flow_test_owner_if_pattern_1()

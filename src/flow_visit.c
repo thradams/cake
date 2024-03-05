@@ -1199,7 +1199,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 if (p_argument_object2 &&
                     p_argument_object2->state & OBJECT_STATE_NULL)
                 {
-                    compiler_diagnostic_message(W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
                         ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
@@ -1330,13 +1330,13 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 p_expression->declarator &&
                 p_expression->declarator->name)
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, "using a uninitialized object '%s'", p_expression->declarator->name->lexeme);
             }
             else
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, "using a uninitialized object");
             }
@@ -1345,13 +1345,13 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
         {
             if (p_expression->declarator && p_expression->declarator->name)
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->declarator->name, "object '%s' can be uninitialized ", p_expression->declarator->name->lexeme);
             }
             else
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, "maybe using a uninitialized object");
             }
@@ -1541,13 +1541,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
                 {
-                    compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->right->first_token, "using a uninitialized object");
                 }
                 else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
                 {
-                    compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->right->first_token, "maybe using a uninitialized object");
                 }
@@ -1580,7 +1580,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             if (!ctx->expression_is_not_evaluated)
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->right->first_token, "using a uninitialized object");
             }
@@ -1597,7 +1597,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
                 {
 
-                    compiler_diagnostic_message(W_ANALYZER_NULL_DEREFERENCE,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_NULL_DEREFERENCE,
                         ctx->ctx,
                         p_expression->right->first_token, "dereference a NULL object");
                 }

@@ -579,35 +579,32 @@ enum diagnostic_id {
     W_RETURN_LOCAL_ADDR,
 
     W_MUST_USE_ADDRESSOF,
+    W_ARRAY_INDIRECTION,
+
     /*ownership type system errors*/
     W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
     W_OWNERSHIP_NOT_OWNER,
     W_OWNERSHIP_USING_TEMPORARY_OWNER,
     W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
-
     W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN,
-    W_DISCARDING_OWNER,
+    W_OWNERSHIP_DISCARDING_OWNER,
     W_OWNERSHIP_NON_OWNER_MOVE,
-    W_ARRAY_INDIRECTION,
-    /*flow analysis errors*/
-    W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
-
-
-    W_ANALYZER_UNINITIALIZED,
-    W_ANALYZER_MOVED,
-    W_ANALYZER_NULL_DEREFERENCE,
+    
+    /*ownership flow analysis errors*/
+    W_OWNERSHIP_FLOW_MISSING_DTOR,
+    W_OWNERSHIP_FLOW_UNINITIALIZED,
+    W_OWNERSHIP_FLOW_MOVED,
+    W_OWNERSHIP_FLOW_NULL_DEREFERENCE,
+    W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
 
     W_DIVIZION_BY_ZERO,
     W_PASSING_NULL_AS_ARRAY,
-    W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
+    
     W_INCOMPATIBLE_ENUN_TYPES,
     W_MULTICHAR_ERROR,   
     W_OUT_OF_BOUNDS,
 
-
-
-
-    W_LOCATION,
+    W_LOCATION, /*prints code location*/
     W_NOTE,
 
     //AFTER THIS POINT (W_NOTE) MESSAGES ARE ALWAYS ERRORS
@@ -9938,13 +9935,13 @@ s_warnings[] = {
     {W_OWNERSHIP_USING_TEMPORARY_OWNER,"temp-owner"},
     {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
     {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
-    {W_DISCARDING_OWNER, "discard-owner"},
-    {W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
+    {W_OWNERSHIP_DISCARDING_OWNER, "discard-owner"},
+    {W_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
-    {W_ANALYZER_MOVED, "using-moved-object"},
-    {W_ANALYZER_UNINITIALIZED, "analyzer-maybe-uninitialized"},
-    {W_ANALYZER_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT, "analyzer-non-opt-arg"},
+    {W_OWNERSHIP_FLOW_MOVED, "using-moved-object"},
+    {W_OWNERSHIP_FLOW_UNINITIALIZED, "analyzer-maybe-uninitialized"},
+    {W_OWNERSHIP_FLOW_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
+    {W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
@@ -10331,11 +10328,11 @@ void print_help()
 
 void test_get_warning_name()
 {
-    const char* name = get_warning_name(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR);
+    const char* name = get_warning_name(W_OWNERSHIP_FLOW_MISSING_DTOR);
     assert(strcmp(name, "missing-destructor") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(name);
-    assert(flags == (1ULL << W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR));
+    assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
 
 
     const char* name2 = get_warning_name(W_STYLE);
@@ -14942,11 +14939,11 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
                         if (type_is_pointer(&p_expression_node->left->type))
                         {
                             //(int*) malloc(1)
-                            compiler_diagnostic_message(W_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner pointer");
+                            compiler_diagnostic_message(W_OWNERSHIP_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner pointer");
                         }
                         else
                         {
-                            compiler_diagnostic_message(W_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner");
+                            compiler_diagnostic_message(W_OWNERSHIP_DISCARDING_OWNER, ctx, p_expression_node->first_token, "discarding owner");
                         }
                     }
                 }
@@ -21093,7 +21090,7 @@ void set_object_state(
             {
                 char buffer[100] = { 0 };
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
-                compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
                     error_position,
                     "source object '%s' is uninitialized", buffer);
@@ -21103,7 +21100,7 @@ void set_object_state(
                 char buffer[100] = { 0 };
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                     ctx,
                     error_position,
                     "source object '%s' may be uninitialized", buffer);
@@ -21117,7 +21114,7 @@ void set_object_state(
                     char buffer[100] = { 0 };
                     object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                    compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         error_position,
                         "source object '%s' have been moved", buffer);
@@ -21127,7 +21124,7 @@ void set_object_state(
                     char buffer[100] = { 0 };
                     object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
 
-                    compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                         ctx,
                         error_position,
                         "source object '%s' may have been moved", buffer);
@@ -21654,7 +21651,7 @@ void checked_moved(struct parser_ctx* ctx,
 
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
-            if (compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a moved object '%s'",
@@ -21672,7 +21669,7 @@ void checked_moved(struct parser_ctx* ctx,
 
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
-            if (compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a uninitialized object '%s'",
@@ -21758,7 +21755,7 @@ void checked_read_object(struct parser_ctx* ctx,
 
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_ANALYZER_MOVED,
+            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MOVED,
                 ctx,
                 position_token,
                 "object '%s' was moved",
@@ -21769,7 +21766,7 @@ void checked_read_object(struct parser_ctx* ctx,
         {
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
-            compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+            compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                 ctx,
                 position_token,
                 "uninitialized object '%s'",
@@ -21826,7 +21823,7 @@ void visit_object(struct parser_ctx* ctx,
             *  have been moved.
             */
             const struct token* const name = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-            if (compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+            if (compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                 ctx,
                 name,
                 "object '%s' was not moved/destroyed",
@@ -21959,7 +21956,7 @@ void visit_object(struct parser_ctx* ctx,
                     {
                         if (is_assigment)
                         {
-                            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+                            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                                 ctx,
                                 position_token,
                                 "memory pointed by '%s' was not released before assignment.",
@@ -21967,7 +21964,7 @@ void visit_object(struct parser_ctx* ctx,
                         }
                         else
                         {
-                            compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+                            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                                 ctx,
                                 position,
                                 "memory pointed by '%s' was not released.",
@@ -21983,7 +21980,7 @@ void visit_object(struct parser_ctx* ctx,
                 {
                     if (is_assigment)
                     {
-                        compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                             ctx,
                             position_token,
                             "previous members of '%s' were not moved before this assignment.",
@@ -21991,7 +21988,7 @@ void visit_object(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        compiler_diagnostic_message(W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR,
+                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
                             ctx,
                             position,
                             "object '%s' was not moved.",
@@ -33334,7 +33331,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 if (p_argument_object2 &&
                     p_argument_object2->state & OBJECT_STATE_NULL)
                 {
-                    compiler_diagnostic_message(W_ANALIZER_MAYBE_NULL_TO_NON_OPT_ARGUMENT,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
                         ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
@@ -33465,13 +33462,13 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
                 p_expression->declarator &&
                 p_expression->declarator->name)
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, "using a uninitialized object '%s'", p_expression->declarator->name->lexeme);
             }
             else
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, "using a uninitialized object");
             }
@@ -33480,13 +33477,13 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
         {
             if (p_expression->declarator && p_expression->declarator->name)
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->declarator->name, "object '%s' can be uninitialized ", p_expression->declarator->name->lexeme);
             }
             else
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->first_token, "maybe using a uninitialized object");
             }
@@ -33676,13 +33673,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
                 {
-                    compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->right->first_token, "using a uninitialized object");
                 }
                 else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
                 {
-                    compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->right->first_token, "maybe using a uninitialized object");
                 }
@@ -33715,7 +33712,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             if (!ctx->expression_is_not_evaluated)
             {
-                compiler_diagnostic_message(W_ANALYZER_UNINITIALIZED,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx->ctx,
                     p_expression->right->first_token, "using a uninitialized object");
             }
@@ -33732,7 +33729,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
                 {
 
-                    compiler_diagnostic_message(W_ANALYZER_NULL_DEREFERENCE,
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_NULL_DEREFERENCE,
                         ctx->ctx,
                         p_expression->right->first_token, "dereference a NULL object");
                 }
@@ -37253,7 +37250,7 @@ void ownership_flow_test_jump_labels()
     struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
     struct report report = { 0 };
     get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_ANALYZER_OWNERSHIP_FLOW_MISSING_DTOR*/);
+    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
 }
 
 void ownership_flow_test_owner_if_pattern_1()
