@@ -3590,6 +3590,27 @@ void object_to_non_const()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 
 }
+void object_to_const()
+{
+    const char* source
+        =
+        "void free(void* _Owner p);\n"
+        "struct X\n"
+        "{\n"
+        "    int i;\n"
+        "    void* _Owner p;\n"
+        "};\n"
+        "void f(const struct X* p);\n"
+        "int main()\n"
+        "{\n"
+        "    struct X x = { 0 };\n"
+        "    f(x);\n"
+        "    static_state(x.p, \"null\");    \n"
+        "}";
+
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+
+}
 
 #endif
 
