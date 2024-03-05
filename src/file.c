@@ -1,5 +1,14 @@
-int a;
-int b()
+__FILE__
+
+struct X
 {
-    char c[a];
+    int i;
+    void* _Owner p;
+};
+void f(struct X* p);
+int main()
+{
+    struct X x = { 0 };
+    f(x);
+    static_state(x.p, "maybe-null");
 }

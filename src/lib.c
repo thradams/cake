@@ -525,6 +525,8 @@ bool style_has_space(const struct token* token);
 bool style_has_one_space(const struct token* token);
 
 
+
+
 //#pragma once
 
 #ifndef __CAKE__
@@ -943,6 +945,7 @@ void print_all_macros(struct preprocessor_ctx* prectx);
 int string_literal_byte_size(const char* s);
 int get_char_type(const char* s);
 void include_config_header(struct preprocessor_ctx* ctx);
+int stringify(const char* input, int n, char output[]);
 
 
 #ifdef _WIN32
@@ -1794,8 +1797,6 @@ void print_line_and_token(const struct token* opt p_token, bool visual_studio_ou
 
     printf("\n");
 }
-
-
 
 
 
@@ -6249,8 +6250,6 @@ struct token_list  copy_replacement_list(struct token_list* list)
     return r;
 }
 
-
-
 struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin)
 {
     /*macros de conteudo dinamico*/
@@ -6269,8 +6268,13 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     }
     else if (strcmp(macro->name, "__FILE__") == 0)
     {
+        char buffer[200] = { 0 };
+        stringify(origin->token_origin->lexeme, sizeof buffer, buffer);
+        //snprintf(buffer, sizeof buffer, "\"%s\"", origin->token_origin->lexeme);
+        
+            
         struct tokenizer_ctx tctx = { 0 };
-        struct token_list r = tokenizer(&tctx, origin->token_origin->lexeme, "", 0, TK_FLAG_NONE);
+        struct token_list r = tokenizer(&tctx, buffer, "", 0, TK_FLAG_NONE);
         token_list_pop_front(&r);
         r.head->flags = 0;
         return r;
@@ -7224,6 +7228,44 @@ const char* get_token_name(enum token_type tk)
     }
     return "";
 };
+
+
+int stringify(const char* input, int n, char output[])
+{
+    int count = 0;
+    if (count < n)
+        output[count++] = '"';
+
+    const char* p = input;
+    while (*p)
+    {
+        if (*p == '\"' ||
+            *p == '\\')
+        {
+            if (count < n)
+                output[count++] = '\\';
+            if (count < n)
+                output[count++] = *p;
+            p++;
+        }
+        else
+        {
+            if (count < n)
+                output[count++] = *p;
+            p++;
+        }
+    }
+
+    if (count < n)
+        output[count++] = '"';
+    if (count < n)
+        output[count++] = 0;
+
+    if (count < n)
+        return -count;
+
+    return count;
+}
 
 
 void print_literal(const char* s)
@@ -8687,6 +8729,15 @@ int test_line_continuation()
 
 
     return 0;
+}
+
+int stringify_test()
+{
+    char buffer[200];
+    int n = stringify("\"abc\"", sizeof buffer, buffer);
+    assert(n == 1);
+    return 0;
+
 }
 
 #endif

@@ -65,6 +65,7 @@ int test_tokens(void);
 int test_predefined_macros(void);
 int test_utf8(void);
 int test_line_continuation(void);
+int stringify_test(void);
 
 /* tests from options.c*/
 void test_get_warning_name(void);
@@ -296,6 +297,7 @@ g_unit_test_success_count = 0;
     test_predefined_macros();
     test_utf8();
     test_line_continuation();
+    stringify_test();
     test_get_warning_name();
     parser_specifier_test();
     character_constant_test();
