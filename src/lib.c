@@ -525,8 +525,6 @@ bool style_has_space(const struct token* token);
 bool style_has_one_space(const struct token* token);
 
 
-
-
 //#pragma once
 
 #ifndef __CAKE__
@@ -1797,6 +1795,8 @@ void print_line_and_token(const struct token* opt p_token, bool visual_studio_ou
 
     printf("\n");
 }
+
+
 
 
 
@@ -6250,6 +6250,8 @@ struct token_list  copy_replacement_list(struct token_list* list)
     return r;
 }
 
+
+
 struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, struct macro* macro, const struct token* origin)
 {
     /*macros de conteudo dinamico*/
@@ -6268,10 +6270,11 @@ struct token_list macro_copy_replacement_list(struct preprocessor_ctx* ctx, stru
     }
     else if (strcmp(macro->name, "__FILE__") == 0)
     {
-        char buffer[200] = { 0 };
-        stringify(origin->token_origin->lexeme, sizeof buffer, buffer);
-        //snprintf(buffer, sizeof buffer, "\"%s\"", origin->token_origin->lexeme);
-        
+        char buffer[300] = { 0 };
+        if (stringify(origin->token_origin->lexeme, sizeof buffer, buffer) < 0)
+        {
+          //ops TODO
+        }
             
         struct tokenizer_ctx tctx = { 0 };
         struct token_list r = tokenizer(&tctx, buffer, "", 0, TK_FLAG_NONE);
@@ -7244,6 +7247,7 @@ int stringify(const char* input, int n, char output[])
         {
             if (count < n)
                 output[count++] = '\\';
+            
             if (count < n)
                 output[count++] = *p;
             p++;
@@ -7261,7 +7265,7 @@ int stringify(const char* input, int n, char output[])
     if (count < n)
         output[count++] = 0;
 
-    if (count < n)
+    if (count >= n)
         return -count;
 
     return count;
@@ -8734,8 +8738,11 @@ int test_line_continuation()
 int stringify_test()
 {
     char buffer[200];
-    int n = stringify("\"abc\"", sizeof buffer, buffer);
-    assert(n == 1);
+    int n = stringify("\"ab\\c\"", sizeof buffer, buffer);
+    assert(n == sizeof(STRINGIFY("\"ab\\c\"")));
+    const char* r = STRINGIFY("\"ab\\c\"");
+
+    assert(strcmp(buffer, r) == 0);
     return 0;
 
 }
@@ -33310,6 +33317,9 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
             if (!pointer_to_out)
             {
+                /*
+                  lets very if it is all safe to read
+                */
                 checked_read_object(ctx,
                     &argument_object_type,
                     p_argument_object,
@@ -33350,12 +33360,11 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        if (p_argument_object->pointed)
-                        {
-                            struct type pointed_type = type_remove_pointer(&argument_object_type);
-                            object_set_unknown(&pointed_type, p_argument_object->pointed);
-                            type_destroy(&pointed_type);
-                        }
+                        /*
+                           we are passing a pointer to an non const object
+                           everything can happen with this object
+                        */
+                        object_set_unknown(&argument_object_type, p_argument_object);
                     }
                 }
 
@@ -34451,10 +34460,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-            }
-#endif
         }
+#endif
     }
+}
 
     /*if (p_declarator->pointer)
     {
@@ -39302,7 +39311,7 @@ void sizeofarraywchar()
 }
 
 void integer_promotion()
-{ 
+{
     const char* source
         =
         "static_assert(_Generic(typeof(-*\"\"), int : 1));\n"
@@ -39319,6 +39328,29 @@ void integer_promotion()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 
 }
+
+void object_to_non_const()
+{
+    const char* source
+        =
+        "void free(void* _Owner p);\n"
+        "struct X\n"
+        "{\n"
+        "    int i;\n"
+        "    void* _Owner p;\n"
+        "};\n"
+        "void f(struct X* p);\n"
+        "int main()\n"
+        "{\n"
+        "    struct X x = { 0 };\n"
+        "    f(x);\n"
+        "    static_state(x.p, \"maybe-null\");\n"
+        "    free(x.p);\n"
+        "}";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+
+}
+
 #endif
 
 

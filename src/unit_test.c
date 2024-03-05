@@ -237,6 +237,7 @@ void sizeofstring(void);
 void sizeofarraychar(void);
 void sizeofarraywchar(void);
 void integer_promotion(void);
+void object_to_non_const(void);
 
 /*end of forward declarations*/
 
@@ -465,6 +466,7 @@ g_unit_test_success_count = 0;
     sizeofarraychar();
     sizeofarraywchar();
     integer_promotion();
+    object_to_non_const();
 return g_unit_test_error_count;
 
 }

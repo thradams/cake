@@ -1233,6 +1233,9 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
             if (!pointer_to_out)
             {
+                /*
+                  lets very if it is all safe to read
+                */
                 checked_read_object(ctx,
                     &argument_object_type,
                     p_argument_object,
@@ -1273,12 +1276,11 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        if (p_argument_object->pointed)
-                        {
-                            struct type pointed_type = type_remove_pointer(&argument_object_type);
-                            object_set_unknown(&pointed_type, p_argument_object->pointed);
-                            type_destroy(&pointed_type);
-                        }
+                        /*
+                           we are passing a pointer to an non const object
+                           everything can happen with this object
+                        */
+                        object_set_unknown(&argument_object_type, p_argument_object);
                     }
                 }
 
@@ -2374,10 +2376,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-            }
-#endif
         }
+#endif
     }
+}
 
     /*if (p_declarator->pointer)
     {

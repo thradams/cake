@@ -3551,7 +3551,7 @@ void sizeofarraywchar()
 }
 
 void integer_promotion()
-{ 
+{
     const char* source
         =
         "static_assert(_Generic(typeof(-*\"\"), int : 1));\n"
@@ -3568,5 +3568,28 @@ void integer_promotion()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 
 }
+
+void object_to_non_const()
+{
+    const char* source
+        =
+        "void free(void* _Owner p);\n"
+        "struct X\n"
+        "{\n"
+        "    int i;\n"
+        "    void* _Owner p;\n"
+        "};\n"
+        "void f(struct X* p);\n"
+        "int main()\n"
+        "{\n"
+        "    struct X x = { 0 };\n"
+        "    f(x);\n"
+        "    static_state(x.p, \"maybe-null\");\n"
+        "    free(x.p);\n"
+        "}";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+
+}
+
 #endif
 
