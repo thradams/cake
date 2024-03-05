@@ -1316,10 +1316,12 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
 static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p_expression)
 {
-    struct type t = { 0 };
-    struct object* p_object = expression_get_object(p_expression, &t);
     if (p_expression->is_assigment_expression)
         return;
+
+    struct type t = { 0 };
+    struct object* p_object = expression_get_object(p_expression, &t);
+    
     if (!ctx->expression_is_not_evaluated)
     {
         if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)

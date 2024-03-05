@@ -1412,70 +1412,178 @@ int main() {
 sample["Ownership (experimental)"]["Linked list"] =
 `
 
-#include <ownership.h> 
+#include <ownership.h>
+
 #include <stdlib.h>
 #include <assert.h>
-#include <stdio.h>
-#include <string.h>
+#include <errno.h>
 
-struct node {
- char * owner text;
- struct node* owner next;
+struct book {
+     char* owner title;
+     struct book* owner next;
 };
 
-struct list {
-  struct node * owner head;
-  struct node * tail;
+
+struct books {
+    struct book* owner head, *tail;
 };
 
-void list_append(struct list* list, struct node* owner node)
+void books_insert_after(struct books* books, struct book* book, struct book* owner new_book)
 {
-  if (list->head == NULL) {
-      list->head = node;
+    assert(books != NULL);
+    assert(book != NULL);
+    assert(new_book != NULL);
+    assert(new_book->next == NULL);
+
+
+    if (book->next == NULL) {
+        books->tail = new_book;
+    }
+    else {
+        new_book->next = book->next;
+    }
+
+    book->next = new_book;
+}
+
+
+
+void books_push_back(struct books* books, struct book* owner new_book)
+{
+   assert(books != NULL);
+   assert(new_book != NULL);
+   assert(new_book->next == NULL);
+
+   if (books->head == NULL) {
+      books->head = new_book;
    }
    else {
-      assert(list->tail->next == 0);
-      list->tail->next = node; //ZERO OVERHEAD
+      books->tail->next = new_book;
    }
-   list->tail = node;
+   books->tail = new_book;
 }
 
-void list_destroy(struct list* obj_owner list)
+void books_push_front(struct books* books, struct book* owner new_book)
 {
-  struct node * owner p = list->head;
-  while (p) {
-      struct node *  owner next = p->next;
-      free(p->text); 
-      free(p);
-      p = next;
-  }
+    assert(books != NULL);
+    assert(new_book != NULL);
+    assert(new_book->next == NULL);
+
+    if (books->head == NULL) {
+        books->tail = new_book;
+    }
+    else {
+        new_book->next = books->head;        
+    }
+    books->head = new_book;
 }
 
-void list_print(const struct list* list)
+void books_destroy(struct books* obj_owner books)
 {
-  const struct node * p = list->head;
-  while (p) {
-      printf("%s ", p->text);
-      p = p->next;
-  }
+    //pre condition
+    assert(books != NULL);
+
+    struct book* owner it = books->head;
+    while (it != NULL) {
+        struct book* owner next = it->next;
+        free(it->title);
+        free(it);
+        it = next;
+    }
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-  struct list list = {};
-  struct node  * owner p =  calloc(1, sizeof * p);
-  
-  if (p) {
-    p->text = strdup("item1");
-    list_append(&list, p);
-  }
-
-  list_print(&list);
-  list_destroy(&list);
+    struct books list = { 0 };
+    struct book* owner b1 = calloc(1, sizeof(struct book));
+    if (b1)
+    {
+        books_push_front(&list, b1);
+    }
+    books_destroy(&list);
 }
 
 `;
 
+sample["Ownership (experimental)"]["dynamic array"] =
+`
+#include <ownership.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <errno.h>
+#include <stdio.h>
+#include <limits.h>
+#include <string.h>
+
+struct int_array {
+    int* owner data;
+    int size;
+    int capacity;
+};
+int int_array_reserve(struct int_array* p, int n)
+{
+    if (n > p->capacity) {
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0])))) {        
+            return EOVERFLOW;
+        }
+
+        void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        if (pnew == NULL) return ENOMEM;
+        static_set(p->data, "moved");
+        p->data = pnew;
+        p->capacity = n;
+    }
+    return 0;
+}
+
+int int_array_push_back(struct int_array* p, int value)
+{
+     if (p->size == INT_MAX) {
+         return EOVERFLOW;
+     }
+
+     if (p->size + 1 > p->capacity) {                
+         int new_capacity = 0;
+         if (p->capacity > (INT_MAX - p->capacity / 2))
+         {
+             /*overflow*/
+             new_capacity = INT_MAX; 
+         }
+         else {
+             new_capacity =  p->capacity + p->capacity / 2;
+             if (new_capacity < p->size + 1) {
+                new_capacity = p->size + 1;
+             }
+         }
+
+        int error = int_array_reserve(p, new_capacity);
+        if (error != 0) {
+            return error;
+        }
+     }
+
+     p->data[p->size] = value;
+
+
+    p->size++;
+
+    return 0;
+}
+
+void int_array_destroy(struct int_array* obj_owner p)
+{
+
+    free(p->data);
+}
+
+int main()
+{
+   struct int_array a = { 0 };
+   int_array_push_back(&a, 1);
+   int_array_push_back(&a, 2);
+   int_array_destroy(&a);
+}
+`;
 
 sample["Ownership (experimental)"]["static_set/realloc"] =
 `
