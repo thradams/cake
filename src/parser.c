@@ -3006,6 +3006,11 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
 struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
+    /*
+      The way cake find the complete struct is using one pass.. for this task is uses double indirection.
+      Then the result will be there at end of first pass.
+      This crazy code finds the complete definition of the struct if exists. 
+    */
     if (p_struct_or_union_specifier == NULL)
         return NULL;
 
