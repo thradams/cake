@@ -1099,9 +1099,11 @@ void object_set_zero(struct type* p_type, struct object* p_object)
 
         if (p_object->pointed)
         {
+            /*
+              if the pointer is null, there is no pointed object
+            */
             struct type t2 = type_remove_pointer(p_type);
-            //set "no-storage"
-            object_set_unknown(&t2, p_object->pointed);
+            object_set_uninitialized(&t2, p_object->pointed);
             type_destroy(&t2);
         }
     }
