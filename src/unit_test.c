@@ -240,6 +240,7 @@ void integer_promotion(void);
 void object_to_non_const(void);
 void object_to_const(void);
 void union_size(void);
+void sizeof_union_test(void);
 
 /*end of forward declarations*/
 
@@ -471,6 +472,7 @@ g_unit_test_success_count = 0;
     object_to_non_const();
     object_to_const();
     union_size();
+    sizeof_union_test();
 return g_unit_test_error_count;
 
 }

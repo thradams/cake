@@ -604,7 +604,7 @@ enum diagnostic_id {
     W_MULTICHAR_ERROR,   
     W_OUT_OF_BOUNDS,
     W_ASSIGNMENT_OF_ARRAY_PARAMETER,
-
+    W_CONDITIONAL_IS_CONSTANT,
     W_LOCATION, /*prints code location*/
     W_NOTE,
 
@@ -9941,7 +9941,8 @@ s_warnings[] = {
     {W_MULTICHAR_ERROR, "multi-char"},
     {W_ARRAY_INDIRECTION,"array-indirection"},
     {W_OUT_OF_BOUNDS, "out-of-bounds"},
-    {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assigment"}
+    {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
+    {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"}
 
 };
 
@@ -28440,7 +28441,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
 
             if (constant_value_is_valid(&p_selection_statement->expression->constant_value))
             {
-                //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
+                compiler_diagnostic_message(W_CONDITIONAL_IS_CONSTANT, ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
             }
 
 
@@ -28486,7 +28487,6 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         }
 
         p_selection_statement->last_token = ctx->previous;
-
     
     }
     catch
@@ -39642,7 +39642,7 @@ void object_to_const()
 }
 
 void union_size()
-{ 
+{
     const char* source
         =
         "union X {\n"
@@ -39654,6 +39654,23 @@ void union_size()
 
 }
 
+void sizeof_union_test()
+{
+    const char* str
+        =
+        "union X {\n"
+        "    struct {\n"
+        "        int a, b;\n"
+        "        union {\n"
+        "            double d;\n"
+        "        } z;\n"
+        "    } y;\n"
+        "    double d;\n"
+        "    char c;\n"
+        "};\n"
+        "static_assert(sizeof(union X) == 16);";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
 
 #endif
 

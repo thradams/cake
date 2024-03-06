@@ -3613,7 +3613,7 @@ void object_to_const()
 }
 
 void union_size()
-{ 
+{
     const char* source
         =
         "union X {\n"
@@ -3625,6 +3625,23 @@ void union_size()
 
 }
 
+void sizeof_union_test()
+{
+    const char* source
+        =
+        "union X {\n"
+        "    struct {\n"
+        "        int a, b;\n"
+        "        union {\n"
+        "            double d;\n"
+        "        } z;\n"
+        "    } y;\n"
+        "    double d;\n"
+        "    char c;\n"
+        "};\n"
+        "static_assert(sizeof(union X) == 16);";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+}
 
 #endif
 

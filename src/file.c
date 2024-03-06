@@ -1,12 +1,11 @@
-
-int* a(void)
-{
-    int* a = 0;
-
-    if (a == NULL)
-    {
-        return NULL;
-    }
-
-    return a;
-}
+union X {
+    struct {
+        int a, b;
+        union {
+            double d;
+        } z;
+    } y;
+    double d;
+    char c;
+};
+static_assert(sizeof(union X) == 16);
