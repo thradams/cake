@@ -2623,7 +2623,7 @@ void using_uninitialized_struct()
         "} \n"
         "\n"
         "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "";
 
 
@@ -3181,7 +3181,7 @@ void out_parameter()
         "}\n"
         "void dummy() {}\n"
         "\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"";
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"";
 
 
     assert(compile_without_errors_warnings(true, false, source));
@@ -3611,6 +3611,20 @@ void object_to_const()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 
 }
+
+void union_size()
+{ 
+    const char* source
+        =
+        "union X {\n"
+        "    struct {int a, b; } y;\n"
+        "    double d;\n"
+        "};\n"
+        "static_assert( sizeof (union X) == 8);";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+
+}
+
 
 #endif
 

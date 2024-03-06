@@ -10445,7 +10445,7 @@ enum type_specifier_flags
 
     #if __x86_64__
     /* 64-bit */
-    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG)    
+    #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG)    
     #else
     #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)    
     #endif
@@ -11027,6 +11027,7 @@ void object_assignment(struct parser_ctx* ctx,
 
 void object_set_unknown(struct type* p_type, struct object* p_object);
 void object_set_zero(struct type* p_type, struct object* p_object);
+void object_set_uninitialized(struct type* p_type, struct object* p_object);
 
 void checked_read_object(struct parser_ctx* ctx,
     struct type* p_type,
@@ -19076,7 +19077,8 @@ int type_get_struct_num_members(struct struct_or_union_specifier* complete_struc
 int type_get_sizeof(const struct type* p_type);
 int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
 {
-    bool is_union = (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
+    const bool is_union = 
+        (complete_struct_or_union_specifier->first_token->type == TK_KEYWORD_UNION);
 
     int maxalign = 0;
     int size = 0;
@@ -19159,7 +19161,6 @@ int get_sizeof_struct(struct struct_or_union_specifier* complete_struct_or_union
 
     return size;
 }
-
 
 int type_get_alignof(const struct type* p_type);
 int get_alignof_struct(struct struct_or_union_specifier* complete_struct_or_union_specifier)
@@ -21352,6 +21353,72 @@ void set_object(
 }
 
 
+void object_set_uninitialized(struct type* p_type, struct object* p_object)
+{
+    if (p_object == NULL || p_type == NULL)
+    {
+        return;
+    }
+
+    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier)
+        {
+            struct member_declaration* p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            if (member_index < p_object->members.size)
+                            {
+                                object_set_uninitialized(&p_member_declarator->declarator->type, &p_object->members.data[member_index]);
+                            }
+                            else
+                            {
+                                //TODO BUG union?                                
+                            }
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+            return;
+        }
+    }
+
+    if (type_is_pointer(p_type))
+    {
+        p_object->state = OBJECT_STATE_UNINITIALIZED;
+
+        if (p_object->pointed)
+        {
+            struct type t2 = type_remove_pointer(p_type);
+            object_set_uninitialized(&t2, p_object->pointed);
+            type_destroy(&t2);
+        }
+    }
+    else
+    {
+        p_object->state = OBJECT_STATE_UNINITIALIZED;
+    }
+}
+
+
 void object_set_unknown(struct type* p_type, struct object* p_object)
 {
     if (p_object == NULL || p_type == NULL)
@@ -22267,8 +22334,7 @@ struct flow_visit_ctx
 
 void flow_visit_ctx_destroy(struct flow_visit_ctx* obj_owner p);
 
-void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
-void flow_visit_declarator2(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
+void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
 
 #ifdef _WIN32
 #endif
@@ -24440,7 +24506,7 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
                 struct flow_visit_ctx ctx2 = { 0 };
                 ctx2.ctx = ctx;
-                flow_visit_function(&ctx2, p_declaration);
+                flow_start_visit_declaration(&ctx2, p_declaration);
                 flow_visit_ctx_destroy(&ctx2);
             }
 
@@ -24483,11 +24549,11 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
             {
                 /*
                 *  The objetive of this visit is to initialize global objects.
-                *  It also excutes static_debug
+                *  It also executes static_debug
                 */
                 struct flow_visit_ctx ctx2 = { 0 };
                 ctx2.ctx = ctx;
-                flow_visit_declarator2(&ctx2, p_declaration);
+                flow_start_visit_declaration(&ctx2, p_declaration);
                 flow_visit_ctx_destroy(&ctx2);
             }
         }
@@ -34773,17 +34839,17 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
             else
             {
                 if (p_init_declarator->p_declarator->declaration_specifiers &&
-                      (
-                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags && STORAGE_SPECIFIER_EXTERN) ||
-                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags && STORAGE_SPECIFIER_STATIC)
-                      )
+                    (
+                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) ||
+                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+                        )
                     )
                 {
                     object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
                 }
                 else
                 {
-                    object_set_unknown(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                    object_set_uninitialized(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
                 }
 
 
@@ -35073,48 +35139,38 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
 
 }
 
-void flow_visit_declarator2(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
+void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
-    //assert(p_declaration->function_body);
-
-    assert(ctx->tail_block == NULL);
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
-    if (p_defer == NULL)
+    if (p_declaration->function_body)
     {
-        return;
+
+        assert(ctx->tail_block == NULL);
+        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+        {
+            return;
+        }
+        p_defer->p_function_body = p_declaration->function_body;
+
+        flow_visit_declaration(ctx, p_declaration);
+
+        if (!flow_is_last_item_return(p_declaration->function_body))
+        {
+            check_defer_and_variables(ctx, p_defer, p_declaration->function_body->last_token);
+        }
+
+        flow_visit_ctx_pop_tail_block(ctx);
     }
-    //p_defer->p_function_body = p_declaration->function_body;
-
-    flow_visit_declaration(ctx, p_declaration);
-
-    //if (!flow_is_last_item_return(p_declaration->function_body))
-    //{
-      //  check_defer_and_variables(ctx, p_defer, p_declaration->function_body->last_token);
-    //}
-
-    flow_visit_ctx_pop_tail_block(ctx);
-}
-
-void flow_visit_function(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
-{
-    assert(p_declaration->function_body);
-
-    assert(ctx->tail_block == NULL);
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
-    if (p_defer == NULL)
+    else
     {
-        return;
+        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        if (p_defer == NULL)
+        {
+            return;
+        }
+        flow_visit_declaration(ctx, p_declaration);
+        flow_visit_ctx_pop_tail_block(ctx);
     }
-    p_defer->p_function_body = p_declaration->function_body;
-
-    flow_visit_declaration(ctx, p_declaration);
-
-    if (!flow_is_last_item_return(p_declaration->function_body))
-    {
-        check_defer_and_variables(ctx, p_defer, p_declaration->function_body->last_token);
-    }
-
-    flow_visit_ctx_pop_tail_block(ctx);
 }
 
 void flow_visit_ctx_destroy(struct flow_visit_ctx* obj_owner p)
@@ -38570,7 +38626,7 @@ void using_uninitialized_struct()
         "} \n"
         "\n"
         "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "";
 
 
@@ -39128,7 +39184,7 @@ void out_parameter()
         "}\n"
         "void dummy() {}\n"
         "\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"";
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"";
 
 
     assert(compile_without_errors_warnings(true, false, source));
@@ -39558,6 +39614,20 @@ void object_to_const()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 
 }
+
+void union_size()
+{ 
+    const char* source
+        =
+        "union X {\n"
+        "    struct {int a, b; } y;\n"
+        "    double d;\n"
+        "};\n"
+        "static_assert( sizeof (union X) == 8);";
+    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+
+}
+
 
 #endif
 

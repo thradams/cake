@@ -2539,8 +2539,8 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
             {
                 if (p_init_declarator->p_declarator->declaration_specifiers &&
                     (
-                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags && STORAGE_SPECIFIER_EXTERN) ||
-                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags && STORAGE_SPECIFIER_STATIC)
+                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) ||
+                        (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
                         )
                     )
                 {
@@ -2548,7 +2548,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                 }
                 else
                 {
-                    object_set_unknown(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                    object_set_uninitialized(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
                 }
 
 
