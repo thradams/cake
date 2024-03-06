@@ -10,7 +10,7 @@ The C Programming language Second Edition 1988
 > _"As we said in the preface to the first edition, C "wears well as one's experience with it grows." With a decade more experience, we still feel that way."_
 
 
-Me 2023
+Me 2024
 
 > _As my experience with any language grows, more a like C._
 
@@ -74,6 +74,7 @@ gcc -DTEST build.c -o build && ./build
 ```
 
 ## Emscripten build instructions (web)
+
 Emscripten https://emscripten.org/  is required. 
 
 First do the normal build. 
@@ -108,7 +109,8 @@ See [Manual](manual.html)
 # Road map
 
 * Ownership static analysis
-*
+* Fixes
+* Ownership specification
  
 # References
 
@@ -149,12 +151,8 @@ DISCORD SERVER
 
 [https://discord.gg/YRekr2N65S](https://discord.gg/YRekr2N65S)
 
-# Status?
 
-At version 0.5.13 we have 58 types of errors (we have more messages sharing the 
-same type) and 14 warnings/info.
-
-# How cake is tested?
+# How cake is developed?
 
 I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
 the includes of MSVC and it generates the *out* dir after build. 
@@ -183,12 +181,6 @@ compatible. Cake ♥ C.
 
 The added extensions aims to keep the spirit of the language and implement proposed 
 features in a way they can be experimented even before standardization.
-
-
-
-
-
-
 
 
 

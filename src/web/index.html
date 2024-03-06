@@ -57,13 +57,10 @@
 <a href="#toc_12">Participating</a>
 </li>
 <li>
-<a href="#toc_13">Status?</a>
+<a href="#toc_13">How cake is developed?</a>
 </li>
 <li>
-<a href="#toc_14">How cake is tested?</a>
-</li>
-<li>
-<a href="#toc_15">Differences  from CFront</a>
+<a href="#toc_14">Differences  from CFront</a>
 </li>
 </ul>
 <p>The C Programming language 1978</p>
@@ -80,7 +77,7 @@
 <p><em>&quot;As we said in the preface to the first edition, C &quot;wears well as one&#39;s experience with it grows.&quot; With a decade more experience, we still feel that way.&quot;</em></p>
 </blockquote>
 
-<p>Me 2023</p>
+<p>Me 2024</p>
 
 <blockquote>
 <p><em>As my experience with any language grows, more a like C.</em></p>
@@ -173,8 +170,9 @@ Cake can also be used as static analyzer, especially the new ownership analysis.
 <h1 id="toc_9">Road map</h1>
 
 <ul>
-<li>Ownership static analysis
-*</li>
+<li>Ownership static analysis</li>
+<li>Fixes</li>
+<li>Ownership specification</li>
 </ul>
 
 <h1 id="toc_10">References</h1>
@@ -217,12 +215,7 @@ Cake can also be used as static analyzer, especially the new ownership analysis.
 
 <p><a href="https://discord.gg/YRekr2N65S">https://discord.gg/YRekr2N65S</a></p>
 
-<h1 id="toc_13">Status?</h1>
-
-<p>At version 0.5.13 we have 58 types of errors (we have more messages sharing the 
-same type) and 14 warnings/info.</p>
-
-<h1 id="toc_14">How cake is tested?</h1>
+<h1 id="toc_13">How cake is developed?</h1>
 
 <p>I am using Visual Studio 2022 IDE to write/debug cake source. Cake is parsing itself using
 the includes of MSVC and it generates the <em>out</em> dir after build. </p>
@@ -232,7 +225,7 @@ the includes of MSVC and it generates the <em>out</em> dir after build. </p>
 <p>Cake source code is not using any extension so the output is the same of input. 
 This compilation is useful for tracking errors together with the unit tests.</p>
 
-<h1 id="toc_15">Differences  from CFront</h1>
+<h1 id="toc_14">Differences  from CFront</h1>
 
 <p>CFront was the original compiler for C++ which converted C++ to C. </p>
 
