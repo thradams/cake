@@ -62,7 +62,7 @@ enum diagnostic_id {
     W_MULTICHAR_ERROR,   
     W_OUT_OF_BOUNDS,
     W_ASSIGNMENT_OF_ARRAY_PARAMETER,
-
+    W_CONDITIONAL_IS_CONSTANT,
     W_LOCATION, /*prints code location*/
     W_NOTE,
 

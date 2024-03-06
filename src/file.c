@@ -1,4 +1,12 @@
-void foo(char x[10]) {
-    char y[10];
-    x = y;                                                                                                                                  
+
+int* a(void)
+{
+    int* a = 0;
+
+    if (a == NULL)
+    {
+        return NULL;
+    }
+
+    return a;
 }

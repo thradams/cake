@@ -6029,86 +6029,95 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
        'if' '(' expression ')' statement 'else' statement
        'switch' '(' expression ')' statement
     */
-    struct selection_statement* owner p_selection_statement = calloc(1, sizeof(struct selection_statement));
-
-    p_selection_statement->first_token = ctx->current;
-
     struct scope if_scope = { 0 };
     scope_list_push(&ctx->scopes, &if_scope); //variaveis decladas no if
 
-    if (ctx->current->type == TK_KEYWORD_IF)
+    struct selection_statement* owner p_selection_statement = calloc(1, sizeof(struct selection_statement));
+    try
     {
-        parser_match(ctx);
+        if (p_selection_statement == NULL) throw;
 
-        if (!(ctx->current->flags & TK_FLAG_MACRO_EXPANDED)
-            && !style_has_one_space(ctx->current))
+        p_selection_statement->first_token = ctx->current;
+
+        if (ctx->current->type == TK_KEYWORD_IF)
         {
-            compiler_diagnostic_message(W_STYLE, ctx, ctx->current, "one space");
-        }
+            parser_match(ctx);
 
-        parser_match_tk(ctx, '(');
-        if (first_of_declaration_specifier(ctx))
-        {
-            p_selection_statement->declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
-            struct init_declarator_list list = init_declarator_list(ctx, p_selection_statement->declaration_specifiers);
-            p_selection_statement->init_declarator = list.head; //only one
-            parser_match_tk(ctx, ';');
-        }
-
-
-        p_selection_statement->expression = expression(ctx);
-
-        if (constant_value_is_valid(&p_selection_statement->expression->constant_value))
-        {
-            //parser_setwarning_with_token(ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
-        }
-
-
-        if (type_is_function(&p_selection_statement->expression->type) ||
-            type_is_array(&p_selection_statement->expression->type))
-        {
-            compiler_diagnostic_message(W_ADDRESS, ctx, ctx->current, "always true");
-        }
-
-        parser_match_tk(ctx, ')');
-
-        p_selection_statement->secondary_block = secondary_block(ctx);
-
-        if (ctx->current)
-        {
-            if (ctx->current->type == TK_KEYWORD_ELSE)
+            if (!(ctx->current->flags & TK_FLAG_MACRO_EXPANDED)
+                && !style_has_one_space(ctx->current))
             {
-                p_selection_statement->else_token_opt = ctx->current;
-                parser_match(ctx);
-                p_selection_statement->else_secondary_block_opt = secondary_block(ctx);
+                compiler_diagnostic_message(W_STYLE, ctx, ctx->current, "one space");
             }
+
+            parser_match_tk(ctx, '(');
+            if (first_of_declaration_specifier(ctx))
+            {
+                p_selection_statement->declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
+                struct init_declarator_list list = init_declarator_list(ctx, p_selection_statement->declaration_specifiers);
+                p_selection_statement->init_declarator = list.head; //only one
+                parser_match_tk(ctx, ';');
+            }
+
+
+            p_selection_statement->expression = expression(ctx);
+            if (p_selection_statement->expression == NULL) throw;
+
+            if (constant_value_is_valid(&p_selection_statement->expression->constant_value))
+            {
+                compiler_diagnostic_message(W_CONDITIONAL_IS_CONSTANT, ctx, p_selection_statement->expression->first_token, "conditional expression is constant");
+            }
+
+
+            if (type_is_function(&p_selection_statement->expression->type) ||
+                type_is_array(&p_selection_statement->expression->type))
+            {
+                compiler_diagnostic_message(W_ADDRESS, ctx, ctx->current, "always true");
+            }
+
+            parser_match_tk(ctx, ')');
+
+            p_selection_statement->secondary_block = secondary_block(ctx);
+
+            if (ctx->current)
+            {
+                if (ctx->current->type == TK_KEYWORD_ELSE)
+                {
+                    p_selection_statement->else_token_opt = ctx->current;
+                    parser_match(ctx);
+                    p_selection_statement->else_secondary_block_opt = secondary_block(ctx);
+                }
+            }
+            else
+            {
+                compiler_diagnostic_message(C_ERROR_UNEXPECTED_END_OF_FILE, ctx, ctx->input_list.tail, "unexpected end of file");
+            }
+        }
+        else if (ctx->current->type == TK_KEYWORD_SWITCH)
+        {
+            parser_match(ctx);
+            parser_match_tk(ctx, '(');
+
+            p_selection_statement->expression = expression(ctx);
+            parser_match_tk(ctx, ')');
+
+            p_selection_statement->secondary_block = secondary_block(ctx);
+
         }
         else
         {
-            compiler_diagnostic_message(C_ERROR_UNEXPECTED_END_OF_FILE, ctx, ctx->input_list.tail, "unexpected end of file");
+            assert(false);
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected token");
         }
+
+        p_selection_statement->last_token = ctx->previous;
+    
     }
-    else if (ctx->current->type == TK_KEYWORD_SWITCH)
+    catch
     {
-        parser_match(ctx);
-        parser_match_tk(ctx, '(');
-
-        p_selection_statement->expression = expression(ctx);
-        parser_match_tk(ctx, ')');
-
-        p_selection_statement->secondary_block = secondary_block(ctx);
-
+        selection_statement_delete(p_selection_statement);
+        p_selection_statement = NULL;
     }
-    else
-    {
-        assert(false);
-        compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->input_list.tail, "unexpected token");
-    }
-
-    p_selection_statement->last_token = ctx->previous;
-
     scope_list_pop(&ctx->scopes);
-
     scope_destroy(&if_scope);
 
     return p_selection_statement;

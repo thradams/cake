@@ -60,7 +60,8 @@ s_warnings[] = {
     {W_MULTICHAR_ERROR, "multi-char"},
     {W_ARRAY_INDIRECTION,"array-indirection"},
     {W_OUT_OF_BOUNDS, "out-of-bounds"},
-    {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assigment"}
+    {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
+    {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"}
 
 };
 
