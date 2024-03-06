@@ -506,19 +506,24 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 }
 
 
-struct token* owner clone_token(struct token* p) /*unchecked*/
+struct token* owner clone_token(struct token* p)
 {
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
-    {
+    {        
+        char * owner lexeme = strdup(p->lexeme);
+        if (lexeme == NULL)
+        {
+            free(token);
+            return NULL;
+        }
         *token = *p;
-        token->lexeme = strdup(p->lexeme);
+        token->lexeme = lexeme;
         token->next = NULL;
         token->prev = NULL;
     }
     return token;
 }
-
 
 
 struct token_list token_list_remove_get(struct token_list* list, struct token* first, struct token* last) /*unchecked*/

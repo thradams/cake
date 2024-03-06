@@ -92,7 +92,7 @@ enum type_specifier_flags
 
     #define CAKE_WCHAR_T_TYPE_SPECIFIER (TYPE_SPECIFIER_INT)
 
-    #if __x86_64__
+    #ifdef __x86_64__
     /* 64-bit */
     #define  CAKE_SIZE_T_TYPE_SPECIFIER (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG)    
     #else
@@ -134,7 +134,9 @@ enum storage_class_specifier_flags
     /*extra flag just to annotate this*/
     STORAGE_SPECIFIER_CONSTEXPR_STATIC = 1 << 7,
 
+    /*it is a function parameter*/
     STORAGE_SPECIFIER_PARAMETER = 1 << 11,
+
     STORAGE_SPECIFIER_AUTOMATIC_STORAGE = 1 << 12,
     STORAGE_SPECIFIER_FUNCTION_RETURN = 1 << 13,
     STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD = 1 << 14,

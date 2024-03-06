@@ -1204,8 +1204,6 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                         p_current_argument->expression->first_token,
                         "pointer can be null, but the parameter is not optional");
                 }
-
-                type_destroy(&argument_object_type2);
             }
         }
 
@@ -1292,6 +1290,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         param_num++;
 
         type_destroy(&argument_object_type);
+        type_destroy(&argument_object_type2);
     }
 
     while (p_current_argument)
@@ -1308,6 +1307,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
             p_argument_object,
             p_current_argument->expression->first_token,
             false);
+         type_destroy(&argument_object_type);
 
         p_current_argument = p_current_argument->next;
     }

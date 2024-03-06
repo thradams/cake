@@ -1,22 +1,4 @@
-struct X {
-    char* _Owner text;
-};
-
-void x_destroy(struct X* _Obj_owner p);
-
-
-int main()
-{
-    struct X x;
-    static_debug(x);
-    x_destroy(&x);
+void foo(char x[10]) {
+    char y[10];
+    x = y;                                                                                                                                  
 }
-
-
-
-void dummy()
-{
-}
-
-//flow analyze
-//#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"

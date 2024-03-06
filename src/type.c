@@ -126,7 +126,7 @@ void print_type_qualifier_specifiers(struct osstream* ss, const struct type* typ
 
 void type_integer_promotion(struct type* a)
 {
-    assert(type_is_integer(a));
+    //assert(type_is_integer(a));
 
     if ((a->type_specifier_flags & TYPE_SPECIFIER_BOOL) ||
         (a->type_specifier_flags & TYPE_SPECIFIER_CHAR) ||

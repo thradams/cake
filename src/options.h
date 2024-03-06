@@ -61,6 +61,7 @@ enum diagnostic_id {
     W_INCOMPATIBLE_ENUN_TYPES,
     W_MULTICHAR_ERROR,   
     W_OUT_OF_BOUNDS,
+    W_ASSIGNMENT_OF_ARRAY_PARAMETER,
 
     W_LOCATION, /*prints code location*/
     W_NOTE,

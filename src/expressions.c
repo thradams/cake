@@ -925,7 +925,7 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
     else
     {
         switch (*p)
-        {        
+        {
         case 'a': *out_value = '\a';  break;
         case 'b': *out_value = '\b';  break;
         case 'f': *out_value = '\f';  break;
@@ -934,6 +934,7 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
         case 't': *out_value = '\t';  break;
         case '\'': *out_value = '\'';  break;
         case '\\': *out_value = '\\';  break;
+        case '"': *out_value = '"';  break;
         default:
             //assume this error is handled at tokenizer
             assert(false);
@@ -2282,7 +2283,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                     new_expression->type = get_array_item_type(&new_expression->right->type);
                 }
 
-                
+
             }
             else if (op == '&')
             {
@@ -2334,7 +2335,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
                 throw;
             }
             p_expression_node = new_expression;
-    }
+        }
         else if (ctx->current->type == TK_KEYWORD_SIZEOF)
         {
             const bool disable_evaluation_copy = ctx->evaluation_is_disabled;
@@ -2537,7 +2538,7 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
             p_expression_node = postfix_expression(ctx);
             if (p_expression_node == NULL) throw;
         }
-}
+    }
     catch
     {
     }
@@ -3673,7 +3674,17 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             }
             else if (category == TYPE_CATEGORY_ARRAY)
             {
-                compiler_diagnostic_message(C_ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE, ctx, ctx->current, "assignment to expression with array type");
+                if (new_expression->left->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+                {
+                    /*
+                      assignment of array parameter
+                    */
+                    compiler_diagnostic_message(W_ASSIGNMENT_OF_ARRAY_PARAMETER, ctx, ctx->current, "assignment to array parameter");
+                }
+                else
+                {
+                    compiler_diagnostic_message(C_ERROR_ASSIGNMENT_TO_EXPRESSION_WITH_ARRAY_TYPE, ctx, ctx->current, "assignment to expression with array type");
+                }
             }
             else
             {

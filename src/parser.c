@@ -5917,12 +5917,19 @@ struct block_item* owner block_item(struct parser_ctx* ctx)
         {
             //so identifier confunde com expression
             p_block_item->label = label(ctx);
-            if (p_block_item->label == NULL) throw;
+            if (p_block_item->label == NULL) {
+                attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+                throw;
+                }
         }
         else
         {
             p_block_item->unlabeled_statement = unlabeled_statement(ctx);
-            if (p_block_item->unlabeled_statement == NULL) throw;
+            if (p_block_item->unlabeled_statement == NULL) 
+            {
+                attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+                throw;
+            }
         }
         /*
                                                declaration-specifiers init-declarator-list_opt;
