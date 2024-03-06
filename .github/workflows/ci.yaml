@@ -1,0 +1,18 @@
+name: ci
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  linux-gcc:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - run: gcc --version
+    - name: Build and test
+      run: |
+        cd src
+        gcc -DTEST build.c -o build
+        ./build
