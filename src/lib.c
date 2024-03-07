@@ -19494,6 +19494,10 @@ int type_get_sizeof(const struct type* p_type)
         {
             size = 1;
         }
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
+        {
+            size = sizeof(void*);
+        }
         else
         {
             assert(false);
@@ -22352,7 +22356,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.11"
+#define CAKE_VERSION "0.7.12"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
