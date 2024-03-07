@@ -39677,6 +39677,10 @@ void sizeof_union_test()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
+void test_fail()
+{
+    assert(0);
+}
 #endif
 
 
