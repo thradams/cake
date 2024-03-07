@@ -22352,7 +22352,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.10"
+#define CAKE_VERSION "0.7.11"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
