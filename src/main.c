@@ -72,6 +72,7 @@ int main(int argc, char** argv)
 
     test_main();
     printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);
+    printf("%d expected to fail - waiting fixes\n", CURRENT_NUMBER_OF_FAILING_TEST);
 
     return g_unit_test_error_count > CURRENT_NUMBER_OF_FAILING_TEST ? EXIT_FAILURE : EXIT_SUCCESS;
 }
