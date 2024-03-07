@@ -841,7 +841,7 @@ struct member_declaration
 
 };
 
-struct member_declaration* owner member_declaration(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx, const  struct struct_or_union_specifier*);
 void member_declaration_delete(struct member_declaration* owner p);
 
 struct member_declarator
@@ -871,7 +871,7 @@ struct member_declarator_list
 };
 
 struct member_declarator_list* owner member_declarator_list(struct parser_ctx* ctx,
-    struct struct_or_union_specifier*,
+    const struct struct_or_union_specifier*,
     const struct specifier_qualifier_list* specifier_qualifier_list
 );
 void member_declarator_list_delete(struct member_declarator_list* owner opt p);

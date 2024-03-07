@@ -11875,7 +11875,7 @@ struct member_declaration
 
 };
 
-struct member_declaration* owner member_declaration(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx, const  struct struct_or_union_specifier*);
 void member_declaration_delete(struct member_declaration* owner p);
 
 struct member_declarator
@@ -11905,7 +11905,7 @@ struct member_declarator_list
 };
 
 struct member_declarator_list* owner member_declarator_list(struct parser_ctx* ctx,
-    struct struct_or_union_specifier*,
+    const struct struct_or_union_specifier*,
     const struct specifier_qualifier_list* specifier_qualifier_list
 );
 void member_declarator_list_delete(struct member_declarator_list* owner opt p);
@@ -21833,7 +21833,7 @@ void object_get_name(const struct type* p_type,
     else if (p_object->p_expression_origin)
     {
         const char* root_name = "expresion";//p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
-        const struct object* root = &p_object;//->declarator->object;
+        struct object* root = p_object;//->declarator->object;
 
         object_get_name_core(p_type, root, p_object, root_name, outname, out_size);
     }
@@ -22143,7 +22143,7 @@ void visit_object(struct parser_ctx* ctx,
         const struct token* position = NULL;
         if (p_object->declarator)
             position = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-        else if (p_object->declarator)
+        else if (p_object->p_expression_origin)
             position = p_object->p_expression_origin->first_token;
         else
         {
@@ -25755,7 +25755,7 @@ void member_declarator_list_delete(struct member_declarator_list* owner opt p)
 }
 struct member_declarator_list* owner member_declarator_list(
     struct parser_ctx* ctx,
-    struct struct_or_union_specifier* p_struct_or_union_specifier,
+    const struct struct_or_union_specifier* p_struct_or_union_specifier,
     const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* owner p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
@@ -25825,7 +25825,7 @@ void member_declaration_delete(struct member_declaration* owner p)
     }
 }
 struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
-    struct struct_or_union_specifier* p_struct_or_union_specifier)
+    const struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration* owner p_member_declaration = calloc(1, sizeof(struct member_declaration));
     //attribute_specifier_sequence_opt specifier_qualifier_list member_declarator_list_opt ';'

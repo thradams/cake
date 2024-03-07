@@ -1339,7 +1339,7 @@ void object_get_name(const struct type* p_type,
     else if (p_object->p_expression_origin)
     {
         const char* root_name = "expresion";//p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
-        const struct object* root = &p_object;//->declarator->object;
+        struct object* root = p_object;//->declarator->object;
 
         object_get_name_core(p_type, root, p_object, root_name, outname, out_size);
     }
@@ -1649,7 +1649,7 @@ void visit_object(struct parser_ctx* ctx,
         const struct token* position = NULL;
         if (p_object->declarator)
             position = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-        else if (p_object->declarator)
+        else if (p_object->p_expression_origin)
             position = p_object->p_expression_origin->first_token;
         else
         {
