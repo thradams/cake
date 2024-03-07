@@ -55,11 +55,11 @@ double constant_value_to_double(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case TYPE_LONG_LONG: return (double)a->llvalue;
-    case TYPE_DOUBLE: return  a->dvalue;
-    case TYPE_UNSIGNED_LONG_LONG: return (double)a->ullvalue;
-    default:
-        return 0;
+        case TYPE_LONG_LONG: return (double) a->llvalue;
+        case TYPE_DOUBLE: return  a->dvalue;
+        case TYPE_UNSIGNED_LONG_LONG: return (double) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -76,18 +76,18 @@ void constant_value_to_string(const struct constant_value* a, char buffer[], int
     buffer[0] = 0;
     switch (a->type)
     {
-    case TYPE_LONG_LONG:
-        snprintf(buffer, sz, "%lld", a->llvalue);
-        break;
-    case TYPE_DOUBLE:
-        snprintf(buffer, sz, "%f", a->dvalue);
-        break;
+        case TYPE_LONG_LONG:
+            snprintf(buffer, sz, "%lld", a->llvalue);
+            break;
+        case TYPE_DOUBLE:
+            snprintf(buffer, sz, "%f", a->dvalue);
+            break;
 
-    case TYPE_UNSIGNED_LONG_LONG:
-        snprintf(buffer, sz, "%llu", a->ullvalue);
-        break;
-    default:
-        return;
+        case TYPE_UNSIGNED_LONG_LONG:
+            snprintf(buffer, sz, "%llu", a->ullvalue);
+            break;
+        default:
+            return;
     }
 }
 
@@ -95,11 +95,11 @@ unsigned long long constant_value_to_ull(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case TYPE_LONG_LONG: return (unsigned long long)a->llvalue;
-    case TYPE_DOUBLE: return  (unsigned long long)a->dvalue;
-    case TYPE_UNSIGNED_LONG_LONG: return (unsigned long long) a->ullvalue;
-    default:
-        return 0;
+        case TYPE_LONG_LONG: return (unsigned long long)a->llvalue;
+        case TYPE_DOUBLE: return  (unsigned long long)a->dvalue;
+        case TYPE_UNSIGNED_LONG_LONG: return (unsigned long long) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -108,11 +108,11 @@ long long constant_value_to_ll(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case TYPE_LONG_LONG: return (long long)a->llvalue;
-    case TYPE_DOUBLE: return  (long long)a->dvalue;
-    case TYPE_UNSIGNED_LONG_LONG: return (long long)a->ullvalue;
-    default:
-        return 0;
+        case TYPE_LONG_LONG: return (long long) a->llvalue;
+        case TYPE_DOUBLE: return  (long long) a->dvalue;
+        case TYPE_UNSIGNED_LONG_LONG: return (long long) a->ullvalue;
+        default:
+            return 0;
     }
 
     return 0;
@@ -121,11 +121,11 @@ bool constant_value_to_bool(const struct constant_value* a)
 {
     switch (a->type)
     {
-    case TYPE_LONG_LONG: return a->llvalue != 0;
-    case TYPE_DOUBLE: return  a->dvalue != 0;
-    case TYPE_UNSIGNED_LONG_LONG: return a->ullvalue != 0;
-    default:
-        return 0;
+        case TYPE_LONG_LONG: return a->llvalue != 0;
+        case TYPE_DOUBLE: return  a->dvalue != 0;
+        case TYPE_UNSIGNED_LONG_LONG: return a->ullvalue != 0;
+        default:
+            return 0;
     }
 
     return 0;
@@ -142,23 +142,23 @@ struct constant_value constant_value_cast(const struct constant_value* a, enum c
 
     switch (type)
     {
-    case TYPE_NOT_CONSTANT:
-    case TYPE_EMPTY:
-        assert(false);
-        break;
+        case TYPE_NOT_CONSTANT:
+        case TYPE_EMPTY:
+            assert(false);
+            break;
 
-    case TYPE_LONG_LONG:
-        r.type = TYPE_LONG_LONG;
-        r.llvalue = constant_value_to_ll(a);
-        break;
-    case TYPE_DOUBLE:
-        r.type = TYPE_DOUBLE;
-        r.dvalue = constant_value_to_double(a);
-        break;
-    case TYPE_UNSIGNED_LONG_LONG:
-        r.type = TYPE_UNSIGNED_LONG_LONG;
-        r.ullvalue = constant_value_to_ull(a);
-        break;
+        case TYPE_LONG_LONG:
+            r.type = TYPE_LONG_LONG;
+            r.llvalue = constant_value_to_ll(a);
+            break;
+        case TYPE_DOUBLE:
+            r.type = TYPE_DOUBLE;
+            r.dvalue = constant_value_to_double(a);
+            break;
+        case TYPE_UNSIGNED_LONG_LONG:
+            r.type = TYPE_UNSIGNED_LONG_LONG;
+            r.ullvalue = constant_value_to_ull(a);
+            break;
     }
     return r;
 }
@@ -176,13 +176,13 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         r.type = TYPE_DOUBLE;
         switch (op)
         {
-        case '!':r.dvalue = !a->dvalue;  break;
-            //case '~':r.dvalue = ~ a->dvalue;  break;
-        case '+':r.dvalue = +a->dvalue;  break;
-        case '-':r.dvalue = -a->dvalue;  break;
-        default:
-            assert(false);
-            break;
+            case '!':r.dvalue = !a->dvalue;  break;
+                //case '~':r.dvalue = ~ a->dvalue;  break;
+            case '+':r.dvalue = +a->dvalue;  break;
+            case '-':r.dvalue = -a->dvalue;  break;
+            default:
+                assert(false);
+                break;
         }
         return r;
     }
@@ -191,16 +191,16 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         r.type = TYPE_UNSIGNED_LONG_LONG;
         switch (op)
         {
-        case '!':r.ullvalue = !a->ullvalue;  break;
-        case '~':r.ullvalue = ~a->ullvalue;  break;
-        case '+':r.ullvalue = a->ullvalue;  break;
-            //case '-':r.dvalue = -a->ullvalue;  break;
-        case '-':
-            r.dvalue = 0;// -a->ullvalue;
-            break;
-        default:
-            assert(false);
-            break;
+            case '!':r.ullvalue = !a->ullvalue;  break;
+            case '~':r.ullvalue = ~a->ullvalue;  break;
+            case '+':r.ullvalue = a->ullvalue;  break;
+                //case '-':r.dvalue = -a->ullvalue;  break;
+            case '-':
+                r.dvalue = 0;// -a->ullvalue;
+                break;
+            default:
+                assert(false);
+                break;
         }
         return r;
     }
@@ -209,13 +209,13 @@ struct constant_value constant_value_unary_op(const struct constant_value* a, in
         r.type = TYPE_UNSIGNED_LONG_LONG;
         switch (op)
         {
-        case '!':r.llvalue = !((long long)a->llvalue);  break;
-        case '~':r.llvalue = ~((long long)a->llvalue);  break;
-        case '+':r.llvalue = +((long long)a->llvalue);  break;
-        case '-':r.llvalue = -((long long)a->llvalue);  break;
-        default:
-            assert(false);
-            break;
+            case '!':r.llvalue = !((long long) a->llvalue);  break;
+            case '~':r.llvalue = ~((long long) a->llvalue);  break;
+            case '+':r.llvalue = +((long long) a->llvalue);  break;
+            case '-':r.llvalue = -((long long) a->llvalue);  break;
+            default:
+                assert(false);
+                break;
         }
         return r;
     }
@@ -242,40 +242,40 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         switch (op)
         {
             //Arithmetic Operators
-        case '+':r.dvalue = va + vb;  break;
-        case '-':r.dvalue = va - vb;  break;
-        case '*':r.dvalue = va * vb;  break;
-        case '/':
-            if (vb != 0)
-                r.dvalue = va / vb;
-            else
-                r.type = TYPE_NOT_CONSTANT;
-            break;
+            case '+':r.dvalue = va + vb;  break;
+            case '-':r.dvalue = va - vb;  break;
+            case '*':r.dvalue = va * vb;  break;
+            case '/':
+                if (vb != 0)
+                    r.dvalue = va / vb;
+                else
+                    r.type = TYPE_NOT_CONSTANT;
+                break;
 
-            //case '%':r.dvalue = va % vb;  break;
+                //case '%':r.dvalue = va % vb;  break;
 
-                //Relational Operators
-        case '==':r.dvalue = va == vb;  break;
-        case '!=':r.dvalue = va != vb;  break;
-        case '>':r.dvalue = va > vb;  break;
-        case '<':r.dvalue = va < vb;  break;
-        case '<=':r.dvalue = va <= vb;  break;
-        case '>=':r.dvalue = va >= vb;  break;
+                    //Relational Operators
+            case '==':r.dvalue = va == vb;  break;
+            case '!=':r.dvalue = va != vb;  break;
+            case '>':r.dvalue = va > vb;  break;
+            case '<':r.dvalue = va < vb;  break;
+            case '<=':r.dvalue = va <= vb;  break;
+            case '>=':r.dvalue = va >= vb;  break;
 
-            //Logical Operators
-        case '&&':r.dvalue = va && vb;  break;
-        case '||':r.dvalue = va || vb;  break;
+                //Logical Operators
+            case '&&':r.dvalue = va && vb;  break;
+            case '||':r.dvalue = va || vb;  break;
 
-            //Bitwise Operators
-        //case '|':r.dvalue = va | vb;  break;
-        //case '&':r.dvalue = va & vb;  break;
-        //case '^':r.dvalue = va ^ vb;  break;
-        //case '>>':r.dvalue = va >> vb;  break;
-        //case '<<':r.dvalue = va << vb;  break;
+                //Bitwise Operators
+            //case '|':r.dvalue = va | vb;  break;
+            //case '&':r.dvalue = va & vb;  break;
+            //case '^':r.dvalue = va ^ vb;  break;
+            //case '>>':r.dvalue = va >> vb;  break;
+            //case '<<':r.dvalue = va << vb;  break;
 
-        default:
-            assert(false);
-            break;
+            default:
+                assert(false);
+                break;
         }
 
         return r;
@@ -290,45 +290,45 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
         switch (op)
         {
             //Arithmetic Operators
-        case '+':r.ullvalue = va + vb;  break;
-        case '-':r.ullvalue = va - vb;  break;
-        case '*':r.ullvalue = va * vb;  break;
-        case '/':
-            if (vb != 0)
-                r.ullvalue = va / vb;
-            else
-                r.type = TYPE_NOT_CONSTANT;
-            break;
+            case '+':r.ullvalue = va + vb;  break;
+            case '-':r.ullvalue = va - vb;  break;
+            case '*':r.ullvalue = va * vb;  break;
+            case '/':
+                if (vb != 0)
+                    r.ullvalue = va / vb;
+                else
+                    r.type = TYPE_NOT_CONSTANT;
+                break;
 
-        case '%':
-            if (vb != 0)
-                r.ullvalue = va % vb;
-            else
-                r.type = TYPE_NOT_CONSTANT;
-            break;
+            case '%':
+                if (vb != 0)
+                    r.ullvalue = va % vb;
+                else
+                    r.type = TYPE_NOT_CONSTANT;
+                break;
 
-            //Relational Operators
-        case '==':r.ullvalue = va == vb;  break;
-        case '!=':r.ullvalue = va != vb;  break;
-        case '>':r.ullvalue = va > vb;  break;
-        case '<':r.ullvalue = va < vb;  break;
-        case '<=':r.ullvalue = va <= vb;  break;
-        case '>=':r.ullvalue = va >= vb;  break;
+                //Relational Operators
+            case '==':r.ullvalue = va == vb;  break;
+            case '!=':r.ullvalue = va != vb;  break;
+            case '>':r.ullvalue = va > vb;  break;
+            case '<':r.ullvalue = va < vb;  break;
+            case '<=':r.ullvalue = va <= vb;  break;
+            case '>=':r.ullvalue = va >= vb;  break;
 
-            //Logical Operators
-        case '&&':r.ullvalue = va && vb;  break;
-        case '||':r.ullvalue = va || vb;  break;
+                //Logical Operators
+            case '&&':r.ullvalue = va && vb;  break;
+            case '||':r.ullvalue = va || vb;  break;
 
-            //Bitwise Operators
-        case '|':r.ullvalue = va | vb;  break;
-        case '&':r.ullvalue = va & vb;  break;
-        case '^':r.ullvalue = va ^ vb;  break;
-        case '>>':r.ullvalue = va >> vb;  break;
-        case '<<':r.ullvalue = va << vb;  break;
+                //Bitwise Operators
+            case '|':r.ullvalue = va | vb;  break;
+            case '&':r.ullvalue = va & vb;  break;
+            case '^':r.ullvalue = va ^ vb;  break;
+            case '>>':r.ullvalue = va >> vb;  break;
+            case '<<':r.ullvalue = va << vb;  break;
 
-        default:
-            assert(false);
-            break;
+            default:
+                assert(false);
+                break;
         }
 
         return r;
@@ -340,46 +340,46 @@ struct constant_value constant_value_op(const struct constant_value* a, const st
     switch (op)
     {
         //Arithmetic Operators
-    case '+':r.llvalue = va + vb;  break;
-    case '-':r.llvalue = va - vb;  break;
-    case '*':r.llvalue = va * vb;  break;
+        case '+':r.llvalue = va + vb;  break;
+        case '-':r.llvalue = va - vb;  break;
+        case '*':r.llvalue = va * vb;  break;
 
-    case '/':
-        if (vb != 0)
-            r.llvalue = va / vb;
-        else
-            r.type = TYPE_NOT_CONSTANT;
-        break;
+        case '/':
+            if (vb != 0)
+                r.llvalue = va / vb;
+            else
+                r.type = TYPE_NOT_CONSTANT;
+            break;
 
-    case '%':
-        if (vb != 0)
-            r.llvalue = va % vb;
-        else
-            r.type = TYPE_NOT_CONSTANT;
-        break;
+        case '%':
+            if (vb != 0)
+                r.llvalue = va % vb;
+            else
+                r.type = TYPE_NOT_CONSTANT;
+            break;
 
-        //Relational Operators
-    case '==':r.llvalue = va == vb;  break;
-    case '!=':r.llvalue = va != vb;  break;
-    case '>':r.llvalue = va > vb;  break;
-    case '<':r.llvalue = va < vb;  break;
-    case '<=':r.llvalue = va <= vb;  break;
-    case '>=':r.llvalue = va >= vb;  break;
+            //Relational Operators
+        case '==':r.llvalue = va == vb;  break;
+        case '!=':r.llvalue = va != vb;  break;
+        case '>':r.llvalue = va > vb;  break;
+        case '<':r.llvalue = va < vb;  break;
+        case '<=':r.llvalue = va <= vb;  break;
+        case '>=':r.llvalue = va >= vb;  break;
 
-        //Logical Operators
-    case '&&':r.llvalue = va && vb;  break;
-    case '||':r.llvalue = va || vb;  break;
+            //Logical Operators
+        case '&&':r.llvalue = va && vb;  break;
+        case '||':r.llvalue = va || vb;  break;
 
-        //Bitwise Operators
-    case '|':r.llvalue = va | vb;  break;
-    case '&':r.llvalue = va & vb;  break;
-    case '^':r.llvalue = va ^ vb;  break;
-    case '>>':r.llvalue = va >> vb;  break;
-    case '<<':r.llvalue = va << vb;  break;
+            //Bitwise Operators
+        case '|':r.llvalue = va | vb;  break;
+        case '&':r.llvalue = va & vb;  break;
+        case '^':r.llvalue = va ^ vb;  break;
+        case '>>':r.llvalue = va >> vb;  break;
+        case '<<':r.llvalue = va << vb;  break;
 
-    default:
-        assert(false);
-        break;
+        default:
+            assert(false);
+            break;
     }
 
 
@@ -814,25 +814,25 @@ const unsigned char* utf8_decode(const unsigned char* s, int* c)
     }
     else if ((s[0] & 0xe0) == 0xc0)
     {
-        *c = ((int)(s[0] & 0x1f) << 6) |
-            ((int)(s[1] & 0x3f) << 0);
+        *c = ((int) (s[0] & 0x1f) << 6) |
+            ((int) (s[1] & 0x3f) << 0);
         assert(*c >= 0x0080 && *c <= 0x07FF);
         next = s + 2;
     }
     else if ((s[0] & 0xf0) == 0xe0)
     {
-        *c = ((int)(s[0] & 0x0f) << 12) |
-            ((int)(s[1] & 0x3f) << 6) |
-            ((int)(s[2] & 0x3f) << 0);
+        *c = ((int) (s[0] & 0x0f) << 12) |
+            ((int) (s[1] & 0x3f) << 6) |
+            ((int) (s[2] & 0x3f) << 0);
         assert(*c >= 0x0800 && *c <= 0xFFFF);
         next = s + 3;
     }
     else if ((s[0] & 0xf8) == 0xf0 && (s[0] <= 0xf4))
     {
-        *c = ((int)(s[0] & 0x07) << 18) |
-            ((int)(s[1] & 0x3f) << 12) |
-            ((int)(s[2] & 0x3f) << 6) |
-            ((int)(s[3] & 0x3f) << 0);
+        *c = ((int) (s[0] & 0x07) << 18) |
+            ((int) (s[1] & 0x3f) << 12) |
+            ((int) (s[2] & 0x3f) << 6) |
+            ((int) (s[3] & 0x3f) << 0);
         assert(*c >= 0x10000 && *c <= 0x10FFFF);
         next = s + 4;
     }
@@ -926,19 +926,19 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
     {
         switch (*p)
         {
-        case 'a': *out_value = '\a';  break;
-        case 'b': *out_value = '\b';  break;
-        case 'f': *out_value = '\f';  break;
-        case 'n': *out_value = '\n';  break;
-        case 'r': *out_value = '\r';  break;;
-        case 't': *out_value = '\t';  break;
-        case '\'': *out_value = '\'';  break;
-        case '\\': *out_value = '\\';  break;
-        case '"': *out_value = '"';  break;
-        default:
-            //assume this error is handled at tokenizer
-            assert(false);
-            break;
+            case 'a': *out_value = '\a';  break;
+            case 'b': *out_value = '\b';  break;
+            case 'f': *out_value = '\f';  break;
+            case 'n': *out_value = '\n';  break;
+            case 'r': *out_value = '\r';  break;;
+            case 't': *out_value = '\t';  break;
+            case '\'': *out_value = '\'';  break;
+            case '\\': *out_value = '\\';  break;
+            case '"': *out_value = '"';  break;
+            default:
+                //assume this error is handled at tokenizer
+                assert(false);
+                break;
         }
         p++;
     }
@@ -957,7 +957,7 @@ struct expression* owner character_constant_expression(struct parser_ctx* ctx)
     p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
     p_expression_node->type.category = TYPE_CATEGORY_ITSELF;
 
-    const unsigned char* p = (const unsigned char*)ctx->current->lexeme;
+    const unsigned char* p = (const unsigned char*) ctx->current->lexeme;
 
     if (p[0] == 'u' && p[1] == '8')
     {
@@ -1151,37 +1151,37 @@ int convert_to_number(struct token* token, struct expression* p_expression_node,
 
     switch (token->type)
     {
-    case TK_COMPILER_DECIMAL_CONSTANT:
+        case TK_COMPILER_DECIMAL_CONSTANT:
 
-        if (flags & TYPE_SPECIFIER_UNSIGNED)
-        {
-            p_expression_node->constant_value = make_constant_value_ull(strtoull(buffer, 0, 10), disabled);
-        }
-        else
-        {
-            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, 0, 10), disabled);
-        }
+            if (flags & TYPE_SPECIFIER_UNSIGNED)
+            {
+                p_expression_node->constant_value = make_constant_value_ull(strtoull(buffer, 0, 10), disabled);
+            }
+            else
+            {
+                p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, 0, 10), disabled);
+            }
 
-        break;
-    case TK_COMPILER_OCTAL_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, 0, 8), disabled);
+            break;
+        case TK_COMPILER_OCTAL_CONSTANT:
+            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer, 0, 8), disabled);
 
-        break;
-    case TK_COMPILER_HEXADECIMAL_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 16), disabled);
+            break;
+        case TK_COMPILER_HEXADECIMAL_CONSTANT:
+            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 16), disabled);
 
-        break;
-    case TK_COMPILER_BINARY_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 2), disabled);
-        break;
-    case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer, 0), disabled);
-        break;
-    case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
-        p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0), disabled);
-        break;
-    default:
-        assert(false);
+            break;
+        case TK_COMPILER_BINARY_CONSTANT:
+            p_expression_node->constant_value = make_constant_value_ll(strtoll(buffer + 2, 0, 2), disabled);
+            break;
+        case TK_COMPILER_DECIMAL_FLOATING_CONSTANT:
+            p_expression_node->constant_value = make_constant_value_double(strtod(buffer, 0), disabled);
+            break;
+        case TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT:
+            p_expression_node->constant_value = make_constant_value_double(strtod(buffer + 2, 0), disabled);
+            break;
+        default:
+            assert(false);
     }
 
     return 0;
@@ -1197,52 +1197,47 @@ static bool is_integer_or_floating_constant(enum token_type type)
         type == TK_COMPILER_HEXADECIMAL_FLOATING_CONSTANT;
 }
 
-struct object* expression_get_object(struct expression* p_expression, struct type* p_type)
+struct object* expression_get_object(struct expression* p_expression, struct object* p_object)
 {
     if (p_expression == NULL)
         return NULL;
     if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR)
     {
-        if (p_type)
-            type_set(p_type, &p_expression->declarator->type);
-
-
         return &p_expression->declarator->object;
     }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
-        if (p_type)
-            type_set(p_type, &p_expression->type);
-
-        struct object* p_obj = expression_get_object(p_expression->right, NULL);
+        struct object temp_obj = { 0 };
+        struct object* p_obj = expression_get_object(p_expression->right, &temp_obj);
         if (p_obj)
         {
-            return p_obj->pointed;
+            return object_get_pointed_object(p_obj);
         }
         return p_obj;
     }
     else if (p_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
     {
-        return expression_get_object(p_expression->right, p_type);
+        struct object obj = { 0 };
+        obj.p_expression_origin = p_expression;
+        obj.pointed_ref = expression_get_object(p_expression->right, p_object);
+        obj.state = OBJECT_STATE_NOT_NULL;
+        static_set(*p_object, "zero");
+        *p_object = obj;
+        return p_object; //expression_get_object(p_expression->right, p_object);
     }
     else if (p_expression->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
     {
-        return expression_get_object(p_expression->right, p_type);
+        return expression_get_object(p_expression->right, p_object);
     }
     else if (p_expression->expression_type == CAST_EXPRESSION)
     {
-        if (p_type)
-            type_set(p_type, &p_expression->type);
-
-        return expression_get_object(p_expression->left, NULL);
+        return expression_get_object(p_expression->left, p_object);
     }
     else if (p_expression->expression_type == POSTFIX_DOT)
     {
-        struct object* p_obj = expression_get_object(p_expression->left, NULL);
+        struct object* p_obj = expression_get_object(p_expression->left, p_object);
         if (p_obj)
         {
-            if (p_type)
-                type_set(p_type, &p_expression->type);
             if (p_expression->member_index < p_obj->members.size)
                 return &p_obj->members.data[p_expression->member_index];
             else
@@ -1253,38 +1248,72 @@ struct object* expression_get_object(struct expression* p_expression, struct typ
     }
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
-        struct object* p_obj = expression_get_object(p_expression->left, NULL);
-        if (p_obj &&
-            p_obj->pointed)
+        struct object* p_obj = expression_get_object(p_expression->left, p_object);
+        if (p_obj)
         {
-            if (p_type)
-                type_set(p_type, &p_expression->type);
-            if (p_expression->member_index < p_obj->pointed->members.size)
-                return &p_obj->pointed->members.data[p_expression->member_index];
-            else
+            struct object* pointed = object_get_pointed_object(p_obj);
+            if (pointed != NULL)
             {
-                return NULL;
+                if (p_expression->member_index < pointed->members.size)
+                    return &pointed->members.data[p_expression->member_index];
+                else
+                {
+                    return NULL;
+                }
             }
         }
     }
     else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
     {
-        if (p_type)
-            type_set(p_type, &p_expression->type);
-        return NULL;
-
+        static_set(*p_object, "zero");
+        *p_object = make_object(&p_expression->type, NULL, p_expression);
+        object_set_unknown(&p_expression->type, p_object);
+        return p_object;
     }
     else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
     {
-        if (p_type)
-            type_set(p_type, &p_expression->type);
-
         return &p_expression->type_name->declarator->object;
     }
+    else if (p_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
+    {
+        *p_object = make_object(&p_expression->type, NULL, p_expression);
+        p_object->state = OBJECT_STATE_NOT_NULL;
+        return p_object;
+    }
+    else if (p_expression->expression_type == PRIMARY_EXPRESSION_PREDEFINED_CONSTANT)
+    {
+        static_set(*p_object, "zero");
+        *p_object = make_object(&p_expression->type, NULL, p_expression);
+        if (p_expression->type.type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
+        {
+            p_object->state = OBJECT_STATE_NULL;
+        }
+        else
+        {
+            if (constant_value_is_valid(&p_expression->constant_value))
+            {
+                bool not_zero = constant_value_to_bool(&p_expression->constant_value);
+                p_object->state = not_zero ? OBJECT_STATE_NOT_ZERO : OBJECT_STATE_ZERO;
+            }
+        }
 
 
-    if (p_type)
-        type_set(p_type, &p_expression->type);
+        return p_object;
+    }
+    else
+    {
+        static_set(*p_object, "zero");
+        *p_object = make_object(&p_expression->type, NULL, p_expression);
+        if (constant_value_is_valid(&p_expression->constant_value))
+        {
+            bool not_zero = constant_value_to_bool(&p_expression->constant_value);
+            p_object->state = not_zero ? OBJECT_STATE_NOT_ZERO : OBJECT_STATE_ZERO;
+        }
+
+
+        return p_object;
+    }
+
     return NULL;
 }
 
@@ -2437,48 +2466,48 @@ struct expression* owner unary_expression(struct parser_ctx* ctx)
 
             switch (traits_token->type)
             {
-            case TK_KEYWORD_IS_LVALUE:
-                new_expression->constant_value = make_constant_value_ll(expression_is_lvalue(new_expression->right), false);
-                break;
+                case TK_KEYWORD_IS_LVALUE:
+                    new_expression->constant_value = make_constant_value_ll(expression_is_lvalue(new_expression->right), false);
+                    break;
 
-            case TK_KEYWORD_IS_CONST:
-                new_expression->constant_value = make_constant_value_ll(type_is_const(p_type), false);
-                break;
-            case TK_KEYWORD_IS_OWNER:
-                new_expression->constant_value = make_constant_value_ll(type_is_owner(p_type), false);
-                break;
+                case TK_KEYWORD_IS_CONST:
+                    new_expression->constant_value = make_constant_value_ll(type_is_const(p_type), false);
+                    break;
+                case TK_KEYWORD_IS_OWNER:
+                    new_expression->constant_value = make_constant_value_ll(type_is_owner(p_type), false);
+                    break;
 
-            case TK_KEYWORD_IS_POINTER:
-                new_expression->constant_value = make_constant_value_ll(type_is_pointer(p_type), false);
+                case TK_KEYWORD_IS_POINTER:
+                    new_expression->constant_value = make_constant_value_ll(type_is_pointer(p_type), false);
 
-                break;
-            case TK_KEYWORD_IS_FUNCTION:
-                new_expression->constant_value = make_constant_value_ll(type_is_function(p_type), false);
+                    break;
+                case TK_KEYWORD_IS_FUNCTION:
+                    new_expression->constant_value = make_constant_value_ll(type_is_function(p_type), false);
 
-                break;
-            case TK_KEYWORD_IS_ARRAY:
-                new_expression->constant_value = make_constant_value_ll(type_is_array(p_type), false);
+                    break;
+                case TK_KEYWORD_IS_ARRAY:
+                    new_expression->constant_value = make_constant_value_ll(type_is_array(p_type), false);
 
-                break;
-            case TK_KEYWORD_IS_ARITHMETIC:
-                new_expression->constant_value = make_constant_value_ll(type_is_arithmetic(p_type), false);
+                    break;
+                case TK_KEYWORD_IS_ARITHMETIC:
+                    new_expression->constant_value = make_constant_value_ll(type_is_arithmetic(p_type), false);
 
-                break;
-            case TK_KEYWORD_IS_SCALAR:
-                new_expression->constant_value = make_constant_value_ll(type_is_scalar(p_type), false);
+                    break;
+                case TK_KEYWORD_IS_SCALAR:
+                    new_expression->constant_value = make_constant_value_ll(type_is_scalar(p_type), false);
 
-                break;
-            case TK_KEYWORD_IS_FLOATING_POINT:
-                new_expression->constant_value = make_constant_value_ll(type_is_floating_point(p_type), false);
+                    break;
+                case TK_KEYWORD_IS_FLOATING_POINT:
+                    new_expression->constant_value = make_constant_value_ll(type_is_floating_point(p_type), false);
 
-                break;
-            case TK_KEYWORD_IS_INTEGRAL:
-                new_expression->constant_value = make_constant_value_ll(type_is_integer(p_type), false);
+                    break;
+                case TK_KEYWORD_IS_INTEGRAL:
+                    new_expression->constant_value = make_constant_value_ll(type_is_integer(p_type), false);
 
-                break;
+                    break;
 
-            default:
-                assert(false);
+                default:
+                    assert(false);
 
             }
 
@@ -4071,16 +4100,16 @@ bool expression_is_lvalue(const struct expression* expr)
 
     switch (expr->expression_type)
     {
-    case PRIMARY_EXPRESSION_DECLARATOR:
-    case PRIMARY_EXPRESSION__FUNC__:
-    case PRIMARY_EXPRESSION_STRING_LITERAL:
-    case POSTFIX_ARRAY:
-    case POSTFIX_ARROW:
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-    case UNARY_EXPRESSION_CONTENT:
-        return true;
-    default:
-        break;
+        case PRIMARY_EXPRESSION_DECLARATOR:
+        case PRIMARY_EXPRESSION__FUNC__:
+        case PRIMARY_EXPRESSION_STRING_LITERAL:
+        case POSTFIX_ARRAY:
+        case POSTFIX_ARROW:
+        case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
+        case UNARY_EXPRESSION_CONTENT:
+            return true;
+        default:
+            break;
     }
 
     if (expr->expression_type == PRIMARY_EXPRESSION_PARENTESIS)
@@ -4116,15 +4145,15 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
 
     switch (expression->expression_type)
     {
-    case UNARY_EXPRESSION_ADDRESSOF:
-    case UNARY_EXPRESSION_INCREMENT:
-    case UNARY_EXPRESSION_DECREMENT:
-    case POSTFIX_INCREMENT:
-    case POSTFIX_DECREMENT:
-        return false;
-    default:
-        if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-            return true;
+        case UNARY_EXPRESSION_ADDRESSOF:
+        case UNARY_EXPRESSION_INCREMENT:
+        case UNARY_EXPRESSION_DECREMENT:
+        case POSTFIX_INCREMENT:
+        case POSTFIX_DECREMENT:
+            return false;
+        default:
+            if (expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+                return true;
     }
 
     return true;

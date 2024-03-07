@@ -3009,7 +3009,7 @@ struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct 
     /*
       The way cake find the complete struct is using one pass.. for this task is uses double indirection.
       Then the result will be there at end of first pass.
-      This crazy code finds the complete definition of the struct if exists. 
+      This crazy code finds the complete definition of the struct if exists.
     */
     if (p_struct_or_union_specifier == NULL)
         return NULL;
@@ -5922,15 +5922,16 @@ struct block_item* owner block_item(struct parser_ctx* ctx)
         {
             //so identifier confunde com expression
             p_block_item->label = label(ctx);
-            if (p_block_item->label == NULL) {
+            if (p_block_item->label == NULL)
+            {
                 attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
                 throw;
-                }
+            }
         }
         else
         {
             p_block_item->unlabeled_statement = unlabeled_statement(ctx);
-            if (p_block_item->unlabeled_statement == NULL) 
+            if (p_block_item->unlabeled_statement == NULL)
             {
                 attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
                 throw;
@@ -6115,7 +6116,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         }
 
         p_selection_statement->last_token = ctx->previous;
-    
+
     }
     catch
     {

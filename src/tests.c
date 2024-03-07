@@ -18,7 +18,14 @@ static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks,
     };
     struct report report = { 0 };
     get_ast(&options, "source", src, &report);
-    return report.error_count == 0 && report.warnings_count == 0;
+    if (report.error_count == 0 && report.warnings_count == 0)
+    {
+      return true;
+    }
+    printf("---\n");
+    printf("%s", src);
+    printf("---\n");
+    return false;
 }
 
 static bool compile_with_errors(bool flow_analysis, bool nullchecks, const char* src)

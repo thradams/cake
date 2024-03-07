@@ -68,20 +68,25 @@ struct object
        members_size is zero.
     */
     enum object_state state;
-    struct object* owner pointed;
+    struct object* owner pointed2;
+    struct object* pointed_ref;
 
     /*declarator is used only to print the error message*/
     const struct declarator* declarator;
 
+    const struct expression * p_expression_origin;
     struct objects members;
     struct object_state_stack object_state_stack;
 };
 void object_destroy(struct object* obj_owner p);
 void object_delete(struct object* owner opt p);
 void object_swap(struct object* a, struct object* b);
+struct object* object_get_pointed_object(const struct object* p);
 
 struct declarator;
-struct object make_object(struct type* p_type, const struct declarator* declarator);
+struct object make_object(struct type* p_type,
+    const struct declarator* p_declarator_opt,
+    const struct expression* p_expression_origin);
 
 void object_push_copy_current_state(struct object* object);
 
@@ -111,6 +116,13 @@ void set_object(
     struct object* p_object,
     enum object_state flags);
 
+enum assigment_type
+{
+    assigment_type_return,
+    assigment_type_parameter,
+    assigment_type_objects,
+};
+
 void object_assignment(struct parser_ctx* ctx,
     struct object* p_source_obj_opt,
     struct type* p_source_obj_type,
@@ -120,7 +132,8 @@ void object_assignment(struct parser_ctx* ctx,
 
     const struct token* error_position,
     bool bool_source_zero_value,
-    enum object_state source_state_after);
+    enum object_state source_state_after,
+    enum assigment_type assigment_type);
 
 void object_set_unknown(struct type* p_type, struct object* p_object);
 void object_set_zero(struct type* p_type, struct object* p_object);

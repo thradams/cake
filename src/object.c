@@ -7,7 +7,17 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-
+struct object* object_get_pointed_object(const struct object* p)
+{
+    if (p != NULL)
+    {
+        if (p->pointed2)
+            return p->pointed2;
+        if (p->pointed_ref)
+            return p->pointed_ref;
+    }
+    return NULL;
+}
 void object_swap(struct object* a, struct object* b)
 {
     struct object temp = *a;
@@ -26,7 +36,7 @@ void object_delete(struct object* owner p)
 
 void object_destroy(struct object* obj_owner p)
 {
-    object_delete(p->pointed);
+    object_delete(p->pointed2);
     objects_destroy(&p->members);
     object_state_stack_destroy(&p->object_state_stack);
 }
@@ -41,7 +51,7 @@ int object_state_stack_reserve(struct object_state_stack* p, int n)
 {
     if (n > p->capacity)
     {
-        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
+        if ((size_t) n > (SIZE_MAX / (sizeof(p->data[0]))))
         {
             return EOVERFLOW;
         }
@@ -105,7 +115,7 @@ int objects_reserve(struct objects* p, int n)
 {
     if (n > p->capacity)
     {
-        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
+        if ((size_t) n > (SIZE_MAX / (sizeof(p->data[0]))))
         {
             return EOVERFLOW;
         }
@@ -182,10 +192,27 @@ bool has_name(const char* name, struct object_name_list* list)
     return false;
 }
 
-struct object make_object_core(struct type* p_type, struct object_name_list* list, int deep, const struct declarator* declarator)
+struct object make_object_core(struct type* p_type,
+    struct object_name_list* list,
+    int deep,
+    const struct declarator* p_declarator_opt,
+    const struct expression* p_expression_origin)
 {
+    //assert((p_declarator_opt == NULL) != (p_expression_origin == NULL));
+    if (p_declarator_opt == NULL)
+    {
+        assert(p_expression_origin != NULL);
+    }
+    if (p_expression_origin == NULL)
+    {
+        assert(p_declarator_opt != NULL);
+    }
+
+
+
     struct object obj = { 0 };
-    obj.declarator = declarator;
+    obj.p_expression_origin = p_expression_origin;
+    obj.declarator = p_declarator_opt;
 
     if (p_type->struct_or_union_specifier)
     {
@@ -229,13 +256,19 @@ struct object make_object_core(struct type* p_type, struct object_name_list* lis
                             if (tag && has_name(tag, &l))
                             {
                                 struct object member_obj = { 0 };
-                                member_obj.declarator = declarator;
+                                member_obj.p_expression_origin = p_expression_origin;
+                                member_obj.declarator = p_declarator_opt;
                                 member_obj.state = OBJECT_STATE_NOT_APPLICABLE;
                                 objects_push_back(&obj.members, &member_obj);
                             }
                             else
                             {
-                                struct object member_obj = make_object_core(&p_member_declarator->declarator->type, &l, deep, declarator);
+                                struct object member_obj =
+                                    make_object_core(&p_member_declarator->declarator->type,
+                                        &l,
+                                        deep,
+                                        p_declarator_opt,
+                                        p_expression_origin);
                                 objects_push_back(&obj.members, &member_obj);
                             }
 
@@ -257,7 +290,7 @@ struct object make_object_core(struct type* p_type, struct object_name_list* lis
                         t.category = TYPE_CATEGORY_ITSELF;
                         t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                         t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-                        struct object member_obj = make_object_core(&t, &l, deep, declarator);
+                        struct object member_obj = make_object_core(&t, &l, deep, p_declarator_opt, p_expression_origin);
                         objects_push_back(&obj.members, &member_obj);
                         type_destroy(&t);
                     }
@@ -287,8 +320,8 @@ struct object make_object_core(struct type* p_type, struct object_name_list* lis
             if (type_is_struct_or_union(&t2))
             {
                 struct object* owner p_object = calloc(1, sizeof(struct object));
-                *p_object = make_object_core(&t2, list, deep + 1, declarator);
-                obj.pointed = p_object;
+                *p_object = make_object_core(&t2, list, deep + 1, p_declarator_opt, p_expression_origin);
+                obj.pointed2 = p_object;
             }
 
             type_destroy(&t2);
@@ -305,11 +338,13 @@ struct object make_object_core(struct type* p_type, struct object_name_list* lis
     return obj;
 }
 
-struct object make_object(struct type* p_type, const struct declarator* declarator)
+struct object make_object(struct type* p_type,
+    const struct declarator* p_declarator_opt,
+    const struct expression* p_expression_origin)
 {
-    assert(declarator);
+    //assert(p_token_position);
     struct object_name_list list = { .name = "" };
-    return make_object_core(p_type, &list, 0, declarator);
+    return make_object_core(p_type, &list, 0, p_declarator_opt, p_expression_origin);
 }
 
 void object_push_copy_current_state(struct object* object)
@@ -317,9 +352,9 @@ void object_push_copy_current_state(struct object* object)
 
     object_state_stack_push_back(&object->object_state_stack, object->state);
 
-    if (object->pointed)
+    if (object_get_pointed_object(object))
     {
-        object_push_copy_current_state(object->pointed);
+        object_push_copy_current_state(object_get_pointed_object(object));
     }
 
     for (int i = 0; i < object->members.size; i++)
@@ -341,9 +376,9 @@ void object_pop_states(struct object* object, int n)
     object->object_state_stack.size =
         object->object_state_stack.size - n;
 
-    if (object->pointed)
+    if (object_get_pointed_object(object))
     {
-        object_pop_states(object->pointed, n);
+        object_pop_states(object_get_pointed_object(object), n);
     }
 
     for (int i = 0; i < object->members.size; i++)
@@ -372,9 +407,9 @@ void object_restore_state(struct object* object, int state_to_restore)
     enum object_state sstate = object->object_state_stack.data[index];
     object->state = sstate;
 
-    if (object->pointed)
+    if (object_get_pointed_object(object))
     {
-        object_restore_state(object->pointed, state_to_restore);
+        object_restore_state(object_get_pointed_object(object), state_to_restore);
     }
 
     for (int i = 0; i < object->members.size; i++)
@@ -462,15 +497,15 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 
         }
     }
-    else if (type_is_array(p_type))
-    {
+    //else if (type_is_array(p_type))
+    //{
         //p_object->state = flags;
         //if (p_object->members_size > 0)
         //{
         //    //not sure if we instanticate all items of array
         //    p_object->members[0].state = flags;
         //}
-    }
+    //}
     else if (type_is_pointer(p_type))
     {
         struct type t2 = type_remove_pointer(p_type);
@@ -498,7 +533,7 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
             printf("\n");
 
 
-            if (p_object->pointed)
+            if (object_get_pointed_object(p_object))
             {
                 char buffer[200] = { 0 };
                 if (type_is_struct_or_union(&t2))
@@ -512,7 +547,7 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 
 
 
-                print_object_core(ident + 1, &t2, p_object->pointed, buffer, is_pointer, short_version);
+                print_object_core(ident + 1, &t2, object_get_pointed_object(p_object), buffer, is_pointer, short_version);
             }
             else
             {
@@ -633,7 +668,7 @@ void set_object_state(
                                 set_object_state(ctx,
                                     &p_member_declarator->declarator->type,
                                     &p_object->members.data[member_index],
-                                    &p_object_source->members.data[member_index].declarator->type,
+                                    &p_member_declarator->declarator->type,//&p_object_source->members.data[member_index].p_declarator_opt->type,
                                     &p_object_source->members.data[member_index],
                                     error_position);
                             }
@@ -726,17 +761,20 @@ void set_object_state(
             p_object->state = p_object_source->state & ~OBJECT_STATE_MOVED;
         }
 
-
-        if (p_object->pointed)
+        
+        if (object_get_pointed_object(p_object))
         {
             struct type t2 = type_remove_pointer(p_type);
-            if (p_object_source->pointed)
+            if (object_get_pointed_object(p_object_source))
             {
-                set_object_state(ctx, &t2, p_object->pointed, p_source_type, p_object_source->pointed, error_position);
+                set_object_state(ctx, &t2, object_get_pointed_object(p_object),
+                    p_source_type, 
+                    object_get_pointed_object(p_object_source), error_position);
             }
             else
             {
-                set_object(&t2, p_object->pointed, OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
+                set_object(&t2, object_get_pointed_object(p_object),
+                    OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
             }
             type_destroy(&t2);
         }
@@ -894,14 +932,14 @@ void set_object(
     {
         p_object->state = flags;
 
-        if (p_object->pointed)
+        if (object_get_pointed_object(p_object))
         {
             struct type t2 = type_remove_pointer(p_type);
             if (type_is_out(&t2))
             {
                 flags = OBJECT_STATE_UNINITIALIZED;
             }
-            set_object(&t2, p_object->pointed, flags);
+            set_object(&t2, object_get_pointed_object(p_object), flags);
             type_destroy(&t2);
         }
     }
@@ -965,10 +1003,10 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object)
     {
         p_object->state = OBJECT_STATE_UNINITIALIZED;
 
-        if (p_object->pointed)
+        if (object_get_pointed_object(p_object))
         {
             struct type t2 = type_remove_pointer(p_type);
-            object_set_uninitialized(&t2, p_object->pointed);
+            object_set_uninitialized(&t2, object_get_pointed_object(p_object));
             type_destroy(&t2);
         }
     }
@@ -1031,10 +1069,11 @@ void object_set_unknown(struct type* p_type, struct object* p_object)
     {
         p_object->state = OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL;
 
-        if (p_object->pointed)
+        struct object* pointed = object_get_pointed_object(p_object);
+        if (pointed)
         {
             struct type t2 = type_remove_pointer(p_type);
-            object_set_unknown(&t2, p_object->pointed);
+            object_set_unknown(&t2, pointed);
             type_destroy(&t2);
         }
     }
@@ -1097,13 +1136,13 @@ void object_set_zero(struct type* p_type, struct object* p_object)
     {
         p_object->state = OBJECT_STATE_NULL;
 
-        if (p_object->pointed)
+        if (object_get_pointed_object(p_object))
         {
             /*
               if the pointer is null, there is no pointed object
             */
             struct type t2 = type_remove_pointer(p_type);
-            object_set_uninitialized(&t2, p_object->pointed);
+            object_set_uninitialized(&t2, object_get_pointed_object(p_object));
             type_destroy(&t2);
         }
     }
@@ -1273,7 +1312,7 @@ void object_get_name_core(
             {
                 object_get_name_core(
                     &t2,
-                    p_object->pointed,
+                    object_get_pointed_object(p_object),
                     p_object_target,
                     buffer,
                     outname,
@@ -1290,18 +1329,25 @@ void object_get_name(const struct type* p_type,
     char* outname,
     int out_size)
 {
-    if (p_object->declarator == NULL)
+    if (p_object->declarator)
+    {
+        const char* root_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
+        const struct object* root = &p_object->declarator->object;
+
+        object_get_name_core(&p_object->declarator->type, root, p_object, root_name, outname, out_size);
+    }
+    else if (p_object->p_expression_origin)
+    {
+        const char* root_name = "expresion";//p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
+        const struct object* root = &p_object;//->declarator->object;
+
+        object_get_name_core(p_type, root, p_object, root_name, outname, out_size);
+    }
+    else
     {
         outname[0] = '?';
         outname[1] = '\0';
-        return;
     }
-
-
-    const char* root_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
-    const struct object* root = &p_object->declarator->object;
-
-    object_get_name_core(&p_object->declarator->type, root, p_object, root_name, outname, out_size);
 }
 
 void checked_moved(struct parser_ctx* ctx,
@@ -1356,7 +1402,7 @@ void checked_moved(struct parser_ctx* ctx,
             struct type t2 = type_remove_pointer(p_type);
             checked_moved(ctx,
                 &t2,
-                p_object->pointed,
+                object_get_pointed_object(p_object),
                 position_token);
             type_destroy(&t2);
         }
@@ -1365,6 +1411,7 @@ void checked_moved(struct parser_ctx* ctx,
         {
             struct token* name_pos = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
             const char* parameter_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
+
 
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
@@ -1459,7 +1506,7 @@ void checked_read_object(struct parser_ctx* ctx,
             struct type t2 = type_remove_pointer(p_type);
             checked_read_object(ctx,
                 &t2,
-                p_object->pointed,
+                object_get_pointed_object(p_object),
                 position_token,
                 true);
             type_destroy(&t2);
@@ -1599,8 +1646,15 @@ void visit_object(struct parser_ctx* ctx,
     else
     {
         const char* name = previous_names;
-        const struct token* const position =
-            p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
+        const struct token* position = NULL;
+        if (p_object->declarator)
+            position = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
+        else if (p_object->declarator)
+            position = p_object->p_expression_origin->first_token;
+        else
+        {
+            assert(false);
+        }
 
         if (name[0] == '\0')
         {
@@ -1644,7 +1698,7 @@ void visit_object(struct parser_ctx* ctx,
                 {
                     visit_object(ctx,
                         &t2,
-                        p_object->pointed,
+                        object_get_pointed_object(p_object),
                         position_token,
                         buffer,
                         is_assigment);
@@ -1732,11 +1786,14 @@ void object_assignment(struct parser_ctx* ctx,
 
     const struct token* error_position,
     bool bool_source_zero_value,
-    enum object_state source_state_after)
+    enum object_state source_state_after,
+    enum assigment_type assigment_type)
 {
     if (p_dest_obj_opt)
     {
-        if (type_is_owner(p_dest_obj_type) && !type_is_out(p_dest_obj_type))
+        if (type_is_any_owner(p_source_obj_type) &&
+            type_is_owner(p_dest_obj_type) &&
+            !type_is_out(p_dest_obj_type))
         {
             char buffer[100] = { 0 };
             object_get_name(p_dest_obj_type, p_dest_obj_opt, buffer, sizeof buffer);
@@ -1788,20 +1845,22 @@ void object_assignment(struct parser_ctx* ctx,
             "Object must be owner qualified.");
     }
 
-    if (type_is_any_owner(p_dest_obj_type) && type_is_any_owner(p_source_obj_type) && type_is_pointer(p_source_obj_type))
+    if (type_is_any_owner(p_dest_obj_type) &&
+        type_is_any_owner(p_source_obj_type) &&
+        type_is_pointer(p_source_obj_type))
     {
         if (type_is_void_ptr(p_dest_obj_type))
         {
             if (p_source_obj_opt)
             {
                 struct type t2 = type_remove_pointer(p_source_obj_type);
-                const char* name = p_source_obj_opt->declarator->name ?
+                const char* name = p_source_obj_opt->declarator ?
                     p_source_obj_opt->declarator->name->lexeme :
                     "?";
 
                 visit_object(ctx,
                     &t2,
-                    p_source_obj_opt->pointed,
+                    object_get_pointed_object(p_source_obj_opt),
                     error_position,
                     name,
                     true);
@@ -1813,19 +1872,19 @@ void object_assignment(struct parser_ctx* ctx,
         {
             if (type_is_owner(p_source_obj_type))
             {
-                if (p_source_obj_opt->pointed)
+                if (object_get_pointed_object(p_source_obj_opt))
                 {
                     struct type t = type_remove_pointer(p_source_obj_type);
-                    set_object(&t, p_source_obj_opt->pointed, source_state_after);
+                    set_object(&t, object_get_pointed_object(p_source_obj_opt), source_state_after);
                     type_destroy(&t);
                 }
             }
             else if (type_is_obj_owner(p_source_obj_type))
             {
-                if (p_source_obj_opt->pointed)
+                if (object_get_pointed_object(p_source_obj_opt))
                 {
                     struct type t = type_remove_pointer(p_source_obj_type);
-                    set_object(&t, p_source_obj_opt->pointed, source_state_after);
+                    set_object(&t, object_get_pointed_object(p_source_obj_opt), source_state_after);
                     type_destroy(&t);
                 }
             }
@@ -1844,6 +1903,15 @@ void object_assignment(struct parser_ctx* ctx,
         /*everthing is moved*/
         if (p_source_obj_opt)
             set_object(p_source_obj_type, p_source_obj_opt, source_state_after);
+    }
+    else if (type_is_obj_owner(p_dest_obj_type))
+    {
+        if (p_source_obj_type->address_of)
+        {
+            struct type t = type_remove_pointer(p_source_obj_type);
+            set_object(&t, p_source_obj_opt->pointed_ref, source_state_after);
+            type_destroy(&t);
+        }
     }
     else
     {
