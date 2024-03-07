@@ -156,15 +156,9 @@ void compile_cake()
 
     // #define GCC_ANALIZER  " -fanalyzer "
     mysytem("gcc "
-           " -Wall "
+           "  -Wall "
            " -Wno-multichar "
-           " -g -O2 " SOURCE_FILES " main.c "
-
-#if defined DEBUG
-           " -D_DEBUG"
-#else
-           " -D_NDEBUG"
-#endif
+           " -g  " SOURCE_FILES " main.c "
 
 #ifdef TEST
            " -DTEST"

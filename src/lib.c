@@ -2268,9 +2268,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2287,9 +2284,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -25383,6 +25377,11 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
 struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
+    /*
+      The way cake find the complete struct is using one pass.. for this task is uses double indirection.
+      Then the result will be there at end of first pass.
+      This crazy code finds the complete definition of the struct if exists. 
+    */
     if (p_struct_or_union_specifier == NULL)
         return NULL;
 
@@ -39656,7 +39655,7 @@ void union_size()
 
 void sizeof_union_test()
 {
-    const char* str
+    const char* source
         =
         "union X {\n"
         "    struct {\n"
