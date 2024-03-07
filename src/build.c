@@ -12,7 +12,7 @@ static int mysytem(const char *cmd)
 {
     printf("%s\n", cmd);
     fflush(stdout);
-    return system(cmd);
+    return system_like(cmd);
 }
 
 static int mychdir(const char *path)
@@ -70,6 +70,7 @@ static int mychdir(const char *path)
 
 void compile_cake()
 {
+  int result = 0;
 
 #ifdef BUILD_WINDOWS_MSC
     if (mysytem("cl  " SOURCE_FILES " main.c "
@@ -120,7 +121,7 @@ void compile_cake()
 
 #ifdef BUILD_WINDOWS_CLANG
 
-    mysytem("clang " SOURCE_FILES " main.c "
+    result = mysytem("clang " SOURCE_FILES " main.c "
 #if defined DEBUG
            " -D_DEBUG"
 #else
@@ -143,7 +144,7 @@ void compile_cake()
 #endif
 
 #ifdef BUILD_LINUX_CLANG
-    mysytem("clang " SOURCE_FILES " main.c "
+    result = mysytem("clang " SOURCE_FILES " main.c "
 #ifdef TEST
            "-DTEST"
 #endif
@@ -155,7 +156,7 @@ void compile_cake()
 #if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC
 
     // #define GCC_ANALIZER  " -fanalyzer "
-    mysytem("gcc "
+    result = mysytem("gcc "
            "  -Wall "
            " -Wno-multichar "
            " -g  " SOURCE_FILES " main.c "
@@ -167,7 +168,7 @@ void compile_cake()
 #endif
 
 #ifdef BUILD_WINDOWS_TCC
-    mysytem(CC
+    result = mysytem(CC
                SOURCE_FILES " main.c "
 
 #if defined DEBUG
@@ -181,6 +182,8 @@ void compile_cake()
 #endif
                             " -o " OUTPUT);
 #endif
+  printf("%d result\n", result);
+  if (result != 0) exit(result);
 }
 
 void generate_doc(const char *mdfilename, const char *outfile)
@@ -326,6 +329,7 @@ int main()
         printf("\n");
         printf(RED "TESTS FAILED " OUTPUT " exit code %d\n", test_result);
         printf(RESET);
+        return test_result;
     }
 #endif
 
