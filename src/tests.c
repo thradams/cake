@@ -2491,7 +2491,7 @@ void use_after_destroy()
         "} \n"
         "\n"
         "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "\n"
         "";
 
@@ -2594,7 +2594,7 @@ void using_uninitialized()
         "} \n"
         "\n"
         "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "\n"
         "";
     assert(compile_without_errors_warnings(true, false, source));
@@ -3176,12 +3176,9 @@ void out_parameter()
         "\n"
         "int main() {\n"
         "    struct X x;\n"
-        "    init(&x);\n"
+        "    init(&x);\n" //assume it is initialized
         "    free(x.s);\n"
-        "}\n"
-        "void dummy() {}\n"
-        "\n"
-        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"";
+        "}\n";
 
 
     assert(compile_without_errors_warnings(true, false, source));
