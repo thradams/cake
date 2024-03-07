@@ -14,7 +14,7 @@ define("vs/basic-languages/cpp/cpp", ["require", "require"], (require) => {
             keywords: [
 
                 //cake extensions
-                "owner", "_Owner", "out", "_Out", "assert", "_Generic", "view", "_View", "obj_owner", "_Obj_owner", 
+                "owner", "_Owner", "out", "_Out", "opt", "_Opt", "assert", "_Generic", "view", "_View", "obj_owner", "_Obj_owner", 
                 "static_debug", "static_state", "static_set",
                 "defer",
                 //cake extensions
