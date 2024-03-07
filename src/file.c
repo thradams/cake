@@ -1,34 +1,52 @@
 
-char* _Owner strdup(const char* s);
-void* _Owner malloc(unsigned size);
-void free(void* _Owner ptr);
-struct X {
-    char* _Owner name;
-};
 
-void x_destroy(struct X* _Obj_owner p)
+
+/*function sample*/
+extern int func(void);
+auto p_func = func;
+const auto pc_func = func;
+
+/*using auto inside a macro*/
+#define SWAP(a, b)   do {    auto temp = a; a = b; b = temp;   } while (0)
+
+#pragma expand SWAP
+
+void f()
 {
-    free(p->name);
+    int a = 1;
+    int b = 2;
+    SWAP(a, b);
 }
 
-void x_print(struct X* p)
+auto literal_string = "hello auto";
+
+struct { int i; } x;
+auto x2 = x;
+
+auto bb = true;
+auto pnull = nullptr;
+
+/*arrays*/
+int a5[5];
+auto a = a5; /*lvalue*/
+
+auto pa = &a5;
+
+const auto cpa = &a5;
+
+void f2(int a[2])
 {
-    //printf("%s", p->name);
+    auto p = a;
 }
+
 
 int main()
 {
-    struct X x = { 0 };
-    x.name = strdup("a");
-    x_destroy(&x);
-    x_print(&x);
+    double const x = 78.9;
+    double y = 78.9;
+    auto q = x;
+    auto const p = &x;
+    auto const r = &y;
 }
 
-
-void dummy()
-{
-}
-
-//flow analyze
-#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
 

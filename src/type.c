@@ -2276,6 +2276,10 @@ int type_get_sizeof(const struct type* p_type)
         {
             size = 1;
         }
+        else if (p_type->type_specifier_flags == TYPE_SPECIFIER_NULLPTR_T)
+        {
+            size = sizeof(void*);
+        }
         else
         {
             assert(false);
