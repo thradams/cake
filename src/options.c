@@ -102,7 +102,7 @@ unsigned long long  get_warning_bit_mask(const char* wname)
     {
         if (strncmp(s_warnings[j].name, wname, strlen(s_warnings[j].name)) == 0)
         {
-            return (1ULL << s_warnings[j].w);
+            return (1ULL << ((unsigned long long)s_warnings[j].w));
         }
     }
     return 0;
@@ -316,7 +316,7 @@ int fill_options(struct options* options,
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
-            enum diagnostic_id  w = 0;
+            unsigned long long w = 0;
 
             if (disable_warning)
                 w = get_warning_bit_mask(argv[i] + 5);
