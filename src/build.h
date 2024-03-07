@@ -6,99 +6,115 @@
 
 #ifdef _WIN32
 
-    #include <Windows.h>
-    #include <direct.h>
-    #include <sys/types.h>
-    #include <sys/stat.h>
+#include <Windows.h>
+#include <direct.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
-    #define rmdir _rmdir
-    #define mkdir(A, B)  _mkdir(A)
-    #define chdir  _chdir
+#define rmdir _rmdir
+#define mkdir(A, B)  _mkdir(A)
+#define chdir  _chdir
 
-    #define BUILD_WINDOWS
-    #define RUN ""
+#define BUILD_WINDOWS
+#define RUN ""
 
-    #if defined __clang__
+#if defined __clang__
 
-        #define BUILD_WINDOWS_CLANG
-        #define CC "clang "
-        #define OUT_OPT " -o "
-        #define CC_DESCRIPTION "clang windows"
+#define BUILD_WINDOWS_CLANG
+#define CC "clang "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION "clang windows"
 
-    #elif defined __GNUC__
+#elif defined __GNUC__
 
-        #define BUILD_WINDOWS_GCC
-        #define CC "gcc "
-        #define OUT_OPT " -o "
-        #define CC_DESCRIPTION "mingw"
+#define BUILD_WINDOWS_GCC
+#define CC "gcc "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION "mingw"
 
-    #elif defined __TINYC__
+#elif defined __TINYC__
 
-        #define BUILD_WINDOWS_TCC
-        #define CC "tcc "
-        #define OUT_OPT " -o "
-        #define CC_DESCRIPTION "tiny c compiler"
+#define BUILD_WINDOWS_TCC
+#define CC "tcc "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION "tiny c compiler"
 
-    #elif defined _MSC_VER
+#elif defined _MSC_VER
 
-        #define BUILD_WINDOWS_MSC
-        #define CC "cl "
-        #define OUT_OPT " -o "
-        #define CC_DESCRIPTION "msvc"
+#define BUILD_WINDOWS_MSC
+#define CC "cl "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION "msvc"
 
-    #else
+#else
 
-        #error unknown compiler for windows
+#error unknown compiler for windows
 
-    #endif
+#endif
 
 
 #elif __linux__
 
-    #include <sys/wait.h>
-    #include <sys/stat.h>
-    #include <unistd.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-    #define BUILD_LINUX
-    #define RUN "./"
+#define BUILD_LINUX
+#define RUN "./"
 
-    #if defined __clang__
+#if defined __clang__
 
-        #define BUILD_LINUX_CLANG
-        #define CC "clang "
-        #define OUT_OPT " -o "
-        #define CC_DESCRIPTION "clang linux"
+#define BUILD_LINUX_CLANG
+#define CC "clang "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION "clang linux"
 
-    #elif defined __GNUC__
+#elif defined __GNUC__
 
-        #define BUILD_LINUX_GCC
-        #define CC "gcc "
-        #define OUT_OPT " -o "
-        #define CC_DESCRIPTION "gcc"
+#define BUILD_LINUX_GCC
+#define CC "gcc "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION "gcc"
 
-    #else
+#else
 
-        #error unknown compiler for linux
+#error unknown compiler for linux
 
-    #endif
+#endif
 
-    int system_like(const char* command)
+int system_like(const char* command)
+{
+    int status;
+
+    // Execute the command
+    status = system(command);
+
+    // Check if the command executed successfully
+    if (status == -1)
     {
-        int test_result = system(command);
-        int stat = 0;
-        wait(&stat);
-        if (WIFEXITED(stat))
-        {
-            test_result = WEXITSTATUS(stat);
-        }
-        else if (WIFSIGNALED(stat))
-        {
-            test_result = WTERMSIG(stat);
-        }
-        return test_result;
+        perror("Error executing command");
+        return -1;
     }
+    else
+    {
+        // Wait for the command to finish
+        while (wait(&status) > 0);
 
-    #define system system_like
+        // Check the exit status of the command
+        if (WIFEXITED(status))
+        {
+            // Command exited normally
+            return WEXITSTATUS(status);
+        }
+        else
+        {
+            // Command exited abnormally
+            return -1;
+        }
+    }
+}
+
+#define system system_like
 #else
 
 #error Unknown Platform
