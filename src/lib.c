@@ -2268,9 +2268,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2287,9 +2284,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -9983,7 +9977,7 @@ unsigned long long  get_warning_bit_mask(const char* wname)
     {
         if (strncmp(s_warnings[j].name, wname, strlen(s_warnings[j].name)) == 0)
         {
-            return (1ULL << s_warnings[j].w);
+            return (1ULL << ((unsigned long long)s_warnings[j].w));
         }
     }
     return 0;
@@ -10197,7 +10191,7 @@ int fill_options(struct options* options,
             }
             const bool disable_warning = (argv[i][2] == 'n' && argv[i][3] == 'o');
 
-            enum diagnostic_id  w = 0;
+            unsigned long long w = 0;
 
             if (disable_warning)
                 w = get_warning_bit_mask(argv[i] + 5);
@@ -13544,9 +13538,8 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
         return &p_expression->declarator->object;
     }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
-    {
-        struct object temp_obj = { 0 };
-        struct object* p_obj = expression_get_object(p_expression->right, &temp_obj);
+    {        
+        struct object* p_obj = expression_get_object(p_expression->right, p_object);
         if (p_obj)
         {
             return object_get_pointed_object(p_obj);
@@ -13614,6 +13607,7 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
     }
     else if (p_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
     {
+        static_set(*p_object, "zero");
         *p_object = make_object(&p_expression->type, NULL, p_expression);
         p_object->state = OBJECT_STATE_NOT_NULL;
         return p_object;

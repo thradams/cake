@@ -1275,6 +1275,7 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
     }
     else if (p_expression->expression_type == PRIMARY_EXPRESSION_STRING_LITERAL)
     {
+        static_set(*p_object, "zero");
         *p_object = make_object(&p_expression->type, NULL, p_expression);
         p_object->state = OBJECT_STATE_NOT_NULL;
         return p_object;
