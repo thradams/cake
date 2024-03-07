@@ -11463,7 +11463,7 @@ struct member_declaration_list
 };
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
-void member_declaration_list_destroy(struct member_declaration_list* obj_owner p);
+void member_declaration_list_destroy(const struct member_declaration_list* obj_owner p);
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
 
@@ -25383,6 +25383,11 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
 struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
+    /*
+      The way cake find the complete struct is using one pass.. for this task is uses double indirection.
+      Then the result will be there at end of first pass.
+      This crazy code finds the complete definition of the struct if exists. 
+    */
     if (p_struct_or_union_specifier == NULL)
         return NULL;
 
@@ -25662,7 +25667,7 @@ void member_declaration_list_destroy(struct member_declaration_list* obj_owner p
     }
 }
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration_list list = { 0 };
     //member_declaration
@@ -39656,7 +39661,7 @@ void union_size()
 
 void sizeof_union_test()
 {
-    const char* str
+    const char* source
         =
         "union X {\n"
         "    struct {\n"

@@ -3290,7 +3290,7 @@ void member_declaration_list_destroy(struct member_declaration_list* obj_owner p
     }
 }
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration_list list = { 0 };
     //member_declaration
