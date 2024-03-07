@@ -59,7 +59,7 @@ int main(int argc, char** argv)
     compile(argc, (const char**) argv, &report);
     print_report(&report, true);
 
-    return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+    return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS
     
 }
 #else
