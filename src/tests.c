@@ -3577,7 +3577,7 @@ void object_to_non_const()
 {
     const char* source
         =
-        "void free(void* _Owner p);\n"
+        "void free(void* _Owner _Opt p);\n"
         "struct X\n"
         "{\n"
         "    int i;\n"
@@ -3587,11 +3587,15 @@ void object_to_non_const()
         "int main()\n"
         "{\n"
         "    struct X x = { 0 };\n"
-        "    f(x);\n"
+        "    static_state(x.p, \"null\");\n"
+        "    f(&x); \n"
         "    static_state(x.p, \"maybe-null\");\n"
         "    free(x.p);\n"
-        "}";
-    assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
+        "}\n"
+        "";
+
+
+    assert(compile_without_errors_warnings(true, true /*nullcheck disabled*/, source));
 
 }
 void object_to_const()
@@ -3646,7 +3650,23 @@ void sizeof_union_test()
         "static_assert(sizeof(union X) == 16);";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
-
-
+void not_null_does_not_change()
+{
+    const char* source
+        =
+        "struct X { int i;  };\n"
+        "void f(struct X* p);\n"
+        "void f2(struct X* p);\n"
+        "\n"
+        "void delete(struct X* p)\n"
+        "{\n"
+        "    static_state(p, \"not-null\");\n"
+        "    f(p);\n"
+        "    static_state(p, \"not-null\");\n"
+        "    f2(p);\n"
+        "}\n"
+        "";
+    assert(compile_without_errors_warnings(true, true, source));
+}
 #endif
 

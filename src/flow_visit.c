@@ -1276,7 +1276,13 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                            we are passing a pointer to an non const object
                            everything can happen with this object
                         */
-                        object_set_unknown(&p_current_argument->expression->type, p_argument_object);
+                        struct type argument_type =
+                            type_remove_pointer(&p_current_argument->expression->type);
+
+                        struct object * pointed = object_get_pointed_object(p_argument_object);
+                        object_set_unknown(&argument_type, pointed);
+                        type_destroy(&argument_type);
+                        //object_set_unknown(&p_current_argument->expression->type, p_argument_object);
                     }
                 }
 
