@@ -230,7 +230,7 @@ struct token
     struct token* prev;
 };
 
-void token_delete( struct token* owner p);
+void token_delete( struct token* owner opt p);
 
 struct token_list
 {

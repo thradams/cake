@@ -2215,7 +2215,7 @@ struct declaration* owner declaration(struct parser_ctx* ctx,
 //declaration-specifier declaration-specifiers
 
 
-void declaration_specifier_delete(struct declaration_specifier* owner p)
+void declaration_specifier_delete(struct declaration_specifier* owner opt p)
 {
     if (p)
     {
@@ -2252,7 +2252,7 @@ struct declaration_specifier* owner declaration_specifier(struct parser_ctx* ctx
     return p_declaration_specifier;
 }
 
-void init_declarator_delete(struct init_declarator* owner p)
+void init_declarator_delete(struct init_declarator* owner opt p)
 {
     if (p)
     {
@@ -2606,7 +2606,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     return init_declarator_list;
 }
 
-void storage_class_specifier_delete(struct storage_class_specifier* owner p)
+void storage_class_specifier_delete(struct storage_class_specifier* owner opt p)
 {
     if (p)
     {
@@ -2763,7 +2763,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
     return p_typeof_specifier;
 }
 
-void typeof_specifier_argument_delete(struct typeof_specifier_argument* owner p)
+void typeof_specifier_argument_delete(struct typeof_specifier_argument* owner opt p)
 {
     if (p)
     {
@@ -2774,7 +2774,7 @@ void typeof_specifier_argument_delete(struct typeof_specifier_argument* owner p)
 
 }
 
-void typeof_specifier_delete(struct typeof_specifier* owner p)
+void typeof_specifier_delete(struct typeof_specifier* owner opt p)
 {
     if (p)
     {
@@ -2783,7 +2783,7 @@ void typeof_specifier_delete(struct typeof_specifier* owner p)
         free(p);
     }
 }
-void type_specifier_delete(struct type_specifier* owner p)
+void type_specifier_delete(struct type_specifier* owner opt p)
 {
     if (p)
     {
@@ -3042,7 +3042,7 @@ bool struct_or_union_specifier_is_complete(struct struct_or_union_specifier* p_s
         get_complete_struct_or_union_specifier(p_struct_or_union_specifier) != NULL;
 }
 
-void struct_or_union_specifier_delete(struct struct_or_union_specifier* owner p)
+void struct_or_union_specifier_delete(struct struct_or_union_specifier* owner opt p)
 {
     if (p)
     {
@@ -3236,7 +3236,7 @@ struct member_declarator* owner member_declarator(
     return p_member_declarator;
 }
 
-void member_declarator_delete(struct member_declarator* owner p)
+void member_declarator_delete(struct member_declarator* owner opt p)
 {
     if (p)
     {
@@ -3321,7 +3321,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
     return list;
 }
 
-void member_declaration_delete(struct member_declaration* owner p)
+void member_declaration_delete(struct member_declaration* owner opt p)
 {
     if (p)
     {
@@ -3450,7 +3450,7 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
 }
 
 
-void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner p)
+void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner opt p)
 {
     if (p)
     {
@@ -3554,7 +3554,7 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
     return p_specifier_qualifier_list;
 }
 
-void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner p)
+void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner opt p)
 {
     if (p)
     {
@@ -3597,7 +3597,7 @@ struct type_specifier_qualifier* owner type_specifier_qualifier(struct parser_ct
 }
 
 
-void enum_specifier_delete(struct enum_specifier* owner p)
+void enum_specifier_delete(struct enum_specifier* owner opt p)
 {
     if (p)
     {
@@ -3828,7 +3828,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
     return enumeratorlist;
 }
 
-void enumerator_delete(struct enumerator* owner p)
+void enumerator_delete(struct enumerator* owner opt p)
 {
     if (p)
     {
@@ -3875,7 +3875,7 @@ struct enumerator* owner enumerator(struct parser_ctx* ctx,
 }
 
 
-void alignment_specifier_delete(struct alignment_specifier* owner p)
+void alignment_specifier_delete(struct alignment_specifier* owner opt p)
 {
     if (p)
     {
@@ -3904,7 +3904,7 @@ struct alignment_specifier* owner alignment_specifier(struct parser_ctx* ctx)
 }
 
 
-void atomic_type_specifier_delete(struct atomic_type_specifier* owner p)
+void atomic_type_specifier_delete(struct atomic_type_specifier* owner opt p)
 {
     if (p)
     {
@@ -3992,7 +3992,7 @@ struct type_qualifier* owner type_qualifier_opt(struct parser_ctx* ctx)
 }
 
 
-void function_specifier_delete(struct function_specifier* owner p)
+void function_specifier_delete(struct function_specifier* owner opt p)
 {
     if (p)
     {
@@ -4024,7 +4024,7 @@ struct function_specifier* owner function_specifier(struct parser_ctx* ctx)
     return p_function_specifier;
 }
 
-void declarator_delete(struct declarator* owner p)
+void declarator_delete(struct declarator* owner opt p)
 {
     if (p)
     {
@@ -4088,7 +4088,7 @@ bool declarator_is_function(struct declarator* p_declarator)
 struct array_declarator* owner array_declarator(struct direct_declarator* owner p_direct_declarator, struct parser_ctx* ctx);
 struct function_declarator* owner function_declarator(struct direct_declarator* owner p_direct_declarator, struct parser_ctx* ctx);
 
-void function_declarator_delete(struct function_declarator* owner p)
+void function_declarator_delete(struct function_declarator* owner opt p)
 {
     if (p)
     {
@@ -4098,7 +4098,7 @@ void function_declarator_delete(struct function_declarator* owner p)
         free(p);
     }
 }
-void direct_declarator_delete(struct direct_declarator* owner p)
+void direct_declarator_delete(struct direct_declarator* owner opt p)
 {
     if (p)
     {
@@ -4191,7 +4191,7 @@ struct direct_declarator* owner direct_declarator(struct parser_ctx* ctx,
     return p_direct_declarator;
 }
 
-void array_declarator_delete(struct array_declarator* owner p)
+void array_declarator_delete(struct array_declarator* owner opt p)
 {
     if (p)
     {
@@ -4339,7 +4339,7 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
     return p_function_declarator;
 }
 
-void pointer_delete(struct pointer* owner p)
+void pointer_delete(struct pointer* owner opt p)
 {
     if (p)
     {
@@ -4402,7 +4402,7 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
 }
 
 
-void type_qualifier_list_delete(struct type_qualifier_list* owner p)
+void type_qualifier_list_delete(struct type_qualifier_list* owner opt p)
 {
     if (p)
     {
@@ -4456,7 +4456,7 @@ struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
     return p_type_qualifier_list;
 }
 
-void parameter_type_list_delete(struct parameter_type_list* owner p)
+void parameter_type_list_delete(struct parameter_type_list* owner opt p)
 {
     if (p)
     {
@@ -4550,7 +4550,7 @@ struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
 }
 
 
-void parameter_declaration_delete(struct parameter_declaration* owner p)
+void parameter_declaration_delete(struct parameter_declaration* owner opt p)
 {
     if (p)
     {
@@ -4755,7 +4755,7 @@ void print_type_name(struct osstream* ss, struct type_name* p)
     print_declarator(ss, p->declarator, true);
 }
 
-void type_name_delete(struct type_name* owner p)
+void type_name_delete(struct type_name* owner opt p)
 {
     if (p)
     {
@@ -4819,7 +4819,7 @@ struct braced_initializer* owner braced_initializer(struct parser_ctx* ctx)
 }
 
 
-void initializer_delete(struct initializer* owner p)
+void initializer_delete(struct initializer* owner opt p)
 {
     if (p)
     {
@@ -4859,7 +4859,7 @@ struct initializer* owner initializer(struct parser_ctx* ctx)
 }
 
 
-void initializer_list_delete(struct initializer_list* owner p)
+void initializer_list_delete(struct initializer_list* owner opt p)
 {
     if (p)
     {
@@ -4924,7 +4924,7 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
 }
 
 
-void designation_delete(struct designation* owner p)
+void designation_delete(struct designation* owner opt p)
 {
     if (p)
     {
@@ -4941,7 +4941,7 @@ struct designation* owner designation(struct parser_ctx* ctx)
     return p_designation;
 }
 
-void designator_list_delete(struct designator_list* owner p)
+void designator_list_delete(struct designator_list* owner opt p)
 {
     if (p)
     {
@@ -4988,7 +4988,7 @@ struct designator_list* owner designator_list(struct parser_ctx* ctx)
 }
 
 
-void designator_delete(struct designator* owner p)
+void designator_delete(struct designator* owner opt p)
 {
     if (p)
     {
@@ -5018,7 +5018,7 @@ struct designator* owner designator(struct parser_ctx* ctx)
 }
 
 
-void static_assert_declaration_delete(struct static_assert_declaration* owner p)
+void static_assert_declaration_delete(struct static_assert_declaration* owner opt p)
 {
     if (p)
     {
@@ -5097,7 +5097,7 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
     return p_static_assert_declaration;
 }
 
-void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner p)
+void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner opt p)
 {
     if (p)
     {
@@ -5153,7 +5153,7 @@ struct attribute_specifier_sequence* owner attribute_specifier_sequence(struct p
 }
 
 
-void attribute_specifier_delete(struct attribute_specifier* owner p)
+void attribute_specifier_delete(struct attribute_specifier* owner opt p)
 {
     if (p)
     {
@@ -5180,7 +5180,7 @@ struct attribute_specifier* owner attribute_specifier(struct parser_ctx* ctx)
 }
 
 
-void attribute_delete(struct attribute* owner p)
+void attribute_delete(struct attribute* owner opt p)
 {
     if (p)
     {
@@ -5246,7 +5246,7 @@ struct attribute* owner attribute(struct parser_ctx* ctx)
 }
 
 
-void attribute_token_delete(struct attribute_token* owner p)
+void attribute_token_delete(struct attribute_token* owner opt p)
 {
     if (p)
     {
@@ -5339,7 +5339,7 @@ struct attribute_token* owner attribute_token(struct parser_ctx* ctx)
 }
 
 
-void attribute_argument_clause_delete(struct attribute_argument_clause* owner p)
+void attribute_argument_clause_delete(struct attribute_argument_clause* owner opt p)
 {
     if (p)
     {
@@ -5358,7 +5358,7 @@ struct attribute_argument_clause* owner attribute_argument_clause(struct parser_
 }
 
 
-void balanced_token_sequence_delete(struct balanced_token_sequence* owner p)
+void balanced_token_sequence_delete(struct balanced_token_sequence* owner opt p)
 {
     if (p)
     {
@@ -5416,7 +5416,7 @@ struct balanced_token_sequence* owner balanced_token_sequence_opt(struct parser_
     return p_balanced_token_sequence;
 }
 
-void statement_delete(struct statement* owner p)
+void statement_delete(struct statement* owner opt p)
 {
     if (p)
     {
@@ -5497,7 +5497,7 @@ void secondary_block_delete(struct secondary_block* owner opt p)
         free(p);
     }
 }
-void primary_block_delete(struct primary_block* owner p)
+void primary_block_delete(struct primary_block* owner opt p)
 {
     if (p)
     {
@@ -5523,7 +5523,7 @@ bool first_of_primary_block(struct parser_ctx* ctx)
     return false;
 }
 
-void unlabeled_statement_delete(struct unlabeled_statement* owner p)
+void unlabeled_statement_delete(struct unlabeled_statement* owner opt p)
 {
     if (p)
     {
@@ -5639,7 +5639,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
     return p_unlabeled_statement;
 }
 
-void label_delete(struct label* owner p)
+void label_delete(struct label* owner opt p)
 {
     if (p)
     {
@@ -5673,7 +5673,7 @@ struct label* owner label(struct parser_ctx* ctx)
     return p_label;
 }
 
-void labeled_statement_delete(struct labeled_statement* owner p)
+void labeled_statement_delete(struct labeled_statement* owner opt p)
 {
     if (p)
     {
@@ -5691,7 +5691,7 @@ struct labeled_statement* owner labeled_statement(struct parser_ctx* ctx)
     return p_labeled_statement;
 }
 
-void compound_statement_delete(struct compound_statement* owner p)
+void compound_statement_delete(struct compound_statement* owner opt p)
 {
     if (p)
     {
@@ -5838,7 +5838,7 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error)
     return block_item_list;
 }
 
-void block_item_delete(struct block_item* owner p)
+void block_item_delete(struct block_item* owner opt p)
 {
     if (p)
     {
@@ -5967,7 +5967,7 @@ struct block_item* owner block_item(struct parser_ctx* ctx)
 }
 
 
-void try_statement_delete(struct try_statement* owner p)
+void try_statement_delete(struct try_statement* owner opt p)
 {
     if (p)
     {
@@ -6006,7 +6006,7 @@ struct try_statement* owner try_statement(struct parser_ctx* ctx)
     return p_try_statement;
 }
 
-void selection_statement_delete(struct selection_statement* owner p)
+void selection_statement_delete(struct selection_statement* owner opt p)
 {
     if (p)
     {
@@ -6142,7 +6142,7 @@ struct defer_statement* owner  defer_statement(struct parser_ctx* ctx)
     return p_defer_statement;
 }
 
-void iteration_statement_delete(struct iteration_statement* owner p)
+void iteration_statement_delete(struct iteration_statement* owner opt p)
 {
     if (p)
     {
@@ -6239,7 +6239,7 @@ struct iteration_statement* owner  iteration_statement(struct parser_ctx* ctx)
     return p_iteration_statement;
 }
 
-void jump_statement_delete(struct jump_statement* owner p)
+void jump_statement_delete(struct jump_statement* owner opt p)
 {
     if (p)
     {
@@ -6346,7 +6346,7 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
     return p_jump_statement;
 }
 
-void expression_statement_delete(struct expression_statement* owner p)
+void expression_statement_delete(struct expression_statement* owner opt p)
 {
     if (p)
     {
@@ -6402,7 +6402,7 @@ void declaration_list_add(struct declaration_list* list, struct declaration* own
     list->tail = p_declaration;
 }
 
-void declaration_delete(struct declaration* owner p)
+void declaration_delete(struct declaration* owner opt p)
 {
     if (p)
     {

@@ -14,7 +14,7 @@ struct defer_scope
 
     struct defer_scope* owner previous;
 };
-void defer_scope_delete(struct defer_scope * owner p);
+void defer_scope_delete(struct defer_scope * owner opt p);
 struct visit_ctx
 {
     /*

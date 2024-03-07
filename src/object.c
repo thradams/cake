@@ -25,7 +25,7 @@ void object_swap(struct object* a, struct object* b)
     *b = temp;
 }
 
-void object_delete(struct object* owner p)
+void object_delete(struct object* owner opt p)
 {
     if (p)
     {
