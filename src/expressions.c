@@ -1206,9 +1206,8 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
         return &p_expression->declarator->object;
     }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
-    {
-        struct object temp_obj = { 0 };
-        struct object* p_obj = expression_get_object(p_expression->right, &temp_obj);
+    {        
+        struct object* p_obj = expression_get_object(p_expression->right, p_object);
         if (p_obj)
         {
             return object_get_pointed_object(p_obj);
