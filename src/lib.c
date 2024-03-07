@@ -2268,6 +2268,9 @@ void c_clrscr()
 #include <ctype.h>
 
 
+#include <sys/stat.h>
+
+
 #include <errno.h>
 
 
@@ -2284,6 +2287,9 @@ void c_clrscr()
 
 
 #include <direct.h>
+
+
+#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -11469,7 +11475,7 @@ struct member_declaration_list
     struct member_declaration* tail;
 };
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier*);
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
 void member_declaration_list_destroy( struct member_declaration_list* obj_owner p);
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
@@ -11899,7 +11905,7 @@ struct member_declarator_list
 };
 
 struct member_declarator_list* owner member_declarator_list(struct parser_ctx* ctx,
-    const struct struct_or_union_specifier*,
+    struct struct_or_union_specifier*, /*not const*/
     const struct specifier_qualifier_list* specifier_qualifier_list
 );
 void member_declarator_list_delete(struct member_declarator_list* owner opt p);
@@ -21827,7 +21833,7 @@ void object_get_name(const struct type* p_type,
     else if (p_object->p_expression_origin)
     {
         const char* root_name = "expresion";//p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
-        struct object* root = p_object;//->declarator->object;
+        const struct object* root = p_object;//->declarator->object;
 
         object_get_name_core(p_type, root, p_object, root_name, outname, out_size);
     }
@@ -22460,7 +22466,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.12"
+#define CAKE_VERSION "0.7.13"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
@@ -25684,7 +25690,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
 
 struct member_declarator* owner member_declarator(
     struct parser_ctx* ctx,
-    struct struct_or_union_specifier* p_struct_or_union_specifier,
+    struct struct_or_union_specifier* p_struct_or_union_specifier, /*not const*/
     const struct specifier_qualifier_list* p_specifier_qualifier_list
 )
 {
@@ -25749,7 +25755,7 @@ void member_declarator_list_delete(struct member_declarator_list* owner opt p)
 }
 struct member_declarator_list* owner member_declarator_list(
     struct parser_ctx* ctx,
-    const struct struct_or_union_specifier* p_struct_or_union_specifier,
+    struct struct_or_union_specifier* p_struct_or_union_specifier,
     const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* owner p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
@@ -25775,7 +25781,7 @@ void member_declaration_list_destroy(struct member_declaration_list* obj_owner p
     }
 }
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration_list list = { 0 };
     //member_declaration

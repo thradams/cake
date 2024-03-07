@@ -1339,7 +1339,7 @@ void object_get_name(const struct type* p_type,
     else if (p_object->p_expression_origin)
     {
         const char* root_name = "expresion";//p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
-        struct object* root = p_object;//->declarator->object;
+        const struct object* root = p_object;//->declarator->object;
 
         object_get_name_core(p_type, root, p_object, root_name, outname, out_size);
     }

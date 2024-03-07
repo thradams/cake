@@ -441,7 +441,7 @@ struct member_declaration_list
     struct member_declaration* tail;
 };
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, const struct struct_or_union_specifier*);
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
 void member_declaration_list_destroy( struct member_declaration_list* obj_owner p);
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
@@ -871,7 +871,7 @@ struct member_declarator_list
 };
 
 struct member_declarator_list* owner member_declarator_list(struct parser_ctx* ctx,
-    const struct struct_or_union_specifier*,
+    struct struct_or_union_specifier*, /*not const*/
     const struct specifier_qualifier_list* specifier_qualifier_list
 );
 void member_declarator_list_delete(struct member_declarator_list* owner opt p);
