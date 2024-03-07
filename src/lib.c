@@ -11018,9 +11018,9 @@ void set_object(
 
 enum assigment_type
 {
-    assigment_type_return,
-    assigment_type_parameter,
-    assigment_type_objects,
+    ASSIGMENT_TYPE_RETURN,
+    ASSIGMENT_TYPE_PARAMETER,
+    ASSIGMENT_TYPE_OBJECTS,
 };
 
 void object_assignment(struct parser_ctx* ctx,
@@ -33701,7 +33701,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 p_current_argument->expression->first_token,
                 bool_source_zero_value,
                 OBJECT_STATE_UNINITIALIZED,
-                assigment_type_parameter);
+                ASSIGMENT_TYPE_PARAMETER);
         }
         else
         {
@@ -34103,7 +34103,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 p_expression->left->first_token,
                 bool_source_zero_value,
                 OBJECT_STATE_MOVED,
-                assigment_type_objects);
+                ASSIGMENT_TYPE_OBJECTS);
 
             
             object_destroy(&temp_obj1);
@@ -34446,7 +34446,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 p_jump_statement->expression_opt->first_token,
                 bool_source_zero_value,
                 OBJECT_STATE_UNINITIALIZED,
-                assigment_type_return);
+                ASSIGMENT_TYPE_RETURN);
 
             
             object_destroy(&temp_obj);
@@ -34943,7 +34943,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                             token_position,
                             bool_source_zero_value,
                             OBJECT_STATE_MOVED,
-                            assigment_type_objects);
+                            ASSIGMENT_TYPE_OBJECTS);
                     }
                 }
                 else
@@ -34962,7 +34962,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                         token_position,
                         bool_source_zero_value,
                         OBJECT_STATE_MOVED,
-                        assigment_type_objects);
+                        ASSIGMENT_TYPE_OBJECTS);
                 }
 
                 object_destroy(&temp_obj);

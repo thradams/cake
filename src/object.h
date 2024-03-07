@@ -118,9 +118,9 @@ void set_object(
 
 enum assigment_type
 {
-    assigment_type_return,
-    assigment_type_parameter,
-    assigment_type_objects,
+    ASSIGMENT_TYPE_RETURN,
+    ASSIGMENT_TYPE_PARAMETER,
+    ASSIGMENT_TYPE_OBJECTS,
 };
 
 void object_assignment(struct parser_ctx* ctx,
