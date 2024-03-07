@@ -2268,6 +2268,9 @@ void c_clrscr()
 #include <ctype.h>
 
 
+#include <sys/stat.h>
+
+
 #include <errno.h>
 
 
@@ -2284,6 +2287,9 @@ void c_clrscr()
 
 
 #include <direct.h>
+
+
+#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -39671,10 +39677,7 @@ void sizeof_union_test()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
-void test_fail()
-{
-    assert(0);
-}
+
 #endif
 
 

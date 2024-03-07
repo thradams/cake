@@ -18,6 +18,11 @@
 #define BUILD_WINDOWS
 #define RUN ""
 
+int system_like(const char* command)
+{
+    return system(command);
+}
+
 #if defined __clang__
 
 #define BUILD_WINDOWS_CLANG
