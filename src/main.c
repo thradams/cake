@@ -64,7 +64,7 @@ int main(int argc, char** argv)
 }
 #else
 #include "unit_test.c"
-
+#define CURRENT_NUMBER_OF_FAILING_TEST 14
 int main(int argc, char** argv)
 {
 
@@ -73,7 +73,7 @@ int main(int argc, char** argv)
     test_main();
     printf("%d tests failed, %d tests passed\n", g_unit_test_error_count, g_unit_test_success_count);
 
-
+    return g_unit_test_error_count > CURRENT_NUMBER_OF_FAILING_TEST ? EXIT_FAILURE : EXIT_SUCCESS;
 }
 #endif
 
