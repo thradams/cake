@@ -2270,6 +2270,9 @@ void c_clrscr()
 #include <ctype.h>
 
 
+#include <sys/stat.h>
+
+
 #include <errno.h>
 
 
@@ -2286,6 +2289,9 @@ void c_clrscr()
 
 
 #include <direct.h>
+
+
+#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -11920,7 +11926,8 @@ struct member_declaration
 
 };
 
-struct member_declaration* owner member_declaration(struct parser_ctx* ctx,  struct struct_or_union_specifier*);
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx, 
+ struct struct_or_union_specifier*);
 void member_declaration_delete(struct member_declaration* owner opt p);
 
 struct member_declarator
