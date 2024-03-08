@@ -1281,8 +1281,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
                         struct object * pointed = object_get_pointed_object(p_argument_object);
                         object_set_unknown(&argument_type, pointed);
-                        type_destroy(&argument_type);
-                        //object_set_unknown(&p_current_argument->expression->type, p_argument_object);
+                        type_destroy(&argument_type);                        
                     }
                 }
 
@@ -1653,7 +1652,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     bool_source_zero_value = true;
                 }
             }
-
+   
             object_assignment(ctx->ctx,
                 p_right_object, /*source*/
                 &p_expression->right->type, /*source type*/
@@ -1942,6 +1941,16 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
         flow_visit_ctx_pop_tail_block(ctx);
     }
+    
+    /*we visit again*/
+    if (p_iteration_statement->secondary_block)
+    {
+        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        p_defer->p_iteration_statement = p_iteration_statement;
+        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+        check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+        flow_visit_ctx_pop_tail_block(ctx);
+    }
 }
 
 
@@ -2198,6 +2207,11 @@ enum object_state parse_string_state(const char* s, bool* invalid)
 
 }
 
+
+static void flow_visit_pragma_declaration(struct flow_visit_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
+{
+    execute_pragma(ctx->ctx, p_pragma_declaration, true);
+}
 
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
@@ -2810,6 +2824,11 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     if (p_declaration->static_assert_declaration)
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
+    }
+    
+    if (p_declaration->pragma_declaration)
+    {
+        flow_visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
     }
 
 

@@ -156,7 +156,7 @@ enum diagnostic_id {
 };
 
 
-
+int get_diagnostic_phase(enum diagnostic_id w);
 
 enum style
 {

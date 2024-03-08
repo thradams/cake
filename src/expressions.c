@@ -67,8 +67,7 @@ double constant_value_to_double(const struct constant_value* a)
 
 bool constant_value_is_valid(const struct constant_value* a)
 {
-    return a->type != TYPE_NOT_CONSTANT &&
-        a->type != TYPE_EMPTY;
+    return a->type != TYPE_NOT_CONSTANT;
 }
 
 void constant_value_to_string(const struct constant_value* a, char buffer[], int sz)
@@ -135,7 +134,7 @@ struct constant_value constant_value_cast(const struct constant_value* a, enum c
 {
     struct constant_value r = *a;
 
-    if (a->type == TYPE_EMPTY || a->type == TYPE_NOT_CONSTANT)
+    if (a->type == TYPE_NOT_CONSTANT)
     {
         return r;
     }
@@ -143,9 +142,6 @@ struct constant_value constant_value_cast(const struct constant_value* a, enum c
     switch (type)
     {
         case TYPE_NOT_CONSTANT:
-        case TYPE_EMPTY:
-            assert(false);
-            break;
 
         case TYPE_LONG_LONG:
             r.type = TYPE_LONG_LONG;
@@ -2680,9 +2676,7 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
             }
             else
             {
-                type_destroy(&p_expression_node->type);
-                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
-                p_expression_node->constant_value.type = TYPE_EMPTY;
+                compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "expected expression");                
             }
         }
         else if (is_first_of_unary_expression(ctx))
@@ -3252,23 +3246,7 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
 {
     assert(op == '==' || op == '!=');
     result->constant_value =
-        constant_value_op(&left->constant_value, &right->constant_value, op);
-
-
-    if (left->constant_value.type == TYPE_EMPTY ||
-        right->constant_value.type == TYPE_EMPTY)
-    {
-        if (op == '==')
-        {
-            result->constant_value =
-                make_constant_value_ll(type_is_same(&left->type, &right->type, true), disabled);
-        }
-        else
-        {
-            result->constant_value =
-                make_constant_value_ll(!type_is_same(&left->type, &right->type, true), disabled);
-        }
-    }
+        constant_value_op(&left->constant_value, &right->constant_value, op);    
 }
 
 struct expression* owner equality_expression(struct parser_ctx* ctx)

@@ -155,7 +155,6 @@ void generic_selection_delete(struct generic_selection * owner opt p);
 
 enum constant_value_type {
     TYPE_NOT_CONSTANT,
-    TYPE_EMPTY,
     TYPE_LONG_LONG,
     TYPE_DOUBLE,
     TYPE_UNSIGNED_LONG_LONG

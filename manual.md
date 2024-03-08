@@ -1603,49 +1603,6 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 
 ```
 
-
-###  Extension type-expression
-
-
-Syntax:
-
-``` 
-  cast-expression:
-    unary-expression
-    ( type-name ) cast-expression
-    ( type-name ) //<- creates a type expression
-```
-
-Type expression can be used with == and != operators. The result is as if the type where compared and the values ignored.
-
-Sample
-
-```c
-    int a[2];
-    static_assert( a == (int[2]) );
-
-    /* is array of ints? */    
-    static_assert( _is_array(a) && a[0] == (int) );
-```
-
-Making operator ? be decided in compile time, this also could be an alternative to _Generic.
-  
-```c
-
-int main()
-{
-    int a;
-    
-    int t1 = 
-       a == (int) ? 1 : a == (double) ? 2 : 0;
-    
-    int t2 = 
-       _Generic(a, int: 1, double: 2, default: 0);
-
-    typeof( 1 ? (int) : (double)) b;
-}
-```
-
 ### Extension - Ownership checks
 
 See [ownership](ownership.html)

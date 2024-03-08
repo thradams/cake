@@ -275,6 +275,7 @@ enum token_type
     TK_TILDE = '~',
     TK_PREPROCESSOR_LINE,
     TK_PRAGMA,
+    TK_PRAGMA_END, /*marks the end of pragma internal usage*/
     TK_STRING_LITERAL,
     TK_CHAR_CONSTANT,    
     TK_LINE_COMMENT,
@@ -516,6 +517,7 @@ do {\
         (list)->tail = pitem;\
     } else \
     {\
+        assert((list)->tail->next == NULL);\
         (list)->tail->next = pitem;\
         (list)->tail = pitem;\
     }\
@@ -698,7 +700,7 @@ enum diagnostic_id {
 };
 
 
-
+int get_diagnostic_phase(enum diagnostic_id w);
 
 enum style
 {
@@ -5466,6 +5468,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
             r.tail->type = TK_PRAGMA;
+            r.tail->flags |= TK_FLAG_FINAL;
             skip_blanks_level(ctx, &r, input_list, level);
 
             if (input_list->head->type == TK_IDENTIFIER)
@@ -5473,6 +5476,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (strcmp(input_list->head->lexeme, "CAKE") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
+                    r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
                 }
 
@@ -5480,6 +5484,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*) 1, 0);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+                    r.tail->flags |= TK_FLAG_FINAL;
                 }
                 else if (input_list->head && strcmp(input_list->head->lexeme, "dir") == 0)
                 {
@@ -5489,10 +5494,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
                     include_dir_add(&ctx->include_dir, path);
                     match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//pragma
+                    r.tail->flags |= TK_FLAG_FINAL;
                 }
                 else if (input_list->head && strcmp(input_list->head->lexeme, "expand") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+                    r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
 
                     struct macro* macro = find_macro(ctx, input_list->head->lexeme);
@@ -5506,6 +5513,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 else if (input_list->head && strcmp(input_list->head->lexeme, "nullchecks") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
+                    r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
                     ctx->options.null_checks = true;
                 }
@@ -5513,11 +5521,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (input_list->head && strcmp(input_list->head->lexeme, "diagnostic") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                    r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
 
                     if (input_list->head && strcmp(input_list->head->lexeme, "push") == 0)
                     {
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                        r.tail->flags |= TK_FLAG_FINAL;
                         //#pragma GCC diagnostic push
                         if (ctx->options.diagnostic_stack_top_index <
                             sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
@@ -5532,6 +5542,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     {
                         //#pragma GCC diagnostic pop
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pop
+                        r.tail->flags |= TK_FLAG_FINAL;
                         if (ctx->options.diagnostic_stack_top_index > 0)
                         {
                             ctx->options.diagnostic_stack_top_index--;
@@ -5542,11 +5553,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         //#pragma CAKE diagnostic warning "-Wenum-compare"
 
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
+                        r.tail->flags |= TK_FLAG_FINAL;
                         skip_blanks_level(ctx, &r, input_list, level);
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
                             match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
+                            r.tail->flags |= TK_FLAG_FINAL;
 
                             unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
                             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
@@ -5557,6 +5570,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         //#pragma CAKE diagnostic ignore "-Wenum-compare"
 
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//ignore
+                        r.tail->flags |= TK_FLAG_FINAL;
                         skip_blanks_level(ctx, &r, input_list, level);
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
@@ -5571,6 +5585,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
+            r.tail->type = TK_PRAGMA_END;
+            r.tail->flags |= TK_FLAG_FINAL;
             token_list_destroy(&r7);
         }
     }
@@ -9963,6 +9979,21 @@ int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 
 }
 
+int get_diagnostic_phase(enum diagnostic_id w)
+{
+    switch (w)
+    {
+        case W_OWNERSHIP_FLOW_MISSING_DTOR:
+        case W_OWNERSHIP_FLOW_UNINITIALIZED:
+        case W_OWNERSHIP_FLOW_MOVED:
+        case W_OWNERSHIP_FLOW_NULL_DEREFERENCE:
+        case W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
+            return 2; /*returns 2 if it flow analysis*/
+    }
+    return 0;
+}
+
+
 enum diagnostic_id  get_warning(const char* wname)
 {
 
@@ -10814,7 +10845,6 @@ void generic_selection_delete(struct generic_selection * owner opt p);
 
 enum constant_value_type {
     TYPE_NOT_CONSTANT,
-    TYPE_EMPTY,
     TYPE_LONG_LONG,
     TYPE_DOUBLE,
     TYPE_UNSIGNED_LONG_LONG
@@ -11230,8 +11260,22 @@ struct static_assert_declaration
     struct token* string_literal_opt;
 };
 struct static_assert_declaration* owner static_assert_declaration(struct parser_ctx* ctx);
-void static_assert_declaration_delete(struct static_assert_declaration* owner p);
+void static_assert_declaration_delete(struct static_assert_declaration* owner opt p);
 
+/*
+  extension, pragma survives the preprocessor and become
+  a pragma_declaration that can be used on the AST visit
+*/
+
+struct pragma_declaration {
+    struct token* first_token;
+    struct token* last_token;    
+};
+
+struct pragma_declaration* owner pragma_declaration(struct parser_ctx* ctx);
+void pragma_declaration_delete(struct pragma_declaration* owner opt p);
+
+void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis);
 
 struct attribute_specifier_sequence
 {
@@ -11389,6 +11433,7 @@ struct declaration
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
 
     struct static_assert_declaration* owner static_assert_declaration;
+    struct pragma_declaration* owner pragma_declaration;
 
 
     struct declaration_specifiers* owner declaration_specifiers;
@@ -12405,8 +12450,7 @@ double constant_value_to_double(const struct constant_value* a)
 
 bool constant_value_is_valid(const struct constant_value* a)
 {
-    return a->type != TYPE_NOT_CONSTANT &&
-        a->type != TYPE_EMPTY;
+    return a->type != TYPE_NOT_CONSTANT;
 }
 
 void constant_value_to_string(const struct constant_value* a, char buffer[], int sz)
@@ -12473,7 +12517,7 @@ struct constant_value constant_value_cast(const struct constant_value* a, enum c
 {
     struct constant_value r = *a;
 
-    if (a->type == TYPE_EMPTY || a->type == TYPE_NOT_CONSTANT)
+    if (a->type == TYPE_NOT_CONSTANT)
     {
         return r;
     }
@@ -12481,9 +12525,6 @@ struct constant_value constant_value_cast(const struct constant_value* a, enum c
     switch (type)
     {
         case TYPE_NOT_CONSTANT:
-        case TYPE_EMPTY:
-            assert(false);
-            break;
 
         case TYPE_LONG_LONG:
             r.type = TYPE_LONG_LONG;
@@ -15018,9 +15059,7 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
             }
             else
             {
-                type_destroy(&p_expression_node->type);
-                p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
-                p_expression_node->constant_value.type = TYPE_EMPTY;
+                compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "expected expression");                
             }
         }
         else if (is_first_of_unary_expression(ctx))
@@ -15590,23 +15629,7 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
 {
     assert(op == '==' || op == '!=');
     result->constant_value =
-        constant_value_op(&left->constant_value, &right->constant_value, op);
-
-
-    if (left->constant_value.type == TYPE_EMPTY ||
-        right->constant_value.type == TYPE_EMPTY)
-    {
-        if (op == '==')
-        {
-            result->constant_value =
-                make_constant_value_ll(type_is_same(&left->type, &right->type, true), disabled);
-        }
-        else
-        {
-            result->constant_value =
-                make_constant_value_ll(!type_is_same(&left->type, &right->type, true), disabled);
-        }
-    }
+        constant_value_op(&left->constant_value, &right->constant_value, op);    
 }
 
 struct expression* owner equality_expression(struct parser_ctx* ctx)
@@ -21255,14 +21278,14 @@ void set_object_state(
             p_object->state = p_object_source->state & ~OBJECT_STATE_MOVED;
         }
 
-        
+
         if (object_get_pointed_object(p_object))
         {
             struct type t2 = type_remove_pointer(p_type);
             if (object_get_pointed_object(p_object_source))
             {
                 set_object_state(ctx, &t2, object_get_pointed_object(p_object),
-                    p_source_type, 
+                    p_source_type,
                     object_get_pointed_object(p_object_source), error_position);
             }
             else
@@ -22279,26 +22302,79 @@ void object_assignment(struct parser_ctx* ctx,
     struct type* p_dest_obj_type,
 
     const struct token* error_position,
-    bool bool_source_zero_value,
+    bool bool_source_zero_value, //TODO can be removed
     enum object_state source_state_after,
     enum assigment_type assigment_type)
 {
-    if (p_dest_obj_opt)
+
+    if (assigment_type == ASSIGMENT_TYPE_RETURN)
     {
-        if (type_is_any_owner(p_source_obj_type) &&
-            type_is_owner(p_dest_obj_type) &&
-            !type_is_out(p_dest_obj_type))
+        /*
+           We cannot return uninitialized objects.
+        */
+        if (p_source_obj_opt)
         {
-            char buffer[100] = { 0 };
-            object_get_name(p_dest_obj_type, p_dest_obj_opt, buffer, sizeof buffer);
-            visit_object(ctx,
-                p_dest_obj_type,
-                p_dest_obj_opt,
+            checked_read_object(ctx,
+                p_source_obj_type,
+                p_source_obj_opt,
                 error_position,
-                buffer,
-                true);
+                true /*checked pointed object*/);
+        }
+        else
+        {
+            //TODO should not happen
         }
     }
+
+    if (assigment_type == ASSIGMENT_TYPE_OBJECTS)
+    {
+        assert(p_dest_obj_type);
+        if (type_is_owner(p_dest_obj_type))
+        {
+            if (p_dest_obj_opt)
+            {
+                char buffer[100] = { 0 };
+                object_get_name(p_dest_obj_type, p_dest_obj_opt, buffer, sizeof buffer);
+                visit_object(ctx,
+                    p_dest_obj_type,
+                    p_dest_obj_opt,
+                    error_position,
+                    buffer,
+                    true);
+            }
+            else
+            {
+                /*TODO should not happen but it is happening*/
+            }
+        }
+    }
+
+    if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+    {
+        if (type_is_out(p_dest_obj_type))
+        {
+            /*object must be uninitialized*/
+        }
+        else
+        {
+            if (p_source_obj_opt)
+            {
+                char buffer[100] = { 0 };
+                object_get_name(p_source_obj_type, p_source_obj_opt, buffer, sizeof buffer);
+                visit_object(ctx,
+                    p_dest_obj_type,
+                    p_dest_obj_opt,
+                    error_position,
+                    buffer,
+                    true);
+            }
+            else
+            {
+                //TODO should not happen
+            }
+        }
+    }
+
 
 
     if (p_dest_obj_opt)
@@ -22466,7 +22542,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.13"
+#define CAKE_VERSION "0.7.14"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
@@ -23201,7 +23277,7 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
             struct init_declarator* p_init_declarator = p_entry->p;
-            return (struct declarator*) p_init_declarator->p_declarator;
+            return (struct declarator*)p_init_declarator->p_declarator;
         }
         else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
         {
@@ -23406,13 +23482,22 @@ bool first_of_declaration_specifier(struct parser_ctx* ctx)
         first_of_type_specifier_qualifier(ctx);
 }
 
+bool first_of_pragma_declaration(struct parser_ctx* ctx)
+{
+    if (ctx->current == NULL)
+        return false;
+
+    return
+        ctx->current->type == TK_PRAGMA;
+}
 
 bool first_of_static_assert_declaration(struct parser_ctx* ctx)
 {
     if (ctx->current == NULL)
         return false;
 
-    return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
+    return
+        ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
         ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
         ctx->current->type == TK_KEYWORD_STATIC_STATE ||
         ctx->current->type == TK_KEYWORD_STATIC_SET;
@@ -23467,162 +23552,162 @@ enum token_type is_keyword(const char* text)
     enum token_type result = 0;
     switch (text[0])
     {
-        case 'a':
-            if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-            else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
-            else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
-            else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
-            else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
-            break;
-        case 'b':
-            if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
-            else if (strcmp("bool", text) == 0) result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
+    case 'a':
+        if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+        else if (strcmp("auto", text) == 0) result = TK_KEYWORD_AUTO;
+        else if (strcmp("alignas", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
+        else if (strcmp("alignof", text) == 0) result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+        else if (strcmp("assert", text) == 0) result = TK_KEYWORD_ASSERT; /*extension*/
+        break;
+    case 'b':
+        if (strcmp("break", text) == 0) result = TK_KEYWORD_BREAK;
+        else if (strcmp("bool", text) == 0) result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
 
-            break;
-        case 'c':
-            if (strcmp("case", text) == 0) result = TK_KEYWORD_CASE;
-            else if (strcmp("char", text) == 0) result = TK_KEYWORD_CHAR;
-            else if (strcmp("const", text) == 0) result = TK_KEYWORD_CONST;
-            else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;
-            else if (strcmp("continue", text) == 0) result = TK_KEYWORD_CONTINUE;
-            else if (strcmp("catch", text) == 0) result = TK_KEYWORD_CATCH;
-            break;
-        case 'd':
-            if (strcmp("default", text) == 0) result = TK_KEYWORD_DEFAULT;
-            else if (strcmp("do", text) == 0) result = TK_KEYWORD_DO;
-            else if (strcmp("defer", text) == 0) result = TK_KEYWORD_DEFER;
-            else if (strcmp("double", text) == 0) result = TK_KEYWORD_DOUBLE;
-            break;
-        case 'e':
-            if (strcmp("else", text) == 0) result = TK_KEYWORD_ELSE;
-            else if (strcmp("enum", text) == 0) result = TK_KEYWORD_ENUM;
-            else if (strcmp("extern", text) == 0) result = TK_KEYWORD_EXTERN;
-            break;
-        case 'f':
-            if (strcmp("float", text) == 0) result = TK_KEYWORD_FLOAT;
-            else if (strcmp("for", text) == 0) result = TK_KEYWORD_FOR;
-            else if (strcmp("false", text) == 0) result = TK_KEYWORD_FALSE;
-            break;
-        case 'g':
-            if (strcmp("goto", text) == 0) result = TK_KEYWORD_GOTO;
-            break;
-        case 'i':
-            if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
-            else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
-            else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
-            break;
-        case 'n':
-            if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
-            break;
-
-
-        case 'l':
-            if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
-            break;
-        case 'r':
-            if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
-            else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
-            else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
-
-            break;
-        case 's':
-            if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
-            else if (strcmp("signed", text) == 0) result = TK_KEYWORD_SIGNED;
-            else if (strcmp("sizeof", text) == 0) result = TK_KEYWORD_SIZEOF;
-            else if (strcmp("static", text) == 0) result = TK_KEYWORD_STATIC;
-            else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
-            else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
-            else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
-            else if (strcmp("static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
-            else if (strcmp("static_state", text) == 0) result = TK_KEYWORD_STATIC_STATE;
-            else if (strcmp("static_set", text) == 0) result = TK_KEYWORD_STATIC_SET;
-
-            break;
-        case 't':
-            if (strcmp("typedef", text) == 0) result = TK_KEYWORD_TYPEDEF;
-            else if (strcmp("typeof", text) == 0) result = TK_KEYWORD_TYPEOF; /*C23*/
-            else if (strcmp("typeof_unqual", text) == 0) result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
-            else if (strcmp("true", text) == 0) result = TK_KEYWORD_TRUE; /*C23*/
-            else if (strcmp("thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
-            else if (strcmp("try", text) == 0) result = TK_KEYWORD_TRY;
-            else if (strcmp("throw", text) == 0) result = TK_KEYWORD_THROW;
-            break;
-        case 'u':
-            if (strcmp("union", text) == 0) result = TK_KEYWORD_UNION;
-            else if (strcmp("unsigned", text) == 0) result = TK_KEYWORD_UNSIGNED;
-            break;
-        case 'v':
-            if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
-            else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
-
-            break;
-        case 'w':
-            if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
-            break;
-        case '_':
+        break;
+    case 'c':
+        if (strcmp("case", text) == 0) result = TK_KEYWORD_CASE;
+        else if (strcmp("char", text) == 0) result = TK_KEYWORD_CHAR;
+        else if (strcmp("const", text) == 0) result = TK_KEYWORD_CONST;
+        else if (strcmp("constexpr", text) == 0) result = TK_KEYWORD_CONSTEXPR;
+        else if (strcmp("continue", text) == 0) result = TK_KEYWORD_CONTINUE;
+        else if (strcmp("catch", text) == 0) result = TK_KEYWORD_CATCH;
+        break;
+    case 'd':
+        if (strcmp("default", text) == 0) result = TK_KEYWORD_DEFAULT;
+        else if (strcmp("do", text) == 0) result = TK_KEYWORD_DO;
+        else if (strcmp("defer", text) == 0) result = TK_KEYWORD_DEFER;
+        else if (strcmp("double", text) == 0) result = TK_KEYWORD_DOUBLE;
+        break;
+    case 'e':
+        if (strcmp("else", text) == 0) result = TK_KEYWORD_ELSE;
+        else if (strcmp("enum", text) == 0) result = TK_KEYWORD_ENUM;
+        else if (strcmp("extern", text) == 0) result = TK_KEYWORD_EXTERN;
+        break;
+    case 'f':
+        if (strcmp("float", text) == 0) result = TK_KEYWORD_FLOAT;
+        else if (strcmp("for", text) == 0) result = TK_KEYWORD_FOR;
+        else if (strcmp("false", text) == 0) result = TK_KEYWORD_FALSE;
+        break;
+    case 'g':
+        if (strcmp("goto", text) == 0) result = TK_KEYWORD_GOTO;
+        break;
+    case 'i':
+        if (strcmp("if", text) == 0) result = TK_KEYWORD_IF;
+        else if (strcmp("inline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("int", text) == 0) result = TK_KEYWORD_INT;
+        break;
+    case 'n':
+        if (strcmp("nullptr", text) == 0) result = TK_KEYWORD_NULLPTR;
+        break;
 
 
-            //begin microsoft
-            if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
-            else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
-            else if (strcmp("__int32", text) == 0) result = TK_KEYWORD__INT32;
-            else if (strcmp("__int64", text) == 0) result = TK_KEYWORD__INT64;
-            else if (strcmp("__forceinline", text) == 0) result = TK_KEYWORD_INLINE;
-            else if (strcmp("__inline", text) == 0) result = TK_KEYWORD_INLINE;
-            else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0) result = TK_KEYWORD__ASM;
-            else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-            //
-            //end microsoft
+    case 'l':
+        if (strcmp("long", text) == 0) result = TK_KEYWORD_LONG;
+        break;
+    case 'r':
+        if (strcmp("register", text) == 0) result = TK_KEYWORD_REGISTER;
+        else if (strcmp("restrict", text) == 0) result = TK_KEYWORD_RESTRICT;
+        else if (strcmp("return", text) == 0) result = TK_KEYWORD_RETURN;
 
-            /*ownership*/
-            else if (strcmp("_Out", text) == 0) result = TK_KEYWORD__OUT; /*extension*/
-            else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
-            else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
-            else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
-            else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
+        break;
+    case 's':
+        if (strcmp("short", text) == 0) result = TK_KEYWORD_SHORT;
+        else if (strcmp("signed", text) == 0) result = TK_KEYWORD_SIGNED;
+        else if (strcmp("sizeof", text) == 0) result = TK_KEYWORD_SIZEOF;
+        else if (strcmp("static", text) == 0) result = TK_KEYWORD_STATIC;
+        else if (strcmp("struct", text) == 0) result = TK_KEYWORD_STRUCT;
+        else if (strcmp("switch", text) == 0) result = TK_KEYWORD_SWITCH;
+        else if (strcmp("static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
+        else if (strcmp("static_debug", text) == 0) result = TK_KEYWORD_STATIC_DEBUG;
+        else if (strcmp("static_state", text) == 0) result = TK_KEYWORD_STATIC_STATE;
+        else if (strcmp("static_set", text) == 0) result = TK_KEYWORD_STATIC_SET;
 
-            /*EXPERIMENTAL EXTENSION*/
-            else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
-            else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
-            else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
-            /*EXPERIMENTAL EXTENSION*/
+        break;
+    case 't':
+        if (strcmp("typedef", text) == 0) result = TK_KEYWORD_TYPEDEF;
+        else if (strcmp("typeof", text) == 0) result = TK_KEYWORD_TYPEOF; /*C23*/
+        else if (strcmp("typeof_unqual", text) == 0) result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
+        else if (strcmp("true", text) == 0) result = TK_KEYWORD_TRUE; /*C23*/
+        else if (strcmp("thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
+        else if (strcmp("try", text) == 0) result = TK_KEYWORD_TRY;
+        else if (strcmp("throw", text) == 0) result = TK_KEYWORD_THROW;
+        break;
+    case 'u':
+        if (strcmp("union", text) == 0) result = TK_KEYWORD_UNION;
+        else if (strcmp("unsigned", text) == 0) result = TK_KEYWORD_UNSIGNED;
+        break;
+    case 'v':
+        if (strcmp("void", text) == 0) result = TK_KEYWORD_VOID;
+        else if (strcmp("volatile", text) == 0) result = TK_KEYWORD_VOLATILE;
 
-            /*TRAITS EXTENSION*/
-            else if (strcmp("_is_lvalue", text) == 0) result = TK_KEYWORD_IS_LVALUE;
-            else if (strcmp("_is_const", text) == 0) result = TK_KEYWORD_IS_CONST;
-            else if (strcmp("_is_owner", text) == 0) result = TK_KEYWORD_IS_OWNER;
-            else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
-            else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
-            else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
-            else if (strcmp("_is_arithmetic", text) == 0) result = TK_KEYWORD_IS_ARITHMETIC;
-            else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
-            else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
-            else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
-            /*TRAITS EXTENSION*/
-
-            else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
-            else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
-            else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
-            else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
-            else if (strcmp("_Complex", text) == 0) result = TK_KEYWORD__COMPLEX;
-            else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL32;
-            else if (strcmp("_Decimal64", text) == 0) result = TK_KEYWORD__DECIMAL64;
-            else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL128;
-            else if (strcmp("_Generic", text) == 0) result = TK_KEYWORD__GENERIC;
-            else if (strcmp("_Imaginary", text) == 0) result = TK_KEYWORD__IMAGINARY;
-            else if (strcmp("_Noreturn", text) == 0) result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
-            else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
-            else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
-            else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
-            else if (strcmp("__typeof__", text) == 0) result = TK_KEYWORD_TYPEOF; /*(C23)*/
+        break;
+    case 'w':
+        if (strcmp("while", text) == 0) result = TK_KEYWORD_WHILE;
+        break;
+    case '_':
 
 
+        //begin microsoft
+        if (strcmp("__int8", text) == 0) result = TK_KEYWORD__INT8;
+        else if (strcmp("__int16", text) == 0) result = TK_KEYWORD__INT16;
+        else if (strcmp("__int32", text) == 0) result = TK_KEYWORD__INT32;
+        else if (strcmp("__int64", text) == 0) result = TK_KEYWORD__INT64;
+        else if (strcmp("__forceinline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("__inline", text) == 0) result = TK_KEYWORD_INLINE;
+        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0) result = TK_KEYWORD__ASM;
+        else if (strcmp("__alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+        //
+        //end microsoft
+
+        /*ownership*/
+        else if (strcmp("_Out", text) == 0) result = TK_KEYWORD__OUT; /*extension*/
+        else if (strcmp("_Owner", text) == 0) result = TK_KEYWORD__OWNER; /*extension*/
+        else if (strcmp("_Obj_owner", text) == 0) result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+        else if (strcmp("_Opt", text) == 0) result = TK_KEYWORD__OPT; /*extension*/
+        else if (strcmp("_View", text) == 0) result = TK_KEYWORD__VIEW; /*extension*/
+
+        /*EXPERIMENTAL EXTENSION*/
+        else if (strcmp("_has_attr", text) == 0) result = TK_KEYWORD_ATTR_HAS;
+        else if (strcmp("_add_attr", text) == 0) result = TK_KEYWORD_ATTR_ADD;
+        else if (strcmp("_del_attr", text) == 0) result = TK_KEYWORD_ATTR_REMOVE;
+        /*EXPERIMENTAL EXTENSION*/
+
+        /*TRAITS EXTENSION*/
+        else if (strcmp("_is_lvalue", text) == 0) result = TK_KEYWORD_IS_LVALUE;
+        else if (strcmp("_is_const", text) == 0) result = TK_KEYWORD_IS_CONST;
+        else if (strcmp("_is_owner", text) == 0) result = TK_KEYWORD_IS_OWNER;
+        else if (strcmp("_is_pointer", text) == 0) result = TK_KEYWORD_IS_POINTER;
+        else if (strcmp("_is_array", text) == 0) result = TK_KEYWORD_IS_ARRAY;
+        else if (strcmp("_is_function", text) == 0) result = TK_KEYWORD_IS_FUNCTION;
+        else if (strcmp("_is_arithmetic", text) == 0) result = TK_KEYWORD_IS_ARITHMETIC;
+        else if (strcmp("_is_floating_point", text) == 0) result = TK_KEYWORD_IS_FLOATING_POINT;
+        else if (strcmp("_is_integral", text) == 0) result = TK_KEYWORD_IS_INTEGRAL;
+        else if (strcmp("_is_scalar", text) == 0) result = TK_KEYWORD_IS_SCALAR;
+        /*TRAITS EXTENSION*/
+
+        else if (strcmp("_Alignof", text) == 0) result = TK_KEYWORD__ALIGNOF;
+        else if (strcmp("_Alignas", text) == 0) result = TK_KEYWORD__ALIGNAS;
+        else if (strcmp("_Atomic", text) == 0) result = TK_KEYWORD__ATOMIC;
+        else if (strcmp("_Bool", text) == 0) result = TK_KEYWORD__BOOL;
+        else if (strcmp("_Complex", text) == 0) result = TK_KEYWORD__COMPLEX;
+        else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL32;
+        else if (strcmp("_Decimal64", text) == 0) result = TK_KEYWORD__DECIMAL64;
+        else if (strcmp("_Decimal128", text) == 0) result = TK_KEYWORD__DECIMAL128;
+        else if (strcmp("_Generic", text) == 0) result = TK_KEYWORD__GENERIC;
+        else if (strcmp("_Imaginary", text) == 0) result = TK_KEYWORD__IMAGINARY;
+        else if (strcmp("_Noreturn", text) == 0) result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
+        else if (strcmp("_Static_assert", text) == 0) result = TK_KEYWORD__STATIC_ASSERT;
+        else if (strcmp("_Thread_local", text) == 0) result = TK_KEYWORD__THREAD_LOCAL;
+        else if (strcmp("_BitInt", text) == 0) result = TK_KEYWORD__BITINT; /*(C23)*/
+        else if (strcmp("__typeof__", text) == 0) result = TK_KEYWORD_TYPEOF; /*(C23)*/
 
 
 
-            break;
-        default:
-            break;
+
+
+        break;
+    default:
+        break;
     }
     return result;
 }
@@ -24010,6 +24095,16 @@ enum token_type parse_number(const char* lexeme, enum type_specifier_flags* flag
 {
     struct stream stream = { .source = lexeme, .current = lexeme, .line = 1, .col = 1 };
     return parse_number_core(&stream, flags_opt);
+}
+
+static struct token* pragma_match(struct token* current)
+{
+    current = current->next;
+    while (current && current->type == TK_BLANKS)
+    {
+        current = current->next;
+    }
+    return current;
 }
 
 static void pragma_skip_blanks(struct parser_ctx* ctx)
@@ -24500,6 +24595,10 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
     {
         p_declaration->static_assert_declaration = static_assert_declaration(ctx);
     }
+    else if (first_of_pragma_declaration(ctx))
+    {
+        p_declaration->pragma_declaration = pragma_declaration(ctx);
+    }
     else
     {
 
@@ -24611,7 +24710,7 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
 
             check_func_open_brace_style(ctx, ctx->current);
 
-
+            struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
 
             assert(p_declaration->function_body == NULL);
             p_declaration->function_body = function_body(ctx);
@@ -24627,6 +24726,9 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
                  Now we have the full function AST let´s visit to analise
                  jumps
                 */
+
+                /*we are going to visit the function again.. lets put the same diagnostic state*/
+                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] = before_function_diagnostics;
 
                 struct flow_visit_ctx ctx2 = { 0 };
                 ctx2.ctx = ctx;
@@ -25117,32 +25219,32 @@ struct storage_class_specifier* owner storage_class_specifier(struct parser_ctx*
     new_storage_class_specifier->token = ctx->current;
     switch (ctx->current->type)
     {
-        case TK_KEYWORD_TYPEDEF:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
-            break;
-        case TK_KEYWORD_EXTERN:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
-            break;
-        case TK_KEYWORD_CONSTEXPR:
+    case TK_KEYWORD_TYPEDEF:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
+        break;
+    case TK_KEYWORD_EXTERN:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
+        break;
+    case TK_KEYWORD_CONSTEXPR:
 
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
-            if (ctx->scopes.tail->scope_level == 0)
-                new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
-            break;
-        case TK_KEYWORD_STATIC:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
-            break;
-        case TK_KEYWORD__THREAD_LOCAL:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
-            break;
-        case TK_KEYWORD_AUTO:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
-            break;
-        case TK_KEYWORD_REGISTER:
-            new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
-            break;
-        default:
-            assert(false);
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
+        if (ctx->scopes.tail->scope_level == 0)
+            new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
+        break;
+    case TK_KEYWORD_STATIC:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
+        break;
+    case TK_KEYWORD__THREAD_LOCAL:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
+        break;
+    case TK_KEYWORD_AUTO:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
+        break;
+    case TK_KEYWORD_REGISTER:
+        new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
+        break;
+    default:
+        assert(false);
     }
 
     /*
@@ -25320,132 +25422,132 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
     switch (ctx->current->type)
     {
-        case TK_KEYWORD_VOID:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_VOID;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_VOID:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_VOID;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_CHAR:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_CHAR:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_SHORT:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_SHORT:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_INT:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_INT:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-            //microsoft
-        case TK_KEYWORD__INT8:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT8;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+        //microsoft
+    case TK_KEYWORD__INT8:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__INT16:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT16;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
-        case TK_KEYWORD__INT32:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT32;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
-        case TK_KEYWORD__INT64:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_INT64;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
-            //end microsoft
+    case TK_KEYWORD__INT16:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
+    case TK_KEYWORD__INT32:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
+    case TK_KEYWORD__INT64:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
+        //end microsoft
 
-        case TK_KEYWORD_LONG:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_LONG;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_LONG:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_LONG;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_FLOAT:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_FLOAT:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_DOUBLE:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_DOUBLE:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_SIGNED:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD_SIGNED:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD_UNSIGNED:
+    case TK_KEYWORD_UNSIGNED:
 
-            p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+        p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__BOOL:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD__BOOL:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__COMPLEX:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD__COMPLEX:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__DECIMAL32:
-            p_type_specifier->token = ctx->current;
-            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD__DECIMAL32:
+        p_type_specifier->token = ctx->current;
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__DECIMAL64:
+    case TK_KEYWORD__DECIMAL64:
 
-            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        case TK_KEYWORD__DECIMAL128:
-            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
-            p_type_specifier->token = ctx->current;
-            parser_match(ctx);
-            return p_type_specifier;
+    case TK_KEYWORD__DECIMAL128:
+        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
+        p_type_specifier->token = ctx->current;
+        parser_match(ctx);
+        return p_type_specifier;
 
-        default:
-            // Do nothing
-            break;
+    default:
+        // Do nothing
+        break;
 
     }
 
@@ -26422,44 +26524,44 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 
     switch (ctx->current->type)
     {
-        case TK_KEYWORD_CONST:
-            p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
-            break;
-        case TK_KEYWORD_RESTRICT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
-            break;
-        case TK_KEYWORD_VOLATILE:
-            p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
-            break;
-        case TK_KEYWORD__ATOMIC:
-            p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
-            break;
+    case TK_KEYWORD_CONST:
+        p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
+        break;
+    case TK_KEYWORD_RESTRICT:
+        p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
+        break;
+    case TK_KEYWORD_VOLATILE:
+        p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
+        break;
+    case TK_KEYWORD__ATOMIC:
+        p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
+        break;
 
-            /*
-              ownership extensions
-            */
+        /*
+          ownership extensions
+        */
 
-        case TK_KEYWORD__OUT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
-            break;
+    case TK_KEYWORD__OUT:
+        p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
+        break;
 
-        case TK_KEYWORD__OWNER:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
-            break;
+    case TK_KEYWORD__OWNER:
+        p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+        break;
 
-        case TK_KEYWORD__OPT:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
-            break;
+    case TK_KEYWORD__OPT:
+        p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
+        break;
 
-        case TK_KEYWORD__OBJ_OWNER:
-            p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
-            break;
-        case TK_KEYWORD__VIEW:
-            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
-            break;
-        default:
-            // do nothing
-            break;
+    case TK_KEYWORD__OBJ_OWNER:
+        p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
+        break;
+    case TK_KEYWORD__VIEW:
+        p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+        break;
+    default:
+        // do nothing
+        break;
     }
 
     p_type_qualifier->token = ctx->current;
@@ -27518,6 +27620,157 @@ void static_assert_declaration_delete(struct static_assert_declaration* owner op
     }
 }
 
+void pragma_declaration_delete(struct pragma_declaration* owner opt p)
+{
+    if (p)
+    {
+        free(p);
+    }
+}
+
+void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis)
+{
+    struct token* p_pragma_token = p_pragma->first_token;
+
+    if (p_pragma_token->type != TK_PRAGMA)
+    {
+        assert(false);
+        return;
+    }
+
+    p_pragma_token = pragma_match(p_pragma_token);
+
+
+    if (p_pragma_token &&
+        (strcmp(p_pragma_token->lexeme, "CAKE") == 0 ||
+            strcmp(p_pragma_token->lexeme, "cake") == 0)
+        )
+    {
+        p_pragma_token = pragma_match(p_pragma_token);
+    }
+
+    if (p_pragma_token && strcmp(p_pragma_token->lexeme, "diagnostic") == 0)
+    {
+        p_pragma_token = pragma_match(p_pragma_token);
+
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "push") == 0)
+        {
+            //#pragma GCC diagnostic push
+            if (ctx->options.diagnostic_stack_top_index <
+                sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
+            {
+                ctx->options.diagnostic_stack_top_index++;
+                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index] =
+                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index - 1];
+            }
+            p_pragma_token = p_pragma_token->next;
+        }
+        else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "pop") == 0)
+        {
+            //#pragma CAKE diagnostic pop
+            if (ctx->options.diagnostic_stack_top_index > 0)
+            {
+                ctx->options.diagnostic_stack_top_index--;
+            }
+            p_pragma_token = pragma_match(p_pragma_token);
+        }
+        else if (p_pragma_token &&
+            (strcmp(p_pragma_token->lexeme, "error") == 0 ||
+                strcmp(p_pragma_token->lexeme, "warning") == 0 ||
+                strcmp(p_pragma_token->lexeme, "note") == 0 ||
+                strcmp(p_pragma_token->lexeme, "ignored") == 0)
+            )
+        {
+            const bool is_error = strcmp(p_pragma_token->lexeme, "error") == 0;
+            const bool is_warning = strcmp(p_pragma_token->lexeme, "warning") == 0;
+            const bool is_note = strcmp(p_pragma_token->lexeme, "note") == 0;
+
+            p_pragma_token = pragma_match(p_pragma_token);
+
+            if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
+            {
+
+                unsigned long long  w = get_warning_bit_mask(p_pragma_token->lexeme + 1 + 2);
+
+                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+                ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+                if (is_error)
+                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors |= w;
+                else if (is_warning)
+                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+                else if (is_note)
+                    ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes |= w;
+            }
+        }
+        else if (p_pragma_token &&
+            (strcmp(p_pragma_token->lexeme, "check") == 0)
+            )
+        {
+            p_pragma_token = pragma_match(p_pragma_token);
+
+            if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
+            {
+                enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1 + 2);
+
+                if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) ||
+                    (on_flow_analysis && get_diagnostic_phase(id) == 2))
+                {
+                    if (ctx->p_report->last_diagnostic_id == id)
+                    {
+                        //lets remove this error/warning/info from the final report.
+
+                        int t =
+                            get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                id);
+                        if (t == 3)
+                            ctx->p_report->error_count--;
+                        else if (t == 2)
+                            ctx->p_report->warnings_count--;
+                        else if (t == 1)
+                            ctx->p_report->info_count--;
+                    }
+                    else
+                    {
+                        compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, p_pragma_token, "pragma check failed");
+                    }
+                }
+            }
+        }
+        else
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, p_pragma_token, "unknown pragma");
+        }
+    }
+}
+
+struct pragma_declaration* owner pragma_declaration(struct parser_ctx* ctx)
+{
+    assert(ctx->current->type == TK_PRAGMA);
+    struct pragma_declaration* owner p_pragma_declaration = NULL;
+    try
+    {
+        p_pragma_declaration = calloc(1, sizeof(struct pragma_declaration));
+        if (p_pragma_declaration == NULL) throw;
+        p_pragma_declaration->first_token = ctx->current;
+        parser_match(ctx);
+        while (ctx->current && ctx->current->type != TK_PRAGMA_END)
+        {
+            ctx->current = ctx->current->next;
+        }
+        p_pragma_declaration->last_token = ctx->current;
+        parser_match(ctx);
+    }
+    catch
+    {
+    }
+    if (p_pragma_declaration)
+        execute_pragma(ctx, p_pragma_declaration, false);
+
+    return p_pragma_declaration;
+}
+
 struct static_assert_declaration* owner static_assert_declaration(struct parser_ctx* ctx)
 {
 
@@ -28393,7 +28646,8 @@ struct block_item* owner block_item(struct parser_ctx* ctx)
                 parser_match(ctx);
         }
         else if (first_of_declaration_specifier(ctx) ||
-            first_of_static_assert_declaration(ctx))
+            first_of_static_assert_declaration(ctx) ||
+            first_of_pragma_declaration(ctx))
         {
             p_block_item->declaration = declaration(ctx, p_attribute_specifier_sequence_opt, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
 
@@ -28904,6 +29158,7 @@ void declaration_delete(struct declaration* owner opt p)
         declaration_specifiers_delete(p->declaration_specifiers);
 
         compound_statement_delete(p->function_body);
+        pragma_declaration_delete(p->pragma_declaration);
 
         init_declarator_list_destroy(&p->init_declarator_list);
         assert(p->next == NULL);
@@ -29560,7 +29815,7 @@ int compile(int argc, const char** argv, struct report* report)
 
 
     clock_t end_clock = clock();
-    double cpu_time_used = ((double) (end_clock - begin_clock)) / CLOCKS_PER_SEC;
+    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
     return 0;
@@ -33728,8 +33983,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
                         struct object * pointed = object_get_pointed_object(p_argument_object);
                         object_set_unknown(&argument_type, pointed);
-                        type_destroy(&argument_type);
-                        //object_set_unknown(&p_current_argument->expression->type, p_argument_object);
+                        type_destroy(&argument_type);                        
                     }
                 }
 
@@ -34100,7 +34354,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     bool_source_zero_value = true;
                 }
             }
-
+   
             object_assignment(ctx->ctx,
                 p_right_object, /*source*/
                 &p_expression->right->type, /*source type*/
@@ -34389,6 +34643,16 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
         flow_visit_ctx_pop_tail_block(ctx);
     }
+    
+    /*we visit again*/
+    if (p_iteration_statement->secondary_block)
+    {
+        struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+        p_defer->p_iteration_statement = p_iteration_statement;
+        flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
+        check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
+        flow_visit_ctx_pop_tail_block(ctx);
+    }
 }
 
 
@@ -34645,6 +34909,11 @@ enum object_state parse_string_state(const char* s, bool* invalid)
 
 }
 
+
+static void flow_visit_pragma_declaration(struct flow_visit_ctx* ctx, struct pragma_declaration* p_pragma_declaration)
+{
+    execute_pragma(ctx->ctx, p_pragma_declaration, true);
+}
 
 static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, struct static_assert_declaration* p_static_assert_declaration)
 {
@@ -35257,6 +35526,11 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     if (p_declaration->static_assert_declaration)
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
+    }
+    
+    if (p_declaration->pragma_declaration)
+    {
+        flow_visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
     }
 
 
@@ -36194,11 +36468,10 @@ static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks,
     get_ast(&options, "source", src, &report);
     if (report.error_count == 0 && report.warnings_count == 0)
     {
-      return true;
+        return true;
     }
-    printf("---\n");
-    printf("%s", src);
-    printf("---\n");
+    printf("\n\n--------------------------------------------------------------------------------------\n\n");
+    printf("%s\n\n", src);
     return false;
 }
 
@@ -36423,19 +36696,19 @@ void sizeof_test()
 {
 
     const char* src =
-        "static_assert(sizeof(\"ABC\") == 4);"
-        "char a[10];"
-        "char b[10][2];"
-        "static_assert(sizeof(a) == 10);"
-        "static_assert(sizeof(b) == sizeof(char)*10*2);"
-        "char *p[10];"
-        "static_assert(sizeof(p) == 40);"
-        "static_assert(sizeof(int) == 4);"
-        "static_assert(sizeof(long) == 4);"
-        "static_assert(sizeof(char) == 1);"
-        "static_assert(sizeof(short) == 4);"
-        "static_assert(sizeof(unsigned int) == 4);"
-        "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));"
+        "static_assert(sizeof(\"ABC\") == 4);\n"
+        "char a[10];\n"
+        "char b[10][2];\n"
+        "static_assert(sizeof(a) == 10);\n"
+        "static_assert(sizeof(b) == sizeof(char)*10*2);\n"
+        "char *p[10];\n"
+        "static_assert(sizeof(p) == 40);\n"
+        "static_assert(sizeof(int) == 4);\n"
+        "static_assert(sizeof(long) == 4);\n"
+        "static_assert(sizeof(char) == 1);\n"
+        "static_assert(sizeof(short) == 2);\n"
+        "static_assert(sizeof(unsigned int) == 4);\n"
+        "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));\n"
         ;
 
     assert(compile_without_errors_warnings(false, false, src));
@@ -36570,7 +36843,7 @@ void expand_test3()
     //https://godbolt.org/z/WbK9zP7zM
 }
 
-void bigtest()
+void sizeof_test2()
 {
     const char* str =
         "\n"
@@ -36580,19 +36853,10 @@ void bigtest()
         "\n"
         "struct Y { double d;};\n"
         "\n"
-        "enum E { A = 1 };\n"
-        "enum E e1;\n"
-        "\n"
         "struct X* F() { return 0; }\n"
         "\n"
         "int main()\n"
         "{\n"
-        "    enum E { B } e2;\n"
-        "    static_assert(_is_same(typeof(e2), enum E));\n"
-        "\n"
-        "    static_assert(!_is_same(typeof(e2), typeof(e1)));\n"
-        "\n"
-        "\n"
         "    struct X x;\n"
         "    struct Y y;\n"
         "\n"
@@ -36619,10 +36883,7 @@ void bigtest()
         "\n"
         "\n"
         "    struct X x2;\n"
-        "    enum E e;\n"
-        "    static_assert(_is_same(typeof(e), enum E));\n"
         "    static_assert(_is_same(typeof(x2), struct X));\n"
-        "    static_assert(!_is_same(typeof(e), struct X));\n"
         "\n"
         "\n"
         "\n"
@@ -36641,7 +36902,6 @@ void bigtest()
         "    static_assert(_is_same(typeof(*(((int*)0) + 1)), int));\n"
         "\n"
         "}\n"
-        "\n"
         "\n"
         ;
     assert(compile_without_errors_warnings(false, false, str));
@@ -36841,17 +37101,19 @@ void function_result_test()
 void type_normalization()
 {
     const char* source =
+        "#define _is_same_type(typeof(T1), typeof(T2)) _Generic(T1, T2 : 1, default: 0)\n"
         "char ((a1));\n"
         "char b1;\n"
-        "static_assert((typeof(a1)) == (typeof(b1)));\n"
+        "static_assert(_is_same_type(a1, b1));\n"
         "\n"
         "char ((a2))[2];\n"
         "char b2[2];\n"
-        "static_assert((typeof(a2)) == (typeof(b2)));\n"
+        "static_assert(_is_same_type(a2, b2));\n"
         "\n"
         "char ((a3))(int (a));\n"
         "char (b3)(int a);\n"
-        "static_assert((typeof(a3)) == (typeof(b3)));\n"
+        "static_assert(_is_same_type(a3, b3));\n"
+
         ;
 
 
@@ -36861,19 +37123,19 @@ void type_normalization()
 void auto_test()
 {
     const char* source =
-        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
+        "#define _is_same(typeof(T1), typeof(T2)) _Generic(T1, T2 : 1, default: 0)\n"
         "    int main()\n"
         "    {\n"
         "        double const x = 78.9;\n"
         "        double y = 78.9;\n"
         "        auto q = x;\n"
-        "        static_assert( (typeof(q)) == (double));\n"
+        "        static_assert(_is_same(q, double));\n"
         "        auto const p = &x;\n"
-        "        static_assert( (typeof(p)) == (const double  * const));\n"
+        "        static_assert(_is_same(p, const double  * const));\n"
         "        auto const r = &y;\n"
-        "        static_assert( (typeof(r)) == (double  * const));\n"
+        "        static_assert(_is_same(r, double  * const));\n"
         "        auto s = \"test\";\n"
-        "        static_assert(_is_same(typeof(s), char *));\n"
+        "        static_assert(_is_same(s, char *));\n"
         "    }\n"
         ;
 
@@ -36890,6 +37152,7 @@ void visit_test_auto_typeof()
     assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);
     free(result);
 }
+
 
 void enum_scope()
 {
@@ -37422,9 +37685,13 @@ void passing_view_to_owner()
         "    _Owner int i = 0;\n"
         "    int v = i;\n"
         "    destroy(v);\n"
+        "    #pragma cake diagnostic check \"-Wnon-owner-move\"\n"
         "}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
-        "#pragma cake diagnostic check \"-Wnon-owner-move\"";
+        "\n"
+        "";
+
     assert(compile_without_errors_warnings(true, false, source));
 }
 
@@ -37467,10 +37734,6 @@ void ownership_flow_test_pointer_must_be_deleted()
         "    p = get();\n"
         "}\n"
         "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
@@ -37516,11 +37779,6 @@ void ownership_flow_test_struct_member_missing_free()
         "    struct X x = { 0 };\n"
         "    x.text = strdup(\"a\");\n"
         "}\n"
-        "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
@@ -37568,11 +37826,6 @@ void ownership_flow_test_move_inside_if()
         "    }\n"
         "}\n"
         "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
 
@@ -37603,7 +37856,7 @@ void ownership_flow_test_jump_labels()
 {
     const char* source
         =
-        "void free( void* _Owner ptr);\n"
+        "void free( void* _Owner _Opt ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
         "void f(int condition)\n"
@@ -37611,17 +37864,18 @@ void ownership_flow_test_jump_labels()
         "    int* _Owner p = malloc(sizeof(int));\n"
         "\n"
         "    if (condition)\n"
-        "        goto end;\n"
+        "        goto end; /*memory leak o p*/\n"
         "\n"
         "    free(p);\n"
         "end:\n"
         "\n"
         "}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
+        "\n"
         "";
-    struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
+
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_owner_if_pattern_1()
@@ -37676,11 +37930,6 @@ void ownership_flow_test_missing_destructor()
         "void f() {\n"
         "    const struct X x = { 0 };\n"
         "}\n"
-        "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
@@ -37755,30 +38004,37 @@ void ownership_flow_test_struct_moved()
     assert(compile_without_errors_warnings(true, false, source));
 }
 
-void ownership_flow_test_scope_error()
+void flow_analyzes_and_try_catch()
 {
     const char* source
         =
         "void * _Owner malloc(int i);\n"
-        "void free( void* _Owner p);\n"
+        "void free( void* _Owner _Opt p);\n"
+        "int rand();\n"
         "\n"
         "int main() {\n"
+        "    char * _Owner s = malloc(1);\n"
         "    try\n"
         "    {\n"
-        "         if (1)\n"
+        "         if (rand())\n"
         "         {\n"
-        "             char * _Owner s = malloc(1);\n"
         "             free(s);\n"
         "         }\n"
         "         else\n"
-        "         {\n"
+        "         {             \n"
+        "            static_debug(s);\n"
         "            throw;\n"
         "         }\n"
         "    }\n"
         "    catch\n"
         "    {\n"
         "    }\n"
-        "}";
+        "    static_debug(s);\n"
+        "    static_state(s, \"null or not-null or uninitialized\");\n"
+        "}\n"
+        "";
+
+
     assert(compile_without_errors_warnings(true, false, source));
 }
 
@@ -37830,15 +38086,14 @@ void ownership_flow_test_moving_owner_pointer()
 {
     const char* source
         =
-        "\n"
         "void* _Owner malloc(int i);\n"
-        "void free(void* _Owner p);\n"
+        "void free(void* _Owner _Opt p);\n"
         "\n"
         "struct X {\n"
         "    char* _Owner name;\n"
         "};\n"
         "\n"
-        "void x_delete(struct X* _Owner p)\n"
+        "void x_delete(struct X* _Owner _Opt p)\n"
         "{\n"
         "    if (p) {\n"
         "        free(p->name);\n"
@@ -37848,18 +38103,17 @@ void ownership_flow_test_moving_owner_pointer()
         "\n"
         "int main() {\n"
         "    struct X* _Owner p = malloc(sizeof * p);\n"
+        "\n"
         "    x_delete(p);\n"
+        "\n"
+        "    //p.name is uninitialized\n"
+        "    #pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "}\n"
         "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
         "\n"
         "";
-    assert(compile_without_errors_warnings(true, false, source));
 
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -37881,9 +38135,6 @@ void ownership_flow_test_moving_owner_pointer_missing()
         "        free(p);\n"
         "    }\n"
         "}\n"
-        "\n"
-        "\n"
-        "void dummy() {}\n"
         "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
@@ -37909,8 +38160,7 @@ void ownership_flow_test_error()
         "    return p;\n"
         "}\n"
         "\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -37932,8 +38182,7 @@ void ownership_flow_test_setting_owner_pointer_to_null()
         "    p = 0;\n"
         "}\n"
         "\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -38007,9 +38256,7 @@ void ownership_types_test_error_owner()
         "#pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
         "}\n"
         "\n"
-        "\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -38028,8 +38275,7 @@ void ownership_flow_test_if_variant()
         "        p = f();\n"
         "    }\n"
         "}\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -38047,8 +38293,8 @@ void check_leaks_on_else_block()
         "        int* _Owner p3 = malloc(1);\n"
         "    }\n"
         "}\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -38088,8 +38334,7 @@ void ownership_no_name_parameter()
     const char* source
         =
         "void free(void* _Owner) { }\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -38178,15 +38423,13 @@ void taking_address()
         "int main()\n"
         "{\n"
         "  struct X x = {};\n"
-        "  static_debug(x);\n"
-        "  x_change(&x);\n"
-        "  //list_destroy(&list);\n"
+        "  x_change(&x);  \n"
         "}\n"
+        "//memory pointed by 'x.text' was not released.\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1);
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void taking_address_const()
@@ -38445,8 +38688,6 @@ void owner_to_non_owner()
         "   #pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
         "}\n"
         "\n"
-        "void dummy() {}\n"
-        "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
 
@@ -38557,6 +38798,7 @@ void scopes_pop()
     const char* source
         =
         "\n"
+        "int rand();\n"
         "void free(void* _Owner ptr);\n"
         "\n"
         "struct X { char* _Owner name; };\n"
@@ -38569,7 +38811,7 @@ void scopes_pop()
         "    {\n"
         "        struct X x = {0};   \n"
         "        \n"
-        "        if (1)\n"
+        "        if (rand())\n"
         "        {            \n"
         "            x = f();\n"
         "        }\n"
@@ -38642,10 +38884,11 @@ void use_after_destroy()
 {
     const char* source
         =
-        "\n"
         "char* _Owner strdup(const char* s);\n"
         "void* _Owner malloc(unsigned size);\n"
+        "\n"
         "void free(void* _Owner ptr);\n"
+        "\n"
         "struct X {\n"
         "    char* _Owner name;\n"
         "};\n"
@@ -38662,17 +38905,13 @@ void use_after_destroy()
         "int main() {\n"
         "    struct X x = { 0 };\n"
         "    x.name = strdup(\"a\");\n"
-        "    x_destroy(&x);\n"
+        "    x_destroy(&x);    \n"
         "    x_print(&x);\n"
+        "    #pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
         "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
-        "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "\n"
         "";
 
@@ -38739,10 +38978,6 @@ void discarding_owner()
         "    struct X* p = (struct X* _Owner) malloc(1);\n"
         "}\n"
         "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
         "//flow analyze\n"
         "#pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
         "\n"
@@ -38770,10 +39005,6 @@ void using_uninitialized()
         "}\n"
         "\n"
         "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
         "//flow analyze\n"
         "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "\n"
@@ -38796,12 +39027,6 @@ void using_uninitialized_struct()
         "    struct X x;\n"
         "    x_destroy(&x);\n"
         "}\n"
-        "\n"
-        "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "//flow analyze\n"
         "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
@@ -39326,16 +39551,19 @@ void loop_leak()
     const char* source
         =
         "void* _Owner malloc(unsigned long size);\n"
-        "void free(void* _Owner ptr);\n"
+        "void free(void* _Owner _Opt ptr);\n"
         "\n"
         "int main() {\n"
         "   void * _Owner p = 0;\n"
         "   for (int i=0; i < 2; i++) {\n"
-        "     p = malloc(1);\n"
+        "     p = malloc(1); /*leak*/\n"
         "   }\n"
+        "   #pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "   free(p);\n"
         "}";
-    assert(compile_with_errors(true, false, source));
+
+
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void out_parameter()
@@ -39463,8 +39691,9 @@ void bounds_check1()
         "int main() {\n"
         "	int a[5] = {0};\n"
         "	int i = a[5];\n"
-        "}\n"
-        "#pragma cake diagnostic check \"-Wout-of-bounds\"";
+        "#pragma cake diagnostic check \"-Wout-of-bounds\"\n"
+        "}\n";
+
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
@@ -39490,15 +39719,10 @@ void uninitialized_objects_passed_to_variadic_function()
         "{\n"
         "    int i;\n"
         "    f(\"\", i);\n"
-        "    //first pass analyze\n"
         "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "    return 0;\n"
         "}\n"
-        "void dummy()\n"
-        "{\n"
-        "}\n"
-        "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "";
 
 
@@ -39517,10 +39741,6 @@ void nullderef()
         "    k = 0;\n"
         "    return 0;\n"
         "}\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "#pragma cake diagnostic check \"-Wanalyzer-null-dereference\"\n"
         "";
@@ -39611,8 +39831,9 @@ void discard_qualifier_test()
         "{\n"
         "    const struct X x = {0};\n"
         "    f(&x);\n"
+        "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"\n"
         "}\n"
-        "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"";
+        ;
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 void keywords_inside_attr()

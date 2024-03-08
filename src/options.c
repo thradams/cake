@@ -82,6 +82,21 @@ int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 
 }
 
+int get_diagnostic_phase(enum diagnostic_id w)
+{
+    switch (w)
+    {
+        case W_OWNERSHIP_FLOW_MISSING_DTOR:
+        case W_OWNERSHIP_FLOW_UNINITIALIZED:
+        case W_OWNERSHIP_FLOW_MOVED:
+        case W_OWNERSHIP_FLOW_NULL_DEREFERENCE:
+        case W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
+            return 2; /*returns 2 if it flow analysis*/
+    }
+    return 0;
+}
+
+
 enum diagnostic_id  get_warning(const char* wname)
 {
 

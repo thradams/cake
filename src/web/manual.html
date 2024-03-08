@@ -254,21 +254,18 @@
 <a href="#toc_75">Type traits</a>
 </li>
 <li>
-<a href="#toc_76">Extension type-expression</a>
+<a href="#toc_76">Extension - Ownership checks</a>
 </li>
 <li>
-<a href="#toc_77">Extension - Ownership checks</a>
+<a href="#toc_77">Extension typename on _Generic</a>
 </li>
 <li>
-<a href="#toc_78">Extension typename on _Generic</a>
-</li>
-<li>
-<a href="#toc_79">Extension assert statement</a>
+<a href="#toc_78">Extension assert statement</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_80">Versions</a>
+<a href="#toc_79">Versions</a>
 </li>
 </ul>
 <h2 id="toc_0">Intro</h2>
@@ -1813,49 +1810,11 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 
 </code></pre>
 
-<h3 id="toc_76">Extension type-expression</h3>
-
-<p>Syntax:</p>
-
-<pre><code>  cast-expression:
-    unary-expression
-    ( type-name ) cast-expression
-    ( type-name ) //&lt;- creates a type expression
-</code></pre>
-
-<p>Type expression can be used with == and != operators. The result is as if the type where compared and the values ignored.</p>
-
-<p>Sample</p>
-
-<pre><code class="language-c">    int a[2];
-    static_assert( a == (int[2]) );
-
-    /* is array of ints? */    
-    static_assert( _is_array(a) &amp;&amp; a[0] == (int) );
-</code></pre>
-
-<p>Making operator ? be decided in compile time, this also could be an alternative to _Generic.</p>
-
-<pre><code class="language-c">
-int main()
-{
-    int a;
-    
-    int t1 = 
-       a == (int) ? 1 : a == (double) ? 2 : 0;
-    
-    int t2 = 
-       _Generic(a, int: 1, double: 2, default: 0);
-
-    typeof( 1 ? (int) : (double)) b;
-}
-</code></pre>
-
-<h3 id="toc_77">Extension - Ownership checks</h3>
+<h3 id="toc_76">Extension - Ownership checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
-<h3 id="toc_78">Extension typename on _Generic</h3>
+<h3 id="toc_77">Extension typename on _Generic</h3>
 
 <pre><code class="language-c"> int main()
 {
@@ -1872,7 +1831,7 @@ int main()
 <p>and the lvalue conversion will not happen, allowing 
 more precise (with qualifiers) type match.</p>
 
-<h3 id="toc_79">Extension assert statement</h3>
+<h3 id="toc_78">Extension assert statement</h3>
 
 <p>In cake assert is an statement. The reason is because it works as tips for flow analysis 
 and these checks are checked in runtime in debug bugs.
@@ -1883,5 +1842,5 @@ To disable this extension use -disable-assert options. </p>
 <p>When cake reads GCC MSVC headers it overrides the macro assert to match the cake
 assert statement.</p>
 
-<h2 id="toc_80">Versions</h2>
+<h2 id="toc_79">Versions</h2>
 </article></body></html>

@@ -20,11 +20,10 @@ static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks,
     get_ast(&options, "source", src, &report);
     if (report.error_count == 0 && report.warnings_count == 0)
     {
-      return true;
+        return true;
     }
-    printf("---\n");
-    printf("%s", src);
-    printf("---\n");
+    printf("\n\n--------------------------------------------------------------------------------------\n\n");
+    printf("%s\n\n", src);
     return false;
 }
 
@@ -249,19 +248,19 @@ void sizeof_test()
 {
 
     const char* src =
-        "static_assert(sizeof(\"ABC\") == 4);"
-        "char a[10];"
-        "char b[10][2];"
-        "static_assert(sizeof(a) == 10);"
-        "static_assert(sizeof(b) == sizeof(char)*10*2);"
-        "char *p[10];"
-        "static_assert(sizeof(p) == 40);"
-        "static_assert(sizeof(int) == 4);"
-        "static_assert(sizeof(long) == 4);"
-        "static_assert(sizeof(char) == 1);"
-        "static_assert(sizeof(short) == 4);"
-        "static_assert(sizeof(unsigned int) == 4);"
-        "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));"
+        "static_assert(sizeof(\"ABC\") == 4);\n"
+        "char a[10];\n"
+        "char b[10][2];\n"
+        "static_assert(sizeof(a) == 10);\n"
+        "static_assert(sizeof(b) == sizeof(char)*10*2);\n"
+        "char *p[10];\n"
+        "static_assert(sizeof(p) == 40);\n"
+        "static_assert(sizeof(int) == 4);\n"
+        "static_assert(sizeof(long) == 4);\n"
+        "static_assert(sizeof(char) == 1);\n"
+        "static_assert(sizeof(short) == 2);\n"
+        "static_assert(sizeof(unsigned int) == 4);\n"
+        "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));\n"
         ;
 
     assert(compile_without_errors_warnings(false, false, src));
@@ -396,7 +395,7 @@ void expand_test3()
     //https://godbolt.org/z/WbK9zP7zM
 }
 
-void bigtest()
+void sizeof_test2()
 {
     const char* str =
         "\n"
@@ -406,19 +405,10 @@ void bigtest()
         "\n"
         "struct Y { double d;};\n"
         "\n"
-        "enum E { A = 1 };\n"
-        "enum E e1;\n"
-        "\n"
         "struct X* F() { return 0; }\n"
         "\n"
         "int main()\n"
         "{\n"
-        "    enum E { B } e2;\n"
-        "    static_assert(_is_same(typeof(e2), enum E));\n"
-        "\n"
-        "    static_assert(!_is_same(typeof(e2), typeof(e1)));\n"
-        "\n"
-        "\n"
         "    struct X x;\n"
         "    struct Y y;\n"
         "\n"
@@ -445,10 +435,7 @@ void bigtest()
         "\n"
         "\n"
         "    struct X x2;\n"
-        "    enum E e;\n"
-        "    static_assert(_is_same(typeof(e), enum E));\n"
         "    static_assert(_is_same(typeof(x2), struct X));\n"
-        "    static_assert(!_is_same(typeof(e), struct X));\n"
         "\n"
         "\n"
         "\n"
@@ -467,7 +454,6 @@ void bigtest()
         "    static_assert(_is_same(typeof(*(((int*)0) + 1)), int));\n"
         "\n"
         "}\n"
-        "\n"
         "\n"
         ;
     assert(compile_without_errors_warnings(false, false, str));
@@ -667,17 +653,19 @@ void function_result_test()
 void type_normalization()
 {
     const char* source =
+        "#define _is_same_type(typeof(T1), typeof(T2)) _Generic(T1, T2 : 1, default: 0)\n"
         "char ((a1));\n"
         "char b1;\n"
-        "static_assert((typeof(a1)) == (typeof(b1)));\n"
+        "static_assert(_is_same_type(a1, b1));\n"
         "\n"
         "char ((a2))[2];\n"
         "char b2[2];\n"
-        "static_assert((typeof(a2)) == (typeof(b2)));\n"
+        "static_assert(_is_same_type(a2, b2));\n"
         "\n"
         "char ((a3))(int (a));\n"
         "char (b3)(int a);\n"
-        "static_assert((typeof(a3)) == (typeof(b3)));\n"
+        "static_assert(_is_same_type(a3, b3));\n"
+
         ;
 
 
@@ -687,19 +675,19 @@ void type_normalization()
 void auto_test()
 {
     const char* source =
-        "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
+        "#define _is_same(typeof(T1), typeof(T2)) _Generic(T1, T2 : 1, default: 0)\n"
         "    int main()\n"
         "    {\n"
         "        double const x = 78.9;\n"
         "        double y = 78.9;\n"
         "        auto q = x;\n"
-        "        static_assert( (typeof(q)) == (double));\n"
+        "        static_assert(_is_same(q, double));\n"
         "        auto const p = &x;\n"
-        "        static_assert( (typeof(p)) == (const double  * const));\n"
+        "        static_assert(_is_same(p, const double  * const));\n"
         "        auto const r = &y;\n"
-        "        static_assert( (typeof(r)) == (double  * const));\n"
+        "        static_assert(_is_same(r, double  * const));\n"
         "        auto s = \"test\";\n"
-        "        static_assert(_is_same(typeof(s), char *));\n"
+        "        static_assert(_is_same(s, char *));\n"
         "    }\n"
         ;
 
@@ -716,6 +704,7 @@ void visit_test_auto_typeof()
     assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);
     free(result);
 }
+
 
 void enum_scope()
 {
@@ -1248,9 +1237,13 @@ void passing_view_to_owner()
         "    _Owner int i = 0;\n"
         "    int v = i;\n"
         "    destroy(v);\n"
+        "    #pragma cake diagnostic check \"-Wnon-owner-move\"\n"
         "}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
-        "#pragma cake diagnostic check \"-Wnon-owner-move\"";
+        "\n"
+        "";
+
     assert(compile_without_errors_warnings(true, false, source));
 }
 
@@ -1293,10 +1286,6 @@ void ownership_flow_test_pointer_must_be_deleted()
         "    p = get();\n"
         "}\n"
         "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
@@ -1342,11 +1331,6 @@ void ownership_flow_test_struct_member_missing_free()
         "    struct X x = { 0 };\n"
         "    x.text = strdup(\"a\");\n"
         "}\n"
-        "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
@@ -1394,11 +1378,6 @@ void ownership_flow_test_move_inside_if()
         "    }\n"
         "}\n"
         "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
 
@@ -1429,7 +1408,7 @@ void ownership_flow_test_jump_labels()
 {
     const char* source
         =
-        "void free( void* _Owner ptr);\n"
+        "void free( void* _Owner _Opt ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
         "void f(int condition)\n"
@@ -1437,17 +1416,18 @@ void ownership_flow_test_jump_labels()
         "    int* _Owner p = malloc(sizeof(int));\n"
         "\n"
         "    if (condition)\n"
-        "        goto end;\n"
+        "        goto end; /*memory leak o p*/\n"
         "\n"
         "    free(p);\n"
         "end:\n"
         "\n"
         "}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
+        "\n"
         "";
-    struct options options = { .input = LANGUAGE_C2X, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1 /*&& report.last_error == W_OWNERSHIP_FLOW_MISSING_DTOR*/);
+
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_owner_if_pattern_1()
@@ -1502,11 +1482,6 @@ void ownership_flow_test_missing_destructor()
         "void f() {\n"
         "    const struct X x = { 0 };\n"
         "}\n"
-        "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
@@ -1581,30 +1556,37 @@ void ownership_flow_test_struct_moved()
     assert(compile_without_errors_warnings(true, false, source));
 }
 
-void ownership_flow_test_scope_error()
+void flow_analyzes_and_try_catch()
 {
     const char* source
         =
         "void * _Owner malloc(int i);\n"
-        "void free( void* _Owner p);\n"
+        "void free( void* _Owner _Opt p);\n"
+        "int rand();\n"
         "\n"
         "int main() {\n"
+        "    char * _Owner s = malloc(1);\n"
         "    try\n"
         "    {\n"
-        "         if (1)\n"
+        "         if (rand())\n"
         "         {\n"
-        "             char * _Owner s = malloc(1);\n"
         "             free(s);\n"
         "         }\n"
         "         else\n"
-        "         {\n"
+        "         {             \n"
+        "            static_debug(s);\n"
         "            throw;\n"
         "         }\n"
         "    }\n"
         "    catch\n"
         "    {\n"
         "    }\n"
-        "}";
+        "    static_debug(s);\n"
+        "    static_state(s, \"null or not-null or uninitialized\");\n"
+        "}\n"
+        "";
+
+
     assert(compile_without_errors_warnings(true, false, source));
 }
 
@@ -1656,15 +1638,14 @@ void ownership_flow_test_moving_owner_pointer()
 {
     const char* source
         =
-        "\n"
         "void* _Owner malloc(int i);\n"
-        "void free(void* _Owner p);\n"
+        "void free(void* _Owner _Opt p);\n"
         "\n"
         "struct X {\n"
         "    char* _Owner name;\n"
         "};\n"
         "\n"
-        "void x_delete(struct X* _Owner p)\n"
+        "void x_delete(struct X* _Owner _Opt p)\n"
         "{\n"
         "    if (p) {\n"
         "        free(p->name);\n"
@@ -1674,18 +1655,17 @@ void ownership_flow_test_moving_owner_pointer()
         "\n"
         "int main() {\n"
         "    struct X* _Owner p = malloc(sizeof * p);\n"
+        "\n"
         "    x_delete(p);\n"
+        "\n"
+        "    //p.name is uninitialized\n"
+        "    #pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "}\n"
         "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
-        "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
         "\n"
         "";
-    assert(compile_without_errors_warnings(true, false, source));
 
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_moving_owner_pointer_missing()
@@ -1707,9 +1687,6 @@ void ownership_flow_test_moving_owner_pointer_missing()
         "        free(p);\n"
         "    }\n"
         "}\n"
-        "\n"
-        "\n"
-        "void dummy() {}\n"
         "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
@@ -1735,8 +1712,7 @@ void ownership_flow_test_error()
         "    return p;\n"
         "}\n"
         "\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -1758,8 +1734,7 @@ void ownership_flow_test_setting_owner_pointer_to_null()
         "    p = 0;\n"
         "}\n"
         "\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -1833,9 +1808,7 @@ void ownership_types_test_error_owner()
         "#pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
         "}\n"
         "\n"
-        "\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -1854,8 +1827,7 @@ void ownership_flow_test_if_variant()
         "        p = f();\n"
         "    }\n"
         "}\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -1873,8 +1845,8 @@ void check_leaks_on_else_block()
         "        int* _Owner p3 = malloc(1);\n"
         "    }\n"
         "}\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -1914,8 +1886,7 @@ void ownership_no_name_parameter()
     const char* source
         =
         "void free(void* _Owner) { }\n"
-        "void dummy() {}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"";
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -2004,15 +1975,13 @@ void taking_address()
         "int main()\n"
         "{\n"
         "  struct X x = {};\n"
-        "  static_debug(x);\n"
-        "  x_change(&x);\n"
-        "  //list_destroy(&list);\n"
+        "  x_change(&x);  \n"
         "}\n"
+        "//memory pointed by 'x.text' was not released.\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
-    get_ast(&options, "source", source, &report);
-    assert(report.error_count == 1);
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void taking_address_const()
@@ -2271,8 +2240,6 @@ void owner_to_non_owner()
         "   #pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
         "}\n"
         "\n"
-        "void dummy() {}\n"
-        "\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
 
@@ -2383,6 +2350,7 @@ void scopes_pop()
     const char* source
         =
         "\n"
+        "int rand();\n"
         "void free(void* _Owner ptr);\n"
         "\n"
         "struct X { char* _Owner name; };\n"
@@ -2395,7 +2363,7 @@ void scopes_pop()
         "    {\n"
         "        struct X x = {0};   \n"
         "        \n"
-        "        if (1)\n"
+        "        if (rand())\n"
         "        {            \n"
         "            x = f();\n"
         "        }\n"
@@ -2468,10 +2436,11 @@ void use_after_destroy()
 {
     const char* source
         =
-        "\n"
         "char* _Owner strdup(const char* s);\n"
         "void* _Owner malloc(unsigned size);\n"
+        "\n"
         "void free(void* _Owner ptr);\n"
+        "\n"
         "struct X {\n"
         "    char* _Owner name;\n"
         "};\n"
@@ -2488,17 +2457,13 @@ void use_after_destroy()
         "int main() {\n"
         "    struct X x = { 0 };\n"
         "    x.name = strdup(\"a\");\n"
-        "    x_destroy(&x);\n"
+        "    x_destroy(&x);    \n"
         "    x_print(&x);\n"
+        "    #pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "\n"
         "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
-        "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "\n"
         "";
 
@@ -2565,10 +2530,6 @@ void discarding_owner()
         "    struct X* p = (struct X* _Owner) malloc(1);\n"
         "}\n"
         "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
         "//flow analyze\n"
         "#pragma cake diagnostic check \"-Wmissing-owner-qualifier\"\n"
         "\n"
@@ -2596,10 +2557,6 @@ void using_uninitialized()
         "}\n"
         "\n"
         "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
-        "\n"
         "//flow analyze\n"
         "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "\n"
@@ -2622,12 +2579,6 @@ void using_uninitialized_struct()
         "    struct X x;\n"
         "    x_destroy(&x);\n"
         "}\n"
-        "\n"
-        "\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "//flow analyze\n"
         "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
@@ -3152,16 +3103,19 @@ void loop_leak()
     const char* source
         =
         "void* _Owner malloc(unsigned long size);\n"
-        "void free(void* _Owner ptr);\n"
+        "void free(void* _Owner _Opt ptr);\n"
         "\n"
         "int main() {\n"
         "   void * _Owner p = 0;\n"
         "   for (int i=0; i < 2; i++) {\n"
-        "     p = malloc(1);\n"
+        "     p = malloc(1); /*leak*/\n"
         "   }\n"
+        "   #pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "   free(p);\n"
         "}";
-    assert(compile_with_errors(true, false, source));
+
+
+    assert(compile_without_errors_warnings(true, false, source));
 }
 
 void out_parameter()
@@ -3289,8 +3243,9 @@ void bounds_check1()
         "int main() {\n"
         "	int a[5] = {0};\n"
         "	int i = a[5];\n"
-        "}\n"
-        "#pragma cake diagnostic check \"-Wout-of-bounds\"";
+        "#pragma cake diagnostic check \"-Wout-of-bounds\"\n"
+        "}\n";
+
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
@@ -3316,15 +3271,10 @@ void uninitialized_objects_passed_to_variadic_function()
         "{\n"
         "    int i;\n"
         "    f(\"\", i);\n"
-        "    //first pass analyze\n"
         "#pragma cake diagnostic check \"-Wmaybe-uninitialized\"\n"
+        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "    return 0;\n"
         "}\n"
-        "void dummy()\n"
-        "{\n"
-        "}\n"
-        "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "";
 
 
@@ -3343,10 +3293,6 @@ void nullderef()
         "    k = 0;\n"
         "    return 0;\n"
         "}\n"
-        "\n"
-        "void dummy()\n"
-        "{\n"
-        "} \n"
         "\n"
         "#pragma cake diagnostic check \"-Wanalyzer-null-dereference\"\n"
         "";
@@ -3437,8 +3383,9 @@ void discard_qualifier_test()
         "{\n"
         "    const struct X x = {0};\n"
         "    f(&x);\n"
+        "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"\n"
         "}\n"
-        "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"";
+        ;
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 void keywords_inside_attr()

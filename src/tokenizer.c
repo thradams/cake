@@ -3131,8 +3131,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             /*
               # pragma pp-tokensopt new-line
             */
+            /*
+               #pragma will survive and compiler will handle as
+               pragma declaration
+            */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
             r.tail->type = TK_PRAGMA;
+            r.tail->flags |= TK_FLAG_FINAL;
             skip_blanks_level(ctx, &r, input_list, level);
 
             if (input_list->head->type == TK_IDENTIFIER)
@@ -3140,6 +3145,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (strcmp(input_list->head->lexeme, "CAKE") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);
+                    r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
                 }
 
@@ -3147,6 +3153,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     hashmap_set(&ctx->pragma_once_map, input_list->head->token_origin->lexeme, (void*) 1, 0);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+                    r.tail->flags |= TK_FLAG_FINAL;
                 }
                 else if (input_list->head && strcmp(input_list->head->lexeme, "dir") == 0)
                 {
@@ -3156,10 +3163,12 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     strncpy(path, input_list->head->lexeme + 1, strlen(input_list->head->lexeme) - 2);
                     include_dir_add(&ctx->include_dir, path);
                     match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//pragma
+                    r.tail->flags |= TK_FLAG_FINAL;
                 }
                 else if (input_list->head && strcmp(input_list->head->lexeme, "expand") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
+                    r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
 
                     struct macro* macro = find_macro(ctx, input_list->head->lexeme);
@@ -3173,6 +3182,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 else if (input_list->head && strcmp(input_list->head->lexeme, "nullchecks") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
+                    r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
                     ctx->options.null_checks = true;
                 }
@@ -3180,11 +3190,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 if (input_list->head && strcmp(input_list->head->lexeme, "diagnostic") == 0)
                 {
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                    r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
 
                     if (input_list->head && strcmp(input_list->head->lexeme, "push") == 0)
                     {
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//diagnostic
+                        r.tail->flags |= TK_FLAG_FINAL;
                         //#pragma GCC diagnostic push
                         if (ctx->options.diagnostic_stack_top_index <
                             sizeof(ctx->options.diagnostic_stack) / sizeof(ctx->options.diagnostic_stack[0]))
@@ -3199,6 +3211,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     {
                         //#pragma GCC diagnostic pop
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pop
+                        r.tail->flags |= TK_FLAG_FINAL;
                         if (ctx->options.diagnostic_stack_top_index > 0)
                         {
                             ctx->options.diagnostic_stack_top_index--;
@@ -3209,11 +3222,13 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         //#pragma CAKE diagnostic warning "-Wenum-compare"
 
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//warning
+                        r.tail->flags |= TK_FLAG_FINAL;
                         skip_blanks_level(ctx, &r, input_list, level);
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
                         {
                             match_token_level(&r, input_list, TK_STRING_LITERAL, level, ctx);//""
+                            r.tail->flags |= TK_FLAG_FINAL;
 
                             unsigned long long  w = get_warning_bit_mask(input_list->head->lexeme + 1 + 2);
                             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
@@ -3224,6 +3239,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                         //#pragma CAKE diagnostic ignore "-Wenum-compare"
 
                         match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//ignore
+                        r.tail->flags |= TK_FLAG_FINAL;
                         skip_blanks_level(ctx, &r, input_list, level);
 
                         if (input_list->head && input_list->head->type == TK_STRING_LITERAL)
@@ -3238,6 +3254,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             struct token_list r7 = pp_tokens_opt(ctx, input_list, level);
             token_list_append_list(&r, &r7);
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
+            r.tail->type = TK_PRAGMA_END;
+            r.tail->flags |= TK_FLAG_FINAL;
             token_list_destroy(&r7);
         }
     }

@@ -196,8 +196,22 @@ struct static_assert_declaration
     struct token* string_literal_opt;
 };
 struct static_assert_declaration* owner static_assert_declaration(struct parser_ctx* ctx);
-void static_assert_declaration_delete(struct static_assert_declaration* owner p);
+void static_assert_declaration_delete(struct static_assert_declaration* owner opt p);
 
+/*
+  extension, pragma survives the preprocessor and become
+  a pragma_declaration that can be used on the AST visit
+*/
+
+struct pragma_declaration {
+    struct token* first_token;
+    struct token* last_token;    
+};
+
+struct pragma_declaration* owner pragma_declaration(struct parser_ctx* ctx);
+void pragma_declaration_delete(struct pragma_declaration* owner opt p);
+
+void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma, bool on_flow_analysis);
 
 struct attribute_specifier_sequence
 {
@@ -355,6 +369,7 @@ struct declaration
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
 
     struct static_assert_declaration* owner static_assert_declaration;
+    struct pragma_declaration* owner pragma_declaration;
 
 
     struct declaration_specifiers* owner declaration_specifiers;

@@ -42,6 +42,7 @@ enum token_type
     TK_TILDE = '~',
     TK_PREPROCESSOR_LINE,
     TK_PRAGMA,
+    TK_PRAGMA_END, /*marks the end of pragma internal usage*/
     TK_STRING_LITERAL,
     TK_CHAR_CONSTANT,    
     TK_LINE_COMMENT,
@@ -283,6 +284,7 @@ do {\
         (list)->tail = pitem;\
     } else \
     {\
+        assert((list)->tail->next == NULL);\
         (list)->tail->next = pitem;\
         (list)->tail = pitem;\
     }\

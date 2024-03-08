@@ -761,14 +761,14 @@ void set_object_state(
             p_object->state = p_object_source->state & ~OBJECT_STATE_MOVED;
         }
 
-        
+
         if (object_get_pointed_object(p_object))
         {
             struct type t2 = type_remove_pointer(p_type);
             if (object_get_pointed_object(p_object_source))
             {
                 set_object_state(ctx, &t2, object_get_pointed_object(p_object),
-                    p_source_type, 
+                    p_source_type,
                     object_get_pointed_object(p_object_source), error_position);
             }
             else
@@ -1785,26 +1785,79 @@ void object_assignment(struct parser_ctx* ctx,
     struct type* p_dest_obj_type,
 
     const struct token* error_position,
-    bool bool_source_zero_value,
+    bool bool_source_zero_value, //TODO can be removed
     enum object_state source_state_after,
     enum assigment_type assigment_type)
 {
-    if (p_dest_obj_opt)
+
+    if (assigment_type == ASSIGMENT_TYPE_RETURN)
     {
-        if (type_is_any_owner(p_source_obj_type) &&
-            type_is_owner(p_dest_obj_type) &&
-            !type_is_out(p_dest_obj_type))
+        /*
+           We cannot return uninitialized objects.
+        */
+        if (p_source_obj_opt)
         {
-            char buffer[100] = { 0 };
-            object_get_name(p_dest_obj_type, p_dest_obj_opt, buffer, sizeof buffer);
-            visit_object(ctx,
-                p_dest_obj_type,
-                p_dest_obj_opt,
+            checked_read_object(ctx,
+                p_source_obj_type,
+                p_source_obj_opt,
                 error_position,
-                buffer,
-                true);
+                true /*checked pointed object*/);
+        }
+        else
+        {
+            //TODO should not happen
         }
     }
+
+    if (assigment_type == ASSIGMENT_TYPE_OBJECTS)
+    {
+        assert(p_dest_obj_type);
+        if (type_is_owner(p_dest_obj_type))
+        {
+            if (p_dest_obj_opt)
+            {
+                char buffer[100] = { 0 };
+                object_get_name(p_dest_obj_type, p_dest_obj_opt, buffer, sizeof buffer);
+                visit_object(ctx,
+                    p_dest_obj_type,
+                    p_dest_obj_opt,
+                    error_position,
+                    buffer,
+                    true);
+            }
+            else
+            {
+                /*TODO should not happen but it is happening*/
+            }
+        }
+    }
+
+    if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+    {
+        if (type_is_out(p_dest_obj_type))
+        {
+            /*object must be uninitialized*/
+        }
+        else
+        {
+            if (p_source_obj_opt)
+            {
+                char buffer[100] = { 0 };
+                object_get_name(p_source_obj_type, p_source_obj_opt, buffer, sizeof buffer);
+                visit_object(ctx,
+                    p_dest_obj_type,
+                    p_dest_obj_opt,
+                    error_position,
+                    buffer,
+                    true);
+            }
+            else
+            {
+                //TODO should not happen
+            }
+        }
+    }
+
 
 
     if (p_dest_obj_opt)
