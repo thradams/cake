@@ -856,7 +856,8 @@ struct member_declaration
 
 };
 
-struct member_declaration* owner member_declaration(struct parser_ctx* ctx, const  struct struct_or_union_specifier*);
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx, 
+ struct struct_or_union_specifier*);
 void member_declaration_delete(struct member_declaration* owner opt p);
 
 struct member_declarator

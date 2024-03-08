@@ -2270,9 +2270,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2289,9 +2286,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -9993,6 +9987,8 @@ int get_diagnostic_phase(enum diagnostic_id w)
         case W_OWNERSHIP_FLOW_NULL_DEREFERENCE:
         case W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
             return 2; /*returns 2 if it flow analysis*/
+        default:
+            break;
     }
     return 0;
 }
@@ -11924,7 +11920,7 @@ struct member_declaration
 
 };
 
-struct member_declaration* owner member_declaration(struct parser_ctx* ctx, const  struct struct_or_union_specifier*);
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx,  struct struct_or_union_specifier*);
 void member_declaration_delete(struct member_declaration* owner opt p);
 
 struct member_declarator
@@ -25931,7 +25927,7 @@ void member_declaration_delete(struct member_declaration* owner opt p)
     }
 }
 struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
-    const struct struct_or_union_specifier* p_struct_or_union_specifier)
+    struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration* owner p_member_declaration = calloc(1, sizeof(struct member_declaration));
     //attribute_specifier_sequence_opt specifier_qualifier_list member_declarator_list_opt ';'

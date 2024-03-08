@@ -92,6 +92,8 @@ int get_diagnostic_phase(enum diagnostic_id w)
         case W_OWNERSHIP_FLOW_NULL_DEREFERENCE:
         case W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
             return 2; /*returns 2 if it flow analysis*/
+        default:
+            break;
     }
     return 0;
 }

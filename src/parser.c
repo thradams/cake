@@ -3360,7 +3360,7 @@ void member_declaration_delete(struct member_declaration* owner opt p)
     }
 }
 struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
-    const struct struct_or_union_specifier* p_struct_or_union_specifier)
+    struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration* owner p_member_declaration = calloc(1, sizeof(struct member_declaration));
     //attribute_specifier_sequence_opt specifier_qualifier_list member_declarator_list_opt ';'
