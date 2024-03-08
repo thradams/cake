@@ -5466,6 +5466,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             /*
               # pragma pp-tokensopt new-line
             */
+            /*
+               #pragma will survive and compiler will handle as
+               pragma declaration
+            */
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//pragma
             r.tail->type = TK_PRAGMA;
             r.tail->flags |= TK_FLAG_FINAL;
