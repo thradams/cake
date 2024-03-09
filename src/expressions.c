@@ -813,8 +813,10 @@ struct generic_selection *owner generic_selection(struct parser_ctx *ctx)
 
         p_generic_selection->first_token = ctx->current;
 
-        parser_match_tk(ctx, TK_KEYWORD__GENERIC);
-        parser_match_tk(ctx, '(');
+        if (parser_match_tk(ctx, TK_KEYWORD__GENERIC) != 0)
+            throw;
+        if (parser_match_tk(ctx, '(') != 0)
+            throw;
 
         if (first_of_type_name(ctx))
         {
@@ -830,7 +832,8 @@ struct generic_selection *owner generic_selection(struct parser_ctx *ctx)
                 throw;
         }
 
-        parser_match_tk(ctx, ',');
+        if (parser_match_tk(ctx, ',') != 0)
+            throw;
 
         p_generic_selection->generic_assoc_list = generic_association_list(ctx);
 
@@ -873,8 +876,12 @@ struct generic_selection *owner generic_selection(struct parser_ctx *ctx)
         }
 
         p_generic_selection->last_token = ctx->current;
-        parser_match_tk(ctx, ')');
         type_destroy(&lvalue_type);
+
+        if (parser_match_tk(ctx, ')') != 0)
+        {
+            throw;
+        }
     }
     catch
     {
@@ -1660,7 +1667,8 @@ struct expression *owner primary_expression(struct parser_ctx *ctx)
             p_expression_node->constant_value = p_expression_node->right->constant_value;
 
             p_expression_node->last_token = ctx->current;
-            parser_match_tk(ctx, ')');
+            if (parser_match_tk(ctx, ')') != 0)
+                throw;
         }
         else
         {
@@ -1862,7 +1870,12 @@ struct expression *owner postfix_expression_tail(struct parser_ctx *ctx, struct 
                         }
                     }
                 }
-                parser_match_tk(ctx, ']');
+                if (parser_match_tk(ctx, ']') != 0)
+                {
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
 
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
@@ -1893,7 +1906,13 @@ struct expression *owner postfix_expression_tail(struct parser_ctx *ctx, struct 
                 {
                     p_expression_node_new->argument_expression_list = argument_expression_list(ctx);
                 }
-                parser_match_tk(ctx, ')');
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
+
                 compare_function_arguments(ctx, &p_expression_node->type, &p_expression_node_new->argument_expression_list);
                 p_expression_node_new->last_token = ctx->previous;
 
@@ -1946,7 +1965,12 @@ struct expression *owner postfix_expression_tail(struct parser_ctx *ctx, struct 
                     {
                         print_scope(&ctx->scopes);
                     }
-                    parser_match_tk(ctx, TK_IDENTIFIER);
+                    if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
+                    {
+                        expression_delete(p_expression_node_new);
+                        p_expression_node_new = NULL;
+                        throw;
+                    }
                 }
                 else
                 {
@@ -2017,7 +2041,13 @@ struct expression *owner postfix_expression_tail(struct parser_ctx *ctx, struct 
                                                         "struct '%s' is incomplete.",
                                                         ctx->current->lexeme);
                         }
-                        parser_match_tk(ctx, TK_IDENTIFIER);
+                        if (parser_match_tk(ctx, TK_IDENTIFIER) != 0)
+                        {
+                            type_destroy(&item_type);
+                            expression_delete(p_expression_node_new);
+                            p_expression_node_new = NULL;
+                            throw;
+                        }
                     }
                     else
                     {
@@ -2183,14 +2213,17 @@ struct expression *owner postfix_expression(struct parser_ctx *ctx)
             static_set(*p_expression_node, "zero");
 
             p_expression_node->first_token = ctx->current;
-            parser_match_tk(ctx, '(');
+            if (parser_match_tk(ctx, '(') != 0)
+                throw;
+
             p_expression_node->type_name = type_name(ctx);
             if (p_expression_node->type_name == NULL)
                 throw;
 
             p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
 
-            parser_match_tk(ctx, ')');
+            if (parser_match_tk(ctx, ')') != 0)
+                throw;
             // printf("\n");
             // print_type(&p_expression_node->type);
             bool is_function_type = type_is_function(&p_expression_node->type);
@@ -2465,12 +2498,22 @@ struct expression *owner unary_expression(struct parser_ctx *ctx)
             if (first_of_type_name_ahead(ctx))
             {
                 new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_TYPE;
-                parser_match_tk(ctx, '(');
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
                 new_expression->type_name = type_name(ctx);
 
                 new_expression->type = make_size_t_type();
 
-                parser_match_tk(ctx, ')');
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
 
                 new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
             }
@@ -2525,10 +2568,20 @@ struct expression *owner unary_expression(struct parser_ctx *ctx)
             struct type *p_type = NULL;
             if (first_of_type_name_ahead(ctx))
             {
-                parser_match_tk(ctx, '(');
+                if (parser_match_tk(ctx, '(') != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
                 new_expression->type_name = type_name(ctx);
                 new_expression->last_token = ctx->current;
-                parser_match_tk(ctx, ')');
+                if (parser_match_tk(ctx, ')') != 0)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
                 p_type = &new_expression->type_name->declarator->type;
             }
             else
@@ -2607,7 +2660,12 @@ struct expression *owner unary_expression(struct parser_ctx *ctx)
             new_expression->first_token = ctx->current;
 
             parser_match(ctx);
-            parser_match_tk(ctx, '(');
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
             new_expression->right = expression(ctx);
 
             /*if (constant_value_is_valid(&new_expression->right->constant_value) &&
@@ -2617,7 +2675,12 @@ struct expression *owner unary_expression(struct parser_ctx *ctx)
                     new_expression->right->first_token, "assert failed");
             }*/
 
-            parser_match_tk(ctx, ')');
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
             return new_expression;
         }
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
@@ -2628,9 +2691,20 @@ struct expression *owner unary_expression(struct parser_ctx *ctx)
             new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
             new_expression->first_token = ctx->current;
             parser_match(ctx);
-            if (parser_match_tk(ctx, '(') != 0) throw;
+            if (parser_match_tk(ctx, '(') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
             new_expression->type_name = type_name(ctx);
-            parser_match_tk(ctx, ')');
+            if (parser_match_tk(ctx, ')') != 0)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
             if (!ctx->evaluation_is_disabled)
             {
                 new_expression->constant_value = make_constant_value_ll(type_get_alignof(&new_expression->type_name->type), ctx->evaluation_is_disabled);
@@ -2652,6 +2726,8 @@ struct expression *owner unary_expression(struct parser_ctx *ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
