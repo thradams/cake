@@ -1475,7 +1475,8 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     struct token_list r = { 0 };
 
     struct token* before_first = first->prev;
-    struct token* owner after_last = last->next;
+    struct token* owner after_last = last->next; /*MOVED*/
+    last->next = NULL; /*MOVED*/
 
     before_first->next = after_last;
     after_last->prev = before_first;
@@ -1483,7 +1484,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     r.head = (struct token* owner)first;
     first->prev = NULL;
     r.tail = last;
-    last->next = NULL;
+    
 
 
     return r;
@@ -2463,7 +2464,7 @@ static void tokenizer_set_error(struct tokenizer_ctx* ctx, struct stream* stream
     ctx->n_errors++;
 #ifndef TEST
     char buffer[200] = { 0 };
-    va_list args;
+    va_list args = {0};
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
@@ -2487,7 +2488,7 @@ static void tokenizer_set_warning(struct tokenizer_ctx* ctx, struct stream* stre
 
 #ifndef TEST
     char buffer[200] = { 0 };
-    va_list args;
+    va_list args= {0};
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
@@ -2563,7 +2564,7 @@ bool preprocessor_diagnostic_message(enum diagnostic_id w, struct preprocessor_c
         print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
     char buffer[200] = { 0 };
-    va_list args;
+    va_list args= {0};
     va_start(args, fmt);
     /*int n =*/ vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
@@ -8800,7 +8801,7 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 {
     assert(fmt != 0);
     int size = 0;
-    va_list tmpa;
+    va_list tmpa = {0};
 
     va_copy(tmpa, args);
 
@@ -8843,7 +8844,7 @@ int ss_putc(char ch, struct osstream* stream)
 
 int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 {
-    va_list args;
+    va_list args = {0};
     va_start(args, fmt);
     int size = ss_vafprintf(stream, fmt, args);
     va_end(args);
@@ -23079,7 +23080,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     if (p_token)
         print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
-    va_list args;
+    va_list args = {0};
     va_start(args, fmt);
     /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);

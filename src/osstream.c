@@ -50,7 +50,7 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 {
     assert(fmt != 0);
     int size = 0;
-    va_list tmpa;
+    va_list tmpa = {0};
 
     va_copy(tmpa, args);
 
@@ -93,7 +93,7 @@ int ss_putc(char ch, struct osstream* stream)
 
 int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 {
-    va_list args;
+    va_list args = {0};
     va_start(args, fmt);
     int size = ss_vafprintf(stream, fmt, args);
     va_end(args);

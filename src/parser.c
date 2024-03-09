@@ -372,7 +372,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     if (p_token)
         print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
-    va_list args;
+    va_list args = {0};
     va_start(args, fmt);
     /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);

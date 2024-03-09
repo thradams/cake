@@ -532,7 +532,8 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     struct token_list r = { 0 };
 
     struct token* before_first = first->prev;
-    struct token* owner after_last = last->next;
+    struct token* owner after_last = last->next; /*MOVED*/
+    last->next = NULL; /*MOVED*/
 
     before_first->next = after_last;
     after_last->prev = before_first;
@@ -540,7 +541,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     r.head = (struct token* owner)first;
     first->prev = NULL;
     r.tail = last;
-    last->next = NULL;
+    
 
 
     return r;
