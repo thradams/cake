@@ -3,20 +3,18 @@
 
 #ifdef TEST
 
-
 #include "parser.h"
 #include <stdlib.h>
 
 #include "unit_test.h"
 #define WARNING_FLAG(x) (1ULL << (x))
-static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks, const char* src)
+static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks, const char *src)
 {
-    struct options options = { .input = LANGUAGE_C99,
-        .flow_analysis = flow_analysis,
-        .null_checks = nullchecks,
-        .diagnostic_stack[0] = default_diagnostic
-    };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99,
+                              .flow_analysis = flow_analysis,
+                              .null_checks = nullchecks,
+                              .diagnostic_stack[0] = default_diagnostic};
+    struct report report = {0};
     get_ast(&options, "source", src, &report);
     if (report.error_count == 0 && report.warnings_count == 0)
     {
@@ -27,44 +25,40 @@ static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks,
     return false;
 }
 
-static bool compile_with_errors(bool flow_analysis, bool nullchecks, const char* src)
+static bool compile_with_errors(bool flow_analysis, bool nullchecks, const char *src)
 {
     struct options options =
-    {
-        .input = LANGUAGE_C99,
-        .flow_analysis = flow_analysis,
-        .null_checks = nullchecks,
-        .diagnostic_stack[0].warnings = ~0ULL
-    };
-    struct report report = { 0 };
+        {
+            .input = LANGUAGE_C99,
+            .flow_analysis = flow_analysis,
+            .null_checks = nullchecks,
+            .diagnostic_stack[0].warnings = ~0ULL};
+    struct report report = {0};
     get_ast(&options, "source", src, &report);
     return report.error_count != 0;
 }
 
-static bool compile_with_warnings(bool flow_analysis, bool nullchecks, const char* src)
+static bool compile_with_warnings(bool flow_analysis, bool nullchecks, const char *src)
 {
     struct options options =
-    {
-        .input = LANGUAGE_C99,
-        .flow_analysis = flow_analysis,
-        .null_checks = nullchecks
-    };
-    struct report report = { 0 };
+        {
+            .input = LANGUAGE_C99,
+            .flow_analysis = flow_analysis,
+            .null_checks = nullchecks};
+    struct report report = {0};
     get_ast(&options, "source", src, &report);
     return report.warnings_count != 0;
 }
 
-
 void parser_specifier_test()
 {
-    const char* src = "long long long i;";
+    const char *src = "long long long i;";
     assert(compile_with_errors(false, false, src));
 }
 void character_constant_test()
 {
 
-    const char* source
-        =
+    const char *source =
         "static_assert(92 == 0134);\n"
         "\n"
         "static_assert('\\0' == 0);\n"
@@ -94,8 +88,7 @@ void character_constant_test()
 
 void char_constants()
 {
-    const char* source
-        =
+    const char *source =
         "#define TYPE_IS(e, T) _Generic(typeof(e), T : 1, default: 0)\n"
         "\n"
         "static_assert(U'ç' == 231);\n"
@@ -112,7 +105,7 @@ void char_constants()
 
 void array_item_type_test()
 {
-    const char* src =
+    const char *src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "void (*pf[10])(void* val);\n"
         "static_assert(_is_same(typeof(pf[0]), void (*)(void* val)));\n";
@@ -121,7 +114,7 @@ void array_item_type_test()
 
 void take_address_type_test()
 {
-    const char* src =
+    const char *src =
         "void F(char(*p)[10])"
         "{"
         "    (*p)[0] = 'a';"
@@ -131,66 +124,64 @@ void take_address_type_test()
 
 void parser_scope_test()
 {
-    const char* src = "void f() {int i; char i;}";
+    const char *src = "void f() {int i; char i;}";
     assert(compile_with_errors(false, false, src));
 }
 
 void parser_tag_test()
 {
-    //mudou tipo do tag no mesmo escopo
-    const char* src = "enum E { A }; struct E { int i; };";
+    // mudou tipo do tag no mesmo escopo
+    const char *src = "enum E { A }; struct E { int i; };";
     assert(compile_with_errors(false, false, src));
 }
 
 void string_concatenation_test()
 {
-    const char* src = " const char* s = \"part1\" \"part2\";";
+    const char *src = " const char* s = \"part1\" \"part2\";";
     assert(compile_without_errors_warnings(false, false, src));
 }
 
 void test_digit_separator()
 {
-    struct report report = { 0 };
-    char* result = compile_source("-std=c99", "int i = 1'000;", &report);
+    struct report report = {0};
+    char *result = compile_source("-std=c99", "int i = 1'000;", &report);
     assert(strcmp(result, "int i = 1000;") == 0);
     free(result);
 }
 
 void test_lit()
 {
-    struct report report = { 0 };
-    char* result = compile_source("-std=c99", "char * s = u8\"maçã\";", &report);
+    struct report report = {0};
+    char *result = compile_source("-std=c99", "char * s = u8\"maçã\";", &report);
     assert(strcmp(result, "char * s = \"ma\\xc3\\xa7\\xc3\\xa3\";") == 0);
     free(result);
 }
 
 void type_test2()
 {
-    char* src =
+    char *src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int a[10];\n"
-        " static_assert(_is_same(typeof(&a) ,int (*)[10]));\n"
-        ;
+        " static_assert(_is_same(typeof(&a) ,int (*)[10]));\n";
 
     assert(compile_without_errors_warnings(false, false, src));
 }
 
 void type_test3()
 {
-    char* src =
+    char *src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int i;"
         "int (*f)(void);"
         " static_assert(_is_same(typeof(&i), int *));"
-        " static_assert(_is_same(typeof(&f), int (**)(void)));"
-        ;
+        " static_assert(_is_same(typeof(&f), int (**)(void)));";
 
     assert(compile_without_errors_warnings(false, false, src));
 }
 
 void crazy_decl()
 {
-    const char* src =
+    const char *src =
         "void (*f(int i))(void)\n"
         "{\n"
         "   i = 1; \n"
@@ -202,7 +193,7 @@ void crazy_decl()
 
 void crazy_decl2()
 {
-    const char* src =
+    const char *src =
         "void (*f(int i))(void)\n"
         "{\n"
         "   i = 1; \n"
@@ -218,7 +209,7 @@ void crazy_decl2()
 
 void crazy_decl4()
 {
-    const char* src =
+    const char *src =
         "void (*F(int a, int b))(void) { return 0; }\n"
         "void (*(*PF)(int a, int b))(void) = F;\n"
         "int main() {\n"
@@ -236,77 +227,71 @@ void sizeof_not_evaluated()
 void sizeof_array_test()
 {
     assert(compile_without_errors_warnings(false,
-        false,
-        "int main() {\n"
-        "int a[] = { 1, 2, 3 };\n"
-        "static_assert(sizeof(a) == sizeof(int) * 3);\n"
-        "}\n"
-    ));
+                                           false,
+                                           "int main() {\n"
+                                           "int a[] = { 1, 2, 3 };\n"
+                                           "static_assert(sizeof(a) == sizeof(int) * 3);\n"
+                                           "}\n"));
 }
 
 void sizeof_test()
 {
-
-    const char* src =
+    const char *source =
         "static_assert(sizeof(\"ABC\") == 4);\n"
         "char a[10];\n"
         "char b[10][2];\n"
         "static_assert(sizeof(a) == 10);\n"
         "static_assert(sizeof(b) == sizeof(char)*10*2);\n"
         "char *p[10];\n"
-        "static_assert(sizeof(p) == 40);\n"
-        "static_assert(sizeof(int) == 4);\n"        
+        "static_assert(sizeof(p) == sizeof(char*)*10);\n"        
+        "static_assert(sizeof(int) == 4);\n"
         "static_assert(sizeof(char) == 1);\n"
         "static_assert(sizeof(short) == 2);\n"
         "static_assert(sizeof(unsigned int) == 4);\n"
-        "static_assert(sizeof(void (*pf)(int i)) == sizeof(void*));\n"
-        ;
+        "static_assert(sizeof(void (*)(int i)) == sizeof(void*));";
 
-    assert(compile_without_errors_warnings(false, false, src));
+    assert(compile_without_errors_warnings(false, false, source));
 }
 
 void alignof_test()
 {
-    const char* src =
+    const char *src =
         "struct X { char s; double c; char s2;};\n"
         "static_assert(alignof(struct X) == 8);"
-        "static_assert(sizeof(struct X) == 24);"
-        ;
+        "static_assert(sizeof(struct X) == 24);";
 
     assert(compile_without_errors_warnings(false, false, src));
 }
 
 void indirection_struct_size()
 {
-    const char* src =
+    const char *src =
         "typedef struct X X;\n"
         "struct X {\n"
         "    void* data;\n"
         "};\n"
-        "static_assert(sizeof(X) == sizeof(void*));"
-        ;
+        "static_assert(sizeof(X) == sizeof(void*));";
 
     assert(compile_without_errors_warnings(false, false, src));
 }
 
 void traits_test()
 {
-    //https://en.cppreference.com/w/cpp/header/type_traits
-    const char* src =
+    // https://en.cppreference.com/w/cpp/header/type_traits
+    const char *src =
         "void (*F)();\n"
         "static_assert(_is_pointer(F));\n"
         "static_assert(_is_integral(1));\n"
         "int a[2];\n"
         "static_assert(_is_array(a));\n"
         "int((a2))[10];\n"
-        "static_assert(_is_array(a2));"
-        ;
+        "static_assert(_is_array(a2));";
     assert(compile_without_errors_warnings(false, false, src));
 }
 
 void comp_error1()
 {
-    const char* src =
+    const char *src =
         "void F() {\n"
         "    char* z;\n"
         "    *z-- = '\\0';\n"
@@ -317,20 +302,19 @@ void comp_error1()
 
 void n_elements()
 {
-    const char* src =
+    const char *src =
         "void (*f[2][3])(int i);\n"
         "int main() {\n"
         "static_assert(sizeof(void (*[2])(int i)) == sizeof(void*) * 2);\n"
         "static_assert(sizeof(f) == sizeof(void (*[2])(int i)) * 3);\n"
-        "}"
-        ;
+        "}";
 
     assert(compile_without_errors_warnings(false, false, src));
 }
 
 void expr_type()
 {
-    const char* src =
+    const char *src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "static_assert(_is_same(typeof(1 + 2.0), double));";
 
@@ -339,7 +323,7 @@ void expr_type()
 
 void expand_test()
 {
-    char* src =
+    char *src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "typedef int A[2];"
         "typedef A *B [1];"
@@ -348,14 +332,13 @@ void expand_test()
 
     assert(compile_without_errors_warnings(false, false, src));
 
-    //https://godbolt.org/z/WbK9zP7zM
+    // https://godbolt.org/z/WbK9zP7zM
 }
 
 void expand_test2()
 {
 
-    const char* source
-        =
+    const char *source =
         "\n"
         "\n"
         "typedef char* A;\n"
@@ -374,16 +357,14 @@ void expand_test2()
         "static_assert(_Generic(typeof(i3), const int : 1));\n"
         "";
 
-
     assert(compile_without_errors_warnings(false, false, source));
 
-    //https://godbolt.org/z/WbK9zP7zM
+    // https://godbolt.org/z/WbK9zP7zM
 }
 void expand_test3()
 {
 
-
-    char* src3 =
+    char *src3 =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "typedef char* T1;"
         "typedef T1(*f[3])(int); "
@@ -391,12 +372,12 @@ void expand_test3()
 
     assert(compile_without_errors_warnings(false, false, src3));
 
-    //https://godbolt.org/z/WbK9zP7zM
+    // https://godbolt.org/z/WbK9zP7zM
 }
 
 void sizeof_test2()
 {
-    const char* str =
+    const char *str =
         "\n"
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
@@ -453,56 +434,51 @@ void sizeof_test2()
         "    static_assert(_is_same(typeof(*(((int*)0) + 1)), int));\n"
         "\n"
         "}\n"
-        "\n"
-        ;
+        "\n";
     assert(compile_without_errors_warnings(false, false, str));
 }
 
 void literal_string_type()
 {
-    const char* source =
+    const char *source =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "    static_assert(_is_same(typeof(\"A\"),  char [2]));\n"
-        "    static_assert(_is_same(typeof(\"AB\"),  char [3]));\n"
-        ;
+        "    static_assert(_is_same(typeof(\"AB\"),  char [3]));\n";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void digit_separator_test()
 {
-    const char* source =
-        "static_assert(1'00'00 == 10000);"
-        ;
+    const char *source =
+        "static_assert(1'00'00 == 10000);";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void numbers_test()
 {
-    const char* source =
+    const char *source =
         "#if 0xA1 == 161\n"
         "_Static_assert(0xA1 == 161); \n"
-        "#endif"
-        ;
+        "#endif";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void binary_digits_test()
 {
-    const char* source =
+    const char *source =
         "_Static_assert(0b101010 == 42);"
         "_Static_assert(0b1010'10 == 42);"
-        "_Static_assert(052 == 42);"
-        ;
+        "_Static_assert(052 == 42);";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void type_suffix_test()
 {
-    const char* source =
+    const char *source =
         "\n"
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
@@ -537,27 +513,24 @@ void type_suffix_test()
         "static_assert(_is_same(typeof(0b1ull), unsigned long long));\n"
         "static_assert(_is_same(typeof(1.0f), float));\n"
         "static_assert(_is_same(typeof(1.0), double));\n"
-        "static_assert(_is_same(typeof(1.0L), long double));\n"
-        ;
-
+        "static_assert(_is_same(typeof(1.0L), long double));\n";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void type_test()
 {
-    const char* source =
+    const char *source =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int * p = 0;"
-        "static_assert(_is_same( typeof( *(p + 1) ), int)   );"
-        ;
+        "static_assert(_is_same( typeof( *(p + 1) ), int)   );";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void is_pointer_test()
 {
-    const char* source =
+    const char *source =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
         "int main()\n"
@@ -585,14 +558,13 @@ void is_pointer_test()
         "  static_assert(!_is_const(const int*));\n"
         "  static_assert(_is_const(int* const));\n"
         "\n"
-        "}\n"
-        ;
+        "}\n";
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void params_test()
 {
-    const char* source =
+    const char *source =
         "void f1();"
         "void f2(void);"
         "void f3(char * s, ...);"
@@ -602,31 +574,28 @@ void params_test()
         "  f2();"
         "  f3(\"\");"
         "  f3(\"\", 1, 2, 3);"
-        "}"
-        ;
+        "}";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void test_compiler_constant_expression()
 {
-    const char* source =
+    const char *source =
         "int main()"
         "{"
         "  static_assert('ab' == 'a'*256+'b');\n"
         "  static_assert(sizeof(char)  == 1);\n"
         "  static_assert(true == 1);\n"
         "  static_assert(false == 0);\n"
-        "}"
-        ;
+        "}";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void zerodiv()
 {
-    const char* source
-        =
+    const char *source =
         "int main()\n"
         "{\n"
         "   int a = 2/0;\n"
@@ -639,19 +608,18 @@ void zerodiv()
 
 void function_result_test()
 {
-    const char* source =
+    const char *source =
         "int (*(*F1)(void))(int, int*);\n"
         "int (* F2(void) )(int, int*);\n"
         "static_assert(_Generic(F1(), int (*)(int, int*) : 1));\n"
-        "static_assert(_Generic(F2(), int (*)(int, int*) : 1));\n"
-        ;
+        "static_assert(_Generic(F2(), int (*)(int, int*) : 1));\n";
 
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void type_normalization()
 {
-    const char* source =
+    const char *source =
         "#define _is_same_type(typeof(T1), typeof(T2)) _Generic(T1, T2 : 1, default: 0)\n"
         "char ((a1));\n"
         "char b1;\n"
@@ -667,13 +635,12 @@ void type_normalization()
 
         ;
 
-
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void auto_test()
 {
-    const char* source =
+    const char *source =
         "#define _is_same(typeof(T1), typeof(T2)) _Generic(T1, T2 : 1, default: 0)\n"
         "    int main()\n"
         "    {\n"
@@ -687,27 +654,24 @@ void auto_test()
         "        static_assert(_is_same(r, double  * const));\n"
         "        auto s = \"test\";\n"
         "        static_assert(_is_same(s, char *));\n"
-        "    }\n"
-        ;
+        "    }\n";
 
     assert(compile_without_errors_warnings(false, false, source));
-
 }
 
 void visit_test_auto_typeof()
 {
-    const char* source = "auto p2 = (typeof(int[2])*) 0;";
+    const char *source = "auto p2 = (typeof(int[2])*) 0;";
 
-    struct report report = { 0 };
-    char* result = compile_source("-std=c99", source, &report);
+    struct report report = {0};
+    char *result = compile_source("-std=c99", source, &report);
     assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);
     free(result);
 }
 
-
 void enum_scope()
 {
-    const char* source =
+    const char *source =
         "enum E { A = 1 };\n"
         "int main()\n"
         "{\n"
@@ -719,47 +683,45 @@ void enum_scope()
 
 void const_member()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "  int i;\n"
         "};\n"
         "void f() {\n"
         "  const struct X x = {0};\n"
-        "  x.i = 1;\n" //error x.i is constant
+        "  x.i = 1;\n" // error x.i is constant
         "}\n"
         "";
 
-
-    struct options options = { .input = LANGUAGE_C99 };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&&
-        report.last_error == C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
+        report.last_error == C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/
+    );
 }
 
 void register_struct_member()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "    int i;\n"
         "};\n"
         "\n"
         "int main() {\n"
         "  register struct X x = {0};\n"
-        "  int * p = &x.i;\n" //error: address of register variable 'x' requested
+        "  int * p = &x.i;\n" // error: address of register variable 'x' requested
         "}\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1);
 }
 
 void address_of_const()
 {
-    const char* source =
+    const char *source =
         "const int i;\n"
         "static_assert(_Generic(&i, const int * : 1 ));\n"
         "\n"
@@ -772,10 +734,9 @@ void address_of_const()
 
 void lvalue_test()
 {
-    //https://en.cppreference.com/w/c/language/value_category
+    // https://en.cppreference.com/w/c/language/value_category
 
-    const char* source
-        =
+    const char *source =
         "//https://en.cppreference.com/w/c/language/value_category\n"
         "\n"
         "struct X\n"
@@ -850,14 +811,12 @@ void lvalue_test()
         "";
     ;
 
-
     assert(compile_without_errors_warnings(false, false, source));
 }
 
 void simple_no_discard_test()
 {
-    const char* source
-        =
+    const char *source =
         "[[nodiscard]] int destroy();\n"
         "\n"
         "int main()\n"
@@ -866,16 +825,15 @@ void simple_no_discard_test()
         "}\n"
         "";
 
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1 /*&& report.last_warning == W_ATTRIBUTES*/);
 }
 
 void simple_no_discard_test2()
 {
-    const char* source
-        =
+    const char *source =
         "[[nodiscard]] int destroy();\n"
         "\n"
         "int main()\n"
@@ -885,17 +843,15 @@ void simple_no_discard_test2()
         "}\n"
         "";
 
-
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 0 && report.error_count == 0);
 }
 
 void address_of_register()
 {
-    const char* source
-        =
+    const char *source =
         "struct X\n"
         "{\n"
         "    int i;\n"
@@ -907,16 +863,15 @@ void address_of_register()
         "  &x;\n"
         "}\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&& report.last_error == C_ERROR_ADDRESS_OF_REGISTER*/);
 }
 
 void return_address_of_local()
 {
-    const char* source
-        =
+    const char *source =
         "struct X\n"
         "{\n"
         "    int i;\n"
@@ -928,33 +883,30 @@ void return_address_of_local()
         "  return &x.i;\n"
         "}\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1 /*&& report.last_warning == W_RETURN_LOCAL_ADDR*/);
 }
 
 void return_address_of_local2()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "char* f() {\n"
         "    char str[] = \".\";\n"
         "    return str;\n"
-        "}\n"
-        ;
+        "}\n";
 
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1 /*&& report.last_warning == W_RETURN_LOCAL_ADDR*/);
 }
 
 void assignment_of_read_only_object()
 {
-    const char* source
-        =
+    const char *source =
         "struct X\n"
         "{\n"
         "    int i;\n"
@@ -966,8 +918,8 @@ void assignment_of_read_only_object()
         "  p->i = 1;\n"
         "}\n";
 
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&& report.last_error == C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
 }
@@ -980,8 +932,7 @@ void assignment_of_read_only_object()
 
 void simple_move()
 {
-    const char* source
-        =
+    const char *source =
         "char * _Owner f() {\n"
         "    char * _Owner p = 0;\n"
         "    return p; /*implicit move*/\n"
@@ -991,7 +942,7 @@ void simple_move()
 
 void simple_move_error()
 {
-    const char* source =
+    const char *source =
         "char* f() {\n"
         "    char* _Owner p = 0;\n"
         "    return p;\n"
@@ -1003,13 +954,12 @@ void simple_move_error()
 
 void parameter_view()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "struct X { char  * _Owner owner_variable;   };\n"
         "char * f(struct X *parameter) \n"
         "{\n"
-        "    return parameter->owner_variable;\n"  //ok to move from parameter
+        "    return parameter->owner_variable;\n" // ok to move from parameter
         "}\n";
 
     assert(compile_without_errors_warnings(true, false, source));
@@ -1017,8 +967,7 @@ void parameter_view()
 
 void move_from_extern()
 {
-    const char* source
-        =
+    const char *source =
         "struct X { char  * _Owner owner_variable;   };\n"
         "struct X global;\n"
         "char * f() \n"
@@ -1031,8 +980,7 @@ void move_from_extern()
 
 void owner_type_test()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "struct Y { \n"
         "    char  * _Owner owner_variable;   \n"
@@ -1078,8 +1026,7 @@ void owner_type_test()
 
 void correct_move_assigment()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "struct Y { \n"
         "    int i;\n"
@@ -1105,8 +1052,7 @@ void correct_move_assigment()
 
 void no_explicit_move_required()
 {
-    const char* source
-        =
+    const char *source =
         "char * _Owner create();\n"
         "void f(char * _Owner p);\n"
         "\n"
@@ -1117,13 +1063,11 @@ void no_explicit_move_required()
         "\n"
         "";
     assert(compile_without_errors_warnings(true, false, source));
-
 }
 
 void no_explicit_move_with_function_result()
 {
-    const char* source
-        =
+    const char *source =
         "void destroy(char* _Owner x);\n"
         "char   * _Owner  get();\n"
         "\n"
@@ -1137,8 +1081,7 @@ void no_explicit_move_with_function_result()
 
 void cannot_ignore_owner_result()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "  char * _Owner name;\n"
         "};\n"
@@ -1150,16 +1093,15 @@ void cannot_ignore_owner_result()
         "  f();\n"
         "}\n";
 
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1);
 }
 
 void can_ignore_owner_result()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "  char * _Owner name;\n"
         "};\n"
@@ -1176,8 +1118,7 @@ void can_ignore_owner_result()
 
 void move_not_necessary_on_return()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "  char * _Owner name;\n"
         "};\n"
@@ -1193,8 +1134,7 @@ void move_not_necessary_on_return()
 
 void explicit_move_not_required()
 {
-    const char* source
-        =
+    const char *source =
         "#define NULL ((void*)0)\n"
         "\n"
         "int main()\n"
@@ -1203,15 +1143,13 @@ void explicit_move_not_required()
         "    s = NULL;    \n"
         "    s = 0;    \n"
         "    s = nullptr;    \n"
-        "}\n"
-        ;
+        "}\n";
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void error_using_temporary_owner()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void F(int i);\n"
         "_Owner int make();\n"
@@ -1227,8 +1165,7 @@ void error_using_temporary_owner()
 
 void passing_view_to_owner()
 {
-    const char* source
-        =
+    const char *source =
         "void destroy(_Owner int i);\n"
         "\n"
         "int main()\n"
@@ -1248,23 +1185,19 @@ void passing_view_to_owner()
 
 void obj_owner_cannot_be_used_in_non_pointer()
 {
-    const char* source
-        =
+    const char *source =
         "void f() {\n"
         "    _Obj_owner int i;\n"
-        "}\n"
-        ;
-    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+        "}\n";
+    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&& report.last_error == C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER*/);
-
 }
 
 void ownership_flow_test_null_ptr_at_end_of_scope()
 {
-    const char* source
-        =
+    const char *source =
         "void f() {\n"
         "    _Owner int * p = 0;\n"
         "}\n"
@@ -1274,8 +1207,7 @@ void ownership_flow_test_null_ptr_at_end_of_scope()
 
 void ownership_flow_test_pointer_must_be_deleted()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "int* _Owner  get();\n"
         "\n"
@@ -1290,14 +1222,12 @@ void ownership_flow_test_pointer_must_be_deleted()
         "\n"
         "";
 
-
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_basic_pointer_check()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "int* _Owner  get();\n"
         "void dtor(int* _Owner p);\n"
@@ -1315,8 +1245,7 @@ void ownership_flow_test_basic_pointer_check()
 
 void ownership_flow_test_struct_member_missing_free()
 {
-    const char* source
-        =
+    const char *source =
         "char* _Owner strdup(const char* s);\n"
         "void free(void* _Owner p);\n"
         "\n"
@@ -1336,13 +1265,11 @@ void ownership_flow_test_struct_member_missing_free()
         "";
 
     assert(compile_without_errors_warnings(true, false, source));
-
 }
 
 void ownership_flow_test_struct_member_free()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "char * _Owner strdup(const char* s);\n"
         "void free(void* _Owner p);\n"
@@ -1359,13 +1286,11 @@ void ownership_flow_test_struct_member_free()
         "}\n"
         "";
     assert(compile_without_errors_warnings(true, false, source));
-
 }
 
 void ownership_flow_test_move_inside_if()
 {
-    const char* source
-        =
+    const char *source =
         "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
@@ -1385,8 +1310,7 @@ void ownership_flow_test_move_inside_if()
 
 void ownership_flow_test_goto_same_scope()
 {
-    const char* source
-        =
+    const char *source =
         "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
@@ -1405,8 +1329,7 @@ void ownership_flow_test_goto_same_scope()
 
 void ownership_flow_test_jump_labels()
 {
-    const char* source
-        =
+    const char *source =
         "void free( void* _Owner _Opt ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
@@ -1431,8 +1354,7 @@ void ownership_flow_test_jump_labels()
 
 void ownership_flow_test_owner_if_pattern_1()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
@@ -1452,8 +1374,7 @@ void ownership_flow_test_owner_if_pattern_1()
 
 void ownership_flow_test_owner_if_pattern_2()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
@@ -1473,8 +1394,7 @@ void ownership_flow_test_owner_if_pattern_2()
 
 void ownership_flow_test_missing_destructor()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "    int _Owner i;\n"
         "};\n"
@@ -1486,13 +1406,11 @@ void ownership_flow_test_missing_destructor()
         "\n"
         "";
     assert(compile_without_errors_warnings(true, false, source));
-
 }
 
 void ownership_flow_test_no_warning()
 {
-    const char* source
-        =
+    const char *source =
         "void free( void * _Owner p);\n"
         "struct X {\n"
         "  char * _Owner text;\n"
@@ -1511,8 +1429,7 @@ void ownership_flow_test_no_warning()
 
 void ownership_flow_test_moved_if_not_null()
 {
-    const char* source
-        =
+    const char *source =
         "void * _Owner malloc(int i);\n"
         "void free( void * _Owner p);\n"
         "\n"
@@ -1534,8 +1451,7 @@ void ownership_flow_test_moved_if_not_null()
 
 void ownership_flow_test_struct_moved()
 {
-    const char* source
-        =
+    const char *source =
         "void free( void * _Owner p);\n"
         "\n"
         "struct X {\n"
@@ -1550,15 +1466,13 @@ void ownership_flow_test_struct_moved()
         "\n"
         "void y_destroy(struct Y * _Obj_owner p) {\n"
         "   x_destroy(&p->x);\n"
-        "}\n"
-        ;
+        "}\n";
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void flow_analyzes_and_try_catch()
 {
-    const char* source
-        =
+    const char *source =
         "void * _Owner malloc(int i);\n"
         "void free( void* _Owner _Opt p);\n"
         "int rand();\n"
@@ -1585,16 +1499,13 @@ void flow_analyzes_and_try_catch()
         "}\n"
         "";
 
-
     assert(compile_without_errors_warnings(true, false, source));
 }
-
 
 void ownership_flow_test_void_destroy()
 {
     /*TODO moving to void* requires object is moved before*/
-    const char* source
-        =
+    const char *source =
         "void * _Owner malloc(int i);\n"
         "void free( void * _Owner p);\n"
         "\n"
@@ -1605,8 +1516,7 @@ void ownership_flow_test_void_destroy()
         "int main() {\n"
         "   struct X * _Owner p = malloc(sizeof * p);\n"
         "   free(p);   \n"
-        "} \n"
-        ;
+        "} \n";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -1614,8 +1524,7 @@ void ownership_flow_test_void_destroy()
 void ownership_flow_test_void_destroy_ok()
 {
     /*TODO moving to void* requires object is moved before*/
-    const char* source
-        =
+    const char *source =
         "void * _Owner malloc(int i);\n"
         "void free( void * _Owner p);\n"
         "\n"
@@ -1628,15 +1537,13 @@ void ownership_flow_test_void_destroy_ok()
         "   p->name = malloc(10);\n"
         "   free(p->name);\n"
         "   free(p);   \n"
-        "} \n"
-        ;
+        "} \n";
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void ownership_flow_test_moving_owner_pointer()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner malloc(int i);\n"
         "void free(void* _Owner _Opt p);\n"
         "\n"
@@ -1669,8 +1576,7 @@ void ownership_flow_test_moving_owner_pointer()
 
 void ownership_flow_test_moving_owner_pointer_missing()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(int i);\n"
         "void free(void* _Owner p);\n"
@@ -1696,8 +1602,7 @@ void ownership_flow_test_moving_owner_pointer_missing()
 
 void ownership_flow_test_error()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(int size);\n"
         "\n"
@@ -1718,8 +1623,7 @@ void ownership_flow_test_error()
 
 void ownership_flow_test_setting_owner_pointer_to_null()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(int i);\n"
         "void free(void* _Owner p);\n"
@@ -1740,8 +1644,7 @@ void ownership_flow_test_setting_owner_pointer_to_null()
 
 void ownership_flow_test_while_not_null()
 {
-    const char* source
-        =
+    const char *source =
         "struct item  {\n"
         "    struct item * _Owner next;\n"
         "};\n"
@@ -1767,8 +1670,7 @@ void ownership_flow_test_while_not_null()
 
 void ownership_flow_test_if_state()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "int* _Owner make();\n"
         "void free(int * _Owner p);\n"
@@ -1799,8 +1701,7 @@ void ownership_flow_test_if_state()
 
 void ownership_types_test_error_owner()
 {
-    const char* source
-        =
+    const char *source =
         "void* f();\n"
         "int main() {\n"
         "    void* _Owner p = f();\n"
@@ -1814,8 +1715,7 @@ void ownership_types_test_error_owner()
 
 void ownership_flow_test_if_variant()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner f();\n"
         "void free(void* _Owner p);\n"
         "int main() {\n"
@@ -1833,8 +1733,7 @@ void ownership_flow_test_if_variant()
 
 void check_leaks_on_else_block()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner malloc(int sz);\n"
         "\n"
         "void f(int i) {\n"
@@ -1852,8 +1751,7 @@ void check_leaks_on_else_block()
 
 void ownership_flow_test_two_ifs()
 {
-    const char* source
-        =
+    const char *source =
         "void * _Owner malloc(int sz);\n"
         "void free( void * _Owner _Opt p);\n"
         "\n"
@@ -1877,13 +1775,11 @@ void ownership_flow_test_two_ifs()
         "\n"
         "";
     assert(compile_without_errors_warnings(true, false, source));
-
 }
 
 void ownership_no_name_parameter()
 {
-    const char* source
-        =
+    const char *source =
         "void free(void* _Owner) { }\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
@@ -1892,8 +1788,7 @@ void ownership_no_name_parameter()
 
 void ownership_flow_switch_case()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner make();\n"
         "void free( void* _Owner p);\n"
         "\n"
@@ -1925,8 +1820,7 @@ void ownership_flow_switch_case()
 
 void state_inner_objects_preserved()
 {
-    const char* source
-        =
+    const char *source =
         "void *_Owner malloc(int i);\n"
         "void free(void  *_Owner);\n"
         "\n"
@@ -1951,19 +1845,18 @@ void state_inner_objects_preserved()
     assert(compile_without_errors_warnings(true, false, source));
 }
 
-//TODO make test with
-// f(void (*pf)(void* _Owner p)){}
-// 
+// TODO make test with
+//  f(void (*pf)(void* _Owner p)){}
+//
 void owner_parameter_must_be_ignored()
 {
-    const char* source = "void f(void (*pf)(void* _Owner p)){}";
+    const char *source = "void f(void (*pf)(void* _Owner p)){}";
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void taking_address()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "  void * _Owner text;\n"
         "};\n"
@@ -1985,8 +1878,7 @@ void taking_address()
 
 void taking_address_const()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "  void * _Owner text;\n"
         "};\n"
@@ -2004,8 +1896,7 @@ void taking_address_const()
 
 void pointer_argument()
 {
-    const char* source
-        =
+    const char *source =
         "void * _Owner malloc(int i);\n"
         "\n"
         "struct X {\n"
@@ -2020,16 +1911,15 @@ void pointer_argument()
         "  x_change(x);\n"
         "}\n"
         "";
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true , .diagnostic_stack[0] = default_diagnostic };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true, .diagnostic_stack[0] = default_diagnostic};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 3);
 }
 
 void do_while()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2047,8 +1937,7 @@ void do_while()
 
 void switch_cases_state()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -2071,8 +1960,7 @@ void switch_cases_state()
 
 void switch_break()
 {
-    const char* source
-        =
+    const char *source =
         "void * _Owner malloc(int i);\n"
         "\n"
         "void* _Owner f(int i)\n"
@@ -2088,8 +1976,7 @@ void switch_break()
 
 void passing_non_owner()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "    char* _Owner p;\n"
         "};\n"
@@ -2107,27 +1994,27 @@ void passing_non_owner()
 
 void flow_analysis_else()
 {
-    const char* source
+    const char *source
 
         =
-        "void * _Owner malloc(int i);\n"
-        "void free(void * _Owner p);\n"
-        "\n"
-        "int main() {\n"
-        "    int * _Owner p1 = 0;\n"
-        "    int * _Owner p2 = malloc(1);\n"
-        "\n"
-        "    if (p2 == 0) {\n"
-        "        return 1;\n"
-        "    }\n"
-        "    else\n"
-        "    {\n"
-        "      p1 = p2;\n"
-        "    }\n"
-        "    static_state(p2, \"moved\");\n"
-        "    free(p1);\n"
-        "    return 0;\n"
-        "}";
+            "void * _Owner malloc(int i);\n"
+            "void free(void * _Owner p);\n"
+            "\n"
+            "int main() {\n"
+            "    int * _Owner p1 = 0;\n"
+            "    int * _Owner p2 = malloc(1);\n"
+            "\n"
+            "    if (p2 == 0) {\n"
+            "        return 1;\n"
+            "    }\n"
+            "    else\n"
+            "    {\n"
+            "      p1 = p2;\n"
+            "    }\n"
+            "    static_state(p2, \"moved\");\n"
+            "    free(p1);\n"
+            "    return 0;\n"
+            "}";
 
     "}";
 
@@ -2135,8 +2022,7 @@ void flow_analysis_else()
 }
 void moving_content_of_owner()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2149,15 +2035,13 @@ void moving_content_of_owner()
         "{\n"
         "    free(y->x.name);\n"
         "    y->x = *p;\n"
-        "}\n"
-        ;
+        "}\n";
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void switch_scope()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner calloc(unsigned n, unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2192,8 +2076,7 @@ void switch_scope()
 
 void swith_and_while()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2230,8 +2113,7 @@ void swith_and_while()
 
 void owner_to_non_owner()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* f();\n"
         "int main() {\n"
@@ -2248,9 +2130,7 @@ void owner_to_non_owner()
 void owner_to_non_owner_zero()
 {
 
-
-    const char* source
-        =
+    const char *source =
         "void * f();\n"
         "int main() {\n"
         "  void * _Owner p = 0;\n"
@@ -2261,8 +2141,7 @@ void owner_to_non_owner_zero()
 
 void incomplete_struct()
 {
-    const char* source
-        =
+    const char *source =
         "void free(void * _Owner p);\n"
         "struct X;\n"
         "struct X f();\n"
@@ -2273,13 +2152,11 @@ void incomplete_struct()
         "    free(x.p);\n"
         "}";
     assert(compile_without_errors_warnings(true, false, source));
-
 }
 
 void switch_pop_problem()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2314,8 +2191,7 @@ void switch_pop_problem()
 
 void switch_pop2()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2346,8 +2222,7 @@ void switch_pop2()
 
 void scopes_pop()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "int rand();\n"
         "void free(void* _Owner ptr);\n"
@@ -2378,8 +2253,7 @@ void scopes_pop()
 }
 void owner_moved()
 {
-    const char* source
-        =
+    const char *source =
         "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "struct X { char * _Owner text; };\n"
@@ -2398,13 +2272,11 @@ void owner_moved()
         "    }\n"
         "}";
     assert(compile_without_errors_warnings(true, false, source));
-
 }
 
 void partially_owner_moved()
 {
-    const char* source
-        =
+    const char *source =
         "#pragma cake diagnostic error \"-Wmissing-destructor\"\n"
         "\n"
         "void free(void* _Owner ptr);\n"
@@ -2429,12 +2301,10 @@ void partially_owner_moved()
         "";
 
     assert(compile_with_errors(true, false, source));
-
 }
 void use_after_destroy()
 {
-    const char* source
-        =
+    const char *source =
         "char* _Owner strdup(const char* s);\n"
         "void* _Owner malloc(unsigned size);\n"
         "\n"
@@ -2471,8 +2341,7 @@ void use_after_destroy()
 
 void obj_owner_must_be_from_addressof()
 {
-    const char* source
-        =
+    const char *source =
         "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "char* _Owner strdup(const char*);\n"
@@ -2515,8 +2384,7 @@ void obj_owner_must_be_from_addressof()
 
 void discarding_owner()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -2539,8 +2407,7 @@ void discarding_owner()
 
 void using_uninitialized()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -2565,8 +2432,7 @@ void using_uninitialized()
 
 void using_uninitialized_struct()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "    char* _Owner text;\n"
         "};\n"
@@ -2583,14 +2449,12 @@ void using_uninitialized_struct()
         "#pragma cake diagnostic check \"-Wanalyzer-maybe-uninitialized\"\n"
         "";
 
-
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void zero_initialized()
 {
-    const char* source
-        =
+    const char *source =
         "struct Y {\n"
         "  char * _Owner p0;\n"
         "  int * _Owner p2;\n"
@@ -2619,11 +2483,9 @@ void zero_initialized()
     assert(compile_without_errors_warnings(true, false, source));
 }
 
-
 void empty_initialized()
 {
-    const char* source
-        =
+    const char *source =
         "struct Y {\n"
         "  char * _Owner p0;\n"
         "  int * _Owner p2;\n"
@@ -2654,8 +2516,7 @@ void empty_initialized()
 
 void calloc_state()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner calloc(unsigned long n , unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2692,8 +2553,7 @@ void calloc_state()
 
 void malloc_initialization()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2730,8 +2590,7 @@ void malloc_initialization()
 
 void valid_but_unkown_result()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2770,8 +2629,7 @@ void valid_but_unkown_result()
 
 void calling_non_const_func()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2811,8 +2669,7 @@ void calling_non_const_func()
 }
 void calling_const_func()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -2851,8 +2708,7 @@ void calling_const_func()
 }
 void pointer_to_owner()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -2882,8 +2738,7 @@ void pointer_to_owner()
 
 void socket_sample()
 {
-    const char* source
-        =
+    const char *source =
         "_Owner int socket();\n"
         "void close(_Owner int fd);\n"
         "\n"
@@ -2906,8 +2761,7 @@ void socket_sample()
 
 void return_object()
 {
-    const char* source
-        =
+    const char *source =
         "char * _Owner strdup(const char* s);\n"
         "void free(void * _Owner p);\n"
         "\n"
@@ -2926,8 +2780,7 @@ void return_object()
 }
 void return_bad_object()
 {
-    const char* source
-        =
+    const char *source =
         "char * _Owner strdup(const char* s);\n"
         "void free(void * _Owner p);\n"
         "\n"
@@ -2948,8 +2801,7 @@ void return_bad_object()
 
 void null_to_owner()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "void f(int * _Owner p);\n"
         "int main()\n"
@@ -2966,8 +2818,7 @@ void null_to_owner()
 void return_true_branch()
 {
 
-    const char* source
-        =
+    const char *source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -2987,8 +2838,7 @@ void return_true_branch()
 }
 void flow_tests()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
@@ -3079,8 +2929,7 @@ void flow_tests()
 
 void member()
 {
-    const char* source
-        =
+    const char *source =
         "struct X {\n"
         "  union {\n"
         "    struct {\n"
@@ -3099,8 +2948,7 @@ void member()
 }
 void loop_leak()
 {
-    const char* source
-        =
+    const char *source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner _Opt ptr);\n"
         "\n"
@@ -3113,14 +2961,12 @@ void loop_leak()
         "   free(p);\n"
         "}";
 
-
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void out_parameter()
 {
-    const char* source
-        =
+    const char *source =
         "void  free(void* _Owner p);\n"
         "char* _Owner strdup(const char* s);\n"
         "\n"
@@ -3136,18 +2982,16 @@ void out_parameter()
         "\n"
         "int main() {\n"
         "    struct X x;\n"
-        "    init(&x);\n" //assume it is initialized
+        "    init(&x);\n" // assume it is initialized
         "    free(x.s);\n"
         "}\n";
-
 
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void lvalue_required_1()
 {
-    const char* source
-        =
+    const char *source =
         "int main()\n"
         "{\n"
         " 1++;\n"
@@ -3158,8 +3002,7 @@ void lvalue_required_1()
 
 void lvalue_required_2()
 {
-    const char* source
-        =
+    const char *source =
         "int main()\n"
         "{\n"
         " 1--;\n"
@@ -3170,8 +3013,7 @@ void lvalue_required_2()
 
 void lvalue_required_3()
 {
-    const char* source
-        =
+    const char *source =
         "int main()\n"
         "{\n"
         " int * p = &1;\n"
@@ -3181,8 +3023,7 @@ void lvalue_required_3()
 }
 void lvalue_required_4()
 {
-    const char* source
-        =
+    const char *source =
         "struct X { int i; };\n"
         "struct X f() {\n"
         "    struct X x = {};\n"
@@ -3196,11 +3037,9 @@ void lvalue_required_4()
     assert(compile_with_errors(true, false, source));
 }
 
-
 void null_check_1()
 {
-    const char* source
-        =
+    const char *source =
         "void f(int  *p)\n"
         "{\n"
         " static_state(p, \"not-null\");\n"
@@ -3211,8 +3050,7 @@ void null_check_1()
 
 void null_check_2()
 {
-    const char* source
-        =
+    const char *source =
         "void f(int  *p)\n"
         "{\n"
         " static_state(p, \"maybe-null\");\n"
@@ -3223,8 +3061,7 @@ void null_check_2()
 
 void compound_literal_object()
 {
-    const char* source
-        =
+    const char *source =
         "struct X { int i; void* p; }\n"
         "int main() {\n"
         "	struct X x;\n"
@@ -3237,22 +3074,19 @@ void compound_literal_object()
 
 void bounds_check1()
 {
-    const char* source
-        =
+    const char *source =
         "int main() {\n"
         "	int a[5] = {0};\n"
         "	int i = a[5];\n"
         "#pragma cake diagnostic check \"-Wout-of-bounds\"\n"
         "}\n";
 
-
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void bounds_check2()
 {
-    const char* source
-        =
+    const char *source =
         "void f1(int array[5])\n"
         "{\n"
         "    int i = array[5];\n"
@@ -3263,8 +3097,7 @@ void bounds_check2()
 
 void uninitialized_objects_passed_to_variadic_function()
 {
-    const char* source
-        =
+    const char *source =
         "void f(char* s, ...);\n"
         "int main()\n"
         "{\n"
@@ -3276,15 +3109,12 @@ void uninitialized_objects_passed_to_variadic_function()
         "}\n"
         "";
 
-
-
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void nullderef()
 {
-    const char* source
-        =
+    const char *source =
         "\n"
         "int main() {\n"
         "    int* ptr = 0;\n"
@@ -3296,16 +3126,13 @@ void nullderef()
         "#pragma cake diagnostic check \"-Wanalyzer-null-dereference\"\n"
         "";
 
-
-
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void for_loop_visit()
 {
     /* checks state of j #84 */
-    const char* source
-        =
+    const char *source =
         "int main()\n"
         "{\n"
         "  int j;\n"
@@ -3317,24 +3144,22 @@ void for_loop_visit()
 
 void uninitialized_object()
 {
-    const char* source
-        =
+    const char *source =
         "int main() {\n"
         "    int i;\n"
         "    int k;\n"
         "    k = 1 + i;\n"
         "}";
 
-    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
-    struct report report = { 0 };
+    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
+    struct report report = {0};
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1);
 }
 
-void  calloc_builtin_semantics()
+void calloc_builtin_semantics()
 {
-    const char* source
-        =
+    const char *source =
         "struct X { int i; void* p; };\n"
         "void* _Owner calloc(int i, int sz);\n"
         "void free(void* _Owner p);\n"
@@ -3351,10 +3176,9 @@ void  calloc_builtin_semantics()
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
-void  malloc_builtin_semantics()
+void malloc_builtin_semantics()
 {
-    const char* source
-        =
+    const char *source =
         "struct X { int i; void* p; };\n"
         "void* _Owner malloc(int i, int sz);\n"
         "void free(void* _Owner p);\n"
@@ -3373,8 +3197,7 @@ void  malloc_builtin_semantics()
 }
 void discard_qualifier_test()
 {
-    const char* source
-        =
+    const char *source =
         "struct X { int i; void* p; };\n"
         "void f(struct X* p) {}\n"
         "\n"
@@ -3383,14 +3206,12 @@ void discard_qualifier_test()
         "    const struct X x = {0};\n"
         "    f(&x);\n"
         "#pragma cake diagnostic check \"-Wdiscarded-qualifiers\"\n"
-        "}\n"
-        ;
+        "}\n";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 void keywords_inside_attr()
 {
-    const char* source
-        =
+    const char *source =
         "[[gnu::const, gnu::hot, nodiscard]]\n"
         "int f(void);    ";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
@@ -3398,8 +3219,7 @@ void keywords_inside_attr()
 
 void assertbuiltin()
 {
-    const char* source
-        =
+    const char *source =
         "struct X { const char* _Owner text; };\n"
         "void destroyX(struct X x) \n"
         "{\n"
@@ -3412,13 +3232,11 @@ void assertbuiltin()
         "";
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
-
 }
 
 void value_of_constant_char()
 {
-    const char* source
-        =
+    const char *source =
         "int main(void)\n"
         "{  \n"
         "  static_assert(L'\\u0b83' == 0x0B83);\n"
@@ -3429,8 +3247,7 @@ void value_of_constant_char()
 
 void enum_type()
 {
-    const char* source
-        =
+    const char *source =
         "enum E : long long { R, G, B } e;\n"
         "static_assert (_Generic (e, long long: 1, default: 0) == 1, \"E type\");\n"
         "\n"
@@ -3440,19 +3257,17 @@ void enum_type()
 
 void comflittype()
 {
-    const char* str
-        =
+    const char *str =
         "enum E { l = -1, z = 0, g = 1 };\n"
         "int foo(void);\n"
         "enum E foo(void) { return z; }";
-    //assert(compile_with_errors_warnings(true, false /*nullcheck disabled*/, source));
+    // assert(compile_with_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
-//https://developers.redhat.com/articles/2023/05/04/new-c-features-gcc-13#c2x_features]
+// https://developers.redhat.com/articles/2023/05/04/new-c-features-gcc-13#c2x_features]
 
 void linemacro()
 {
-    const char* source
-        =
+    const char *source =
         "#if __LINE__ != 1 \n"
         "#error\n"
         "#endif\n"
@@ -3466,44 +3281,36 @@ void linemacro()
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
-
 void sizeofstring()
 {
-    const char* source
-        =
+    const char *source =
         "static_assert(sizeof(\"abc\") == 4);";
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
-
 void sizeofarraychar()
 {
-    const char* source
-        =
+    const char *source =
         "char s[] = \"abcd\";\n"
         "static_assert(sizeof(s) == 5);";
-
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void sizeofarraywchar()
 {
-    const char* source
-        =
+    const char *source =
         "typedef unsigned short wchar_t;\n"
         "wchar_t s[] = L\"abcd\";\n"
         "static_assert(sizeof(s) == sizeof(wchar_t)*5);";
-
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
 }
 
 void integer_promotion()
 {
-    const char* source
-        =
+    const char *source =
         "static_assert(_Generic(typeof(-*\"\"), int : 1));\n"
         "#pragma cake diagnostic check \"-Warray-indirection\"\n"
         "\n"
@@ -3516,13 +3323,11 @@ void integer_promotion()
         "static_assert(_Generic(typeof(~(unsigned int)0), unsigned int : 1));\n"
         "";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
-
 }
 
 void object_to_non_const()
 {
-    const char* source
-        =
+    const char *source =
         "void free(void* _Owner _Opt p);\n"
         "struct X\n"
         "{\n"
@@ -3540,14 +3345,11 @@ void object_to_non_const()
         "}\n"
         "";
 
-
     assert(compile_without_errors_warnings(true, true /*nullcheck disabled*/, source));
-
 }
 void object_to_const()
 {
-    const char* source
-        =
+    const char *source =
         "void free(void* _Owner p);\n"
         "struct X\n"
         "{\n"
@@ -3563,26 +3365,22 @@ void object_to_const()
         "}";
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
-
 }
 
 void union_size()
 {
-    const char* source
-        =
+    const char *source =
         "union X {\n"
         "    struct {int a, b; } y;\n"
         "    double d;\n"
         "};\n"
         "static_assert( sizeof (union X) == 8);";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
-
 }
 
 void sizeof_union_test()
 {
-    const char* source
-        =
+    const char *source =
         "union X {\n"
         "    struct {\n"
         "        int a, b;\n"
@@ -3598,8 +3396,7 @@ void sizeof_union_test()
 }
 void not_null_does_not_change()
 {
-    const char* source
-        =
+    const char *source =
         "struct X { int i;  };\n"
         "void f(struct X* p);\n"
         "void f2(struct X* p);\n"
@@ -3615,4 +3412,3 @@ void not_null_does_not_change()
     assert(compile_without_errors_warnings(true, true, source));
 }
 #endif
-
