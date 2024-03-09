@@ -11034,6 +11034,8 @@ struct object make_object(struct type* p_type,
 void object_push_copy_current_state(struct object* object, const char* name, int state_number);
 
 void object_pop_states(struct object* object, int n);
+int object_merge_current_state_with_state_number(struct object* object, int state_number);
+int object_restore_current_state_from(struct object* object, int state_number);
 
 struct parser_ctx;
 struct token;
@@ -21330,7 +21332,7 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                 printf("{");
                 for (int i = 0; i < p_object->object_state_stack.size; i++)
                 {
-                    printf("(%s)", p_object->object_state_stack.data[i].name);
+                    printf("(#%d %s)", p_object->object_state_stack.data[i].state_number, p_object->object_state_stack.data[i].name);
                     object_state_to_string(p_object->object_state_stack.data[i].state);
                     printf(",");
                 }
@@ -21354,6 +21356,53 @@ enum object_state state_merge(enum object_state before, enum object_state after)
     return e;
 }
 
+int object_restore_current_state_from(struct object* object, int state_number)
+{
+    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            object->state = object->object_state_stack.data[i].state;
+            return 0;
+        }
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_merge_current_state_with_state_number(&object->members.data[i], state_number);
+    }
+
+    struct object* pointed = object_get_pointed_object(object);
+    if (pointed)
+    {
+        object_merge_current_state_with_state_number(pointed, state_number);
+    }
+    return 1;
+}
+
+int object_merge_current_state_with_state_number(struct object* object, int state_number)
+{
+    for (int i = object->object_state_stack.size -1; i >= 0; i--)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            object->object_state_stack.data[i].state |= object->state;
+            return 0;
+        }
+    }
+
+    for(int i = 0; i < object->members.size; i++)
+    {
+        object_merge_current_state_with_state_number(&object->members.data[i], state_number);
+    }
+
+    struct object* pointed = object_get_pointed_object(object);
+    if (pointed)
+    {
+        object_merge_current_state_with_state_number(pointed, state_number);
+    }
+    return 1;
+}
 
 void object_get_name(const struct type* p_type,
     const struct object* p_object,
@@ -22763,6 +22812,9 @@ void format_visit(struct format_visit_ctx* ctx);
 
 struct flow_visit_ctx
 {
+    int try_state;
+    struct secondary_block* catch_secondary_block_opt;
+
     struct parser_ctx *ctx;
     view struct ast ast;    
     struct flow_defer_scope* owner tail_block;
@@ -33667,6 +33719,31 @@ void merge_states(struct flow_visit_ctx* ctx,
     };
 }
 
+static void ctx_object_merge_current_state_with_state_number(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_merge_current_state_with_state_number(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
+
+static void ctx_object_restore_current_state_from(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_restore_current_state_from(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
 
 static void object_merge_if_else_states(struct object* object,
     int dest_index,
@@ -33931,17 +34008,47 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
+    const int try_state_old = ctx->try_state;
+    struct secondary_block* catch_secondary_block_old =  ctx->catch_secondary_block_opt;
+
+    ctx->try_state = ctx->state_number_generator;
+    ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
+
     push_copy_of_current_state(ctx, "try", ctx->state_number_generator++);
+
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_try_statement = p_try_statement;
 
     if (p_try_statement->secondary_block)
+    {
         flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
 
-    check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
+        bool not_reached_the_end = false;
+        if (ctx->p_last_jump_statement)
+        {
+            //TODO gotos etc...
+            not_reached_the_end =
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
+        }
 
+        //if it is possible to reach the end of secondary block
+        if (!not_reached_the_end)
+          ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+    }
+
+    
+
+
+    check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
+    
+    ctx_object_restore_current_state_from(ctx, ctx->try_state);
     flow_visit_ctx_pop_tail_block(ctx);
     pop_states(ctx, 1);
+    ctx->try_state = try_state_old; //restore
+    ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
 }
 
 static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
@@ -35019,6 +35126,30 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
+        //ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        if (ctx->catch_secondary_block_opt)
+        {
+           // ctx_object_restore_current_state_from(ctx, ctx->try_state);
+            flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
+
+            bool not_reached_the_end = false;
+            if (ctx->p_last_jump_statement)
+            {
+                //TODO gotos etc...
+                not_reached_the_end =
+                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
+            }
+
+            //if it is possible to reach the end of secondary block
+            if (!not_reached_the_end)
+                ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+
+            
+        }
+
         check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
@@ -35271,7 +35402,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         if (p_obj)
         {
-            print_object(&p_static_assert_declaration->constant_expression->type, p_obj, true);
+            print_object(&p_static_assert_declaration->constant_expression->type, p_obj, false);
         }
 
         object_destroy(&temp_obj);    
@@ -38258,32 +38389,34 @@ void ownership_flow_test_struct_moved()
 
 void flow_analyzes_and_try_catch()
 {
-    const char *source =
-        "void * _Owner malloc(int i);\n"
-        "void free( void* _Owner _Opt p);\n"
+    const char* source
+        =
+        "void* _Owner malloc(int i);\n"
+        "void free(void* _Owner _Opt p);\n"
         "int rand();\n"
         "\n"
-        "int main() {\n"
-        "    char * _Owner s = malloc(1);\n"
+        "int main()\n"
+        "{\n"
+        "    char* _Owner s = malloc(1);\n"
         "    try\n"
         "    {\n"
-        "         if (rand())\n"
-        "         {\n"
-        "             free(s);\n"
-        "         }\n"
-        "         else\n"
-        "         {             \n"
+        "        if (rand())\n"
+        "        {\n"
+        "            free(s);\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
         "            static_debug(s);\n"
         "            throw;\n"
-        "         }\n"
+        "        }\n"
         "    }\n"
         "    catch\n"
         "    {\n"
-        "    }\n"
-        "    static_debug(s);\n"
-        "    static_state(s, \"null or not-null or uninitialized\");\n"
+        "    }    \n"
         "}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
+
 
     assert(compile_without_errors_warnings(true, false, source));
 }

@@ -632,6 +632,31 @@ void merge_states(struct flow_visit_ctx* ctx,
     };
 }
 
+static void ctx_object_merge_current_state_with_state_number(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_merge_current_state_with_state_number(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
+
+static void ctx_object_restore_current_state_from(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_restore_current_state_from(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
 
 static void object_merge_if_else_states(struct object* object,
     int dest_index,
@@ -896,17 +921,47 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
+    const int try_state_old = ctx->try_state;
+    struct secondary_block* catch_secondary_block_old =  ctx->catch_secondary_block_opt;
+
+    ctx->try_state = ctx->state_number_generator;
+    ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
+
     push_copy_of_current_state(ctx, "try", ctx->state_number_generator++);
+
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_try_statement = p_try_statement;
 
     if (p_try_statement->secondary_block)
+    {
         flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
 
-    check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
+        bool not_reached_the_end = false;
+        if (ctx->p_last_jump_statement)
+        {
+            //TODO gotos etc...
+            not_reached_the_end =
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
+        }
 
+        //if it is possible to reach the end of secondary block
+        if (!not_reached_the_end)
+          ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+    }
+
+    
+
+
+    check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
+    
+    ctx_object_restore_current_state_from(ctx, ctx->try_state);
     flow_visit_ctx_pop_tail_block(ctx);
     pop_states(ctx, 1);
+    ctx->try_state = try_state_old; //restore
+    ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
 }
 
 static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
@@ -1984,6 +2039,30 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
+        //ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        if (ctx->catch_secondary_block_opt)
+        {
+           // ctx_object_restore_current_state_from(ctx, ctx->try_state);
+            flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
+
+            bool not_reached_the_end = false;
+            if (ctx->p_last_jump_statement)
+            {
+                //TODO gotos etc...
+                not_reached_the_end =
+                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
+                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
+                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
+                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
+            }
+
+            //if it is possible to reach the end of secondary block
+            if (!not_reached_the_end)
+                ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+
+            
+        }
+
         check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
     }
     else if (p_jump_statement->first_token->type == TK_KEYWORD_RETURN)
@@ -2236,7 +2315,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         if (p_obj)
         {
-            print_object(&p_static_assert_declaration->constant_expression->type, p_obj, true);
+            print_object(&p_static_assert_declaration->constant_expression->type, p_obj, false);
         }
 
         object_destroy(&temp_obj);    

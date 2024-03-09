@@ -661,7 +661,7 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                 printf("{");
                 for (int i = 0; i < p_object->object_state_stack.size; i++)
                 {
-                    printf("(%s)", p_object->object_state_stack.data[i].name);
+                    printf("(#%d %s)", p_object->object_state_stack.data[i].state_number, p_object->object_state_stack.data[i].name);
                     object_state_to_string(p_object->object_state_stack.data[i].state);
                     printf(",");
                 }
@@ -685,6 +685,53 @@ enum object_state state_merge(enum object_state before, enum object_state after)
     return e;
 }
 
+int object_restore_current_state_from(struct object* object, int state_number)
+{
+    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            object->state = object->object_state_stack.data[i].state;
+            return 0;
+        }
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_merge_current_state_with_state_number(&object->members.data[i], state_number);
+    }
+
+    struct object* pointed = object_get_pointed_object(object);
+    if (pointed)
+    {
+        object_merge_current_state_with_state_number(pointed, state_number);
+    }
+    return 1;
+}
+
+int object_merge_current_state_with_state_number(struct object* object, int state_number)
+{
+    for (int i = object->object_state_stack.size -1; i >= 0; i--)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            object->object_state_stack.data[i].state |= object->state;
+            return 0;
+        }
+    }
+
+    for(int i = 0; i < object->members.size; i++)
+    {
+        object_merge_current_state_with_state_number(&object->members.data[i], state_number);
+    }
+
+    struct object* pointed = object_get_pointed_object(object);
+    if (pointed)
+    {
+        object_merge_current_state_with_state_number(pointed, state_number);
+    }
+    return 1;
+}
 
 void object_get_name(const struct type* p_type,
     const struct object* p_object,

@@ -1,32 +1,24 @@
-void* f();
+void* _Owner malloc(int i);
+void free(void* _Owner _Opt p);
+int rand();
 
-void f1()
+int main()
 {
-    int i = 0;
-    void* p = f();
-    static_debug(p);
+    char* _Owner s = malloc(1);
     try
     {
-        if (f())
+        if (rand())
         {
-         //   static_debug(p);
+            free(s);
         }
         else
         {
-           // static_debug(p);
-            if (f())
-            {
-             //   static_debug(p);
-            }
-            else
-            {
-                static_debug(p);
-                throw;
-            }
+            static_debug(s);
+            throw;
         }
     }
     catch
     {
-    }
-    static_debug(p);
+    }    
 }
+#pragma cake diagnostic check "-Wmissing-destructor"

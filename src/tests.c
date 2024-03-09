@@ -1472,32 +1472,34 @@ void ownership_flow_test_struct_moved()
 
 void flow_analyzes_and_try_catch()
 {
-    const char *source =
-        "void * _Owner malloc(int i);\n"
-        "void free( void* _Owner _Opt p);\n"
+    const char* source
+        =
+        "void* _Owner malloc(int i);\n"
+        "void free(void* _Owner _Opt p);\n"
         "int rand();\n"
         "\n"
-        "int main() {\n"
-        "    char * _Owner s = malloc(1);\n"
+        "int main()\n"
+        "{\n"
+        "    char* _Owner s = malloc(1);\n"
         "    try\n"
         "    {\n"
-        "         if (rand())\n"
-        "         {\n"
-        "             free(s);\n"
-        "         }\n"
-        "         else\n"
-        "         {             \n"
+        "        if (rand())\n"
+        "        {\n"
+        "            free(s);\n"
+        "        }\n"
+        "        else\n"
+        "        {\n"
         "            static_debug(s);\n"
         "            throw;\n"
-        "         }\n"
+        "        }\n"
         "    }\n"
         "    catch\n"
         "    {\n"
-        "    }\n"
-        "    static_debug(s);\n"
-        "    static_state(s, \"null or not-null or uninitialized\");\n"
+        "    }    \n"
         "}\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
+
 
     assert(compile_without_errors_warnings(true, false, source));
 }

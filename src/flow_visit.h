@@ -12,6 +12,9 @@
 
 struct flow_visit_ctx
 {
+    int try_state;
+    struct secondary_block* catch_secondary_block_opt;
+
     struct parser_ctx *ctx;
     view struct ast ast;    
     struct flow_defer_scope* owner tail_block;
