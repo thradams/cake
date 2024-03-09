@@ -12,12 +12,12 @@
 #include "options.h"
 #include "object.h"
 
-#ifdef __CAKE__  //cake clones __STDC_VERSION__ from MSVC
+
+#if __STDC_VERSION__  >= 202311L 
 #define NODISCARD [[nodiscard]]
 #else
 #define NODISCARD
 #endif
-
 struct scope
 {
     int scope_level;
@@ -95,7 +95,6 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx);
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 
 struct token* parser_match(struct parser_ctx* ctx);
-
 NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 struct token* parser_look_ahead(struct parser_ctx* ctx);
@@ -112,7 +111,7 @@ char* CompileText(const char* options, const char* content);
 
 _Bool compiler_diagnostic_message(enum diagnostic_id w,
     struct parser_ctx* ctx,
-    const struct token* opt p_token, 
+    const struct token* opt p_token,
     const char* fmt, ...);
 
 int compile(int argc, const char** argv, struct report* error);
@@ -212,7 +211,7 @@ void static_assert_declaration_delete(struct static_assert_declaration* owner op
 
 struct pragma_declaration {
     struct token* first_token;
-    struct token* last_token;    
+    struct token* last_token;
 };
 
 struct pragma_declaration* owner pragma_declaration(struct parser_ctx* ctx);
@@ -463,8 +462,8 @@ struct member_declaration_list
     struct member_declaration* tail;
 };
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*, bool *berror);
-void member_declaration_list_destroy( struct member_declaration_list* obj_owner p);
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
+void member_declaration_list_destroy(struct member_declaration_list* obj_owner p);
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
 
@@ -863,8 +862,8 @@ struct member_declaration
 
 };
 
-struct member_declaration* owner member_declaration(struct parser_ctx* ctx, 
- struct struct_or_union_specifier*);
+struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
+    struct struct_or_union_specifier*);
 void member_declaration_delete(struct member_declaration* owner opt p);
 
 struct member_declarator
@@ -910,7 +909,7 @@ struct block_item_list
     struct block_item* tail;
 };
 
-struct block_item_list block_item_list(struct parser_ctx* ctx, bool *error);
+struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error);
 void block_item_list_destroy(struct block_item_list* obj_owner p);
 
 struct compound_statement
@@ -1305,7 +1304,7 @@ struct declaration_list
     struct declaration* tail;
 };
 
-struct declaration_list translation_unit(struct parser_ctx* ctx, bool * berror);
+struct declaration_list translation_unit(struct parser_ctx* ctx, bool* berror);
 void declaration_list_destroy(struct declaration_list* obj_owner list);
 
 struct label
@@ -1335,5 +1334,5 @@ void ast_destroy(struct ast* obj_owner ast);
 struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator* pdeclarator);
 
 
-struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool *berror);
+struct declaration_list parse(struct parser_ctx* ctx, struct token_list* list, bool* berror);
 const char* owner compile_source(const char* pszoptions, const char* content, struct report* report);
