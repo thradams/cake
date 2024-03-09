@@ -451,19 +451,6 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     */
 }
 
-static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
-{
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
-    p_defer->p_try_statement = p_try_statement;
-
-    if (p_try_statement->secondary_block)
-        flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-
-    check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
-
-    flow_visit_ctx_pop_tail_block(ctx);
-}
-
 static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression, struct object *p_temp_object)
 {
     if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL &&
@@ -535,7 +522,7 @@ static struct object* expression_is_comparing_owner_with_not_null(struct express
     return NULL;
 }
 
-void push_copy_of_current_state(struct flow_visit_ctx* ctx)
+void push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name, int state_number)
 {
     /*
       top of stack constains the copy
@@ -547,7 +534,7 @@ void push_copy_of_current_state(struct flow_visit_ctx* ctx)
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
     {
-        object_push_copy_current_state(p_object);
+        object_push_copy_current_state(p_object , name, state_number);
         p_object = visit_objects_next(&v1);
     }
 
@@ -582,7 +569,7 @@ static void object_merge_states_with_current(struct object* object,
     }
 
     enum object_state* dest = dest_index == 0 ? &object->state :
-        &object->object_state_stack.data[object->object_state_stack.size - dest_index];
+        &object->object_state_stack.data[object->object_state_stack.size - dest_index].state;
 
 
     if (before_index == 0 || (object->object_state_stack.size - before_index >= 0 &&
@@ -594,7 +581,7 @@ static void object_merge_states_with_current(struct object* object,
         return;
     }
     enum object_state state_before = before_index == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - before_index];
+        object->object_state_stack.data[object->object_state_stack.size - before_index].state;
 
 
 
@@ -610,7 +597,7 @@ static void object_merge_states_with_current(struct object* object,
         return;
     }
     enum object_state state_after = after_index == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - after_index];
+        object->object_state_stack.data[object->object_state_stack.size - after_index].state;
 
     *dest |= (state_before | state_after);
 
@@ -689,19 +676,19 @@ static void object_merge_if_else_states(struct object* object,
 
 
     enum object_state* dest = dest_index == 0 ? &object->state :
-        &object->object_state_stack.data[object->object_state_stack.size - dest_index];
+        &object->object_state_stack.data[object->object_state_stack.size - dest_index].state;
 
 
     enum object_state s_original = original_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - original_state];
+        object->object_state_stack.data[object->object_state_stack.size - original_state].state;
 
 
     enum object_state s_true_branch = true_branch_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - true_branch_state];
+        object->object_state_stack.data[object->object_state_stack.size - true_branch_state].state;
 
 
     enum object_state s_false_branch = false_branch_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - false_branch_state];
+        object->object_state_stack.data[object->object_state_stack.size - false_branch_state].state;
 
 
     if (s_true_branch != s_original &&
@@ -790,7 +777,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
        This index is from the end of top of stack going to base of statck
     */
     const int original = 2;
-    push_copy_of_current_state(ctx);
+    char before_if_state[] = "before-if";
+    push_copy_of_current_state(ctx, before_if_state, ctx->state_number_generator++);
 
     if (p_object_compared_with_null)
     {
@@ -831,7 +819,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     /*let's make a copy of the state we left true branch*/
     const int true_branch = 1;
-    push_copy_of_current_state(ctx);
+    push_copy_of_current_state(ctx, "left-true-branch", ctx->state_number_generator++);
 
     restore_state(ctx, original);
 
@@ -905,12 +893,28 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 }
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
 
+
+static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
+{
+    push_copy_of_current_state(ctx, "try", ctx->state_number_generator++);
+    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    p_defer->p_try_statement = p_try_statement;
+
+    if (p_try_statement->secondary_block)
+        flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
+
+    check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
+
+    flow_visit_ctx_pop_tail_block(ctx);
+    pop_states(ctx, 1);
+}
+
 static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
     assert(p_selection_statement->first_token->type == TK_KEYWORD_SWITCH);
 
     int inverse_stack = 1; //we have 1 item
-    push_copy_of_current_state(ctx); //2 (permanent copy)
+    push_copy_of_current_state(ctx, "before-switch", ctx->state_number_generator++); //2 (permanent copy)
 
 
     //const int current = 0;
@@ -961,7 +965,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
                   Each time we find a break we safe the state
                   pushing it
                 */
-                push_copy_of_current_state(ctx);
+                push_copy_of_current_state(ctx, "some break", ctx->state_number_generator++);
                 inverse_stack++;
             }
             flow_visit_block_item(ctx, item);
@@ -974,7 +978,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
     {
         inverse_stack++;
         default_index = inverse_stack;
-        push_copy_of_current_state(ctx);
+        push_copy_of_current_state(ctx, "?", ctx->state_number_generator++);
 
     }
 
@@ -1853,7 +1857,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     if (p_iteration_statement->secondary_block)
     {
         const int original = 1;
-        push_copy_of_current_state(ctx);
+        push_copy_of_current_state(ctx, "before-while-copy", ctx->state_number_generator++);
 
         const int current = 0;
 
@@ -2884,6 +2888,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
 
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
+    ctx->state_number_generator = 0;
     if (p_declaration->function_body)
     {
 

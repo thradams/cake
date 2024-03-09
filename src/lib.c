@@ -2271,6 +2271,9 @@ void c_clrscr()
 #include <ctype.h>
 
 
+#include <sys/stat.h>
+
+
 #include <errno.h>
 
 
@@ -2287,6 +2290,9 @@ void c_clrscr()
 
 
 #include <direct.h>
+
+
+#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -10974,9 +10980,15 @@ enum object_state
 
 void object_state_to_string(enum object_state e);
 
+struct object_state_stack_item {
+    const char* name;
+    int state_number;
+    enum object_state state;
+};
+
 struct object_state_stack
 {
-    enum object_state* owner data;
+    struct object_state_stack_item* owner data;
     int size;
     int capacity;
 };
@@ -11019,7 +11031,7 @@ struct object make_object(struct type* p_type,
     const struct declarator* p_declarator_opt,
     const struct expression* p_expression_origin);
 
-void object_push_copy_current_state(struct object* object);
+void object_push_copy_current_state(struct object* object, const char* name, int state_number);
 
 void object_pop_states(struct object* object, int n);
 
@@ -20665,6 +20677,86 @@ const struct type* type_get_specifer_part(const struct type* p_type)
 
 #include <stdint.h>
 
+
+void object_state_to_string(enum object_state e)
+{
+    bool first = true;
+
+    printf("\"");
+    if (e & OBJECT_STATE_UNINITIALIZED)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("uninitialized");
+    }
+
+    if (e & OBJECT_STATE_NOT_NULL &&
+        e & OBJECT_STATE_NULL)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("maybe-null");
+    }
+    else if (e & OBJECT_STATE_NOT_NULL)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("not-null");
+    }
+    else if (e & OBJECT_STATE_NULL)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("null");
+    }
+
+    if (e & OBJECT_STATE_NOT_ZERO &&
+        e & OBJECT_STATE_ZERO)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("any");
+    }
+    else if (e & OBJECT_STATE_ZERO)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("zero");
+    }
+    else if (e & OBJECT_STATE_NOT_ZERO)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("not-zero");
+    }
+
+    if (e & OBJECT_STATE_MOVED)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("moved");
+    }
+
+    printf("\"");
+
+}
+
 struct object* object_get_pointed_object(const struct object* p)
 {
     if (p != NULL)
@@ -20723,7 +20815,7 @@ int object_state_stack_reserve(struct object_state_stack* p, int n)
     return 0;
 }
 
-int object_state_stack_push_back(struct object_state_stack* p, enum object_state e)
+int object_state_stack_push_back(struct object_state_stack* p, enum object_state e, const char* name, int state_number)
 {
     if (p->size == INT_MAX)
     {
@@ -20754,7 +20846,9 @@ int object_state_stack_push_back(struct object_state_stack* p, enum object_state
         }
     }
 
-    p->data[p->size] = e;
+    p->data[p->size].state = e;
+    p->data[p->size].name = name;
+    p->data[p->size].state_number = state_number;
     p->size++;
 
     return 0;
@@ -21005,19 +21099,19 @@ struct object make_object(struct type* p_type,
     return make_object_core(p_type, &list, 0, p_declarator_opt, p_expression_origin);
 }
 
-void object_push_copy_current_state(struct object* object)
+void object_push_copy_current_state(struct object* object, const char* name, int state_number)
 {
 
-    object_state_stack_push_back(&object->object_state_stack, object->state);
+    object_state_stack_push_back(&object->object_state_stack, object->state, name, state_number);
 
     if (object_get_pointed_object(object))
     {
-        object_push_copy_current_state(object_get_pointed_object(object));
+        object_push_copy_current_state(object_get_pointed_object(object), name, state_number);
     }
 
     for (int i = 0; i < object->members.size; i++)
     {
-        object_push_copy_current_state(&object->members.data[i]);
+        object_push_copy_current_state(&object->members.data[i], name, state_number);
     }
 
 }
@@ -21062,7 +21156,7 @@ void object_restore_state(struct object* object, int state_to_restore)
         return;
     }
 
-    enum object_state sstate = object->object_state_stack.data[index];
+    enum object_state sstate = object->object_state_stack.data[index].state;
     object->state = sstate;
 
     if (object_get_pointed_object(object))
@@ -21181,11 +21275,17 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                 printf("{");
                 for (int i = 0; i < p_object->object_state_stack.size; i++)
                 {
-                    object_state_to_string(p_object->object_state_stack.data[i]);
+                    printf(LIGHTCYAN);
+                    printf("(#%d %s)", p_object->object_state_stack.data[i].state_number, p_object->object_state_stack.data[i].name);
+                    object_state_to_string(p_object->object_state_stack.data[i].state);
+                    printf(RESET);
                     printf(",");
                 }
-                printf("*");
+                //printf("*");
+                printf(LIGHTMAGENTA);
+                printf("(current)");
                 object_state_to_string(p_object->state);
+                printf(RESET);
                 printf("}");
             }
             printf("\n");
@@ -21230,7 +21330,8 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                 printf("{");
                 for (int i = 0; i < p_object->object_state_stack.size; i++)
                 {
-                    object_state_to_string(p_object->object_state_stack.data[i]);
+                    printf("(%s)", p_object->object_state_stack.data[i].name);
+                    object_state_to_string(p_object->object_state_stack.data[i].state);
                     printf(",");
                 }
                 object_state_to_string(p_object->state);
@@ -22668,7 +22769,7 @@ struct flow_visit_ctx
     struct type* view p_return_type;
     int parameter_list;
     struct jump_statement* view p_last_jump_statement;
-    
+    int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
 };
 
@@ -22744,84 +22845,6 @@ void visit_ctx_destroy( struct visit_ctx* obj_owner ctx);
 #define MYMAX_PATH MAX_PATH
 #endif
 
-void object_state_to_string(enum object_state e)
-{
-    bool first = true;
-    printf(LIGHTCYAN);
-    printf("\"");
-    if (e & OBJECT_STATE_UNINITIALIZED)
-    {
-        if (first)
-            first = false;
-        else
-            printf(" or ");
-        printf("uninitialized");
-    }
-
-    if (e & OBJECT_STATE_NOT_NULL &&
-        e & OBJECT_STATE_NULL)
-    {
-        if (first)
-            first = false;
-        else
-            printf(" or ");
-        printf("maybe-null");
-    }
-    else if (e & OBJECT_STATE_NOT_NULL)
-    {
-        if (first)
-            first = false;
-        else
-            printf(" or ");
-        printf("not-null");
-    }
-    else if (e & OBJECT_STATE_NULL)
-    {
-        if (first)
-            first = false;
-        else
-            printf(" or ");
-        printf("null");
-    }
-
-    if (e & OBJECT_STATE_NOT_ZERO &&
-        e & OBJECT_STATE_ZERO)
-    {
-        if (first)
-            first = false;
-        else
-            printf(" or ");
-        printf("any");
-    }
-    else if (e & OBJECT_STATE_ZERO)
-    {
-        if (first)
-            first = false;
-        else
-            printf(" or ");
-        printf("zero");
-    }
-    else if (e & OBJECT_STATE_NOT_ZERO)
-    {
-        if (first)
-            first = false;
-        else
-            printf(" or ");
-        printf("not-zero");
-    }
-
-    if (e & OBJECT_STATE_MOVED)
-    {
-        if (first)
-            first = false;
-        else
-            printf(" or ");
-        printf("moved");
-    }
-
-    printf("\"");
-    printf(RESET);
-}
 
 struct defer_statement* owner defer_statement(struct parser_ctx* ctx);
 
@@ -33463,19 +33486,6 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     */
 }
 
-static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
-{
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
-    p_defer->p_try_statement = p_try_statement;
-
-    if (p_try_statement->secondary_block)
-        flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-
-    check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
-
-    flow_visit_ctx_pop_tail_block(ctx);
-}
-
 static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression, struct object *p_temp_object)
 {
     if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL &&
@@ -33547,7 +33557,7 @@ static struct object* expression_is_comparing_owner_with_not_null(struct express
     return NULL;
 }
 
-void push_copy_of_current_state(struct flow_visit_ctx* ctx)
+void push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name, int state_number)
 {
     /*
       top of stack constains the copy
@@ -33559,7 +33569,7 @@ void push_copy_of_current_state(struct flow_visit_ctx* ctx)
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
     {
-        object_push_copy_current_state(p_object);
+        object_push_copy_current_state(p_object , name, state_number);
         p_object = visit_objects_next(&v1);
     }
 
@@ -33594,7 +33604,7 @@ static void object_merge_states_with_current(struct object* object,
     }
 
     enum object_state* dest = dest_index == 0 ? &object->state :
-        &object->object_state_stack.data[object->object_state_stack.size - dest_index];
+        &object->object_state_stack.data[object->object_state_stack.size - dest_index].state;
 
 
     if (before_index == 0 || (object->object_state_stack.size - before_index >= 0 &&
@@ -33606,7 +33616,7 @@ static void object_merge_states_with_current(struct object* object,
         return;
     }
     enum object_state state_before = before_index == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - before_index];
+        object->object_state_stack.data[object->object_state_stack.size - before_index].state;
 
 
 
@@ -33622,7 +33632,7 @@ static void object_merge_states_with_current(struct object* object,
         return;
     }
     enum object_state state_after = after_index == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - after_index];
+        object->object_state_stack.data[object->object_state_stack.size - after_index].state;
 
     *dest |= (state_before | state_after);
 
@@ -33701,19 +33711,19 @@ static void object_merge_if_else_states(struct object* object,
 
 
     enum object_state* dest = dest_index == 0 ? &object->state :
-        &object->object_state_stack.data[object->object_state_stack.size - dest_index];
+        &object->object_state_stack.data[object->object_state_stack.size - dest_index].state;
 
 
     enum object_state s_original = original_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - original_state];
+        object->object_state_stack.data[object->object_state_stack.size - original_state].state;
 
 
     enum object_state s_true_branch = true_branch_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - true_branch_state];
+        object->object_state_stack.data[object->object_state_stack.size - true_branch_state].state;
 
 
     enum object_state s_false_branch = false_branch_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - false_branch_state];
+        object->object_state_stack.data[object->object_state_stack.size - false_branch_state].state;
 
 
     if (s_true_branch != s_original &&
@@ -33802,7 +33812,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
        This index is from the end of top of stack going to base of statck
     */
     const int original = 2;
-    push_copy_of_current_state(ctx);
+    char before_if_state[] = "before-if";
+    push_copy_of_current_state(ctx, before_if_state, ctx->state_number_generator++);
 
     if (p_object_compared_with_null)
     {
@@ -33843,7 +33854,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     /*let's make a copy of the state we left true branch*/
     const int true_branch = 1;
-    push_copy_of_current_state(ctx);
+    push_copy_of_current_state(ctx, "left-true-branch", ctx->state_number_generator++);
 
     restore_state(ctx, original);
 
@@ -33917,12 +33928,28 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 }
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
 
+
+static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
+{
+    push_copy_of_current_state(ctx, "try", ctx->state_number_generator++);
+    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    p_defer->p_try_statement = p_try_statement;
+
+    if (p_try_statement->secondary_block)
+        flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
+
+    check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
+
+    flow_visit_ctx_pop_tail_block(ctx);
+    pop_states(ctx, 1);
+}
+
 static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
     assert(p_selection_statement->first_token->type == TK_KEYWORD_SWITCH);
 
     int inverse_stack = 1; //we have 1 item
-    push_copy_of_current_state(ctx); //2 (permanent copy)
+    push_copy_of_current_state(ctx, "before-switch", ctx->state_number_generator++); //2 (permanent copy)
 
 
     //const int current = 0;
@@ -33973,7 +34000,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
                   Each time we find a break we safe the state
                   pushing it
                 */
-                push_copy_of_current_state(ctx);
+                push_copy_of_current_state(ctx, "some break", ctx->state_number_generator++);
                 inverse_stack++;
             }
             flow_visit_block_item(ctx, item);
@@ -33986,7 +34013,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
     {
         inverse_stack++;
         default_index = inverse_stack;
-        push_copy_of_current_state(ctx);
+        push_copy_of_current_state(ctx, "?", ctx->state_number_generator++);
 
     }
 
@@ -34865,7 +34892,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     if (p_iteration_statement->secondary_block)
     {
         const int original = 1;
-        push_copy_of_current_state(ctx);
+        push_copy_of_current_state(ctx, "before-while-copy", ctx->state_number_generator++);
 
         const int current = 0;
 
@@ -35896,6 +35923,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
 
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration)
 {
+    ctx->state_number_generator = 0;
     if (p_declaration->function_body)
     {
 

@@ -6,6 +6,87 @@
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include "console.h"
+
+
+void object_state_to_string(enum object_state e)
+{
+    bool first = true;
+
+    printf("\"");
+    if (e & OBJECT_STATE_UNINITIALIZED)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("uninitialized");
+    }
+
+    if (e & OBJECT_STATE_NOT_NULL &&
+        e & OBJECT_STATE_NULL)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("maybe-null");
+    }
+    else if (e & OBJECT_STATE_NOT_NULL)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("not-null");
+    }
+    else if (e & OBJECT_STATE_NULL)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("null");
+    }
+
+    if (e & OBJECT_STATE_NOT_ZERO &&
+        e & OBJECT_STATE_ZERO)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("any");
+    }
+    else if (e & OBJECT_STATE_ZERO)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("zero");
+    }
+    else if (e & OBJECT_STATE_NOT_ZERO)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("not-zero");
+    }
+
+    if (e & OBJECT_STATE_MOVED)
+    {
+        if (first)
+            first = false;
+        else
+            printf(" or ");
+        printf("moved");
+    }
+
+    printf("\"");
+
+}
 
 struct object* object_get_pointed_object(const struct object* p)
 {
@@ -65,7 +146,7 @@ int object_state_stack_reserve(struct object_state_stack* p, int n)
     return 0;
 }
 
-int object_state_stack_push_back(struct object_state_stack* p, enum object_state e)
+int object_state_stack_push_back(struct object_state_stack* p, enum object_state e, const char* name, int state_number)
 {
     if (p->size == INT_MAX)
     {
@@ -96,7 +177,9 @@ int object_state_stack_push_back(struct object_state_stack* p, enum object_state
         }
     }
 
-    p->data[p->size] = e;
+    p->data[p->size].state = e;
+    p->data[p->size].name = name;
+    p->data[p->size].state_number = state_number;
     p->size++;
 
     return 0;
@@ -347,19 +430,19 @@ struct object make_object(struct type* p_type,
     return make_object_core(p_type, &list, 0, p_declarator_opt, p_expression_origin);
 }
 
-void object_push_copy_current_state(struct object* object)
+void object_push_copy_current_state(struct object* object, const char* name, int state_number)
 {
 
-    object_state_stack_push_back(&object->object_state_stack, object->state);
+    object_state_stack_push_back(&object->object_state_stack, object->state, name, state_number);
 
     if (object_get_pointed_object(object))
     {
-        object_push_copy_current_state(object_get_pointed_object(object));
+        object_push_copy_current_state(object_get_pointed_object(object), name, state_number);
     }
 
     for (int i = 0; i < object->members.size; i++)
     {
-        object_push_copy_current_state(&object->members.data[i]);
+        object_push_copy_current_state(&object->members.data[i], name, state_number);
     }
 
 }
@@ -404,7 +487,7 @@ void object_restore_state(struct object* object, int state_to_restore)
         return;
     }
 
-    enum object_state sstate = object->object_state_stack.data[index];
+    enum object_state sstate = object->object_state_stack.data[index].state;
     object->state = sstate;
 
     if (object_get_pointed_object(object))
@@ -523,11 +606,17 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                 printf("{");
                 for (int i = 0; i < p_object->object_state_stack.size; i++)
                 {
-                    object_state_to_string(p_object->object_state_stack.data[i]);
+                    printf(LIGHTCYAN);
+                    printf("(#%d %s)", p_object->object_state_stack.data[i].state_number, p_object->object_state_stack.data[i].name);
+                    object_state_to_string(p_object->object_state_stack.data[i].state);
+                    printf(RESET);
                     printf(",");
                 }
-                printf("*");
+                //printf("*");
+                printf(LIGHTMAGENTA);
+                printf("(current)");
                 object_state_to_string(p_object->state);
+                printf(RESET);
                 printf("}");
             }
             printf("\n");
@@ -572,7 +661,8 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                 printf("{");
                 for (int i = 0; i < p_object->object_state_stack.size; i++)
                 {
-                    object_state_to_string(p_object->object_state_stack.data[i]);
+                    printf("(%s)", p_object->object_state_stack.data[i].name);
+                    object_state_to_string(p_object->object_state_stack.data[i].state);
                     printf(",");
                 }
                 object_state_to_string(p_object->state);

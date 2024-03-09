@@ -43,9 +43,15 @@ enum object_state
 
 void object_state_to_string(enum object_state e);
 
+struct object_state_stack_item {
+    const char* name;
+    int state_number;
+    enum object_state state;
+};
+
 struct object_state_stack
 {
-    enum object_state* owner data;
+    struct object_state_stack_item* owner data;
     int size;
     int capacity;
 };
@@ -88,7 +94,7 @@ struct object make_object(struct type* p_type,
     const struct declarator* p_declarator_opt,
     const struct expression* p_expression_origin);
 
-void object_push_copy_current_state(struct object* object);
+void object_push_copy_current_state(struct object* object, const char* name, int state_number);
 
 void object_pop_states(struct object* object, int n);
 

@@ -1,20 +1,32 @@
+void* f();
 
-struct parser_ctx { int x; };
-enum token_type { A };
-
-struct token* parser_match(struct parser_ctx* ctx);
-struct token* parser_match(struct parser_ctx* ctx) {}
-
-[[nodiscard]]
-int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
-
-[[nodiscard]]
-int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
+void f1()
 {
-}
-
-void call(void)
-{
-    struct parser_ctx ctx;
-    parser_match_tk(&ctx, A);
+    int i = 0;
+    void* p = f();
+    static_debug(p);
+    try
+    {
+        if (f())
+        {
+         //   static_debug(p);
+        }
+        else
+        {
+           // static_debug(p);
+            if (f())
+            {
+             //   static_debug(p);
+            }
+            else
+            {
+                static_debug(p);
+                throw;
+            }
+        }
+    }
+    catch
+    {
+    }
+    static_debug(p);
 }

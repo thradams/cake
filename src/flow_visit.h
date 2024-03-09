@@ -18,7 +18,7 @@ struct flow_visit_ctx
     struct type* view p_return_type;
     int parameter_list;
     struct jump_statement* view p_last_jump_statement;
-    
+    int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
 };
 
