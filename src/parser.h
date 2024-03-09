@@ -12,6 +12,11 @@
 #include "options.h"
 #include "object.h"
 
+#ifdef __CAKE__  //cake clones __STDC_VERSION__ from MSVC
+#define NODISCARD [[nodiscard]]
+#else
+#define NODISCARD
+#endif
 
 struct scope
 {
@@ -90,6 +95,8 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx);
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 
 struct token* parser_match(struct parser_ctx* ctx);
+
+NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 struct token* previous_parser_token(struct token* token);

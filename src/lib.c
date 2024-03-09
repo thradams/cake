@@ -11082,6 +11082,11 @@ void checked_read_object(struct parser_ctx* ctx,
     bool check_pointed_object);
 
 
+#ifdef __CAKE__  //cake clones __STDC_VERSION__ from MSVC
+#define NODISCARD [[nodiscard]]
+#else
+#define NODISCARD
+#endif
 
 struct scope
 {
@@ -11160,6 +11165,8 @@ void parser_ctx_destroy(struct parser_ctx* obj_owner ctx);
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 
 struct token* parser_match(struct parser_ctx* ctx);
+
+NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 struct token* previous_parser_token(struct token* token);
@@ -24299,7 +24306,7 @@ struct token* parser_match(struct parser_ctx* ctx)
 }
 
 
-
+NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type)
 {
     int error = 0;
@@ -24592,8 +24599,8 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
 
         if (ctx->current->type == ';')
         {
-            parser_match_tk(ctx, ';');
-            //declaracao vazia nao eh erro
+            parser_match(ctx);
+            //empty declaration
             return p_declaration;
         }
 
@@ -24633,7 +24640,9 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
                         *is_function_definition = true;
                 }
                 else
-                    parser_match_tk(ctx, ';');
+                {
+                    if (parser_match_tk(ctx, ';') != 0) throw;
+                }
             }
             else
             {
@@ -25372,7 +25381,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
         p_typeof_specifier->type.name_opt = NULL;
 
         p_typeof_specifier->last_token = ctx->current;
-        parser_match_tk(ctx, ')');
+        if (parser_match_tk(ctx, ')') != 0) throw;
     }
     catch
     {
@@ -25801,7 +25810,7 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
             p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
             p_struct_or_union_specifier->last_token = ctx->current;
             p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
-            parser_match_tk(ctx, '}');
+            if (parser_match_tk(ctx, '}') != 0) throw;
 
         }
         else
@@ -26000,7 +26009,7 @@ struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
                     p_struct_or_union_specifier,
                     p_member_declaration->specifier_qualifier_list);
             }
-            parser_match_tk(ctx, ';');
+            if (parser_match_tk(ctx, ';') != 0) throw;
         }
     }
     catch
@@ -26312,7 +26321,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
         p_enum_specifier = calloc(1, sizeof * p_enum_specifier);
 
         p_enum_specifier->first_token = ctx->current;
-        parser_match_tk(ctx, TK_KEYWORD_ENUM);
+        if (parser_match_tk(ctx, TK_KEYWORD_ENUM) != 0) throw;
 
         p_enum_specifier->attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx);
@@ -26342,13 +26351,13 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
             /*points to itself*/
             p_enum_specifier->complete_enum_specifier = p_enum_specifier;
 
-            parser_match_tk(ctx, '{');
+            if (parser_match_tk(ctx, '{') != 0) throw;
             p_enum_specifier->enumerator_list = enumerator_list(ctx, p_enum_specifier);
             if (ctx->current->type == ',')
             {
                 parser_match(ctx);
             }
-            parser_match_tk(ctx, '}');
+            if (parser_match_tk(ctx, '}') != 0) throw;
         }
         else
         {
@@ -26526,32 +26535,39 @@ struct enumerator* owner enumerator(struct parser_ctx* ctx,
 {
     //TODO VALUE
     struct enumerator* owner p_enumerator = calloc(1, sizeof(struct enumerator));
-    p_enumerator->enum_specifier = p_enum_specifier;
-    struct token* name = ctx->current;
-
-    naming_convention_enumerator(ctx, name);
-
-    parser_match_tk(ctx, TK_IDENTIFIER);
-
-    p_enumerator->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
-
-    p_enumerator->token = name;
-    hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, p_enumerator, TAG_TYPE_ENUMERATOR);
-
-    if (ctx->current->type == '=')
+    try
     {
-        parser_match(ctx);
-        p_enumerator->constant_expression_opt = constant_expression(ctx, true);
-        p_enumerator->value = constant_value_to_ll(&p_enumerator->constant_expression_opt->constant_value);
-        *p_next_enumerator_value = p_enumerator->value;
-        (*p_next_enumerator_value)++; //TODO overflow  and size check
-    }
-    else
-    {
-        p_enumerator->value = *p_next_enumerator_value;
-        (*p_next_enumerator_value)++; //TODO overflow  and size check
-    }
+        p_enumerator->enum_specifier = p_enum_specifier;
+        struct token* name = ctx->current;
 
+        naming_convention_enumerator(ctx, name);
+
+        if (parser_match_tk(ctx, TK_IDENTIFIER) != 0) throw;
+
+        p_enumerator->attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+
+        p_enumerator->token = name;
+        hashmap_set(&ctx->scopes.tail->variables, p_enumerator->token->lexeme, p_enumerator, TAG_TYPE_ENUMERATOR);
+
+        if (ctx->current->type == '=')
+        {
+            parser_match(ctx);
+            p_enumerator->constant_expression_opt = constant_expression(ctx, true);
+            p_enumerator->value = constant_value_to_ll(&p_enumerator->constant_expression_opt->constant_value);
+            *p_next_enumerator_value = p_enumerator->value;
+            (*p_next_enumerator_value)++; //TODO overflow  and size check
+        }
+        else
+        {
+            p_enumerator->value = *p_next_enumerator_value;
+            (*p_next_enumerator_value)++; //TODO overflow  and size check
+        }
+    }
+    catch 
+    {
+        enumerator_delete(p_enumerator);
+        p_enumerator = NULL;
+    }
     return p_enumerator;
 }
 
@@ -26569,18 +26585,26 @@ void alignment_specifier_delete(struct alignment_specifier* owner opt p)
 struct alignment_specifier* owner alignment_specifier(struct parser_ctx* ctx)
 {
     struct alignment_specifier* owner alignment_specifier = calloc(1, sizeof * alignment_specifier);
-    alignment_specifier->token = ctx->current;
-    parser_match_tk(ctx, TK_KEYWORD__ALIGNAS);
-    parser_match_tk(ctx, '(');
-    if (first_of_type_name(ctx))
+    try
     {
-        alignment_specifier->type_name = type_name(ctx);
+        alignment_specifier->token = ctx->current;
+        if (parser_match_tk(ctx, TK_KEYWORD__ALIGNAS) != 0) throw;
+        if (parser_match_tk(ctx, '(') != 0) throw;
+        if (first_of_type_name(ctx))
+        {
+            alignment_specifier->type_name = type_name(ctx);
+        }
+        else
+        {
+            alignment_specifier->constant_expression = constant_expression(ctx, true);
+        }
+        if (parser_match_tk(ctx, ')') != 0) throw;
     }
-    else
+    catch
     {
-        alignment_specifier->constant_expression = constant_expression(ctx, true);
+        alignment_specifier_delete(alignment_specifier);
+        alignment_specifier = NULL;
     }
-    parser_match_tk(ctx, ')');
     return alignment_specifier;
 }
 
@@ -26597,11 +26621,19 @@ struct atomic_type_specifier* owner atomic_type_specifier(struct parser_ctx* ctx
 {
     //'_Atomic' '(' type_name ')'
     struct atomic_type_specifier* owner p = calloc(1, sizeof * p);
-    p->token = ctx->current;
-    parser_match_tk(ctx, TK_KEYWORD__ATOMIC);
-    parser_match_tk(ctx, '(');
-    p->type_name = type_name(ctx);
-    parser_match_tk(ctx, ')');
+    try
+    {
+        p->token = ctx->current;
+        if (parser_match_tk(ctx, TK_KEYWORD__ATOMIC) != 0) throw;
+        if (parser_match_tk(ctx, '(') != 0) throw;
+        p->type_name = type_name(ctx);
+        if (parser_match_tk(ctx, ')') != 0) throw;
+    }
+    catch
+    {
+        atomic_type_specifier_delete(p);
+        p = NULL;
+    }
     return p;
 }
 
@@ -26911,7 +26943,7 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
         if (p_array_declarator == NULL) throw;
 
         p_array_declarator->direct_declarator = p_direct_declarator;
-        parser_match_tk(ctx, '[');
+        if (parser_match_tk(ctx, '[') != 0) throw;
 
         bool has_static = false;
         if (ctx->current->type == TK_KEYWORD_STATIC)
@@ -26968,7 +27000,7 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
             }
         }
 
-        parser_match_tk(ctx, ']');
+        if (parser_match_tk(ctx, ']') != 0) throw;
     }
     catch
     {
@@ -26986,37 +27018,44 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
 struct function_declarator* owner function_declarator(struct direct_declarator* owner p_direct_declarator, struct parser_ctx* ctx)
 {
     struct function_declarator* owner p_function_declarator = calloc(1, sizeof(struct function_declarator));
-    //faz um push da funcion_scope_declarator_list que esta vivendo mais em cima
-    //eh feito o pop mais em cima tb.. aqui dentro do decide usar.
-    //ctx->funcion_scope_declarator_list->outer_scope = ctx->current_scope;
-    //ctx->current_scope = ctx->funcion_scope_declarator_list;
-    //direct_declarator '(' parameter_type_list_opt ')'
-
-
-    p_function_declarator->direct_declarator = p_direct_declarator;
-    p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
-    p_function_declarator->parameters_scope.variables.capacity = 5;
-    p_function_declarator->parameters_scope.tags.capacity = 1;
-
-
-    scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
-
-    //print_scope(&ctx->scopes);
-
-    parser_match_tk(ctx, '(');
-    if (ctx->current->type != ')')
+    try
     {
-        p_function_declarator->parameter_type_list_opt = parameter_type_list(ctx);
+        //faz um push da funcion_scope_declarator_list que esta vivendo mais em cima
+        //eh feito o pop mais em cima tb.. aqui dentro do decide usar.
+        //ctx->funcion_scope_declarator_list->outer_scope = ctx->current_scope;
+        //ctx->current_scope = ctx->funcion_scope_declarator_list;
+        //direct_declarator '(' parameter_type_list_opt ')'
+
+
+        p_function_declarator->direct_declarator = p_direct_declarator;
+        p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
+        p_function_declarator->parameters_scope.variables.capacity = 5;
+        p_function_declarator->parameters_scope.tags.capacity = 1;
+
+
+        scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
+
+        //print_scope(&ctx->scopes);
+
+        if (parser_match_tk(ctx, '(') != 0) throw;
+        if (ctx->current->type != ')')
+        {
+            p_function_declarator->parameter_type_list_opt = parameter_type_list(ctx);
+        }
+        if (parser_match_tk(ctx, ')') != 0) throw;
+
+        //print_scope(&ctx->scopes);
+
+        scope_list_pop(&ctx->scopes);
+
+        //print_scope(&ctx->scopes);
+
     }
-    parser_match_tk(ctx, ')');
-
-    //print_scope(&ctx->scopes);
-
-    scope_list_pop(&ctx->scopes);
-
-    //print_scope(&ctx->scopes);
-
-
+    catch
+    {
+        function_declarator_delete(p_function_declarator);
+        p_function_declarator = NULL;
+    }
     return p_function_declarator;
 }
 
@@ -27149,25 +27188,33 @@ void parameter_type_list_delete(struct parameter_type_list* owner opt p)
 struct parameter_type_list* owner parameter_type_list(struct parser_ctx* ctx)
 {
     struct parameter_type_list* owner p_parameter_type_list = calloc(1, sizeof(struct parameter_type_list));
-    //parameter_list
-    //parameter_list ',' '...'
-    p_parameter_type_list->parameter_list = parameter_list(ctx);
-
-    if (p_parameter_type_list->parameter_list->head ==
-        p_parameter_type_list->parameter_list->tail)
+    try
     {
-        if (type_is_void(&p_parameter_type_list->parameter_list->head->declarator->type))
+        //parameter_list
+        //parameter_list ',' '...'
+        p_parameter_type_list->parameter_list = parameter_list(ctx);
+
+        if (p_parameter_type_list->parameter_list->head ==
+            p_parameter_type_list->parameter_list->tail)
         {
-            p_parameter_type_list->is_void = true;
+            if (type_is_void(&p_parameter_type_list->parameter_list->head->declarator->type))
+            {
+                p_parameter_type_list->is_void = true;
+            }
+        }
+
+        /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
+        if (ctx->current->type == '...')
+        {
+            parser_match(ctx);
+            //parser_match_tk(ctx, '...');
+            p_parameter_type_list->is_var_args = true;
         }
     }
-
-    /*ja esta saindo com a virgula consumida do parameter_list para evitar ahead*/
-    if (ctx->current->type == '...')
+    catch
     {
-        parser_match(ctx);
-        //parser_match_tk(ctx, '...');
-        p_parameter_type_list->is_var_args = true;
+        parameter_type_list_delete(p_parameter_type_list);
+        p_parameter_type_list = NULL;
     }
     return p_parameter_type_list;
 }
@@ -27489,13 +27536,23 @@ struct braced_initializer* owner braced_initializer(struct parser_ctx* ctx)
     */
 
     struct braced_initializer* owner p_bracket_initializer_list = calloc(1, sizeof(struct braced_initializer));
-    p_bracket_initializer_list->first_token = ctx->current;
-    parser_match_tk(ctx, '{');
-    if (ctx->current->type != '}')
+    try
     {
-        p_bracket_initializer_list->initializer_list = initializer_list(ctx);
+        if (p_bracket_initializer_list == NULL) throw;
+
+        p_bracket_initializer_list->first_token = ctx->current;
+        if (parser_match_tk(ctx, '{') != 0) throw;
+        if (ctx->current->type != '}')
+        {
+            p_bracket_initializer_list->initializer_list = initializer_list(ctx); //TODO error
+        }
+        if (parser_match_tk(ctx, '}') != 0) throw;
     }
-    parser_match_tk(ctx, '}');
+    catch
+    {
+        braced_initializer_delete(p_bracket_initializer_list);
+        p_bracket_initializer_list = NULL;
+    }
     return p_bracket_initializer_list;
 }
 
@@ -27617,8 +27674,16 @@ struct designation* owner designation(struct parser_ctx* ctx)
 {
     //designator_list '='
     struct designation* owner p_designation = calloc(1, sizeof(struct designation));
-    p_designation->designator_list = designator_list(ctx);
-    parser_match_tk(ctx, '=');
+    try
+    {
+        p_designation->designator_list = designator_list(ctx);
+        if (parser_match_tk(ctx, '=') != 0) throw;
+    }
+    catch
+    {
+        designation_delete(p_designation);
+        p_designation = NULL;
+    }
     return p_designation;
 }
 
@@ -27684,16 +27749,24 @@ struct designator* owner designator(struct parser_ctx* ctx)
     //'[' constant_expression ']'
     //'.' identifier
     struct designator* owner p_designator = calloc(1, sizeof(struct designator));
-    if (ctx->current->type == '[')
+    try
     {
-        parser_match_tk(ctx, '[');
-        p_designator->constant_expression_opt = constant_expression(ctx, true);
-        parser_match_tk(ctx, ']');
+        if (ctx->current->type == '[')
+        {
+            parser_match_tk(ctx, '[');
+            p_designator->constant_expression_opt = constant_expression(ctx, true);
+            parser_match_tk(ctx, ']');
+        }
+        else if (ctx->current->type == '.')
+        {
+            parser_match(ctx);
+            parser_match_tk(ctx, TK_IDENTIFIER);
+        }
     }
-    else if (ctx->current->type == '.')
+    catch
     {
-        parser_match(ctx);
-        parser_match_tk(ctx, TK_IDENTIFIER);
+        designator_delete(p_designator);
+        p_designator = NULL;
     }
     return p_designator;
 }
@@ -28482,26 +28555,33 @@ void label_delete(struct label* owner opt p)
 struct label* owner label(struct parser_ctx* ctx)
 {
     struct label* owner p_label = calloc(1, sizeof(struct label));
-    if (ctx->current->type == TK_IDENTIFIER)
+    try
     {
-        p_label->name = ctx->current;
-        parser_match(ctx);
-        parser_match_tk(ctx, ':');
+        if (p_label == NULL) throw;
+        if (ctx->current->type == TK_IDENTIFIER)
+        {
+            p_label->name = ctx->current;
+            parser_match(ctx);
+            parser_match_tk(ctx, ':');
+        }
+        else if (ctx->current->type == TK_KEYWORD_CASE)
+        {
+            parser_match(ctx);
+            p_label->constant_expression = constant_expression(ctx, true);
+            parser_match_tk(ctx, ':');
+        }
+        else if (ctx->current->type == TK_KEYWORD_DEFAULT)
+        {
+            parser_match(ctx);
+            parser_match_tk(ctx, ':');
+        }
+        //attribute_specifier_sequence_opt identifier ':'
+        //attribute_specifier_sequence_opt 'case' constant_expression ':'
+        //attribute_specifier_sequence_opt 'default' ':'
     }
-    else if (ctx->current->type == TK_KEYWORD_CASE)
+    catch
     {
-        parser_match(ctx);
-        p_label->constant_expression = constant_expression(ctx, true);
-        parser_match_tk(ctx, ':');
     }
-    else if (ctx->current->type == TK_KEYWORD_DEFAULT)
-    {
-        parser_match(ctx);
-        parser_match_tk(ctx, ':');
-    }
-    //attribute_specifier_sequence_opt identifier ':'
-    //attribute_specifier_sequence_opt 'case' constant_expression ':'
-    //attribute_specifier_sequence_opt 'default' ':'
     return p_label;
 }
 
