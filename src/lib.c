@@ -398,6 +398,7 @@ enum token_type
 
     /*extension compile time functions*/
     TK_KEYWORD_STATIC_DEBUG, /*extension*/
+    TK_KEYWORD_STATIC_DEBUG_EX, /*extension*/
     TK_KEYWORD_STATIC_STATE, /*extension*/
     TK_KEYWORD_STATIC_SET, /*extension*/
     TK_KEYWORD_ATTR_ADD, /*extension*/
@@ -1364,6 +1365,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
 
         /*extension compile time functions*/
     case TK_KEYWORD_STATIC_DEBUG: /*extension*/
+    case TK_KEYWORD_STATIC_DEBUG_EX: /*extension*/
     case TK_KEYWORD_STATIC_STATE: /*extension*/
     case TK_KEYWORD_STATIC_SET: /*extension*/
     case TK_KEYWORD_ATTR_ADD: /*extension*/
@@ -7219,6 +7221,7 @@ const char* get_token_name(enum token_type tk)
 
             /*extension compile time functions*/
         case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
+        case TK_KEYWORD_STATIC_DEBUG_EX: return "TK_KEYWORD_STATIC_DEBUG_EX"; /*extension*/
         case TK_KEYWORD_STATIC_STATE: return "TK_KEYWORD_STATIC_STATE"; /*extension*/
         case TK_KEYWORD_STATIC_SET: return "TK_KEYWORD_STATIC_SET"; /*extension*/
         case TK_KEYWORD_ATTR_ADD: return "TK_KEYWORD_ATTR_ADD"; /*extension*/
@@ -22836,7 +22839,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.14"
+#define CAKE_VERSION "0.7.15"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
@@ -23701,6 +23704,7 @@ bool first_of_static_assert_declaration(struct parser_ctx* ctx)
 
     return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
         ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
+        ctx->current->type == TK_KEYWORD_STATIC_DEBUG_EX ||
         ctx->current->type == TK_KEYWORD_STATIC_STATE ||
         ctx->current->type == TK_KEYWORD_STATIC_SET;
 }
@@ -23857,6 +23861,8 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
         else if (strcmp("static_debug", text) == 0)
             result = TK_KEYWORD_STATIC_DEBUG;
+        else if (strcmp("static_debug_ex", text) == 0)
+            result = TK_KEYWORD_STATIC_DEBUG_EX;
         else if (strcmp("static_state", text) == 0)
             result = TK_KEYWORD_STATIC_STATE;
         else if (strcmp("static_set", text) == 0)
@@ -35393,8 +35399,11 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     ctx->expression_is_not_evaluated = t2; //restore
 
 
-    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
+    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG ||
+        p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX)
     {
+        bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX;
+
         compiler_diagnostic_message(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
         struct object temp_obj = {0};
@@ -35402,7 +35411,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         if (p_obj)
         {
-            print_object(&p_static_assert_declaration->constant_expression->type, p_obj, false);
+            print_object(&p_static_assert_declaration->constant_expression->type, p_obj, !ex);
         }
 
         object_destroy(&temp_obj);    

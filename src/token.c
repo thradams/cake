@@ -421,6 +421,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
 
         /*extension compile time functions*/
     case TK_KEYWORD_STATIC_DEBUG: /*extension*/
+    case TK_KEYWORD_STATIC_DEBUG_EX: /*extension*/
     case TK_KEYWORD_STATIC_STATE: /*extension*/
     case TK_KEYWORD_STATIC_SET: /*extension*/
     case TK_KEYWORD_ATTR_ADD: /*extension*/

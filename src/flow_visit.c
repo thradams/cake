@@ -2306,8 +2306,11 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     ctx->expression_is_not_evaluated = t2; //restore
 
 
-    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG)
+    if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG ||
+        p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX)
     {
+        bool ex = p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_DEBUG_EX;
+
         compiler_diagnostic_message(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
         struct object temp_obj = {0};
@@ -2315,7 +2318,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         if (p_obj)
         {
-            print_object(&p_static_assert_declaration->constant_expression->type, p_obj, false);
+            print_object(&p_static_assert_declaration->constant_expression->type, p_obj, !ex);
         }
 
         object_destroy(&temp_obj);    

@@ -840,6 +840,7 @@ bool first_of_static_assert_declaration(struct parser_ctx* ctx)
 
     return ctx->current->type == TK_KEYWORD__STATIC_ASSERT ||
         ctx->current->type == TK_KEYWORD_STATIC_DEBUG ||
+        ctx->current->type == TK_KEYWORD_STATIC_DEBUG_EX ||
         ctx->current->type == TK_KEYWORD_STATIC_STATE ||
         ctx->current->type == TK_KEYWORD_STATIC_SET;
 }
@@ -996,6 +997,8 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
         else if (strcmp("static_debug", text) == 0)
             result = TK_KEYWORD_STATIC_DEBUG;
+        else if (strcmp("static_debug_ex", text) == 0)
+            result = TK_KEYWORD_STATIC_DEBUG_EX;
         else if (strcmp("static_state", text) == 0)
             result = TK_KEYWORD_STATIC_STATE;
         else if (strcmp("static_set", text) == 0)
