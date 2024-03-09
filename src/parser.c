@@ -1904,6 +1904,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
             }
 
             struct declaration_specifier* owner p_declaration_specifier = declaration_specifier(ctx);
+            if (p_declaration_specifier == NULL) throw;
 
             if (p_declaration_specifier->type_specifier_qualifier)
             {
@@ -1959,7 +1960,7 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
             LIST_ADD(p_declaration_specifiers, p_declaration_specifier);
             //attribute_specifier_sequence_opt(ctx);
 
-            if (ctx->current->type == TK_IDENTIFIER &&
+            if (ctx->current && ctx->current->type == TK_IDENTIFIER &&
                 p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
             {
                 //typedef nao pode aparecer com outro especifier
@@ -1973,24 +1974,21 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
             }
         }
         p_declaration_specifiers->last_token = previous_parser_token(ctx->current);
+
+
+        final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
+        p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
+
+        if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+        {
+            //
+            p_declaration_specifiers->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
+        }
     }
     catch
     {
-    }
-
-    if (p_declaration_specifiers)
-    {
-        //int main() { static int i; } // i is not automatic
-        final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
-    }
-
-
-    p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
-
-    if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
-    {
-        //
-        p_declaration_specifiers->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
+        declaration_specifiers_delete(p_declaration_specifiers);
+        p_declaration_specifiers = NULL;
     }
 
     return p_declaration_specifiers;
@@ -2012,71 +2010,77 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
 
 
     struct declaration* owner p_declaration = calloc(1, sizeof(struct declaration));
-
-    p_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
-
-    p_declaration->first_token = ctx->current;
-
-    if (ctx->current->type == ';')
+    try
     {
-        parser_match_tk(ctx, ';');
-        //declaracao vazia nao eh erro
-        return p_declaration;
-    }
+        p_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
 
-    if (first_of_static_assert_declaration(ctx))
-    {
-        p_declaration->static_assert_declaration = static_assert_declaration(ctx);
-    }
-    else if (first_of_pragma_declaration(ctx))
-    {
-        p_declaration->pragma_declaration = pragma_declaration(ctx);
-    }
-    else
-    {
+        p_declaration->first_token = ctx->current;
 
-        if (first_of_declaration_specifier(ctx))
+        if (ctx->current->type == ';')
         {
-            p_declaration->declaration_specifiers = declaration_specifiers(ctx, default_storage_class_specifier_flags);
+            parser_match_tk(ctx, ';');
+            //declaracao vazia nao eh erro
+            return p_declaration;
+        }
 
-            if (p_declaration->p_attribute_specifier_sequence_opt)
-            {
-                p_declaration->declaration_specifiers->attributes_flags =
-                    p_declaration->p_attribute_specifier_sequence_opt->attributes_flags;
-            }
-
-            if (ctx->current->type != ';')
-            {
-                p_declaration->init_declarator_list = init_declarator_list(ctx,
-                    p_declaration->declaration_specifiers);
-            }
-
-
-            p_declaration->last_token = ctx->current;
-
-            if (ctx->current->type == '{')
-            {
-                if (can_be_function_definition)
-                    *is_function_definition = true;
-            }
-            else
-                parser_match_tk(ctx, ';');
+        if (first_of_static_assert_declaration(ctx))
+        {
+            p_declaration->static_assert_declaration = static_assert_declaration(ctx);
+        }
+        else if (first_of_pragma_declaration(ctx))
+        {
+            p_declaration->pragma_declaration = pragma_declaration(ctx);
         }
         else
         {
-            if (ctx->current->type == TK_IDENTIFIER)
+
+            if (first_of_declaration_specifier(ctx))
             {
-                compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
+                p_declaration->declaration_specifiers = declaration_specifiers(ctx, default_storage_class_specifier_flags);
+                if (p_declaration->declaration_specifiers == NULL) throw;
+                if (p_declaration->p_attribute_specifier_sequence_opt)
+                {
+                    p_declaration->declaration_specifiers->attributes_flags =
+                        p_declaration->p_attribute_specifier_sequence_opt->attributes_flags;
+                }
+
+                if (ctx->current->type != ';')
+                {
+                    p_declaration->init_declarator_list = init_declarator_list(ctx,
+                        p_declaration->declaration_specifiers);
+                }
+
+
+                p_declaration->last_token = ctx->current;
+
+                if (ctx->current->type == '{')
+                {
+                    if (can_be_function_definition)
+                        *is_function_definition = true;
+                }
+                else
+                    parser_match_tk(ctx, ';');
             }
             else
             {
-                compiler_diagnostic_message(C_ERROR_EXPECTED_DECLARATION, ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
+                if (ctx->current->type == TK_IDENTIFIER)
+                {
+                    compiler_diagnostic_message(C_ERROR_INVALID_TYPE, ctx, ctx->current, "invalid type '%s'", ctx->current->lexeme);
+                }
+                else
+                {
+                    compiler_diagnostic_message(C_ERROR_EXPECTED_DECLARATION, ctx, ctx->current, "expected declaration not '%s'", ctx->current->lexeme);
+                }
+                parser_match(ctx); //we need to go ahead
             }
-            parser_match(ctx); //we need to go ahead
         }
+
     }
-
-
+    catch
+    {
+        declaration_delete(p_declaration);
+        p_declaration = NULL;
+    }
     return p_declaration;
 }
 
@@ -2207,7 +2211,7 @@ struct declaration* owner function_definition_or_declaration(struct parser_ctx* 
             if (ctx->options.flow_analysis)
             {
                 /*
-                *  The objetive of this visit is to initialize global objects.
+                *  The objective of this visit is to initialize global objects.
                 *  It also executes static_debug
                 */
                 struct flow_visit_ctx ctx2 = { 0 };
@@ -2259,21 +2263,35 @@ struct declaration_specifier* owner declaration_specifier(struct parser_ctx* ctx
     //    type-specifier-qualifier
     //    function-specifier
     struct declaration_specifier* owner p_declaration_specifier = calloc(1, sizeof * p_declaration_specifier);
-    if (first_of_storage_class_specifier(ctx))
+    try
     {
-        p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
+        if (p_declaration_specifier == NULL) throw;
+
+        if (first_of_storage_class_specifier(ctx))
+        {
+            p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
+            if (p_declaration_specifier->storage_class_specifier == NULL) throw;
+        }
+        else if (first_of_type_specifier_qualifier(ctx))
+        {
+            p_declaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx);
+            if (p_declaration_specifier->type_specifier_qualifier == NULL) throw;
+        }
+        else if (first_of_function_specifier(ctx))
+        {
+            p_declaration_specifier->function_specifier = function_specifier(ctx);
+            if (p_declaration_specifier->function_specifier == NULL) throw;
+        }
+        else
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "unexpected");
+            throw;
+        }
     }
-    else if (first_of_type_specifier_qualifier(ctx))
+    catch
     {
-        p_declaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx);
-    }
-    else if (first_of_function_specifier(ctx))
-    {
-        p_declaration_specifier->function_specifier = function_specifier(ctx);
-    }
-    else
-    {
-        compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "unexpected");
+        declaration_specifier_delete(p_declaration_specifier);
+        p_declaration_specifier = NULL;
     }
     return p_declaration_specifier;
 }
@@ -2847,183 +2865,192 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
     */
 
     struct type_specifier* owner p_type_specifier = calloc(1, sizeof * p_type_specifier);
-    if (p_type_specifier == NULL)
-        return NULL;
 
-
-
-
-    switch (ctx->current->type)
+    try
     {
-    case TK_KEYWORD_VOID:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_VOID;
-        parser_match(ctx);
-        return p_type_specifier;
+        if (p_type_specifier == NULL)
+            return NULL;
 
-    case TK_KEYWORD_CHAR:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
-        parser_match(ctx);
-        return p_type_specifier;
 
-    case TK_KEYWORD_SHORT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
 
-    case TK_KEYWORD_INT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
 
-        //microsoft
-    case TK_KEYWORD__INT8:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT8;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        switch (ctx->current->type)
+        {
+        case TK_KEYWORD_VOID:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_VOID;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__INT16:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT16;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-    case TK_KEYWORD__INT32:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT32;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-    case TK_KEYWORD__INT64:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT64;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-        //end microsoft
+        case TK_KEYWORD_CHAR:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_LONG:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_LONG;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_SHORT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_FLOAT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_INT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_DOUBLE:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            //microsoft
+        case TK_KEYWORD__INT8:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_SIGNED:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__INT16:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+        case TK_KEYWORD__INT32:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+        case TK_KEYWORD__INT64:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+            //end microsoft
 
-    case TK_KEYWORD_UNSIGNED:
+        case TK_KEYWORD_LONG:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_LONG;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-        p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_FLOAT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__BOOL:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_DOUBLE:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__COMPLEX:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_SIGNED:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL32:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_UNSIGNED:
 
-    case TK_KEYWORD__DECIMAL64:
+            p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__BOOL:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL128:
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__COMPLEX:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    default:
-        // Do nothing
-        break;
+        case TK_KEYWORD__DECIMAL32:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
+        case TK_KEYWORD__DECIMAL64:
+
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+
+        case TK_KEYWORD__DECIMAL128:
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+
+        default:
+            // Do nothing
+            break;
+
+        }
+
+
+
+        if (first_of_typeof_specifier(ctx))
+        {
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_TYPEOF;
+            p_type_specifier->typeof_specifier = typeof_specifier(ctx);
+        }
+        else if (first_of_atomic_type_specifier(ctx))
+        {
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_ATOMIC;
+            p_type_specifier->atomic_type_specifier = atomic_type_specifier(ctx);
+        }
+        else if (first_of_struct_or_union(ctx))
+        {
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+            p_type_specifier->struct_or_union_specifier = struct_or_union_specifier(ctx);
+            if (p_type_specifier->struct_or_union_specifier == NULL) throw;
+        }
+        else if (first_of_enum_specifier(ctx))
+        {
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_ENUM;
+            p_type_specifier->enum_specifier = enum_specifier(ctx);
+        }
+        else if (ctx->current->type == TK_IDENTIFIER)
+        {
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_TYPEDEF;
+
+            p_type_specifier->typedef_declarator =
+                find_declarator(ctx, ctx->current->lexeme, NULL);
+
+            //Ser chegou aqui já tem que exitir (reaprovecitar?)
+            assert(p_type_specifier->typedef_declarator != NULL);
+
+            parser_match(ctx);
+        }
     }
-
-
-
-    if (first_of_typeof_specifier(ctx))
+    catch
     {
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_TYPEOF;
-        p_type_specifier->typeof_specifier = typeof_specifier(ctx);
+        type_specifier_delete(p_type_specifier);
+        p_type_specifier = NULL;
     }
-    else if (first_of_atomic_type_specifier(ctx))
-    {
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_ATOMIC;
-        p_type_specifier->atomic_type_specifier = atomic_type_specifier(ctx);
-    }
-    else if (first_of_struct_or_union(ctx))
-    {
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
-        p_type_specifier->struct_or_union_specifier = struct_or_union_specifier(ctx);
-    }
-    else if (first_of_enum_specifier(ctx))
-    {
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_ENUM;
-        p_type_specifier->enum_specifier = enum_specifier(ctx);
-    }
-    else if (ctx->current->type == TK_IDENTIFIER)
-    {
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_TYPEDEF;
-
-        p_type_specifier->typedef_declarator =
-            find_declarator(ctx, ctx->current->lexeme, NULL);
-
-        //Ser chegou aqui já tem que exitir (reaprovecitar?)
-        assert(p_type_specifier->typedef_declarator != NULL);
-
-        parser_match(ctx);
-    }
-
 
     return p_type_specifier;
 }
@@ -3082,144 +3109,158 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
 {
     struct struct_or_union_specifier* owner p_struct_or_union_specifier = calloc(1, sizeof * p_struct_or_union_specifier);
 
-    if (p_struct_or_union_specifier == NULL)
-        return NULL;
-
-    static_set(*p_struct_or_union_specifier, "zero");
-
-    if (ctx->current->type == TK_KEYWORD_STRUCT ||
-        ctx->current->type == TK_KEYWORD_UNION)
+    try
     {
-        p_struct_or_union_specifier->first_token = ctx->current;
-        parser_match(ctx);
-    }
-    else
-    {
-        assert(false);
-    }
+        if (p_struct_or_union_specifier == NULL)
+            return NULL;
 
-    p_struct_or_union_specifier->attribute_specifier_sequence_opt =
-        attribute_specifier_sequence_opt(ctx);
+        static_set(*p_struct_or_union_specifier, "zero");
 
-    struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
-
-    if (ctx->current->type == TK_IDENTIFIER)
-    {
-        p_struct_or_union_specifier->tagtoken = ctx->current;
-        /*
-         Structure, union, and enumeration tags have scope that begins just after the
-         appearance of the tag in a type specifier that declares the tag.
-        */
-
-        snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "%s", ctx->current->lexeme);
-
-        struct map_entry* p_entry = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
-        if (p_entry)
+        if (ctx->current->type == TK_KEYWORD_STRUCT ||
+            ctx->current->type == TK_KEYWORD_UNION)
         {
-            /*this tag already exist in this scope*/
-            if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
-            {
-                p_first_tag_in_this_scope = p_entry->p;
-                p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
-            }
-            else
-            {
-                compiler_diagnostic_message(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
-                    ctx,
-                    ctx->current,
-                    "use of '%s' with tag type that does not match previous declaration.",
-                    ctx->current->lexeme);
-            }
+            p_struct_or_union_specifier->first_token = ctx->current;
+            parser_match(ctx);
         }
         else
         {
-            /*tag does not exist in the current scope, let search on upper scopes*/
-            struct struct_or_union_specifier* p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
-            if (p_first_tag_previous_scopes == NULL)
-            {
-                /*tag not found, so it is the first appearence*/
-                p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-                hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
+            throw;
+        }
 
+        p_struct_or_union_specifier->attribute_specifier_sequence_opt =
+            attribute_specifier_sequence_opt(ctx);
+
+        if (ctx->current == NULL)
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, NULL, "unexpected of of file");
+            throw;
+        }
+        struct struct_or_union_specifier* p_first_tag_in_this_scope = NULL;
+
+        if (ctx->current && ctx->current->type == TK_IDENTIFIER)
+        {
+            p_struct_or_union_specifier->tagtoken = ctx->current;
+            /*
+             Structure, union, and enumeration tags have scope that begins just after the
+             appearance of the tag in a type specifier that declares the tag.
+            */
+
+            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "%s", ctx->current->lexeme);
+
+            struct map_entry* p_entry = hashmap_find(&ctx->scopes.tail->tags, ctx->current->lexeme);
+            if (p_entry)
+            {
+                /*this tag already exist in this scope*/
+                if (p_entry->type == TAG_TYPE_STRUCT_OR_UNION_SPECIFIER)
+                {
+                    p_first_tag_in_this_scope = p_entry->p;
+                    p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_in_this_scope;
+                }
+                else
+                {
+                    compiler_diagnostic_message(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
+                        ctx,
+                        ctx->current,
+                        "use of '%s' with tag type that does not match previous declaration.",
+                        ctx->current->lexeme);
+                }
             }
             else
             {
-                /*tag already exists in some scope*/
-                p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+                /*tag does not exist in the current scope, let search on upper scopes*/
+                struct struct_or_union_specifier* p_first_tag_previous_scopes = find_struct_or_union_specifier(ctx, ctx->current->lexeme);
+                if (p_first_tag_previous_scopes == NULL)
+                {
+                    /*tag not found, so it is the first appearance*/
+                    p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
+                    hashmap_set(&ctx->scopes.tail->tags, ctx->current->lexeme, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
+
+                }
+                else
+                {
+                    /*tag already exists in some scope*/
+                    p_struct_or_union_specifier->complete_struct_or_union_specifier_indirection = p_first_tag_previous_scopes;
+                }
             }
+
+            parser_match(ctx);
+        }
+        else
+        {
+            /*struct without a tag, in this case we make one*/
+            snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
+            s_anonymous_struct_count++;
+            p_struct_or_union_specifier->has_anonymous_tag = true;
+            p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
+            hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
         }
 
-        parser_match(ctx);
-    }
-    else
-    {
-        /*struct without a tag, in this case we make one*/
-        snprintf(p_struct_or_union_specifier->tag_name, sizeof p_struct_or_union_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
-        s_anonymous_struct_count++;
-        p_struct_or_union_specifier->has_anonymous_tag = true;
-        p_struct_or_union_specifier->scope_level = ctx->scopes.tail->scope_level;
-        hashmap_set(&ctx->scopes.tail->tags, p_struct_or_union_specifier->tag_name, p_struct_or_union_specifier, TAG_TYPE_STRUCT_OR_UNION_SPECIFIER);
-    }
 
 
-
-    if (ctx->current->type == '{')
-    {
-        /*
-        this is the complete struct
-        */
-
-        struct struct_or_union_specifier* first = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tag_name);
-
-        if (first)
+        if (ctx->current->type == '{')
         {
             /*
-               The first tag (will the one at symbol table) will point to the complete struct
+            this is the complete struct
             */
-            first->complete_struct_or_union_specifier_indirection = p_struct_or_union_specifier;
-        }
 
-        if (p_struct_or_union_specifier->tagtoken)
-            naming_convention_struct_tag(ctx, p_struct_or_union_specifier->tagtoken);
+            struct struct_or_union_specifier* first = find_struct_or_union_specifier(ctx, p_struct_or_union_specifier->tag_name);
 
-        struct token* firsttoken = ctx->current;
-        parser_match(ctx);
-        if (ctx->current->type != '}') /*not official extensions yet..missing sizeof etc*/
-        {
-            p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
-        }
-        p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
-        p_struct_or_union_specifier->last_token = ctx->current;
-        p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
-        parser_match_tk(ctx, '}');
+            if (first)
+            {
+                /*
+                   The first tag (will the one at symbol table) will point to the complete struct
+                */
+                first->complete_struct_or_union_specifier_indirection = p_struct_or_union_specifier;
+            }
 
-    }
-    else
-    {
-        p_struct_or_union_specifier->last_token = ctx->current;
-    }
-
-    struct struct_or_union_specifier* p_complete =
-        get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
-
-    /*check if complete struct is deprecated*/
-    if (p_complete)
-    {
-        if (p_complete->attribute_specifier_sequence_opt &&
-            p_complete->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
-        {
             if (p_struct_or_union_specifier->tagtoken)
+                naming_convention_struct_tag(ctx, p_struct_or_union_specifier->tagtoken);
+
+            struct token* firsttoken = ctx->current;
+            parser_match(ctx);
+            if (ctx->current->type != '}') /*not official extensions yet..missing sizeof etc*/
             {
-                //TODO add deprecated message
-                compiler_diagnostic_message(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                bool localerror = false;
+                p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier, &localerror);
+                if (localerror) throw;
             }
-            else
+            p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
+            p_struct_or_union_specifier->last_token = ctx->current;
+            p_struct_or_union_specifier->member_declaration_list.last_token = ctx->current;
+            parser_match_tk(ctx, '}');
+
+        }
+        else
+        {
+            p_struct_or_union_specifier->last_token = ctx->current;
+        }
+
+        struct struct_or_union_specifier* p_complete =
+            get_complete_struct_or_union_specifier(p_struct_or_union_specifier);
+
+        /*check if complete struct is deprecated*/
+        if (p_complete)
+        {
+            if (p_complete->attribute_specifier_sequence_opt &&
+                p_complete->attribute_specifier_sequence_opt->attributes_flags & STD_ATTRIBUTE_DEPRECATED)
             {
-                compiler_diagnostic_message(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "deprecated");
+                if (p_struct_or_union_specifier->tagtoken)
+                {
+                    //TODO add deprecated message
+                    compiler_diagnostic_message(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "'%s' is deprecated", p_struct_or_union_specifier->tagtoken->lexeme);
+                }
+                else
+                {
+                    compiler_diagnostic_message(W_DEPRECATED, ctx, p_struct_or_union_specifier->first_token, "deprecated");
+                }
             }
         }
     }
-
+    catch
+    {
+        struct_or_union_specifier_delete(p_struct_or_union_specifier);
+        p_struct_or_union_specifier = NULL;
+    }
     return p_struct_or_union_specifier;
 }
 
@@ -3316,7 +3357,7 @@ void member_declaration_list_destroy(struct member_declaration_list* obj_owner p
     }
 }
 
-struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier)
+struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier, bool *berror)
 {
     struct member_declaration_list list = { 0 };
     //member_declaration
@@ -3327,7 +3368,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
     try
     {
         p_member_declaration = member_declaration(ctx, p_struct_or_union_specifier);
-
+        
         if (p_member_declaration == NULL) throw;
         LIST_ADD(&list, p_member_declaration);
         p_member_declaration = NULL; /*MOVED*/
@@ -3342,6 +3383,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
     }
     catch
     {
+        *berror = true;
     }
 
     return list;
@@ -3363,24 +3405,34 @@ struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
     struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     struct member_declaration* owner p_member_declaration = calloc(1, sizeof(struct member_declaration));
-    //attribute_specifier_sequence_opt specifier_qualifier_list member_declarator_list_opt ';'
-    //static_assert_declaration
-    if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
+    try
     {
-        p_member_declaration->static_assert_declaration = static_assert_declaration(ctx);
-    }
-    else
-    {
-        p_member_declaration->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
-
-        p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
-        if (ctx->current->type != ';')
+        //attribute_specifier_sequence_opt specifier_qualifier_list member_declarator_list_opt ';'
+        //static_assert_declaration
+        if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
         {
-            p_member_declaration->member_declarator_list_opt = member_declarator_list(ctx,
-                p_struct_or_union_specifier,
-                p_member_declaration->specifier_qualifier_list);
+            p_member_declaration->static_assert_declaration = static_assert_declaration(ctx);
         }
-        parser_match_tk(ctx, ';');
+        else
+        {
+            p_member_declaration->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
+
+            p_member_declaration->specifier_qualifier_list = specifier_qualifier_list(ctx);
+            if (p_member_declaration->specifier_qualifier_list == NULL) throw;
+
+            if (ctx->current->type != ';')
+            {
+                p_member_declaration->member_declarator_list_opt = member_declarator_list(ctx,
+                    p_struct_or_union_specifier,
+                    p_member_declaration->specifier_qualifier_list);
+            }
+            parser_match_tk(ctx, ';');
+        }
+    }
+    catch
+    {
+        member_declaration_delete(p_member_declaration);
+        p_member_declaration = NULL;
     }
     return p_member_declaration;
 }
@@ -3512,6 +3564,17 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
     {
         p_specifier_qualifier_list->first_token = ctx->current;
 
+        if (ctx->current != NULL &&
+            (first_of_type_specifier(ctx) ||
+            first_of_type_qualifier(ctx)))
+        {
+            //continue
+        }
+        else
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
+            throw;
+        }
         while (ctx->current != NULL &&
             (first_of_type_specifier(ctx) ||
                 first_of_type_qualifier(ctx)))
@@ -3571,12 +3634,17 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
             p_specifier_qualifier_list->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
         }
     }
-    catch
-    {
-    }
+    
 
     final_specifier(ctx, &p_specifier_qualifier_list->type_specifier_flags);
     p_specifier_qualifier_list->last_token = previous_parser_token(ctx->current);
+
+    catch
+    {
+        specifier_qualifier_list_delete(p_specifier_qualifier_list);
+        p_specifier_qualifier_list = NULL;
+    }
+
     return p_specifier_qualifier_list;
 }
 
@@ -3600,24 +3668,37 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner opt 
 struct type_specifier_qualifier* owner type_specifier_qualifier(struct parser_ctx* ctx)
 {
     struct type_specifier_qualifier* owner type_specifier_qualifier = calloc(1, sizeof * type_specifier_qualifier);
-    //type_specifier
-    //type_qualifier
-    //alignment_specifier
-    if (first_of_type_specifier(ctx))
+    try
     {
-        type_specifier_qualifier->type_specifier = type_specifier(ctx);
+        if (type_specifier_qualifier == NULL) throw;
+
+        //type_specifier
+        //type_qualifier
+        //alignment_specifier
+        if (first_of_type_specifier(ctx))
+        {
+            type_specifier_qualifier->type_specifier = type_specifier(ctx);
+            if (type_specifier_qualifier->type_specifier == NULL) throw;
+        }
+        else if (first_of_type_qualifier(ctx))
+        {
+            type_specifier_qualifier->type_qualifier = type_qualifier(ctx);
+            if (type_specifier_qualifier->type_qualifier == NULL) throw;
+        }
+        else if (first_of_alignment_specifier(ctx))
+        {
+            type_specifier_qualifier->alignment_specifier = alignment_specifier(ctx);
+            if (type_specifier_qualifier->alignment_specifier == NULL) throw;
+        }
+        else
+        {
+            assert(false);
+        }
     }
-    else if (first_of_type_qualifier(ctx))
+    catch
     {
-        type_specifier_qualifier->type_qualifier = type_qualifier(ctx);
-    }
-    else if (first_of_alignment_specifier(ctx))
-    {
-        type_specifier_qualifier->alignment_specifier = alignment_specifier(ctx);
-    }
-    else
-    {
-        assert(false);
+        type_specifier_qualifier_delete(type_specifier_qualifier);
+        type_specifier_qualifier = NULL;
     }
     return type_specifier_qualifier;
 }
@@ -5801,12 +5882,12 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
                 }
             }
-
         }
+
     }
+}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -7011,8 +7092,8 @@ int compile_one_file(const char* file_name,
         {
             bool berror = false;
             ast.declaration_list = parse(&ctx, &ast.token_list, &berror);
-            if (berror || report->error_count > 0) throw;
-
+            if (berror || report->error_count > 0) throw; 
+            
             //ast_wasm_visit(&ast);
 
             if (!options->no_output)
