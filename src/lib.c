@@ -22675,7 +22675,7 @@ void object_assignment(struct parser_ctx* ctx,
     {
         if (bool_source_zero_value)
         {
-            set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_NULL);
+            object_set_zero(p_dest_obj_type, p_dest_obj_opt);            
         }
         else
         {
@@ -40338,6 +40338,31 @@ void not_null_does_not_change()
         "}\n"
         "";
     assert(compile_without_errors_warnings(true, true, source));
+}
+
+void try_catch_test()
+{
+const char* source
+=
+"int f();\n"
+"int main()\n"
+"{\n"
+"    int i;\n"
+"    try\n"
+"    {\n"
+"        if (f()){\n"
+"            i = 1;\n"
+"            throw;\n"
+"        }\n"
+"        i = 0;\n"
+"    }\n"
+"    catch\n"
+"    {\n"
+"        static_state(i, \"not-zero\");\n"
+"    }\n"
+"    static_state(i, \"zero or not-zero\");\n"
+"}";
+assert(compile_without_errors_warnings(true, true, source));
 }
 #endif
 

@@ -242,6 +242,7 @@ void object_to_const(void);
 void union_size(void);
 void sizeof_union_test(void);
 void not_null_does_not_change(void);
+void try_catch_test(void);
 
 /*end of forward declarations*/
 
@@ -475,6 +476,7 @@ g_unit_test_success_count = 0;
     union_size();
     sizeof_union_test();
     not_null_does_not_change();
+    try_catch_test();
 return g_unit_test_error_count;
 
 }
