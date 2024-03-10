@@ -2001,7 +2001,7 @@ void object_assignment(struct parser_ctx* ctx,
     {
         if (bool_source_zero_value)
         {
-            set_object(p_dest_obj_type, p_dest_obj_opt, OBJECT_STATE_NULL);
+            object_set_zero(p_dest_obj_type, p_dest_obj_opt);            
         }
         else
         {

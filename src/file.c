@@ -1,24 +1,15 @@
-void* _Owner malloc(int i);
-void free(void* _Owner _Opt p);
-int rand();
-
-int main()
+void f(int condition)
 {
-    char* _Owner s = malloc(1);
-    try
-    {
-        if (rand())
-        {
-            free(s);
-        }
-        else
-        {
-            static_debug(s);
-            throw;
-        }
+    int i;
+    
+    if (condition)
+    {    
+       // i = 1;
     }
-    catch
+    else
     {
-    }    
+        i = 0;
+    }
+    static_debug_ex(i);
+    //uninitialized not-zero OR uninitialized zero
 }
-#pragma cake diagnostic check "-Wmissing-destructor"
