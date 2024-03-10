@@ -29,23 +29,38 @@
 </li>
 <li>
 <a href="#toc_4">Ownership qualifiers</a>
+<ul>
+<li>
+<a href="#toc_5">_Owner</a>
 </li>
 <li>
-<a href="#toc_5">Constrains</a>
+<a href="#toc_6">_Obj_owner</a>
+</li>
+<li>
+<a href="#toc_7">_View</a>
+</li>
+<li>
+<a href="#toc_8">_Opt</a>
+</li>
+<li>
+<a href="#toc_9">_Nonnull</a>
+</li>
+<li>
+<a href="#toc_10">_Out</a>
+</li>
+<li>
+<a href="#toc_11">_Zero</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_6">Semantics with flow analysis</a>
-<ul>
-<li>
-<a href="#toc_7">Flow analysis constrains</a>
+<a href="#toc_12">Constrains and semantics</a>
 </li>
 <li>
-<a href="#toc_8">Code transition</a>
+<a href="#toc_13">Code transition</a>
 </li>
 <li>
-<a href="#toc_9">Changes in standard</a>
+<a href="#toc_14">Changes in standard</a>
 </li>
 </ul>
 </li>
@@ -59,18 +74,6 @@ These new qualifiers creates contracts that can be checked at compile time.</p>
 
 <h2 id="toc_2">Introduction, Motivation</h2>
 
-<p>The motivation is to check at compile time the correct usage of patterns that already exist in C.
-For instance, how could we check at compile time the correct usage of <code>fopen</code> and <code>fclose</code>.</p>
-
-<pre><code class="language-c">#include &lt;stdio.h&gt;
-int main()
-{
-  FILE * f = fopen(&quot;file.txt&quot;, &quot;r&quot;); 
-  if (f)
-    fclose(f);
-}
-</code></pre>
-
 <h2 id="toc_3">Design</h2>
 
 <p>We introduce several qualifiers to established new compile time contracts.</p>
@@ -79,29 +82,49 @@ int main()
 
 <ol>
 <li>Each object has only one owner</li>
-<li> Ownership can be transferred between owners</li>
+<li>Ownership can be transferred between owners</li>
 <li>Before the end of its lifetime, the owner object must transfer the ownership of the object it owns.</li>
 <li>The object referenced by non-owner (view) must have a valid lifetime.</li>
 </ol>
 
 <h2 id="toc_4">Ownership qualifiers</h2>
 
-<p><code>_Owner</code> An owner qualified object is an object referencing another object and managing its lifetime. When _Owner qualifier is applied to pointer it means the pointer if the owner of the memory and the object.</p>
+<h3 id="toc_5">_Owner</h3>
 
-<p><code>_Obj_owner</code> It is a qualifier for pointer only that indicates the pointer is the owner 
-of the pointed object but it not owner of the memory.</p>
+<p>An owner qualified object is an object referencing another object and managing its lifetime.
+When applied to pointer, it means the pointer is the owner of the pointed object and the owner of the 
+storage of the pointed object.</p>
 
-<p><code>_View</code> Qualifier is the opposite of _Owner.</p>
+<h3 id="toc_6">_Obj_owner</h3>
 
-<p><code>_Opt</code> Used in function arguments, for pointer only, to indicate the argument can be null. </p>
+<p>A pointer that is the owner of the pointed object but not the owner of the memory the pointed
+object lives.</p>
 
-<p><code>_Out</code> Indicates the object is uninitialized</p>
+<h3 id="toc_7">_View</h3>
 
-<h2 id="toc_5">Constrains</h2>
+<p>Qualifier is the opposite of _Owner.</p>
 
-<ul>
-<li>The result of a function returning a owner object cannot be discarded.</li>
-</ul>
+<h3 id="toc_8">_Opt</h3>
+
+<p>Indicates that a pointer passed as function argument can be on null state.</p>
+
+<h3 id="toc_9">_Nonnull</h3>
+
+<p>Indicates that a pointer passed as function argument cannot be on null state.</p>
+
+<h3 id="toc_10">_Out</h3>
+
+<p>Indicates the object is uninitialized;</p>
+
+<h3 id="toc_11">_Zero</h3>
+
+<p>Indicates the object is all zeroes;</p>
+
+<p>For structs, having at least one owner object makes the struct owner.</p>
+
+<h2 id="toc_12">Constrains and semantics</h2>
+
+<p>Constrain -The result of a function returning a owner object cannot be discarded.</p>
 
 <pre><code class="language-c">int* _Owner f();
 int main(){
@@ -109,9 +132,7 @@ int main(){
 }
 </code></pre>
 
-<ul>
-<li>The result of a function returning a owner object must be transferred to another owner object.</li>
-</ul>
+<p>Constrain - The result of a function returning a owner object must be transferred to another owner object.</p>
 
 <pre><code class="language-c">int* f();
 int main(){
@@ -125,22 +146,33 @@ int main(){
 }
 </code></pre>
 
-<ul>
-<li>The result of a function returning a owner object cannot be returned as non-owner, except if the storage duration is static, or function or if returns an argument.</li>
-</ul>
-
-<pre><code class="language-c">_Owner int i;
-int* f() {
-    return i; //ok
-}
-int* f(int * _Owner p) {
-   return p;
+<pre><code class="language-c">void free(void* p);
+void * _Owner make();
+int main()
+{
+    free(make()); //error
 }
 </code></pre>
 
-<ul>
-<li>A view object cannot be passed to a owner argument</li>
-</ul>
+<p>Constrain - The result of a function returning a owner object cannot be returned as non-owner,
+except if the storage duration is static, or if returns an argument.</p>
+
+<pre><code class="language-c">_Owner int i;
+int* f() {
+    return i; //ok i is static
+}
+
+int* f(int * _Owner p) {
+   return p; //ok returning argument
+}
+
+int* f() {
+   _Owner int* p = ...;
+   return p; //error
+}
+</code></pre>
+
+<p>Constrain - A view object cannot be passed to a owner argument</p>
 
 <pre><code class="language-c">void fclose(_Owner int i);
 int* f()
@@ -150,58 +182,96 @@ int* f()
 }
 </code></pre>
 
-<ul>
-<li>The result of a function returning an owner object cannot be passed to a view parameter.</li>
-</ul>
+<p>Constrain - _Obj_Owner should be used only in function parameters. (Maybe relaxed?)</p>
 
-<pre><code class="language-c">void free(void* p);
-void * _Owner make();
-int main()
-{
-    free(make()); //error
-}
- ```
- 
-- A _Obj_Owner qualified object can assigned to owner object.
+<p>Constrain - A _Obj_Owner qualified object cannot assigned to owner object or be passed as argument in a owner parameter.</p>
 
-```c
-void delete(void* _Owner p);
+<pre><code class="language-c">void delete(void* _Owner p);
 void destroy(void* _Obj_owner p)
 {
+    void* _Owner p2 = p; //error
     delete(p); //error
 }
 </code></pre>
 
-<h1 id="toc_6">Semantics with flow analysis</h1>
+<p>Constrain - _Opt should be used only in function parameters.</p>
 
-<ul>
-<li>Assignment of owner objects move the ownership.</li>
-<li>Assignment of non-owner to owner creates a view reference</li>
-<li>Assignment of owner pointer to _\Obj_owner transfer the ownership of the object but not the memory</li>
-</ul>
+<p>Constrain - _Notnull should be used only in function return type or arguments.</p>
 
-<h2 id="toc_7">Flow analysis constrains</h2>
+<pre><code class="language-c">struct X
+{
+   char * _Notnull;
+}
+</code></pre>
 
-<ul>
-<li>Only initialized objects can be passed to _Opt arguments</li>
-</ul>
+<p>Semantic - When a owner pointer is assigned to other, the ownership is transferred.</p>
 
-<p>Already moved to function because initialized. So they cannot be used for read.</p>
+<p>The compiler should emit a diagnostic if the owner object designated by the left operand 
+of assignment is referencing an object or possibly referencing and object.</p>
 
-<p>Before assignment of owner object the object cannot be owning resources</p>
+<pre><code class="language-c">char * _Owner p1 = malloc();
+char * _Owner p2 = malloc();
+ p1 = p2; //warning p1 can be not null
+</code></pre>
 
-<p>Assignment transfer the ownership</p>
+<p>The compiler should emit a diagnostic if a pointer passed to a _Nonnull qualified pointer 
+is null or possibly null.</p>
 
-<p>Function arguments cannot leva the function scope with uninitialized state</p>
+<pre><code class="language-c">void f(char * _Nonnull p);
+char * _Owner p1 = malloc();
+ f(p1); //warning p1 can be null but the argument is _Nonnull
+</code></pre>
 
-<p>Before the end of its lifetime owner objects must have moved the object they own</p>
+<p>The compiler should emit a diagnostic if an object passed as pointer argument leaves the
+scope with any uninitialized or moved object.</p>
 
-<p>Every function argument is considered initialized except if _Opt qualifier is used.]</p>
+<pre><code class="language-c">void f(struct X * p)
+{
+  free(p-&gt;name);
+} //warning leaving scope with uninitialize p-&gt;nae
+</code></pre>
 
-<h2 id="toc_8">Code transition</h2>
+<p>The compiler should emit a diagnostic if an object returned in a function is 
+uninitialized or moved.</p>
+
+<pre><code class="language-c">struct X* _Owner f()
+{
+  struct X * p = ...
+  delete_x(p);
+  return p;
+} //warning returning uninitialize p-&gt;name
+</code></pre>
+
+<p>The compiler should emit a diagnostic if an object returned in a function is 
+uninitialized or moved.</p>
+
+<pre><code class="language-c">struct X* _Owner f()
+{
+  struct X * p = ...
+  delete_x(p);
+  return p;
+} //warning returning uninitialize p-&gt;name
+</code></pre>
+
+<p>Semantics - All return object from function are considered initialized except if _Out qualifier is used;</p>
+
+<pre><code class="language-c">_Out void * malloc();
+</code></pre>
+
+<p>Semantics - All function arguments are considered initialized except if _Out qualifier is used;</p>
+
+<pre><code class="language-c">void init(_Out struct X *p);
+</code></pre>
+
+<p>If the argument is not initialized and the function is not _Out then the compiler needs a diagnostic.</p>
+
+<p>Semantics  - When owner pointer are transferred to void *, only the memory of the object is transferred.
+The pointed object must have been moved moved. or be null.</p>
+
+<h2 id="toc_13">Code transition</h2>
 
 <p>TODO explain <code>ownerhip.h</code> strategy inspired by stdbool.h.
 macros owner etc.</p>
 
-<h2 id="toc_9">Changes in standard</h2>
+<h2 id="toc_14">Changes in standard</h2>
 </article></body></html>
