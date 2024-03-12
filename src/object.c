@@ -1268,7 +1268,7 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object)
         if (object_get_pointed_object(p_object))
         {
             struct type t2 = type_remove_pointer(p_type);
-            object_set_uninitialized(&t2, object_get_pointed_object(p_object));
+            object_set_nothing(&t2, object_get_pointed_object(p_object));
             type_destroy(&t2);
         }
     }
