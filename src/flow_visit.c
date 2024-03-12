@@ -1854,14 +1854,6 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement)
 {
 
-    /*let's make a copy of the current post function diagnostic*/
-    struct diagnostic current = ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
-
-    /*lets restore the diagnostic state it was initialize because static analysis is a second pass*/
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = p_compound_statement->diagnostic_flags;
-
-
-
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_compound_statement = p_compound_statement;
 
@@ -1869,9 +1861,6 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
     check_defer_and_variables(ctx, p_defer, p_compound_statement->last_token);
 
     flow_visit_ctx_pop_tail_block(ctx);
-
-    /*restore the state we change*/
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = current;
 
 }
 
