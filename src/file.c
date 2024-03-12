@@ -1,30 +1,26 @@
+
+
+#include <ownership.h>
+#include <stdlib.h>
 #include <stdio.h>
-extern char* score_cards[];
-//  count(buf,ch) counts ch in buf. if buf is
-//  NULL, report the total count since last NULL
-int count(char* buf, char ch)
+#include <string.h>
+
+struct X {
+  char *owner name;
+  char *owner surname;
+};
+
+void change(struct X * p)
 {
-    static int total = 0;
-    int n;
-    char* p;
-    if (buf)
-    {
-        n = total; total = 0; return n;
-    }
-    for (p = buf; *p; p++)
-        if (*p == ch) total++;
-    return 0;
+     free(p->name);       
 }
+
 int main()
 {
-    int i;
-    char* s;
-    for (i = 0; ; i++)
-    {
-        if ((s = score_cards[i]))
-            (void) count(s, 'K');
-        else break;
-    }
-    printf("found %d strikeouts\n", count(0, ' '));
-    return 0;
+    struct X x = {0};
+    x.name = strdup("a");
+    change(&x);
+    printf("%s", x.name);
 }
+
+
