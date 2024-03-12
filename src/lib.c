@@ -11086,6 +11086,7 @@ void object_assignment(struct parser_ctx* ctx,
 void object_set_unknown(struct type* p_type, struct object* p_object);
 void object_set_zero(struct type* p_type, struct object* p_object);
 void object_set_uninitialized(struct type* p_type, struct object* p_object);
+void object_set_nothing(struct type* p_type, struct object* p_object);
 
 void checked_read_object(struct parser_ctx* ctx,
     struct type* p_type,
@@ -21761,7 +21762,70 @@ void set_object(
     }
 }
 
+void object_set_nothing(struct type* p_type, struct object* p_object)
+{
+    if (p_object == NULL || p_type == NULL)
+    {
+        return;
+    }
 
+    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier)
+        {
+            struct member_declaration* p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            if (member_index < p_object->members.size)
+                            {
+                                object_set_nothing(&p_member_declarator->declarator->type, &p_object->members.data[member_index]);
+                            }
+                            else
+                            {
+                                //TODO BUG union?                                
+                            }
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+            return;
+        }
+    }
+
+    if (type_is_pointer(p_type))
+    {
+        p_object->state = 0;
+
+        if (object_get_pointed_object(p_object))
+        {
+            struct type t2 = type_remove_pointer(p_type);
+            object_set_uninitialized(&t2, object_get_pointed_object(p_object));
+            type_destroy(&t2);
+        }
+    }
+    else
+    {
+        p_object->state = 0;
+    }
+}
 void object_set_uninitialized(struct type* p_type, struct object* p_object)
 {
     if (p_object == NULL || p_type == NULL)
@@ -21953,7 +22017,7 @@ void object_set_zero(struct type* p_type, struct object* p_object)
               if the pointer is null, there is no pointed object
             */
             struct type t2 = type_remove_pointer(p_type);
-            object_set_uninitialized(&t2, object_get_pointed_object(p_object));
+            object_set_nothing(&t2, object_get_pointed_object(p_object));
             type_destroy(&t2);
         }
     }

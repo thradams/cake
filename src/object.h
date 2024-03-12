@@ -146,6 +146,7 @@ void object_assignment(struct parser_ctx* ctx,
 void object_set_unknown(struct type* p_type, struct object* p_object);
 void object_set_zero(struct type* p_type, struct object* p_object);
 void object_set_uninitialized(struct type* p_type, struct object* p_object);
+void object_set_nothing(struct type* p_type, struct object* p_object);
 
 void checked_read_object(struct parser_ctx* ctx,
     struct type* p_type,
