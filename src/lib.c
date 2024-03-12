@@ -12209,6 +12209,7 @@ struct secondary_block
 };
 
 void secondary_block_delete(struct secondary_block* owner opt p);
+bool secondary_block_ends_with_jump(struct secondary_block * p_secondary_block);
 
 struct unlabeled_statement
 {
@@ -22887,7 +22888,7 @@ struct flow_visit_ctx
     struct flow_defer_scope* owner tail_block;
     struct type* view p_return_type;
     int parameter_list;
-    struct jump_statement* view p_last_jump_statement;
+    
     int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
 };
@@ -23222,7 +23223,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     if (p_token)
         print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
-    va_list args = {0};
+    va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
@@ -23553,7 +23554,7 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
             struct init_declarator* p_init_declarator = p_entry->p;
-            return (struct declarator*)p_init_declarator->p_declarator;
+            return (struct declarator*) p_init_declarator->p_declarator;
         }
         else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
         {
@@ -23819,253 +23820,253 @@ enum token_type is_keyword(const char* text)
     enum token_type result = 0;
     switch (text[0])
     {
-    case 'a':
-        if (strcmp("alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNOF;
-        else if (strcmp("auto", text) == 0)
-            result = TK_KEYWORD_AUTO;
-        else if (strcmp("alignas", text) == 0)
-            result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
-        else if (strcmp("alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
-        else if (strcmp("assert", text) == 0)
-            result = TK_KEYWORD_ASSERT; /*extension*/
-        break;
-    case 'b':
-        if (strcmp("break", text) == 0)
-            result = TK_KEYWORD_BREAK;
-        else if (strcmp("bool", text) == 0)
-            result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
+        case 'a':
+            if (strcmp("alignof", text) == 0)
+                result = TK_KEYWORD__ALIGNOF;
+            else if (strcmp("auto", text) == 0)
+                result = TK_KEYWORD_AUTO;
+            else if (strcmp("alignas", text) == 0)
+                result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
+            else if (strcmp("alignof", text) == 0)
+                result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+            else if (strcmp("assert", text) == 0)
+                result = TK_KEYWORD_ASSERT; /*extension*/
+            break;
+        case 'b':
+            if (strcmp("break", text) == 0)
+                result = TK_KEYWORD_BREAK;
+            else if (strcmp("bool", text) == 0)
+                result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
 
-        break;
-    case 'c':
-        if (strcmp("case", text) == 0)
-            result = TK_KEYWORD_CASE;
-        else if (strcmp("char", text) == 0)
-            result = TK_KEYWORD_CHAR;
-        else if (strcmp("const", text) == 0)
-            result = TK_KEYWORD_CONST;
-        else if (strcmp("constexpr", text) == 0)
-            result = TK_KEYWORD_CONSTEXPR;
-        else if (strcmp("continue", text) == 0)
-            result = TK_KEYWORD_CONTINUE;
-        else if (strcmp("catch", text) == 0)
-            result = TK_KEYWORD_CATCH;
-        break;
-    case 'd':
-        if (strcmp("default", text) == 0)
-            result = TK_KEYWORD_DEFAULT;
-        else if (strcmp("do", text) == 0)
-            result = TK_KEYWORD_DO;
-        else if (strcmp("defer", text) == 0)
-            result = TK_KEYWORD_DEFER;
-        else if (strcmp("double", text) == 0)
-            result = TK_KEYWORD_DOUBLE;
-        break;
-    case 'e':
-        if (strcmp("else", text) == 0)
-            result = TK_KEYWORD_ELSE;
-        else if (strcmp("enum", text) == 0)
-            result = TK_KEYWORD_ENUM;
-        else if (strcmp("extern", text) == 0)
-            result = TK_KEYWORD_EXTERN;
-        break;
-    case 'f':
-        if (strcmp("float", text) == 0)
-            result = TK_KEYWORD_FLOAT;
-        else if (strcmp("for", text) == 0)
-            result = TK_KEYWORD_FOR;
-        else if (strcmp("false", text) == 0)
-            result = TK_KEYWORD_FALSE;
-        break;
-    case 'g':
-        if (strcmp("goto", text) == 0)
-            result = TK_KEYWORD_GOTO;
-        break;
-    case 'i':
-        if (strcmp("if", text) == 0)
-            result = TK_KEYWORD_IF;
-        else if (strcmp("inline", text) == 0)
-            result = TK_KEYWORD_INLINE;
-        else if (strcmp("int", text) == 0)
-            result = TK_KEYWORD_INT;
-        break;
-    case 'n':
-        if (strcmp("nullptr", text) == 0)
-            result = TK_KEYWORD_NULLPTR;
-        break;
+            break;
+        case 'c':
+            if (strcmp("case", text) == 0)
+                result = TK_KEYWORD_CASE;
+            else if (strcmp("char", text) == 0)
+                result = TK_KEYWORD_CHAR;
+            else if (strcmp("const", text) == 0)
+                result = TK_KEYWORD_CONST;
+            else if (strcmp("constexpr", text) == 0)
+                result = TK_KEYWORD_CONSTEXPR;
+            else if (strcmp("continue", text) == 0)
+                result = TK_KEYWORD_CONTINUE;
+            else if (strcmp("catch", text) == 0)
+                result = TK_KEYWORD_CATCH;
+            break;
+        case 'd':
+            if (strcmp("default", text) == 0)
+                result = TK_KEYWORD_DEFAULT;
+            else if (strcmp("do", text) == 0)
+                result = TK_KEYWORD_DO;
+            else if (strcmp("defer", text) == 0)
+                result = TK_KEYWORD_DEFER;
+            else if (strcmp("double", text) == 0)
+                result = TK_KEYWORD_DOUBLE;
+            break;
+        case 'e':
+            if (strcmp("else", text) == 0)
+                result = TK_KEYWORD_ELSE;
+            else if (strcmp("enum", text) == 0)
+                result = TK_KEYWORD_ENUM;
+            else if (strcmp("extern", text) == 0)
+                result = TK_KEYWORD_EXTERN;
+            break;
+        case 'f':
+            if (strcmp("float", text) == 0)
+                result = TK_KEYWORD_FLOAT;
+            else if (strcmp("for", text) == 0)
+                result = TK_KEYWORD_FOR;
+            else if (strcmp("false", text) == 0)
+                result = TK_KEYWORD_FALSE;
+            break;
+        case 'g':
+            if (strcmp("goto", text) == 0)
+                result = TK_KEYWORD_GOTO;
+            break;
+        case 'i':
+            if (strcmp("if", text) == 0)
+                result = TK_KEYWORD_IF;
+            else if (strcmp("inline", text) == 0)
+                result = TK_KEYWORD_INLINE;
+            else if (strcmp("int", text) == 0)
+                result = TK_KEYWORD_INT;
+            break;
+        case 'n':
+            if (strcmp("nullptr", text) == 0)
+                result = TK_KEYWORD_NULLPTR;
+            break;
 
-    case 'l':
-        if (strcmp("long", text) == 0)
-            result = TK_KEYWORD_LONG;
-        break;
-    case 'r':
-        if (strcmp("register", text) == 0)
-            result = TK_KEYWORD_REGISTER;
-        else if (strcmp("restrict", text) == 0)
-            result = TK_KEYWORD_RESTRICT;
-        else if (strcmp("return", text) == 0)
-            result = TK_KEYWORD_RETURN;
+        case 'l':
+            if (strcmp("long", text) == 0)
+                result = TK_KEYWORD_LONG;
+            break;
+        case 'r':
+            if (strcmp("register", text) == 0)
+                result = TK_KEYWORD_REGISTER;
+            else if (strcmp("restrict", text) == 0)
+                result = TK_KEYWORD_RESTRICT;
+            else if (strcmp("return", text) == 0)
+                result = TK_KEYWORD_RETURN;
 
-        break;
-    case 's':
-        if (strcmp("short", text) == 0)
-            result = TK_KEYWORD_SHORT;
-        else if (strcmp("signed", text) == 0)
-            result = TK_KEYWORD_SIGNED;
-        else if (strcmp("sizeof", text) == 0)
-            result = TK_KEYWORD_SIZEOF;
-        else if (strcmp("static", text) == 0)
-            result = TK_KEYWORD_STATIC;
-        else if (strcmp("struct", text) == 0)
-            result = TK_KEYWORD_STRUCT;
-        else if (strcmp("switch", text) == 0)
-            result = TK_KEYWORD_SWITCH;
-        else if (strcmp("static_assert", text) == 0)
-            result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
-        else if (strcmp("static_debug", text) == 0)
-            result = TK_KEYWORD_STATIC_DEBUG;
-        else if (strcmp("static_debug_ex", text) == 0)
-            result = TK_KEYWORD_STATIC_DEBUG_EX;
-        else if (strcmp("static_state", text) == 0)
-            result = TK_KEYWORD_STATIC_STATE;
-        else if (strcmp("static_set", text) == 0)
-            result = TK_KEYWORD_STATIC_SET;
+            break;
+        case 's':
+            if (strcmp("short", text) == 0)
+                result = TK_KEYWORD_SHORT;
+            else if (strcmp("signed", text) == 0)
+                result = TK_KEYWORD_SIGNED;
+            else if (strcmp("sizeof", text) == 0)
+                result = TK_KEYWORD_SIZEOF;
+            else if (strcmp("static", text) == 0)
+                result = TK_KEYWORD_STATIC;
+            else if (strcmp("struct", text) == 0)
+                result = TK_KEYWORD_STRUCT;
+            else if (strcmp("switch", text) == 0)
+                result = TK_KEYWORD_SWITCH;
+            else if (strcmp("static_assert", text) == 0)
+                result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
+            else if (strcmp("static_debug", text) == 0)
+                result = TK_KEYWORD_STATIC_DEBUG;
+            else if (strcmp("static_debug_ex", text) == 0)
+                result = TK_KEYWORD_STATIC_DEBUG_EX;
+            else if (strcmp("static_state", text) == 0)
+                result = TK_KEYWORD_STATIC_STATE;
+            else if (strcmp("static_set", text) == 0)
+                result = TK_KEYWORD_STATIC_SET;
 
-        break;
-    case 't':
-        if (strcmp("typedef", text) == 0)
-            result = TK_KEYWORD_TYPEDEF;
-        else if (strcmp("typeof", text) == 0)
-            result = TK_KEYWORD_TYPEOF; /*C23*/
-        else if (strcmp("typeof_unqual", text) == 0)
-            result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
-        else if (strcmp("true", text) == 0)
-            result = TK_KEYWORD_TRUE; /*C23*/
-        else if (strcmp("thread_local", text) == 0)
-            result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
-        else if (strcmp("try", text) == 0)
-            result = TK_KEYWORD_TRY;
-        else if (strcmp("throw", text) == 0)
-            result = TK_KEYWORD_THROW;
-        break;
-    case 'u':
-        if (strcmp("union", text) == 0)
-            result = TK_KEYWORD_UNION;
-        else if (strcmp("unsigned", text) == 0)
-            result = TK_KEYWORD_UNSIGNED;
-        break;
-    case 'v':
-        if (strcmp("void", text) == 0)
-            result = TK_KEYWORD_VOID;
-        else if (strcmp("volatile", text) == 0)
-            result = TK_KEYWORD_VOLATILE;
+            break;
+        case 't':
+            if (strcmp("typedef", text) == 0)
+                result = TK_KEYWORD_TYPEDEF;
+            else if (strcmp("typeof", text) == 0)
+                result = TK_KEYWORD_TYPEOF; /*C23*/
+            else if (strcmp("typeof_unqual", text) == 0)
+                result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
+            else if (strcmp("true", text) == 0)
+                result = TK_KEYWORD_TRUE; /*C23*/
+            else if (strcmp("thread_local", text) == 0)
+                result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
+            else if (strcmp("try", text) == 0)
+                result = TK_KEYWORD_TRY;
+            else if (strcmp("throw", text) == 0)
+                result = TK_KEYWORD_THROW;
+            break;
+        case 'u':
+            if (strcmp("union", text) == 0)
+                result = TK_KEYWORD_UNION;
+            else if (strcmp("unsigned", text) == 0)
+                result = TK_KEYWORD_UNSIGNED;
+            break;
+        case 'v':
+            if (strcmp("void", text) == 0)
+                result = TK_KEYWORD_VOID;
+            else if (strcmp("volatile", text) == 0)
+                result = TK_KEYWORD_VOLATILE;
 
-        break;
-    case 'w':
-        if (strcmp("while", text) == 0)
-            result = TK_KEYWORD_WHILE;
-        break;
-    case '_':
+            break;
+        case 'w':
+            if (strcmp("while", text) == 0)
+                result = TK_KEYWORD_WHILE;
+            break;
+        case '_':
 
-        // begin microsoft
-        if (strcmp("__int8", text) == 0)
-            result = TK_KEYWORD__INT8;
-        else if (strcmp("__int16", text) == 0)
-            result = TK_KEYWORD__INT16;
-        else if (strcmp("__int32", text) == 0)
-            result = TK_KEYWORD__INT32;
-        else if (strcmp("__int64", text) == 0)
-            result = TK_KEYWORD__INT64;
-        else if (strcmp("__forceinline", text) == 0)
-            result = TK_KEYWORD_INLINE;
-        else if (strcmp("__inline", text) == 0)
-            result = TK_KEYWORD_INLINE;
-        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-            result = TK_KEYWORD__ASM;
-        else if (strcmp("__alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNOF;
-        //
-        // end microsoft
+            // begin microsoft
+            if (strcmp("__int8", text) == 0)
+                result = TK_KEYWORD__INT8;
+            else if (strcmp("__int16", text) == 0)
+                result = TK_KEYWORD__INT16;
+            else if (strcmp("__int32", text) == 0)
+                result = TK_KEYWORD__INT32;
+            else if (strcmp("__int64", text) == 0)
+                result = TK_KEYWORD__INT64;
+            else if (strcmp("__forceinline", text) == 0)
+                result = TK_KEYWORD_INLINE;
+            else if (strcmp("__inline", text) == 0)
+                result = TK_KEYWORD_INLINE;
+            else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
+                result = TK_KEYWORD__ASM;
+            else if (strcmp("__alignof", text) == 0)
+                result = TK_KEYWORD__ALIGNOF;
+            //
+            // end microsoft
 
-        /*ownership*/
-        else if (strcmp("_Out", text) == 0)
-            result = TK_KEYWORD__OUT; /*extension*/
-        else if (strcmp("_Owner", text) == 0)
-            result = TK_KEYWORD__OWNER; /*extension*/
-        else if (strcmp("_Obj_owner", text) == 0)
-            result = TK_KEYWORD__OBJ_OWNER; /*extension*/
-        else if (strcmp("_Opt", text) == 0)
-            result = TK_KEYWORD__OPT; /*extension*/
-        else if (strcmp("_View", text) == 0)
-            result = TK_KEYWORD__VIEW; /*extension*/
+            /*ownership*/
+            else if (strcmp("_Out", text) == 0)
+                result = TK_KEYWORD__OUT; /*extension*/
+            else if (strcmp("_Owner", text) == 0)
+                result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("_Obj_owner", text) == 0)
+                result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            else if (strcmp("_Opt", text) == 0)
+                result = TK_KEYWORD__OPT; /*extension*/
+            else if (strcmp("_View", text) == 0)
+                result = TK_KEYWORD__VIEW; /*extension*/
 
-        /*EXPERIMENTAL EXTENSION*/
-        else if (strcmp("_has_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_HAS;
-        else if (strcmp("_add_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_ADD;
-        else if (strcmp("_del_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_REMOVE;
-        /*EXPERIMENTAL EXTENSION*/
+            /*EXPERIMENTAL EXTENSION*/
+            else if (strcmp("_has_attr", text) == 0)
+                result = TK_KEYWORD_ATTR_HAS;
+            else if (strcmp("_add_attr", text) == 0)
+                result = TK_KEYWORD_ATTR_ADD;
+            else if (strcmp("_del_attr", text) == 0)
+                result = TK_KEYWORD_ATTR_REMOVE;
+            /*EXPERIMENTAL EXTENSION*/
 
-        /*TRAITS EXTENSION*/
-        else if (strcmp("_is_lvalue", text) == 0)
-            result = TK_KEYWORD_IS_LVALUE;
-        else if (strcmp("_is_const", text) == 0)
-            result = TK_KEYWORD_IS_CONST;
-        else if (strcmp("_is_owner", text) == 0)
-            result = TK_KEYWORD_IS_OWNER;
-        else if (strcmp("_is_pointer", text) == 0)
-            result = TK_KEYWORD_IS_POINTER;
-        else if (strcmp("_is_array", text) == 0)
-            result = TK_KEYWORD_IS_ARRAY;
-        else if (strcmp("_is_function", text) == 0)
-            result = TK_KEYWORD_IS_FUNCTION;
-        else if (strcmp("_is_arithmetic", text) == 0)
-            result = TK_KEYWORD_IS_ARITHMETIC;
-        else if (strcmp("_is_floating_point", text) == 0)
-            result = TK_KEYWORD_IS_FLOATING_POINT;
-        else if (strcmp("_is_integral", text) == 0)
-            result = TK_KEYWORD_IS_INTEGRAL;
-        else if (strcmp("_is_scalar", text) == 0)
-            result = TK_KEYWORD_IS_SCALAR;
-        /*TRAITS EXTENSION*/
+            /*TRAITS EXTENSION*/
+            else if (strcmp("_is_lvalue", text) == 0)
+                result = TK_KEYWORD_IS_LVALUE;
+            else if (strcmp("_is_const", text) == 0)
+                result = TK_KEYWORD_IS_CONST;
+            else if (strcmp("_is_owner", text) == 0)
+                result = TK_KEYWORD_IS_OWNER;
+            else if (strcmp("_is_pointer", text) == 0)
+                result = TK_KEYWORD_IS_POINTER;
+            else if (strcmp("_is_array", text) == 0)
+                result = TK_KEYWORD_IS_ARRAY;
+            else if (strcmp("_is_function", text) == 0)
+                result = TK_KEYWORD_IS_FUNCTION;
+            else if (strcmp("_is_arithmetic", text) == 0)
+                result = TK_KEYWORD_IS_ARITHMETIC;
+            else if (strcmp("_is_floating_point", text) == 0)
+                result = TK_KEYWORD_IS_FLOATING_POINT;
+            else if (strcmp("_is_integral", text) == 0)
+                result = TK_KEYWORD_IS_INTEGRAL;
+            else if (strcmp("_is_scalar", text) == 0)
+                result = TK_KEYWORD_IS_SCALAR;
+            /*TRAITS EXTENSION*/
 
-        else if (strcmp("_Alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNOF;
-        else if (strcmp("_Alignas", text) == 0)
-            result = TK_KEYWORD__ALIGNAS;
-        else if (strcmp("_Atomic", text) == 0)
-            result = TK_KEYWORD__ATOMIC;
-        else if (strcmp("_Bool", text) == 0)
-            result = TK_KEYWORD__BOOL;
-        else if (strcmp("_Complex", text) == 0)
-            result = TK_KEYWORD__COMPLEX;
-        else if (strcmp("_Decimal128", text) == 0)
-            result = TK_KEYWORD__DECIMAL32;
-        else if (strcmp("_Decimal64", text) == 0)
-            result = TK_KEYWORD__DECIMAL64;
-        else if (strcmp("_Decimal128", text) == 0)
-            result = TK_KEYWORD__DECIMAL128;
-        else if (strcmp("_Generic", text) == 0)
-            result = TK_KEYWORD__GENERIC;
-        else if (strcmp("_Imaginary", text) == 0)
-            result = TK_KEYWORD__IMAGINARY;
-        else if (strcmp("_Noreturn", text) == 0)
-            result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
-        else if (strcmp("_Static_assert", text) == 0)
-            result = TK_KEYWORD__STATIC_ASSERT;
-        else if (strcmp("_Thread_local", text) == 0)
-            result = TK_KEYWORD__THREAD_LOCAL;
-        else if (strcmp("_BitInt", text) == 0)
-            result = TK_KEYWORD__BITINT; /*(C23)*/
-        else if (strcmp("__typeof__", text) == 0)
-            result = TK_KEYWORD_TYPEOF; /*(C23)*/
+            else if (strcmp("_Alignof", text) == 0)
+                result = TK_KEYWORD__ALIGNOF;
+            else if (strcmp("_Alignas", text) == 0)
+                result = TK_KEYWORD__ALIGNAS;
+            else if (strcmp("_Atomic", text) == 0)
+                result = TK_KEYWORD__ATOMIC;
+            else if (strcmp("_Bool", text) == 0)
+                result = TK_KEYWORD__BOOL;
+            else if (strcmp("_Complex", text) == 0)
+                result = TK_KEYWORD__COMPLEX;
+            else if (strcmp("_Decimal128", text) == 0)
+                result = TK_KEYWORD__DECIMAL32;
+            else if (strcmp("_Decimal64", text) == 0)
+                result = TK_KEYWORD__DECIMAL64;
+            else if (strcmp("_Decimal128", text) == 0)
+                result = TK_KEYWORD__DECIMAL128;
+            else if (strcmp("_Generic", text) == 0)
+                result = TK_KEYWORD__GENERIC;
+            else if (strcmp("_Imaginary", text) == 0)
+                result = TK_KEYWORD__IMAGINARY;
+            else if (strcmp("_Noreturn", text) == 0)
+                result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
+            else if (strcmp("_Static_assert", text) == 0)
+                result = TK_KEYWORD__STATIC_ASSERT;
+            else if (strcmp("_Thread_local", text) == 0)
+                result = TK_KEYWORD__THREAD_LOCAL;
+            else if (strcmp("_BitInt", text) == 0)
+                result = TK_KEYWORD__BITINT; /*(C23)*/
+            else if (strcmp("__typeof__", text) == 0)
+                result = TK_KEYWORD_TYPEOF; /*(C23)*/
 
-        break;
-    default:
-        break;
+            break;
+        default:
+            break;
     }
     return result;
 }
@@ -25558,32 +25559,32 @@ struct storage_class_specifier* owner storage_class_specifier(struct parser_ctx*
     new_storage_class_specifier->token = ctx->current;
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_TYPEDEF:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
-        break;
-    case TK_KEYWORD_EXTERN:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
-        break;
-    case TK_KEYWORD_CONSTEXPR:
+        case TK_KEYWORD_TYPEDEF:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
+            break;
+        case TK_KEYWORD_EXTERN:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
+            break;
+        case TK_KEYWORD_CONSTEXPR:
 
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
-        if (ctx->scopes.tail->scope_level == 0)
-            new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
-        break;
-    case TK_KEYWORD_STATIC:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
-        break;
-    case TK_KEYWORD__THREAD_LOCAL:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
-        break;
-    case TK_KEYWORD_AUTO:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
-        break;
-    case TK_KEYWORD_REGISTER:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
-        break;
-    default:
-        assert(false);
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
+            if (ctx->scopes.tail->scope_level == 0)
+                new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
+            break;
+        case TK_KEYWORD_STATIC:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
+            break;
+        case TK_KEYWORD__THREAD_LOCAL:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
+            break;
+        case TK_KEYWORD_AUTO:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
+            break;
+        case TK_KEYWORD_REGISTER:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
+            break;
+        default:
+            assert(false);
     }
 
     /*
@@ -25762,132 +25763,132 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_VOID:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_VOID;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_VOID:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_VOID;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_CHAR:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_CHAR:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_SHORT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_SHORT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_INT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_INT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-        // microsoft
-    case TK_KEYWORD__INT8:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT8;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            // microsoft
+        case TK_KEYWORD__INT8:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__INT16:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT16;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-    case TK_KEYWORD__INT32:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT32;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-    case TK_KEYWORD__INT64:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT64;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-        // end microsoft
+        case TK_KEYWORD__INT16:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+        case TK_KEYWORD__INT32:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+        case TK_KEYWORD__INT64:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+            // end microsoft
 
-    case TK_KEYWORD_LONG:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_LONG;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_LONG:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_LONG;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_FLOAT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_FLOAT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_DOUBLE:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_DOUBLE:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_SIGNED:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_SIGNED:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_UNSIGNED:
+        case TK_KEYWORD_UNSIGNED:
 
-        p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__BOOL:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__BOOL:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__COMPLEX:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__COMPLEX:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL32:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__DECIMAL32:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL64:
+        case TK_KEYWORD__DECIMAL64:
 
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL128:
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__DECIMAL128:
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    default:
-        // Do nothing
-        break;
+        default:
+            // Do nothing
+            break;
     }
 
     if (first_of_typeof_specifier(ctx))
@@ -26903,44 +26904,44 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_CONST:
-        p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
-        break;
-    case TK_KEYWORD_RESTRICT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
-        break;
-    case TK_KEYWORD_VOLATILE:
-        p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
-        break;
-    case TK_KEYWORD__ATOMIC:
-        p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
-        break;
+        case TK_KEYWORD_CONST:
+            p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
+            break;
+        case TK_KEYWORD_RESTRICT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
+            break;
+        case TK_KEYWORD_VOLATILE:
+            p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
+            break;
+        case TK_KEYWORD__ATOMIC:
+            p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
+            break;
 
-        /*
-          ownership extensions
-        */
+            /*
+              ownership extensions
+            */
 
-    case TK_KEYWORD__OUT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
-        break;
+        case TK_KEYWORD__OUT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
+            break;
 
-    case TK_KEYWORD__OWNER:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
-        break;
+        case TK_KEYWORD__OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+            break;
 
-    case TK_KEYWORD__OPT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
-        break;
+        case TK_KEYWORD__OPT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
+            break;
 
-    case TK_KEYWORD__OBJ_OWNER:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
-        break;
-    case TK_KEYWORD__VIEW:
-        p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
-        break;
-    default:
-        // do nothing
-        break;
+        case TK_KEYWORD__OBJ_OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
+            break;
+        case TK_KEYWORD__VIEW:
+            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+            break;
+        default:
+            // do nothing
+            break;
     }
 
     p_type_qualifier->token = ctx->current;
@@ -28648,6 +28649,34 @@ struct secondary_block* owner secondary_block(struct parser_ctx* ctx)
     return p_secondary_block;
 }
 
+bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_statement)
+{
+    if (p_unlabeled_statement->primary_block &&
+        p_unlabeled_statement->primary_block->compound_statement &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement)
+    {
+        return
+            p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
+    }
+    else if (p_unlabeled_statement->jump_statement)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool secondary_block_ends_with_jump(struct secondary_block* p_secondary_block)
+{
+    if (p_secondary_block &&
+        p_secondary_block->statement &&
+        p_secondary_block->statement->unlabeled_statement)
+    {
+        return unlabeled_statement_ends_with_jump(p_secondary_block->statement->unlabeled_statement);
+    }
+    return false;
+}
+
 void secondary_block_delete(struct secondary_block* owner opt p)
 {
     if (p)
@@ -30279,7 +30308,7 @@ int compile(int argc, const char** argv, struct report* report)
     }
 
     clock_t end_clock = clock();
-    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
+    double cpu_time_used = ((double) (end_clock - begin_clock)) / CLOCKS_PER_SEC;
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
     return 0;
@@ -33608,7 +33637,7 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     */
 }
 
-static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression, struct object *p_temp_object)
+static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression, struct object* p_temp_object)
 {
     if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL &&
         type_is_pointer(&p_expression->left->type) &&
@@ -33624,7 +33653,7 @@ static struct object* expression_is_comparing_owner_with_null(struct expression*
         expression_is_null_pointer_constant(p_expression->left) &&
         type_is_pointer(&p_expression->right->type))
     {
-        
+
         struct object* p_object = expression_get_object(p_expression->right, p_temp_object);
 
         return p_object;
@@ -33641,7 +33670,7 @@ static struct object* expression_is_comparing_owner_with_null(struct expression*
     return NULL;
 }
 
-static struct object* expression_is_comparing_owner_with_not_null(struct expression* p_expression, struct object * p_temp_object)
+static struct object* expression_is_comparing_owner_with_not_null(struct expression* p_expression, struct object* p_temp_object)
 {
 
     if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL &&
@@ -33691,7 +33720,7 @@ void push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name, in
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
     {
-        object_push_copy_current_state(p_object , name, state_number);
+        object_push_copy_current_state(p_object, name, state_number);
         p_object = visit_objects_next(&v1);
     }
 
@@ -33941,8 +33970,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 {
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
     struct object* p_object_compared_with_null = NULL;
-    struct object temp_obj1 = {0};
-    struct object temp_obj2 = {0};
+    struct object temp_obj1 = { 0 };
+    struct object temp_obj2 = { 0 };
     if (p_selection_statement->expression)
     {
         p_object_compared_with_null = expression_is_comparing_owner_with_null(p_selection_statement->expression, &temp_obj1);
@@ -33981,23 +34010,9 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
-    bool was_last_statement_inside_true_branch_return = false;
-    if (ctx->p_last_jump_statement)
-    {
-        //TODO gotos etc...
+    bool was_last_statement_inside_true_branch_return = 
+        secondary_block_ends_with_jump(p_selection_statement->secondary_block);
 
-        was_last_statement_inside_true_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-    }
-
-    //enum object_state state_left_in_true_branch = 0;
-    //if (p_object_compared_with_null)
-      //  state_left_in_true_branch = p_object_compared_with_null->state;
-    //else if (p_object_compared_with_not_null)
-      //  state_left_in_true_branch = p_object_compared_with_not_null->state;
 
     /*let's make a copy of the state we left true branch*/
     const int true_branch = 1;
@@ -34020,7 +34035,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
     }
 
-    ctx->p_last_jump_statement = NULL;
+    
     if (p_selection_statement->else_secondary_block_opt)
     {
         //struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
@@ -34032,16 +34047,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
-    bool was_last_statement_inside_else_branch_return = false;
-    if (ctx->p_last_jump_statement)
-    {
-        //TODO gotos etc...
-        was_last_statement_inside_else_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-    }
+    bool was_last_statement_inside_else_branch_return =  
+        secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);
 
 
     if (was_last_statement_inside_true_branch_return)
@@ -34071,7 +34078,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     pop_states(ctx, 2);
     object_destroy(&temp_obj1);
     object_destroy(&temp_obj2);
-    
+
 }
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
 
@@ -34079,7 +34086,7 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
     const int try_state_old = ctx->try_state;
-    struct secondary_block* catch_secondary_block_old =  ctx->catch_secondary_block_opt;
+    struct secondary_block* catch_secondary_block_old = ctx->catch_secondary_block_opt;
 
     ctx->try_state = ctx->state_number_generator;
     ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
@@ -34093,27 +34100,20 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
     {
         flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
 
-        bool not_reached_the_end = false;
-        if (ctx->p_last_jump_statement)
-        {
-            //TODO gotos etc...
-            not_reached_the_end =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-        }
+        bool not_reached_the_end = 
+            secondary_block_ends_with_jump(p_try_statement->secondary_block);
+        
 
         //if it is possible to reach the end of secondary block
         if (!not_reached_the_end)
-          ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+            ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
     }
 
-    
+
 
 
     check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
-    
+
     ctx_object_restore_current_state_from(ctx, ctx->try_state);
     flow_visit_ctx_pop_tail_block(ctx);
     pop_states(ctx, 1);
@@ -34389,16 +34389,16 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
     while (p_current_argument && p_current_parameter_type)
     {
-        struct object temp_obj1 = {0};
+        struct object temp_obj1 = { 0 };
 
         struct object* p_argument_object =
             expression_get_object(p_current_argument->expression, &temp_obj1);
 
         bool bool_source_zero_value = constant_value_is_valid(&p_current_argument->expression->constant_value) &&
             constant_value_to_ull(&p_current_argument->expression->constant_value) == 0;
-        
+
         //struct object temp_obj2 = {0};
-        
+
         //struct object* p_argument_object2 =
           //  expression_get_object(p_current_argument->expression, &temp_obj2);
 
@@ -34495,9 +34495,9 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                         struct type argument_type =
                             type_remove_pointer(&p_current_argument->expression->type);
 
-                        struct object * pointed = object_get_pointed_object(p_argument_object);
+                        struct object* pointed = object_get_pointed_object(p_argument_object);
                         object_set_unknown(&argument_type, pointed);
-                        type_destroy(&argument_type);                        
+                        type_destroy(&argument_type);
                     }
                 }
 
@@ -34508,7 +34508,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         p_current_parameter_type = p_current_parameter_type->next;
         param_num++;
 
-        object_destroy(&temp_obj1);    
+        object_destroy(&temp_obj1);
     }
 
     while (p_current_argument)
@@ -34516,7 +34516,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         /*
            We have more argument than parameters, this happens with variadic functions
         */
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
 
         struct object* p_argument_object =
             expression_get_object(p_current_argument->expression, &temp_obj);
@@ -34539,7 +34539,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
     if (p_expression->is_assigment_expression)
         return;
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object = expression_get_object(p_expression, &temp_obj);
 
     if (!ctx->expression_is_not_evaluated)
@@ -34695,7 +34695,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 flow_visit_expression(ctx, p_expression->right);
 
-                struct object temp_obj1 = {0};
+                struct object temp_obj1 = { 0 };
                 struct object* p_object_compared_with_null = NULL;
 
                 if (p_expression->right)
@@ -34703,7 +34703,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     p_object_compared_with_null = expression_is_comparing_owner_with_null(p_expression->right, &temp_obj1);
                 }
 
-                struct object temp_obj2 = {0};
+                struct object temp_obj2 = { 0 };
                 struct object* p_object_compared_with_not_null = NULL;
                 if (p_expression->right)
                 {
@@ -34759,7 +34759,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (p_expression->right)
             {
 
-                struct object temp_obj = {0};
+                struct object temp_obj = { 0 };
                 struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
 
                 if (!ctx->expression_is_not_evaluated)
@@ -34799,7 +34799,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
 
 
-            struct object temp_obj = {0};
+            struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
 
             if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
@@ -34828,7 +34828,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             p_expression->right->first_token, "dereference a NULL object");
                     }
                 }
-            }            
+            }
             object_destroy(&temp_obj);
         }
         break;
@@ -34840,10 +34840,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         case ASSIGNMENT_EXPRESSION:
         {
 
-            struct object temp_obj1 = {0};
+            struct object temp_obj1 = { 0 };
             struct object* const p_right_object = expression_get_object(p_expression->right, &temp_obj1);
 
-            struct object temp_obj2 = {0};
+            struct object temp_obj2 = { 0 };
             struct object* const p_dest_object = expression_get_object(p_expression->left, &temp_obj2);
             //print_object(&dest_object_type, p_dest_object);
 
@@ -34868,7 +34868,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     bool_source_zero_value = true;
                 }
             }
-   
+
             object_assignment(ctx->ctx,
                 p_right_object, /*source*/
                 &p_expression->right->type, /*source type*/
@@ -34879,7 +34879,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 OBJECT_STATE_MOVED,
                 ASSIGMENT_TYPE_OBJECTS);
 
-            
+
             object_destroy(&temp_obj1);
             object_destroy(&temp_obj2);
         }
@@ -35000,7 +35000,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression1)
@@ -35020,17 +35020,10 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
         flow_visit_ctx_pop_tail_block(ctx);
 
-        bool was_last_statement_inside_true_branch_return = false;
-        if (ctx->p_last_jump_statement)
-        {
+        bool was_last_statement_inside_true_branch_return = 
+            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
-            was_last_statement_inside_true_branch_return =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-        }
-
+        
         if (was_last_statement_inside_true_branch_return)
         {
             //restore_state(ctx, 0);
@@ -35057,7 +35050,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression1)
@@ -35087,13 +35080,9 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
 
-        bool was_last_statement_inside_true_branch_return = false;
-        if (ctx->p_last_jump_statement)
-        {
-            //TODO gotos etc...
-            was_last_statement_inside_true_branch_return =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
-        }
+        bool was_last_statement_inside_true_branch_return = 
+            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+        
 
         if (was_last_statement_inside_true_branch_return)
         {
@@ -35157,7 +35146,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
         flow_visit_ctx_pop_tail_block(ctx);
     }
-    
+
     /*we visit again*/
     if (p_iteration_statement->secondary_block)
     {
@@ -35191,33 +35180,22 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
-    ctx->p_last_jump_statement = p_jump_statement;
-
-
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
         //ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
         if (ctx->catch_secondary_block_opt)
         {
-           // ctx_object_restore_current_state_from(ctx, ctx->try_state);
+            // ctx_object_restore_current_state_from(ctx, ctx->try_state);
             flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
 
-            bool not_reached_the_end = false;
-            if (ctx->p_last_jump_statement)
-            {
-                //TODO gotos etc...
-                not_reached_the_end =
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-            }
+            bool not_reached_the_end = secondary_block_ends_with_jump(ctx->catch_secondary_block_opt);
+            
 
             //if it is possible to reach the end of secondary block
             if (!not_reached_the_end)
                 ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
 
-            
+
         }
 
         check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
@@ -35233,8 +35211,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
           returning a declarator will move the onwership
         */
         if (p_jump_statement->expression_opt)
-        {            
-            struct object temp_obj = {0};
+        {
+            struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_jump_statement->expression_opt, &temp_obj);
             bool bool_source_zero_value = constant_value_is_valid(&p_jump_statement->expression_opt->constant_value) &&
                 constant_value_to_ull(&p_jump_statement->expression_opt->constant_value) == 0;
@@ -35256,7 +35234,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 OBJECT_STATE_UNINITIALIZED,
                 ASSIGMENT_TYPE_RETURN);
 
-            
+
             object_destroy(&temp_obj);
         }
         check_all_defer_until_end(ctx, ctx->tail_block, p_jump_statement->first_token);
@@ -35326,7 +35304,7 @@ static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_
 
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
-    ctx->p_last_jump_statement = NULL;
+    
     if (p_unlabeled_statement->primary_block)
     {
         flow_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
@@ -35347,7 +35325,7 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
 
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement)
 {
-    ctx->p_last_jump_statement = NULL;
+    
 
     if (p_statement->labeled_statement)
     {
@@ -35366,7 +35344,7 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
 {
-    ctx->p_last_jump_statement = NULL;
+    
     if (p_block_item->declaration)
     {
         flow_visit_declaration(ctx, p_block_item->declaration);
@@ -35470,7 +35448,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         compiler_diagnostic_message(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
 
         if (p_obj)
@@ -35478,7 +35456,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             print_object(&p_static_assert_declaration->constant_expression->type, p_obj, !ex);
         }
 
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
@@ -35486,7 +35464,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
            check state
 
         */
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
         if (p_obj)
         {
@@ -35509,12 +35487,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             }
 
         }
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_SET)
     {
-        
-        struct object temp_obj = {0};
+
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
         if (p_obj)
         {
@@ -35547,7 +35525,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             }
 
         }
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
 }
 
@@ -35634,8 +35612,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 else
                 {
                     set_object(&p_declarator->type, &p_declarator->object, (OBJECT_STATE_NOT_NULL));
-                }
-            }
+    }
+}
             else
             {
                 set_object(&p_declarator->type, &p_declarator->object, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
@@ -35708,8 +35686,8 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
             if (p_init_declarator->initializer &&
                 p_init_declarator->initializer->assignment_expression)
             {
-                
-                struct object temp_obj = {0};
+
+                struct object temp_obj = { 0 };
                 struct object* p_right_object =
                     expression_get_object(p_init_declarator->initializer->assignment_expression, &temp_obj);
 
@@ -35730,7 +35708,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                         if (object_get_pointed_object(&p_init_declarator->p_declarator->object))
                         {
                             struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                            set_direct_state(&t, 
+                            set_direct_state(&t,
                                 object_get_pointed_object(&p_init_declarator->p_declarator->object),
                                 OBJECT_STATE_ZERO);
                             type_destroy(&t);
@@ -35771,7 +35749,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                         ;
 
                     object_assignment(ctx->ctx,
-                        p_right_object, 
+                        p_right_object,
                         &p_init_declarator->initializer->assignment_expression->type,
                         &p_init_declarator->p_declarator->object,
                         &p_init_declarator->p_declarator->type,
@@ -36068,7 +36046,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
     }
-    
+
     if (p_declaration->pragma_declaration)
     {
         flow_visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
