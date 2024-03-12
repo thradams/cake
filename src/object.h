@@ -95,10 +95,13 @@ struct object make_object(struct type* p_type,
     const struct expression* p_expression_origin);
 
 void object_push_copy_current_state(struct object* object, const char* name, int state_number);
+void object_push_empty(struct object* object, const char* name, int state_number);
 
 void object_pop_states(struct object* object, int n);
 int object_merge_current_state_with_state_number(struct object* object, int state_number);
+int object_merge_current_state_with_state_number_or(struct object* object, int state_number);
 int object_restore_current_state_from(struct object* object, int state_number);
+int object_set_state_from_current(struct object* object, int state_number);
 
 struct parser_ctx;
 struct token;

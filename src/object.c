@@ -430,6 +430,20 @@ struct object make_object(struct type* p_type,
     return make_object_core(p_type, &list, 0, p_declarator_opt, p_expression_origin);
 }
 
+void object_push_empty(struct object* object, const char* name, int state_number)
+{
+    object_state_stack_push_back(&object->object_state_stack, 0, name, state_number);
+
+    if (object_get_pointed_object(object))
+    {
+        object_push_empty(object_get_pointed_object(object), name, state_number);
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_push_empty(&object->members.data[i], name, state_number);
+    }
+}
 void object_push_copy_current_state(struct object* object, const char* name, int state_number)
 {
 
@@ -685,6 +699,30 @@ enum object_state state_merge(enum object_state before, enum object_state after)
     return e;
 }
 
+int object_set_state_from_current(struct object* object, int state_number)
+{
+    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            object->object_state_stack.data[i].state = object->state;
+            break;
+        }
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_set_state_from_current(&object->members.data[i], state_number);
+    }
+
+    struct object* pointed = object_get_pointed_object(object);
+    if (pointed)
+    {
+        object_set_state_from_current(pointed, state_number);
+    }
+    return 1;
+}
+
 int object_restore_current_state_from(struct object* object, int state_number)
 {
     for (int i = object->object_state_stack.size - 1; i >= 0; i--)
@@ -692,19 +730,19 @@ int object_restore_current_state_from(struct object* object, int state_number)
         if (object->object_state_stack.data[i].state_number == state_number)
         {
             object->state = object->object_state_stack.data[i].state;
-            return 0;
+            break;
         }
     }
 
     for (int i = 0; i < object->members.size; i++)
     {
-        object_merge_current_state_with_state_number(&object->members.data[i], state_number);
+        object_restore_current_state_from(&object->members.data[i], state_number);
     }
 
     struct object* pointed = object_get_pointed_object(object);
     if (pointed)
     {
-        object_merge_current_state_with_state_number(pointed, state_number);
+        object_restore_current_state_from(pointed, state_number);
     }
     return 1;
 }
@@ -716,7 +754,7 @@ int object_merge_current_state_with_state_number(struct object* object, int stat
         if (object->object_state_stack.data[i].state_number == state_number)
         {
             object->object_state_stack.data[i].state |= object->state;
-            return 0;
+            break;
         }
     }
 
@@ -729,6 +767,30 @@ int object_merge_current_state_with_state_number(struct object* object, int stat
     if (pointed)
     {
         object_merge_current_state_with_state_number(pointed, state_number);
+    }
+    return 1;
+}
+
+int object_merge_current_state_with_state_number_or(struct object* object, int state_number)
+{
+    for (int i = object->object_state_stack.size -1; i >= 0; i--)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            object->object_state_stack.data[i].state |= object->state;
+            break;
+        }
+    }
+
+    for(int i = 0; i < object->members.size; i++)
+    {
+        object_merge_current_state_with_state_number_or(&object->members.data[i], state_number);
+    }
+
+    struct object* pointed = object_get_pointed_object(object);
+    if (pointed)
+    {
+        object_merge_current_state_with_state_number_or(pointed, state_number);
     }
     return 1;
 }

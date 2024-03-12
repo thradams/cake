@@ -540,6 +540,24 @@ void push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name, in
 
 }
 
+
+void ctx_push_empty_state(struct flow_visit_ctx* ctx, const char* name, int state_number)
+{
+    /*
+      top of stack constains the copy
+    */
+
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                                  .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_push_empty(p_object, name, state_number);
+        p_object = visit_objects_next(&v1);
+    }
+}
+
 void restore_state(struct flow_visit_ctx* ctx, int state_index_to_restore)
 {
     struct visit_objects v1 = { .current_block = ctx->tail_block,
@@ -632,6 +650,20 @@ void merge_states(struct flow_visit_ctx* ctx,
     };
 }
 
+
+static void ctx_object_set_state_from_current(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_set_state_from_current(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
+
 static void ctx_object_merge_current_state_with_state_number(struct flow_visit_ctx* ctx, int number_state)
 {
     struct visit_objects v1 = { .current_block = ctx->tail_block,
@@ -644,6 +676,20 @@ static void ctx_object_merge_current_state_with_state_number(struct flow_visit_c
         p_object = visit_objects_next(&v1);
     };
 }
+
+static void ctx_object_merge_current_state_with_state_number_or(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_merge_current_state_with_state_number_or(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
+
 
 static void ctx_object_restore_current_state_from(struct flow_visit_ctx* ctx, int number_state)
 {
@@ -824,7 +870,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
-    bool was_last_statement_inside_true_branch_return = 
+    bool was_last_statement_inside_true_branch_return =
         secondary_block_ends_with_jump(p_selection_statement->secondary_block);
 
 
@@ -849,7 +895,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
     }
 
-    
+
     if (p_selection_statement->else_secondary_block_opt)
     {
         //struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
@@ -861,7 +907,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
-    bool was_last_statement_inside_else_branch_return =  
+    bool was_last_statement_inside_else_branch_return =
         secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);
 
 
@@ -905,7 +951,9 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
     ctx->try_state = ctx->state_number_generator;
     ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
 
-    push_copy_of_current_state(ctx, "try", ctx->state_number_generator++);
+    ctx_push_empty_state(ctx, "try", ctx->state_number_generator++);
+    int orignial = ctx->state_number_generator++;
+    push_copy_of_current_state(ctx, "original", orignial);
 
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_try_statement = p_try_statement;
@@ -913,24 +961,41 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
     if (p_try_statement->secondary_block)
     {
         flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-
-        bool not_reached_the_end = 
-            secondary_block_ends_with_jump(p_try_statement->secondary_block);
-        
-
-        //if it is possible to reach the end of secondary block
-        if (!not_reached_the_end)
-            ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        ctx_object_set_state_from_current(ctx, orignial); //state of end of secondary block
     }
 
+    if (p_try_statement->catch_secondary_block_opt)
+    {
+        //current all possible states of throw
+        ctx_object_restore_current_state_from(ctx, ctx->try_state);
+        flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
+        //current has the state at the end of catch block
+    }
 
+    bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
+    bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
+
+    if (try_reached_the_end && catch_reached_the_end)
+    {
+        //merge current with orignial
+        ctx_object_merge_current_state_with_state_number_or(ctx, orignial);
+        ctx_object_restore_current_state_from(ctx, orignial);
+    }
+    else if (try_reached_the_end)
+    {
+        ctx_object_restore_current_state_from(ctx, orignial);
+    }
+    else if (catch_reached_the_end)
+    {
+        //ctx_object_restore_current_state_from(ctx, orignial);       
+    }
 
 
     check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
 
-    ctx_object_restore_current_state_from(ctx, ctx->try_state);
+
     flow_visit_ctx_pop_tail_block(ctx);
-    pop_states(ctx, 1);
+    pop_states(ctx, 2);
     ctx->try_state = try_state_old; //restore
     ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
 }
@@ -1834,10 +1899,10 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
         flow_visit_ctx_pop_tail_block(ctx);
 
-        bool was_last_statement_inside_true_branch_return = 
+        bool was_last_statement_inside_true_branch_return =
             secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
-        
+
         if (was_last_statement_inside_true_branch_return)
         {
             //restore_state(ctx, 0);
@@ -1894,9 +1959,9 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
 
-        bool was_last_statement_inside_true_branch_return = 
+        bool was_last_statement_inside_true_branch_return =
             secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
-        
+
 
         if (was_last_statement_inside_true_branch_return)
         {
@@ -1997,20 +2062,29 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
         //ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
-        if (ctx->catch_secondary_block_opt)
-        {
+        //if (ctx->catch_secondary_block_opt)
+        //{/
             // ctx_object_restore_current_state_from(ctx, ctx->try_state);
-            flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
+            //flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
 
-            bool not_reached_the_end = secondary_block_ends_with_jump(ctx->catch_secondary_block_opt);
-            
-
-            //if it is possible to reach the end of secondary block
-            if (!not_reached_the_end)
-                ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        bool not_reached_the_end = secondary_block_ends_with_jump(ctx->catch_secondary_block_opt);
 
 
+        //if it is possible to reach the end of secondary block
+        //if (!not_reached_the_end)
+        //{
+        //if (ctx->is_first_throw)
+        {
+
+          //  ctx_object_set_state_from_current(ctx, ctx->try_state);
         }
+        //else
+        {
+            ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        }
+
+        //ctx->is_first_throw = false;
+    //}
 
         check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
     }
@@ -2118,7 +2192,7 @@ static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_
 
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
-    
+
     if (p_unlabeled_statement->primary_block)
     {
         flow_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
@@ -2139,7 +2213,7 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
 
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement)
 {
-    
+
 
     if (p_statement->labeled_statement)
     {
@@ -2158,7 +2232,7 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
 {
-    
+
     if (p_block_item->declaration)
     {
         flow_visit_declaration(ctx, p_block_item->declaration);
@@ -2292,6 +2366,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     if (e != p_obj->state)
                     {
                         compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+
                     }
                 }
                 else
@@ -2426,8 +2501,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 else
                 {
                     set_object(&p_declarator->type, &p_declarator->object, (OBJECT_STATE_NOT_NULL));
-    }
-}
+                }
+            }
             else
             {
                 set_object(&p_declarator->type, &p_declarator->object, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
@@ -2463,7 +2538,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-            }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {

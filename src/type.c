@@ -1750,7 +1750,7 @@ int type_get_rank(struct type* p_type1)
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out_type)
 {
-    struct type t0 = { 0 };
+    struct type t0 = { 0 };    
     try
     {
         int rank_left = type_get_rank(p_type1);
