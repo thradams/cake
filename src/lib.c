@@ -34113,6 +34113,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
     }
 
+    flow_visit_expression(ctx,p_selection_statement->expression);
+
     if (p_selection_statement->secondary_block)
     {
 
