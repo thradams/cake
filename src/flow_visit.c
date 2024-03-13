@@ -451,7 +451,7 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     */
 }
 
-static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression, struct object *p_temp_object)
+static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression, struct object* p_temp_object)
 {
     if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL &&
         type_is_pointer(&p_expression->left->type) &&
@@ -467,7 +467,7 @@ static struct object* expression_is_comparing_owner_with_null(struct expression*
         expression_is_null_pointer_constant(p_expression->left) &&
         type_is_pointer(&p_expression->right->type))
     {
-        
+
         struct object* p_object = expression_get_object(p_expression->right, p_temp_object);
 
         return p_object;
@@ -484,7 +484,7 @@ static struct object* expression_is_comparing_owner_with_null(struct expression*
     return NULL;
 }
 
-static struct object* expression_is_comparing_owner_with_not_null(struct expression* p_expression, struct object * p_temp_object)
+static struct object* expression_is_comparing_owner_with_not_null(struct expression* p_expression, struct object* p_temp_object)
 {
 
     if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL &&
@@ -534,10 +534,28 @@ void push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name, in
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
     {
-        object_push_copy_current_state(p_object , name, state_number);
+        object_push_copy_current_state(p_object, name, state_number);
         p_object = visit_objects_next(&v1);
     }
 
+}
+
+
+void ctx_push_empty_state(struct flow_visit_ctx* ctx, const char* name, int state_number)
+{
+    /*
+      top of stack constains the copy
+    */
+
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                                  .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_push_empty(p_object, name, state_number);
+        p_object = visit_objects_next(&v1);
+    }
 }
 
 void restore_state(struct flow_visit_ctx* ctx, int state_index_to_restore)
@@ -632,6 +650,20 @@ void merge_states(struct flow_visit_ctx* ctx,
     };
 }
 
+
+static void ctx_object_set_state_from_current(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_set_state_from_current(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
+
 static void ctx_object_merge_current_state_with_state_number(struct flow_visit_ctx* ctx, int number_state)
 {
     struct visit_objects v1 = { .current_block = ctx->tail_block,
@@ -644,6 +676,20 @@ static void ctx_object_merge_current_state_with_state_number(struct flow_visit_c
         p_object = visit_objects_next(&v1);
     };
 }
+
+static void ctx_object_merge_current_state_with_state_number_or(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_merge_current_state_with_state_number_or(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
+
 
 static void ctx_object_restore_current_state_from(struct flow_visit_ctx* ctx, int number_state)
 {
@@ -784,8 +830,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 {
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
     struct object* p_object_compared_with_null = NULL;
-    struct object temp_obj1 = {0};
-    struct object temp_obj2 = {0};
+    struct object temp_obj1 = { 0 };
+    struct object temp_obj2 = { 0 };
     if (p_selection_statement->expression)
     {
         p_object_compared_with_null = expression_is_comparing_owner_with_null(p_selection_statement->expression, &temp_obj1);
@@ -816,6 +862,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
     }
 
+    flow_visit_expression(ctx,p_selection_statement->expression);
+
     if (p_selection_statement->secondary_block)
     {
 
@@ -824,23 +872,9 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
-    bool was_last_statement_inside_true_branch_return = false;
-    if (ctx->p_last_jump_statement)
-    {
-        //TODO gotos etc...
+    bool was_last_statement_inside_true_branch_return =
+        secondary_block_ends_with_jump(p_selection_statement->secondary_block);
 
-        was_last_statement_inside_true_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-    }
-
-    //enum object_state state_left_in_true_branch = 0;
-    //if (p_object_compared_with_null)
-      //  state_left_in_true_branch = p_object_compared_with_null->state;
-    //else if (p_object_compared_with_not_null)
-      //  state_left_in_true_branch = p_object_compared_with_not_null->state;
 
     /*let's make a copy of the state we left true branch*/
     const int true_branch = 1;
@@ -863,7 +897,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
     }
 
-    ctx->p_last_jump_statement = NULL;
+
     if (p_selection_statement->else_secondary_block_opt)
     {
         //struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
@@ -875,16 +909,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
-    bool was_last_statement_inside_else_branch_return = false;
-    if (ctx->p_last_jump_statement)
-    {
-        //TODO gotos etc...
-        was_last_statement_inside_else_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-    }
+    bool was_last_statement_inside_else_branch_return =
+        secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);
 
 
     if (was_last_statement_inside_true_branch_return)
@@ -914,7 +940,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     pop_states(ctx, 2);
     object_destroy(&temp_obj1);
     object_destroy(&temp_obj2);
-    
+
 }
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
 
@@ -922,12 +948,14 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
     const int try_state_old = ctx->try_state;
-    struct secondary_block* catch_secondary_block_old =  ctx->catch_secondary_block_opt;
+    struct secondary_block* catch_secondary_block_old = ctx->catch_secondary_block_opt;
 
     ctx->try_state = ctx->state_number_generator;
     ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
 
-    push_copy_of_current_state(ctx, "try", ctx->state_number_generator++);
+    ctx_push_empty_state(ctx, "try", ctx->state_number_generator++);
+    int orignial = ctx->state_number_generator++;
+    push_copy_of_current_state(ctx, "original", orignial);
 
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_try_statement = p_try_statement;
@@ -935,31 +963,41 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
     if (p_try_statement->secondary_block)
     {
         flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-
-        bool not_reached_the_end = false;
-        if (ctx->p_last_jump_statement)
-        {
-            //TODO gotos etc...
-            not_reached_the_end =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-        }
-
-        //if it is possible to reach the end of secondary block
-        if (!not_reached_the_end)
-          ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        ctx_object_set_state_from_current(ctx, orignial); //state of end of secondary block
     }
 
-    
+    if (p_try_statement->catch_secondary_block_opt)
+    {
+        //current all possible states of throw
+        ctx_object_restore_current_state_from(ctx, ctx->try_state);
+        flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
+        //current has the state at the end of catch block
+    }
+
+    bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
+    bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
+
+    if (try_reached_the_end && catch_reached_the_end)
+    {
+        //merge current with orignial
+        ctx_object_merge_current_state_with_state_number_or(ctx, orignial);
+        ctx_object_restore_current_state_from(ctx, orignial);
+    }
+    else if (try_reached_the_end)
+    {
+        ctx_object_restore_current_state_from(ctx, orignial);
+    }
+    else if (catch_reached_the_end)
+    {
+        //ctx_object_restore_current_state_from(ctx, orignial);       
+    }
 
 
     check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
-    
-    ctx_object_restore_current_state_from(ctx, ctx->try_state);
+
+
     flow_visit_ctx_pop_tail_block(ctx);
-    pop_states(ctx, 1);
+    pop_states(ctx, 2);
     ctx->try_state = try_state_old; //restore
     ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
 }
@@ -1232,16 +1270,16 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
     while (p_current_argument && p_current_parameter_type)
     {
-        struct object temp_obj1 = {0};
+        struct object temp_obj1 = { 0 };
 
         struct object* p_argument_object =
             expression_get_object(p_current_argument->expression, &temp_obj1);
 
         bool bool_source_zero_value = constant_value_is_valid(&p_current_argument->expression->constant_value) &&
             constant_value_to_ull(&p_current_argument->expression->constant_value) == 0;
-        
+
         //struct object temp_obj2 = {0};
-        
+
         //struct object* p_argument_object2 =
           //  expression_get_object(p_current_argument->expression, &temp_obj2);
 
@@ -1338,9 +1376,9 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                         struct type argument_type =
                             type_remove_pointer(&p_current_argument->expression->type);
 
-                        struct object * pointed = object_get_pointed_object(p_argument_object);
+                        struct object* pointed = object_get_pointed_object(p_argument_object);
                         object_set_unknown(&argument_type, pointed);
-                        type_destroy(&argument_type);                        
+                        type_destroy(&argument_type);
                     }
                 }
 
@@ -1351,7 +1389,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         p_current_parameter_type = p_current_parameter_type->next;
         param_num++;
 
-        object_destroy(&temp_obj1);    
+        object_destroy(&temp_obj1);
     }
 
     while (p_current_argument)
@@ -1359,7 +1397,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         /*
            We have more argument than parameters, this happens with variadic functions
         */
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
 
         struct object* p_argument_object =
             expression_get_object(p_current_argument->expression, &temp_obj);
@@ -1382,7 +1420,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
     if (p_expression->is_assigment_expression)
         return;
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object = expression_get_object(p_expression, &temp_obj);
 
     if (!ctx->expression_is_not_evaluated)
@@ -1538,7 +1576,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 flow_visit_expression(ctx, p_expression->right);
 
-                struct object temp_obj1 = {0};
+                struct object temp_obj1 = { 0 };
                 struct object* p_object_compared_with_null = NULL;
 
                 if (p_expression->right)
@@ -1546,7 +1584,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     p_object_compared_with_null = expression_is_comparing_owner_with_null(p_expression->right, &temp_obj1);
                 }
 
-                struct object temp_obj2 = {0};
+                struct object temp_obj2 = { 0 };
                 struct object* p_object_compared_with_not_null = NULL;
                 if (p_expression->right)
                 {
@@ -1602,7 +1640,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (p_expression->right)
             {
 
-                struct object temp_obj = {0};
+                struct object temp_obj = { 0 };
                 struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
 
                 if (!ctx->expression_is_not_evaluated)
@@ -1642,7 +1680,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
 
 
-            struct object temp_obj = {0};
+            struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
 
             if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
@@ -1671,7 +1709,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             p_expression->right->first_token, "dereference a NULL object");
                     }
                 }
-            }            
+            }
             object_destroy(&temp_obj);
         }
         break;
@@ -1683,10 +1721,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         case ASSIGNMENT_EXPRESSION:
         {
 
-            struct object temp_obj1 = {0};
+            struct object temp_obj1 = { 0 };
             struct object* const p_right_object = expression_get_object(p_expression->right, &temp_obj1);
 
-            struct object temp_obj2 = {0};
+            struct object temp_obj2 = { 0 };
             struct object* const p_dest_object = expression_get_object(p_expression->left, &temp_obj2);
             //print_object(&dest_object_type, p_dest_object);
 
@@ -1711,7 +1749,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     bool_source_zero_value = true;
                 }
             }
-   
+
             object_assignment(ctx->ctx,
                 p_right_object, /*source*/
                 &p_expression->right->type, /*source type*/
@@ -1722,7 +1760,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 OBJECT_STATE_MOVED,
                 ASSIGMENT_TYPE_OBJECTS);
 
-            
+
             object_destroy(&temp_obj1);
             object_destroy(&temp_obj2);
         }
@@ -1818,14 +1856,6 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement)
 {
 
-    /*let's make a copy of the current post function diagnostic*/
-    struct diagnostic current = ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
-
-    /*lets restore the diagnostic state it was initialize because static analysis is a second pass*/
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = p_compound_statement->diagnostic_flags;
-
-
-
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_compound_statement = p_compound_statement;
 
@@ -1834,16 +1864,13 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
 
     flow_visit_ctx_pop_tail_block(ctx);
 
-    /*restore the state we change*/
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = current;
-
 }
 
 static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression1)
@@ -1863,16 +1890,9 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
         flow_visit_ctx_pop_tail_block(ctx);
 
-        bool was_last_statement_inside_true_branch_return = false;
-        if (ctx->p_last_jump_statement)
-        {
+        bool was_last_statement_inside_true_branch_return =
+            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
-            was_last_statement_inside_true_branch_return =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-        }
 
         if (was_last_statement_inside_true_branch_return)
         {
@@ -1900,7 +1920,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression1)
@@ -1930,13 +1950,9 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
 
-        bool was_last_statement_inside_true_branch_return = false;
-        if (ctx->p_last_jump_statement)
-        {
-            //TODO gotos etc...
-            was_last_statement_inside_true_branch_return =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
-        }
+        bool was_last_statement_inside_true_branch_return =
+            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+
 
         if (was_last_statement_inside_true_branch_return)
         {
@@ -2000,7 +2016,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
         flow_visit_ctx_pop_tail_block(ctx);
     }
-    
+
     /*we visit again*/
     if (p_iteration_statement->secondary_block)
     {
@@ -2034,34 +2050,32 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
-    ctx->p_last_jump_statement = p_jump_statement;
-
-
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
         //ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
-        if (ctx->catch_secondary_block_opt)
+        //if (ctx->catch_secondary_block_opt)
+        //{/
+            // ctx_object_restore_current_state_from(ctx, ctx->try_state);
+            //flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
+
+        bool not_reached_the_end = secondary_block_ends_with_jump(ctx->catch_secondary_block_opt);
+
+
+        //if it is possible to reach the end of secondary block
+        //if (!not_reached_the_end)
+        //{
+        //if (ctx->is_first_throw)
         {
-           // ctx_object_restore_current_state_from(ctx, ctx->try_state);
-            flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
 
-            bool not_reached_the_end = false;
-            if (ctx->p_last_jump_statement)
-            {
-                //TODO gotos etc...
-                not_reached_the_end =
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-            }
-
-            //if it is possible to reach the end of secondary block
-            if (!not_reached_the_end)
-                ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
-
-            
+          //  ctx_object_set_state_from_current(ctx, ctx->try_state);
         }
+        //else
+        {
+            ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        }
+
+        //ctx->is_first_throw = false;
+    //}
 
         check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
     }
@@ -2076,8 +2090,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
           returning a declarator will move the onwership
         */
         if (p_jump_statement->expression_opt)
-        {            
-            struct object temp_obj = {0};
+        {
+            struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_jump_statement->expression_opt, &temp_obj);
             bool bool_source_zero_value = constant_value_is_valid(&p_jump_statement->expression_opt->constant_value) &&
                 constant_value_to_ull(&p_jump_statement->expression_opt->constant_value) == 0;
@@ -2099,7 +2113,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 OBJECT_STATE_UNINITIALIZED,
                 ASSIGMENT_TYPE_RETURN);
 
-            
+
             object_destroy(&temp_obj);
         }
         check_all_defer_until_end(ctx, ctx->tail_block, p_jump_statement->first_token);
@@ -2169,7 +2183,7 @@ static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_
 
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
-    ctx->p_last_jump_statement = NULL;
+
     if (p_unlabeled_statement->primary_block)
     {
         flow_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
@@ -2190,7 +2204,7 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
 
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement)
 {
-    ctx->p_last_jump_statement = NULL;
+
 
     if (p_statement->labeled_statement)
     {
@@ -2209,7 +2223,7 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
 {
-    ctx->p_last_jump_statement = NULL;
+
     if (p_block_item->declaration)
     {
         flow_visit_declaration(ctx, p_block_item->declaration);
@@ -2313,7 +2327,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         compiler_diagnostic_message(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
 
         if (p_obj)
@@ -2321,7 +2335,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             print_object(&p_static_assert_declaration->constant_expression->type, p_obj, !ex);
         }
 
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
@@ -2329,7 +2343,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
            check state
 
         */
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
         if (p_obj)
         {
@@ -2343,6 +2357,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     if (e != p_obj->state)
                     {
                         compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+
                     }
                 }
                 else
@@ -2352,12 +2367,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             }
 
         }
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_SET)
     {
-        
-        struct object temp_obj = {0};
+
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
         if (p_obj)
         {
@@ -2390,7 +2405,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             }
 
         }
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
 }
 
@@ -2461,6 +2476,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 
 
         struct object temp = make_object(&p_declarator->type, p_declarator, NULL);
+        object_set_uninitialized(&p_declarator->type, &temp);
         object_swap(&temp, &p_declarator->object);
         object_destroy(&temp);
 
@@ -2514,7 +2530,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-            }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -2551,8 +2567,8 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
             if (p_init_declarator->initializer &&
                 p_init_declarator->initializer->assignment_expression)
             {
-                
-                struct object temp_obj = {0};
+
+                struct object temp_obj = { 0 };
                 struct object* p_right_object =
                     expression_get_object(p_init_declarator->initializer->assignment_expression, &temp_obj);
 
@@ -2573,7 +2589,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                         if (object_get_pointed_object(&p_init_declarator->p_declarator->object))
                         {
                             struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                            set_direct_state(&t, 
+                            set_direct_state(&t,
                                 object_get_pointed_object(&p_init_declarator->p_declarator->object),
                                 OBJECT_STATE_ZERO);
                             type_destroy(&t);
@@ -2614,7 +2630,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                         ;
 
                     object_assignment(ctx->ctx,
-                        p_right_object, 
+                        p_right_object,
                         &p_init_declarator->initializer->assignment_expression->type,
                         &p_init_declarator->p_declarator->object,
                         &p_init_declarator->p_declarator->type,
@@ -2911,7 +2927,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
     }
-    
+
     if (p_declaration->pragma_declaration)
     {
         flow_visit_pragma_declaration(ctx, p_declaration->pragma_declaration);

@@ -11035,10 +11035,13 @@ struct object make_object(struct type* p_type,
     const struct expression* p_expression_origin);
 
 void object_push_copy_current_state(struct object* object, const char* name, int state_number);
+void object_push_empty(struct object* object, const char* name, int state_number);
 
 void object_pop_states(struct object* object, int n);
 int object_merge_current_state_with_state_number(struct object* object, int state_number);
+int object_merge_current_state_with_state_number_or(struct object* object, int state_number);
 int object_restore_current_state_from(struct object* object, int state_number);
+int object_set_state_from_current(struct object* object, int state_number);
 
 struct parser_ctx;
 struct token;
@@ -12209,6 +12212,7 @@ struct secondary_block
 };
 
 void secondary_block_delete(struct secondary_block* owner opt p);
+bool secondary_block_ends_with_jump(struct secondary_block * p_secondary_block);
 
 struct unlabeled_statement
 {
@@ -19192,7 +19196,7 @@ int type_get_rank(struct type* p_type1)
 
 int type_common(struct type* p_type1, struct type* p_type2, struct type* out_type)
 {
-    struct type t0 = { 0 };
+    struct type t0 = { 0 };    
     try
     {
         int rank_left = type_get_rank(p_type1);
@@ -21105,6 +21109,20 @@ struct object make_object(struct type* p_type,
     return make_object_core(p_type, &list, 0, p_declarator_opt, p_expression_origin);
 }
 
+void object_push_empty(struct object* object, const char* name, int state_number)
+{
+    object_state_stack_push_back(&object->object_state_stack, 0, name, state_number);
+
+    if (object_get_pointed_object(object))
+    {
+        object_push_empty(object_get_pointed_object(object), name, state_number);
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_push_empty(&object->members.data[i], name, state_number);
+    }
+}
 void object_push_copy_current_state(struct object* object, const char* name, int state_number)
 {
 
@@ -21360,6 +21378,30 @@ enum object_state state_merge(enum object_state before, enum object_state after)
     return e;
 }
 
+int object_set_state_from_current(struct object* object, int state_number)
+{
+    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            object->object_state_stack.data[i].state = object->state;
+            break;
+        }
+    }
+
+    for (int i = 0; i < object->members.size; i++)
+    {
+        object_set_state_from_current(&object->members.data[i], state_number);
+    }
+
+    struct object* pointed = object_get_pointed_object(object);
+    if (pointed)
+    {
+        object_set_state_from_current(pointed, state_number);
+    }
+    return 1;
+}
+
 int object_restore_current_state_from(struct object* object, int state_number)
 {
     for (int i = object->object_state_stack.size - 1; i >= 0; i--)
@@ -21367,19 +21409,19 @@ int object_restore_current_state_from(struct object* object, int state_number)
         if (object->object_state_stack.data[i].state_number == state_number)
         {
             object->state = object->object_state_stack.data[i].state;
-            return 0;
+            break;
         }
     }
 
     for (int i = 0; i < object->members.size; i++)
     {
-        object_merge_current_state_with_state_number(&object->members.data[i], state_number);
+        object_restore_current_state_from(&object->members.data[i], state_number);
     }
 
     struct object* pointed = object_get_pointed_object(object);
     if (pointed)
     {
-        object_merge_current_state_with_state_number(pointed, state_number);
+        object_restore_current_state_from(pointed, state_number);
     }
     return 1;
 }
@@ -21391,7 +21433,7 @@ int object_merge_current_state_with_state_number(struct object* object, int stat
         if (object->object_state_stack.data[i].state_number == state_number)
         {
             object->object_state_stack.data[i].state |= object->state;
-            return 0;
+            break;
         }
     }
 
@@ -21404,6 +21446,30 @@ int object_merge_current_state_with_state_number(struct object* object, int stat
     if (pointed)
     {
         object_merge_current_state_with_state_number(pointed, state_number);
+    }
+    return 1;
+}
+
+int object_merge_current_state_with_state_number_or(struct object* object, int state_number)
+{
+    for (int i = object->object_state_stack.size -1; i >= 0; i--)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            object->object_state_stack.data[i].state |= object->state;
+            break;
+        }
+    }
+
+    for(int i = 0; i < object->members.size; i++)
+    {
+        object_merge_current_state_with_state_number_or(&object->members.data[i], state_number);
+    }
+
+    struct object* pointed = object_get_pointed_object(object);
+    if (pointed)
+    {
+        object_merge_current_state_with_state_number_or(pointed, state_number);
     }
     return 1;
 }
@@ -21881,7 +21947,7 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object)
         if (object_get_pointed_object(p_object))
         {
             struct type t2 = type_remove_pointer(p_type);
-            object_set_uninitialized(&t2, object_get_pointed_object(p_object));
+            object_set_nothing(&t2, object_get_pointed_object(p_object));
             type_destroy(&t2);
         }
     }
@@ -22887,7 +22953,7 @@ struct flow_visit_ctx
     struct flow_defer_scope* owner tail_block;
     struct type* view p_return_type;
     int parameter_list;
-    struct jump_statement* view p_last_jump_statement;
+    
     int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
 };
@@ -23222,7 +23288,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     if (p_token)
         print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
 
-    va_list args = {0};
+    va_list args = { 0 };
     va_start(args, fmt);
     /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
@@ -23553,7 +23619,7 @@ struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, s
         if (p_entry->type == TAG_TYPE_INIT_DECLARATOR)
         {
             struct init_declarator* p_init_declarator = p_entry->p;
-            return (struct declarator*)p_init_declarator->p_declarator;
+            return (struct declarator*) p_init_declarator->p_declarator;
         }
         else if (p_entry->type == TAG_TYPE_ONLY_DECLARATOR)
         {
@@ -23819,253 +23885,253 @@ enum token_type is_keyword(const char* text)
     enum token_type result = 0;
     switch (text[0])
     {
-    case 'a':
-        if (strcmp("alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNOF;
-        else if (strcmp("auto", text) == 0)
-            result = TK_KEYWORD_AUTO;
-        else if (strcmp("alignas", text) == 0)
-            result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
-        else if (strcmp("alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
-        else if (strcmp("assert", text) == 0)
-            result = TK_KEYWORD_ASSERT; /*extension*/
-        break;
-    case 'b':
-        if (strcmp("break", text) == 0)
-            result = TK_KEYWORD_BREAK;
-        else if (strcmp("bool", text) == 0)
-            result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
+        case 'a':
+            if (strcmp("alignof", text) == 0)
+                result = TK_KEYWORD__ALIGNOF;
+            else if (strcmp("auto", text) == 0)
+                result = TK_KEYWORD_AUTO;
+            else if (strcmp("alignas", text) == 0)
+                result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignas*/
+            else if (strcmp("alignof", text) == 0)
+                result = TK_KEYWORD__ALIGNAS; /*C23 alternate spelling _Alignof*/
+            else if (strcmp("assert", text) == 0)
+                result = TK_KEYWORD_ASSERT; /*extension*/
+            break;
+        case 'b':
+            if (strcmp("break", text) == 0)
+                result = TK_KEYWORD_BREAK;
+            else if (strcmp("bool", text) == 0)
+                result = TK_KEYWORD__BOOL; /*C23 alternate spelling _Bool*/
 
-        break;
-    case 'c':
-        if (strcmp("case", text) == 0)
-            result = TK_KEYWORD_CASE;
-        else if (strcmp("char", text) == 0)
-            result = TK_KEYWORD_CHAR;
-        else if (strcmp("const", text) == 0)
-            result = TK_KEYWORD_CONST;
-        else if (strcmp("constexpr", text) == 0)
-            result = TK_KEYWORD_CONSTEXPR;
-        else if (strcmp("continue", text) == 0)
-            result = TK_KEYWORD_CONTINUE;
-        else if (strcmp("catch", text) == 0)
-            result = TK_KEYWORD_CATCH;
-        break;
-    case 'd':
-        if (strcmp("default", text) == 0)
-            result = TK_KEYWORD_DEFAULT;
-        else if (strcmp("do", text) == 0)
-            result = TK_KEYWORD_DO;
-        else if (strcmp("defer", text) == 0)
-            result = TK_KEYWORD_DEFER;
-        else if (strcmp("double", text) == 0)
-            result = TK_KEYWORD_DOUBLE;
-        break;
-    case 'e':
-        if (strcmp("else", text) == 0)
-            result = TK_KEYWORD_ELSE;
-        else if (strcmp("enum", text) == 0)
-            result = TK_KEYWORD_ENUM;
-        else if (strcmp("extern", text) == 0)
-            result = TK_KEYWORD_EXTERN;
-        break;
-    case 'f':
-        if (strcmp("float", text) == 0)
-            result = TK_KEYWORD_FLOAT;
-        else if (strcmp("for", text) == 0)
-            result = TK_KEYWORD_FOR;
-        else if (strcmp("false", text) == 0)
-            result = TK_KEYWORD_FALSE;
-        break;
-    case 'g':
-        if (strcmp("goto", text) == 0)
-            result = TK_KEYWORD_GOTO;
-        break;
-    case 'i':
-        if (strcmp("if", text) == 0)
-            result = TK_KEYWORD_IF;
-        else if (strcmp("inline", text) == 0)
-            result = TK_KEYWORD_INLINE;
-        else if (strcmp("int", text) == 0)
-            result = TK_KEYWORD_INT;
-        break;
-    case 'n':
-        if (strcmp("nullptr", text) == 0)
-            result = TK_KEYWORD_NULLPTR;
-        break;
+            break;
+        case 'c':
+            if (strcmp("case", text) == 0)
+                result = TK_KEYWORD_CASE;
+            else if (strcmp("char", text) == 0)
+                result = TK_KEYWORD_CHAR;
+            else if (strcmp("const", text) == 0)
+                result = TK_KEYWORD_CONST;
+            else if (strcmp("constexpr", text) == 0)
+                result = TK_KEYWORD_CONSTEXPR;
+            else if (strcmp("continue", text) == 0)
+                result = TK_KEYWORD_CONTINUE;
+            else if (strcmp("catch", text) == 0)
+                result = TK_KEYWORD_CATCH;
+            break;
+        case 'd':
+            if (strcmp("default", text) == 0)
+                result = TK_KEYWORD_DEFAULT;
+            else if (strcmp("do", text) == 0)
+                result = TK_KEYWORD_DO;
+            else if (strcmp("defer", text) == 0)
+                result = TK_KEYWORD_DEFER;
+            else if (strcmp("double", text) == 0)
+                result = TK_KEYWORD_DOUBLE;
+            break;
+        case 'e':
+            if (strcmp("else", text) == 0)
+                result = TK_KEYWORD_ELSE;
+            else if (strcmp("enum", text) == 0)
+                result = TK_KEYWORD_ENUM;
+            else if (strcmp("extern", text) == 0)
+                result = TK_KEYWORD_EXTERN;
+            break;
+        case 'f':
+            if (strcmp("float", text) == 0)
+                result = TK_KEYWORD_FLOAT;
+            else if (strcmp("for", text) == 0)
+                result = TK_KEYWORD_FOR;
+            else if (strcmp("false", text) == 0)
+                result = TK_KEYWORD_FALSE;
+            break;
+        case 'g':
+            if (strcmp("goto", text) == 0)
+                result = TK_KEYWORD_GOTO;
+            break;
+        case 'i':
+            if (strcmp("if", text) == 0)
+                result = TK_KEYWORD_IF;
+            else if (strcmp("inline", text) == 0)
+                result = TK_KEYWORD_INLINE;
+            else if (strcmp("int", text) == 0)
+                result = TK_KEYWORD_INT;
+            break;
+        case 'n':
+            if (strcmp("nullptr", text) == 0)
+                result = TK_KEYWORD_NULLPTR;
+            break;
 
-    case 'l':
-        if (strcmp("long", text) == 0)
-            result = TK_KEYWORD_LONG;
-        break;
-    case 'r':
-        if (strcmp("register", text) == 0)
-            result = TK_KEYWORD_REGISTER;
-        else if (strcmp("restrict", text) == 0)
-            result = TK_KEYWORD_RESTRICT;
-        else if (strcmp("return", text) == 0)
-            result = TK_KEYWORD_RETURN;
+        case 'l':
+            if (strcmp("long", text) == 0)
+                result = TK_KEYWORD_LONG;
+            break;
+        case 'r':
+            if (strcmp("register", text) == 0)
+                result = TK_KEYWORD_REGISTER;
+            else if (strcmp("restrict", text) == 0)
+                result = TK_KEYWORD_RESTRICT;
+            else if (strcmp("return", text) == 0)
+                result = TK_KEYWORD_RETURN;
 
-        break;
-    case 's':
-        if (strcmp("short", text) == 0)
-            result = TK_KEYWORD_SHORT;
-        else if (strcmp("signed", text) == 0)
-            result = TK_KEYWORD_SIGNED;
-        else if (strcmp("sizeof", text) == 0)
-            result = TK_KEYWORD_SIZEOF;
-        else if (strcmp("static", text) == 0)
-            result = TK_KEYWORD_STATIC;
-        else if (strcmp("struct", text) == 0)
-            result = TK_KEYWORD_STRUCT;
-        else if (strcmp("switch", text) == 0)
-            result = TK_KEYWORD_SWITCH;
-        else if (strcmp("static_assert", text) == 0)
-            result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
-        else if (strcmp("static_debug", text) == 0)
-            result = TK_KEYWORD_STATIC_DEBUG;
-        else if (strcmp("static_debug_ex", text) == 0)
-            result = TK_KEYWORD_STATIC_DEBUG_EX;
-        else if (strcmp("static_state", text) == 0)
-            result = TK_KEYWORD_STATIC_STATE;
-        else if (strcmp("static_set", text) == 0)
-            result = TK_KEYWORD_STATIC_SET;
+            break;
+        case 's':
+            if (strcmp("short", text) == 0)
+                result = TK_KEYWORD_SHORT;
+            else if (strcmp("signed", text) == 0)
+                result = TK_KEYWORD_SIGNED;
+            else if (strcmp("sizeof", text) == 0)
+                result = TK_KEYWORD_SIZEOF;
+            else if (strcmp("static", text) == 0)
+                result = TK_KEYWORD_STATIC;
+            else if (strcmp("struct", text) == 0)
+                result = TK_KEYWORD_STRUCT;
+            else if (strcmp("switch", text) == 0)
+                result = TK_KEYWORD_SWITCH;
+            else if (strcmp("static_assert", text) == 0)
+                result = TK_KEYWORD__STATIC_ASSERT; /*C23 alternate spelling _Static_assert*/
+            else if (strcmp("static_debug", text) == 0)
+                result = TK_KEYWORD_STATIC_DEBUG;
+            else if (strcmp("static_debug_ex", text) == 0)
+                result = TK_KEYWORD_STATIC_DEBUG_EX;
+            else if (strcmp("static_state", text) == 0)
+                result = TK_KEYWORD_STATIC_STATE;
+            else if (strcmp("static_set", text) == 0)
+                result = TK_KEYWORD_STATIC_SET;
 
-        break;
-    case 't':
-        if (strcmp("typedef", text) == 0)
-            result = TK_KEYWORD_TYPEDEF;
-        else if (strcmp("typeof", text) == 0)
-            result = TK_KEYWORD_TYPEOF; /*C23*/
-        else if (strcmp("typeof_unqual", text) == 0)
-            result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
-        else if (strcmp("true", text) == 0)
-            result = TK_KEYWORD_TRUE; /*C23*/
-        else if (strcmp("thread_local", text) == 0)
-            result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
-        else if (strcmp("try", text) == 0)
-            result = TK_KEYWORD_TRY;
-        else if (strcmp("throw", text) == 0)
-            result = TK_KEYWORD_THROW;
-        break;
-    case 'u':
-        if (strcmp("union", text) == 0)
-            result = TK_KEYWORD_UNION;
-        else if (strcmp("unsigned", text) == 0)
-            result = TK_KEYWORD_UNSIGNED;
-        break;
-    case 'v':
-        if (strcmp("void", text) == 0)
-            result = TK_KEYWORD_VOID;
-        else if (strcmp("volatile", text) == 0)
-            result = TK_KEYWORD_VOLATILE;
+            break;
+        case 't':
+            if (strcmp("typedef", text) == 0)
+                result = TK_KEYWORD_TYPEDEF;
+            else if (strcmp("typeof", text) == 0)
+                result = TK_KEYWORD_TYPEOF; /*C23*/
+            else if (strcmp("typeof_unqual", text) == 0)
+                result = TK_KEYWORD_TYPEOF_UNQUAL; /*C23*/
+            else if (strcmp("true", text) == 0)
+                result = TK_KEYWORD_TRUE; /*C23*/
+            else if (strcmp("thread_local", text) == 0)
+                result = TK_KEYWORD__THREAD_LOCAL; /*C23 alternate spelling _Thread_local*/
+            else if (strcmp("try", text) == 0)
+                result = TK_KEYWORD_TRY;
+            else if (strcmp("throw", text) == 0)
+                result = TK_KEYWORD_THROW;
+            break;
+        case 'u':
+            if (strcmp("union", text) == 0)
+                result = TK_KEYWORD_UNION;
+            else if (strcmp("unsigned", text) == 0)
+                result = TK_KEYWORD_UNSIGNED;
+            break;
+        case 'v':
+            if (strcmp("void", text) == 0)
+                result = TK_KEYWORD_VOID;
+            else if (strcmp("volatile", text) == 0)
+                result = TK_KEYWORD_VOLATILE;
 
-        break;
-    case 'w':
-        if (strcmp("while", text) == 0)
-            result = TK_KEYWORD_WHILE;
-        break;
-    case '_':
+            break;
+        case 'w':
+            if (strcmp("while", text) == 0)
+                result = TK_KEYWORD_WHILE;
+            break;
+        case '_':
 
-        // begin microsoft
-        if (strcmp("__int8", text) == 0)
-            result = TK_KEYWORD__INT8;
-        else if (strcmp("__int16", text) == 0)
-            result = TK_KEYWORD__INT16;
-        else if (strcmp("__int32", text) == 0)
-            result = TK_KEYWORD__INT32;
-        else if (strcmp("__int64", text) == 0)
-            result = TK_KEYWORD__INT64;
-        else if (strcmp("__forceinline", text) == 0)
-            result = TK_KEYWORD_INLINE;
-        else if (strcmp("__inline", text) == 0)
-            result = TK_KEYWORD_INLINE;
-        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-            result = TK_KEYWORD__ASM;
-        else if (strcmp("__alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNOF;
-        //
-        // end microsoft
+            // begin microsoft
+            if (strcmp("__int8", text) == 0)
+                result = TK_KEYWORD__INT8;
+            else if (strcmp("__int16", text) == 0)
+                result = TK_KEYWORD__INT16;
+            else if (strcmp("__int32", text) == 0)
+                result = TK_KEYWORD__INT32;
+            else if (strcmp("__int64", text) == 0)
+                result = TK_KEYWORD__INT64;
+            else if (strcmp("__forceinline", text) == 0)
+                result = TK_KEYWORD_INLINE;
+            else if (strcmp("__inline", text) == 0)
+                result = TK_KEYWORD_INLINE;
+            else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
+                result = TK_KEYWORD__ASM;
+            else if (strcmp("__alignof", text) == 0)
+                result = TK_KEYWORD__ALIGNOF;
+            //
+            // end microsoft
 
-        /*ownership*/
-        else if (strcmp("_Out", text) == 0)
-            result = TK_KEYWORD__OUT; /*extension*/
-        else if (strcmp("_Owner", text) == 0)
-            result = TK_KEYWORD__OWNER; /*extension*/
-        else if (strcmp("_Obj_owner", text) == 0)
-            result = TK_KEYWORD__OBJ_OWNER; /*extension*/
-        else if (strcmp("_Opt", text) == 0)
-            result = TK_KEYWORD__OPT; /*extension*/
-        else if (strcmp("_View", text) == 0)
-            result = TK_KEYWORD__VIEW; /*extension*/
+            /*ownership*/
+            else if (strcmp("_Out", text) == 0)
+                result = TK_KEYWORD__OUT; /*extension*/
+            else if (strcmp("_Owner", text) == 0)
+                result = TK_KEYWORD__OWNER; /*extension*/
+            else if (strcmp("_Obj_owner", text) == 0)
+                result = TK_KEYWORD__OBJ_OWNER; /*extension*/
+            else if (strcmp("_Opt", text) == 0)
+                result = TK_KEYWORD__OPT; /*extension*/
+            else if (strcmp("_View", text) == 0)
+                result = TK_KEYWORD__VIEW; /*extension*/
 
-        /*EXPERIMENTAL EXTENSION*/
-        else if (strcmp("_has_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_HAS;
-        else if (strcmp("_add_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_ADD;
-        else if (strcmp("_del_attr", text) == 0)
-            result = TK_KEYWORD_ATTR_REMOVE;
-        /*EXPERIMENTAL EXTENSION*/
+            /*EXPERIMENTAL EXTENSION*/
+            else if (strcmp("_has_attr", text) == 0)
+                result = TK_KEYWORD_ATTR_HAS;
+            else if (strcmp("_add_attr", text) == 0)
+                result = TK_KEYWORD_ATTR_ADD;
+            else if (strcmp("_del_attr", text) == 0)
+                result = TK_KEYWORD_ATTR_REMOVE;
+            /*EXPERIMENTAL EXTENSION*/
 
-        /*TRAITS EXTENSION*/
-        else if (strcmp("_is_lvalue", text) == 0)
-            result = TK_KEYWORD_IS_LVALUE;
-        else if (strcmp("_is_const", text) == 0)
-            result = TK_KEYWORD_IS_CONST;
-        else if (strcmp("_is_owner", text) == 0)
-            result = TK_KEYWORD_IS_OWNER;
-        else if (strcmp("_is_pointer", text) == 0)
-            result = TK_KEYWORD_IS_POINTER;
-        else if (strcmp("_is_array", text) == 0)
-            result = TK_KEYWORD_IS_ARRAY;
-        else if (strcmp("_is_function", text) == 0)
-            result = TK_KEYWORD_IS_FUNCTION;
-        else if (strcmp("_is_arithmetic", text) == 0)
-            result = TK_KEYWORD_IS_ARITHMETIC;
-        else if (strcmp("_is_floating_point", text) == 0)
-            result = TK_KEYWORD_IS_FLOATING_POINT;
-        else if (strcmp("_is_integral", text) == 0)
-            result = TK_KEYWORD_IS_INTEGRAL;
-        else if (strcmp("_is_scalar", text) == 0)
-            result = TK_KEYWORD_IS_SCALAR;
-        /*TRAITS EXTENSION*/
+            /*TRAITS EXTENSION*/
+            else if (strcmp("_is_lvalue", text) == 0)
+                result = TK_KEYWORD_IS_LVALUE;
+            else if (strcmp("_is_const", text) == 0)
+                result = TK_KEYWORD_IS_CONST;
+            else if (strcmp("_is_owner", text) == 0)
+                result = TK_KEYWORD_IS_OWNER;
+            else if (strcmp("_is_pointer", text) == 0)
+                result = TK_KEYWORD_IS_POINTER;
+            else if (strcmp("_is_array", text) == 0)
+                result = TK_KEYWORD_IS_ARRAY;
+            else if (strcmp("_is_function", text) == 0)
+                result = TK_KEYWORD_IS_FUNCTION;
+            else if (strcmp("_is_arithmetic", text) == 0)
+                result = TK_KEYWORD_IS_ARITHMETIC;
+            else if (strcmp("_is_floating_point", text) == 0)
+                result = TK_KEYWORD_IS_FLOATING_POINT;
+            else if (strcmp("_is_integral", text) == 0)
+                result = TK_KEYWORD_IS_INTEGRAL;
+            else if (strcmp("_is_scalar", text) == 0)
+                result = TK_KEYWORD_IS_SCALAR;
+            /*TRAITS EXTENSION*/
 
-        else if (strcmp("_Alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNOF;
-        else if (strcmp("_Alignas", text) == 0)
-            result = TK_KEYWORD__ALIGNAS;
-        else if (strcmp("_Atomic", text) == 0)
-            result = TK_KEYWORD__ATOMIC;
-        else if (strcmp("_Bool", text) == 0)
-            result = TK_KEYWORD__BOOL;
-        else if (strcmp("_Complex", text) == 0)
-            result = TK_KEYWORD__COMPLEX;
-        else if (strcmp("_Decimal128", text) == 0)
-            result = TK_KEYWORD__DECIMAL32;
-        else if (strcmp("_Decimal64", text) == 0)
-            result = TK_KEYWORD__DECIMAL64;
-        else if (strcmp("_Decimal128", text) == 0)
-            result = TK_KEYWORD__DECIMAL128;
-        else if (strcmp("_Generic", text) == 0)
-            result = TK_KEYWORD__GENERIC;
-        else if (strcmp("_Imaginary", text) == 0)
-            result = TK_KEYWORD__IMAGINARY;
-        else if (strcmp("_Noreturn", text) == 0)
-            result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
-        else if (strcmp("_Static_assert", text) == 0)
-            result = TK_KEYWORD__STATIC_ASSERT;
-        else if (strcmp("_Thread_local", text) == 0)
-            result = TK_KEYWORD__THREAD_LOCAL;
-        else if (strcmp("_BitInt", text) == 0)
-            result = TK_KEYWORD__BITINT; /*(C23)*/
-        else if (strcmp("__typeof__", text) == 0)
-            result = TK_KEYWORD_TYPEOF; /*(C23)*/
+            else if (strcmp("_Alignof", text) == 0)
+                result = TK_KEYWORD__ALIGNOF;
+            else if (strcmp("_Alignas", text) == 0)
+                result = TK_KEYWORD__ALIGNAS;
+            else if (strcmp("_Atomic", text) == 0)
+                result = TK_KEYWORD__ATOMIC;
+            else if (strcmp("_Bool", text) == 0)
+                result = TK_KEYWORD__BOOL;
+            else if (strcmp("_Complex", text) == 0)
+                result = TK_KEYWORD__COMPLEX;
+            else if (strcmp("_Decimal128", text) == 0)
+                result = TK_KEYWORD__DECIMAL32;
+            else if (strcmp("_Decimal64", text) == 0)
+                result = TK_KEYWORD__DECIMAL64;
+            else if (strcmp("_Decimal128", text) == 0)
+                result = TK_KEYWORD__DECIMAL128;
+            else if (strcmp("_Generic", text) == 0)
+                result = TK_KEYWORD__GENERIC;
+            else if (strcmp("_Imaginary", text) == 0)
+                result = TK_KEYWORD__IMAGINARY;
+            else if (strcmp("_Noreturn", text) == 0)
+                result = TK_KEYWORD__NORETURN; /*_Noreturn deprecated C23*/
+            else if (strcmp("_Static_assert", text) == 0)
+                result = TK_KEYWORD__STATIC_ASSERT;
+            else if (strcmp("_Thread_local", text) == 0)
+                result = TK_KEYWORD__THREAD_LOCAL;
+            else if (strcmp("_BitInt", text) == 0)
+                result = TK_KEYWORD__BITINT; /*(C23)*/
+            else if (strcmp("__typeof__", text) == 0)
+                result = TK_KEYWORD_TYPEOF; /*(C23)*/
 
-        break;
-    default:
-        break;
+            break;
+        default:
+            break;
     }
     return result;
 }
@@ -25558,32 +25624,32 @@ struct storage_class_specifier* owner storage_class_specifier(struct parser_ctx*
     new_storage_class_specifier->token = ctx->current;
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_TYPEDEF:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
-        break;
-    case TK_KEYWORD_EXTERN:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
-        break;
-    case TK_KEYWORD_CONSTEXPR:
+        case TK_KEYWORD_TYPEDEF:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_TYPEDEF;
+            break;
+        case TK_KEYWORD_EXTERN:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_EXTERN;
+            break;
+        case TK_KEYWORD_CONSTEXPR:
 
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
-        if (ctx->scopes.tail->scope_level == 0)
-            new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
-        break;
-    case TK_KEYWORD_STATIC:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
-        break;
-    case TK_KEYWORD__THREAD_LOCAL:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
-        break;
-    case TK_KEYWORD_AUTO:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
-        break;
-    case TK_KEYWORD_REGISTER:
-        new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
-        break;
-    default:
-        assert(false);
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_CONSTEXPR;
+            if (ctx->scopes.tail->scope_level == 0)
+                new_storage_class_specifier->flags |= STORAGE_SPECIFIER_CONSTEXPR_STATIC;
+            break;
+        case TK_KEYWORD_STATIC:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_STATIC;
+            break;
+        case TK_KEYWORD__THREAD_LOCAL:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_THREAD_LOCAL;
+            break;
+        case TK_KEYWORD_AUTO:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_AUTO;
+            break;
+        case TK_KEYWORD_REGISTER:
+            new_storage_class_specifier->flags = STORAGE_SPECIFIER_REGISTER;
+            break;
+        default:
+            assert(false);
     }
 
     /*
@@ -25762,132 +25828,132 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
 
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_VOID:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_VOID;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_VOID:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_VOID;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_CHAR:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_CHAR:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_CHAR;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_SHORT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_SHORT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_SHORT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_INT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_INT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-        // microsoft
-    case TK_KEYWORD__INT8:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT8;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            // microsoft
+        case TK_KEYWORD__INT8:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT8;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__INT16:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT16;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-    case TK_KEYWORD__INT32:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT32;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-    case TK_KEYWORD__INT64:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_INT64;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
-        // end microsoft
+        case TK_KEYWORD__INT16:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT16;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+        case TK_KEYWORD__INT32:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT32;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+        case TK_KEYWORD__INT64:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_INT64;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
+            // end microsoft
 
-    case TK_KEYWORD_LONG:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_LONG;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_LONG:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_LONG;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_FLOAT:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_FLOAT:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_FLOAT;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_DOUBLE:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_DOUBLE:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_DOUBLE;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_SIGNED:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD_SIGNED:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_SIGNED;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD_UNSIGNED:
+        case TK_KEYWORD_UNSIGNED:
 
-        p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            p_type_specifier->flags = TYPE_SPECIFIER_UNSIGNED;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__BOOL:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__BOOL:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_BOOL;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__COMPLEX:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__COMPLEX:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_COMPLEX;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL32:
-        p_type_specifier->token = ctx->current;
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__DECIMAL32:
+            p_type_specifier->token = ctx->current;
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL32;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL64:
+        case TK_KEYWORD__DECIMAL64:
 
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL64;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    case TK_KEYWORD__DECIMAL128:
-        p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
-        p_type_specifier->token = ctx->current;
-        parser_match(ctx);
-        return p_type_specifier;
+        case TK_KEYWORD__DECIMAL128:
+            p_type_specifier->flags = TYPE_SPECIFIER_DECIMAL128;
+            p_type_specifier->token = ctx->current;
+            parser_match(ctx);
+            return p_type_specifier;
 
-    default:
-        // Do nothing
-        break;
+        default:
+            // Do nothing
+            break;
     }
 
     if (first_of_typeof_specifier(ctx))
@@ -26903,44 +26969,44 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 
     switch (ctx->current->type)
     {
-    case TK_KEYWORD_CONST:
-        p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
-        break;
-    case TK_KEYWORD_RESTRICT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
-        break;
-    case TK_KEYWORD_VOLATILE:
-        p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
-        break;
-    case TK_KEYWORD__ATOMIC:
-        p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
-        break;
+        case TK_KEYWORD_CONST:
+            p_type_qualifier->flags = TYPE_QUALIFIER_CONST;
+            break;
+        case TK_KEYWORD_RESTRICT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_RESTRICT;
+            break;
+        case TK_KEYWORD_VOLATILE:
+            p_type_qualifier->flags = TYPE_QUALIFIER_VOLATILE;
+            break;
+        case TK_KEYWORD__ATOMIC:
+            p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
+            break;
 
-        /*
-          ownership extensions
-        */
+            /*
+              ownership extensions
+            */
 
-    case TK_KEYWORD__OUT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
-        break;
+        case TK_KEYWORD__OUT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
+            break;
 
-    case TK_KEYWORD__OWNER:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
-        break;
+        case TK_KEYWORD__OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+            break;
 
-    case TK_KEYWORD__OPT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
-        break;
+        case TK_KEYWORD__OPT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
+            break;
 
-    case TK_KEYWORD__OBJ_OWNER:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
-        break;
-    case TK_KEYWORD__VIEW:
-        p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
-        break;
-    default:
-        // do nothing
-        break;
+        case TK_KEYWORD__OBJ_OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
+            break;
+        case TK_KEYWORD__VIEW:
+            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+            break;
+        default:
+            // do nothing
+            break;
     }
 
     p_type_qualifier->token = ctx->current;
@@ -28648,6 +28714,34 @@ struct secondary_block* owner secondary_block(struct parser_ctx* ctx)
     return p_secondary_block;
 }
 
+bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_statement)
+{
+    if (p_unlabeled_statement->primary_block &&
+        p_unlabeled_statement->primary_block->compound_statement &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement)
+    {
+        return
+            p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
+    }
+    else if (p_unlabeled_statement->jump_statement)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool secondary_block_ends_with_jump(struct secondary_block* p_secondary_block)
+{
+    if (p_secondary_block &&
+        p_secondary_block->statement &&
+        p_secondary_block->statement->unlabeled_statement)
+    {
+        return unlabeled_statement_ends_with_jump(p_secondary_block->statement->unlabeled_statement);
+    }
+    return false;
+}
+
 void secondary_block_delete(struct secondary_block* owner opt p)
 {
     if (p)
@@ -30279,7 +30373,7 @@ int compile(int argc, const char** argv, struct report* report)
     }
 
     clock_t end_clock = clock();
-    double cpu_time_used = ((double)(end_clock - begin_clock)) / CLOCKS_PER_SEC;
+    double cpu_time_used = ((double) (end_clock - begin_clock)) / CLOCKS_PER_SEC;
     report->no_files = no_files;
     report->cpu_time_used_sec = cpu_time_used;
     return 0;
@@ -33608,7 +33702,7 @@ static void flow_visit_defer_statement(struct flow_visit_ctx* ctx, struct defer_
     */
 }
 
-static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression, struct object *p_temp_object)
+static struct object* expression_is_comparing_owner_with_null(struct expression* p_expression, struct object* p_temp_object)
 {
     if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL &&
         type_is_pointer(&p_expression->left->type) &&
@@ -33624,7 +33718,7 @@ static struct object* expression_is_comparing_owner_with_null(struct expression*
         expression_is_null_pointer_constant(p_expression->left) &&
         type_is_pointer(&p_expression->right->type))
     {
-        
+
         struct object* p_object = expression_get_object(p_expression->right, p_temp_object);
 
         return p_object;
@@ -33641,7 +33735,7 @@ static struct object* expression_is_comparing_owner_with_null(struct expression*
     return NULL;
 }
 
-static struct object* expression_is_comparing_owner_with_not_null(struct expression* p_expression, struct object * p_temp_object)
+static struct object* expression_is_comparing_owner_with_not_null(struct expression* p_expression, struct object* p_temp_object)
 {
 
     if (p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL &&
@@ -33691,10 +33785,28 @@ void push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name, in
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
     {
-        object_push_copy_current_state(p_object , name, state_number);
+        object_push_copy_current_state(p_object, name, state_number);
         p_object = visit_objects_next(&v1);
     }
 
+}
+
+
+void ctx_push_empty_state(struct flow_visit_ctx* ctx, const char* name, int state_number)
+{
+    /*
+      top of stack constains the copy
+    */
+
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                                  .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_push_empty(p_object, name, state_number);
+        p_object = visit_objects_next(&v1);
+    }
 }
 
 void restore_state(struct flow_visit_ctx* ctx, int state_index_to_restore)
@@ -33789,6 +33901,20 @@ void merge_states(struct flow_visit_ctx* ctx,
     };
 }
 
+
+static void ctx_object_set_state_from_current(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_set_state_from_current(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
+
 static void ctx_object_merge_current_state_with_state_number(struct flow_visit_ctx* ctx, int number_state)
 {
     struct visit_objects v1 = { .current_block = ctx->tail_block,
@@ -33801,6 +33927,20 @@ static void ctx_object_merge_current_state_with_state_number(struct flow_visit_c
         p_object = visit_objects_next(&v1);
     };
 }
+
+static void ctx_object_merge_current_state_with_state_number_or(struct flow_visit_ctx* ctx, int number_state)
+{
+    struct visit_objects v1 = { .current_block = ctx->tail_block,
+                               .next_child = ctx->tail_block->last_child };
+
+    struct object* p_object = visit_objects_next(&v1);
+    while (p_object)
+    {
+        object_merge_current_state_with_state_number_or(p_object, number_state);
+        p_object = visit_objects_next(&v1);
+    };
+}
+
 
 static void ctx_object_restore_current_state_from(struct flow_visit_ctx* ctx, int number_state)
 {
@@ -33941,8 +34081,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 {
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
     struct object* p_object_compared_with_null = NULL;
-    struct object temp_obj1 = {0};
-    struct object temp_obj2 = {0};
+    struct object temp_obj1 = { 0 };
+    struct object temp_obj2 = { 0 };
     if (p_selection_statement->expression)
     {
         p_object_compared_with_null = expression_is_comparing_owner_with_null(p_selection_statement->expression, &temp_obj1);
@@ -33981,23 +34121,9 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
-    bool was_last_statement_inside_true_branch_return = false;
-    if (ctx->p_last_jump_statement)
-    {
-        //TODO gotos etc...
+    bool was_last_statement_inside_true_branch_return =
+        secondary_block_ends_with_jump(p_selection_statement->secondary_block);
 
-        was_last_statement_inside_true_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-    }
-
-    //enum object_state state_left_in_true_branch = 0;
-    //if (p_object_compared_with_null)
-      //  state_left_in_true_branch = p_object_compared_with_null->state;
-    //else if (p_object_compared_with_not_null)
-      //  state_left_in_true_branch = p_object_compared_with_not_null->state;
 
     /*let's make a copy of the state we left true branch*/
     const int true_branch = 1;
@@ -34020,7 +34146,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
     }
 
-    ctx->p_last_jump_statement = NULL;
+
     if (p_selection_statement->else_secondary_block_opt)
     {
         //struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
@@ -34032,16 +34158,8 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
-    bool was_last_statement_inside_else_branch_return = false;
-    if (ctx->p_last_jump_statement)
-    {
-        //TODO gotos etc...
-        was_last_statement_inside_else_branch_return =
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-            ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-    }
+    bool was_last_statement_inside_else_branch_return =
+        secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);
 
 
     if (was_last_statement_inside_true_branch_return)
@@ -34071,7 +34189,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     pop_states(ctx, 2);
     object_destroy(&temp_obj1);
     object_destroy(&temp_obj2);
-    
+
 }
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
 
@@ -34079,12 +34197,14 @@ static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item*
 static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_statement* p_try_statement)
 {
     const int try_state_old = ctx->try_state;
-    struct secondary_block* catch_secondary_block_old =  ctx->catch_secondary_block_opt;
+    struct secondary_block* catch_secondary_block_old = ctx->catch_secondary_block_opt;
 
     ctx->try_state = ctx->state_number_generator;
     ctx->catch_secondary_block_opt = p_try_statement->catch_secondary_block_opt;
 
-    push_copy_of_current_state(ctx, "try", ctx->state_number_generator++);
+    ctx_push_empty_state(ctx, "try", ctx->state_number_generator++);
+    int orignial = ctx->state_number_generator++;
+    push_copy_of_current_state(ctx, "original", orignial);
 
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_try_statement = p_try_statement;
@@ -34092,31 +34212,41 @@ static void flow_visit_try_statement(struct flow_visit_ctx* ctx, struct try_stat
     if (p_try_statement->secondary_block)
     {
         flow_visit_secondary_block(ctx, p_try_statement->secondary_block);
-
-        bool not_reached_the_end = false;
-        if (ctx->p_last_jump_statement)
-        {
-            //TODO gotos etc...
-            not_reached_the_end =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-        }
-
-        //if it is possible to reach the end of secondary block
-        if (!not_reached_the_end)
-          ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        ctx_object_set_state_from_current(ctx, orignial); //state of end of secondary block
     }
 
-    
+    if (p_try_statement->catch_secondary_block_opt)
+    {
+        //current all possible states of throw
+        ctx_object_restore_current_state_from(ctx, ctx->try_state);
+        flow_visit_secondary_block(ctx, p_try_statement->catch_secondary_block_opt);
+        //current has the state at the end of catch block
+    }
+
+    bool try_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->secondary_block);
+    bool catch_reached_the_end = !secondary_block_ends_with_jump(p_try_statement->catch_secondary_block_opt);
+
+    if (try_reached_the_end && catch_reached_the_end)
+    {
+        //merge current with orignial
+        ctx_object_merge_current_state_with_state_number_or(ctx, orignial);
+        ctx_object_restore_current_state_from(ctx, orignial);
+    }
+    else if (try_reached_the_end)
+    {
+        ctx_object_restore_current_state_from(ctx, orignial);
+    }
+    else if (catch_reached_the_end)
+    {
+        //ctx_object_restore_current_state_from(ctx, orignial);       
+    }
 
 
     check_defer_and_variables(ctx, p_defer, p_try_statement->secondary_block->last_token);
-    
-    ctx_object_restore_current_state_from(ctx, ctx->try_state);
+
+
     flow_visit_ctx_pop_tail_block(ctx);
-    pop_states(ctx, 1);
+    pop_states(ctx, 2);
     ctx->try_state = try_state_old; //restore
     ctx->catch_secondary_block_opt = catch_secondary_block_old; //restore
 }
@@ -34389,16 +34519,16 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
     while (p_current_argument && p_current_parameter_type)
     {
-        struct object temp_obj1 = {0};
+        struct object temp_obj1 = { 0 };
 
         struct object* p_argument_object =
             expression_get_object(p_current_argument->expression, &temp_obj1);
 
         bool bool_source_zero_value = constant_value_is_valid(&p_current_argument->expression->constant_value) &&
             constant_value_to_ull(&p_current_argument->expression->constant_value) == 0;
-        
+
         //struct object temp_obj2 = {0};
-        
+
         //struct object* p_argument_object2 =
           //  expression_get_object(p_current_argument->expression, &temp_obj2);
 
@@ -34495,9 +34625,9 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                         struct type argument_type =
                             type_remove_pointer(&p_current_argument->expression->type);
 
-                        struct object * pointed = object_get_pointed_object(p_argument_object);
+                        struct object* pointed = object_get_pointed_object(p_argument_object);
                         object_set_unknown(&argument_type, pointed);
-                        type_destroy(&argument_type);                        
+                        type_destroy(&argument_type);
                     }
                 }
 
@@ -34508,7 +34638,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         p_current_parameter_type = p_current_parameter_type->next;
         param_num++;
 
-        object_destroy(&temp_obj1);    
+        object_destroy(&temp_obj1);
     }
 
     while (p_current_argument)
@@ -34516,7 +34646,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         /*
            We have more argument than parameters, this happens with variadic functions
         */
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
 
         struct object* p_argument_object =
             expression_get_object(p_current_argument->expression, &temp_obj);
@@ -34539,7 +34669,7 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
     if (p_expression->is_assigment_expression)
         return;
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object = expression_get_object(p_expression, &temp_obj);
 
     if (!ctx->expression_is_not_evaluated)
@@ -34695,7 +34825,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             {
                 flow_visit_expression(ctx, p_expression->right);
 
-                struct object temp_obj1 = {0};
+                struct object temp_obj1 = { 0 };
                 struct object* p_object_compared_with_null = NULL;
 
                 if (p_expression->right)
@@ -34703,7 +34833,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     p_object_compared_with_null = expression_is_comparing_owner_with_null(p_expression->right, &temp_obj1);
                 }
 
-                struct object temp_obj2 = {0};
+                struct object temp_obj2 = { 0 };
                 struct object* p_object_compared_with_not_null = NULL;
                 if (p_expression->right)
                 {
@@ -34759,7 +34889,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             if (p_expression->right)
             {
 
-                struct object temp_obj = {0};
+                struct object temp_obj = { 0 };
                 struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
 
                 if (!ctx->expression_is_not_evaluated)
@@ -34799,7 +34929,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
 
 
-            struct object temp_obj = {0};
+            struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
 
             if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
@@ -34828,7 +34958,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             p_expression->right->first_token, "dereference a NULL object");
                     }
                 }
-            }            
+            }
             object_destroy(&temp_obj);
         }
         break;
@@ -34840,10 +34970,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         case ASSIGNMENT_EXPRESSION:
         {
 
-            struct object temp_obj1 = {0};
+            struct object temp_obj1 = { 0 };
             struct object* const p_right_object = expression_get_object(p_expression->right, &temp_obj1);
 
-            struct object temp_obj2 = {0};
+            struct object temp_obj2 = { 0 };
             struct object* const p_dest_object = expression_get_object(p_expression->left, &temp_obj2);
             //print_object(&dest_object_type, p_dest_object);
 
@@ -34868,7 +34998,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     bool_source_zero_value = true;
                 }
             }
-   
+
             object_assignment(ctx->ctx,
                 p_right_object, /*source*/
                 &p_expression->right->type, /*source type*/
@@ -34879,7 +35009,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 OBJECT_STATE_MOVED,
                 ASSIGMENT_TYPE_OBJECTS);
 
-            
+
             object_destroy(&temp_obj1);
             object_destroy(&temp_obj2);
         }
@@ -34975,14 +35105,6 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement)
 {
 
-    /*let's make a copy of the current post function diagnostic*/
-    struct diagnostic current = ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index];
-
-    /*lets restore the diagnostic state it was initialize because static analysis is a second pass*/
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = p_compound_statement->diagnostic_flags;
-
-
-
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_compound_statement = p_compound_statement;
 
@@ -34991,16 +35113,13 @@ static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct com
 
     flow_visit_ctx_pop_tail_block(ctx);
 
-    /*restore the state we change*/
-    ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index] = current;
-
 }
 
 static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_DO);
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression1)
@@ -35020,16 +35139,9 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
         flow_visit_ctx_pop_tail_block(ctx);
 
-        bool was_last_statement_inside_true_branch_return = false;
-        if (ctx->p_last_jump_statement)
-        {
+        bool was_last_statement_inside_true_branch_return =
+            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
-            was_last_statement_inside_true_branch_return =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-        }
 
         if (was_last_statement_inside_true_branch_return)
         {
@@ -35057,7 +35169,7 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
-    struct object temp_obj = {0};
+    struct object temp_obj = { 0 };
     struct object* p_object_compared_with_not_null = NULL;
 
     if (p_iteration_statement->expression1)
@@ -35087,13 +35199,9 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
 
-        bool was_last_statement_inside_true_branch_return = false;
-        if (ctx->p_last_jump_statement)
-        {
-            //TODO gotos etc...
-            was_last_statement_inside_true_branch_return =
-                ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN;
-        }
+        bool was_last_statement_inside_true_branch_return =
+            secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
+
 
         if (was_last_statement_inside_true_branch_return)
         {
@@ -35157,7 +35265,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
         flow_visit_ctx_pop_tail_block(ctx);
     }
-    
+
     /*we visit again*/
     if (p_iteration_statement->secondary_block)
     {
@@ -35191,34 +35299,32 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 
 static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_statement* p_jump_statement)
 {
-    ctx->p_last_jump_statement = p_jump_statement;
-
-
     if (p_jump_statement->first_token->type == TK_KEYWORD_THROW)
     {
         //ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
-        if (ctx->catch_secondary_block_opt)
+        //if (ctx->catch_secondary_block_opt)
+        //{/
+            // ctx_object_restore_current_state_from(ctx, ctx->try_state);
+            //flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
+
+        bool not_reached_the_end = secondary_block_ends_with_jump(ctx->catch_secondary_block_opt);
+
+
+        //if it is possible to reach the end of secondary block
+        //if (!not_reached_the_end)
+        //{
+        //if (ctx->is_first_throw)
         {
-           // ctx_object_restore_current_state_from(ctx, ctx->try_state);
-            flow_visit_secondary_block(ctx, ctx->catch_secondary_block_opt);
 
-            bool not_reached_the_end = false;
-            if (ctx->p_last_jump_statement)
-            {
-                //TODO gotos etc...
-                not_reached_the_end =
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_RETURN ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_BREAK ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_THROW ||
-                    ctx->p_last_jump_statement->first_token->type == TK_KEYWORD_CONTINUE;
-            }
-
-            //if it is possible to reach the end of secondary block
-            if (!not_reached_the_end)
-                ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
-
-            
+          //  ctx_object_set_state_from_current(ctx, ctx->try_state);
         }
+        //else
+        {
+            ctx_object_merge_current_state_with_state_number(ctx, ctx->try_state);
+        }
+
+        //ctx->is_first_throw = false;
+    //}
 
         check_all_defer_until_try(ctx, ctx->tail_block, p_jump_statement->first_token);
     }
@@ -35233,8 +35339,8 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
           returning a declarator will move the onwership
         */
         if (p_jump_statement->expression_opt)
-        {            
-            struct object temp_obj = {0};
+        {
+            struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_jump_statement->expression_opt, &temp_obj);
             bool bool_source_zero_value = constant_value_is_valid(&p_jump_statement->expression_opt->constant_value) &&
                 constant_value_to_ull(&p_jump_statement->expression_opt->constant_value) == 0;
@@ -35256,7 +35362,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 OBJECT_STATE_UNINITIALIZED,
                 ASSIGMENT_TYPE_RETURN);
 
-            
+
             object_destroy(&temp_obj);
         }
         check_all_defer_until_end(ctx, ctx->tail_block, p_jump_statement->first_token);
@@ -35326,7 +35432,7 @@ static void flow_visit_primary_block(struct flow_visit_ctx* ctx, struct primary_
 
 static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct unlabeled_statement* p_unlabeled_statement)
 {
-    ctx->p_last_jump_statement = NULL;
+
     if (p_unlabeled_statement->primary_block)
     {
         flow_visit_primary_block(ctx, p_unlabeled_statement->primary_block);
@@ -35347,7 +35453,7 @@ static void flow_visit_unlabeled_statement(struct flow_visit_ctx* ctx, struct un
 
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement)
 {
-    ctx->p_last_jump_statement = NULL;
+
 
     if (p_statement->labeled_statement)
     {
@@ -35366,7 +35472,7 @@ static void flow_visit_label(struct flow_visit_ctx* ctx, struct label* p_label)
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item)
 {
-    ctx->p_last_jump_statement = NULL;
+
     if (p_block_item->declaration)
     {
         flow_visit_declaration(ctx, p_block_item->declaration);
@@ -35470,7 +35576,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
         compiler_diagnostic_message(W_LOCATION, ctx->ctx, p_static_assert_declaration->first_token, "static_debug");
 
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
 
         if (p_obj)
@@ -35478,7 +35584,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             print_object(&p_static_assert_declaration->constant_expression->type, p_obj, !ex);
         }
 
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
@@ -35486,7 +35592,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
            check state
 
         */
-        struct object temp_obj = {0};
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
         if (p_obj)
         {
@@ -35500,6 +35606,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                     if (e != p_obj->state)
                     {
                         compiler_diagnostic_message(C_ANALIZER_ERROR_STATIC_STATE_FAILED, ctx->ctx, p_static_assert_declaration->first_token, "static_state failed");
+
                     }
                 }
                 else
@@ -35509,12 +35616,12 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             }
 
         }
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_SET)
     {
-        
-        struct object temp_obj = {0};
+
+        struct object temp_obj = { 0 };
         struct object* p_obj = expression_get_object(p_static_assert_declaration->constant_expression, &temp_obj);
         if (p_obj)
         {
@@ -35547,7 +35654,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
             }
 
         }
-        object_destroy(&temp_obj);    
+        object_destroy(&temp_obj);
     }
 }
 
@@ -35618,6 +35725,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 
 
         struct object temp = make_object(&p_declarator->type, p_declarator, NULL);
+        object_set_uninitialized(&p_declarator->type, &temp);
         object_swap(&temp, &p_declarator->object);
         object_destroy(&temp);
 
@@ -35671,7 +35779,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-            }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -35708,8 +35816,8 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
             if (p_init_declarator->initializer &&
                 p_init_declarator->initializer->assignment_expression)
             {
-                
-                struct object temp_obj = {0};
+
+                struct object temp_obj = { 0 };
                 struct object* p_right_object =
                     expression_get_object(p_init_declarator->initializer->assignment_expression, &temp_obj);
 
@@ -35730,7 +35838,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                         if (object_get_pointed_object(&p_init_declarator->p_declarator->object))
                         {
                             struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
-                            set_direct_state(&t, 
+                            set_direct_state(&t,
                                 object_get_pointed_object(&p_init_declarator->p_declarator->object),
                                 OBJECT_STATE_ZERO);
                             type_destroy(&t);
@@ -35771,7 +35879,7 @@ static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct i
                         ;
 
                     object_assignment(ctx->ctx,
-                        p_right_object, 
+                        p_right_object,
                         &p_init_declarator->initializer->assignment_expression->type,
                         &p_init_declarator->p_declarator->object,
                         &p_init_declarator->p_declarator->type,
@@ -36068,7 +36176,7 @@ void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_de
     {
         flow_visit_static_assert_declaration(ctx, p_declaration->static_assert_declaration);
     }
-    
+
     if (p_declaration->pragma_declaration)
     {
         flow_visit_pragma_declaration(ctx, p_declaration->pragma_declaration);
@@ -36998,13 +37106,13 @@ void format_visit(struct format_visit_ctx* ctx)
 
 
 #define WARNING_FLAG(x) (1ULL << (x))
-static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks, const char *src)
+static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks, const char* src)
 {
-    struct options options = {.input = LANGUAGE_C99,
+    struct options options = { .input = LANGUAGE_C99,
                               .flow_analysis = flow_analysis,
                               .null_checks = nullchecks,
-                              .diagnostic_stack[0] = default_diagnostic};
-    struct report report = {0};
+                              .diagnostic_stack[0] = default_diagnostic };
+    struct report report = { 0 };
     get_ast(&options, "source", src, &report);
     if (report.error_count == 0 && report.warnings_count == 0)
     {
@@ -37015,40 +37123,40 @@ static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks,
     return false;
 }
 
-static bool compile_with_errors(bool flow_analysis, bool nullchecks, const char *src)
+static bool compile_with_errors(bool flow_analysis, bool nullchecks, const char* src)
 {
     struct options options =
-        {
-            .input = LANGUAGE_C99,
-            .flow_analysis = flow_analysis,
-            .null_checks = nullchecks,
-            .diagnostic_stack[0].warnings = ~0ULL};
-    struct report report = {0};
+    {
+        .input = LANGUAGE_C99,
+        .flow_analysis = flow_analysis,
+        .null_checks = nullchecks,
+        .diagnostic_stack[0].warnings = ~0ULL };
+    struct report report = { 0 };
     get_ast(&options, "source", src, &report);
     return report.error_count != 0;
 }
 
-static bool compile_with_warnings(bool flow_analysis, bool nullchecks, const char *src)
+static bool compile_with_warnings(bool flow_analysis, bool nullchecks, const char* src)
 {
     struct options options =
-        {
-            .input = LANGUAGE_C99,
-            .flow_analysis = flow_analysis,
-            .null_checks = nullchecks};
-    struct report report = {0};
+    {
+        .input = LANGUAGE_C99,
+        .flow_analysis = flow_analysis,
+        .null_checks = nullchecks };
+    struct report report = { 0 };
     get_ast(&options, "source", src, &report);
     return report.warnings_count != 0;
 }
 
 void parser_specifier_test()
 {
-    const char *src = "long long long i;";
+    const char* src = "long long long i;";
     assert(compile_with_errors(false, false, src));
 }
 void character_constant_test()
 {
 
-    const char *source =
+    const char* source =
         "static_assert(92 == 0134);\n"
         "\n"
         "static_assert('\\0' == 0);\n"
@@ -37078,7 +37186,7 @@ void character_constant_test()
 
 void char_constants()
 {
-    const char *source =
+    const char* source =
         "#define TYPE_IS(e, T) _Generic(typeof(e), T : 1, default: 0)\n"
         "\n"
         "static_assert(U'ç' == 231);\n"
@@ -37095,7 +37203,7 @@ void char_constants()
 
 void array_item_type_test()
 {
-    const char *src =
+    const char* src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "void (*pf[10])(void* val);\n"
         "static_assert(_is_same(typeof(pf[0]), void (*)(void* val)));\n";
@@ -37104,7 +37212,7 @@ void array_item_type_test()
 
 void take_address_type_test()
 {
-    const char *src =
+    const char* src =
         "void F(char(*p)[10])"
         "{"
         "    (*p)[0] = 'a';"
@@ -37114,42 +37222,42 @@ void take_address_type_test()
 
 void parser_scope_test()
 {
-    const char *src = "void f() {int i; char i;}";
+    const char* src = "void f() {int i; char i;}";
     assert(compile_with_errors(false, false, src));
 }
 
 void parser_tag_test()
 {
     // mudou tipo do tag no mesmo escopo
-    const char *src = "enum E { A }; struct E { int i; };";
+    const char* src = "enum E { A }; struct E { int i; };";
     assert(compile_with_errors(false, false, src));
 }
 
 void string_concatenation_test()
 {
-    const char *src = " const char* s = \"part1\" \"part2\";";
+    const char* src = " const char* s = \"part1\" \"part2\";";
     assert(compile_without_errors_warnings(false, false, src));
 }
 
 void test_digit_separator()
 {
-    struct report report = {0};
-    char *result = compile_source("-std=c99", "int i = 1'000;", &report);
+    struct report report = { 0 };
+    char* result = compile_source("-std=c99", "int i = 1'000;", &report);
     assert(strcmp(result, "int i = 1000;") == 0);
     free(result);
 }
 
 void test_lit()
 {
-    struct report report = {0};
-    char *result = compile_source("-std=c99", "char * s = u8\"maçã\";", &report);
+    struct report report = { 0 };
+    char* result = compile_source("-std=c99", "char * s = u8\"maçã\";", &report);
     assert(strcmp(result, "char * s = \"ma\\xc3\\xa7\\xc3\\xa3\";") == 0);
     free(result);
 }
 
 void type_test2()
 {
-    char *src =
+    char* src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int a[10];\n"
         " static_assert(_is_same(typeof(&a) ,int (*)[10]));\n";
@@ -37159,7 +37267,7 @@ void type_test2()
 
 void type_test3()
 {
-    char *src =
+    char* src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int i;"
         "int (*f)(void);"
@@ -37171,7 +37279,7 @@ void type_test3()
 
 void crazy_decl()
 {
-    const char *src =
+    const char* src =
         "void (*f(int i))(void)\n"
         "{\n"
         "   i = 1; \n"
@@ -37183,7 +37291,7 @@ void crazy_decl()
 
 void crazy_decl2()
 {
-    const char *src =
+    const char* src =
         "void (*f(int i))(void)\n"
         "{\n"
         "   i = 1; \n"
@@ -37199,7 +37307,7 @@ void crazy_decl2()
 
 void crazy_decl4()
 {
-    const char *src =
+    const char* src =
         "void (*F(int a, int b))(void) { return 0; }\n"
         "void (*(*PF)(int a, int b))(void) = F;\n"
         "int main() {\n"
@@ -37217,23 +37325,23 @@ void sizeof_not_evaluated()
 void sizeof_array_test()
 {
     assert(compile_without_errors_warnings(false,
-                                           false,
-                                           "int main() {\n"
-                                           "int a[] = { 1, 2, 3 };\n"
-                                           "static_assert(sizeof(a) == sizeof(int) * 3);\n"
-                                           "}\n"));
+        false,
+        "int main() {\n"
+        "int a[] = { 1, 2, 3 };\n"
+        "static_assert(sizeof(a) == sizeof(int) * 3);\n"
+        "}\n"));
 }
 
 void sizeof_test()
 {
-    const char *source =
+    const char* source =
         "static_assert(sizeof(\"ABC\") == 4);\n"
         "char a[10];\n"
         "char b[10][2];\n"
         "static_assert(sizeof(a) == 10);\n"
         "static_assert(sizeof(b) == sizeof(char)*10*2);\n"
         "char *p[10];\n"
-        "static_assert(sizeof(p) == sizeof(char*)*10);\n"        
+        "static_assert(sizeof(p) == sizeof(char*)*10);\n"
         "static_assert(sizeof(int) == 4);\n"
         "static_assert(sizeof(char) == 1);\n"
         "static_assert(sizeof(short) == 2);\n"
@@ -37245,7 +37353,7 @@ void sizeof_test()
 
 void alignof_test()
 {
-    const char *src =
+    const char* src =
         "struct X { char s; double c; char s2;};\n"
         "static_assert(alignof(struct X) == 8);"
         "static_assert(sizeof(struct X) == 24);";
@@ -37255,7 +37363,7 @@ void alignof_test()
 
 void indirection_struct_size()
 {
-    const char *src =
+    const char* src =
         "typedef struct X X;\n"
         "struct X {\n"
         "    void* data;\n"
@@ -37268,7 +37376,7 @@ void indirection_struct_size()
 void traits_test()
 {
     // https://en.cppreference.com/w/cpp/header/type_traits
-    const char *src =
+    const char* src =
         "void (*F)();\n"
         "static_assert(_is_pointer(F));\n"
         "static_assert(_is_integral(1));\n"
@@ -37281,7 +37389,7 @@ void traits_test()
 
 void comp_error1()
 {
-    const char *src =
+    const char* src =
         "void F() {\n"
         "    char* z;\n"
         "    *z-- = '\\0';\n"
@@ -37292,7 +37400,7 @@ void comp_error1()
 
 void n_elements()
 {
-    const char *src =
+    const char* src =
         "void (*f[2][3])(int i);\n"
         "int main() {\n"
         "static_assert(sizeof(void (*[2])(int i)) == sizeof(void*) * 2);\n"
@@ -37304,7 +37412,7 @@ void n_elements()
 
 void expr_type()
 {
-    const char *src =
+    const char* src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "static_assert(_is_same(typeof(1 + 2.0), double));";
 
@@ -37313,7 +37421,7 @@ void expr_type()
 
 void expand_test()
 {
-    char *src =
+    char* src =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "typedef int A[2];"
         "typedef A *B [1];"
@@ -37328,7 +37436,7 @@ void expand_test()
 void expand_test2()
 {
 
-    const char *source =
+    const char* source =
         "\n"
         "\n"
         "typedef char* A;\n"
@@ -37354,7 +37462,7 @@ void expand_test2()
 void expand_test3()
 {
 
-    char *src3 =
+    char* src3 =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "typedef char* T1;"
         "typedef T1(*f[3])(int); "
@@ -37367,7 +37475,7 @@ void expand_test3()
 
 void sizeof_test2()
 {
-    const char *str =
+    const char* str =
         "\n"
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
@@ -37430,7 +37538,7 @@ void sizeof_test2()
 
 void literal_string_type()
 {
-    const char *source =
+    const char* source =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "    static_assert(_is_same(typeof(\"A\"),  char [2]));\n"
         "    static_assert(_is_same(typeof(\"AB\"),  char [3]));\n";
@@ -37440,7 +37548,7 @@ void literal_string_type()
 
 void digit_separator_test()
 {
-    const char *source =
+    const char* source =
         "static_assert(1'00'00 == 10000);";
 
     assert(compile_without_errors_warnings(false, false, source));
@@ -37448,7 +37556,7 @@ void digit_separator_test()
 
 void numbers_test()
 {
-    const char *source =
+    const char* source =
         "#if 0xA1 == 161\n"
         "_Static_assert(0xA1 == 161); \n"
         "#endif";
@@ -37458,7 +37566,7 @@ void numbers_test()
 
 void binary_digits_test()
 {
-    const char *source =
+    const char* source =
         "_Static_assert(0b101010 == 42);"
         "_Static_assert(0b1010'10 == 42);"
         "_Static_assert(052 == 42);";
@@ -37468,7 +37576,7 @@ void binary_digits_test()
 
 void type_suffix_test()
 {
-    const char *source =
+    const char* source =
         "\n"
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
@@ -37510,7 +37618,7 @@ void type_suffix_test()
 
 void type_test()
 {
-    const char *source =
+    const char* source =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "int * p = 0;"
         "static_assert(_is_same( typeof( *(p + 1) ), int)   );";
@@ -37520,7 +37628,7 @@ void type_test()
 
 void is_pointer_test()
 {
-    const char *source =
+    const char* source =
         "#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)\n"
         "\n"
         "int main()\n"
@@ -37554,7 +37662,7 @@ void is_pointer_test()
 
 void params_test()
 {
-    const char *source =
+    const char* source =
         "void f1();"
         "void f2(void);"
         "void f3(char * s, ...);"
@@ -37571,7 +37679,7 @@ void params_test()
 
 void test_compiler_constant_expression()
 {
-    const char *source =
+    const char* source =
         "int main()"
         "{"
         "  static_assert('ab' == 'a'*256+'b');\n"
@@ -37585,7 +37693,7 @@ void test_compiler_constant_expression()
 
 void zerodiv()
 {
-    const char *source =
+    const char* source =
         "int main()\n"
         "{\n"
         "   int a = 2/0;\n"
@@ -37598,7 +37706,7 @@ void zerodiv()
 
 void function_result_test()
 {
-    const char *source =
+    const char* source =
         "int (*(*F1)(void))(int, int*);\n"
         "int (* F2(void) )(int, int*);\n"
         "static_assert(_Generic(F1(), int (*)(int, int*) : 1));\n"
@@ -37609,7 +37717,7 @@ void function_result_test()
 
 void type_normalization()
 {
-    const char *source =
+    const char* source =
         "#define _is_same_type(typeof(T1), typeof(T2)) _Generic(T1, T2 : 1, default: 0)\n"
         "char ((a1));\n"
         "char b1;\n"
@@ -37630,7 +37738,7 @@ void type_normalization()
 
 void auto_test()
 {
-    const char *source =
+    const char* source =
         "#define _is_same(typeof(T1), typeof(T2)) _Generic(T1, T2 : 1, default: 0)\n"
         "    int main()\n"
         "    {\n"
@@ -37651,17 +37759,17 @@ void auto_test()
 
 void visit_test_auto_typeof()
 {
-    const char *source = "auto p2 = (typeof(int[2])*) 0;";
+    const char* source = "auto p2 = (typeof(int[2])*) 0;";
 
-    struct report report = {0};
-    char *result = compile_source("-std=c99", source, &report);
+    struct report report = { 0 };
+    char* result = compile_source("-std=c99", source, &report);
     assert(strcmp(result, "int  (* p2)[2] = (int(*)[2]) 0;") == 0);
     free(result);
 }
 
 void enum_scope()
 {
-    const char *source =
+    const char* source =
         "enum E { A = 1 };\n"
         "int main()\n"
         "{\n"
@@ -37673,7 +37781,7 @@ void enum_scope()
 
 void const_member()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "  int i;\n"
         "};\n"
@@ -37683,8 +37791,8 @@ void const_member()
         "}\n"
         "";
 
-    struct options options = {.input = LANGUAGE_C99};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99 };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&&
         report.last_error == C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/
@@ -37693,7 +37801,7 @@ void const_member()
 
 void register_struct_member()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "    int i;\n"
         "};\n"
@@ -37703,15 +37811,15 @@ void register_struct_member()
         "  int * p = &x.i;\n" // error: address of register variable 'x' requested
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1);
 }
 
 void address_of_const()
 {
-    const char *source =
+    const char* source =
         "const int i;\n"
         "static_assert(_Generic(&i, const int * : 1 ));\n"
         "\n"
@@ -37726,7 +37834,7 @@ void lvalue_test()
 {
     // https://en.cppreference.com/w/c/language/value_category
 
-    const char *source =
+    const char* source =
         "//https://en.cppreference.com/w/c/language/value_category\n"
         "\n"
         "struct X\n"
@@ -37806,7 +37914,7 @@ void lvalue_test()
 
 void simple_no_discard_test()
 {
-    const char *source =
+    const char* source =
         "[[nodiscard]] int destroy();\n"
         "\n"
         "int main()\n"
@@ -37815,15 +37923,15 @@ void simple_no_discard_test()
         "}\n"
         "";
 
-    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1 /*&& report.last_warning == W_ATTRIBUTES*/);
 }
 
 void simple_no_discard_test2()
 {
-    const char *source =
+    const char* source =
         "[[nodiscard]] int destroy();\n"
         "\n"
         "int main()\n"
@@ -37833,15 +37941,15 @@ void simple_no_discard_test2()
         "}\n"
         "";
 
-    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 0 && report.error_count == 0);
 }
 
 void address_of_register()
 {
-    const char *source =
+    const char* source =
         "struct X\n"
         "{\n"
         "    int i;\n"
@@ -37853,15 +37961,15 @@ void address_of_register()
         "  &x;\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&& report.last_error == C_ERROR_ADDRESS_OF_REGISTER*/);
 }
 
 void return_address_of_local()
 {
-    const char *source =
+    const char* source =
         "struct X\n"
         "{\n"
         "    int i;\n"
@@ -37873,30 +37981,30 @@ void return_address_of_local()
         "  return &x.i;\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1 /*&& report.last_warning == W_RETURN_LOCAL_ADDR*/);
 }
 
 void return_address_of_local2()
 {
-    const char *source =
+    const char* source =
         "\n"
         "char* f() {\n"
         "    char str[] = \".\";\n"
         "    return str;\n"
         "}\n";
 
-    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1 /*&& report.last_warning == W_RETURN_LOCAL_ADDR*/);
 }
 
 void assignment_of_read_only_object()
 {
-    const char *source =
+    const char* source =
         "struct X\n"
         "{\n"
         "    int i;\n"
@@ -37908,8 +38016,8 @@ void assignment_of_read_only_object()
         "  p->i = 1;\n"
         "}\n";
 
-    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&& report.last_error == C_ERROR_ASSIGNMENT_OF_READ_ONLY_OBJECT*/);
 }
@@ -37922,7 +38030,7 @@ void assignment_of_read_only_object()
 
 void simple_move()
 {
-    const char *source =
+    const char* source =
         "char * _Owner f() {\n"
         "    char * _Owner p = 0;\n"
         "    return p; /*implicit move*/\n"
@@ -37932,7 +38040,7 @@ void simple_move()
 
 void simple_move_error()
 {
-    const char *source =
+    const char* source =
         "char* f() {\n"
         "    char* _Owner p = 0;\n"
         "    return p;\n"
@@ -37944,7 +38052,7 @@ void simple_move_error()
 
 void parameter_view()
 {
-    const char *source =
+    const char* source =
         "\n"
         "struct X { char  * _Owner owner_variable;   };\n"
         "char * f(struct X *parameter) \n"
@@ -37957,7 +38065,7 @@ void parameter_view()
 
 void move_from_extern()
 {
-    const char *source =
+    const char* source =
         "struct X { char  * _Owner owner_variable;   };\n"
         "struct X global;\n"
         "char * f() \n"
@@ -37970,7 +38078,7 @@ void move_from_extern()
 
 void owner_type_test()
 {
-    const char *source =
+    const char* source =
         "\n"
         "struct Y { \n"
         "    char  * _Owner owner_variable;   \n"
@@ -38016,7 +38124,7 @@ void owner_type_test()
 
 void correct_move_assigment()
 {
-    const char *source =
+    const char* source =
         "\n"
         "struct Y { \n"
         "    int i;\n"
@@ -38042,7 +38150,7 @@ void correct_move_assigment()
 
 void no_explicit_move_required()
 {
-    const char *source =
+    const char* source =
         "char * _Owner create();\n"
         "void f(char * _Owner p);\n"
         "\n"
@@ -38057,7 +38165,7 @@ void no_explicit_move_required()
 
 void no_explicit_move_with_function_result()
 {
-    const char *source =
+    const char* source =
         "void destroy(char* _Owner x);\n"
         "char   * _Owner  get();\n"
         "\n"
@@ -38071,7 +38179,7 @@ void no_explicit_move_with_function_result()
 
 void cannot_ignore_owner_result()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "  char * _Owner name;\n"
         "};\n"
@@ -38083,15 +38191,15 @@ void cannot_ignore_owner_result()
         "  f();\n"
         "}\n";
 
-    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1);
 }
 
 void can_ignore_owner_result()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "  char * _Owner name;\n"
         "};\n"
@@ -38108,7 +38216,7 @@ void can_ignore_owner_result()
 
 void move_not_necessary_on_return()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "  char * _Owner name;\n"
         "};\n"
@@ -38124,7 +38232,7 @@ void move_not_necessary_on_return()
 
 void explicit_move_not_required()
 {
-    const char *source =
+    const char* source =
         "#define NULL ((void*)0)\n"
         "\n"
         "int main()\n"
@@ -38139,7 +38247,7 @@ void explicit_move_not_required()
 
 void error_using_temporary_owner()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void F(int i);\n"
         "_Owner int make();\n"
@@ -38155,7 +38263,7 @@ void error_using_temporary_owner()
 
 void passing_view_to_owner()
 {
-    const char *source =
+    const char* source =
         "void destroy(_Owner int i);\n"
         "\n"
         "int main()\n"
@@ -38175,19 +38283,19 @@ void passing_view_to_owner()
 
 void obj_owner_cannot_be_used_in_non_pointer()
 {
-    const char *source =
+    const char* source =
         "void f() {\n"
         "    _Obj_owner int i;\n"
         "}\n";
-    struct options options = {.input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.error_count == 1 /*&& report.last_error == C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER*/);
 }
 
 void ownership_flow_test_null_ptr_at_end_of_scope()
 {
-    const char *source =
+    const char* source =
         "void f() {\n"
         "    _Owner int * p = 0;\n"
         "}\n"
@@ -38197,7 +38305,7 @@ void ownership_flow_test_null_ptr_at_end_of_scope()
 
 void ownership_flow_test_pointer_must_be_deleted()
 {
-    const char *source =
+    const char* source =
         "\n"
         "int* _Owner  get();\n"
         "\n"
@@ -38217,7 +38325,7 @@ void ownership_flow_test_pointer_must_be_deleted()
 
 void ownership_flow_test_basic_pointer_check()
 {
-    const char *source =
+    const char* source =
         "\n"
         "int* _Owner  get();\n"
         "void dtor(int* _Owner p);\n"
@@ -38235,7 +38343,7 @@ void ownership_flow_test_basic_pointer_check()
 
 void ownership_flow_test_struct_member_missing_free()
 {
-    const char *source =
+    const char* source =
         "char* _Owner strdup(const char* s);\n"
         "void free(void* _Owner p);\n"
         "\n"
@@ -38259,7 +38367,7 @@ void ownership_flow_test_struct_member_missing_free()
 
 void ownership_flow_test_struct_member_free()
 {
-    const char *source =
+    const char* source =
         "\n"
         "char * _Owner strdup(const char* s);\n"
         "void free(void* _Owner p);\n"
@@ -38280,7 +38388,7 @@ void ownership_flow_test_struct_member_free()
 
 void ownership_flow_test_move_inside_if()
 {
-    const char *source =
+    const char* source =
         "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
@@ -38300,7 +38408,7 @@ void ownership_flow_test_move_inside_if()
 
 void ownership_flow_test_goto_same_scope()
 {
-    const char *source =
+    const char* source =
         "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
@@ -38319,7 +38427,7 @@ void ownership_flow_test_goto_same_scope()
 
 void ownership_flow_test_jump_labels()
 {
-    const char *source =
+    const char* source =
         "void free( void* _Owner _Opt ptr);\n"
         "void* _Owner malloc(int size);\n"
         "\n"
@@ -38344,7 +38452,7 @@ void ownership_flow_test_jump_labels()
 
 void ownership_flow_test_owner_if_pattern_1()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
@@ -38364,7 +38472,7 @@ void ownership_flow_test_owner_if_pattern_1()
 
 void ownership_flow_test_owner_if_pattern_2()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
@@ -38384,7 +38492,7 @@ void ownership_flow_test_owner_if_pattern_2()
 
 void ownership_flow_test_missing_destructor()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "    int _Owner i;\n"
         "};\n"
@@ -38400,7 +38508,7 @@ void ownership_flow_test_missing_destructor()
 
 void ownership_flow_test_no_warning()
 {
-    const char *source =
+    const char* source =
         "void free( void * _Owner p);\n"
         "struct X {\n"
         "  char * _Owner text;\n"
@@ -38419,7 +38527,7 @@ void ownership_flow_test_no_warning()
 
 void ownership_flow_test_moved_if_not_null()
 {
-    const char *source =
+    const char* source =
         "void * _Owner malloc(int i);\n"
         "void free( void * _Owner p);\n"
         "\n"
@@ -38441,7 +38549,7 @@ void ownership_flow_test_moved_if_not_null()
 
 void ownership_flow_test_struct_moved()
 {
-    const char *source =
+    const char* source =
         "void free( void * _Owner p);\n"
         "\n"
         "struct X {\n"
@@ -38497,7 +38605,7 @@ void flow_analyzes_and_try_catch()
 void ownership_flow_test_void_destroy()
 {
     /*TODO moving to void* requires object is moved before*/
-    const char *source =
+    const char* source =
         "void * _Owner malloc(int i);\n"
         "void free( void * _Owner p);\n"
         "\n"
@@ -38516,7 +38624,7 @@ void ownership_flow_test_void_destroy()
 void ownership_flow_test_void_destroy_ok()
 {
     /*TODO moving to void* requires object is moved before*/
-    const char *source =
+    const char* source =
         "void * _Owner malloc(int i);\n"
         "void free( void * _Owner p);\n"
         "\n"
@@ -38535,7 +38643,7 @@ void ownership_flow_test_void_destroy_ok()
 
 void ownership_flow_test_moving_owner_pointer()
 {
-    const char *source =
+    const char* source =
         "void* _Owner malloc(int i);\n"
         "void free(void* _Owner _Opt p);\n"
         "\n"
@@ -38568,7 +38676,7 @@ void ownership_flow_test_moving_owner_pointer()
 
 void ownership_flow_test_moving_owner_pointer_missing()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(int i);\n"
         "void free(void* _Owner p);\n"
@@ -38594,7 +38702,7 @@ void ownership_flow_test_moving_owner_pointer_missing()
 
 void ownership_flow_test_error()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(int size);\n"
         "\n"
@@ -38615,7 +38723,7 @@ void ownership_flow_test_error()
 
 void ownership_flow_test_setting_owner_pointer_to_null()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(int i);\n"
         "void free(void* _Owner p);\n"
@@ -38636,7 +38744,7 @@ void ownership_flow_test_setting_owner_pointer_to_null()
 
 void ownership_flow_test_while_not_null()
 {
-    const char *source =
+    const char* source =
         "struct item  {\n"
         "    struct item * _Owner next;\n"
         "};\n"
@@ -38662,7 +38770,7 @@ void ownership_flow_test_while_not_null()
 
 void ownership_flow_test_if_state()
 {
-    const char *source =
+    const char* source =
         "\n"
         "int* _Owner make();\n"
         "void free(int * _Owner p);\n"
@@ -38693,7 +38801,7 @@ void ownership_flow_test_if_state()
 
 void ownership_types_test_error_owner()
 {
-    const char *source =
+    const char* source =
         "void* f();\n"
         "int main() {\n"
         "    void* _Owner p = f();\n"
@@ -38707,7 +38815,7 @@ void ownership_types_test_error_owner()
 
 void ownership_flow_test_if_variant()
 {
-    const char *source =
+    const char* source =
         "void* _Owner f();\n"
         "void free(void* _Owner p);\n"
         "int main() {\n"
@@ -38725,7 +38833,7 @@ void ownership_flow_test_if_variant()
 
 void check_leaks_on_else_block()
 {
-    const char *source =
+    const char* source =
         "void* _Owner malloc(int sz);\n"
         "\n"
         "void f(int i) {\n"
@@ -38743,7 +38851,7 @@ void check_leaks_on_else_block()
 
 void ownership_flow_test_two_ifs()
 {
-    const char *source =
+    const char* source =
         "void * _Owner malloc(int sz);\n"
         "void free( void * _Owner _Opt p);\n"
         "\n"
@@ -38771,7 +38879,7 @@ void ownership_flow_test_two_ifs()
 
 void ownership_no_name_parameter()
 {
-    const char *source =
+    const char* source =
         "void free(void* _Owner) { }\n"
         "#pragma cake diagnostic check \"-Wmissing-destructor\"\n";
 
@@ -38780,7 +38888,7 @@ void ownership_no_name_parameter()
 
 void ownership_flow_switch_case()
 {
-    const char *source =
+    const char* source =
         "void* _Owner make();\n"
         "void free( void* _Owner p);\n"
         "\n"
@@ -38812,7 +38920,7 @@ void ownership_flow_switch_case()
 
 void state_inner_objects_preserved()
 {
-    const char *source =
+    const char* source =
         "void *_Owner malloc(int i);\n"
         "void free(void  *_Owner);\n"
         "\n"
@@ -38842,13 +38950,13 @@ void state_inner_objects_preserved()
 //
 void owner_parameter_must_be_ignored()
 {
-    const char *source = "void f(void (*pf)(void* _Owner p)){}";
+    const char* source = "void f(void (*pf)(void* _Owner p)){}";
     assert(compile_without_errors_warnings(true, false, source));
 }
 
 void taking_address()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "  void * _Owner text;\n"
         "};\n"
@@ -38870,7 +38978,7 @@ void taking_address()
 
 void taking_address_const()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "  void * _Owner text;\n"
         "};\n"
@@ -38888,7 +38996,7 @@ void taking_address_const()
 
 void pointer_argument()
 {
-    const char *source =
+    const char* source =
         "void * _Owner malloc(int i);\n"
         "\n"
         "struct X {\n"
@@ -38903,15 +39011,15 @@ void pointer_argument()
         "  x_change(x);\n"
         "}\n"
         "";
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true, .diagnostic_stack[0] = default_diagnostic};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true, .diagnostic_stack[0] = default_diagnostic };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 3);
 }
 
 void do_while()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -38929,7 +39037,7 @@ void do_while()
 
 void switch_cases_state()
 {
-    const char *source =
+    const char* source =
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -38952,7 +39060,7 @@ void switch_cases_state()
 
 void switch_break()
 {
-    const char *source =
+    const char* source =
         "void * _Owner malloc(int i);\n"
         "\n"
         "void* _Owner f(int i)\n"
@@ -38968,7 +39076,7 @@ void switch_break()
 
 void passing_non_owner()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "    char* _Owner p;\n"
         "};\n"
@@ -38986,27 +39094,27 @@ void passing_non_owner()
 
 void flow_analysis_else()
 {
-    const char *source
+    const char* source
 
         =
-            "void * _Owner malloc(int i);\n"
-            "void free(void * _Owner p);\n"
-            "\n"
-            "int main() {\n"
-            "    int * _Owner p1 = 0;\n"
-            "    int * _Owner p2 = malloc(1);\n"
-            "\n"
-            "    if (p2 == 0) {\n"
-            "        return 1;\n"
-            "    }\n"
-            "    else\n"
-            "    {\n"
-            "      p1 = p2;\n"
-            "    }\n"
-            "    static_state(p2, \"moved\");\n"
-            "    free(p1);\n"
-            "    return 0;\n"
-            "}";
+        "void * _Owner malloc(int i);\n"
+        "void free(void * _Owner p);\n"
+        "\n"
+        "int main() {\n"
+        "    int * _Owner p1 = 0;\n"
+        "    int * _Owner p2 = malloc(1);\n"
+        "\n"
+        "    if (p2 == 0) {\n"
+        "        return 1;\n"
+        "    }\n"
+        "    else\n"
+        "    {\n"
+        "      p1 = p2;\n"
+        "    }\n"
+        "    static_state(p2, \"moved\");\n"
+        "    free(p1);\n"
+        "    return 0;\n"
+        "}";
 
     "}";
 
@@ -39014,7 +39122,7 @@ void flow_analysis_else()
 }
 void moving_content_of_owner()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39033,7 +39141,7 @@ void moving_content_of_owner()
 
 void switch_scope()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner calloc(unsigned n, unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39068,7 +39176,7 @@ void switch_scope()
 
 void swith_and_while()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39105,7 +39213,7 @@ void swith_and_while()
 
 void owner_to_non_owner()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* f();\n"
         "int main() {\n"
@@ -39122,7 +39230,7 @@ void owner_to_non_owner()
 void owner_to_non_owner_zero()
 {
 
-    const char *source =
+    const char* source =
         "void * f();\n"
         "int main() {\n"
         "  void * _Owner p = 0;\n"
@@ -39133,7 +39241,7 @@ void owner_to_non_owner_zero()
 
 void incomplete_struct()
 {
-    const char *source =
+    const char* source =
         "void free(void * _Owner p);\n"
         "struct X;\n"
         "struct X f();\n"
@@ -39148,7 +39256,7 @@ void incomplete_struct()
 
 void switch_pop_problem()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39183,7 +39291,7 @@ void switch_pop_problem()
 
 void switch_pop2()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39214,7 +39322,7 @@ void switch_pop2()
 
 void scopes_pop()
 {
-    const char *source =
+    const char* source =
         "\n"
         "int rand();\n"
         "void free(void* _Owner ptr);\n"
@@ -39245,7 +39353,7 @@ void scopes_pop()
 }
 void owner_moved()
 {
-    const char *source =
+    const char* source =
         "void free( void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "struct X { char * _Owner text; };\n"
@@ -39268,7 +39376,7 @@ void owner_moved()
 
 void partially_owner_moved()
 {
-    const char *source =
+    const char* source =
         "#pragma cake diagnostic error \"-Wmissing-destructor\"\n"
         "\n"
         "void free(void* _Owner ptr);\n"
@@ -39296,7 +39404,7 @@ void partially_owner_moved()
 }
 void use_after_destroy()
 {
-    const char *source =
+    const char* source =
         "char* _Owner strdup(const char* s);\n"
         "void* _Owner malloc(unsigned size);\n"
         "\n"
@@ -39333,7 +39441,7 @@ void use_after_destroy()
 
 void obj_owner_must_be_from_addressof()
 {
-    const char *source =
+    const char* source =
         "void free(void* _Owner ptr);\n"
         "void* _Owner malloc(int size);\n"
         "char* _Owner strdup(const char*);\n"
@@ -39376,7 +39484,7 @@ void obj_owner_must_be_from_addressof()
 
 void discarding_owner()
 {
-    const char *source =
+    const char* source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -39399,7 +39507,7 @@ void discarding_owner()
 
 void using_uninitialized()
 {
-    const char *source =
+    const char* source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -39424,7 +39532,7 @@ void using_uninitialized()
 
 void using_uninitialized_struct()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "    char* _Owner text;\n"
         "};\n"
@@ -39446,7 +39554,7 @@ void using_uninitialized_struct()
 
 void zero_initialized()
 {
-    const char *source =
+    const char* source =
         "struct Y {\n"
         "  char * _Owner p0;\n"
         "  int * _Owner p2;\n"
@@ -39477,7 +39585,7 @@ void zero_initialized()
 
 void empty_initialized()
 {
-    const char *source =
+    const char* source =
         "struct Y {\n"
         "  char * _Owner p0;\n"
         "  int * _Owner p2;\n"
@@ -39508,7 +39616,7 @@ void empty_initialized()
 
 void calloc_state()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner calloc(unsigned long n , unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39545,7 +39653,7 @@ void calloc_state()
 
 void malloc_initialization()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39582,7 +39690,7 @@ void malloc_initialization()
 
 void valid_but_unkown_result()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39621,7 +39729,7 @@ void valid_but_unkown_result()
 
 void calling_non_const_func()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39661,7 +39769,7 @@ void calling_non_const_func()
 }
 void calling_const_func()
 {
-    const char *source =
+    const char* source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -39700,7 +39808,7 @@ void calling_const_func()
 }
 void pointer_to_owner()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
@@ -39730,7 +39838,7 @@ void pointer_to_owner()
 
 void socket_sample()
 {
-    const char *source =
+    const char* source =
         "_Owner int socket();\n"
         "void close(_Owner int fd);\n"
         "\n"
@@ -39753,7 +39861,7 @@ void socket_sample()
 
 void return_object()
 {
-    const char *source =
+    const char* source =
         "char * _Owner strdup(const char* s);\n"
         "void free(void * _Owner p);\n"
         "\n"
@@ -39772,7 +39880,7 @@ void return_object()
 }
 void return_bad_object()
 {
-    const char *source =
+    const char* source =
         "char * _Owner strdup(const char* s);\n"
         "void free(void * _Owner p);\n"
         "\n"
@@ -39793,7 +39901,7 @@ void return_bad_object()
 
 void null_to_owner()
 {
-    const char *source =
+    const char* source =
         "\n"
         "void f(int * _Owner p);\n"
         "int main()\n"
@@ -39810,7 +39918,7 @@ void null_to_owner()
 void return_true_branch()
 {
 
-    const char *source =
+    const char* source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner ptr);\n"
         "\n"
@@ -39830,7 +39938,7 @@ void return_true_branch()
 }
 void flow_tests()
 {
-    const char *source =
+    const char* source =
         "\n"
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
@@ -39921,7 +40029,7 @@ void flow_tests()
 
 void member()
 {
-    const char *source =
+    const char* source =
         "struct X {\n"
         "  union {\n"
         "    struct {\n"
@@ -39940,7 +40048,7 @@ void member()
 }
 void loop_leak()
 {
-    const char *source =
+    const char* source =
         "void* _Owner malloc(unsigned long size);\n"
         "void free(void* _Owner _Opt ptr);\n"
         "\n"
@@ -39958,7 +40066,7 @@ void loop_leak()
 
 void out_parameter()
 {
-    const char *source =
+    const char* source =
         "void  free(void* _Owner p);\n"
         "char* _Owner strdup(const char* s);\n"
         "\n"
@@ -39983,7 +40091,7 @@ void out_parameter()
 
 void lvalue_required_1()
 {
-    const char *source =
+    const char* source =
         "int main()\n"
         "{\n"
         " 1++;\n"
@@ -39994,7 +40102,7 @@ void lvalue_required_1()
 
 void lvalue_required_2()
 {
-    const char *source =
+    const char* source =
         "int main()\n"
         "{\n"
         " 1--;\n"
@@ -40005,7 +40113,7 @@ void lvalue_required_2()
 
 void lvalue_required_3()
 {
-    const char *source =
+    const char* source =
         "int main()\n"
         "{\n"
         " int * p = &1;\n"
@@ -40015,7 +40123,7 @@ void lvalue_required_3()
 }
 void lvalue_required_4()
 {
-    const char *source =
+    const char* source =
         "struct X { int i; };\n"
         "struct X f() {\n"
         "    struct X x = {};\n"
@@ -40031,7 +40139,7 @@ void lvalue_required_4()
 
 void null_check_1()
 {
-    const char *source =
+    const char* source =
         "void f(int  *p)\n"
         "{\n"
         " static_state(p, \"not-null\");\n"
@@ -40042,7 +40150,7 @@ void null_check_1()
 
 void null_check_2()
 {
-    const char *source =
+    const char* source =
         "void f(int  *p)\n"
         "{\n"
         " static_state(p, \"maybe-null\");\n"
@@ -40053,7 +40161,7 @@ void null_check_2()
 
 void compound_literal_object()
 {
-    const char *source =
+    const char* source =
         "struct X { int i; void* p; }\n"
         "int main() {\n"
         "	struct X x;\n"
@@ -40066,7 +40174,7 @@ void compound_literal_object()
 
 void bounds_check1()
 {
-    const char *source =
+    const char* source =
         "int main() {\n"
         "	int a[5] = {0};\n"
         "	int i = a[5];\n"
@@ -40078,7 +40186,7 @@ void bounds_check1()
 
 void bounds_check2()
 {
-    const char *source =
+    const char* source =
         "void f1(int array[5])\n"
         "{\n"
         "    int i = array[5];\n"
@@ -40089,7 +40197,7 @@ void bounds_check2()
 
 void uninitialized_objects_passed_to_variadic_function()
 {
-    const char *source =
+    const char* source =
         "void f(char* s, ...);\n"
         "int main()\n"
         "{\n"
@@ -40106,7 +40214,7 @@ void uninitialized_objects_passed_to_variadic_function()
 
 void nullderef()
 {
-    const char *source =
+    const char* source =
         "\n"
         "int main() {\n"
         "    int* ptr = 0;\n"
@@ -40124,7 +40232,7 @@ void nullderef()
 void for_loop_visit()
 {
     /* checks state of j #84 */
-    const char *source =
+    const char* source =
         "int main()\n"
         "{\n"
         "  int j;\n"
@@ -40136,22 +40244,22 @@ void for_loop_visit()
 
 void uninitialized_object()
 {
-    const char *source =
+    const char* source =
         "int main() {\n"
         "    int i;\n"
         "    int k;\n"
         "    k = 1 + i;\n"
         "}";
 
-    struct options options = {.input = LANGUAGE_C99, .flow_analysis = true, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE))};
-    struct report report = {0};
+    struct options options = { .input = LANGUAGE_C99, .flow_analysis = true, .diagnostic_stack[0].warnings = (~0 & ~WARNING_FLAG(W_STYLE)) };
+    struct report report = { 0 };
     get_ast(&options, "source", source, &report);
     assert(report.warnings_count == 1);
 }
 
 void calloc_builtin_semantics()
 {
-    const char *source =
+    const char* source =
         "struct X { int i; void* p; };\n"
         "void* _Owner calloc(int i, int sz);\n"
         "void free(void* _Owner p);\n"
@@ -40170,7 +40278,7 @@ void calloc_builtin_semantics()
 }
 void malloc_builtin_semantics()
 {
-    const char *source =
+    const char* source =
         "struct X { int i; void* p; };\n"
         "void* _Owner malloc(int i, int sz);\n"
         "void free(void* _Owner p);\n"
@@ -40189,7 +40297,7 @@ void malloc_builtin_semantics()
 }
 void discard_qualifier_test()
 {
-    const char *source =
+    const char* source =
         "struct X { int i; void* p; };\n"
         "void f(struct X* p) {}\n"
         "\n"
@@ -40203,7 +40311,7 @@ void discard_qualifier_test()
 }
 void keywords_inside_attr()
 {
-    const char *source =
+    const char* source =
         "[[gnu::const, gnu::hot, nodiscard]]\n"
         "int f(void);    ";
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
@@ -40211,7 +40319,7 @@ void keywords_inside_attr()
 
 void assertbuiltin()
 {
-    const char *source =
+    const char* source =
         "struct X { const char* _Owner text; };\n"
         "void destroyX(struct X x) \n"
         "{\n"
@@ -40228,7 +40336,7 @@ void assertbuiltin()
 
 void value_of_constant_char()
 {
-    const char *source =
+    const char* source =
         "int main(void)\n"
         "{  \n"
         "  static_assert(L'\\u0b83' == 0x0B83);\n"
@@ -40239,7 +40347,7 @@ void value_of_constant_char()
 
 void enum_type()
 {
-    const char *source =
+    const char* source =
         "enum E : long long { R, G, B } e;\n"
         "static_assert (_Generic (e, long long: 1, default: 0) == 1, \"E type\");\n"
         "\n"
@@ -40249,7 +40357,7 @@ void enum_type()
 
 void comflittype()
 {
-    const char *str =
+    const char* str =
         "enum E { l = -1, z = 0, g = 1 };\n"
         "int foo(void);\n"
         "enum E foo(void) { return z; }";
@@ -40259,7 +40367,7 @@ void comflittype()
 
 void linemacro()
 {
-    const char *source =
+    const char* source =
         "#if __LINE__ != 1 \n"
         "#error\n"
         "#endif\n"
@@ -40275,7 +40383,7 @@ void linemacro()
 
 void sizeofstring()
 {
-    const char *source =
+    const char* source =
         "static_assert(sizeof(\"abc\") == 4);";
 
     assert(compile_without_errors_warnings(true, false /*nullcheck disabled*/, source));
@@ -40283,7 +40391,7 @@ void sizeofstring()
 
 void sizeofarraychar()
 {
-    const char *source =
+    const char* source =
         "char s[] = \"abcd\";\n"
         "static_assert(sizeof(s) == 5);";
 
@@ -40292,7 +40400,7 @@ void sizeofarraychar()
 
 void sizeofarraywchar()
 {
-    const char *source =
+    const char* source =
         "typedef unsigned short wchar_t;\n"
         "wchar_t s[] = L\"abcd\";\n"
         "static_assert(sizeof(s) == sizeof(wchar_t)*5);";
@@ -40302,7 +40410,7 @@ void sizeofarraywchar()
 
 void integer_promotion()
 {
-    const char *source =
+    const char* source =
         "static_assert(_Generic(typeof(-*\"\"), int : 1));\n"
         "#pragma cake diagnostic check \"-Warray-indirection\"\n"
         "\n"
@@ -40319,7 +40427,7 @@ void integer_promotion()
 
 void object_to_non_const()
 {
-    const char *source =
+    const char* source =
         "void free(void* _Owner _Opt p);\n"
         "struct X\n"
         "{\n"
@@ -40341,7 +40449,7 @@ void object_to_non_const()
 }
 void object_to_const()
 {
-    const char *source =
+    const char* source =
         "void free(void* _Owner p);\n"
         "struct X\n"
         "{\n"
@@ -40361,7 +40469,7 @@ void object_to_const()
 
 void union_size()
 {
-    const char *source =
+    const char* source =
         "union X {\n"
         "    struct {int a, b; } y;\n"
         "    double d;\n"
@@ -40372,7 +40480,7 @@ void union_size()
 
 void sizeof_union_test()
 {
-    const char *source =
+    const char* source =
         "union X {\n"
         "    struct {\n"
         "        int a, b;\n"
@@ -40388,7 +40496,7 @@ void sizeof_union_test()
 }
 void not_null_does_not_change()
 {
-    const char *source =
+    const char* source =
         "struct X { int i;  };\n"
         "void f(struct X* p);\n"
         "void f2(struct X* p);\n"
@@ -40406,27 +40514,152 @@ void not_null_does_not_change()
 
 void try_catch_test()
 {
-const char* source
-=
-"int f();\n"
-"int main()\n"
-"{\n"
-"    int i;\n"
-"    try\n"
-"    {\n"
-"        if (f()){\n"
-"            i = 1;\n"
-"            throw;\n"
-"        }\n"
-"        i = 0;\n"
-"    }\n"
-"    catch\n"
-"    {\n"
-"        static_state(i, \"not-zero\");\n"
-"    }\n"
-"    static_state(i, \"zero or not-zero\");\n"
-"}";
-assert(compile_without_errors_warnings(true, true, source));
+    const char* source
+        =
+        "int f();\n"
+        "int main()\n"
+        "{\n"
+        "    int i;\n"
+        "    try\n"
+        "    {\n"
+        "        if (f()){\n"
+        "            i = 1;\n"
+        "            throw;\n"
+        "        }\n"
+        "        i = 0;\n"
+        "    }\n"
+        "    catch\n"
+        "    {\n"
+        "        static_state(i, \"not-zero\");\n"
+        "    }\n"
+        "    static_state(i, \"zero or not-zero\");\n"
+        "}";
+    assert(compile_without_errors_warnings(true, true, source));
+}
+
+void try_catch()
+{
+    const char* source
+        =
+        "\n"
+        "struct X {\n"
+        "    char* p;\n"
+        "};\n"
+        "\n"
+        "\n"
+        "int condition;\n"
+        "\n"
+        "void f1()\n"
+        "{\n"
+        "    int i;\n"
+        "    try\n"
+        "    {\n"
+        "        if (condition) {\n"
+        "            i = 1;\n"
+        "            throw;\n"
+        "        }\n"
+        "        if (condition) {\n"
+        "            throw;\n"
+        "        }\n"
+        "    }\n"
+        "    catch\n"
+        "    {\n"
+        "        return;\n"
+        "    }\n"
+        "\n"
+        "    static_state(i ,\"uninitialized\");\n"
+        "}\n"
+        "\n"
+        "void f2()\n"
+        "{\n"
+        "    int i;\n"
+        "    try\n"
+        "    {\n"
+        "        if (condition) {\n"
+        "            i = 1;\n"
+        "            throw;\n"
+        "        }\n"
+        "        if (condition) {\n"
+        "            throw;\n"
+        "        }\n"
+        "    }\n"
+        "    catch\n"
+        "    {        \n"
+        "    }\n"
+        "\n"
+        "    static_state(i ,\"uninitialized or not-zero\");\n"
+        "}\n"
+        "\n"
+        "void f2()\n"
+        "{\n"
+        "    int i;\n"
+        "    try\n"
+        "    {\n"
+        "        if (condition) {\n"
+        "            i = 1;\n"
+        "            throw;\n"
+        "        }\n"
+        "        if (condition) {\n"
+        "            throw;\n"
+        "        }\n"
+        "        i = 0;\n"
+        "    }\n"
+        "    catch\n"
+        "    {        \n"
+        "    }\n"
+        "\n"
+        "    static_state(i ,\"uninitialized or zero or not-zero\");\n"
+        "}\n"
+        "\n"
+        "void f3()\n"
+        "{\n"
+        "    int i;\n"
+        "    try\n"
+        "    {\n"
+        "        if (condition) {\n"
+        "            i = 1;\n"
+        "            throw;\n"
+        "        }\n"
+        "        if (condition) {\n"
+        "            throw;\n"
+        "        }\n"
+        "        i = 0;\n"
+        "        return;\n"
+        "    }\n"
+        "    catch\n"
+        "    {        \n"
+        "    }\n"
+        "\n"
+        "    static_state(i ,\"uninitialized or not-zero\");\n"
+        "}\n"
+        "\n"
+        "void f4()\n"
+        "{\n"
+        "    int i;\n"
+        "    try\n"
+        "    {\n"
+        "        if (condition) {            \n"
+        "            throw;\n"
+        "        }\n"
+        "        if (condition) {\n"
+        "            throw;\n"
+        "        }       \n"
+        "    }\n"
+        "    catch\n"
+        "    {        \n"
+        "        i = 0;\n"
+        "    }\n"
+        "\n"
+        "    static_state(i ,\"uninitialized or zero\");\n"
+        "}\n"
+        "\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "\n"
+        "}\n"
+        "";
+    assert(compile_without_errors_warnings(true, true, source));
 }
 #endif
 

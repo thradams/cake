@@ -1947,3 +1947,123 @@ void x_destroy(struct X * _Obj_owner p)
     free(p->namasde);
 }
 `;
+
+sample["find the bug"] = [];
+sample["find the bug"]["Bug #1"] =
+`
+
+#include <ownership.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct X {
+  char *owner name;
+};
+
+struct X f(int condition)
+{
+   struct X x;
+   if (condition) {
+        x.name = strdup("a");
+   }
+   return x;
+}
+
+int main()
+{
+    struct X x = f(2);
+}
+
+`;
+
+sample["find the bug"]["Bug #2"] =
+`
+
+#include <ownership.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct X {
+  char *owner name;
+};
+
+void delete(struct X * owner p)
+{
+    if (p)
+     free(p);
+}
+
+int main()
+{
+    struct X * owner p = calloc(1, sizeof * p);
+    if (p)
+    {
+        p->name = strdup("a");
+        delete(p);
+    }
+}
+
+`;
+
+
+sample["find the bug"]["Bug #3"] =
+    `
+
+#include <ownership.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct X {
+  char *owner name;
+  char *owner surname;
+};
+
+void delete(struct X * owner p)
+{
+    if (p)
+    {
+       free(p->name);
+       free(p);
+    }
+}
+
+int main()
+{
+    struct X * owner p = malloc(sizeof * p);
+    if (p)
+    {
+        p->name = strdup("a");
+        delete(p);
+    }
+}
+
+
+`;
+
+sample["find the bug"]["Bug #4"] =
+`
+
+#include <ownership.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+struct X {
+  char *owner name;
+  char *owner surname;
+};
+
+void change(struct X * p)
+{
+     free(p->name);       
+}
+
+int main()
+{
+    struct X x = {0};
+    x.name = strdup("a");
+    change(&x);
+    printf("%s", x.name);
+}
+
+`;

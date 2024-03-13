@@ -1126,6 +1126,7 @@ struct secondary_block
 };
 
 void secondary_block_delete(struct secondary_block* owner opt p);
+bool secondary_block_ends_with_jump(struct secondary_block * p_secondary_block);
 
 struct unlabeled_statement
 {
