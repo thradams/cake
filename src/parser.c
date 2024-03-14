@@ -232,10 +232,6 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     const char* fmt, ...)
 {
 
-    if (p_token && p_token->level != 0)
-    {
-        return false;
-    }
 
     bool is_error = false;
     bool is_warning = false;
@@ -262,15 +258,27 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     }
 
     if (is_error)
-    {
+    {        
         ctx->p_report->error_count++;
     }
     else if (is_warning)
     {
+        /*warnings inside headers are ignored*/
+        if (p_token->level != 0)
+        {
+            return false;
+        }
+
         ctx->p_report->warnings_count++;
     }
     else if (is_note)
     {
+        /*notes inside headers are ignored*/
+        if (p_token->level != 0)
+        {
+            return false;
+        }
+
         if (w != W_LOCATION)
             ctx->p_report->info_count++;
     }
@@ -290,6 +298,10 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
 
     char buffer[200] = { 0 };
 
+    char diagnostic_name[100] = {0};
+    get_warning_name(w, sizeof diagnostic_name, diagnostic_name);
+
+
 #ifndef TEST
     if (p_token)
         print_position(p_token->token_origin->lexeme, p_token->line, p_token->col, ctx->options.visual_studio_ouput_format);
@@ -299,7 +311,8 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     /*int n =*/vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    bool show_warning_name = w < W_NOTE && w != W_LOCATION;
+    //bool show_warning_name = w < W_NOTE && w != W_LOCATION;
+    
 
     if (ctx->options.visual_studio_ouput_format)
     {
@@ -311,35 +324,22 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
             printf("note: ");
 
         printf("%s", buffer);
-
-        if (show_warning_name)
-            printf(" ["
-                "-W%s"
-                "]\n",
-                get_warning_name(w));
+        
+        printf(" [%s]\n",diagnostic_name);
     }
     else
     {
         if (is_error)
-        {
-            if (show_warning_name)
-                printf(LIGHTRED "error: " WHITE "%s [" LIGHTRED "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
-            else
-                printf(LIGHTRED "error: " WHITE "%s\n" RESET, buffer);
+        {            
+            printf(LIGHTRED "error: " WHITE "%s [" LIGHTRED "%s" WHITE "]\n" RESET, buffer, diagnostic_name);            
         }
         else if (is_warning)
-        {
-            if (show_warning_name)
-                printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
-            else
-                printf(LIGHTMAGENTA "warning: " WHITE "%s\n" RESET, buffer);
+        {            
+           printf(LIGHTMAGENTA "warning: " WHITE "%s [" LIGHTMAGENTA "%s" WHITE "]\n" RESET, buffer, diagnostic_name);            
         }
         else if (is_note)
         {
-            if (show_warning_name)
-                printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "-W%s" WHITE "]\n" RESET, buffer, get_warning_name(w));
-            else
-                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
+           printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "%s" WHITE "]\n" RESET, buffer, diagnostic_name);
         }
     }
 
@@ -348,13 +348,15 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
 
     if (ctx->sarif_file)
     {
+        
+
         if (ctx->p_report->error_count + ctx->p_report->warnings_count + ctx->p_report->info_count > 1)
         {
             fprintf(ctx->sarif_file, ",\n");
         }
 
         fprintf(ctx->sarif_file, "   {\n");
-        fprintf(ctx->sarif_file, "     \"ruleId\":\"%s\",\n", get_warning_name(w));
+        fprintf(ctx->sarif_file, "     \"ruleId\":\"%s\",\n", diagnostic_name);
 
         fprintf(ctx->sarif_file, "     \"level\":\"warning\",\n");
 
@@ -723,6 +725,7 @@ bool first_of_type_specifier_token(struct parser_ctx* ctx, struct token* p_token
         p_token->type == TK_KEYWORD__INT16 ||
         p_token->type == TK_KEYWORD__INT32 ||
         p_token->type == TK_KEYWORD__INT64 ||
+        
         // end microsoft
 
         p_token->type == TK_KEYWORD_FLOAT ||
@@ -1620,7 +1623,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
                 if (ctx->current && ctx->current->type == TK_STRING_LITERAL)
                 {
 
-                    unsigned long long w = get_warning_bit_mask(ctx->current->lexeme + 1 + 2);
+                    unsigned long long w = get_warning_bit_mask(ctx->current->lexeme + 1 /*+ 2*/);
 
                     ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
                     ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
@@ -2549,7 +2552,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
             compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
                 ctx,
                 p_init_declarator->p_declarator->name,
-                "error: storage size of '%s' isn't known",
+                "storage size of '%s' isn't known",
                 p_init_declarator->p_declarator->name->lexeme);
         }
         else
@@ -4361,7 +4364,7 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
         p_function_declarator->parameters_scope.variables.capacity = 5;
         p_function_declarator->parameters_scope.tags.capacity = 1;
 
-        scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
+        
 
         // print_scope(&ctx->scopes);
 
@@ -4369,14 +4372,16 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
             throw;
         if (ctx->current->type != ')')
         {
+            scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
             p_function_declarator->parameter_type_list_opt = parameter_type_list(ctx);
+            scope_list_pop(&ctx->scopes);
         }
         if (parser_match_tk(ctx, ')') != 0)
             throw;
 
         // print_scope(&ctx->scopes);
 
-        scope_list_pop(&ctx->scopes);
+        
 
         // print_scope(&ctx->scopes);
     }
@@ -5159,7 +5164,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
             {
 
-                unsigned long long w = get_warning_bit_mask(p_pragma_token->lexeme + 1 + 2);
+                unsigned long long w = get_warning_bit_mask(p_pragma_token->lexeme + 1 /*+ 2*/);
 
                 ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
                 ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
@@ -5180,7 +5185,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
 
             if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
             {
-                enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1 + 2);
+                enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1);
 
                 if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) ||
                     (on_flow_analysis && get_diagnostic_phase(id) == 2))

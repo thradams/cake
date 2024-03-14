@@ -3,6 +3,7 @@
 #include "console.h"
 #include <stdio.h>
 #include <assert.h>
+#include <stdlib.h>
 
 
 struct diagnostic default_diagnostic = {
@@ -69,16 +70,19 @@ static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64);
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
-    if ((d->errors & (1ULL << w)) != 0)
-        return 3;
+    if (w >= 0 && w <= W_NOTE)
+    {
+        if ((d->errors & (1ULL << w)) != 0)
+            return 3;
 
-    if ((d->warnings & (1ULL << w)) != 0)
-        return 2;
+        if ((d->warnings & (1ULL << w)) != 0)
+            return 2;
 
-    if ((d->notes & (1ULL << w)) != 0)
-        return 1;
+        if ((d->notes & (1ULL << w)) != 0)
+            return 1;
+    }
 
-    return 0;
+    return 3; //errors
 
 }
 
@@ -101,23 +105,36 @@ int get_diagnostic_phase(enum diagnostic_id w)
 
 enum diagnostic_id  get_warning(const char* wname)
 {
-
-    for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+    if (!(wname[0] == '-' || wname[0] == 'E'))
     {
-        if (strncmp(s_warnings[j].name, wname, strlen(s_warnings[j].name)) == 0)
+        return 0;
+    }
+
+    if (wname[0] == '-' && wname[1] == 'W')
+    {
+        for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
         {
-            return s_warnings[j].w;
+            if (strncmp(s_warnings[j].name, wname + 2, strlen(s_warnings[j].name)) == 0)
+            {
+                return s_warnings[j].w;
+            }
         }
+    }
+    else if (wname[1] == 'E')
+    {
+        int ec = atoi(wname + 2);
+        return ec;
+
     }
     return 0;
 }
 
 unsigned long long  get_warning_bit_mask(const char* wname)
 {
-
+    assert(wname[0] == '-');
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
     {
-        if (strncmp(s_warnings[j].name, wname, strlen(s_warnings[j].name)) == 0)
+        if (strncmp(s_warnings[j].name, wname+2, strlen(s_warnings[j].name)) == 0)
         {
             return (1ULL << ((unsigned long long)s_warnings[j].w));
         }
@@ -125,18 +142,27 @@ unsigned long long  get_warning_bit_mask(const char* wname)
     return 0;
 }
 
-const char* get_warning_name(enum diagnostic_id w)
+int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
 {
-    //TODO because s_warnings is out of order ....
-    //this is a linear seatch instead of just index! TODOD
-    for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
+    if (w >= 0 && w <= W_NOTE)
     {
-        if (s_warnings[j].w == w)
+        //TODO because s_warnings is out of order ....
+        //this is a linear seatch instead of just index! TODOD
+        for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
         {
-            return s_warnings[j].name;
+            if (s_warnings[j].w == w)
+            {
+                snprintf(buffer, n, "-W%s", s_warnings[j].name);
+                return 0;
+            }
         }
     }
-    return "";
+    else
+    {
+        snprintf(buffer, n, "E%d", w);
+    }
+
+    return 0;//"";
 }
 
 int fill_options(struct options* options,
@@ -336,9 +362,9 @@ int fill_options(struct options* options,
             unsigned long long w = 0;
 
             if (disable_warning)
-                w = get_warning_bit_mask(argv[i] + 5);
+                w = get_warning_bit_mask(argv[i] + 3);
             else
-                w = get_warning_bit_mask(argv[i] + 2);
+                w = get_warning_bit_mask(argv[i] );
 
             if (w == 0)
             {
@@ -354,8 +380,8 @@ int fill_options(struct options* options,
             else
             {
                 if (w == W_STYLE)
-                 options->diagnostic_stack[0].warnings |= w;
-                else 
+                    options->diagnostic_stack[0].warnings |= w;
+                else
                     options->diagnostic_stack[0].notes |= w;
             }
             continue;
@@ -461,17 +487,18 @@ void print_help()
 
 void test_get_warning_name()
 {
-    const char* name = get_warning_name(W_OWNERSHIP_FLOW_MISSING_DTOR);
-    assert(strcmp(name, "missing-destructor") == 0);
+    char name[100];
+    get_warning_name(W_OWNERSHIP_FLOW_MISSING_DTOR, sizeof name, name);
+    assert(strcmp(name, "-Wmissing-destructor") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(name);
     assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
 
 
-    const char* name2 = get_warning_name(W_STYLE);
-    assert(strcmp(name2, "style") == 0);
+    get_warning_name(W_STYLE, sizeof name, name);
+    assert(strcmp(name, "-Wstyle") == 0);
 
-    unsigned long long  flags2 = get_warning_bit_mask(name2);
+    unsigned long long  flags2 = get_warning_bit_mask(name);
     assert(flags2 == (1ULL << W_STYLE));
 }
 

@@ -4544,7 +4544,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #endif
 
         "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
-        "#define _MSC_EXTENSIONS\n"
+       
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
         "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
         "#define __fastcall\n"
@@ -4552,8 +4552,9 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
         "#define __cdecl\n"
         "#define __pragma(a)\n"
         "#define __declspec(a)\n"
-        "#define __crt_va_start(X) \n"
-        "#define __builtin_offsetof(type, member) 0\n";
+        "#define __builtin_offsetof(type, member) 0\n"
+        "#define __ptr64\n"
+        "#define __ptr32\n";
 
 #endif
 
@@ -4823,6 +4824,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD__INT16: return "TK_KEYWORD__INT16";
         case TK_KEYWORD__INT32: return "TK_KEYWORD__INT32";
         case TK_KEYWORD__INT64: return "TK_KEYWORD__INT64";
+        
 
         case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
         case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";

@@ -74,8 +74,6 @@ enum type_specifier_flags
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
     TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
-
-
 };
 
 #ifdef _WIN32

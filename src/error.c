@@ -9,6 +9,11 @@
 //#include <winsock2.h>
 #endif
 
+void throw_break_point() {
+    /*
+      put a break point here to stop when throw is called
+    */
+}
 
 const char* get_posix_error_message(int error)
 {

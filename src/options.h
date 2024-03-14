@@ -63,6 +63,29 @@ enum diagnostic_id {
     W_OUT_OF_BOUNDS,
     W_ASSIGNMENT_OF_ARRAY_PARAMETER,
     W_CONDITIONAL_IS_CONSTANT,
+    W_NOT_DEFINED1,
+    W_NOT_DEFINED2,
+    W_NOT_DEFINED3,
+    W_NOT_DEFINED4,
+    W_NOT_DEFINED5,
+    W_NOT_DEFINED6,
+    W_NOT_DEFINED7,
+    W_NOT_DEFINED8,
+    W_NOT_DEFINED9,
+    W_NOT_DEFINED10,
+    W_NOT_DEFINED11,
+    W_NOT_DEFINED12,
+    W_NOT_DEFINED13,
+    W_NOT_DEFINED14,
+    W_NOT_DEFINED15,
+    W_NOT_DEFINED16,
+    W_NOT_DEFINED17,
+    W_NOT_DEFINED18,
+    W_NOT_DEFINED19,
+    W_NOT_DEFINED20,
+    W_NOT_DEFINED21,
+    W_NOT_DEFINED22,
+
     W_LOCATION, /*prints code location*/
     W_NOTE,
 
@@ -183,7 +206,7 @@ enum style
     STYLE_GNU,// A style complying with the GNU coding standards
 
 };
-const char* get_warning_name(enum diagnostic_id w);
+int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/]);
 unsigned long long  get_warning_bit_mask(const char* wname);
 
 enum diagnostic_id  get_warning(const char* wname);
