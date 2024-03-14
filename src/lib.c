@@ -9318,9 +9318,6 @@ static const char* file_stdio_h =
 "#define TMP_MAX         2147483647\n"
 "\n"
 "\n"
-"#define stdin  ((FILE*)0)\n"
-"#define stdout ((FILE*)1)\n"
-"#define stderr ((FILE*)2)\n"
 "\n"
 "typedef long long fpos_t;\n"
 "typedef int FILE;\n"
@@ -10512,8 +10509,6 @@ enum type_specifier_flags
     TYPE_SPECIFIER_TYPEOF = 1 << 23,
 
     TYPE_SPECIFIER_NULLPTR_T = 1 << 24,
-    TYPE_SPECIFIER_PTR64 = 1 << 25, /*MS EXTENSION*/
-
 };
 
 #ifdef _WIN32
@@ -23020,7 +23015,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.15"
+#define CAKE_VERSION "0.7.16"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
