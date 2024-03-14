@@ -692,7 +692,10 @@ struct generic_association *owner generic_association(struct parser_ctx *ctx)
         }
         else if (first_of_type_name(ctx))
         {
+            bool old =ctx->inside_generic_association;
+            ctx->inside_generic_association = true;
             p_generic_association->p_type_name = type_name(ctx);
+            ctx->inside_generic_association = old;
             p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);
         }
         else
@@ -3364,8 +3367,8 @@ static void check_diferent_enuns(struct parser_ctx *ctx,
     if (left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
         right->type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        if (left->type.enum_specifier->complete_enum_specifier !=
-            right->type.enum_specifier->complete_enum_specifier)
+        if (get_complete_enum_specifier(left->type.enum_specifier)!=
+            get_complete_enum_specifier(right->type.enum_specifier))
         {
             const char *lefttag = "";
             if (left->type.enum_specifier->tag_token)

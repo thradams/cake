@@ -83,6 +83,8 @@ struct parser_ctx
     */
     bool evaluation_is_disabled;
 
+    bool inside_generic_association;
+
     struct report* p_report;
 
 };
@@ -436,17 +438,19 @@ struct enum_specifier
     struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
     struct specifier_qualifier_list* owner specifier_qualifier_list;
 
+    char tag_name[200];
 
     struct enumerator_list enumerator_list;
 
     struct token* tag_token;
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
-    struct enum_specifier* complete_enum_specifier;
+    struct enum_specifier* complete_enum_specifier2;
 };
 
 struct enum_specifier* owner enum_specifier(struct parser_ctx*);
 void enum_specifier_delete(struct enum_specifier* owner opt p);
+const struct enum_specifier* get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 
 struct member_declaration_list
 {

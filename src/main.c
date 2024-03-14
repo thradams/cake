@@ -64,7 +64,7 @@ int main(int argc, char** argv)
 }
 #else
 #include "unit_test.c"
-#define CURRENT_NUMBER_OF_FAILING_TEST 3
+#define CURRENT_NUMBER_OF_FAILING_TEST 2
 int main(int argc, char** argv)
 {
 
