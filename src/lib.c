@@ -11327,7 +11327,7 @@ struct static_assert_declaration
       "static_debug" ( constant-expression ) ;
       "static_set" ( constant-expression , string-literal) ;
     */
-
+ 
     struct token* first_token;
     struct token* last_token;
     struct expression* owner constant_expression;
@@ -11989,6 +11989,8 @@ struct member_declaration
     struct member_declarator_list* owner member_declarator_list_opt;
 
     struct static_assert_declaration* owner static_assert_declaration;
+    struct pragma_declaration* owner pragma_declaration;
+
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     struct member_declaration* owner next;
 
@@ -23015,7 +23017,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.16"
+#define CAKE_VERSION "0.7.17"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
@@ -26374,6 +26376,7 @@ void member_declaration_delete(struct member_declaration* owner opt p)
         member_declarator_list_delete(p->member_declarator_list_opt);
         attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
         static_assert_declaration_delete(p->static_assert_declaration);
+        pragma_declaration_delete(p->pragma_declaration);
         free(p);
     }
 }
@@ -26390,6 +26393,10 @@ struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
         if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
         {
             p_member_declaration->static_assert_declaration = static_assert_declaration(ctx);
+        }
+        else if (ctx->current->type == TK_PRAGMA)
+        {
+            p_member_declaration->pragma_declaration = pragma_declaration(ctx);
         }
         else
         {
@@ -26466,9 +26473,15 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
                 }
             }
         }
+        else if (p_member_declaration->static_assert_declaration)
+        {
+        }
+        else if (p_member_declaration->pragma_declaration)
+        {
+        }
         else
         {
-            assert(p_member_declaration->static_assert_declaration != NULL);
+            //ops
         }
 
         p_member_declaration = p_member_declaration->next;

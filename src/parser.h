@@ -195,7 +195,7 @@ struct static_assert_declaration
       "static_debug" ( constant-expression ) ;
       "static_set" ( constant-expression , string-literal) ;
     */
-
+ 
     struct token* first_token;
     struct token* last_token;
     struct expression* owner constant_expression;
@@ -857,6 +857,8 @@ struct member_declaration
     struct member_declarator_list* owner member_declarator_list_opt;
 
     struct static_assert_declaration* owner static_assert_declaration;
+    struct pragma_declaration* owner pragma_declaration;
+
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     struct member_declaration* owner next;
 

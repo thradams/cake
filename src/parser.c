@@ -3334,6 +3334,7 @@ void member_declaration_delete(struct member_declaration* owner opt p)
         member_declarator_list_delete(p->member_declarator_list_opt);
         attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
         static_assert_declaration_delete(p->static_assert_declaration);
+        pragma_declaration_delete(p->pragma_declaration);
         free(p);
     }
 }
@@ -3350,6 +3351,10 @@ struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
         if (ctx->current->type == TK_KEYWORD__STATIC_ASSERT)
         {
             p_member_declaration->static_assert_declaration = static_assert_declaration(ctx);
+        }
+        else if (ctx->current->type == TK_PRAGMA)
+        {
+            p_member_declaration->pragma_declaration = pragma_declaration(ctx);
         }
         else
         {
@@ -3426,9 +3431,15 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
                 }
             }
         }
+        else if (p_member_declaration->static_assert_declaration)
+        {
+        }
+        else if (p_member_declaration->pragma_declaration)
+        {
+        }
         else
         {
-            assert(p_member_declaration->static_assert_declaration != NULL);
+            //ops
         }
 
         p_member_declaration = p_member_declaration->next;
