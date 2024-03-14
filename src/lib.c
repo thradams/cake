@@ -2296,6 +2296,9 @@ void c_clrscr()
 #include <ctype.h>
 
 
+#include <sys/stat.h>
+
+
 #include <errno.h>
 
 
@@ -2312,6 +2315,9 @@ void c_clrscr()
 
 
 #include <direct.h>
+
+
+#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -11209,6 +11215,8 @@ struct parser_ctx
     */
     bool evaluation_is_disabled;
 
+    bool inside_generic_association;
+
     struct report* p_report;
 
 };
@@ -11562,17 +11570,19 @@ struct enum_specifier
     struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt;
     struct specifier_qualifier_list* owner specifier_qualifier_list;
 
+    char tag_name[200];
 
     struct enumerator_list enumerator_list;
 
     struct token* tag_token;
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
-    struct enum_specifier* complete_enum_specifier;
+    struct enum_specifier* complete_enum_specifier2;
 };
 
 struct enum_specifier* owner enum_specifier(struct parser_ctx*);
 void enum_specifier_delete(struct enum_specifier* owner opt p);
+const struct enum_specifier* get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
 
 struct member_declaration_list
 {
@@ -13147,7 +13157,10 @@ struct generic_association *owner generic_association(struct parser_ctx *ctx)
         }
         else if (first_of_type_name(ctx))
         {
+            bool old =ctx->inside_generic_association;
+            ctx->inside_generic_association = true;
             p_generic_association->p_type_name = type_name(ctx);
+            ctx->inside_generic_association = old;
             p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);
         }
         else
@@ -15819,8 +15832,8 @@ static void check_diferent_enuns(struct parser_ctx *ctx,
     if (left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
         right->type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
     {
-        if (left->type.enum_specifier->complete_enum_specifier !=
-            right->type.enum_specifier->complete_enum_specifier)
+        if (get_complete_enum_specifier(left->type.enum_specifier)!=
+            get_complete_enum_specifier(right->type.enum_specifier))
         {
             const char *lefttag = "";
             if (left->type.enum_specifier->tag_token)
@@ -17992,9 +18005,9 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
     {
         p_attribute_specifier_sequence_opt = p_type->enum_specifier->attribute_specifier_sequence_opt;
         if (p_attribute_specifier_sequence_opt == NULL &&
-            p_type->enum_specifier->complete_enum_specifier)
+            get_complete_enum_specifier(p_type->enum_specifier))
         {
-            p_attribute_specifier_sequence_opt = p_type->enum_specifier->complete_enum_specifier->attribute_specifier_sequence_opt;
+            p_attribute_specifier_sequence_opt = get_complete_enum_specifier(p_type->enum_specifier)->attribute_specifier_sequence_opt;
         }
     }
 
@@ -19827,7 +19840,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
         struct osstream ss = { 0 };
 
         struct enum_specifier* p_complete =
-            p_type->enum_specifier->complete_enum_specifier;
+            get_complete_enum_specifier(p_type->enum_specifier);
 
 
         if (p_complete)
@@ -19968,12 +19981,12 @@ struct type type_get_enum_type(const struct type* p_type)
 {
     assert(p_type->enum_specifier != NULL);
 
-    if (p_type->enum_specifier->complete_enum_specifier &&
-        p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list)
+    if (get_complete_enum_specifier(p_type->enum_specifier) &&
+        get_complete_enum_specifier(p_type->enum_specifier)->specifier_qualifier_list)
     {
         struct type t = { 0 };
-        t.type_qualifier_flags = p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_qualifier_flags;
-        t.type_specifier_flags = p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
+        t.type_qualifier_flags = get_complete_enum_specifier(p_type->enum_specifier)->specifier_qualifier_list->type_qualifier_flags;
+        t.type_specifier_flags = get_complete_enum_specifier(p_type->enum_specifier)->specifier_qualifier_list->type_specifier_flags;
         return t;
     }
 
@@ -20094,14 +20107,14 @@ bool enum_specifier_is_same(struct enum_specifier* a, struct enum_specifier* b)
 {
     if (a && b)
     {
-        if (a->complete_enum_specifier && b->complete_enum_specifier)
+        if (get_complete_enum_specifier(a)&& get_complete_enum_specifier(b))
         {
-            if (a->complete_enum_specifier != b->complete_enum_specifier)
+            if (get_complete_enum_specifier(a) != get_complete_enum_specifier(b))
                 return false;
             return true;
         }
-        return a->complete_enum_specifier == NULL &&
-            b->complete_enum_specifier == NULL;
+        return get_complete_enum_specifier(a) == NULL &&
+            get_complete_enum_specifier(b) == NULL;
     }
     return a == NULL && b == NULL;
 }
@@ -20125,8 +20138,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 
         if (pa->enum_specifier &&
             pb->enum_specifier &&
-            pa->enum_specifier->complete_enum_specifier !=
-            pb->enum_specifier->complete_enum_specifier)
+            get_complete_enum_specifier(pa->enum_specifier) !=
+            get_complete_enum_specifier(pb->enum_specifier))
         {
             return false;
         }
@@ -21087,7 +21100,8 @@ struct object make_object_core(struct type* p_type,
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    if (p_member_declaration->specifier_qualifier_list && 
+                        p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                     {
                         //struct object obj = {0};
                         //obj.state = OBJECT_STATE_STRUCT;
@@ -26049,6 +26063,38 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
     return p_type_specifier;
 }
 
+const struct enum_specifier* get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier)
+{
+    /*
+      The way cake find the complete struct is using one pass.. for this task is uses double indirection.
+      Then the result will be there at end of first pass.
+      This crazy code finds the complete definition of the struct if exists.
+    */
+    if (p_enum_specifier == NULL)
+        return NULL;
+
+    if (p_enum_specifier->enumerator_list.head)
+    {
+        /*p_struct_or_union_specifier is complete*/
+        return p_enum_specifier;
+    }
+    else if (p_enum_specifier->complete_enum_specifier2 &&
+        p_enum_specifier->complete_enum_specifier2->enumerator_list.head)
+    {
+        /*p_struct_or_union_specifier is the first seem tag tag points directly to complete*/
+        return p_enum_specifier->complete_enum_specifier2;
+    }
+    else if (p_enum_specifier->complete_enum_specifier2 &&
+        p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2 &&
+        p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2->enumerator_list.head)
+    {
+        /* all others points to the first seem that points to the complete*/
+        return p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2;
+    }
+
+    return NULL;
+}
+
 struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     /*
@@ -26699,21 +26745,36 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
         p_enum_specifier->attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx);
 
-        struct enum_specifier* p_previous_tag_in_this_scope = NULL;
-        bool has_identifier = false;
+
         if (ctx->current->type == TK_IDENTIFIER)
         {
-            has_identifier = true;
+            snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "%s", ctx->current->lexeme);
+
+
             p_enum_specifier->tag_token = ctx->current;
             parser_match(ctx);
+        }
+        else
+        {
+            snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
+            s_anonymous_struct_count++;
         }
 
         if (ctx->current->type == ':')
         {
-            /*C23*/
-            parser_match(ctx);
-            p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
+            if (!ctx->inside_generic_association)
+            {
+                /*C23*/
+                parser_match(ctx);
+                p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
+            }
+            else
+            {
+                //TODO
+            }
         }
+
+
 
         if (ctx->current->type == '{')
         {
@@ -26721,7 +26782,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
 
             /*points to itself*/
-            p_enum_specifier->complete_enum_specifier = p_enum_specifier;
+            p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
 
             if (parser_match_tk(ctx, '{') != 0)
                 throw;
@@ -26732,107 +26793,35 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
             }
             if (parser_match_tk(ctx, '}') != 0)
                 throw;
+
+            hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
+            p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
         }
         else
         {
-            if (!has_identifier)
+            struct enum_specifier* p_existing_enum_specifier = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
+            if (p_existing_enum_specifier)
             {
-                compiler_diagnostic_message(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
-                throw;
-            }
-        }
-
-        /*
-         * Let's search for this tag at current scope only
-         */
-        struct map_entry* p_entry = NULL;
-
-        if (p_enum_specifier->tag_token &&
-            p_enum_specifier->tag_token->lexeme)
-        {
-            p_entry = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
-        }
-        if (p_entry)
-        {
-            /*
-               ok.. we have this tag at this scope
-            */
-            if (p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
-            {
-                p_previous_tag_in_this_scope = p_entry->p;
-
-                if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
-                    p_enum_specifier->enumerator_list.head != NULL)
-                {
-                    compiler_diagnostic_message(C_ERROR_MULTIPLE_DEFINITION_ENUM,
-                        ctx,
-                        p_enum_specifier->tag_token,
-                        "multiple definition of 'enum %s'",
-                        p_enum_specifier->tag_token->lexeme);
-                }
-                else if (p_previous_tag_in_this_scope->enumerator_list.head != NULL)
-                {
-                    p_enum_specifier->complete_enum_specifier = p_previous_tag_in_this_scope;
-                }
-                else if (p_enum_specifier->enumerator_list.head != NULL)
-                {
-                    p_previous_tag_in_this_scope->complete_enum_specifier = p_enum_specifier;
-                }
+                //p_existing_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+                //ja existe
+                //verificar o caso de ser outro tag no memso escopo
+                p_enum_specifier->complete_enum_specifier2 = p_existing_enum_specifier;
             }
             else
             {
-                compiler_diagnostic_message(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
-                    ctx,
-                    ctx->current, "use of '%s' with tag type that does not match previous declaration.",
-                    ctx->current->lexeme);
-                throw;
+                //nao existe lugar nenhum vamos adicionar
+                hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
+                p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
             }
+
+            //if (!has_identifier)
+            //{
+              //  compiler_diagnostic_message(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
+                //throw;
+            //}
         }
-        else
-        {
-            /*
-             * we didn't find at current scope let's search in previous scopes
-             */
-            struct enum_specifier* p_other = NULL;
 
-            if (p_enum_specifier->tag_token)
-            {
-                p_other = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
-            }
 
-            if (p_other == NULL)
-            {
-                /*
-                 * we didn't find, so this is the first time this tag is used
-                 */
-                if (p_enum_specifier->tag_token)
-                {
-                    hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
-                }
-                else
-                {
-                    // make a name?
-                }
-            }
-            else
-            {
-
-                /*
-                 * we found this enum tag in previous scopes
-                 */
-
-                if (p_enum_specifier->enumerator_list.head != NULL)
-                {
-                    /*it is a new definition - itself*/
-                    // p_enum_specifier->complete_enum_specifier = p_enum_specifier;
-                }
-                else if (p_other->enumerator_list.head != NULL)
-                {
-                    /*previous enum is complete*/
-                    p_enum_specifier->complete_enum_specifier = p_other;
-                }
-            }
-        }
     }
     catch
     {
@@ -32651,9 +32640,9 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
         }
 
 
-        if (p_enum_specifier->complete_enum_specifier != NULL &&
-            p_enum_specifier != p_enum_specifier->complete_enum_specifier &&
-            p_enum_specifier->complete_enum_specifier->specifier_qualifier_list)
+        if (get_complete_enum_specifier(p_enum_specifier) != NULL &&
+            p_enum_specifier != get_complete_enum_specifier(p_enum_specifier) &&
+            get_complete_enum_specifier(p_enum_specifier)->specifier_qualifier_list)
         {
             p_enum_specifier->first_token->flags |= TK_C_BACKEND_FLAG_HIDE;
 
@@ -32663,8 +32652,8 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
             struct osstream ss = { 0 };
             bool b_first = true;
 
-            print_type_qualifier_flags(&ss, &b_first, p_enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_qualifier_flags);
-            print_type_specifier_flags(&ss, &b_first, p_enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+            print_type_qualifier_flags(&ss, &b_first, get_complete_enum_specifier(p_enum_specifier)->specifier_qualifier_list->type_qualifier_flags);
+            print_type_specifier_flags(&ss, &b_first, get_complete_enum_specifier(p_enum_specifier)->specifier_qualifier_list->type_specifier_flags);
 
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);
@@ -37820,15 +37809,75 @@ void visit_test_auto_typeof()
     free(result);
 }
 
-void enum_scope()
+void tag_scope1()
 {
-    const char* source =
-        "enum E { A = 1 };\n"
+    const char* source
+        =
+        "\n"
+        "enum E { A } e1;\n"
         "int main()\n"
         "{\n"
-        "  enum E { B } e2; \n"
-        "  static_assert( (typeof(e2)), (enum E) ); \n"
-        "}\n";
+        "  enum E  e2;\n"
+        "  static_assert(\n"
+        "       _Generic(typeof(e1), typeof(e2) : 1, default: 0)\n" /*e1 and e2 are the same*/
+        "    );\n"
+        "}";
+    assert(compile_without_errors_warnings(false, false, source));
+}
+
+void tag_scope2()
+{
+    const char* source
+        =
+        "\n"
+        "enum E { A } e1;\n"
+        "int main()\n"
+        "{\n"
+        "  enum E {A} e2;\n"
+        "  static_assert(\n"
+        "       _Generic(typeof(e1), typeof(e2) : 0, default: 1)\n" /*e1 and e2 are diferent*/
+        "    );\n"
+        "}";
+    assert(compile_without_errors_warnings(false, false, source));
+}
+
+void tag_scope3()
+{
+    const char* source
+        =
+        "\n"
+        "enum E { A };\n"
+        "int main()\n"
+        "{\n"
+        "  enum E { B } e2 =0;\n"
+        "  enum E e1 = 0;\n"
+        "  \n"
+        "  static_assert(\n"
+        "       _Generic(typeof(e2), typeof(e1) : 1, default: 0)\n" //e1 and e2 must be the same
+        "    );\n"
+        "}\n"
+        ;
+    assert(compile_without_errors_warnings(false, false, source));
+
+}
+void enum_scope()
+{
+    const char* source
+        =
+        "\n"
+        "enum E : { A };\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "  enum E { B } e2;\n"
+        "\n"
+        "  \n"
+        "  static_assert(\n"
+        "       _Generic(e2, enum E : 1, default: 0)\n"
+        "    );\n"
+        "}\n"
+        "";
+
     assert(compile_without_errors_warnings(false, false, source));
 }
 
@@ -40715,4 +40764,5 @@ void try_catch()
     assert(compile_without_errors_warnings(true, true, source));
 }
 #endif
+
 

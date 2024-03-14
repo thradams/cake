@@ -1791,9 +1791,9 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
         }
 
 
-        if (p_enum_specifier->complete_enum_specifier != NULL &&
-            p_enum_specifier != p_enum_specifier->complete_enum_specifier &&
-            p_enum_specifier->complete_enum_specifier->specifier_qualifier_list)
+        if (get_complete_enum_specifier(p_enum_specifier) != NULL &&
+            p_enum_specifier != get_complete_enum_specifier(p_enum_specifier) &&
+            get_complete_enum_specifier(p_enum_specifier)->specifier_qualifier_list)
         {
             p_enum_specifier->first_token->flags |= TK_C_BACKEND_FLAG_HIDE;
 
@@ -1803,8 +1803,8 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
             struct osstream ss = { 0 };
             bool b_first = true;
 
-            print_type_qualifier_flags(&ss, &b_first, p_enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_qualifier_flags);
-            print_type_specifier_flags(&ss, &b_first, p_enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_specifier_flags);
+            print_type_qualifier_flags(&ss, &b_first, get_complete_enum_specifier(p_enum_specifier)->specifier_qualifier_list->type_qualifier_flags);
+            print_type_specifier_flags(&ss, &b_first, get_complete_enum_specifier(p_enum_specifier)->specifier_qualifier_list->type_specifier_flags);
 
             struct tokenizer_ctx tctx = { 0 };
             struct token_list l2 = tokenizer(&tctx, ss.c_str, NULL, 0, TK_FLAG_NONE);

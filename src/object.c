@@ -362,7 +362,8 @@ struct object make_object_core(struct type* p_type,
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    if (p_member_declaration->specifier_qualifier_list && 
+                        p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                     {
                         //struct object obj = {0};
                         //obj.state = OBJECT_STATE_STRUCT;

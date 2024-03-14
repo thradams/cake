@@ -669,15 +669,75 @@ void visit_test_auto_typeof()
     free(result);
 }
 
-void enum_scope()
+void tag_scope1()
 {
-    const char* source =
-        "enum E { A = 1 };\n"
+    const char* source
+        =
+        "\n"
+        "enum E { A } e1;\n"
         "int main()\n"
         "{\n"
-        "  enum E { B } e2; \n"
-        "  static_assert( (typeof(e2)), (enum E) ); \n"
-        "}\n";
+        "  enum E  e2;\n"
+        "  static_assert(\n"
+        "       _Generic(typeof(e1), typeof(e2) : 1, default: 0)\n" /*e1 and e2 are the same*/
+        "    );\n"
+        "}";
+    assert(compile_without_errors_warnings(false, false, source));
+}
+
+void tag_scope2()
+{
+    const char* source
+        =
+        "\n"
+        "enum E { A } e1;\n"
+        "int main()\n"
+        "{\n"
+        "  enum E {A} e2;\n"
+        "  static_assert(\n"
+        "       _Generic(typeof(e1), typeof(e2) : 0, default: 1)\n" /*e1 and e2 are diferent*/
+        "    );\n"
+        "}";
+    assert(compile_without_errors_warnings(false, false, source));
+}
+
+void tag_scope3()
+{
+    const char* source
+        =
+        "\n"
+        "enum E { A };\n"
+        "int main()\n"
+        "{\n"
+        "  enum E { B } e2 =0;\n"
+        "  enum E e1 = 0;\n"
+        "  \n"
+        "  static_assert(\n"
+        "       _Generic(typeof(e2), typeof(e1) : 1, default: 0)\n" //e1 and e2 must be the same
+        "    );\n"
+        "}\n"
+        ;
+    assert(compile_without_errors_warnings(false, false, source));
+
+}
+void enum_scope()
+{
+    const char* source
+        =
+        "\n"
+        "enum E : { A };\n"
+        "\n"
+        "int main()\n"
+        "{\n"
+        "  enum E { B } e2;\n"
+        "\n"
+        "  \n"
+        "  static_assert(\n"
+        "       _Generic(e2, enum E : 1, default: 0)\n"
+        "    );\n"
+        "}\n"
+        "";
+
     assert(compile_without_errors_warnings(false, false, source));
 }
 
@@ -3564,3 +3624,4 @@ void try_catch()
     assert(compile_without_errors_warnings(true, true, source));
 }
 #endif
+

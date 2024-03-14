@@ -500,9 +500,9 @@ bool type_has_attribute(const struct type* p_type, enum attribute_flags attribut
     {
         p_attribute_specifier_sequence_opt = p_type->enum_specifier->attribute_specifier_sequence_opt;
         if (p_attribute_specifier_sequence_opt == NULL &&
-            p_type->enum_specifier->complete_enum_specifier)
+            get_complete_enum_specifier(p_type->enum_specifier))
         {
-            p_attribute_specifier_sequence_opt = p_type->enum_specifier->complete_enum_specifier->attribute_specifier_sequence_opt;
+            p_attribute_specifier_sequence_opt = get_complete_enum_specifier(p_type->enum_specifier)->attribute_specifier_sequence_opt;
         }
     }
 
@@ -2335,7 +2335,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
         struct osstream ss = { 0 };
 
         struct enum_specifier* p_complete =
-            p_type->enum_specifier->complete_enum_specifier;
+            get_complete_enum_specifier(p_type->enum_specifier);
 
 
         if (p_complete)
@@ -2473,12 +2473,12 @@ struct type type_get_enum_type(const struct type* p_type)
 {
     assert(p_type->enum_specifier != NULL);
 
-    if (p_type->enum_specifier->complete_enum_specifier &&
-        p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list)
+    if (get_complete_enum_specifier(p_type->enum_specifier) &&
+        get_complete_enum_specifier(p_type->enum_specifier)->specifier_qualifier_list)
     {
         struct type t = { 0 };
-        t.type_qualifier_flags = p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_qualifier_flags;
-        t.type_specifier_flags = p_type->enum_specifier->complete_enum_specifier->specifier_qualifier_list->type_specifier_flags;
+        t.type_qualifier_flags = get_complete_enum_specifier(p_type->enum_specifier)->specifier_qualifier_list->type_qualifier_flags;
+        t.type_specifier_flags = get_complete_enum_specifier(p_type->enum_specifier)->specifier_qualifier_list->type_specifier_flags;
         return t;
     }
 
@@ -2599,14 +2599,14 @@ bool enum_specifier_is_same(struct enum_specifier* a, struct enum_specifier* b)
 {
     if (a && b)
     {
-        if (a->complete_enum_specifier && b->complete_enum_specifier)
+        if (get_complete_enum_specifier(a)&& get_complete_enum_specifier(b))
         {
-            if (a->complete_enum_specifier != b->complete_enum_specifier)
+            if (get_complete_enum_specifier(a) != get_complete_enum_specifier(b))
                 return false;
             return true;
         }
-        return a->complete_enum_specifier == NULL &&
-            b->complete_enum_specifier == NULL;
+        return get_complete_enum_specifier(a) == NULL &&
+            get_complete_enum_specifier(b) == NULL;
     }
     return a == NULL && b == NULL;
 }
@@ -2630,8 +2630,8 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 
         if (pa->enum_specifier &&
             pb->enum_specifier &&
-            pa->enum_specifier->complete_enum_specifier !=
-            pb->enum_specifier->complete_enum_specifier)
+            get_complete_enum_specifier(pa->enum_specifier) !=
+            get_complete_enum_specifier(pb->enum_specifier))
         {
             return false;
         }

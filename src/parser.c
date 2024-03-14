@@ -3009,6 +3009,38 @@ struct type_specifier* owner type_specifier(struct parser_ctx* ctx)
     return p_type_specifier;
 }
 
+const struct enum_specifier* get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier)
+{
+    /*
+      The way cake find the complete struct is using one pass.. for this task is uses double indirection.
+      Then the result will be there at end of first pass.
+      This crazy code finds the complete definition of the struct if exists.
+    */
+    if (p_enum_specifier == NULL)
+        return NULL;
+
+    if (p_enum_specifier->enumerator_list.head)
+    {
+        /*p_struct_or_union_specifier is complete*/
+        return p_enum_specifier;
+    }
+    else if (p_enum_specifier->complete_enum_specifier2 &&
+        p_enum_specifier->complete_enum_specifier2->enumerator_list.head)
+    {
+        /*p_struct_or_union_specifier is the first seem tag tag points directly to complete*/
+        return p_enum_specifier->complete_enum_specifier2;
+    }
+    else if (p_enum_specifier->complete_enum_specifier2 &&
+        p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2 &&
+        p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2->enumerator_list.head)
+    {
+        /* all others points to the first seem that points to the complete*/
+        return p_enum_specifier->complete_enum_specifier2->complete_enum_specifier2;
+    }
+
+    return NULL;
+}
+
 struct struct_or_union_specifier* get_complete_struct_or_union_specifier(struct struct_or_union_specifier* p_struct_or_union_specifier)
 {
     /*
@@ -3659,21 +3691,36 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
         p_enum_specifier->attribute_specifier_sequence_opt =
             attribute_specifier_sequence_opt(ctx);
 
-        struct enum_specifier* p_previous_tag_in_this_scope = NULL;
-        bool has_identifier = false;
+
         if (ctx->current->type == TK_IDENTIFIER)
         {
-            has_identifier = true;
+            snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "%s", ctx->current->lexeme);
+
+
             p_enum_specifier->tag_token = ctx->current;
             parser_match(ctx);
+        }
+        else
+        {
+            snprintf(p_enum_specifier->tag_name, sizeof p_enum_specifier->tag_name, "_anonymous_struct_%d", s_anonymous_struct_count);
+            s_anonymous_struct_count++;
         }
 
         if (ctx->current->type == ':')
         {
-            /*C23*/
-            parser_match(ctx);
-            p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
+            if (!ctx->inside_generic_association)
+            {
+                /*C23*/
+                parser_match(ctx);
+                p_enum_specifier->specifier_qualifier_list = specifier_qualifier_list(ctx);
+            }
+            else
+            {
+                //TODO
+            }
         }
+
+
 
         if (ctx->current->type == '{')
         {
@@ -3681,7 +3728,7 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
                 naming_convention_enum_tag(ctx, p_enum_specifier->tag_token);
 
             /*points to itself*/
-            p_enum_specifier->complete_enum_specifier = p_enum_specifier;
+            p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
 
             if (parser_match_tk(ctx, '{') != 0)
                 throw;
@@ -3692,107 +3739,35 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
             }
             if (parser_match_tk(ctx, '}') != 0)
                 throw;
+
+            hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
+            p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
         }
         else
         {
-            if (!has_identifier)
+            struct enum_specifier* p_existing_enum_specifier = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
+            if (p_existing_enum_specifier)
             {
-                compiler_diagnostic_message(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
-                throw;
-            }
-        }
-
-        /*
-         * Let's search for this tag at current scope only
-         */
-        struct map_entry* p_entry = NULL;
-
-        if (p_enum_specifier->tag_token &&
-            p_enum_specifier->tag_token->lexeme)
-        {
-            p_entry = hashmap_find(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme);
-        }
-        if (p_entry)
-        {
-            /*
-               ok.. we have this tag at this scope
-            */
-            if (p_entry->type == TAG_TYPE_ENUN_SPECIFIER)
-            {
-                p_previous_tag_in_this_scope = p_entry->p;
-
-                if (p_previous_tag_in_this_scope->enumerator_list.head != NULL &&
-                    p_enum_specifier->enumerator_list.head != NULL)
-                {
-                    compiler_diagnostic_message(C_ERROR_MULTIPLE_DEFINITION_ENUM,
-                        ctx,
-                        p_enum_specifier->tag_token,
-                        "multiple definition of 'enum %s'",
-                        p_enum_specifier->tag_token->lexeme);
-                }
-                else if (p_previous_tag_in_this_scope->enumerator_list.head != NULL)
-                {
-                    p_enum_specifier->complete_enum_specifier = p_previous_tag_in_this_scope;
-                }
-                else if (p_enum_specifier->enumerator_list.head != NULL)
-                {
-                    p_previous_tag_in_this_scope->complete_enum_specifier = p_enum_specifier;
-                }
+                //p_existing_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
+                //ja existe
+                //verificar o caso de ser outro tag no memso escopo
+                p_enum_specifier->complete_enum_specifier2 = p_existing_enum_specifier;
             }
             else
             {
-                compiler_diagnostic_message(C_ERROR_TAG_TYPE_DOES_NOT_MATCH_PREVIOUS_DECLARATION,
-                    ctx,
-                    ctx->current, "use of '%s' with tag type that does not match previous declaration.",
-                    ctx->current->lexeme);
-                throw;
+                //nao existe lugar nenhum vamos adicionar
+                hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_name, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
+                p_enum_specifier->complete_enum_specifier2 = p_enum_specifier;
             }
+
+            //if (!has_identifier)
+            //{
+              //  compiler_diagnostic_message(C_ERROR_MISSING_ENUM_TAG_NAME, ctx, ctx->current, "missing enum tag name");
+                //throw;
+            //}
         }
-        else
-        {
-            /*
-             * we didn't find at current scope let's search in previous scopes
-             */
-            struct enum_specifier* p_other = NULL;
 
-            if (p_enum_specifier->tag_token)
-            {
-                p_other = find_enum_specifier(ctx, p_enum_specifier->tag_token->lexeme);
-            }
 
-            if (p_other == NULL)
-            {
-                /*
-                 * we didn't find, so this is the first time this tag is used
-                 */
-                if (p_enum_specifier->tag_token)
-                {
-                    hashmap_set(&ctx->scopes.tail->tags, p_enum_specifier->tag_token->lexeme, p_enum_specifier, TAG_TYPE_ENUN_SPECIFIER);
-                }
-                else
-                {
-                    // make a name?
-                }
-            }
-            else
-            {
-
-                /*
-                 * we found this enum tag in previous scopes
-                 */
-
-                if (p_enum_specifier->enumerator_list.head != NULL)
-                {
-                    /*it is a new definition - itself*/
-                    // p_enum_specifier->complete_enum_specifier = p_enum_specifier;
-                }
-                else if (p_other->enumerator_list.head != NULL)
-                {
-                    /*previous enum is complete*/
-                    p_enum_specifier->complete_enum_specifier = p_other;
-                }
-            }
-        }
     }
     catch
     {
