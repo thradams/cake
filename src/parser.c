@@ -1994,6 +1994,7 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
             throw;
 
         p_declaration->p_attribute_specifier_sequence_opt = p_attribute_specifier_sequence_opt;
+        p_attribute_specifier_sequence_opt = NULL; /*MOVED*/
 
         p_declaration->first_token = ctx->current;
 
@@ -2064,6 +2065,8 @@ struct declaration* owner declaration_core(struct parser_ctx* ctx,
         p_declaration = NULL;
     }
 
+    attribute_specifier_sequence_delete(p_attribute_specifier_sequence_opt);
+    
     return p_declaration;
 }
 
@@ -4282,6 +4285,8 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
             throw;
 
         p_array_declarator->direct_declarator = p_direct_declarator;
+        p_direct_declarator = NULL; /*MOVED*/
+
         if (parser_match_tk(ctx, '[') != 0)
             throw;
 
@@ -4353,6 +4358,8 @@ struct array_declarator* owner array_declarator(struct direct_declarator* owner 
         }
     }
 
+    direct_declarator_delete(p_direct_declarator);
+
     return p_array_declarator;
 }
 
@@ -4362,7 +4369,9 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
     try
     {
         if (p_function_declarator == NULL)
+        {
             throw;
+        }
 
         // faz um push da funcion_scope_declarator_list que esta vivendo mais em cima
         // eh feito o pop mais em cima tb.. aqui dentro do decide usar.
@@ -4371,16 +4380,14 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
         // direct_declarator '(' parameter_type_list_opt ')'
 
         p_function_declarator->direct_declarator = p_direct_declarator;
+        p_direct_declarator = NULL; /*MOVED*/
         p_function_declarator->parameters_scope.scope_level = ctx->scopes.tail->scope_level + 1;
         p_function_declarator->parameters_scope.variables.capacity = 5;
         p_function_declarator->parameters_scope.tags.capacity = 1;
 
-        
-
-        // print_scope(&ctx->scopes);
-
         if (parser_match_tk(ctx, '(') != 0)
             throw;
+
         if (ctx->current->type != ')')
         {
             scope_list_push(&ctx->scopes, &p_function_declarator->parameters_scope);
@@ -4390,17 +4397,14 @@ struct function_declarator* owner function_declarator(struct direct_declarator* 
         if (parser_match_tk(ctx, ')') != 0)
             throw;
 
-        // print_scope(&ctx->scopes);
-
-        
-
-        // print_scope(&ctx->scopes);
     }
     catch
     {
         function_declarator_delete(p_function_declarator);
         p_function_declarator = NULL;
     }
+
+    direct_declarator_delete(p_direct_declarator);
     return p_function_declarator;
 }
 

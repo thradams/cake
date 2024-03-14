@@ -2149,10 +2149,11 @@ struct expression *owner postfix_expression_type_name(struct parser_ctx *ctx, st
         p_expression_node->first_token = previous_parser_token(p_type_name->first_token);
         assert(p_expression_node->first_token->type == '(');
 
-        p_expression_node->type_name = p_type_name;
+        p_expression_node->type_name = p_type_name; /*MOVED*/
+        p_type_name = NULL; /*MOVED*/
         p_expression_node->type = make_type_using_declarator(ctx, p_expression_node->type_name->declarator);
 
-        if (type_is_function(&p_type_name->declarator->type))
+        if (type_is_function(&p_expression_node->type_name->declarator->type))
         {
             p_expression_node->expression_type = POSTFIX_EXPRESSION_FUNCTION_LITERAL;
 
@@ -2178,7 +2179,7 @@ struct expression *owner postfix_expression_type_name(struct parser_ctx *ctx, st
     catch
     {
     }
-
+    type_name_delete(p_type_name);
     return p_expression_node;
 }
 
@@ -3478,6 +3479,7 @@ struct expression *owner equality_expression(struct parser_ctx *ctx)
     {
     }
 
+    expression_delete(new_expression);
     return p_expression_node;
 }
 
@@ -3535,6 +3537,7 @@ struct expression *owner and_expression(struct parser_ctx *ctx)
     {
     }
 
+    expression_delete(new_expression);
     return p_expression_node;
 }
 
@@ -3593,6 +3596,7 @@ struct expression *owner exclusive_or_expression(struct parser_ctx *ctx)
     {
     }
 
+    expression_delete(new_expression);
     return p_expression_node;
 }
 
