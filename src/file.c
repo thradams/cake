@@ -1,3 +1,10 @@
-#pragma warning(push)
-#pragma warning(disable:4201)
-struct X { int i; };
+/*
+  This is a work file
+*/
+
+int main()
+{
+    
+    if (int i = 0; i) {}
+    
+}
