@@ -80,6 +80,7 @@ void token_list_paste_string_before(struct token_list* list,
     const char* s);
 struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* filename_opt, int level, enum token_flags addflags);
 
+void print_code_as_we_see(struct token_list* list, bool remove_comments);
 const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments);
 const char* owner get_code_as_compiler_see(struct token_list* list);
 

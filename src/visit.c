@@ -7,7 +7,7 @@
 #include "expressions.h"
 #include "ownership.h"
 
-
+/*imagine tou press DEL key*/
 static void del(struct token* from, struct token* to)
 {
     struct token* p = from;
@@ -20,9 +20,9 @@ static void del(struct token* from, struct token* to)
         if (p == to)
             break;
     }
-
 }
 
+/*imagine tou press CUT key - (tokens are never removed, they become invisible)*/
 static struct token_list cut(struct token* from, struct token* to)
 {
     struct token_list l = { 0 };
@@ -36,17 +36,14 @@ static struct token_list cut(struct token* from, struct token* to)
         {
             struct token* owner clone = clone_token(p);
             p->flags |= TK_C_BACKEND_FLAG_HIDE;
-            p = p->next;
             token_list_add(&l, clone);
+            if (p == to)
+                break;
         }
-        else
-        {
-            p = p->next;
-        }
+
         if (p == to)
             break;
-
-        
+        p = p->next;
     }
     return l;
 }
@@ -82,6 +79,12 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
 void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
+    /*
+      OBS:
+      To debug this code use 
+      print_code_as_we_see(&ctx->ast.token_list, false);
+      before and after each transformation
+    */
 
     if (p_selection_statement->p_init_statement == NULL &&
         p_selection_statement->condition != NULL &&
@@ -89,36 +92,47 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
     {
         return;
     }
+
     
     token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, "{");
     
 
     struct token_list init_tokens_cut = { 0 };
-    if (p_selection_statement->p_init_statement->p_expression_statement)
+    if (p_selection_statement->p_init_statement &&
+        p_selection_statement->p_init_statement->p_expression_statement)
     {
         init_tokens_cut = cut(p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token,
             p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token);
     }
-    else if (p_selection_statement->p_init_statement->p_simple_declaration)
+    else if (p_selection_statement->p_init_statement &&
+        p_selection_statement->p_init_statement->p_simple_declaration)
     {
         init_tokens_cut = cut(p_selection_statement->p_init_statement->p_simple_declaration->first_token,
             p_selection_statement->p_init_statement->p_simple_declaration->last_token);
     }
-    token_list_insert_before(&ctx->ast.token_list, p_selection_statement->open_parentesis_token, &init_tokens_cut);
+    
+    token_list_insert_before(&ctx->ast.token_list, p_selection_statement->first_token, &init_tokens_cut);
+    
 
     struct token_list condition_tokens_cut = { 0 };
     if (p_selection_statement->condition && p_selection_statement->condition->expression)
     {
-        condition_tokens_cut = cut(p_selection_statement->condition->expression->first_token,
-            p_selection_statement->condition->expression->last_token);
+        /*leave it */    
     }
-    else if (p_selection_statement->p_init_statement->p_simple_declaration)
+    else if (p_selection_statement->condition &&
+        p_selection_statement->condition->p_declaration_specifiers)
     {
         condition_tokens_cut = cut(p_selection_statement->condition->first_token,
             p_selection_statement->condition->last_token);
+        
+        token_list_insert_before(&ctx->ast.token_list, p_selection_statement->first_token, &condition_tokens_cut);
+        token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, ";");
+        
+        token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
+            p_selection_statement->condition->declarator->name->lexeme
+        );
+        
     }
-    token_list_insert_before(&ctx->ast.token_list, p_selection_statement->open_parentesis_token, &condition_tokens_cut);
-
 
     token_list_paste_string_after(&ctx->ast.token_list, p_selection_statement->last_token, "}");    
 

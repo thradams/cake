@@ -6358,7 +6358,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
     */
 
     struct scope if_scope = { 0 };
-    scope_list_push(&ctx->scopes, &if_scope); // variaveis decladas no if
+    scope_list_push(&ctx->scopes, &if_scope);
 
     struct selection_statement* owner p_selection_statement = calloc(1, sizeof(struct selection_statement));
     try
@@ -6390,20 +6390,37 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         if (parser_match_tk(ctx, '(') != 0)
             throw;
 
-
+        /*
+           init-statement and condition are  almost the same.
+           the diference is that init-statement has ;
+        */        
         p_selection_statement->p_init_statement = init_statement(ctx, true);
         if (p_selection_statement->p_init_statement == NULL)
             throw;
 
-
-
         if (ctx->current->type == ';')
-        {
+        {     
+            /*
+              We only know if we are at init-statement if we find ; 
+            */
+
+            //  fixing the last_token            
+            if (p_selection_statement->p_init_statement->p_simple_declaration)
+              p_selection_statement->p_init_statement->p_simple_declaration->last_token = ctx->current;
+            else if (p_selection_statement->p_init_statement->p_expression_statement)
+                p_selection_statement->p_init_statement->p_simple_declaration->last_token = ctx->current;
+
             parser_match(ctx);
             p_selection_statement->condition = condition(ctx);
         }
         else if (ctx->current->type == ')')
         {
+            /*
+              We only know if we are at init-statement if we find ;
+              In this case it is NOT.
+              So we copy parts of init-statement to condition
+            */
+
             /*ignore that init_statement*/
             p_selection_statement->condition = calloc(1, sizeof * p_selection_statement->condition);
             if (p_selection_statement->condition == NULL) throw;
@@ -6411,6 +6428,9 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
             //steal expression
             if (p_selection_statement->p_init_statement->p_expression_statement)
             {
+                p_selection_statement->condition->first_token = p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token;
+                p_selection_statement->condition->last_token = p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token;
+
                 p_selection_statement->condition->expression =
                     p_selection_statement->p_init_statement->p_expression_statement->expression_opt;
                 p_selection_statement->p_init_statement->p_expression_statement->expression_opt = NULL;
@@ -6418,6 +6438,9 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
 
             if (p_selection_statement->p_init_statement->p_simple_declaration)
             {
+                p_selection_statement->condition->first_token = p_selection_statement->p_init_statement->p_simple_declaration->first_token;
+                p_selection_statement->condition->last_token = p_selection_statement->p_init_statement->p_simple_declaration->last_token;
+
                 p_selection_statement->condition->declarator =
                     p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->p_declarator;
                 p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->p_declarator = NULL;
@@ -6431,7 +6454,7 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
                 p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->initializer = NULL;
 
             }
-
+            
                        
             init_statement_delete(p_selection_statement->p_init_statement);
             p_selection_statement->p_init_statement = NULL;
@@ -6828,7 +6851,11 @@ struct condition* owner condition(struct parser_ctx* ctx)
         {
             p_condition->p_attribute_specifier_sequence_opt = attribute_specifier_sequence(ctx);
             p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
-            p_condition->declarator = declarator(ctx, NULL, p_condition->p_declaration_specifiers, false, NULL);
+            struct token* p_token_name = NULL;
+            p_condition->declarator = declarator(ctx, NULL, p_condition->p_declaration_specifiers, false, &p_token_name);
+            p_condition->declarator->name = p_token_name;
+            if (parser_match_tk(ctx, '=') != 0) throw;
+            p_condition->initializer = initializer(ctx);
         }
         else
         {
