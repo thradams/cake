@@ -6441,18 +6441,22 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
                 p_selection_statement->condition->first_token = p_selection_statement->p_init_statement->p_simple_declaration->first_token;
                 p_selection_statement->condition->last_token = p_selection_statement->p_init_statement->p_simple_declaration->last_token;
 
-                p_selection_statement->condition->declarator =
-                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->p_declarator;
-                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->p_declarator = NULL;
+                if (p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head !=
+                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail)
+                {
+                    //tODO only 1
+                    assert(false);
+                    throw;
+                }
+                p_selection_statement->condition->p_init_declarator =
+                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head;
+
+                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head = NULL;
+                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail = NULL;
 
                 p_selection_statement->condition->p_declaration_specifiers =
                     p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers;
                 p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers = NULL;
-
-                p_selection_statement->condition->initializer =
-                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->initializer;
-                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->initializer = NULL;
-
             }
             
                        
@@ -6826,9 +6830,9 @@ void condition_delete(struct condition* owner opt p_condition)
 {
     if (p_condition)
     {
-        declarator_delete(p_condition->declarator);
+        init_declarator_delete(p_condition->p_init_declarator);
         expression_delete(p_condition->expression);
-        initializer_delete(p_condition->initializer);
+        
         attribute_specifier_sequence_delete(p_condition->p_attribute_specifier_sequence_opt);
         free(p_condition);
     }
@@ -6850,12 +6854,8 @@ struct condition* owner condition(struct parser_ctx* ctx)
         if (first_of_declaration_specifier(ctx))
         {
             p_condition->p_attribute_specifier_sequence_opt = attribute_specifier_sequence(ctx);
-            p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
-            struct token* p_token_name = NULL;
-            p_condition->declarator = declarator(ctx, NULL, p_condition->p_declaration_specifiers, false, &p_token_name);
-            p_condition->declarator->name = p_token_name;
-            if (parser_match_tk(ctx, '=') != 0) throw;
-            p_condition->initializer = initializer(ctx);
+            p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);            
+            p_condition->p_init_declarator = init_declarator(ctx, p_condition->p_declaration_specifiers);
         }
         else
         {

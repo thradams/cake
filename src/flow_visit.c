@@ -852,10 +852,10 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         {
             p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_selection_statement->condition->expression, &temp_obj2);
         }
-        else if (p_selection_statement->condition->declarator)
+        else if (p_selection_statement->condition->p_init_declarator)
         {
            // assert(false); //TODO confirm this works
-            p_object_compared_with_not_null = &p_selection_statement->condition->declarator->object;
+            p_object_compared_with_not_null = &p_selection_statement->condition->p_init_declarator->p_declarator->object;
             
         }
     }

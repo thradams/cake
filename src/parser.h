@@ -427,8 +427,15 @@ struct condition {
     struct expression* owner expression;
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     struct declaration_specifiers* owner p_declaration_specifiers;
-    struct declarator* owner declarator;
-    struct initializer* owner initializer;    
+    
+    /*
+      OBS:
+      We must use p_init_declarator because it is kept on the scope
+      as init_declarator when we are trying to parse init-statement or condition that
+      are very similar
+    */
+    struct init_declarator * owner p_init_declarator;
+
     struct token* first_token;
     struct token* last_token;
 };

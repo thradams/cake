@@ -128,7 +128,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, ";");
         
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
-            p_selection_statement->condition->declarator->name->lexeme
+            p_selection_statement->condition->p_init_declarator->p_declarator->name->lexeme
         );
         
     }
@@ -510,17 +510,19 @@ static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initi
 
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator);
 
+static void visit_init_declarator(struct visit_ctx* ctx, struct init_declarator* p_init_declarator)
+{
+    visit_declarator(ctx, p_init_declarator->p_declarator);
+    visit_initializer(ctx, p_init_declarator->initializer);    
+}
 static void visit_condition(struct visit_ctx* ctx, struct condition* p_condition)
 {
     if (p_condition->p_declaration_specifiers)
         visit_declaration_specifiers(ctx, p_condition->p_declaration_specifiers, NULL);
 
-    if (p_condition->declarator)
-        visit_declarator(ctx, p_condition->declarator);
-
-    if (p_condition->initializer)
-        visit_initializer(ctx, p_condition->initializer);
-
+    
+    if (p_condition->p_init_declarator)
+        visit_init_declarator(ctx, p_condition->p_init_declarator);
 
 
     if (p_condition->expression)
