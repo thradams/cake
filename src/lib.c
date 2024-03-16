@@ -33811,6 +33811,7 @@ static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p
 static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier);
 static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
+static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement);
 
 struct visit_objects {
     struct flow_defer_scope* current_block;
@@ -34763,12 +34764,16 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 
 static void flow_visit_simple_declaration(struct flow_visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
 {
-    flow_visit_declaration_specifiers(ctx, &p_simple_declaration->p_declaration_specifiers, NULL);
+    flow_visit_declaration_specifiers(ctx, p_simple_declaration->p_declaration_specifiers, NULL);
     flow_visit_init_declarator_list(ctx, &p_simple_declaration->init_declarator_list);
 }
 
 static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
+    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
+    p_defer->p_selection_statement = p_selection_statement;
+
+    
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
     struct object* p_object_compared_with_null = NULL;
     struct object temp_obj1 = { 0 };
@@ -34822,7 +34827,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     if (p_selection_statement->p_init_statement &&
         p_selection_statement->p_init_statement->p_expression_statement)
-        flow_visit_expression(ctx, p_selection_statement->p_init_statement->p_expression_statement);
+        flow_visit_expression_statement(ctx, p_selection_statement->p_init_statement->p_expression_statement);
 
     if (p_selection_statement->p_init_statement && 
         p_selection_statement->p_init_statement->p_simple_declaration)
@@ -34839,9 +34844,13 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     {
 
         flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
-        // check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
+        //check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
 
     }
+
+    check_defer_and_variables(ctx, p_defer, p_selection_statement->last_token);
+
+
 
     bool was_last_statement_inside_true_branch_return =
         secondary_block_ends_with_jump(p_selection_statement->secondary_block);
@@ -34880,6 +34889,9 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     }
 
+    check_defer_and_variables(ctx, p_defer, p_selection_statement->last_token);
+
+
     bool was_last_statement_inside_else_branch_return =
         secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);
 
@@ -34907,6 +34919,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         }
     }
 
+    flow_visit_ctx_pop_tail_block(ctx);
 
     pop_states(ctx, 2);
     object_destroy(&temp_obj1);
@@ -35067,10 +35080,7 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
 
 static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
-    struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
-    p_defer->p_selection_statement = p_selection_statement;
-
-
+    
     if (p_selection_statement->first_token->type == TK_KEYWORD_IF)
     {
         flow_visit_if_statement(ctx, p_selection_statement);
@@ -35082,8 +35092,7 @@ static void flow_visit_selection_statement(struct flow_visit_ctx* ctx, struct se
     else
         assert(false);
 
-    check_defer_and_variables(ctx, p_defer, p_selection_statement->last_token);
-    flow_visit_ctx_pop_tail_block(ctx);
+ 
 }
 
 static void flow_visit_compound_statement(struct flow_visit_ctx* ctx, struct compound_statement* p_compound_statement);

@@ -9,4 +9,11 @@ int main()
     {
         static_debug(p);
     }
+
+    if (int* _Owner p = f(); p == 0)
+    {
+        static_debug(p);
+    }
+    
+    
 }
