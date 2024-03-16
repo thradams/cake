@@ -41287,6 +41287,29 @@ void if_stat2()
 
 }
 
+void if_stat3()
+{
+    const char* source
+        =
+        "int main()\n"
+        "{\n"
+        "    if (int i = 0; int k = 2) {}\n"
+        "}";
+
+
+    const char* ouput
+        =
+        "int main()\n"
+        "{\n"
+        "    {int i = 0; int k = 2; if ( k) {}}\n"
+        "}";
+
+    assert(compare_input_and_output(source, ouput));
+
+}
+
+//
+
 
 #endif
 
