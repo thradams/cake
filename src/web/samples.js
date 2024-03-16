@@ -1018,9 +1018,22 @@ sample["Extensions"]["if with initialization (Like C++17)"] =
 
 int main()
 {
-   int size = 10;
+   
+   FILE* f0;
+   if ( f0 = fopen("file.txt", "r"))
+   {
+     /*...*/
+     fclose(f0);
+   }
+   
    if (FILE* f = fopen("file.txt", "r"); f)
    {
+     /*...*/
+     fclose(f);
+   }
+
+   if (FILE* f = fopen("file.txt", "r"))
+   {    
      /*...*/
      fclose(f);
    }
