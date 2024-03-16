@@ -247,6 +247,9 @@ void sizeof_union_test(void);
 void not_null_does_not_change(void);
 void try_catch_test(void);
 void try_catch(void);
+void if_stat1(void);
+void if_stat2(void);
+void if_stat3(void);
 
 /*end of forward declarations*/
 
@@ -485,6 +488,9 @@ g_unit_test_success_count = 0;
     not_null_does_not_change();
     try_catch_test();
     try_catch();
+    if_stat1();
+    if_stat2();
+    if_stat3();
 return g_unit_test_error_count;
 
 }

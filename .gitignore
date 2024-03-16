@@ -73,3 +73,5 @@ src/cake
 /vc/.vs/cake/FileContentIndex
 /.vscode/
 /vc/cake/Debug
+/vc/cake/x64/Debug
+/vc/cake/DebugTest

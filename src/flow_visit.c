@@ -832,15 +832,32 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     struct object* p_object_compared_with_null = NULL;
     struct object temp_obj1 = { 0 };
     struct object temp_obj2 = { 0 };
-    if (p_selection_statement->expression)
+    
+    if (p_selection_statement->condition)
     {
-        p_object_compared_with_null = expression_is_comparing_owner_with_null(p_selection_statement->expression, &temp_obj1);
+        if (p_selection_statement->condition->expression)
+        {
+            p_object_compared_with_null = expression_is_comparing_owner_with_null(p_selection_statement->condition->expression, &temp_obj1);
+        }
+        else
+        {
+           // assert(false);//TODO
+        }
     }
 
     struct object* p_object_compared_with_not_null = NULL;
-    if (p_selection_statement->expression)
+    if (p_selection_statement->condition)
     {
-        p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_selection_statement->expression, &temp_obj2);
+        if (p_selection_statement->condition->expression)
+        {
+            p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_selection_statement->condition->expression, &temp_obj2);
+        }
+        else if (p_selection_statement->condition->p_init_declarator)
+        {
+           // assert(false); //TODO confirm this works
+            p_object_compared_with_not_null = &p_selection_statement->condition->p_init_declarator->p_declarator->object;
+            
+        }
     }
 
 
@@ -862,7 +879,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
     }
 
-    flow_visit_expression(ctx, p_selection_statement->expression);
+    flow_visit_expression(ctx, p_selection_statement->condition->expression);
 
     if (p_selection_statement->secondary_block)
     {

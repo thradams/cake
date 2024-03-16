@@ -5006,6 +5006,42 @@ const char* owner get_code_as_we_see_plus_macros(struct token_list* list)
     return cstr;
 }
 
+/*useful to debug visit.c*/
+void print_code_as_we_see(struct token_list* list, bool remove_comments)
+{
+    
+    struct token* current = list->head;
+    while (current && current != list->tail->next)
+    {
+        if (current->level == 0 &&
+            !(current->flags & TK_FLAG_MACRO_EXPANDED) &&
+            !(current->flags & TK_C_BACKEND_FLAG_HIDE) &&
+            current->type != TK_BEGIN_OF_FILE)
+        {
+            if ((current->flags & TK_FLAG_HAS_SPACE_BEFORE) &&
+                (current->prev != NULL && current->prev->type != TK_BLANKS))
+            {
+                //se uma macro expandida for mostrada ele nao tem espacos entao inserimos
+                printf(" ");
+            }
+
+            if (remove_comments)
+            {
+                if (current->type == TK_LINE_COMMENT)
+                    printf("\n");
+                else if (current->type == TK_COMMENT)
+                    printf(" ");
+                else
+                    printf("%s", current->lexeme);
+            }
+            else
+            {
+                printf("%s", current->lexeme);
+            }
+        }
+        current = current->next;
+    }
+}
 const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments)
 {
     struct osstream ss = { 0 };

@@ -2334,7 +2334,7 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type)
     {
         struct osstream ss = { 0 };
 
-        struct enum_specifier* p_complete =
+        const struct enum_specifier* p_complete =
             get_complete_enum_specifier(p_type->enum_specifier);
 
 

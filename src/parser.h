@@ -388,18 +388,83 @@ struct declaration
 
     struct token* first_token;
     struct token* last_token;
-
+    
     struct declaration* owner next;
 };
 void declaration_delete(struct declaration* owner opt p);
 struct declaration* owner external_declaration(struct parser_ctx* ctx);
+
+struct simple_declaration
+{
+    /*    
+    This is an extension to support C++ 17 if with initialization
+    
+    simple-declaration:    
+      declaration-specifiers init-declarator-list opt ;
+      attribute-specifier-sequence declaration-specifiers init-declarator-list ;
+    */
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
+    struct declaration_specifiers* owner p_declaration_specifiers;
+    struct init_declarator_list init_declarator_list;
+    struct token* first_token;
+    struct token* last_token;
+};
+
+void simple_declaration_delete(struct simple_declaration* owner opt p);
+
+struct simple_declaration* owner simple_declaration(struct parser_ctx* ctx,
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt,
+    bool ignore_semicolon);
+
+struct condition {
+    /*
+      This is an extension to support C++ 17 if with initialization
+
+      condition :
+       expression
+       attribute-specifier-seq opt decl-specifier-seq declarator initializer
+    */
+    struct expression* owner expression;
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
+    struct declaration_specifiers* owner p_declaration_specifiers;
+    
+    /*
+      OBS:
+      We must use p_init_declarator because it is kept on the scope
+      as init_declarator when we are trying to parse init-statement or condition that
+      are very similar
+    */
+    struct init_declarator * owner p_init_declarator;
+
+    struct token* first_token;
+    struct token* last_token;
+};
+
+void condition_delete(struct condition* owner opt p);
+struct condition* owner condition(struct parser_ctx* ctx);
+
+struct init_statement
+{
+    /*
+        This is an extension to support C++ 17 if with initialization
+
+        init-statement :
+          expression-statement
+          simple-declaration
+    */
+    struct expression_statement* owner p_expression_statement;
+    struct simple_declaration* owner p_simple_declaration;
+};
+
+void init_statement_delete(struct init_statement* owner opt p);
+struct init_statement* owner init_statement(struct parser_ctx* ctx, bool ignore_semicolon);
 
 struct atomic_type_specifier
 {
     /*
       atomic-type-specifier:
         "_Atomic" ( type-name )
-    */
+    */    
     struct token* token;
     struct type_name* owner type_name;
 };
@@ -976,13 +1041,22 @@ struct selection_statement
         "switch" ( expression ) secondary-block
     */
 
-    /*C++ 17 if with initialization extension*/
-    struct init_declarator* owner init_declarator;
-    struct declaration_specifiers* owner declaration_specifiers;
+    /*
+    Extension to support C++ 17 if with initialization
 
-    struct expression* owner expression;
+    selection-statement:
+       "if" ( init-statement opt condition ) secondary-block
+       "if" ( init-statement opt condition ) secondary-block "else" secondary-block
+       switch ( init-statement opt condition ) secondary-block    
+    */
+    struct init_statement* p_init_statement;
+    struct condition* condition;
+        
     struct secondary_block* owner secondary_block;
     struct secondary_block* owner else_secondary_block_opt;
+
+    struct token* open_parentesis_token;
+    struct token* close_parentesis_token;
 
     struct token* first_token;
     struct token* last_token;
@@ -1048,7 +1122,7 @@ struct expression_statement
     struct expression* owner expression_opt;
 };
 
-struct expression_statement* owner expression_statement(struct parser_ctx* ctx);
+struct expression_statement* owner expression_statement(struct parser_ctx* ctx, bool ignore_semicolon);
 void expression_statement_delete(struct expression_statement* owner opt  p);
 
 struct block_item

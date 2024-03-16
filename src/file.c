@@ -1,3 +1,12 @@
-#pragma warning(push)
-#pragma warning(disable:4201)
-struct X { int i; };
+/*
+  This is a work file
+*/
+
+int* f();
+int main()
+{    
+    if (int* p = f()) 
+    {
+        static_debug(p);
+    }
+}

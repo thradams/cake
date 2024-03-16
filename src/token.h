@@ -293,3 +293,5 @@ do {\
 
 bool style_has_space(const struct token* token);
 bool style_has_one_space(const struct token* token);
+
+struct token make_simple_token(char ch);

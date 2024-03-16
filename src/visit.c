@@ -7,6 +7,47 @@
 #include "expressions.h"
 #include "ownership.h"
 
+/*imagine tou press DEL key*/
+static void del(struct token* from, struct token* to)
+{
+    struct token* p = from;
+    while (p)
+    {        
+        p->flags |= TK_C_BACKEND_FLAG_HIDE;
+        p = p->next;
+
+        if (p == to)
+            break;
+    }
+}
+
+/*imagine tou press CUT key - (tokens are never removed, they become invisible)*/
+static struct token_list cut(struct token* from, struct token* to)
+{
+    struct token_list l = { 0 };
+    struct token* p = from;
+    while (p)
+    {
+        if (p->level == 0 &&
+            !(p->flags & TK_FLAG_MACRO_EXPANDED) &&
+            !(p->flags & TK_C_BACKEND_FLAG_HIDE) &&
+            p->type != TK_BEGIN_OF_FILE)
+        {
+            struct token* owner clone = clone_token(p);
+            p->flags |= TK_C_BACKEND_FLAG_HIDE;
+            token_list_add(&l, clone);
+            if (p == to)
+                break;
+        }
+
+        if (p == to)
+            break;
+        p = p->next;
+    }
+    return l;
+}
+
+
 void defer_scope_delete_all(struct defer_scope* owner p);
 
 void visit_ctx_destroy(struct visit_ctx* obj_owner ctx)
@@ -17,6 +58,7 @@ void visit_ctx_destroy(struct visit_ctx* obj_owner ctx)
 }
 
 static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence);
+static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration);
 
 struct token* next_parser_token(struct token* token)
 {
@@ -36,43 +78,63 @@ static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p
 
 void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
-    if (p_selection_statement->init_declarator == NULL ||
-        p_selection_statement->first_token->type != TK_KEYWORD_IF)
+    /*
+      OBS:
+      To debug this code use 
+      print_code_as_we_see(&ctx->ast.token_list, false);
+      before and after each transformation
+    */
+
+    if (p_selection_statement->p_init_statement == NULL &&
+        p_selection_statement->condition != NULL &&
+        p_selection_statement->condition->expression)
     {
         return;
     }
 
-    struct token* before_first_token =
-        p_selection_statement->first_token->prev;
-    struct token* token =
-        next_parser_token(p_selection_statement->first_token);
-    token = next_parser_token(token);
-    struct token* first = token;
-    while (token)
+    
+    token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, "{");
+    
+
+    struct token_list init_tokens_cut = { 0 };
+    if (p_selection_statement->p_init_statement &&
+        p_selection_statement->p_init_statement->p_expression_statement)
     {
-        if (token->type == ';')
-            break;
-        token = next_parser_token(token);
+        init_tokens_cut = cut(p_selection_statement->p_init_statement->p_expression_statement->expression_opt->first_token,
+            p_selection_statement->p_init_statement->p_expression_statement->expression_opt->last_token);
     }
-    struct token_list list =
-        token_list_remove_get(&ctx->ast.token_list, first, token);
+    else if (p_selection_statement->p_init_statement &&
+        p_selection_statement->p_init_statement->p_simple_declaration)
+    {
+        init_tokens_cut = cut(p_selection_statement->p_init_statement->p_simple_declaration->first_token,
+            p_selection_statement->p_init_statement->p_simple_declaration->last_token);
+    }
+    
+    token_list_insert_before(&ctx->ast.token_list, p_selection_statement->first_token, &init_tokens_cut);
+    
 
-    token_list_insert_after(&ctx->ast.token_list,
-        before_first_token,
-        &list);
+    struct token_list condition_tokens_cut = { 0 };
+    if (p_selection_statement->condition && p_selection_statement->condition->expression)
+    {
+        /*leave it */    
+    }
+    else if (p_selection_statement->condition &&
+        p_selection_statement->condition->p_declaration_specifiers)
+    {
+        condition_tokens_cut = cut(p_selection_statement->condition->first_token,
+            p_selection_statement->condition->last_token);
+        
+        token_list_insert_before(&ctx->ast.token_list, p_selection_statement->first_token, &condition_tokens_cut);
+        token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, ";");
+        
+        token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
+            p_selection_statement->condition->p_init_declarator->p_declarator->name->lexeme
+        );
+        
+    }
 
-    struct tokenizer_ctx tctx = { 0 };
-    struct token_list list1 = tokenizer(&tctx, "{", "", 0, TK_FLAG_FINAL);
-    token_list_insert_after(&ctx->ast.token_list,
-        before_first_token,
-        &list1);
-    struct token_list list2 = tokenizer(&tctx, "}", "", 0, TK_FLAG_FINAL);
-    token_list_insert_after(&ctx->ast.token_list,
-        p_selection_statement->last_token,
-        &list2);
-    token_list_destroy(&list2);
-    token_list_destroy(&list1);
-    token_list_destroy(&list);
+    token_list_paste_string_after(&ctx->ast.token_list, p_selection_statement->last_token, "}");    
+
 }
 
 void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, bool hide_tokens)
@@ -421,13 +483,65 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
     }
 }
 
+static void visit_declaration_specifiers(struct visit_ctx* ctx,
+    struct declaration_specifiers* p_declaration_specifiers,
+    struct type* p_type);
+
+static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
+
+static void visit_simple_declaration(struct visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
+{
+    if (ctx, p_simple_declaration->p_attribute_specifier_sequence_opt)
+        visit_attribute_specifier_sequence(ctx, p_simple_declaration->p_attribute_specifier_sequence_opt);
+    visit_declaration_specifiers(ctx, p_simple_declaration->p_declaration_specifiers, NULL);
+    visit_init_declarator_list(ctx, &p_simple_declaration->init_declarator_list);
+}
+static void visit_expression_statement(struct visit_ctx* ctx, struct expression_statement* p_expression_statement);
+
+static void visit_init_statement(struct visit_ctx* ctx, struct init_statement* p_init_statement)
+{
+    if (p_init_statement->p_expression_statement)
+        visit_expression_statement(ctx, p_init_statement->p_expression_statement);
+    if (p_init_statement->p_simple_declaration)
+        visit_simple_declaration(ctx, p_init_statement->p_simple_declaration);
+}
+
+static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initializer);
+
+static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator);
+
+static void visit_init_declarator(struct visit_ctx* ctx, struct init_declarator* p_init_declarator)
+{
+    visit_declarator(ctx, p_init_declarator->p_declarator);
+    visit_initializer(ctx, p_init_declarator->initializer);    
+}
+static void visit_condition(struct visit_ctx* ctx, struct condition* p_condition)
+{
+    if (p_condition->p_declaration_specifiers)
+        visit_declaration_specifiers(ctx, p_condition->p_declaration_specifiers, NULL);
+
+    
+    if (p_condition->p_init_declarator)
+        visit_init_declarator(ctx, p_condition->p_init_declarator);
+
+
+    if (p_condition->expression)
+        visit_expression(ctx, p_condition->expression);
+}
+
 static void visit_selection_statement(struct visit_ctx* ctx, struct selection_statement* p_selection_statement)
 {
-    convert_if_statement(ctx, p_selection_statement);
 
     //PUSH
     struct defer_scope* p_defer = visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement2 = p_selection_statement;
+
+    if (p_selection_statement->p_init_statement)
+        visit_init_statement(ctx, p_selection_statement->p_init_statement);
+
+    if (p_selection_statement->condition)
+        visit_condition(ctx, p_selection_statement->condition);
+
 
     if (p_selection_statement->secondary_block)
         visit_secondary_block(ctx, p_selection_statement->secondary_block);
@@ -449,6 +563,9 @@ static void visit_selection_statement(struct visit_ctx* ctx, struct selection_st
         visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
 
     ss_close(&ss);
+
+    //afte all visits and changes we visit again
+    convert_if_statement(ctx, p_selection_statement);
 }
 
 static void visit_compound_statement(struct visit_ctx* ctx, struct compound_statement* p_compound_statement);
@@ -628,7 +745,7 @@ static void visit_specifier_qualifier_list(struct visit_ctx* ctx, struct specifi
         }
     }
 }
-static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator);
+
 static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name)
 {
 
@@ -844,11 +961,11 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         //visit_expression(ctx, p_expression->left);
         break;
     case POSTFIX_FUNCTION_CALL:
-        
+
         if (p_expression->left)
-        visit_expression(ctx, p_expression->left);
+            visit_expression(ctx, p_expression->left);
         if (p_expression->right)
-        visit_expression(ctx, p_expression->right);
+            visit_expression(ctx, p_expression->right);
 
         visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
         break;
@@ -1335,7 +1452,7 @@ static void visit_unlabeled_statement(struct visit_ctx* ctx, struct unlabeled_st
     }
 }
 
-static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration);
+
 
 static void visit_statement(struct visit_ctx* ctx, struct statement* p_statement)
 {
@@ -1420,9 +1537,7 @@ static void visit_static_assert_declaration(struct visit_ctx* ctx, struct static
     }
 }
 
-static void visit_declaration_specifiers(struct visit_ctx* ctx,
-    struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type);
+
 
 
 static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declarator* p_direct_declarator)
