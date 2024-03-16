@@ -12252,8 +12252,8 @@ struct selection_statement
        "if" ( init-statement opt condition ) secondary-block "else" secondary-block
        switch ( init-statement opt condition ) secondary-block    
     */
-    struct init_statement* p_init_statement;
-    struct condition* condition;
+    struct init_statement* owner p_init_statement;
+    struct condition* owner condition;
         
     struct secondary_block* owner secondary_block;
     struct secondary_block* owner else_secondary_block_opt;
@@ -23174,7 +23174,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.18"
+#define CAKE_VERSION "0.7.19"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
@@ -30033,6 +30033,7 @@ void condition_delete(struct condition* owner opt p_condition)
         expression_delete(p_condition->expression);
         
         attribute_specifier_sequence_delete(p_condition->p_attribute_specifier_sequence_opt);
+        declaration_specifiers_delete(p_condition->p_declaration_specifiers);
         free(p_condition);
     }
 }
@@ -34773,7 +34774,22 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement = p_selection_statement;
 
-    
+    if (p_selection_statement->p_init_statement &&
+        p_selection_statement->p_init_statement->p_expression_statement)
+        flow_visit_expression_statement(ctx, p_selection_statement->p_init_statement->p_expression_statement);
+
+    if (p_selection_statement->p_init_statement &&
+        p_selection_statement->p_init_statement->p_simple_declaration)
+        flow_visit_simple_declaration(ctx, p_selection_statement->p_init_statement->p_simple_declaration);
+
+
+    if (p_selection_statement->condition->expression)
+        flow_visit_expression(ctx, p_selection_statement->condition->expression);
+
+    if (p_selection_statement->condition->p_init_declarator)
+        flow_visit_init_declarator(ctx, p_selection_statement->condition->p_init_declarator);
+
+
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
     struct object* p_object_compared_with_null = NULL;
     struct object temp_obj1 = { 0 };
@@ -34825,20 +34841,6 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
     }
 
-    if (p_selection_statement->p_init_statement &&
-        p_selection_statement->p_init_statement->p_expression_statement)
-        flow_visit_expression_statement(ctx, p_selection_statement->p_init_statement->p_expression_statement);
-
-    if (p_selection_statement->p_init_statement && 
-        p_selection_statement->p_init_statement->p_simple_declaration)
-        flow_visit_simple_declaration(ctx, p_selection_statement->p_init_statement->p_simple_declaration);
-
-
-    if (p_selection_statement->condition->expression)
-        flow_visit_expression(ctx, p_selection_statement->condition->expression);
-
-    if (p_selection_statement->condition->p_init_declarator)
-        flow_visit_init_declarator(ctx, p_selection_statement->condition->p_init_declarator);
 
     if (p_selection_statement->secondary_block)
     {
@@ -34880,17 +34882,9 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     if (p_selection_statement->else_secondary_block_opt)
     {
-        //struct flow_defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
-        //p_defer->previous = ctx->tail_block;
-        //ctx->tail_block = p_defer;
-        //p_defer->p_selection_statement = p_selection_statement;
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
-        //ctx->tail_block = ctx->tail_block->previous; //POP
-
+        check_defer_and_variables(ctx, p_defer, p_selection_statement->last_token);
     }
-
-    check_defer_and_variables(ctx, p_defer, p_selection_statement->last_token);
-
 
     bool was_last_statement_inside_else_branch_return =
         secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);

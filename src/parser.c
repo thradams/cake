@@ -6333,6 +6333,7 @@ void selection_statement_delete(struct selection_statement* owner opt p)
 {
     if (p)
     {
+        secondary_block_delete(p->secondary_block);
         secondary_block_delete(p->else_secondary_block_opt);
 
         condition_delete(p->condition);
@@ -6834,6 +6835,7 @@ void condition_delete(struct condition* owner opt p_condition)
         expression_delete(p_condition->expression);
         
         attribute_specifier_sequence_delete(p_condition->p_attribute_specifier_sequence_opt);
+        declaration_specifiers_delete(p_condition->p_declaration_specifiers);
         free(p_condition);
     }
 }

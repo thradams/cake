@@ -1049,8 +1049,8 @@ struct selection_statement
        "if" ( init-statement opt condition ) secondary-block "else" secondary-block
        switch ( init-statement opt condition ) secondary-block    
     */
-    struct init_statement* p_init_statement;
-    struct condition* condition;
+    struct init_statement* owner p_init_statement;
+    struct condition* owner condition;
         
     struct secondary_block* owner secondary_block;
     struct secondary_block* owner else_secondary_block_opt;

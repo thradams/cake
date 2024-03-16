@@ -1015,7 +1015,22 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
     p_defer->p_selection_statement = p_selection_statement;
 
-    
+    if (p_selection_statement->p_init_statement &&
+        p_selection_statement->p_init_statement->p_expression_statement)
+        flow_visit_expression_statement(ctx, p_selection_statement->p_init_statement->p_expression_statement);
+
+    if (p_selection_statement->p_init_statement &&
+        p_selection_statement->p_init_statement->p_simple_declaration)
+        flow_visit_simple_declaration(ctx, p_selection_statement->p_init_statement->p_simple_declaration);
+
+
+    if (p_selection_statement->condition->expression)
+        flow_visit_expression(ctx, p_selection_statement->condition->expression);
+
+    if (p_selection_statement->condition->p_init_declarator)
+        flow_visit_init_declarator(ctx, p_selection_statement->condition->p_init_declarator);
+
+
     assert(p_selection_statement->first_token->type == TK_KEYWORD_IF);
     struct object* p_object_compared_with_null = NULL;
     struct object temp_obj1 = { 0 };
@@ -1067,20 +1082,6 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
     }
 
-    if (p_selection_statement->p_init_statement &&
-        p_selection_statement->p_init_statement->p_expression_statement)
-        flow_visit_expression_statement(ctx, p_selection_statement->p_init_statement->p_expression_statement);
-
-    if (p_selection_statement->p_init_statement && 
-        p_selection_statement->p_init_statement->p_simple_declaration)
-        flow_visit_simple_declaration(ctx, p_selection_statement->p_init_statement->p_simple_declaration);
-
-
-    if (p_selection_statement->condition->expression)
-        flow_visit_expression(ctx, p_selection_statement->condition->expression);
-
-    if (p_selection_statement->condition->p_init_declarator)
-        flow_visit_init_declarator(ctx, p_selection_statement->condition->p_init_declarator);
 
     if (p_selection_statement->secondary_block)
     {
