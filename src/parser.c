@@ -5864,7 +5864,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
         }
         else
         {
-            p_unlabeled_statement->expression_statement = expression_statement(ctx);
+            p_unlabeled_statement->expression_statement = expression_statement(ctx, false);
             if (p_unlabeled_statement->expression_statement == NULL)
                 throw;
 

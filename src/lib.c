@@ -12340,7 +12340,7 @@ struct expression_statement
     struct expression* owner expression_opt;
 };
 
-struct expression_statement* owner expression_statement(struct parser_ctx* ctx);
+struct expression_statement* owner expression_statement(struct parser_ctx* ctx, bool ignore_semicolon);
 void expression_statement_delete(struct expression_statement* owner opt  p);
 
 struct block_item
@@ -29078,7 +29078,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
         }
         else
         {
-            p_unlabeled_statement->expression_statement = expression_statement(ctx);
+            p_unlabeled_statement->expression_statement = expression_statement(ctx, false);
             if (p_unlabeled_statement->expression_statement == NULL)
                 throw;
 
@@ -37614,6 +37614,26 @@ void format_visit(struct format_visit_ctx* ctx)
 
 
 #define WARNING_FLAG(x) (1ULL << (x))
+
+static bool compare_input_and_output(const char* input, const char* output)
+{
+    struct report report = { 0 };
+    char* result = compile_source("-std=c99", input, &report);
+    assert(report.error_count == 0);
+    if (strcmp(result, output) == 0)
+    {
+        return true;
+    }
+    printf("\n\n--------------------------------------------------------------------------------------\n\n");
+    printf("%s", input);
+    printf("\n\n--------------------------------------------------------------------------------------\n\n");
+    printf("%s", output);
+    printf("\n\n--------------------------------------------------------------------------------------\n\n");
+    printf("%s", result);
+    printf("\n\n--------------------------------------------------------------------------------------\n\n");
+    return false;
+}
+
 static bool compile_without_errors_warnings(bool flow_analysis, bool nullchecks, const char* src)
 {
     struct options options = { .input = LANGUAGE_C99,
@@ -37641,20 +37661,13 @@ static bool compile_with_errors(bool flow_analysis, bool nullchecks, const char*
         .diagnostic_stack[0].warnings = ~0ULL };
     struct report report = { 0 };
     get_ast(&options, "source", src, &report);
-    return report.error_count != 0;
+    if (report.error_count != 0)
+        return true;
+    printf("\n\n--------------------------------------------------------------------------------------\n\n");
+    printf("%s\n\n", src);
+    return false;
 }
 
-static bool compile_with_warnings(bool flow_analysis, bool nullchecks, const char* src)
-{
-    struct options options =
-    {
-        .input = LANGUAGE_C99,
-        .flow_analysis = flow_analysis,
-        .null_checks = nullchecks };
-    struct report report = { 0 };
-    get_ast(&options, "source", src, &report);
-    return report.warnings_count != 0;
-}
 
 void parser_specifier_test()
 {
@@ -41229,6 +41242,52 @@ void try_catch()
         "";
     assert(compile_without_errors_warnings(true, true, source));
 }
+
+void if_stat1()
+{
+    const char* source
+        =
+        "int main()\n"
+        "{\n"
+        "    if (int i = 0; i) {}\n"
+        "}";
+
+
+    const char* ouput
+        =
+        "int main()\n"
+        "{\n"
+        "    {int i = 0; if ( i) {}}\n"
+        "}";
+
+    assert(compare_input_and_output(source, ouput));
+
+}
+
+//
+
+void if_stat2()
+{
+    const char* source
+        =
+        "int main()\n"
+        "{\n"
+        "    if (int i = 0) {}\n"
+        "}";
+
+
+    const char* ouput
+        =
+        "int main()\n"
+        "{\n"
+        "    {int i = 0; if (i) {}}\n"
+        "}";
+
+    assert(compare_input_and_output(source, ouput));
+
+}
+
+
 #endif
 
 

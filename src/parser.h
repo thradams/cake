@@ -1115,7 +1115,7 @@ struct expression_statement
     struct expression* owner expression_opt;
 };
 
-struct expression_statement* owner expression_statement(struct parser_ctx* ctx);
+struct expression_statement* owner expression_statement(struct parser_ctx* ctx, bool ignore_semicolon);
 void expression_statement_delete(struct expression_statement* owner opt  p);
 
 struct block_item
