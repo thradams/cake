@@ -263,19 +263,21 @@
             var options = document.getElementById("options").value;
 
             if (outputLanguage == 0)
-                options += " -E ";
+                options += " -E";
             //else if (outputLanguage == -2)
             //    options += " -target=c89 -direct-compilation ";
             else if (outputLanguage == -1)
-                options += " -target=c89 ";
+                options += " -target=c89";
             else if (outputLanguage == 1)
-                options += " -target=c99 ";
+                options += " -target=c99";
             else if (outputLanguage == 2)
-                options += " -target=c11 ";
+                options += " -target=c11";
             else if (outputLanguage == 3)
-                options += " -target=c2x ";
+                options += " -target=c2x";
             else if (outputLanguage == 4)
-                options += " -target=cxx ";
+                options += " -target=cxx";
+
+            options += " -fanalyzer";
 
             var source = inputEditor.getValue();
             var ot = CompileText(options, source);

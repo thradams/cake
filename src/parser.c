@@ -7726,6 +7726,7 @@ char* owner CompileText(const char* pszoptions, const char* content)
       This function is called by the web playground
     */
     printf(WHITE "Cake " CAKE_VERSION RESET "\n");
+    printf(WHITE "cake %s main.c\n", pszoptions);
     struct report report = { 0 };
     return (char* owner)compile_source(pszoptions, content, &report);
 }

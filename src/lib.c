@@ -23177,7 +23177,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.17"
+#define CAKE_VERSION "0.7.18"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
@@ -30928,6 +30928,7 @@ char* owner CompileText(const char* pszoptions, const char* content)
       This function is called by the web playground
     */
     printf(WHITE "Cake " CAKE_VERSION RESET "\n");
+    printf(WHITE "cake %s main.c\n", pszoptions);
     struct report report = { 0 };
     return (char* owner)compile_source(pszoptions, content, &report);
 }

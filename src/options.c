@@ -178,9 +178,6 @@ int fill_options(struct options* options,
     options->diagnostic_stack[0].warnings &= ~(1ULL << W_STYLE);
     //&~items;
 
-#ifdef __EMSCRIPTEN__
-    options->flow_analysis = true;
-#endif
 
     /*first loop used to collect options*/
     for (int i = 1; i < argc; i++)
