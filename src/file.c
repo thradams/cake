@@ -2,10 +2,10 @@
   This is a work file
 */
 
-int* f();
+int* _Owner f();
 int main()
 {    
-    if (int* p = f()) 
+    if (int* _Owner p = f()) 
     {
         static_debug(p);
     }
