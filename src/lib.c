@@ -1452,25 +1452,6 @@ bool token_is_identifier_or_keyword(enum token_type t)
     return false;
 }
 
-struct token make_simple_token(char ch)
-{
-    struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
-    
-    p_new_token->lexeme = strdup(" ");
-    p_new_token->type = TK_WHITE_SPACE;
-    //p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-    //p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-    //p_new_token->flags |= addflags;
-
-    //p_new_token->level = level;
-    //p_new_token->token_origin = p_first;
-    //p_new_token->line = line;
-    //p_/new_token->col = col;
-    //set_sliced_flag(&stream, p_new_token);
-    //token_list_add(&list, p_new_token);
-    /*bNewLine = false;*/ //deixa assim
-    //has_space = true;
-}
 
 bool token_is_blank(struct token* p)
 {
@@ -11652,8 +11633,15 @@ struct condition {
     struct expression* owner expression;
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     struct declaration_specifiers* owner p_declaration_specifiers;
-    struct declarator* owner declarator;
-    struct initializer* owner initializer;    
+    
+    /*
+      OBS:
+      We must use p_init_declarator because it is kept on the scope
+      as init_declarator when we are trying to parse init-statement or condition that
+      are very similar
+    */
+    struct init_declarator * owner p_init_declarator;
+
     struct token* first_token;
     struct token* last_token;
 };
@@ -29655,18 +29643,22 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
                 p_selection_statement->condition->first_token = p_selection_statement->p_init_statement->p_simple_declaration->first_token;
                 p_selection_statement->condition->last_token = p_selection_statement->p_init_statement->p_simple_declaration->last_token;
 
-                p_selection_statement->condition->declarator =
-                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->p_declarator;
-                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->p_declarator = NULL;
+                if (p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head !=
+                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail)
+                {
+                    //tODO only 1
+                    assert(false);
+                    throw;
+                }
+                p_selection_statement->condition->p_init_declarator =
+                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head;
+
+                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head = NULL;
+                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.tail = NULL;
 
                 p_selection_statement->condition->p_declaration_specifiers =
                     p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers;
                 p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers = NULL;
-
-                p_selection_statement->condition->initializer =
-                    p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->initializer;
-                p_selection_statement->p_init_statement->p_simple_declaration->init_declarator_list.head->initializer = NULL;
-
             }
             
                        
@@ -30040,9 +30032,9 @@ void condition_delete(struct condition* owner opt p_condition)
 {
     if (p_condition)
     {
-        declarator_delete(p_condition->declarator);
+        init_declarator_delete(p_condition->p_init_declarator);
         expression_delete(p_condition->expression);
-        initializer_delete(p_condition->initializer);
+        
         attribute_specifier_sequence_delete(p_condition->p_attribute_specifier_sequence_opt);
         free(p_condition);
     }
@@ -30064,12 +30056,8 @@ struct condition* owner condition(struct parser_ctx* ctx)
         if (first_of_declaration_specifier(ctx))
         {
             p_condition->p_attribute_specifier_sequence_opt = attribute_specifier_sequence(ctx);
-            p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
-            struct token* p_token_name = NULL;
-            p_condition->declarator = declarator(ctx, NULL, p_condition->p_declaration_specifiers, false, &p_token_name);
-            p_condition->declarator->name = p_token_name;
-            if (parser_match_tk(ctx, '=') != 0) throw;
-            p_condition->initializer = initializer(ctx);
+            p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);            
+            p_condition->p_init_declarator = init_declarator(ctx, p_condition->p_declaration_specifiers);
         }
         else
         {
@@ -31212,8 +31200,7 @@ static void del(struct token* from, struct token* to)
 {
     struct token* p = from;
     while (p)
-    {
-        struct token* owner clone = clone_token(p);
+    {        
         p->flags |= TK_C_BACKEND_FLAG_HIDE;
         p = p->next;
 
@@ -31329,7 +31316,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, ";");
         
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
-            p_selection_statement->condition->declarator->name->lexeme
+            p_selection_statement->condition->p_init_declarator->p_declarator->name->lexeme
         );
         
     }
@@ -31711,17 +31698,19 @@ static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initi
 
 static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declarator);
 
+static void visit_init_declarator(struct visit_ctx* ctx, struct init_declarator* p_init_declarator)
+{
+    visit_declarator(ctx, p_init_declarator->p_declarator);
+    visit_initializer(ctx, p_init_declarator->initializer);    
+}
 static void visit_condition(struct visit_ctx* ctx, struct condition* p_condition)
 {
     if (p_condition->p_declaration_specifiers)
         visit_declaration_specifiers(ctx, p_condition->p_declaration_specifiers, NULL);
 
-    if (p_condition->declarator)
-        visit_declarator(ctx, p_condition->declarator);
-
-    if (p_condition->initializer)
-        visit_initializer(ctx, p_condition->initializer);
-
+    
+    if (p_condition->p_init_declarator)
+        visit_init_declarator(ctx, p_condition->p_init_declarator);
 
 
     if (p_condition->expression)
@@ -34604,15 +34593,31 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     struct object temp_obj1 = { 0 };
     struct object temp_obj2 = { 0 };
     
-    if (p_selection_statement->condition->expression)
+    if (p_selection_statement->condition)
     {
-        p_object_compared_with_null = expression_is_comparing_owner_with_null(p_selection_statement->condition->expression, &temp_obj1);
+        if (p_selection_statement->condition->expression)
+        {
+            p_object_compared_with_null = expression_is_comparing_owner_with_null(p_selection_statement->condition->expression, &temp_obj1);
+        }
+        else
+        {
+           // assert(false);//TODO
+        }
     }
 
     struct object* p_object_compared_with_not_null = NULL;
-    if (p_selection_statement->condition->expression)
+    if (p_selection_statement->condition)
     {
-        p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_selection_statement->condition->expression, &temp_obj2);
+        if (p_selection_statement->condition->expression)
+        {
+            p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_selection_statement->condition->expression, &temp_obj2);
+        }
+        else if (p_selection_statement->condition->p_init_declarator)
+        {
+           // assert(false); //TODO confirm this works
+            p_object_compared_with_not_null = &p_selection_statement->condition->p_init_declarator->p_declarator->object;
+            
+        }
     }
 
 
