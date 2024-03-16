@@ -475,25 +475,6 @@ bool token_is_identifier_or_keyword(enum token_type t)
     return false;
 }
 
-struct token make_simple_token(char ch)
-{
-    struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
-    
-    p_new_token->lexeme = strdup(" ");
-    p_new_token->type = TK_WHITE_SPACE;
-    //p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
-    //p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
-    //p_new_token->flags |= addflags;
-
-    //p_new_token->level = level;
-    //p_new_token->token_origin = p_first;
-    //p_new_token->line = line;
-    //p_/new_token->col = col;
-    //set_sliced_flag(&stream, p_new_token);
-    //token_list_add(&list, p_new_token);
-    /*bNewLine = false;*/ //deixa assim
-    //has_space = true;
-}
 
 bool token_is_blank(struct token* p)
 {

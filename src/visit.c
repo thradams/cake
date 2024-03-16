@@ -12,8 +12,7 @@ static void del(struct token* from, struct token* to)
 {
     struct token* p = from;
     while (p)
-    {
-        struct token* owner clone = clone_token(p);
+    {        
         p->flags |= TK_C_BACKEND_FLAG_HIDE;
         p = p->next;
 

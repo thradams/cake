@@ -1490,7 +1490,7 @@ struct expression *owner primary_expression(struct parser_ctx *ctx)
                     p_declarator = p_entry->p;
                 }
 
-                if (type_is_deprecated(&p_declarator->type))
+                if (type_is_deprecated(p_declarator && &p_declarator->type))
                 {
                     compiler_diagnostic_message(W_DEPRECATED, ctx, ctx->current, "'%s' is deprecated", ctx->current->lexeme);
                 }
