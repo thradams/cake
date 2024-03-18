@@ -2126,6 +2126,12 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_WHILE);
 
+    const int old_initial_state = ctx->initial_state;
+    const int old_break_join_state = ctx->break_join_state;
+
+    ctx->initial_state = push_copy_of_current_state(ctx, "original");
+    ctx->break_join_state = ctx_push_empty_state(ctx, "break join");
+
     struct object temp_obj = { 0 };
     struct object* p_object_compared_with_not_null = NULL;
 
@@ -2137,10 +2143,6 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     if (p_iteration_statement->secondary_block)
     {
-        const int original = 1;
-        const original_state_number = push_copy_of_current_state(ctx, "before-while-copy");
-
-        const int current = 0;
 
         struct flow_defer_scope* p_defer = flow_visit_ctx_push_tail_block(ctx);
         p_defer->p_iteration_statement = p_iteration_statement;
@@ -2156,41 +2158,48 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
 
 
+
         bool was_last_statement_inside_true_branch_return =
             secondary_block_ends_with_jump(p_iteration_statement->secondary_block);
 
-
         if (was_last_statement_inside_true_branch_return)
         {
-            restore_state(ctx, original);
-            //if (p_object_compared_with_not_null)
-            //{
-                /*
-                 while (p)
-                 {
-                       return;
-                 }
-                */
-                //  p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
-              //}
-        }
-        else
-        {
+
             /*
-               while (p)
-               {
-               }
+            while (p)
+            {
+              return;
+            }
             */
-            //merge_if_else_states(ctx, current, current, original, -1 /*nothing*/);
-            merge_states(ctx, current, original, current);
+            //restore original
+            //ctx->initial_state = push_copy_of_current_state(ctx, "original");
+            ctx_object_restore_current_state_from(ctx, ctx->initial_state);
             if (p_object_compared_with_not_null)
             {
+                //while (p != 0) {  p is not null }
                 p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
             }
         }
-        pop_states(ctx, 1);
+        else
+        {
+            if (p_object_compared_with_not_null)
+            {
+                //while (p != 0) {  p is not null }
+                p_object_compared_with_not_null->state = OBJECT_STATE_NULL;
+            }
+
+            ctx_object_merge_current_state_with_state_number(ctx, ctx->break_join_state);
+            ctx_object_restore_current_state_from(ctx, ctx->break_join_state);
+        }
+
+        pop_states(ctx, 2);
         flow_visit_ctx_pop_tail_block(ctx);
     }
+
+    //restore
+    ctx->initial_state = old_initial_state ;
+    ctx->break_join_state = old_break_join_state ;
+
     object_destroy(&temp_obj);
 }
 
@@ -2690,10 +2699,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-        }
+            }
 #endif
-    }
-}
+                }
+            }
 
     /*if (p_declarator->pointer)
     {
@@ -2709,7 +2718,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-}
+        }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
