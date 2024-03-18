@@ -12,7 +12,6 @@
 
 struct flow_visit_ctx
 {
-    int try_state;
     struct secondary_block* catch_secondary_block_opt;
 
     struct parser_ctx *ctx;
@@ -23,6 +22,10 @@ struct flow_visit_ctx
     
     int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
+    
+    int throw_join_state; /*state where throws are joined*/
+    int break_join_state; /*state where breaks are joined*/
+    int initial_state;    /*used to keep the original state*/
 };
 
 

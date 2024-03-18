@@ -1,19 +1,19 @@
-/*
-  This is a work file
-*/
 
-int* _Owner f();
 int main()
-{    
-    if (int* _Owner p = f()) 
+{
+    int j;
+    int i;
+    switch (i)
     {
-        static_debug(p);
+        case 1:
+            static_state(j);
+            break;
+        case 2:
+            static_debug(j);
+            break;
+        default:
+            j = 0;
+            break;
     }
-
-    if (int* _Owner p = f(); p == 0)
-    {
-        static_debug(p);
-    }
-    
-    
+    static_debug(j);
 }
