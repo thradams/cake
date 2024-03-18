@@ -1,19 +1,16 @@
 
-int main()
+
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
+
+void f5(int condition)
 {
-    int j;
-    int i;
-    switch (i)
-    {
-        case 1:
-            static_state(j);
-            break;
-        case 2:
-            static_debug(j);
-            break;
-        default:
-            j = 0;
-            break;
+    void * _Owner p = malloc(1);
+
+    if (p) {
+       free(p);
+       return;
     }
-    static_debug(j);
+
+    static_state(p, "null");
 }

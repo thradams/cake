@@ -23161,9 +23161,9 @@ struct flow_visit_ctx
     int state_number_generator;
     bool expression_is_not_evaluated; //true when is expression for sizeof, missing state_set, typeof
     
-    int throw_join_state;
-    int break_join_state;
-    int initial_state;
+    int throw_join_state; /*state where throws are joined*/
+    int break_join_state; /*state where breaks are joined*/
+    int initial_state;    /*used to keep the original state*/
 };
 
 
@@ -33823,7 +33823,7 @@ struct visit_objects {
     struct flow_defer_scope* next_child;
 };
 
-struct object* visit_objects_next(struct visit_objects* visit_objects)
+static struct object* visit_objects_next(struct visit_objects* visit_objects)
 {
     while (visit_objects->current_block)
     {
@@ -33850,7 +33850,7 @@ struct object* visit_objects_next(struct visit_objects* visit_objects)
     return NULL;
 }
 
-struct flow_defer_scope* flow_visit_ctx_push_tail_block(struct flow_visit_ctx* ctx)
+static struct flow_defer_scope* flow_visit_ctx_push_tail_block(struct flow_visit_ctx* ctx)
 {
     struct flow_defer_scope* owner p_block = calloc(1, sizeof * p_block);
     p_block->previous = ctx->tail_block;
@@ -33858,7 +33858,7 @@ struct flow_defer_scope* flow_visit_ctx_push_tail_block(struct flow_visit_ctx* c
     return ctx->tail_block;
 }
 
-struct flow_defer_scope* flow_visit_ctx_push_child(struct flow_visit_ctx* ctx)
+static struct flow_defer_scope* flow_visit_ctx_push_child(struct flow_visit_ctx* ctx)
 {
     struct flow_defer_scope* owner child = calloc(1, sizeof * child);
     child->previous = ctx->tail_block->last_child;
@@ -33866,7 +33866,7 @@ struct flow_defer_scope* flow_visit_ctx_push_child(struct flow_visit_ctx* ctx)
     return ctx->tail_block->last_child;
 }
 
-void flow_defer_scope_delete_one(struct flow_defer_scope* owner p)
+static void flow_defer_scope_delete_one(struct flow_defer_scope* owner p)
 {
     struct flow_defer_scope* owner p_block = p;
     if (p_block != NULL)
@@ -33885,7 +33885,7 @@ void flow_defer_scope_delete_one(struct flow_defer_scope* owner p)
 }
 
 
-void flow_visit_ctx_pop_tail_block(struct flow_visit_ctx* ctx)
+static void flow_visit_ctx_pop_tail_block(struct flow_visit_ctx* ctx)
 {
     if (ctx->tail_block)
     {
@@ -34287,10 +34287,10 @@ static struct object* expression_is_comparing_owner_with_not_null(struct express
     return NULL;
 }
 
-int push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name)
+static int push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name)
 {
     int state_number = ctx->state_number_generator;
-    ctx->state_number_generator++;    
+    ctx->state_number_generator++;
     struct visit_objects v1 = { .current_block = ctx->tail_block,
                                   .next_child = ctx->tail_block->last_child };
 
@@ -34304,7 +34304,7 @@ int push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name)
 }
 
 
-int  ctx_push_empty_state(struct flow_visit_ctx* ctx, const char* name)
+static int  ctx_push_empty_state(struct flow_visit_ctx* ctx, const char* name)
 {
     int state_number = ctx->state_number_generator;
     ctx->state_number_generator++;
@@ -34321,7 +34321,7 @@ int  ctx_push_empty_state(struct flow_visit_ctx* ctx, const char* name)
     return state_number;
 }
 
-void restore_state(struct flow_visit_ctx* ctx, int state_index_to_restore)
+static void restore_state(struct flow_visit_ctx* ctx, int state_index_to_restore)
 {
     struct visit_objects v1 = { .current_block = ctx->tail_block,
                                .next_child = ctx->tail_block->last_child };
@@ -34395,7 +34395,7 @@ static void object_merge_states_with_current(struct object* object,
 
 }
 
-void merge_states(struct flow_visit_ctx* ctx,
+static void merge_states(struct flow_visit_ctx* ctx,
     int dest_index,
     int before_index, //before while
     int after_index)
@@ -34555,7 +34555,7 @@ static void object_merge_if_else_states(struct object* object,
 
 }
 
-void merge_if_else_states(struct flow_visit_ctx* ctx,
+static void merge_if_else_states(struct flow_visit_ctx* ctx,
     int dest_index,
     int original_state, //original
     int true_branch_state, //true branch
@@ -34575,7 +34575,7 @@ void merge_if_else_states(struct flow_visit_ctx* ctx,
     };
 }
 
-void pop_states(struct flow_visit_ctx* ctx, int n)
+static void pop_states(struct flow_visit_ctx* ctx, int n)
 {
     struct visit_objects v1 = { .current_block = ctx->tail_block,
                                .next_child = ctx->tail_block->last_child };
@@ -34824,13 +34824,10 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
         }
     }
 
-
     /*
        This index is from the end of top of stack going to base of statck
     */
-    const int original = 2;
-    char before_if_state[] = "before-if";
-    int before_if = push_copy_of_current_state(ctx, before_if_state);
+    int before_if = push_copy_of_current_state(ctx, "before-if");
 
     if (p_object_compared_with_null)
     {
@@ -34846,27 +34843,20 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     if (p_selection_statement->secondary_block)
     {
-
         flow_visit_secondary_block(ctx, p_selection_statement->secondary_block);
-        //check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
-
     }
 
-    check_defer_and_variables(ctx, p_defer, p_selection_statement->last_token);
 
-
-
-    bool was_last_statement_inside_true_branch_return =
+    const bool true_branch_ends_with_jump =
         secondary_block_ends_with_jump(p_selection_statement->secondary_block);
 
 
     /*let's make a copy of the state we left true branch*/
-    const int true_branch = 1;
+    //const int true_branch = 1;
     int left_true_branch = push_copy_of_current_state(ctx, "left-true-branch");
 
-    restore_state(ctx, original);
+    ctx_object_restore_current_state_from(ctx, before_if);
 
-    const int current = 0;
 
     /*when we dont have else block we have a empty imaginary one */
     /*we invert the object state*/
@@ -34885,36 +34875,96 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
     if (p_selection_statement->else_secondary_block_opt)
     {
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
-        check_defer_and_variables(ctx, p_defer, p_selection_statement->last_token);
     }
 
-    bool was_last_statement_inside_else_branch_return =
+    bool else_ends_with_jump =
         secondary_block_ends_with_jump(p_selection_statement->else_secondary_block_opt);
 
 
-    if (was_last_statement_inside_true_branch_return)
+    if (true_branch_ends_with_jump)
     {
-        if (was_last_statement_inside_else_branch_return)
+        if (else_ends_with_jump)
         {
-            restore_state(ctx, original);
+            /*
+               if (){
+                 return
+               }
+               else
+               {
+                 return;
+               }
+            */
+            //ctx_object_restore_current_state_from(ctx, left_true_branch);
+            //restore_state(ctx, original);
         }
         else
         {
+            /*
+               if (){
+                 return
+               }
+               else
+               {
+
+               }
+            */
+
             //the else state is the current state
+            if (p_selection_statement->else_secondary_block_opt)
+            {
+                //ctx_object_merge_current_state_with_state_number(ctx, left_true_branch);
+            }
+            else
+            {
+                //ctx_object_restore_current_state_from(ctx, left_true_branch);
+            }
         }
     }
     else
     {
-        if (was_last_statement_inside_else_branch_return)
+        if (else_ends_with_jump)
         {
-            restore_state(ctx, true_branch);
+            /*
+               if (){
+
+               }
+               else
+               {
+                 return;
+               }
+            */
+
+            ctx_object_restore_current_state_from(ctx, left_true_branch);
+
+            //ctx_object_merge_current_state_with_state_number()
+            //restore_state(ctx, true_branch);
         }
         else
         {
-            merge_if_else_states(ctx, current, original, true_branch, current);
+            /*
+               if (){
+
+               }
+               else
+               {
+
+               }
+            */
+            if (p_selection_statement->else_secondary_block_opt)
+            {
+                ctx_object_merge_current_state_with_state_number(ctx, left_true_branch);
+                ctx_object_restore_current_state_from(ctx, left_true_branch);
+            }
+            else
+            {
+                ctx_object_merge_current_state_with_state_number(ctx, left_true_branch);
+                ctx_object_restore_current_state_from(ctx, left_true_branch);
+            }
+            //merge_if_else_states(ctx, current, original, true_branch, current);
         }
     }
 
+    check_defer_and_variables(ctx, p_defer, p_selection_statement->last_token);
     flow_visit_ctx_pop_tail_block(ctx);
 
     pop_states(ctx, 2);
@@ -35007,9 +35057,9 @@ static void flow_visit_switch_statement(struct flow_visit_ctx* ctx, struct selec
     check_defer_and_variables(ctx, p_defer, p_selection_statement->secondary_block->last_token);
     flow_visit_ctx_pop_tail_block(ctx);
     pop_states(ctx, 2);
-    
+
     //restore
-    ctx->initial_state = old_initial_state ;
+    ctx->initial_state = old_initial_state;
     ctx->break_join_state = old_break_join_state;
 }
 
@@ -36141,7 +36191,7 @@ static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_
     }
 }
 
-enum object_state parse_string_state(const char* s, bool* invalid)
+static enum object_state parse_string_state(const char* s, bool* invalid)
 {
     *invalid = false;
 
@@ -36403,10 +36453,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-            }
-#endif
         }
+#endif
     }
+}
 
     /*if (p_declarator->pointer)
     {
