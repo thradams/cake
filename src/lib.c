@@ -23177,7 +23177,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 //#pragma once
 
-#define CAKE_VERSION "0.7.19"
+#define CAKE_VERSION "0.7.20"
 
 //0.7.5
 // pragma diagnostic error, warning, note, ignore working
@@ -34335,85 +34335,6 @@ static void restore_state(struct flow_visit_ctx* ctx, int state_index_to_restore
 }
 
 
-static void object_merge_states_with_current(struct object* object,
-    int dest_index,
-    int before_index,
-    int after_index)
-{
-    if (dest_index == 0 || (object->object_state_stack.size - dest_index >= 0 &&
-        object->object_state_stack.size - dest_index < object->object_state_stack.size))
-    {
-    }
-    else
-    {
-        return;
-    }
-
-    enum object_state* dest = dest_index == 0 ? &object->state :
-        &object->object_state_stack.data[object->object_state_stack.size - dest_index].state;
-
-
-    if (before_index == 0 || (object->object_state_stack.size - before_index >= 0 &&
-        object->object_state_stack.size - before_index < object->object_state_stack.size))
-    {
-    }
-    else
-    {
-        return;
-    }
-    enum object_state state_before = before_index == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - before_index].state;
-
-
-
-
-    if (after_index == 0 ||
-        (object->object_state_stack.size - after_index >= 0 &&
-            object->object_state_stack.size - after_index < object->object_state_stack.size))
-    {
-    }
-    else
-    {
-
-        return;
-    }
-    enum object_state state_after = after_index == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - after_index].state;
-
-    *dest |= (state_before | state_after);
-
-
-    if (object_get_pointed_object(object))
-    {
-        object_merge_states_with_current(object_get_pointed_object(object), dest_index, before_index, after_index);
-    }
-
-    for (int i = 0; i < object->members.size; i++)
-    {
-        object_merge_states_with_current(&object->members.data[i], dest_index, before_index, after_index);
-    }
-
-}
-
-static void merge_states(struct flow_visit_ctx* ctx,
-    int dest_index,
-    int before_index, //before while
-    int after_index)
-{
-    struct visit_objects v1 = { .current_block = ctx->tail_block,
-                               .next_child = ctx->tail_block->last_child };
-
-    struct object* p_object = visit_objects_next(&v1);
-    while (p_object)
-    {
-        object_merge_states_with_current(p_object, dest_index,
-            before_index,
-            after_index);
-        p_object = visit_objects_next(&v1);
-    };
-}
-
-
 static void ctx_object_set_state_from_current(struct flow_visit_ctx* ctx, int number_state)
 {
     struct visit_objects v1 = { .current_block = ctx->tail_block,
@@ -34467,113 +34388,6 @@ static void ctx_object_restore_current_state_from(struct flow_visit_ctx* ctx, in
     };
 }
 
-static void object_merge_if_else_states(struct object* object,
-    int dest_index,
-    int original_state,
-    int true_branch_state,
-    int false_branch_state)
-{
-    if (dest_index == 0 || (object->object_state_stack.size - dest_index >= 0 &&
-        object->object_state_stack.size - dest_index < object->object_state_stack.size))
-    {
-    }
-    else
-    {
-        return;
-    }
-    if (original_state == 0 || (object->object_state_stack.size - original_state >= 0 &&
-        object->object_state_stack.size - original_state < object->object_state_stack.size))
-    {
-    }
-    else
-    {
-
-        return;
-    }    if (true_branch_state == 0 ||
-        (object->object_state_stack.size - true_branch_state >= 0 &&
-            object->object_state_stack.size - true_branch_state < object->object_state_stack.size))
-    {
-    }
-    else
-    {
-        return;
-    }
-    if (false_branch_state == 0 || (object->object_state_stack.size - false_branch_state >= 0 &&
-        object->object_state_stack.size - false_branch_state < object->object_state_stack.size))
-    {
-    }
-    else
-    {
-
-        return;
-    }
-
-
-    enum object_state* dest = dest_index == 0 ? &object->state :
-        &object->object_state_stack.data[object->object_state_stack.size - dest_index].state;
-
-
-    enum object_state s_original = original_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - original_state].state;
-
-
-    enum object_state s_true_branch = true_branch_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - true_branch_state].state;
-
-
-    enum object_state s_false_branch = false_branch_state == 0 ? object->state :
-        object->object_state_stack.data[object->object_state_stack.size - false_branch_state].state;
-
-
-    if (s_true_branch != s_original &&
-        s_false_branch != s_original)
-    {
-        *dest |= (s_true_branch | s_false_branch);
-    }
-    else if (s_true_branch != s_original)
-    {
-        *dest |= (s_true_branch | s_original);
-    }
-    else if (s_false_branch != s_original)
-    {
-        *dest |= (s_false_branch | s_original);
-    }
-    else
-    {
-        *dest |= s_original;
-    }
-
-    if (object_get_pointed_object(object))
-    {
-        object_merge_if_else_states(object_get_pointed_object(object), dest_index, original_state, true_branch_state, false_branch_state);
-    }
-
-    for (int i = 0; i < object->members.size; i++)
-    {
-        object_merge_if_else_states(&object->members.data[i], dest_index, original_state, true_branch_state, false_branch_state);
-    }
-
-}
-
-static void merge_if_else_states(struct flow_visit_ctx* ctx,
-    int dest_index,
-    int original_state, //original
-    int true_branch_state, //true branch
-    int false_branch_state) //false branch
-{
-    struct visit_objects v1 = { .current_block = ctx->tail_block,
-                               .next_child = ctx->tail_block->last_child };
-
-    struct object* p_object = visit_objects_next(&v1);
-    while (p_object)
-    {
-        object_merge_if_else_states(p_object, dest_index,
-            original_state,
-            true_branch_state,
-            false_branch_state);
-        p_object = visit_objects_next(&v1);
-    };
-}
 
 static void pop_states(struct flow_visit_ctx* ctx, int n)
 {
