@@ -1242,6 +1242,7 @@ void token_list_paste_string_after(struct token_list* list,
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l = tokenizer(&tctx, s, NULL, 0, TK_FLAG_FINAL);
     token_list_insert_after(list, after, &l);
+    token_list_destroy(&l);
 }
 
 void token_list_paste_string_before(struct token_list* list,
@@ -1251,6 +1252,7 @@ void token_list_paste_string_before(struct token_list* list,
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l = tokenizer(&tctx, s, NULL, 0, TK_FLAG_FINAL);
     token_list_insert_before(list, before, &l);
+    token_list_destroy(&l);
 }
 
 
@@ -2334,9 +2336,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2353,9 +2352,6 @@ void c_clrscr()
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -4350,7 +4346,7 @@ void prematch(struct token_list* dest, struct token_list* input_list)
 
 struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 
-struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* obj_owner input_list)
+struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
     struct token_list r = { 0 };
 
@@ -4668,6 +4664,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
     token_list_destroy(&list1);
     token_list_destroy(&r);
+    token_list_destroy(&list2);
 
     return value;
 }
@@ -31325,7 +31322,8 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
     }
 
     token_list_paste_string_after(&ctx->ast.token_list, p_selection_statement->last_token, "}");    
-
+    token_list_destroy(&condition_tokens_cut);
+    token_list_destroy(&init_tokens_cut);
 }
 
 void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, bool hide_tokens)
@@ -31682,7 +31680,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
 static void visit_simple_declaration(struct visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
 {
-    if (ctx, p_simple_declaration->p_attribute_specifier_sequence_opt)
+    if (p_simple_declaration->p_attribute_specifier_sequence_opt)
         visit_attribute_specifier_sequence(ctx, p_simple_declaration->p_attribute_specifier_sequence_opt);
     visit_declaration_specifiers(ctx, p_simple_declaration->p_declaration_specifiers, NULL);
     visit_init_declarator_list(ctx, &p_simple_declaration->init_declarator_list);
@@ -34319,19 +34317,6 @@ static int  ctx_push_empty_state(struct flow_visit_ctx* ctx, const char* name)
         p_object = visit_objects_next(&v1);
     }
     return state_number;
-}
-
-static void restore_state(struct flow_visit_ctx* ctx, int state_index_to_restore)
-{
-    struct visit_objects v1 = { .current_block = ctx->tail_block,
-                               .next_child = ctx->tail_block->last_child };
-
-    struct object* p_object = visit_objects_next(&v1);
-    while (p_object)
-    {
-        object_restore_state(p_object, state_index_to_restore);
-        p_object = visit_objects_next(&v1);
-    };
 }
 
 

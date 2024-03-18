@@ -265,6 +265,7 @@ void token_list_paste_string_after(struct token_list* list,
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l = tokenizer(&tctx, s, NULL, 0, TK_FLAG_FINAL);
     token_list_insert_after(list, after, &l);
+    token_list_destroy(&l);
 }
 
 void token_list_paste_string_before(struct token_list* list,
@@ -274,6 +275,7 @@ void token_list_paste_string_before(struct token_list* list,
     struct tokenizer_ctx tctx = { 0 };
     struct token_list l = tokenizer(&tctx, s, NULL, 0, TK_FLAG_FINAL);
     token_list_insert_before(list, before, &l);
+    token_list_destroy(&l);
 }
 
 

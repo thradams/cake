@@ -134,7 +134,8 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
     }
 
     token_list_paste_string_after(&ctx->ast.token_list, p_selection_statement->last_token, "}");    
-
+    token_list_destroy(&condition_tokens_cut);
+    token_list_destroy(&init_tokens_cut);
 }
 
 void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, bool hide_tokens)
@@ -491,7 +492,7 @@ static void visit_init_declarator_list(struct visit_ctx* ctx, struct init_declar
 
 static void visit_simple_declaration(struct visit_ctx* ctx, struct simple_declaration* p_simple_declaration)
 {
-    if (ctx, p_simple_declaration->p_attribute_specifier_sequence_opt)
+    if (p_simple_declaration->p_attribute_specifier_sequence_opt)
         visit_attribute_specifier_sequence(ctx, p_simple_declaration->p_attribute_specifier_sequence_opt);
     visit_declaration_specifiers(ctx, p_simple_declaration->p_declaration_specifiers, NULL);
     visit_init_declarator_list(ctx, &p_simple_declaration->init_declarator_list);

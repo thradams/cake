@@ -1951,7 +1951,7 @@ void prematch(struct token_list* dest, struct token_list* input_list)
 
 struct token_list pp_tokens_opt(struct preprocessor_ctx* ctx, struct token_list* input_list, int level);
 
-struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* obj_owner input_list)
+struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_list* input_list)
 {
     struct token_list r = { 0 };
 
@@ -2269,6 +2269,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
     token_list_destroy(&list1);
     token_list_destroy(&r);
+    token_list_destroy(&list2);
 
     return value;
 }

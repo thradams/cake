@@ -558,19 +558,6 @@ static int  ctx_push_empty_state(struct flow_visit_ctx* ctx, const char* name)
     return state_number;
 }
 
-static void restore_state(struct flow_visit_ctx* ctx, int state_index_to_restore)
-{
-    struct visit_objects v1 = { .current_block = ctx->tail_block,
-                               .next_child = ctx->tail_block->last_child };
-
-    struct object* p_object = visit_objects_next(&v1);
-    while (p_object)
-    {
-        object_restore_state(p_object, state_index_to_restore);
-        p_object = visit_objects_next(&v1);
-    };
-}
-
 
 static void ctx_object_set_state_from_current(struct flow_visit_ctx* ctx, int number_state)
 {
