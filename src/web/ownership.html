@@ -87,7 +87,9 @@ int main()
 }
 </code></pre>
 
-<p><strong>Note:</strong> The <code>owner</code> is actually a macro declared in ownership as _Owner. </p>
+<blockquote>
+<p><strong>owner</strong> is actually a macro declared in ownership as <strong>_Owner</strong>. </p>
+</blockquote>
 
 <p>The ownership mechanism has some rules that will be listed gradually throughout the text.</p>
 
@@ -95,7 +97,10 @@ int main()
 
 <p><strong>Rule</strong>: When owner objects are copied the ownership is transfered.</p>
 
-<p><strong>Rule:</strong> Before the end of its lifetime, owner objects must move the ownership of the objects they own. </p>
+<p><strong>Rule:</strong> Before the end of its lifetime, owner objects must move the ownership of the objects they own.
+(Cake ownership model does not have the concept of destroyed/deleted,
+ instead everything is a transformation and ownership is moved during these 
+ transformations.)</p>
 
 <p>For example, in Listing 2, the ownership of the owner pointer <code>f</code> is transferred to <code>f2</code>:</p>
 
@@ -540,7 +545,10 @@ int main() {
 }
 </code></pre>
 
-<p>Note: The current implementation of cake does not handle all necessary states to ensure the safe usage of moved objects.</p>
+<blockquote>
+<p>Note: The current implementation of cake does not handle all necessary 
+states to ensure the safe usage of moved objects.</p>
+</blockquote>
 
 <p>A common scenario where uninitialized objects are utilized is when a pointer to an uninitialized object is passed to an &quot;init&quot; function. This situation is addressed by the qualifier <strong>out</strong>.</p>
 

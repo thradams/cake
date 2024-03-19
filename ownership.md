@@ -36,7 +36,7 @@ int main()
 }
 ```
 
-**Note:** The `owner` is actually a macro declared in ownership as _Owner. 
+> **owner** is actually a macro declared in ownership as **_Owner**. 
 
 The ownership mechanism has some rules that will be listed gradually throughout the text.
 
@@ -44,7 +44,11 @@ The ownership mechanism has some rules that will be listed gradually throughout 
 
 **Rule**: When owner objects are copied the ownership is transfered.
 
-**Rule:** Before the end of its lifetime, owner objects must move the ownership of the objects they own. 
+**Rule:** Before the end of its lifetime, owner objects must move the ownership of the objects they own.
+(Cake ownership model does not have the concept of destroyed/deleted,
+ instead everything is a transformation and ownership is moved during these 
+ transformations.)
+
 
 For example, in Listing 2, the ownership of the owner pointer `f` is transferred to `f2`:
 
@@ -509,7 +513,8 @@ int main() {
 }
 ```
 
-Note: The current implementation of cake does not handle all necessary states to ensure the safe usage of moved objects.
+> Note: The current implementation of cake does not handle all necessary 
+> states to ensure the safe usage of moved objects.
 
 A common scenario where uninitialized objects are utilized is when a pointer to an uninitialized object is passed to an "init" function. This situation is addressed by the qualifier **out**.
 
