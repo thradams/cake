@@ -401,7 +401,7 @@ struct object make_object_core(struct type* p_type,
         if (deep < 1)
         {
             struct type t2 = type_remove_pointer(p_type);
-            if (type_is_struct_or_union(&t2))
+            if (!type_is_void(&t2))
             {
                 struct object* owner p_object = calloc(1, sizeof(struct object));
                 *p_object = make_object_core(&t2, list, deep + 1, p_declarator_opt, p_expression_origin);

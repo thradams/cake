@@ -1,20 +1,26 @@
 
-
 void* _Owner malloc(unsigned long size);
-void free(void* _Owner ptr);
+void free(void* _Owner _Opt ptr);
 
-int condition;
-void f(void **p);
-void f5(int condition)
+struct X {
+    char* _Owner text;
+};
+
+void f(struct X* _Owner p1, struct X* _Out _Owner* p2)
 {
-    void * _Owner p = malloc(1);
+    *p2 = p1;
+}
 
-    //static_debug(p);
-    while (p) {
-       //static_debug(p);
-       if (condition) break;
-       //f(&p);
-       //return;
+int main()
+{
+    struct X* _Owner p1 = malloc(sizeof * p1);
+    if (p1)
+    {
+        p1->text = 0;
+        struct X* _Owner p2 = 0;
+        f(p1, &p2);
+
+        free(p2->text);
+        free(p2);
     }
-    static_debug(p);    
 }

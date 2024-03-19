@@ -2783,31 +2783,36 @@ void calling_const_func()
 }
 void pointer_to_owner()
 {
-    const char* source =
+    const char* source
+        =
         "\n"
         "void* _Owner malloc(unsigned long size);\n"
-        "void free(void* _Owner ptr);\n"
+        "void free(void* _Owner _Opt ptr);\n"
         "\n"
         "struct X {\n"
-        "  char * _Owner text;\n"
+        "    char* _Owner text;\n"
         "};\n"
         "\n"
-        "void f(struct X * _Owner p1, struct X * _Owner* p2){\n"
-        "  *p2 = p1;\n"
+        "void f(struct X* _Owner p1, struct X* _Out _Owner* p2)\n"
+        "{\n"
+        "    *p2 = p1;\n"
         "}\n"
         "\n"
-        "int main() {   \n"
-        "   struct X * _Owner p1 = malloc(sizeof * p1);\n"
-        "   p1->text = 0;\n"
-        "   struct X * _Owner p2 = 0;\n"
-        "   f(p1, &p2);\n"
-        "   \n"
-        "   free(p2->text);\n"
-        "   free(p2);\n"
+        "int main()\n"
+        "{\n"
+        "    struct X* _Owner p1 = malloc(sizeof * p1);\n"
+        "    if (p1)\n"
+        "    {\n"
+        "        p1->text = 0;\n"
+        "        struct X* _Owner p2 = 0;\n"
+        "        f(p1, &p2);\n"
+        "\n"
+        "        free(p2->text);\n"
+        "        free(p2);\n"
+        "    }\n"
         "}\n"
-        "\n"
-        "\n"
         "";
+
     assert(compile_without_errors_warnings(true, false, source));
 }
 
