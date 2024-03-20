@@ -12,7 +12,7 @@ static void del(struct token* from, struct token* to)
 {
     struct token* p = from;
     while (p)
-    {        
+    {
         p->flags |= TK_C_BACKEND_FLAG_HIDE;
         p = p->next;
 
@@ -80,7 +80,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
 {
     /*
       OBS:
-      To debug this code use 
+      To debug this code use
       print_code_as_we_see(&ctx->ast.token_list, false);
       before and after each transformation
     */
@@ -92,9 +92,9 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         return;
     }
 
-    
+
     token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, "{");
-    
+
 
     struct token_list init_tokens_cut = { 0 };
     if (p_selection_statement->p_init_statement &&
@@ -109,31 +109,31 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         init_tokens_cut = cut(p_selection_statement->p_init_statement->p_simple_declaration->first_token,
             p_selection_statement->p_init_statement->p_simple_declaration->last_token);
     }
-    
+
     token_list_insert_before(&ctx->ast.token_list, p_selection_statement->first_token, &init_tokens_cut);
-    
+
 
     struct token_list condition_tokens_cut = { 0 };
     if (p_selection_statement->condition && p_selection_statement->condition->expression)
     {
-        /*leave it */    
+        /*leave it */
     }
     else if (p_selection_statement->condition &&
         p_selection_statement->condition->p_declaration_specifiers)
     {
         condition_tokens_cut = cut(p_selection_statement->condition->first_token,
             p_selection_statement->condition->last_token);
-        
+
         token_list_insert_before(&ctx->ast.token_list, p_selection_statement->first_token, &condition_tokens_cut);
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, ";");
-        
+
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
             p_selection_statement->condition->p_init_declarator->p_declarator->name->lexeme
         );
-        
+
     }
 
-    token_list_paste_string_after(&ctx->ast.token_list, p_selection_statement->last_token, "}");    
+    token_list_paste_string_after(&ctx->ast.token_list, p_selection_statement->last_token, "}");
     token_list_destroy(&condition_tokens_cut);
     token_list_destroy(&init_tokens_cut);
 }
@@ -514,14 +514,17 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
 static void visit_init_declarator(struct visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     visit_declarator(ctx, p_init_declarator->p_declarator);
-    visit_initializer(ctx, p_init_declarator->initializer);    
+    visit_initializer(ctx, p_init_declarator->initializer);
 }
 static void visit_condition(struct visit_ctx* ctx, struct condition* p_condition)
 {
     if (p_condition->p_declaration_specifiers)
-        visit_declaration_specifiers(ctx, p_condition->p_declaration_specifiers, NULL);
+    {
+        visit_declaration_specifiers(ctx,
+            p_condition->p_declaration_specifiers,
+            &p_condition->p_init_declarator->p_declarator->type);
+    }
 
-    
     if (p_condition->p_init_declarator)
         visit_init_declarator(ctx, p_condition->p_init_declarator);
 
@@ -623,8 +626,7 @@ static void visit_bracket_initializer_list(struct visit_ctx* ctx, struct braced_
 }
 
 static void visit_designation(struct visit_ctx* ctx, struct designation* p_designation)
-{
-}
+{}
 
 static void visit_initializer(struct visit_ctx* ctx, struct initializer* p_initializer)
 {
@@ -1944,8 +1946,7 @@ static void visit_enum_specifier(struct visit_ctx* ctx, struct enum_specifier* p
 }
 
 static void visit_typeof_specifier(struct visit_ctx* ctx, struct typeof_specifier* p_typeof_specifier)
-{
-}
+{}
 
 static void visit_type_specifier(struct visit_ctx* ctx, struct type_specifier* p_type_specifier)
 {
