@@ -21804,7 +21804,7 @@ void set_object_state(
             {
                 char buffer[100] = { 0 };
                 object_get_name(p_source_type, p_object_source, buffer, sizeof buffer);
-                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                     ctx,
                     error_position,
                     "source object '%s' is uninitialized", buffer);
