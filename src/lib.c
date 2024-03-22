@@ -34914,8 +34914,7 @@ static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, stru
 }
 
 static void flow_visit_designation(struct flow_visit_ctx* ctx, struct designation* p_designation)
-{
-}
+{}
 
 static void flow_visit_bracket_initializer_list(struct flow_visit_ctx* ctx, struct braced_initializer* p_bracket_initializer_list);
 
@@ -35125,10 +35124,6 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
         if (type_is_any_owner(&p_current_parameter_type->type))
         {
-#if 1
-
-#endif
-
             object_assignment(ctx,
                 p_argument_object,
                 &p_current_argument->expression->type,
@@ -35256,378 +35251,378 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     switch (p_expression->expression_type)
     {
-        case PRIMARY_EXPRESSION__FUNC__:
-            break;
-        case PRIMARY_IDENTIFIER:
-            break;
-        case PRIMARY_EXPRESSION_ENUMERATOR:
+    case PRIMARY_EXPRESSION__FUNC__:
+        break;
+    case PRIMARY_IDENTIFIER:
+        break;
+    case PRIMARY_EXPRESSION_ENUMERATOR:
 
-            break;
-        case PRIMARY_EXPRESSION_DECLARATOR:
-
-
-            break;
-
-        case PRIMARY_EXPRESSION_PARENTESIS:
-            flow_visit_expression(ctx, p_expression->right);
-            break;
-
-        case PRIMARY_EXPRESSION_STRING_LITERAL:
-            break;
-        case PRIMARY_EXPRESSION_CHAR_LITERAL:
-            break;
-        case PRIMARY_EXPRESSION_NUMBER:
-            break;
-
-        case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-
-            break;
-
-        case PRIMARY_EXPRESSION_GENERIC:
-            flow_visit_generic_selection(ctx, p_expression->generic_selection);
-            break;
-
-        case POSTFIX_DOT:
-        case POSTFIX_ARROW:
-            flow_visit_expression(ctx, p_expression->left);
-            flow_visit_expression(ctx, p_expression->right);
-            break;
-
-        case POSTFIX_INCREMENT:
-            break;
-        case POSTFIX_DECREMENT:
-            break;
-        case POSTFIX_ARRAY:
-
-            flow_visit_expression(ctx, p_expression->left);
-            flow_visit_expression(ctx, p_expression->right);
+        break;
+    case PRIMARY_EXPRESSION_DECLARATOR:
 
 
-            break;
+        break;
 
-        case POSTFIX_FUNCTION_CALL:
+    case PRIMARY_EXPRESSION_PARENTESIS:
+        flow_visit_expression(ctx, p_expression->right);
+        break;
 
-            flow_visit_expression(ctx, p_expression->left);
+    case PRIMARY_EXPRESSION_STRING_LITERAL:
+        break;
+    case PRIMARY_EXPRESSION_CHAR_LITERAL:
+        break;
+    case PRIMARY_EXPRESSION_NUMBER:
+        break;
 
-            flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
-            compare_function_arguments2(ctx->ctx, &p_expression->left->type, &p_expression->argument_expression_list);
+    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
 
-            break;
-        case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
+        break;
 
+    case PRIMARY_EXPRESSION_GENERIC:
+        flow_visit_generic_selection(ctx, p_expression->generic_selection);
+        break;
 
-            flow_visit_compound_statement(ctx, p_expression->compound_statement);
+    case POSTFIX_DOT:
+    case POSTFIX_ARROW:
+        flow_visit_expression(ctx, p_expression->left);
+        flow_visit_expression(ctx, p_expression->right);
+        break;
 
-            break;
+    case POSTFIX_INCREMENT:
+        break;
+    case POSTFIX_DECREMENT:
+        break;
+    case POSTFIX_ARRAY:
 
-        case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-
-            if (p_expression->type_name)
-            {
-                flow_visit_type_name(ctx, p_expression->type_name);
-            }
-
-            flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
-
-            struct object temp2 = make_object(&p_expression->type, p_expression->type_name->declarator, p_expression);
-            object_swap(&temp2, &p_expression->type_name->declarator->object);
-            object_destroy(&temp2);
-
-            //TODO the state of object depends of the initializer
-            set_direct_state(&p_expression->type, &p_expression->type_name->declarator->object, OBJECT_STATE_ZERO);
-
-
-            assert(p_expression->left == NULL);
-            assert(p_expression->right == NULL);
-
-            break;
-
-        case UNARY_EXPRESSION_ALIGNOF:
-
-            if (p_expression->right)
-            {
-                flow_visit_expression(ctx, p_expression->right);
-            }
-
-            if (p_expression->type_name)
-            {
-                /*sizeof*/
-                flow_visit_type_name(ctx, p_expression->type_name);
-            }
-            break;
-
-        case UNARY_EXPRESSION_ASSERT:
-
-            if (p_expression->right)
-            {
-                flow_visit_expression(ctx, p_expression->right);
-
-                struct object temp_obj1 = { 0 };
-                struct object* p_object_compared_with_null = NULL;
-
-                if (p_expression->right)
-                {
-                    p_object_compared_with_null = expression_is_comparing_owner_with_null(p_expression->right, &temp_obj1);
-                }
-
-                struct object temp_obj2 = { 0 };
-                struct object* p_object_compared_with_not_null = NULL;
-                if (p_expression->right)
-                {
-                    p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_expression->right, &temp_obj2);
-                }
-
-                if (p_object_compared_with_null)
-                {
-                    //if (p == 0) {  p is null }
-                    p_object_compared_with_null->state = OBJECT_STATE_NULL;
-                }
-
-                if (p_object_compared_with_not_null)
-                {
-                    //if (p != 0) {  p is not null }
-                    p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
-                }
-                object_destroy(&temp_obj1);
-                object_destroy(&temp_obj2);
-            }
-
-            break;
-
-        case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-
-            if (p_expression->right)
-            {
-                const bool t2 = ctx->expression_is_not_evaluated;
-                ctx->expression_is_not_evaluated = true;
-                flow_visit_expression(ctx, p_expression->right);
-                ctx->expression_is_not_evaluated = t2;
-            }
-
-            if (p_expression->type_name)
-            {
-                /*sizeof*/
-                flow_visit_type_name(ctx, p_expression->type_name);
-            }
+        flow_visit_expression(ctx, p_expression->left);
+        flow_visit_expression(ctx, p_expression->right);
 
 
-            break;
+        break;
 
-        case UNARY_EXPRESSION_SIZEOF_TYPE:
-        case UNARY_EXPRESSION_INCREMENT:
-        case UNARY_EXPRESSION_DECREMENT:
-        case UNARY_EXPRESSION_NOT:
-        case UNARY_EXPRESSION_BITNOT:
-        case UNARY_EXPRESSION_NEG:
-        case UNARY_EXPRESSION_PLUS:
+    case POSTFIX_FUNCTION_CALL:
 
-        case UNARY_EXPRESSION_ADDRESSOF:
+        flow_visit_expression(ctx, p_expression->left);
+
+        flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
+        compare_function_arguments2(ctx->ctx, &p_expression->left->type, &p_expression->argument_expression_list);
+
+        break;
+    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
+
+
+        flow_visit_compound_statement(ctx, p_expression->compound_statement);
+
+        break;
+
+    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
+
+        if (p_expression->type_name)
         {
-            if (p_expression->right)
-            {
+            flow_visit_type_name(ctx, p_expression->type_name);
+        }
 
-                struct object temp_obj = { 0 };
-                struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
+        flow_visit_bracket_initializer_list(ctx, p_expression->braced_initializer);
 
-                if (!ctx->expression_is_not_evaluated)
-                {
-                    if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
-                    {
-                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
-                            ctx->ctx,
-                            p_expression->right->first_token, "using a uninitialized object");
-                    }
-                    else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
-                    {
-                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
-                            ctx->ctx,
-                            p_expression->right->first_token, "maybe using a uninitialized object");
-                    }
-                }
+        struct object temp2 = make_object(&p_expression->type, p_expression->type_name->declarator, p_expression);
+        object_swap(&temp2, &p_expression->type_name->declarator->object);
+        object_destroy(&temp2);
+
+        //TODO the state of object depends of the initializer
+        set_direct_state(&p_expression->type, &p_expression->type_name->declarator->object, OBJECT_STATE_ZERO);
 
 
-                flow_visit_expression(ctx, p_expression->right);
-                object_destroy(&temp_obj);
-            }
+        assert(p_expression->left == NULL);
+        assert(p_expression->right == NULL);
 
-            if (p_expression->type_name)
-            {
-                /*sizeof*/
-                flow_visit_type_name(ctx, p_expression->type_name);
-            }
+        break;
+
+    case UNARY_EXPRESSION_ALIGNOF:
+
+        if (p_expression->right)
+        {
+            flow_visit_expression(ctx, p_expression->right);
+        }
+
+        if (p_expression->type_name)
+        {
+            /*sizeof*/
+            flow_visit_type_name(ctx, p_expression->type_name);
         }
         break;
-#if 1
-        case UNARY_EXPRESSION_CONTENT:
+
+    case UNARY_EXPRESSION_ASSERT:
+
+        if (p_expression->right)
         {
+            flow_visit_expression(ctx, p_expression->right);
+
+            struct object temp_obj1 = { 0 };
+            struct object* p_object_compared_with_null = NULL;
+
             if (p_expression->right)
             {
-                flow_visit_expression(ctx, p_expression->right);
+                p_object_compared_with_null = expression_is_comparing_owner_with_null(p_expression->right, &temp_obj1);
             }
 
+            struct object temp_obj2 = { 0 };
+            struct object* p_object_compared_with_not_null = NULL;
+            if (p_expression->right)
+            {
+                p_object_compared_with_not_null = expression_is_comparing_owner_with_not_null(p_expression->right, &temp_obj2);
+            }
+
+            if (p_object_compared_with_null)
+            {
+                //if (p == 0) {  p is null }
+                p_object_compared_with_null->state = OBJECT_STATE_NULL;
+            }
+
+            if (p_object_compared_with_not_null)
+            {
+                //if (p != 0) {  p is not null }
+                p_object_compared_with_not_null->state = OBJECT_STATE_NOT_NULL;
+            }
+            object_destroy(&temp_obj1);
+            object_destroy(&temp_obj2);
+        }
+
+        break;
+
+    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
+
+        if (p_expression->right)
+        {
+            const bool t2 = ctx->expression_is_not_evaluated;
+            ctx->expression_is_not_evaluated = true;
+            flow_visit_expression(ctx, p_expression->right);
+            ctx->expression_is_not_evaluated = t2;
+        }
+
+        if (p_expression->type_name)
+        {
+            /*sizeof*/
+            flow_visit_type_name(ctx, p_expression->type_name);
+        }
+
+
+        break;
+
+    case UNARY_EXPRESSION_SIZEOF_TYPE:
+    case UNARY_EXPRESSION_INCREMENT:
+    case UNARY_EXPRESSION_DECREMENT:
+    case UNARY_EXPRESSION_NOT:
+    case UNARY_EXPRESSION_BITNOT:
+    case UNARY_EXPRESSION_NEG:
+    case UNARY_EXPRESSION_PLUS:
+
+    case UNARY_EXPRESSION_ADDRESSOF:
+    {
+        if (p_expression->right)
+        {
 
             struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
 
-            if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+            if (!ctx->expression_is_not_evaluated)
             {
-                if (!ctx->expression_is_not_evaluated)
+                if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
                 {
                     compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
                         ctx->ctx,
                         p_expression->right->first_token, "using a uninitialized object");
                 }
-            }
-            else if (p_object && p_object->state & OBJECT_STATE_NULL)
-            {
-                /*
-                  *p = 1*
-                */
-                if (!p_expression->is_assigment_expression &&
-                    !ctx->expression_is_not_evaluated)
+                else if (p_object && p_object->state & OBJECT_STATE_UNINITIALIZED)
                 {
-                    //TO many errors because the pointer can be null.
-                    if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
-                    {
-
-                        compiler_diagnostic_message(W_OWNERSHIP_FLOW_NULL_DEREFERENCE,
-                            ctx->ctx,
-                            p_expression->right->first_token, "dereference a NULL object");
-                    }
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
+                        ctx->ctx,
+                        p_expression->right->first_token, "maybe using a uninitialized object");
                 }
             }
+
+
+            flow_visit_expression(ctx, p_expression->right);
             object_destroy(&temp_obj);
         }
-        break;
+
+        if (p_expression->type_name)
+        {
+            /*sizeof*/
+            flow_visit_type_name(ctx, p_expression->type_name);
+        }
+    }
+    break;
+#if 1
+    case UNARY_EXPRESSION_CONTENT:
+    {
+        if (p_expression->right)
+        {
+            flow_visit_expression(ctx, p_expression->right);
+        }
+
+
+        struct object temp_obj = { 0 };
+        struct object* p_object = expression_get_object(p_expression->right, &temp_obj);
+
+        if (p_object && p_object->state == OBJECT_STATE_UNINITIALIZED)
+        {
+            if (!ctx->expression_is_not_evaluated)
+            {
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
+                    ctx->ctx,
+                    p_expression->right->first_token, "using a uninitialized object");
+            }
+        }
+        else if (p_object && p_object->state & OBJECT_STATE_NULL)
+        {
+            /*
+              *p = 1*
+            */
+            if (!p_expression->is_assigment_expression &&
+                !ctx->expression_is_not_evaluated)
+            {
+                //TO many errors because the pointer can be null.
+                if (p_object && !(p_object->state & OBJECT_STATE_NOT_NULL))
+                {
+
+                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_NULL_DEREFERENCE,
+                        ctx->ctx,
+                        p_expression->right->first_token, "dereference a NULL object");
+                }
+            }
+        }
+        object_destroy(&temp_obj);
+    }
+    break;
 #endif
 
 
 
 
-        case ASSIGNMENT_EXPRESSION:
+    case ASSIGNMENT_EXPRESSION:
+    {
+
+        struct object temp_obj1 = { 0 };
+        struct object* const p_right_object = expression_get_object(p_expression->right, &temp_obj1);
+
+        struct object temp_obj2 = { 0 };
+        struct object* const p_dest_object = expression_get_object(p_expression->left, &temp_obj2);
+        //print_object(&dest_object_type, p_dest_object);
+
+
+        flow_visit_expression(ctx, p_expression->left);
+
+        flow_visit_expression(ctx, p_expression->right);
+
+
+
+        bool bool_source_zero_value = constant_value_is_valid(&p_expression->right->constant_value) &&
+            constant_value_to_ull(&p_expression->right->constant_value) == 0;
+
+        if (p_expression->right &&
+            p_expression->right->expression_type == POSTFIX_FUNCTION_CALL)
         {
-
-            struct object temp_obj1 = { 0 };
-            struct object* const p_right_object = expression_get_object(p_expression->right, &temp_obj1);
-
-            struct object temp_obj2 = { 0 };
-            struct object* const p_dest_object = expression_get_object(p_expression->left, &temp_obj2);
-            //print_object(&dest_object_type, p_dest_object);
-
-
-            flow_visit_expression(ctx, p_expression->left);
-
-            flow_visit_expression(ctx, p_expression->right);
-
-
-
-            bool bool_source_zero_value = constant_value_is_valid(&p_expression->right->constant_value) &&
-                constant_value_to_ull(&p_expression->right->constant_value) == 0;
-
-            if (p_expression->right &&
-                p_expression->right->expression_type == POSTFIX_FUNCTION_CALL)
+            if (p_expression->right->left &&
+                p_expression->right->left->declarator &&
+                p_expression->right->left->declarator->name &&
+                strcmp(p_expression->right->left->declarator->name->lexeme, "calloc") == 0)
             {
-                if (p_expression->right->left &&
-                    p_expression->right->left->declarator &&
-                    p_expression->right->left->declarator->name &&
-                    strcmp(p_expression->right->left->declarator->name->lexeme, "calloc") == 0)
-                {
-                    bool_source_zero_value = true;
-                }
+                bool_source_zero_value = true;
             }
+        }
 
-            object_assignment(ctx->ctx,
-                p_right_object, /*source*/
-                &p_expression->right->type, /*source type*/
-                p_dest_object, /*dest object*/
-                &p_expression->left->type, /*dest type*/
-                p_expression->left->first_token,
-                bool_source_zero_value,
-                OBJECT_STATE_MOVED,
-                ASSIGMENT_TYPE_OBJECTS);
+        object_assignment(ctx->ctx,
+            p_right_object, /*source*/
+            &p_expression->right->type, /*source type*/
+            p_dest_object, /*dest object*/
+            &p_expression->left->type, /*dest type*/
+            p_expression->left->first_token,
+            bool_source_zero_value,
+            OBJECT_STATE_MOVED,
+            ASSIGMENT_TYPE_OBJECTS);
 
 
-            object_destroy(&temp_obj1);
-            object_destroy(&temp_obj2);
+        object_destroy(&temp_obj1);
+        object_destroy(&temp_obj2);
+    }
+    break;
+
+    case CAST_EXPRESSION:
+    case MULTIPLICATIVE_EXPRESSION_MULT:
+    case MULTIPLICATIVE_EXPRESSION_DIV:
+    case MULTIPLICATIVE_EXPRESSION_MOD:
+    case ADDITIVE_EXPRESSION_PLUS:
+    case ADDITIVE_EXPRESSION_MINUS:
+    case SHIFT_EXPRESSION_RIGHT:
+    case SHIFT_EXPRESSION_LEFT:
+    case RELATIONAL_EXPRESSION_BIGGER_THAN:
+    case RELATIONAL_EXPRESSION_LESS_THAN:
+
+
+    case EQUALITY_EXPRESSION_EQUAL:
+        flow_visit_expression(ctx, p_expression->left);
+        flow_visit_expression(ctx, p_expression->right);
+
+        break;
+
+    case EQUALITY_EXPRESSION_NOT_EQUAL:
+        flow_visit_expression(ctx, p_expression->left);
+        flow_visit_expression(ctx, p_expression->right);
+        break;
+
+    case AND_EXPRESSION:
+    case EXCLUSIVE_OR_EXPRESSION:
+    case INCLUSIVE_OR_EXPRESSION:
+    case INCLUSIVE_AND_EXPRESSION:
+    case LOGICAL_OR_EXPRESSION:
+    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
+    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
+
+        if (p_expression->left)
+        {
+            flow_visit_expression(ctx, p_expression->left);
+        }
+        if (p_expression->right)
+        {
+            flow_visit_expression(ctx, p_expression->right);
+        }
+        if (p_expression->type_name)
+        {
+            flow_visit_type_name(ctx, p_expression->type_name);
         }
         break;
 
-        case CAST_EXPRESSION:
-        case MULTIPLICATIVE_EXPRESSION_MULT:
-        case MULTIPLICATIVE_EXPRESSION_DIV:
-        case MULTIPLICATIVE_EXPRESSION_MOD:
-        case ADDITIVE_EXPRESSION_PLUS:
-        case ADDITIVE_EXPRESSION_MINUS:
-        case SHIFT_EXPRESSION_RIGHT:
-        case SHIFT_EXPRESSION_LEFT:
-        case RELATIONAL_EXPRESSION_BIGGER_THAN:
-        case RELATIONAL_EXPRESSION_LESS_THAN:
+    case UNARY_EXPRESSION_TRAITS:
+    {
 
+    }
+    break;
 
-        case EQUALITY_EXPRESSION_EQUAL:
-            flow_visit_expression(ctx, p_expression->left);
-            flow_visit_expression(ctx, p_expression->right);
-
-            break;
-
-        case EQUALITY_EXPRESSION_NOT_EQUAL:
-            flow_visit_expression(ctx, p_expression->left);
-            flow_visit_expression(ctx, p_expression->right);
-            break;
-
-        case AND_EXPRESSION:
-        case EXCLUSIVE_OR_EXPRESSION:
-        case INCLUSIVE_OR_EXPRESSION:
-        case INCLUSIVE_AND_EXPRESSION:
-        case LOGICAL_OR_EXPRESSION:
-        case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-        case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-
-            if (p_expression->left)
-            {
-                flow_visit_expression(ctx, p_expression->left);
-            }
-            if (p_expression->right)
-            {
-                flow_visit_expression(ctx, p_expression->right);
-            }
-            if (p_expression->type_name)
-            {
-                flow_visit_type_name(ctx, p_expression->type_name);
-            }
-            break;
-
-        case UNARY_EXPRESSION_TRAITS:
-        {
-
-        }
+    case UNARY_EXPRESSION_IS_SAME:
         break;
 
-        case UNARY_EXPRESSION_IS_SAME:
-            break;
+    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
+        break;
 
-        case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
-            break;
+    case CONDITIONAL_EXPRESSION:
+        if (p_expression->condition_expr)
+        {
+            flow_visit_expression(ctx, p_expression->condition_expr);
+        }
 
-        case CONDITIONAL_EXPRESSION:
-            if (p_expression->condition_expr)
-            {
-                flow_visit_expression(ctx, p_expression->condition_expr);
-            }
+        if (p_expression->left)
+        {
+            flow_visit_expression(ctx, p_expression->left);
+        }
+        if (p_expression->right)
+        {
+            flow_visit_expression(ctx, p_expression->right);
+        }
 
-            if (p_expression->left)
-            {
-                flow_visit_expression(ctx, p_expression->left);
-            }
-            if (p_expression->right)
-            {
-                flow_visit_expression(ctx, p_expression->right);
-            }
+        break;
 
-            break;
-
-        default:
-            break;
+    default:
+        break;
     }
 }
 
@@ -35777,8 +35772,8 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     }
 
     //restore
-    ctx->initial_state = old_initial_state ;
-    ctx->break_join_state = old_break_join_state ;
+    ctx->initial_state = old_initial_state;
+    ctx->break_join_state = old_break_join_state;
 
     object_destroy(&temp_obj);
 }
@@ -35828,18 +35823,18 @@ static void flow_visit_iteration_statement(struct flow_visit_ctx* ctx, struct it
 {
     switch (p_iteration_statement->first_token->type)
     {
-        case  TK_KEYWORD_WHILE:
-            flow_visit_while_statement(ctx, p_iteration_statement);
-            break;
-        case TK_KEYWORD_DO:
-            flow_visit_do_while_statement(ctx, p_iteration_statement);
-            break;
-        case TK_KEYWORD_FOR:
-            flow_visit_for_statement(ctx, p_iteration_statement);
-            break;
-        default:
-            assert(false);
-            break;
+    case  TK_KEYWORD_WHILE:
+        flow_visit_while_statement(ctx, p_iteration_statement);
+        break;
+    case TK_KEYWORD_DO:
+        flow_visit_do_while_statement(ctx, p_iteration_statement);
+        break;
+    case TK_KEYWORD_FOR:
+        flow_visit_for_statement(ctx, p_iteration_statement);
+        break;
+    default:
+        assert(false);
+        break;
     }
 }
 
@@ -36281,8 +36276,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 type_destroy(&t2);
             }
 #endif
-                }
-            }
+        }
+    }
 
     /*if (p_declarator->pointer)
     {
@@ -36298,7 +36293,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-        }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -36410,8 +36405,7 @@ static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_sp
 }
 
 static void flow_visit_typeof_specifier(struct flow_visit_ctx* ctx, struct typeof_specifier* p_typeof_specifier)
-{
-}
+{}
 
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier)
 {
