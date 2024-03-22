@@ -1529,6 +1529,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         compare_function_arguments2(ctx->ctx, &p_expression->left->type, &p_expression->argument_expression_list);
 
         break;
+
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
 
 
@@ -2090,17 +2091,20 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 p_jump_statement->expression_opt->first_token,
                 true);
 
+            struct object dest_object =
+                make_object(ctx->p_return_type, NULL, p_jump_statement->expression_opt);
+
             object_assignment(ctx->ctx,
                 p_object, /*source*/
                 &p_jump_statement->expression_opt->type, /*source type*/
-                NULL, /*dest object*/
+                &dest_object, /*dest object*/
                 ctx->p_return_type, /*dest type*/
                 p_jump_statement->expression_opt->first_token,
                 bool_source_zero_value,
                 OBJECT_STATE_UNINITIALIZED,
                 ASSIGMENT_TYPE_RETURN);
 
-
+            object_destroy(&dest_object);
             object_destroy(&temp_obj);
         }
         check_all_defer_until_end(ctx, ctx->tail_block, p_jump_statement->first_token);
@@ -2493,12 +2497,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 if (p_declarator->object.pointed)
                 {
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                }
-                type_destroy(&t2);
             }
-#endif
+                type_destroy(&t2);
         }
+#endif
     }
+}
 
     /*if (p_declarator->pointer)
     {
