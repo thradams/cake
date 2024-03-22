@@ -1,5 +1,5 @@
   
-Last Updated 27/02/2024
+Last Updated 22/03/2024
   
 This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.
 
@@ -16,13 +16,15 @@ to code as they wish, they must either persuade the compiler or disable analysis
 A human factor must be considered to ensure that annotations do not make the work too boring with 
 excessive details. In this regard, selecting defaults that cover the most common cases is crucial.
 
-## Owner Objects
+## Concepts
+
+### Owner Objects
 
 An **owner object** is an object referencing another object and managing its lifetime. 
 
-The most common type of owner objects are pointers, often referred as **owner pointers**. An owner pointer is created with the qualifier owner, as illustrated in Listing 1:
+The most common type of owner objects are pointers, often referred as **owner pointers**. An owner pointer is created with the qualifier owner.
 
-**Listing 1 - Owner Pointer to FILE**
+**Sample - Owner Pointer to FILE**
 
 ```c
 #include <ownership.h>
@@ -36,23 +38,18 @@ int main()
 }
 ```
 
-> **owner** is actually a macro declared in ownership as **_Owner**. 
+> Note: **owner** is actually a macro declared in ownership as **_Owner**. 
 
 The ownership mechanism has some rules that will be listed gradually throughout the text.
 
-**Rule**: An **owner object** is always the unique owner of the referenced object.
+**Rule:** An **owner object** is always the unique owner of the referenced object.
 
-**Rule**: When owner objects are copied the ownership is transfered.
+**Rule:** When owner objects are copied the ownership is transfered.
 
 **Rule:** Before the end of its lifetime, owner objects must move the ownership of the objects they own.
-(Cake ownership model does not have the concept of destroyed/deleted,
- instead everything is a transformation and ownership is moved during these 
- transformations.)
 
 
-For example, in Listing 2, the ownership of the owner pointer `f` is transferred to `f2`:
-
-**Listing 2 - Assignment of Owner Objects is a Move**
+Sample
 
 ```c  
 #include <ownership.h>
@@ -67,19 +64,21 @@ int main()
 }
 ```
 
-Invoking a function `fclose` is analogous to assignment of the argument `f2`, resulting in the transfer of ownership of `f2` to the function parameter.  Listing 3, shows the declaration of `fclose`.
+Invoking a function `fclose` is analogous to assignment of the argument `f2`, resulting in the transfer of ownership of `f2` to the function parameter.  
 
-**Listing 3 - Declaration of close**
+Sample - Declaration of fclose
 
 ```c
 void fclose(FILE *owner p);
 ```
 
+> Note: The cake ownership model does not include the concept of a destroyed or deleted object. Instead, everything is viewed as a transformation, where the object is broken into smaller parts and those parts are moved.
+
 ### Non-pointer owner objects
 
-We can have other types of **owner objects**. For instance, Berkeley sockets use an integer to identify the socket, as shown in listing 4:
+We can have other types of **owner objects**. For instance, Berkeley sockets use an integer to identify the socket.
 
-**Listing 4 - Non-Pointer owners objects**
+Sample
 
 ```c
  owner int server_socket =
@@ -88,19 +87,47 @@ We can have other types of **owner objects**. For instance, Berkeley sockets use
  close(server_socket);
 ```
 
-The location and usage of qualifier owner is similar of const qualifier. For pointers it goes after `*`, for this socket sample it can be before int.
+> Note: The location and usage of the qualifier owner is similar to the const qualifier. For pointers, it goes after *, and for this socket sample, it can be before int. The owner qualifier belongs to the object (memory) that holds the reference.
+
+When a struct or union have at least one owner object it makes the struct a owner object too.
+
+**Rule:** Owner objects cannot be discarded.
+
+```c  
+#include <ownership.h> 
+#include <stdio.h>
+
+int main() {  
+  fopen("file.txt", "r"); //warning   
+}
+```
+
+**Rule:** A non-owner object cannot be copied to a owner object.
+
+**Rule:** The null pointer constant can be used to initialize owner objects. (Even it its type is non-owner)
+
+**Sample**
+
+```c
+FILE * f(); //returning non owner
+int main() {  
+   FILE * owner file = f(); //ERROR   
+   FILE * owner file2 = 0;  //OK
+}
+```
+
 
 ### View Objects
 
 A **view object** is an object referencing another object without managing its lifetime. 
 
-**Rule** The lifetime of the referenced object must be bigger than the lifetime of the view object.
+**Rule:** The lifetime of the referenced object must be longer than the lifetime of the view object.
 
 The most common view objects are pointers called **view pointers**. 
 
-The view qualifier is not necessary for pointers, since it's the default behavior. When an owner object is copied to a view object, the ownership is not transferred, as shown in Listing 5:
-
-**Listing 5 - Calling Function with View Parameters**
+The view qualifier is not necessary for pointers, since it's the default behavior. When an owner object is copied to a view object, the ownership is not transferred.
+  
+**Sample**
 
 ```c
 #include <ownership.h>
@@ -117,11 +144,11 @@ int main() {
 }
 ```
 
-When a struct or union have at least one owner object it makes the struct a owner object too.
 
-When a **view** qualifier is used in structs, it makes all members as view objects. Listing 6.
+
+When a **view** qualifier is used in structs, it makes all members as view objects. 
  
-**Listing 6 - A view parameter**
+**Sample - A view parameter**
 
 ```c
 #include <ownership.h>
@@ -140,48 +167,41 @@ int main() {
 }
 ```
 
-It is interesting to compare against const qualifier. 
-While const adds a qualifier "const" "view" removes the qualifier "owner".
+> Note: It is interesting to compare against const qualifier. While const adds a qualifier "const" "view" removes the qualifier "owner".
 
-### Returning view pointers.
-We cannot return local variables as view pointers.
+### Returning a pointer to a view object
   
+We can check the rule "The lifetime of the referenced object must be longer than the lifetime of the view object" with these constrains.
+
+We cannot return the address of local variables
+
 ```c
 int * f()
 {
    int a = 1;
-   return &a;
+   return &a; //ERROR
 }
-int main()
-{
-  int * p = f();   
-  //warning: function returns address of 
-  //local variable [-Wreturn-local-addr]
-}
-```
-
-But we can return static variables and function arguments.
+```  
+  
+We can return the address of global variables
 
 ```c
 static int a = 1;
-
 int * f()
 {   
-   return &a;
-}
-int * f2(int *p) {
-   return p;
-}
+   return &a; // OK
+}  
+```  
+  
+And we can return parameters
 
-int main()
-{
-  int * p = f();
-  int b = 1;
-  p = f2(&b);
+```c
+int * f2(int *p) {
+   return p; //OK
 }
 ```
 
-Another sample:
+Now consider:
 
 ```c   
 #include <stdio.h>
@@ -201,8 +221,13 @@ int main(){
 }
 ```
 
-Examining the implementation reveals that the returned view pointer's lifetime can be that of either 'a' or 'b'. Our goal is to set contracts at the declaration level. Following the concept of ensuring safety by default, we assume that the returned view pointers have the shortest scope, limited to the function call.  
-(Cake is not doing this check at this moment) 
+Examining the implementation reveals that the returned view pointer's lifetime can be that of either 'a' or 'b'.
+
+Our goal is to set contracts at the declaration level.
+
+Following the concept of ensuring safety by default, we assume that the returned view pointers have the shortest scope, limited to the function call.  
+
+> Note : Currently, this check is missing at cake 
 
 ### View pointer as struct members
 Consider this sample.
@@ -216,14 +241,15 @@ struct Y {
 };  
 ```
 
-An object Y pointed by pY must live longer than object X.  
-This check must be done at instantiation.
+The rule "The lifetime of the referenced object must be longer than the lifetime of the view object" needs to be checked at each instantiation.
+
+> Note : Currently, this check is missing at cake 
 
 ### Deleting Owner Pointers
 
-**Owner pointers** take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources, as illustrated in Listing 7:
+**Owner pointers** take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources.
 
-**Listing 7 - Implementing the delete function**
+**Sample - Implementing the delete function**
 
 ```c
 #include <ownership.h>
@@ -244,7 +270,7 @@ void x_delete(struct X *owner p) {
 }
 
 int main() {
-  struct X * owner pX = calloc( 1, sizeof * pX);
+  struct X * owner pX = calloc(1, sizeof * pX);
   if (pX) {
     /*...*/;
     x_delete( pX); 
@@ -252,9 +278,9 @@ int main() {
 }
 ```
 
-When the object is created on the stack, we can implement a destructor, as shown in Listing 8:
+When the object is created on the stack, we can implement a destructor.
 
-**Listing 8 - Implementing a destructor**
+**Sample - Implementing a destructor**
 
 ```c
 #include <ownership.h>
@@ -279,12 +305,11 @@ However in C, structs are typically passed by pointer rather than by value. To t
 
 A pointer qualified with **obj_owner** is the owner of the pointed object but not responsible for managing its memory.
 
-Listing 9 illustrates how to implement a destructor using a obj_owner pointer parameter.
+The next sample illustrates how to implement a destructor using a obj_owner pointer parameter.
 
-**Listing 9 - Implementing a destructor using obj_owner**
+**Sample - Implementing a destructor using obj_owner**
 
 ```c
-struct X {
 #include <ownership.h>
 #include <stdlib.h>
 
@@ -304,9 +329,9 @@ int main() {
 }
 ```
 
-In order to prevent moving from a non owner object, only `address of expressions` to `obj_owner` are allowed. For instance, listing 10 shows we cannot move a view pointer.
+In order to prevent moving from a non owner object, only _address of expressions_ to **obj_owner** are allowed. 
 
-**Listing 10 - Non address of expression or owner pointer.**
+**Sample - Non address of expression or owner pointer.**
 
 ```c
 #include <ownership.h>
@@ -325,9 +350,9 @@ void f(struct X * x) {
 }
 ```
  
-We can copy an owner pointer to an **obj_owner** pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership. Listing 11 illustrates how we can use `x_destroy` in the implementation of `x_delete`.
+We can copy an **owner** pointer to an **obj_owner** pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership.   
 
-**Listing 11 - Using `x_destroy` to implement `x_delete`**
+**Sample - Using `x_destroy` to implement `x_delete`**
 
 ```c
 #include <ownership.h>
@@ -349,7 +374,7 @@ void x_delete(struct X *owner p) {
 }
 
 int main() {
-   struct X * owner pX = calloc( 1, sizeof * pX);
+   struct X * owner pX = calloc(1, sizeof * pX);
    if (pX) {
      /*...*/;
      x_delete( pX); 
@@ -371,7 +396,7 @@ void f(int a[owner])
 But I think this is quite uncommon.
 
 
-## Static analysis - Checking the rules at compile time  
+## Flow analysis  
 
 Let's revisit our first example:
 
@@ -383,13 +408,15 @@ int main()
 {
   FILE *owner f = fopen("file.txt", "r"); 
   if (f)
-    fclose(f);
+    fclose(f); //f is moved
 }
 ```
 
-The flow analysis must ensure that when the owner pointer `f` goes out of scope, it does not own any objects. At the end of the scope, `f` can be either null or moved, and both states ensure that there are no remaining resources.
+"Rule: Before the end of its lifetime, owner objects must move the ownership of the objects they own."
 
-To check the ownership rules, the compiler uses six states:
+At the end of the scope, `f` can be either null or moved, and both states ensure that the rule is followed.
+
+To check the ownership rules, the compiler need flow analysis and it uses six states:
 
 - uninitialized
 - moved
@@ -398,15 +425,15 @@ To check the ownership rules, the compiler uses six states:
 - zero
 - not-zero
  
-We can print these states using the **static_debug** declaration. We can also assert the variable is at a certain state using the **static_state** declaration. Listing 12 shows this usage:
+We can print these states using the **static_debug** declaration. We can also assert the variable is at a certain state using the **static_state** declaration. 
 
-**Listing 12 - Usage of static\_state and static\_debug**
+**Sample - Usage of static\_state and static\_debug**
 
 ```c
 int main() {
  int a;   
- static_state(a, "uninitialized");  
- static_debug(a);
+ static_state(a, "uninitialized"); //checks a state  
+ static_debug(a);                  //prints 'a' state 
 }
 ```  
   
@@ -419,104 +446,64 @@ c:/main.c:4:2: note: static_debug
  a == "uninitialized"
 ```
  
+#### Uninitialized state
 
-As we have just seen, the **uninitialized** state is the state of variables that are declared but not initialized. 
+The **uninitialized** state is the state of variables that are declared but not initialized. 
 
-The compiler ensures that we don't read uninitialized objects.
+Flow analysis must  ensure that we don't read uninitialized objects.
 
 ```c
-void f1(int i);
-int main() {
+void f(int condition) {
    int i;
-   f1(i); //error: uninitialized object 'i'
+   if (condition) 
+    i = 0;
+   printf("%d", i); //warning i may be uninitialized
 }
 ```
 
-The other situation were variables becomes **uninitialized** is when moving ownership to function parameters. This prevents bugs like double free or use after free.
+The other situation were variables becomes **uninitialized** is when moving ownership to function parameters. 
+
+This prevents bugs like double free or use after free.
 
 ```c
-#include <ownership.h> 
-#include <stdlib.h>
-
-struct X {
-  char * owner text;
-};
-
-void x_delete(struct X * owner p)
-{
-    if (p) {
-      free(p->text);
-      free(p);    
-    }
-}
-
-void f(struct X * p){}
+int * _Owner f();
+void free(void * _Owner _Opt p);
 
 int main() {   
-   struct X * owner p = malloc(sizeof(struct X));
-   p->text = malloc(10);
-   x_delete(p);
-   f(p); //uninitialized object 'p'
+   int * _Owner p = f();
+   free(p);
+   free(p); //warning p is uninitialized
 }
 ```
 
-When objects are moved within a local scope, the state is "moved" rather than "uninitialized." The "moved" state is similar to the "uninitialized" state. For instance, it's not possible to move an object that has already been moved.
+#### Moved state
 
-```c
-#include <ownership.h> 
-#include <stdlib.h>
-
-struct X {
-  char * owner text;
-};
-
-void x_delete(struct X * owner p)
-{
-    if (p)
-    {
-      free(p->text);
-      free(p);    
-    }
-}
-
-void f(struct X * p){}
-
-int main() {   
-   struct X * owner p = malloc(sizeof(struct X));
-   p->text = malloc(10);
+The **moved** state is similar to the uninitialized state. The difference is that the moved state is used when moving local variables. This information could be useful in the future to be less restrictive than uninitialized.
   
-   struct X * owner p2 = 0;
-   p2 = p; //MOVED
-  
-   f(p); //error: object 'p' was moved
-   x_delete(p2);
-}
-
-```
-
-The "moved" state was introduced instead of solely relying on the "uninitialized" state because static analysis benefits from having more information on local variables. "Moved" objects may, in some cases, serve as view objects. For example, in listing XX, the x object has been moved to x2, but it is safe to use x as "view" object even after the move.
+ **Sample - local scope moves**
 
 ```c
-#include <ownership.h> 
-#include <stdlib.h>
-
-struct X {
-  char * owner text;
-};
+int * _Owner f();
+void free(void * _Owner _Opt p);
 
 int main() {   
-  struct X x = {0};
-  //...
-  struct X x2 = {0};  
-  x2 = x; //MOVED
-  free(x2.text);
+   int * _Owner p = f();
+   int * _Owner p2 = 0;
+   p2 = p; // p moved to p2  
+  
+   //compiler knows that *p still valid  
+
+   free(p); //warning p was moved
+   free(p2); //ok
 }
 ```
+  
 
-> Note: The current implementation of cake does not handle all necessary 
-> states to ensure the safe usage of moved objects.
+#### _Out qualifier
 
-A common scenario where uninitialized objects are utilized is when a pointer to an uninitialized object is passed to an "init" function. This situation is addressed by the qualifier **out**.
+A common scenario where uninitialized objects are utilized is when a pointer to an uninitialized object is passed to an "init" function.
+
+This situation is addressed by the qualifier **_Out/out**.
 
 ```c  
 #include <ownership.h> 
@@ -527,27 +514,31 @@ struct X {
   char * owner text;
 };
 
-int init(out struct X *p, const char * text)
+int init(out struct X *p)
 {
-  //SAFE
-  p->text = strdup(text);
+  p->text = strdup("a"); //safe
 }
 
 int main() {   
   struct X x;
-  init(&x, "text");  
+  init(&x);  
   free(x.text);
-}
-  
+}  
 ```
 
-The "out" qualifier is necessary at the caller side and at the implementation.
 
-The caller is informed that the argument must be uninitialized, and the implementation is aware that it can safely override the contents of the object `p->text = strdup(text);` without causing a memory leak.
+With the out qualifier, caller is informed that the argument must be uninitialized.
 
-There is no explicit "initialized" state. When referring to initialized objects, it means the state is neither "moved" nor "uninitialized."
+The implementation is aware that it can safely override the contents of the object `p->text` without causing a memory leak.
 
-**Rule** By default, the parameters of a function are considered initialized. The exception is created with out qualifier.
+> Note: There is no explicit "initialized" state. When referring to initialized objects, it means the state is neither "moved" nor "uninitialized.".
+
+**Rule:** All objects passed as arguments must be initialized and all objects reachable must be initialized.
+  
+
+**Rule:** By default, the parameters of a function are considered initialized. The exception is created with out qualifier.
+
+**Rule:** We cannot pass initialized objects, or reachable initialized objects to **out** qualified object.
 
 For instance, at set implementation we need free text before assignment.
 
@@ -562,13 +553,12 @@ struct X {
 
 int init(out struct X *p, const char * text)
 {
-  //SAFE
-  p->text = strdup(text);
+   p->text = strdup(text); //safe
 }
 
 int set(struct X *p, const char * text)
 {
-  free(p->text); //NECESSARY
+  free(p->text); //necessary
   p->text = strdup(text);
 }
 
@@ -580,13 +570,80 @@ int main() {
 }
 ```
 
-**Rule** All objects passed as arguments must be initialized. The exception is when object is out qualified.
+**Rule:** Function never returns uninitialized objects or reachable uninitialized objects.
 
-**Rule**: We cannot pass initialized objects to **out** qualified object.
+TODO void objects.
 
-The **null** state means that owner objects are initialized and not referencing any object. Listing 13 shows a sample using owner pointers:
+**Rule:** Non owner objects accessible with parameters cannot leave scope with uninitialized/moved objects.
 
-**Listing 13 - Null state**
+```c  
+#include <ownership.h> 
+#include <string.h>
+#include <stdlib.h>
+
+struct X {
+  char * owner name;
+};
+
+void x_destroy(struct X * obj_owner p) {
+  free(p->name); 
+}
+
+struct Y {
+   struct X x;
+}
+
+void f(struct Y * p) {   
+   x_destroy(&p->x); //breaking the rule
+}
+  
+int main() {
+   struct Y  y = {};
+   y.x.name = strdup("a");
+   f(&y);
+   free(y.x.name);
+}  
+
+```
+  
+Sample of swap if fine because at end of scopes objects are not uninitialized/moved.
+
+```c  
+#include <ownership.h> 
+#include <stdlib.h>
+
+struct X
+{
+  char * owner name;
+};
+
+void x_destroy(struct X * obj_owner p)
+{
+  free(p->name); 
+}
+
+void x_swap(struct X * a, struct X * b) {
+  struct X temp = *a;
+  *a = *b;
+  *b = temp;
+} //ok
+  
+int main() {
+   struct X x1 = {};
+   struct X x2 = {};
+  
+   x_swap(&x1, &x2);
+  
+   x_destroy(&x1);
+   x_destroy(&x2);
+}
+```
+
+#### Null and Not-Null state
+
+The **null** state means that pointers/objects are initialized and not referencing any object. 
+
+**Sample - Null state**
 
 ```c
 #include <ownership.h> 
@@ -597,11 +654,26 @@ int main() {
 }
 ```  
 
-The **not-null** state indicates that the object is referencing some object.
-The state can be a combination of possibilities like **null** and **not-null**. We can check possible combination using "or".
-This particular combination **null or not-null** has a alias **maybe-null** as shown in listing 14.
+**Rule:** Before assignment, owner objects, must not be holding objects. The state must be null or uninitialized/moved.
+  
+Sample
 
-**Listing 14 - not-null and maybe-null state**
+```c  
+#include <ownership.h> 
+#include <stdio.h>
+int main() {
+  FILE * owner file = fopen("file.txt", "r");
+  file = fopen("file.txt", "r"); //warning
+}
+```
+
+The **not-null** state indicates that the object is initialized and not referencing any object.
+
+The final state is combination of possibilities like **null** and **not-null**. We can check possible combination using "or" at `static_state`.  
+
+The combination **null or not-null** has a alias **maybe-null**.
+
+**Sample - not-null and maybe-null**
 
 ```c
 #include <ownership.h> 
@@ -619,15 +691,71 @@ int main()
 }
 ```
 
+
+**Rule:** Pointer parameters are consider not-null by default. The exception is created using the qualifier  **_Opt**.
+
+The  **_Opt**. qualifier is used to tell the caller that the pointer can be at null state and tells the implementation that it is necessary to check the pointer for null before usage. 
+
+**Rule:** Pointers that can be null cannot be passed to functions that don't declare the pointer as opt.
+
+```c
+#include <ownership.h> 
+#include <stdlib.h>
+
+struct X {int i;};
+
+void f(struct X * p){
+}
+
+int main()
+{
+   struct X * owner p = calloc(1, sizeof * p);
+   f(p); //warning pointer can be null
+   free(p);
+}
+```
+
+> Note: To enable null checks in cake use -nullchecks
+  
+This sample can be fixed in two ways.  
+
+```c
+/*...*/
+void f(struct X * p){}
+int main()
+{
+   struct X * owner p = calloc(1, sizeof * p);
+   if (p)   
+     f(p); //ok
+   free(p);
+}
+```
+
+or 
+
+```c
+/*...*/
+void f(struct X * opt p){ }
+int main()
+{
+   struct X * owner p = calloc(1, sizeof * p);
+   f(p); //ok
+   free(p);
+}
+```
+
+Considering these semantics, the correct declaration of free is:
+
+```c
+void free(void * _Owner _Opt p); //p can be null 
+```
+
+
+#### Zero and Not-Zero state
+
 The **zero** state is used for non-owner objects to complement and support uninitialized checks.
 
-**Rule** Pointer parameters are consider not-null by default. The exception is created using the qualifier **_Opt**.  
-
-To tell the compiler that the pointer can be null, we use the qualifier **_Opt**.
-
-(Currently Cake is only doing null-checks if the -nullchecks option is passed to the compiler, the cake source itself has to move to nullchecks)
-
-**Listing 15 - The zero state**
+**Sample - The zero state**
 
 ```c
 int main()
@@ -637,11 +765,13 @@ int main()
 }
 ```
 
-**Zero** and **null** are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily means null. The compiler does not know the semantics for types that are not pointers. However, you can use **static_set** to override states. In Listing 16, we annotate that server_socket is null, which doesn't mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.
+**Zero** and **null** are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily means null. The compiler does not know the semantics for types that are not pointers.
 
+#### static_set
 
+We can use **static_set** to override states. In the next sample, we annotate that server_socket is null, which doesn't mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.
 
-**Listing 16 - Usage of static_set**
+**Sample - Usage of static_set**
 
 ```c
   owner int server_socket =
@@ -656,8 +786,7 @@ int main()
 
 The **not-zero** state is used for non-owner objects to indicate the value if not zero.
 
-
-Similarly of  **maybe-null**, **any** is a alias for **zero or not-zero** state.
+**any** is a alias for **zero or not-zero** state.
 
 ```c
 int f();
@@ -666,24 +795,18 @@ int main() {
     int i = f();
     static_state(i, "any");
 }
-
 ```
 
-By the way, the result of functions are never **uninitialized** by convention.
   
-By default, pointers have the state **maybe-null** and other types have the state **any**.
-
-**Rule**: Function never returns uninitialized objects.
-
 Now let's consider `realloc` function.
 
 ```c
 void * owner realloc( void *ptr, size_t new_size );	
 ```
 
-In the declaration of `realloc`, we are not moving the ptr. The reason for that is because the `ptr` may or may not be moved. If the function returns NULL, `ptr` was not moved. Listing 17 shows how **static_set** can be used.
+In the declaration of `realloc`, we are not moving the ptr. The reason for that is because the `ptr` may or may not be moved. If the function returns NULL, `ptr` was not moved. 
 
-**Listing 17 - Using static_set with realloc**
+**Sample - Using static_set with realloc**
 
 ```c
 #include <ownership.h> 
@@ -702,131 +825,10 @@ int main()
 }
 ```
 
-Without the `static_set` we have this error   
 
-```
-error: memory pointed by 'p' was not released before assignment.
- 11 |     p = p2;
-```
+### assert is a statement
 
-The state of an object is a combination of all possible states. For instance, let's print and check the state of `f` at listing 17.
-
-**Listing 17 - Flow analysis**
-
-```c  
-#include <ownership.h> 
-#include <stdlib.h>
-#include <stdio.h>
-
-int main() {
-  FILE *owner f = fopen("file.txt", "r");
-  if (f)
-    fclose(f);  
-  static_state(f, "uninitialized or null");  
-}
-```
-
-When objects are moved to functions, the state is  `uninitialized`  that is the worst scenario of what can happens inside the function. When objects are moved inside the same source the state is `moved`.
-
-```c
-#include <ownership.h> 
-#include <stdlib.h>
-#include <stdio.h>
-
-int main() {
-  FILE *owner f = fopen("file.txt", "r");  
-  FILE *owner f2 = f; 
-  static_state(f, "moved");  
-  fclose(f2);
-}  
-```
-
-
-**Rule:** We cannot discard owner objects as showed in listing 18.  
-
-**Listing 18 - owner objects cannot be discarded.**
-
-```c  
-#include <ownership.h> 
-#include <stdio.h>
-
-int main() {
-  //error: ignoring the result of owner type
-  fopen("file.txt", "r");   
-}
-```
-
-**Rule:** Before the assignment of owner objects, the compiler checks if the owner object is not holding any resource, as shown in Listing 19:
-
-**Listing 19 - Check before assignment**
-
-```c
-#include <ownership.h> 
-#include <stdio.h>
-
-int main() {
-  FILE * owner file = fopen("file.txt", "r");
-  
-  //error: memory pointed by 'file' was not 
-  //released before assignment.  
-  file = fopen("file.txt", "r");
-}
-```
-
-### Function Parameters
-For function parameters, the state of the object is initialized by default.
-
-**Listing 20 - States of function parameters**
-
-```c
-#include <ownership.h> 
-#include <string.h>
-
-struct X {
-  char *owner text; 
-};
-
-void set(struct  X * x, const char * name) {
-  free(x->text);
-  x->text = strdup(name);
-}
-
-```
-
-When the argument can be uninitialized we use the qualifier _Out.
-
-```c
-#include <ownership.h> 
-#include <string.h>
-
-struct X {
-  char *owner text; 
-};
-
-void init(out struct X * x) {
-  x->text = strdup("a");
-}
-
-void set(struct  X * x, const char * name) {
-  free(x->text);
-  x->text = strdup(name);
-}
-
-```
-
-
-After calling init the object may or not be initialized.
-
-At  listing 21, we show how **static_set** can be used to set states. 
-
-**Listing 21 - Using static_set**
-
-```c
-TODO
-```
-
-
-But when possible we can use assert that works both as static information and runtime check in debug.
+When possible we can use assert that works both as static information and runtime check in debug.
 
 Consider the following sample where we have a linked list. Each node has owner pointer to next. The next pointer of the tail of the list is always pointing to null, unless we have a bug. But the compiler does not know `list->tail->next` is null. Using assert we give this inform to the compiler and we also have a runtime check for possible logic bugs.
 
@@ -861,237 +863,6 @@ void list_append(struct list* list, struct node* owner node)
 }
 ```
   
-**Rule:** A non-owner object cannot be copied to a owner object. 
-
-But, the null pointer constant is converted to a null owner pointer. Se listing 23.
-
-**Listing 23 - non owner cannot be copied to owner**
-
-```c
-FILE * f();
-int main() {  
-   FILE * owner file = f(); //ERROR   
-   FILE * owner file2 = 0;  //OK
-}
-```
-  
-**Rule:** A view pointer parameter cannot leave the scope with moved/uninitialized objects. Listing 24
-
-**Listing 24 - Messing with view parameters**
-
-```c
-
-#include <ownership.h> 
-#include <string.h>
-#include <stdlib.h>
-
-struct X
-{
-  char * owner name;
-};
-
-void x_destroy(struct X * obj_owner p)
-{
-  free(p->name); 
-}
-
-struct Y
-{
-   struct X x;
-}
-
-void f(struct Y * p) {
-   // parameter 'p' is leaving scoped with a uninitialized
-   // object 'p.x.name'
-   x_destroy(&p->x);
-}
-  
-int main() {
-   struct Y  y = {};
-   y.x.name = strdup("a");
-   f(&y);
-   free(y.x.name);
-}
-```
-
-However, listing 25 is correct, because before the end of scope states of the parameters are restored.
-
-**Listing 25 - swap function**
-
-```c
-#include <ownership.h> 
-#include <stdlib.h>
-
-struct X
-{
-  char * owner name;
-};
-
-void x_destroy(struct X * obj_owner p)
-{
-  free(p->name); 
-}
-
-void x_swap(struct X * a, struct X * b) {
-  struct X temp = *a;
-  *a = *b;
-  *b = temp;
-}
-  
-int main() {
-   struct X x1 = {};
-   struct X x2 = {};
-  
-   x_swap(&x1, &x2);
-  
-   x_destroy(&x1);
-   x_destroy(&x2);
-}
-```
-
-**Rule:** When objects are moved to functions, they become uninitialized. This prevents bugs like double free. Listing 26. 
-
-```
- int main() {
-  void * owner p = malloc(1);
-  free(p);
-  free(p); //ERROR p is uninitialized
-}
-```
-
-**Rule:** moved objects cannot be moved. Listing 27.
-
-**Listing 27 - We cannot move a moved or uninitialized object**
-
-```c
-int * owner p1 = ...;
-int * owner p2 = p1;
-int * owner p3 = p1; //ERROR p1 was moved
-```
-
-```c
-int * owner f(int * owner p1) {
- int * owner p2 = p1;
- return p1; //ERROR p1 was moved
-}
-```
-
-**Rule:** When coping a owner object to to a view object the compiler must check the lifetime. Listing 28
-
-**Listing 28 - Lifetime check**
-
-```c
-void using_file(FILE * f);
-
-struct X { 
-  char *owner text; 
-};  
-  
-struct X * owner make_owner();  
-
-int main() {
-  struct X *p = 0;  
-  {
-    struct X * owner p2 = make_owner();  
-    p = p2; //error p lives longer than p2  
-    free(p2);
-  }
-
-  using_file(fopen("file.txt", "r")); //ERROR
-}
-```
-
-
-**Rule:** Returned objects must be valid.
-  
-
-**Listing 34 - Assuming returned objects are valid**
-
-```c
-void* owner malloc(unsigned long size);
-void free(void* owner ptr);
-
-struct X { 
-  char *owner text; 
-};
-
-struct X * owner f();
-
-int main()
-{
-   struct X * owner pX = f();
-   if (pX) {
-     static_state(pX->text, "maybe-null");
-   }
-}
-```
-
-
-**Rule:** Arguments must be valid.
-
-Exception
-
-`malloc` and `calloc` have  built in semantics.
-
-
-**Listing 35 - Function Arguments cannot be in a moved or uninitialized state**
-
-```c  
-#include <ownership.h> 
-#include <stdlib.h>
-struct X { 
-  char *owner text; 
-};
-
-void f(struct X * p);
-
-int main() {
-   struct X x;
-   f(&x); //ERROR
-     
-   struct X x1 = {0};
-   struct X x2 = x1; //MOVED
-   f(&x1); //ERROR
-}
-```
-
-For this reason, an qualifier `out` can be added to allow passing unitalicized objects.
-
-```c
-void  free(void* _Owner p);
-char* _Owner strdup(const char* s);
-
-struct X {
-    char* _Owner s;
-};
-
-void init(_Out struct X *  px)
-{
-    static_state(px, "maybe-null");
-    static_state(px->s, "uninitialized");
-    px->s = strdup("a");
-}
-
-void set(struct X* px, const char* text)
-{
-    static_state(px, "maybe-null");
-    static_state(px->s, "maybe-null");
-    free(px->s);
-    px->s = strdup(text);
-}
-
-int main() {
-    struct X x;
-    init(&x);
-    set(&x, "b");
-    free(x.s);
-}
-```
-
-
-
-
- 
 
 ## Ownership Feature Strategy (Inspired by stdbool.h)
 
@@ -1117,4 +888,6 @@ When we parsing malloc from MSVC/GCC we ignore the diferences, but at the curren
 `ownership.h` header must be included before to take efect.
 
 
+The standard also could make out, opt, view, owner, obj_owner as reserved keyword for the future.
 
+_
