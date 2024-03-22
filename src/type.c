@@ -641,6 +641,15 @@ bool type_is_nullptr_t(const struct type* p_type)
     return false;
 }
 
+bool type_is_pointer_to_out(const struct type* p_type)
+{
+    if (p_type->category == TYPE_CATEGORY_POINTER)
+    {
+        return p_type->next->type_qualifier_flags & TYPE_QUALIFIER_OUT;
+    }
+    return false;
+}
+
 bool type_is_pointer(const struct type* p_type)
 {
     return p_type->category == TYPE_CATEGORY_POINTER;
