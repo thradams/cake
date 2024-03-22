@@ -22994,28 +22994,7 @@ void object_assignment(struct parser_ctx* ctx,
 
     if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
     {
-        if (type_is_out(p_dest_obj_type))
-        {
-            /*object must be uninitialized*/
-        }
-        else
-        {
-            if (p_source_obj_opt)
-            {
-                char buffer[100] = { 0 };
-                object_get_name(p_source_obj_type, p_source_obj_opt, buffer, sizeof buffer);
-                visit_object(ctx,
-                    p_dest_obj_type,
-                    p_dest_obj_opt,
-                    error_position,
-                    buffer,
-                    true);
-            }
-            else
-            {
-                //TODO should not happen
-            }
-        }
+
     }
 
 
@@ -35090,12 +35069,14 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         /*
           checking is some uninitialized or moved object is being used as parameter
         */
+        bool pointer_to_out = false;
+
         if (p_argument_object)
         {
             //TODO check if pointed object is const
             bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
 
-            bool pointer_to_out = false;
+
 
             if (type_is_pointer(&p_current_parameter_type->type) &&
                 check_pointed_object)
@@ -35108,24 +35089,13 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
                 type_destroy(&t2);
             }
 
-            if (!pointer_to_out)
-            {
-                /*
-                  lets very if it is all safe to read
-                */
-                checked_read_object(ctx,
-                    &p_current_argument->expression->type,
-                    p_argument_object,
-                    p_current_argument->expression->first_token,
-                    check_pointed_object);
 
-            }
         }
 
         if (type_is_any_owner(&p_current_parameter_type->type))
         {
             struct object parameter_object = make_object(&p_current_parameter_type->type, NULL, p_current_argument->expression);
-            
+
             /*bool check_initialized_source = true;
             if (type_is_pointer_to_out(&p_current_parameter_type->type))
             {
@@ -35135,7 +35105,7 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
             object_assignment(ctx,
                 p_argument_object,
                 &p_current_argument->expression->type,
-                NULL, //&parameter_object, /*dest object*/
+                &parameter_object, /*dest object*/
                 &p_current_parameter_type->type,
                 p_current_argument->expression->first_token,
                 bool_source_zero_value,
@@ -35145,6 +35115,17 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
         }
         else
         {
+            //TODO check if pointed object is const
+            bool check_pointed_object = !type_is_void_ptr(&p_current_parameter_type->type);
+            if (!pointer_to_out)
+            {
+                checked_read_object(ctx,
+                       &p_current_argument->expression->type,
+                       p_argument_object,
+                       p_current_argument->expression->first_token,
+                       check_pointed_object);
+            }
+
             if (p_argument_object &&
                 type_is_pointer(&p_current_parameter_type->type))
             {
@@ -36289,8 +36270,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 type_destroy(&t2);
             }
 #endif
-        }
-    }
+                }
+            }
 
     /*if (p_declarator->pointer)
     {
@@ -36306,7 +36287,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-}
+        }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {

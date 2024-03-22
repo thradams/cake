@@ -2098,28 +2098,7 @@ void object_assignment(struct parser_ctx* ctx,
 
     if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
     {
-        if (type_is_out(p_dest_obj_type))
-        {
-            /*object must be uninitialized*/
-        }
-        else
-        {
-            if (p_source_obj_opt)
-            {
-                char buffer[100] = { 0 };
-                object_get_name(p_source_obj_type, p_source_obj_opt, buffer, sizeof buffer);
-                visit_object(ctx,
-                    p_dest_obj_type,
-                    p_dest_obj_opt,
-                    error_position,
-                    buffer,
-                    true);
-            }
-            else
-            {
-                //TODO should not happen
-            }
-        }
+
     }
 
 
