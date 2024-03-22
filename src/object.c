@@ -132,7 +132,7 @@ int object_state_stack_reserve(struct object_state_stack* p, int n)
 {
     if (n > p->capacity)
     {
-        if ((size_t) n > (SIZE_MAX / (sizeof(p->data[0]))))
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
         {
             return EOVERFLOW;
         }
@@ -198,7 +198,7 @@ int objects_reserve(struct objects* p, int n)
 {
     if (n > p->capacity)
     {
-        if ((size_t) n > (SIZE_MAX / (sizeof(p->data[0]))))
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
         {
             return EOVERFLOW;
         }
@@ -362,7 +362,7 @@ struct object make_object_core(struct type* p_type,
                 }
                 else
                 {
-                    if (p_member_declaration->specifier_qualifier_list && 
+                    if (p_member_declaration->specifier_qualifier_list &&
                         p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
                     {
                         //struct object obj = {0};
@@ -750,7 +750,7 @@ int object_restore_current_state_from(struct object* object, int state_number)
 
 int object_merge_current_state_with_state_number(struct object* object, int state_number)
 {
-    for (int i = object->object_state_stack.size -1; i >= 0; i--)
+    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
     {
         if (object->object_state_stack.data[i].state_number == state_number)
         {
@@ -759,7 +759,7 @@ int object_merge_current_state_with_state_number(struct object* object, int stat
         }
     }
 
-    for(int i = 0; i < object->members.size; i++)
+    for (int i = 0; i < object->members.size; i++)
     {
         object_merge_current_state_with_state_number(&object->members.data[i], state_number);
     }
@@ -774,7 +774,7 @@ int object_merge_current_state_with_state_number(struct object* object, int stat
 
 int object_merge_current_state_with_state_number_or(struct object* object, int state_number)
 {
-    for (int i = object->object_state_stack.size -1; i >= 0; i--)
+    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
     {
         if (object->object_state_stack.data[i].state_number == state_number)
         {
@@ -783,7 +783,7 @@ int object_merge_current_state_with_state_number_or(struct object* object, int s
         }
     }
 
-    for(int i = 0; i < object->members.size; i++)
+    for (int i = 0; i < object->members.size; i++)
     {
         object_merge_current_state_with_state_number_or(&object->members.data[i], state_number);
     }
@@ -863,7 +863,7 @@ void set_object_state(
                     {
                         if (p_member_declarator->declarator)
                         {
-                            if (member_index < p_object->members.size && 
+                            if (member_index < p_object->members.size &&
                                 member_index < p_object_source->members.size)
                             {
                                 set_object_state(ctx,
@@ -2054,24 +2054,6 @@ void object_assignment(struct parser_ctx* ctx,
     enum assigment_type assigment_type)
 {
 
-    if (assigment_type == ASSIGMENT_TYPE_RETURN)
-    {
-        /*
-           We cannot return uninitialized objects.
-        */
-        if (p_source_obj_opt)
-        {
-            checked_read_object(ctx,
-                p_source_obj_type,
-                p_source_obj_opt,
-                error_position,
-                true /*checked pointed object*/);
-        }
-        else
-        {
-            //TODO should not happen
-        }
-    }
 
     if (assigment_type == ASSIGMENT_TYPE_OBJECTS)
     {
@@ -2096,18 +2078,13 @@ void object_assignment(struct parser_ctx* ctx,
         }
     }
 
-    if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
-    {
-
-    }
-
 
 
     if (p_dest_obj_opt)
     {
         if (bool_source_zero_value)
         {
-            object_set_zero(p_dest_obj_type, p_dest_obj_opt);            
+            object_set_zero(p_dest_obj_type, p_dest_obj_opt);
         }
         else
         {
@@ -2187,7 +2164,6 @@ void object_assignment(struct parser_ctx* ctx,
         }
         else
         {
-
             if (p_source_obj_opt)
             {
                 set_object(p_source_obj_type, p_source_obj_opt, source_state_after);
