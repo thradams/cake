@@ -35124,15 +35124,24 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
 
         if (type_is_any_owner(&p_current_parameter_type->type))
         {
+            struct object parameter_object = make_object(&p_current_parameter_type->type, NULL, p_current_argument->expression);
+            
+            /*bool check_initialized_source = true;
+            if (type_is_pointer_to_out(&p_current_parameter_type->type))
+            {
+                check_initialized_source = false;
+            }*/
+
             object_assignment(ctx,
                 p_argument_object,
                 &p_current_argument->expression->type,
-                NULL, /*dest object*/
+                NULL, //&parameter_object, /*dest object*/
                 &p_current_parameter_type->type,
                 p_current_argument->expression->first_token,
                 bool_source_zero_value,
                 OBJECT_STATE_UNINITIALIZED,
                 ASSIGMENT_TYPE_PARAMETER);
+            object_destroy(&parameter_object);
         }
         else
         {
@@ -36276,12 +36285,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 if (p_declarator->object.pointed)
                 {
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-            }
+                }
                 type_destroy(&t2);
-        }
+            }
 #endif
+        }
     }
-}
 
     /*if (p_declarator->pointer)
     {
