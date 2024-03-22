@@ -21759,7 +21759,8 @@ void set_object_state(
                     {
                         if (p_member_declarator->declarator)
                         {
-                            if (member_index < p_object->members.size)
+                            if (member_index < p_object->members.size && 
+                                member_index < p_object_source->members.size)
                             {
                                 set_object_state(ctx,
                                     &p_member_declarator->declarator->type,
