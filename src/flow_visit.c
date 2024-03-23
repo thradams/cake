@@ -1428,6 +1428,73 @@ static int compare_function_arguments2(struct parser_ctx* ctx,
     return 0;
 }
 
+static int compare_function_arguments3(struct parser_ctx* ctx,
+    struct type* p_type,
+    struct argument_expression_list* p_argument_expression_list)
+{
+    struct param* p_current_parameter_type = NULL;
+
+    const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
+
+    if (p_param_list)
+    {
+        p_current_parameter_type = p_param_list->head;
+    }
+
+
+    struct argument_expression* p_current_argument = p_argument_expression_list->head;
+
+    while (p_current_argument && p_current_parameter_type)
+    {
+        struct object temp_obj1 = { 0 };
+
+        struct object* p_argument_object =
+            expression_get_object(p_current_argument->expression, &temp_obj1);
+
+        if (p_argument_object)
+        {
+            struct object parameter_object = make_object(&p_current_parameter_type->type, NULL, p_current_argument->expression);
+
+            object_assignment3(ctx,
+              p_current_argument->expression->first_token,
+              ASSIGMENT_TYPE_PARAMETER,
+              &p_current_parameter_type->type,              
+              &parameter_object, /*dest object*/
+              
+              &p_current_argument->expression->type,
+              p_argument_object
+            );
+
+            object_destroy(&parameter_object);
+
+        }
+        p_current_argument = p_current_argument->next;
+        p_current_parameter_type = p_current_parameter_type->next;
+        object_destroy(&temp_obj1);
+    }
+
+    while (p_current_argument)
+    {
+        /*
+           We have more argument than parameters, this happens with variadic functions
+        */
+        struct object temp_obj = { 0 };
+
+        struct object* p_argument_object =
+            expression_get_object(p_current_argument->expression, &temp_obj);
+
+        checked_read_object(ctx,
+            &p_current_argument->expression->type,
+            p_argument_object,
+            p_current_argument->expression->first_token,
+            false);
+
+        p_current_argument = p_current_argument->next;
+        object_destroy(&temp_obj);
+    }
+
+}
+
 static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p_expression)
 {
     if (p_expression->is_assigment_expression)
@@ -1537,7 +1604,13 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_visit_expression(ctx, p_expression->left);
 
         flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
+#if 1
+        //current works
         compare_function_arguments2(ctx->ctx, &p_expression->left->type, &p_expression->argument_expression_list);
+#else
+        //new function waiting all test to pass to become active
+        compare_function_arguments3(ctx->ctx, &p_expression->left->type, &p_expression->argument_expression_list);
+#endif
 
         break;
 
@@ -2510,10 +2583,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-            }
+        }
 #endif
-                }
-            }
+    }
+}
 
     /*if (p_declarator->pointer)
     {
@@ -2529,7 +2602,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-        }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {

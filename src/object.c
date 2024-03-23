@@ -1281,6 +1281,145 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object)
 }
 
 
+void checked_empty(struct parser_ctx* ctx,
+    struct type* p_type,
+    struct object* p_object,
+    const struct token* position_token)
+{
+    if (p_object == NULL)
+    {
+        return;
+    }
+    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        struct member_declaration* p_member_declaration =
+            p_struct_or_union_specifier ?
+            p_struct_or_union_specifier->member_declaration_list.head :
+            NULL;
+
+        /*
+        *  Some parts of the object needs to be moved..
+        *  we need to print error one by one
+        */
+        int member_index = 0;
+        while (p_member_declaration)
+        {
+            if (p_member_declaration->member_declarator_list_opt)
+            {
+                struct member_declarator* p_member_declarator =
+                    p_member_declaration->member_declarator_list_opt->head;
+                while (p_member_declarator)
+                {
+
+                    if (p_member_declarator->declarator)
+                    {
+                        checked_empty(ctx, &p_member_declarator->declarator->type,
+                            &p_object->members.data[member_index],
+                            position_token);
+
+                        member_index++;
+                    }
+                    p_member_declarator = p_member_declarator->next;
+                }
+            }
+            p_member_declaration = p_member_declaration->next;
+        }
+    }
+
+    if ((p_object->state & OBJECT_STATE_MOVED) ||
+        (p_object->state & OBJECT_STATE_UNINITIALIZED) ||
+        (p_object->state & OBJECT_STATE_NULL))
+    {
+    }
+    else if (p_object->state & OBJECT_STATE_NOT_NULL)
+    {
+        struct type t = type_remove_pointer(p_type);
+        struct object* pointed = object_get_pointed_object(p_object);
+        if (pointed)
+            checked_empty(ctx, &t, pointed, position_token);
+        type_destroy(&t);
+    }
+    else
+    {
+        char name[200] = { 0 };
+        object_get_name(p_type, p_object, name, sizeof name);
+        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MOVED,
+            ctx,
+            position_token,
+            "object '%s' it not empty",
+            name);
+    }
+
+}
+
+void object_set_moved(struct type* p_type, struct object* p_object)
+{
+    if (p_object == NULL || p_type == NULL)
+    {
+        return;
+    }
+
+    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier)
+        {
+            struct member_declaration* p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            if (member_index < p_object->members.size)
+                            {
+                                object_set_moved(&p_member_declarator->declarator->type, &p_object->members.data[member_index]);
+                            }
+                            else
+                            {
+                                //TODO BUG union?                                
+                            }
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+            return;
+        }
+    }
+
+    if (type_is_pointer(p_type))
+    {
+        p_object->state = OBJECT_STATE_MOVED;
+
+        if (object_get_pointed_object(p_object))
+        {
+            struct type t2 = type_remove_pointer(p_type);
+            object_set_nothing(&t2, object_get_pointed_object(p_object));
+            type_destroy(&t2);
+        }
+    }
+    else
+    {
+        p_object->state = OBJECT_STATE_MOVED;
+    }
+}
+
 void object_set_unknown(struct type* p_type, struct object* p_object)
 {
     if (p_object == NULL || p_type == NULL)
@@ -2195,5 +2334,274 @@ void object_assignment(struct parser_ctx* ctx,
 bool object_is_zero_or_null(const struct object* p_object)
 {
     return (p_object->state == OBJECT_STATE_NULL) ||
-            (p_object->state == OBJECT_STATE_ZERO);
+        (p_object->state == OBJECT_STATE_ZERO);
+}
+
+/*
+   This function must check and do the flow assignment of 
+   a = b
+*/
+void object_assignment3(struct parser_ctx* ctx,
+    const struct token* error_position,
+    enum assigment_type assigment_type,
+    struct type* p_a_type, struct object* p_a_object,
+    struct type* p_b_type, struct object* p_b_object)
+{
+    
+    type_print(p_a_type);
+    printf("=");
+    type_print(p_b_type);
+    printf("\n");
+
+    const bool is_a_owner = type_is_owner(p_a_type);
+    const bool is_b_owner = type_is_owner(p_b_type);
+
+    const bool is_a_pointer = type_is_pointer(p_a_type);
+    const bool is_b_pointer = type_is_pointer(p_b_type);
+    const bool is_a_owner_pointer = is_a_pointer && type_is_owner(p_b_type);
+    const bool is_b_owner_pointer = is_b_pointer && type_is_owner(p_b_type);
+    const bool is_a_void_pointer = is_a_pointer && type_is_void(p_a_type);
+
+    struct type a_pointed_type = {0};
+    struct type b_pointed_type = {0};
+    
+    struct type* p_a_pointed_type = NULL;
+    struct type* p_b_pointed_type = NULL;
+
+    if (is_a_pointer)
+    {
+        a_pointed_type = type_remove_pointer(p_a_type);        
+        p_a_pointed_type = &a_pointed_type;
+    }
+
+    if (is_b_pointer)
+    {
+        b_pointed_type = type_remove_pointer(p_b_type);        
+        p_b_pointed_type = &b_pointed_type;
+    }
+
+    const bool is_a_owner_pointer_to_void = is_a_owner_pointer && (p_a_pointed_type && type_is_void(p_a_pointed_type));
+    const bool is_b_owner_pointer_to_void = is_b_owner_pointer && (p_b_pointed_type && type_is_void(p_b_pointed_type));
+    
+    if (is_a_owner_pointer_to_void && is_b_owner_pointer_to_void)
+    {
+        // a       void f(void * owner a); void * owner f()
+        // a = b   f(b)                    return b;
+           
+        // void * owner b 
+        //a = b              f(b)                    return b;
+        // 
+        // void * owner a    void f(void * owner a)  void * owner f()
+        // void * owner b 
+        //a = b              f(b)                    return b;
+    }
+
+    if (is_a_owner_pointer_to_void && !is_b_owner_pointer_to_void)
+    {
+        // void * owner a    void f(void * owner a)  void * owner f()
+        // T * owner b 
+        // a = b             f(b)                    return b;
+    }
+
+
+
+    if (p_a_type->struct_or_union_specifier && p_a_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_a_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_a_type->struct_or_union_specifier);
+
+        struct struct_or_union_specifier* p_b_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_b_type->struct_or_union_specifier);
+
+        if (p_a_struct_or_union_specifier && p_b_struct_or_union_specifier)
+        {
+            struct member_declaration* p_a_member_declaration =
+                p_a_struct_or_union_specifier->member_declaration_list.head;
+
+            struct member_declaration* p_b_member_declaration =
+                p_b_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_a_member_declaration && p_b_member_declaration)
+            {
+                if (p_a_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_a_member_declarator =
+                        p_a_member_declaration->member_declarator_list_opt->head;
+
+                    struct member_declarator* p_b_member_declarator =
+                        p_b_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_a_member_declarator && p_b_member_declarator)
+                    {
+                        if (p_a_member_declarator->declarator &&
+                            p_b_member_declarator->declarator)
+                        {
+                            if (member_index < p_a_object->members.size &&
+                                member_index < p_b_object->members.size)
+                            {
+
+                                struct type* p_a_member_type = &p_a_member_declarator->declarator->type;
+                                struct object* p_a_member_object = &p_a_object->members.data[member_index];
+
+                                struct type* p_b_member_type = &p_b_member_declarator->declarator->type;
+                                struct object* p_b_member_object = &p_b_object->members.data[member_index];
+
+                                object_assignment3(ctx,
+                                    error_position,
+                                    assigment_type,
+                                    p_a_member_type, p_a_member_object,
+                                    p_b_member_type, p_b_member_object);
+                            }
+                            else
+                            {
+                                //TODO BUG union?                                
+                            }
+                            member_index++;
+                        }
+                        p_a_member_declarator = p_a_member_declarator->next;
+                        p_b_member_declarator = p_b_member_declarator->next;
+                    }
+                }
+                p_a_member_declaration = p_a_member_declaration->next;
+                p_b_member_declaration = p_b_member_declaration->next;
+            }
+            return;
+        }
+    }
+
+
+    if (type_is_pointer(p_a_type) && type_is_owner(p_a_type))
+    {
+        struct type a_pointed_type = type_remove_pointer(p_a_type);
+        if (type_is_void(&a_pointed_type))
+        {
+            checked_empty(ctx, p_b_type, p_b_object, error_position);
+        }
+        type_destroy(&a_pointed_type);
+    }
+
+
+
+
+
+    if (type_is_owner(p_a_type))
+    {
+        /*
+           a object cannot be holding any resource at assigment
+           owner T  a;
+           a  = b;
+        */
+        if (p_a_object->state & OBJECT_STATE_NOT_NULL)
+        {
+            char buffer[100] = { 0 };
+            object_get_name(p_a_type, p_a_object, buffer, sizeof buffer);
+            if (p_a_object->state & OBJECT_STATE_NOT_NULL)
+            {
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                    ctx,
+                    error_position,
+                    "object '%s' not released", buffer);
+            }
+            else
+            {
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                    ctx,
+                    error_position,
+                    "object '%s' can be on not released state", buffer);
+            }
+        }
+    }
+
+
+    if (type_is_pointer(p_a_type))
+    {
+        if ((p_b_object->state == OBJECT_STATE_NULL) ||
+            (p_b_object->state == OBJECT_STATE_ZERO))
+        {
+            /*
+              T *p = ;
+              p = 0;
+            */
+            p_a_object->state = OBJECT_STATE_NULL;
+            struct type ta = type_remove_pointer(p_a_type);
+            object_set_uninitialized(&ta, object_get_pointed_object(p_a_object));
+            type_destroy(&ta);
+        }
+        else
+        {
+            p_a_object->state = p_b_object->state;
+
+            if (type_is_owner(p_a_type) && type_is_owner(p_b_type))
+            {
+                switch (assigment_type)
+                {
+                    case ASSIGMENT_TYPE_RETURN:
+                    case ASSIGMENT_TYPE_PARAMETER:
+                        object_set_uninitialized(p_b_type, p_b_object);
+                        break;
+                    case ASSIGMENT_TYPE_OBJECTS:
+                        object_set_moved(p_b_type, p_b_object);
+                        break;
+                }
+            }
+
+            if (object_get_pointed_object(p_a_object) &&
+                (object_get_pointed_object(p_b_object)))
+            {
+                struct type a_pointed_type = type_remove_pointer(p_a_type);
+                struct type b_pointed_type = type_remove_pointer(p_b_type);
+
+                if (assigment_type && ASSIGMENT_TYPE_PARAMETER)
+                {
+                    //non const
+                    if (type_is_const(&a_pointed_type))
+                    {
+                    }
+                    else
+                    {
+                        object_set_unknown(&b_pointed_type, object_get_pointed_object(p_b_object));
+                    }
+                }
+                else
+                {
+                    // object_set_uninitialized(&ta2, object_get_pointed_object(p_a_object));
+                    object_assignment3(ctx,
+                        
+                        error_position,
+                        assigment_type,
+                        &a_pointed_type, object_get_pointed_object(p_a_object),
+                        &b_pointed_type, object_get_pointed_object(p_b_object));
+                }
+
+
+
+                //if (type_is_owner(p_a_type) && type_is_owner(p_b_type))
+                //{
+                  // p_b_object->state = OBJECT_STATE_UNINITIALIZED;                
+                //}
+
+                type_destroy(&a_pointed_type);
+                type_destroy(&b_pointed_type);
+            }
+        }
+    }
+    else
+    {
+        p_a_object->state = p_b_object->state;
+
+        if (type_is_owner(p_a_type) && type_is_owner(p_b_type))
+        {
+            switch (assigment_type)
+            {
+                case ASSIGMENT_TYPE_RETURN:
+                case ASSIGMENT_TYPE_PARAMETER:
+                    object_set_uninitialized(p_b_type, p_b_object);
+                    break;
+                case ASSIGMENT_TYPE_OBJECTS:
+                    object_set_moved(p_b_type, p_b_object);
+                    break;
+            }
+        }
+    }
 }

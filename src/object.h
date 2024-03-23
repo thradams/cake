@@ -80,7 +80,7 @@ struct object
     /*declarator is used only to print the error message*/
     const struct declarator* declarator;
 
-    const struct expression * p_expression_origin;
+    const struct expression* p_expression_origin;
     struct objects members;
     struct object_state_stack object_state_stack;
 };
@@ -88,7 +88,10 @@ void object_destroy(struct object* obj_owner p);
 void object_delete(struct object* owner opt p);
 void object_swap(struct object* a, struct object* b);
 struct object* object_get_pointed_object(const struct object* p);
-
+void checked_empty(struct parser_ctx* ctx,
+    struct type* p_type,
+    struct object* p_object,
+    const struct token* position_token);
 struct declarator;
 struct object make_object(struct type* p_type,
     const struct declarator* p_declarator_opt,
@@ -146,10 +149,19 @@ void object_assignment(struct parser_ctx* ctx,
     enum object_state source_state_after,
     enum assigment_type assigment_type);
 
+
+
+void object_assignment3(struct parser_ctx* ctx,
+    const struct token* error_position,
+    enum  assigment_type assigment_type,
+    struct type* p_a_type, struct object* p_a_object,
+    struct type* p_b_type, struct object* p_b_object);
+
 void object_set_unknown(struct type* p_type, struct object* p_object);
 void object_set_zero(struct type* p_type, struct object* p_object);
 void object_set_uninitialized(struct type* p_type, struct object* p_object);
 void object_set_nothing(struct type* p_type, struct object* p_object);
+void object_set_moved(struct type* p_type, struct object* p_object);
 
 void checked_read_object(struct parser_ctx* ctx,
     struct type* p_type,
