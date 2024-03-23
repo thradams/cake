@@ -230,6 +230,7 @@ bool type_is_array(const struct type* p_type);
 
 bool type_is_out(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
+bool type_is_opt(const struct type* p_type);
 bool type_is_owner(const struct type* p_type);
 bool type_is_obj_owner(const struct type* p_type);
 bool type_is_any_owner(const struct type* p_type);

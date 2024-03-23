@@ -1,6 +1,8 @@
 #pragma once
 #include "parser.h"
 
+//#define NEW_FLOW_ANALYSIS 1
+
 /*
   To be able to do static analysis with goto jump, we
   need to see full function AST because this affects for 

@@ -1,5 +1,13 @@
-void f(_Out int i);
+struct X {int i;};
+
+void f(struct X * p){}
+
+struct X * make(){
+      struct X * p = 0;
+      return p;
+}
+
 int main() {
-  int i;
-    f(i);
+  //struct X * p = 0;//make();
+  //f(p);
 }

@@ -604,6 +604,11 @@ bool type_is_owner(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_OWNER;
 }
 
+bool type_is_opt(const struct type* p_type)
+{
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_OPT;
+}
+
 bool type_is_out(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_OUT;

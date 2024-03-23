@@ -1459,9 +1459,9 @@ static int compare_function_arguments3(struct parser_ctx* ctx,
               p_current_argument->expression->first_token,
               ASSIGMENT_TYPE_PARAMETER,
               true,
-              &p_current_parameter_type->type,              
+              &p_current_parameter_type->type,
               &parameter_object, /*dest object*/
-              
+
               &p_current_argument->expression->type,
               p_argument_object
             );
@@ -1605,7 +1605,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         flow_visit_expression(ctx, p_expression->left);
 
         flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
-#if 1
+#ifndef NEW_FLOW_ANALYSIS
         //current works
         compare_function_arguments2(ctx->ctx, &p_expression->left->type, &p_expression->argument_expression_list);
 #else
@@ -2166,9 +2166,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
         {
             struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_jump_statement->expression_opt, &temp_obj);
-            bool bool_source_zero_value = constant_value_is_valid(&p_jump_statement->expression_opt->constant_value) &&
-                constant_value_to_ull(&p_jump_statement->expression_opt->constant_value) == 0;
-
+            
 
             checked_read_object(ctx->ctx,
                 &p_jump_statement->expression_opt->type,
@@ -2178,6 +2176,10 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
             struct object dest_object =
                 make_object(ctx->p_return_type, NULL, p_jump_statement->expression_opt);
+#ifndef NEW_FLOW_ANALYSIS
+            bool bool_source_zero_value = constant_value_is_valid(&p_jump_statement->expression_opt->constant_value) &&
+                constant_value_to_ull(&p_jump_statement->expression_opt->constant_value) == 0;
+
 
             object_assignment(ctx->ctx,
                 p_object, /*source*/
@@ -2189,6 +2191,17 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 OBJECT_STATE_UNINITIALIZED,
                 ASSIGMENT_TYPE_RETURN);
 
+#else
+            object_assignment3(ctx->ctx,
+             p_jump_statement->expression_opt->first_token,
+             ASSIGMENT_TYPE_RETURN,
+             true,
+                ctx->p_return_type, /*dest type*/
+                &dest_object, /*dest object*/
+                &p_jump_statement->expression_opt->type, /*source type*/
+                p_object /*source*/
+             );
+#endif
             object_destroy(&dest_object);
             object_destroy(&temp_obj);
         }
@@ -2584,10 +2597,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-        }
+            }
 #endif
+        }
     }
-}
 
     /*if (p_declarator->pointer)
     {

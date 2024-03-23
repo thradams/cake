@@ -2386,6 +2386,38 @@ void object_assignment3(struct parser_ctx* ctx,
         return;
     }
 
+    if (type_is_pointer(p_a_type) && object_is_zero_or_null(p_b_object))
+    {
+        if (!type_is_opt(p_a_type))
+        {
+            char buffer[100] = { 0 };
+            object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
+
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+            {
+               
+            }
+            else if (assigment_type == ASSIGMENT_TYPE_RETURN)
+            {
+                compiler_diagnostic_message(W_NON_NULL,
+                           ctx,
+                           error_position,
+                           "'%s' can be null, but the function result is not opt", buffer);                
+            }
+            else
+            {
+                
+            }
+            
+            return;
+        }
+
+        checked_empty(ctx, p_a_type, p_a_object, error_position);
+        object_set_zero(p_a_type, p_a_object);
+        return;
+    }
+
+
     type_print(p_a_type);
     printf(" = ");
     type_print(p_b_type);

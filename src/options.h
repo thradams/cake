@@ -48,6 +48,7 @@ enum diagnostic_id {
     W_OWNERSHIP_DISCARDING_OWNER,
     W_OWNERSHIP_NON_OWNER_MOVE,
     
+    
     /*ownership flow analysis errors*/
     W_OWNERSHIP_FLOW_MISSING_DTOR,
     W_OWNERSHIP_FLOW_UNINITIALIZED,
