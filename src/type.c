@@ -95,6 +95,18 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
     if (e_type_qualifier_flags & TYPE_QUALIFIER_VOLATILE)
         print_item(ss, first, "volatile");
 
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_OWNER)
+        print_item(ss, first, "owner");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
+        print_item(ss, first, "obj_owner");
+    
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_VIEW)
+        print_item(ss, first, "view");
+
+    if (e_type_qualifier_flags & TYPE_QUALIFIER_OPT)
+        print_item(ss, first, "opt");
+
 }
 
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type)
@@ -421,9 +433,14 @@ void type_print(const struct type* a)
 {
     struct osstream ss = { 0 };
     print_type(&ss, a);
-    puts(ss.c_str);
-    puts("\n");
+    printf("%s", ss.c_str);
     ss_close(&ss);
+}
+
+void type_println(const struct type* a)
+{
+    type_print(a);    
+    puts("\n");    
 }
 
 enum type_category type_get_category(const struct type* p_type)

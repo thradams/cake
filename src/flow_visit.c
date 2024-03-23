@@ -1458,6 +1458,7 @@ static int compare_function_arguments3(struct parser_ctx* ctx,
             object_assignment3(ctx,
               p_current_argument->expression->first_token,
               ASSIGMENT_TYPE_PARAMETER,
+              true,
               &p_current_parameter_type->type,              
               &parameter_object, /*dest object*/
               

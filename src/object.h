@@ -154,6 +154,7 @@ void object_assignment(struct parser_ctx* ctx,
 void object_assignment3(struct parser_ctx* ctx,
     const struct token* error_position,
     enum  assigment_type assigment_type,
+    bool check_uninitialized_b,
     struct type* p_a_type, struct object* p_a_object,
     struct type* p_b_type, struct object* p_b_object);
 

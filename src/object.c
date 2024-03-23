@@ -2338,18 +2338,56 @@ bool object_is_zero_or_null(const struct object* p_object)
 }
 
 /*
-   This function must check and do the flow assignment of 
+   This function must check and do the flow assignment of
    a = b
 */
 void object_assignment3(struct parser_ctx* ctx,
     const struct token* error_position,
     enum assigment_type assigment_type,
+    bool check_uninitialized_b,
     struct type* p_a_type, struct object* p_a_object,
     struct type* p_b_type, struct object* p_b_object)
 {
-    
+    if (p_a_object == NULL || p_b_object == NULL)
+    {
+        return;
+    }
+
+    if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)
+    {
+        //a = b where b is uninitialized
+        char buffer[100] = { 0 };
+        object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
+        if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+        {
+            if (!type_is_out(p_a_type))
+            {
+                compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
+                            ctx,
+                            error_position,
+                            "passing an uninitialized argument '%s' object", buffer);
+            }
+        }
+        else if (assigment_type == ASSIGMENT_TYPE_RETURN)
+        {
+            compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
+                        ctx,
+                        error_position,
+                        "returning an uninitialized '%s' object", buffer);
+        }
+        else
+        {
+            compiler_diagnostic_message(W_OWNERSHIP_FLOW_UNINITIALIZED,
+                        ctx,
+                        error_position,
+                        "reading an uninitialized '%s' object", buffer);
+        }
+
+        return;
+    }
+
     type_print(p_a_type);
-    printf("=");
+    printf(" = ");
     type_print(p_b_type);
     printf("\n");
 
@@ -2362,32 +2400,32 @@ void object_assignment3(struct parser_ctx* ctx,
     const bool is_b_owner_pointer = is_b_pointer && type_is_owner(p_b_type);
     const bool is_a_void_pointer = is_a_pointer && type_is_void(p_a_type);
 
-    struct type a_pointed_type = {0};
-    struct type b_pointed_type = {0};
-    
+    struct type a_pointed_type = { 0 };
+    struct type b_pointed_type = { 0 };
+
     struct type* p_a_pointed_type = NULL;
     struct type* p_b_pointed_type = NULL;
 
     if (is_a_pointer)
     {
-        a_pointed_type = type_remove_pointer(p_a_type);        
+        a_pointed_type = type_remove_pointer(p_a_type);
         p_a_pointed_type = &a_pointed_type;
     }
 
     if (is_b_pointer)
     {
-        b_pointed_type = type_remove_pointer(p_b_type);        
+        b_pointed_type = type_remove_pointer(p_b_type);
         p_b_pointed_type = &b_pointed_type;
     }
 
     const bool is_a_owner_pointer_to_void = is_a_owner_pointer && (p_a_pointed_type && type_is_void(p_a_pointed_type));
     const bool is_b_owner_pointer_to_void = is_b_owner_pointer && (p_b_pointed_type && type_is_void(p_b_pointed_type));
-    
+
     if (is_a_owner_pointer_to_void && is_b_owner_pointer_to_void)
     {
         // a       void f(void * owner a); void * owner f()
         // a = b   f(b)                    return b;
-           
+
         // void * owner b 
         //a = b              f(b)                    return b;
         // 
@@ -2450,6 +2488,7 @@ void object_assignment3(struct parser_ctx* ctx,
                                 object_assignment3(ctx,
                                     error_position,
                                     assigment_type,
+                                    check_uninitialized_b,
                                     p_a_member_type, p_a_member_object,
                                     p_b_member_type, p_b_member_object);
                             }
@@ -2536,13 +2575,13 @@ void object_assignment3(struct parser_ctx* ctx,
             {
                 switch (assigment_type)
                 {
-                    case ASSIGMENT_TYPE_RETURN:
-                    case ASSIGMENT_TYPE_PARAMETER:
-                        object_set_uninitialized(p_b_type, p_b_object);
-                        break;
-                    case ASSIGMENT_TYPE_OBJECTS:
-                        object_set_moved(p_b_type, p_b_object);
-                        break;
+                case ASSIGMENT_TYPE_RETURN:
+                case ASSIGMENT_TYPE_PARAMETER:
+                    object_set_uninitialized(p_b_type, p_b_object);
+                    break;
+                case ASSIGMENT_TYPE_OBJECTS:
+                    object_set_moved(p_b_type, p_b_object);
+                    break;
                 }
             }
 
@@ -2567,9 +2606,10 @@ void object_assignment3(struct parser_ctx* ctx,
                 {
                     // object_set_uninitialized(&ta2, object_get_pointed_object(p_a_object));
                     object_assignment3(ctx,
-                        
+
                         error_position,
                         assigment_type,
+                        check_uninitialized_b,
                         &a_pointed_type, object_get_pointed_object(p_a_object),
                         &b_pointed_type, object_get_pointed_object(p_b_object));
                 }
@@ -2594,13 +2634,13 @@ void object_assignment3(struct parser_ctx* ctx,
         {
             switch (assigment_type)
             {
-                case ASSIGMENT_TYPE_RETURN:
-                case ASSIGMENT_TYPE_PARAMETER:
-                    object_set_uninitialized(p_b_type, p_b_object);
-                    break;
-                case ASSIGMENT_TYPE_OBJECTS:
-                    object_set_moved(p_b_type, p_b_object);
-                    break;
+            case ASSIGMENT_TYPE_RETURN:
+            case ASSIGMENT_TYPE_PARAMETER:
+                object_set_uninitialized(p_b_type, p_b_object);
+                break;
+            case ASSIGMENT_TYPE_OBJECTS:
+                object_set_moved(p_b_type, p_b_object);
+                break;
             }
         }
     }

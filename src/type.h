@@ -237,6 +237,7 @@ bool type_is_lvalue(const struct type* p_type);
 bool type_is_pointer_to_const(const struct type* p_type);
 bool type_is_pointer(const struct type* p_type);
 bool type_is_pointer_to_out(const struct type* p_type);
+bool type_is_out(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
@@ -300,6 +301,8 @@ unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
 
 struct type type_add_pointer(const struct type* p_type);
 void type_print(const struct type* a);
+void type_println(const struct type* a);
+
 enum type_category type_get_category(const struct type* p_type);
 void print_type_qualifier_specifiers(struct osstream* ss, const struct type* type);
 
