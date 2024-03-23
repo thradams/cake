@@ -2192,3 +2192,8 @@ void object_assignment(struct parser_ctx* ctx,
 
 }
 
+bool object_is_zero_or_null(const struct object* p_object)
+{
+    return (p_object->state == OBJECT_STATE_NULL) ||
+            (p_object->state == OBJECT_STATE_ZERO);
+}

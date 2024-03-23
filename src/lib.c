@@ -11218,6 +11218,8 @@ void checked_read_object(struct parser_ctx* ctx,
     const struct token* position_token,
     bool check_pointed_object);
 
+bool object_is_zero_or_null(const struct object* p_object);
+
 
 
 #if __STDC_VERSION__  >= 202311L 
@@ -23088,6 +23090,11 @@ void object_assignment(struct parser_ctx* ctx,
 
 }
 
+bool object_is_zero_or_null(const struct object* p_object)
+{
+    return (p_object->state == OBJECT_STATE_NULL) ||
+            (p_object->state == OBJECT_STATE_ZERO);
+}
 
 
 

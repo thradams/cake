@@ -156,3 +156,5 @@ void checked_read_object(struct parser_ctx* ctx,
     struct object* p_object,
     const struct token* position_token,
     bool check_pointed_object);
+
+bool object_is_zero_or_null(const struct object* p_object);
