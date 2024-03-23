@@ -39,18 +39,21 @@
 <li>
 <a href="#toc_7">Deleting Owner Pointers</a>
 </li>
+<li>
+<a href="#toc_8">Conversion from owner pointer to void * owner</a>
+</li>
 </ul>
 </li>
 <li>
-<a href="#toc_8">Flow analysis</a>
+<a href="#toc_9">Flow analysis</a>
 <ul>
 <li>
-<a href="#toc_9">assert is a statement</a>
+<a href="#toc_10">assert is a statement</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_10">Ownership Feature Strategy (Inspired by stdbool.h)</a>
+<a href="#toc_11">Ownership Feature Strategy (Inspired by stdbool.h)</a>
 </li>
 </ul>
 <p>Last Updated 22/03/2024</p>
@@ -93,14 +96,14 @@ int main()
 </code></pre>
 
 <blockquote>
-<p>Note: <strong>owner</strong> is actually a macro declared in ownership as <strong>_Owner</strong>. </p>
+<p>Note: <strong>owner</strong> is actually a macro declared in <ownership.h> as <strong>_Owner</strong>. </p>
 </blockquote>
 
 <p>The ownership mechanism has some rules that will be listed gradually throughout the text.</p>
 
 <p><strong>Rule:</strong> An <strong>owner object</strong> is always the unique owner of the referenced object.</p>
 
-<p><strong>Rule:</strong> When owner objects are copied the ownership is transfered.</p>
+<p><strong>Rule:</strong> When owner objects are copied the ownership is transferred.</p>
 
 <p><strong>Rule:</strong> Before the end of its lifetime, owner objects must move the ownership of the objects they own.</p>
 
@@ -120,9 +123,10 @@ int main()
 
 <p>Invoking a function <code>fclose</code> is analogous to assignment of the argument <code>f2</code>, resulting in the transfer of ownership of <code>f2</code> to the function parameter.  </p>
 
-<p>Sample - Declaration of fclose</p>
+<p>Sample - Declaration of fopen and fclose</p>
 
-<pre><code class="language-c">void fclose(FILE *owner p);
+<pre><code class="language-c">FILE * _Owner _fopen( const char *filename, const char *mode );
+void fclose(FILE * _Owner p);
 </code></pre>
 
 <blockquote>
@@ -328,6 +332,23 @@ int main() {
 }
 </code></pre>
 
+<h3 id="toc_8">Conversion from owner pointer to void * owner</h3>
+
+<p><strong>Rule:</strong> Assignment or cast of a owner pointer to void * owner requires the pointed object to be empty.</p>
+
+<pre><code class="language-c">struct X {
+    char _Owner text;
+};
+
+struct X * _Owner make();
+
+int main(){
+   void * _Owner p = nullptr;
+   _Owner auto pX = make();
+   p = pX; //warning
+}
+</code></pre>
+
 <p>When the object is created on the stack, we can implement a destructor.</p>
 
 <p><strong>Sample - Implementing a destructor</strong></p>
@@ -440,7 +461,7 @@ int main() {
 
 <p>But I think this is quite uncommon.</p>
 
-<h2 id="toc_8">Flow analysis</h2>
+<h2 id="toc_9">Flow analysis</h2>
 
 <p>Let&#39;s revisit our first example:</p>
 
@@ -781,7 +802,7 @@ int main()
 
 <h4>Zero and Not-Zero state</h4>
 
-<p>The <strong>zero</strong> state is used for non-owner objects to complement and support uninitialized checks.</p>
+<p>The <strong>zero</strong> state is used for non-pointer objects to complement and support uninitialized checks.</p>
 
 <p><strong>Sample - The zero state</strong></p>
 
@@ -810,7 +831,7 @@ int main()
  close(server_socket);
 </code></pre>
 
-<p>The <strong>not-zero</strong> state is used for non-owner objects to indicate the value if not zero.</p>
+<p>The <strong>not-zero</strong> state is used in non-pointers objects to indicate the value is not zero.</p>
 
 <p><strong>any</strong> is a alias for <strong>zero or not-zero</strong> state.</p>
 
@@ -847,7 +868,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_9">assert is a statement</h3>
+<h3 id="toc_10">assert is a statement</h3>
 
 <p>When possible we can use assert that works both as static information and runtime check in debug.</p>
 
@@ -883,7 +904,7 @@ void list_append(struct list* list, struct node* owner node)
 }
 </code></pre>
 
-<h2 id="toc_10">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
+<h2 id="toc_11">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
 
 <p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it must define  <code>__STDC_OWNERSHIP__</code>. </p>
 

@@ -38,13 +38,13 @@ int main()
 }
 ```
 
-> Note: **owner** is actually a macro declared in ownership as **_Owner**. 
+> Note: **owner** is actually a macro declared in <ownership.h> as **_Owner**. 
 
 The ownership mechanism has some rules that will be listed gradually throughout the text.
 
 **Rule:** An **owner object** is always the unique owner of the referenced object.
 
-**Rule:** When owner objects are copied the ownership is transfered.
+**Rule:** When owner objects are copied the ownership is transferred.
 
 **Rule:** Before the end of its lifetime, owner objects must move the ownership of the objects they own.
 
@@ -66,10 +66,11 @@ int main()
 
 Invoking a function `fclose` is analogous to assignment of the argument `f2`, resulting in the transfer of ownership of `f2` to the function parameter.  
 
-Sample - Declaration of fclose
+Sample - Declaration of fopen and fclose
 
 ```c
-void fclose(FILE *owner p);
+FILE * _Owner _fopen( const char *filename, const char *mode );
+void fclose(FILE * _Owner p);
 ```
 
 > Note: The cake ownership model does not include the concept of a destroyed or deleted object. Instead, everything is viewed as a transformation, where the object is broken into smaller parts and those parts are moved.
@@ -275,6 +276,24 @@ int main() {
     /*...*/;
     x_delete( pX); 
   }
+}
+```
+
+### Conversion from owner pointer to void * owner
+
+**Rule:** Assignment or cast of a owner pointer to void * owner requires the pointed object to be empty.
+
+```c  
+struct X {
+    char _Owner text;
+};
+
+struct X * _Owner make();
+
+int main(){
+   void * _Owner p = nullptr;
+   _Owner auto pX = make();
+   p = pX; //warning
 }
 ```
 
@@ -753,7 +772,7 @@ void free(void * _Owner _Opt p); //p can be null
 
 #### Zero and Not-Zero state
 
-The **zero** state is used for non-owner objects to complement and support uninitialized checks.
+The **zero** state is used for non-pointer objects to complement and support uninitialized checks.
 
 **Sample - The zero state**
 
@@ -784,7 +803,7 @@ We can use **static_set** to override states. In the next sample, we annotate th
  close(server_socket);
 ```
 
-The **not-zero** state is used for non-owner objects to indicate the value if not zero.
+The **not-zero** state is used in non-pointers objects to indicate the value is not zero.
 
 **any** is a alias for **zero or not-zero** state.
 
