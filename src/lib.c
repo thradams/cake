@@ -22299,7 +22299,7 @@ void checked_empty(struct parser_ctx* ctx,
             compiler_diagnostic_message(W_OWNERSHIP_FLOW_MOVED,
                 ctx,
                 position_token,
-                "object '%s' it not empty",
+                "object '%s' is not empty",
                 name);
         }
     }
@@ -22351,6 +22351,7 @@ void object_set_moved(struct type* p_type, struct object* p_object)
             }
             return;
         }
+        return;
     }
 
     if (type_is_pointer(p_type))
@@ -22416,6 +22417,7 @@ void object_set_unknown(struct type* p_type, struct object* p_object)
             }
             return;
         }
+        return;
     }
 
     if (type_is_pointer(p_type))
@@ -22432,7 +22434,8 @@ void object_set_unknown(struct type* p_type, struct object* p_object)
     }
     else
     {
-        p_object->state = OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO;
+        if (!type_is_struct_or_union(p_type))
+          p_object->state = OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO;        
     }
 }
 
@@ -22483,6 +22486,7 @@ void object_set_zero(struct type* p_type, struct object* p_object)
             }
             return;
         }
+        return;
     }
 
     if (type_is_pointer(p_type))
@@ -23355,7 +23359,7 @@ void object_assignment3(struct parser_ctx* ctx,
                    error_position,
                    "assignment of possible null object '%s' to non-opt pointer", buffer);
 #endif //nullchecks disabled for now
-}
+    }
 
     if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
     {
@@ -23370,17 +23374,24 @@ void object_assignment3(struct parser_ctx* ctx,
         }
     }
 
+    /*copying to void * owner*/
     if (type_is_void_ptr(p_a_type) && type_is_pointer(p_b_type))
     {
-        if (type_is_owner(p_a_type) && object_get_pointed_object(p_b_object))
+        if (type_is_owner(p_a_type))
         {
-            struct type t = type_remove_pointer(p_b_type);
-            checked_empty(ctx, &t, object_get_pointed_object(p_b_object), error_position);
-            type_destroy(&t);
+            if (object_get_pointed_object(p_b_object))
+            {
+                //*b must be empty before copying to void* owner
+                struct type t = type_remove_pointer(p_b_type);
+                checked_empty(ctx, &t, object_get_pointed_object(p_b_object), error_position);
+                type_destroy(&t);
+            }
+
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 object_set_uninitialized(p_b_type, p_b_object);
             else
                 object_set_moved(p_b_type, p_b_object);
+
         }
         return;
     }
@@ -23389,7 +23400,16 @@ void object_assignment3(struct parser_ctx* ctx,
     {
         p_a_object->state = p_b_object->state;
 
-        checked_read_object(ctx, p_b_type, p_b_object, error_position, true);
+        struct type t = type_remove_pointer(p_a_type);
+        
+        /*if the parameter points to out object, then we don´t need to check 
+          argument pointed object.
+        */
+        const bool checked_pointed_object_read = !type_is_out(&t);
+
+        checked_read_object(ctx, p_b_type, p_b_object, error_position, checked_pointed_object_read);
+
+        type_destroy(&t);
 
         if (type_is_owner(p_a_type))
         {
@@ -23398,6 +23418,19 @@ void object_assignment3(struct parser_ctx* ctx,
             else
                 object_set_moved(p_b_type, p_b_object);
         }
+        else
+        {
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+            {
+                struct type t = type_remove_pointer(p_a_type);
+                if (!type_is_const(&t))
+                {
+                    object_set_unknown(&t, object_get_pointed_object(p_b_object));
+                }
+                type_destroy(&t);
+            }
+        }
+
 
         return;
     }
@@ -23497,7 +23530,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define NEW_FLOW_ANALYSIS 1
+//#define NEW_FLOW_ANALYSIS 1
 
 /*
   To be able to do static analysis with goto jump, we
