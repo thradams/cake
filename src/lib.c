@@ -23290,7 +23290,12 @@ void object_assignment3(struct parser_ctx* ctx,
     {
         return;
     }
+    type_print(p_a_type);
+    printf(" = ");
+    type_print(p_b_type);
+    printf("\n");
 
+    /*general check for copying uninitialized object*/
     if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)
     {
         //a = b where b is uninitialized
@@ -23324,94 +23329,64 @@ void object_assignment3(struct parser_ctx* ctx,
         return;
     }
 
-    if (type_is_pointer(p_a_type) && object_is_zero_or_null(p_b_object))
+    /*general check passing possible null to non opt*/
+    if (type_is_pointer(p_a_type) &&
+        !type_is_opt(p_a_type) &&
+        p_b_object->state & OBJECT_STATE_NULL)
     {
-        if (!type_is_opt(p_a_type))
-        {
-            char buffer[100] = { 0 };
-            object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
+        char buffer[100] = { 0 };
+        object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
 
-            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
-            {
-               
-            }
-            else if (assigment_type == ASSIGMENT_TYPE_RETURN)
-            {
-                compiler_diagnostic_message(W_NON_NULL,
-                           ctx,
-                           error_position,
-                           "'%s' can be null, but the function result is not opt", buffer);                
-            }
-            else
-            {
-                
-            }
-            
+        compiler_diagnostic_message(W_NON_NULL,
+                   ctx,
+                   error_position,
+                   "assignment of possible null object '%s' to non-opt pointer", buffer);
+    }
+
+    if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
+    {
+        /*owner must be empty before assignment = 0*/
+        checked_empty(ctx, p_a_type, p_a_object, error_position);
+
+        if (object_is_zero_or_null(p_b_object))
+        {
+            //a = nullpr
+            object_set_zero(p_a_type, p_a_object);
             return;
         }
+    }
 
-        checked_empty(ctx, p_a_type, p_a_object, error_position);
-        object_set_zero(p_a_type, p_a_object);
+    if (type_is_void_ptr(p_a_type) && type_is_pointer(p_b_type))
+    {
+        if (type_is_owner(p_a_type) && object_get_pointed_object(p_b_object))
+        {
+            struct type t = type_remove_pointer(p_b_type);
+            checked_empty(ctx, &t, object_get_pointed_object(p_b_object), error_position);
+            type_destroy(&t);
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+                object_set_uninitialized(p_b_type, p_b_object);
+            else
+                object_set_moved(p_b_type, p_b_object);
+        }
         return;
     }
 
-
-    type_print(p_a_type);
-    printf(" = ");
-    type_print(p_b_type);
-    printf("\n");
-
-    const bool is_a_owner = type_is_owner(p_a_type);
-    const bool is_b_owner = type_is_owner(p_b_type);
-
-    const bool is_a_pointer = type_is_pointer(p_a_type);
-    const bool is_b_pointer = type_is_pointer(p_b_type);
-    const bool is_a_owner_pointer = is_a_pointer && type_is_owner(p_b_type);
-    const bool is_b_owner_pointer = is_b_pointer && type_is_owner(p_b_type);
-    const bool is_a_void_pointer = is_a_pointer && type_is_void(p_a_type);
-
-    struct type a_pointed_type = { 0 };
-    struct type b_pointed_type = { 0 };
-
-    struct type* p_a_pointed_type = NULL;
-    struct type* p_b_pointed_type = NULL;
-
-    if (is_a_pointer)
+    if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
     {
-        a_pointed_type = type_remove_pointer(p_a_type);
-        p_a_pointed_type = &a_pointed_type;
+        p_a_object->state = p_b_object->state;
+
+        checked_read_object(ctx, p_b_type, p_b_object, error_position, true);
+
+        if (type_is_owner(p_a_type))
+        {
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+                object_set_uninitialized(p_b_type, p_b_object);
+            else
+                object_set_moved(p_b_type, p_b_object);
+        }
+
+        return;
     }
-
-    if (is_b_pointer)
-    {
-        b_pointed_type = type_remove_pointer(p_b_type);
-        p_b_pointed_type = &b_pointed_type;
-    }
-
-    const bool is_a_owner_pointer_to_void = is_a_owner_pointer && (p_a_pointed_type && type_is_void(p_a_pointed_type));
-    const bool is_b_owner_pointer_to_void = is_b_owner_pointer && (p_b_pointed_type && type_is_void(p_b_pointed_type));
-
-    if (is_a_owner_pointer_to_void && is_b_owner_pointer_to_void)
-    {
-        // a       void f(void * owner a); void * owner f()
-        // a = b   f(b)                    return b;
-
-        // void * owner b 
-        //a = b              f(b)                    return b;
-        // 
-        // void * owner a    void f(void * owner a)  void * owner f()
-        // void * owner b 
-        //a = b              f(b)                    return b;
-    }
-
-    if (is_a_owner_pointer_to_void && !is_b_owner_pointer_to_void)
-    {
-        // void * owner a    void f(void * owner a)  void * owner f()
-        // T * owner b 
-        // a = b             f(b)                    return b;
-    }
-
-
 
     if (p_a_type->struct_or_union_specifier && p_a_object->members.size > 0)
     {
@@ -23479,140 +23454,13 @@ void object_assignment3(struct parser_ctx* ctx,
         }
     }
 
-
-    if (type_is_pointer(p_a_type) && type_is_owner(p_a_type))
-    {
-        struct type a_pointed_type = type_remove_pointer(p_a_type);
-        if (type_is_void(&a_pointed_type))
-        {
-            checked_empty(ctx, p_b_type, p_b_object, error_position);
-        }
-        type_destroy(&a_pointed_type);
-    }
-
-
-
-
-
+    p_a_object->state = p_b_object->state;
     if (type_is_owner(p_a_type))
     {
-        /*
-           a object cannot be holding any resource at assigment
-           owner T  a;
-           a  = b;
-        */
-        if (p_a_object->state & OBJECT_STATE_NOT_NULL)
-        {
-            char buffer[100] = { 0 };
-            object_get_name(p_a_type, p_a_object, buffer, sizeof buffer);
-            if (p_a_object->state & OBJECT_STATE_NOT_NULL)
-            {
-                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
-                    ctx,
-                    error_position,
-                    "object '%s' not released", buffer);
-            }
-            else
-            {
-                compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
-                    ctx,
-                    error_position,
-                    "object '%s' can be on not released state", buffer);
-            }
-        }
-    }
-
-
-    if (type_is_pointer(p_a_type))
-    {
-        if ((p_b_object->state == OBJECT_STATE_NULL) ||
-            (p_b_object->state == OBJECT_STATE_ZERO))
-        {
-            /*
-              T *p = ;
-              p = 0;
-            */
-            p_a_object->state = OBJECT_STATE_NULL;
-            struct type ta = type_remove_pointer(p_a_type);
-            object_set_uninitialized(&ta, object_get_pointed_object(p_a_object));
-            type_destroy(&ta);
-        }
+        if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+            object_set_uninitialized(p_b_type, p_b_object);
         else
-        {
-            p_a_object->state = p_b_object->state;
-
-            if (type_is_owner(p_a_type) && type_is_owner(p_b_type))
-            {
-                switch (assigment_type)
-                {
-                case ASSIGMENT_TYPE_RETURN:
-                case ASSIGMENT_TYPE_PARAMETER:
-                    object_set_uninitialized(p_b_type, p_b_object);
-                    break;
-                case ASSIGMENT_TYPE_OBJECTS:
-                    object_set_moved(p_b_type, p_b_object);
-                    break;
-                }
-            }
-
-            if (object_get_pointed_object(p_a_object) &&
-                (object_get_pointed_object(p_b_object)))
-            {
-                struct type a_pointed_type = type_remove_pointer(p_a_type);
-                struct type b_pointed_type = type_remove_pointer(p_b_type);
-
-                if (assigment_type && ASSIGMENT_TYPE_PARAMETER)
-                {
-                    //non const
-                    if (type_is_const(&a_pointed_type))
-                    {
-                    }
-                    else
-                    {
-                        object_set_unknown(&b_pointed_type, object_get_pointed_object(p_b_object));
-                    }
-                }
-                else
-                {
-                    // object_set_uninitialized(&ta2, object_get_pointed_object(p_a_object));
-                    object_assignment3(ctx,
-
-                        error_position,
-                        assigment_type,
-                        check_uninitialized_b,
-                        &a_pointed_type, object_get_pointed_object(p_a_object),
-                        &b_pointed_type, object_get_pointed_object(p_b_object));
-                }
-
-
-
-                //if (type_is_owner(p_a_type) && type_is_owner(p_b_type))
-                //{
-                  // p_b_object->state = OBJECT_STATE_UNINITIALIZED;                
-                //}
-
-                type_destroy(&a_pointed_type);
-                type_destroy(&b_pointed_type);
-            }
-        }
-    }
-    else
-    {
-        p_a_object->state = p_b_object->state;
-
-        if (type_is_owner(p_a_type) && type_is_owner(p_b_type))
-        {
-            switch (assigment_type)
-            {
-            case ASSIGMENT_TYPE_RETURN:
-            case ASSIGMENT_TYPE_PARAMETER:
-                object_set_uninitialized(p_b_type, p_b_object);
-                break;
-            case ASSIGMENT_TYPE_OBJECTS:
-                object_set_moved(p_b_type, p_b_object);
-                break;
-            }
-        }
+            object_set_moved(p_b_type, p_b_object);
     }
 }
 
