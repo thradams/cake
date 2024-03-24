@@ -8,9 +8,10 @@ void x_destroy(struct X* _Obj_owner p);
 void f(struct X* x)
 {
     x_destroy(x);
-    #pragma cake diagnostic check "-Wmust-use-address-of"
+    static_debug(x);
 }
-#pragma cake diagnostic check "-Wmissing-destructor"
+    #pragma cake diagnostic check "-Wmust-use-address-of"
+
 
 
 

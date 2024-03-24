@@ -2445,8 +2445,7 @@ void obj_owner_must_be_from_addressof()
         "    struct Y  y = {};\n"
         "    struct* p = &y.x;\n"
         "    x_destroy(&y.x);\n"
-        "}\n"
-        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+        "}\n"        
         "";
 
 

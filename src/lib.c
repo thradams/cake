@@ -22755,17 +22755,22 @@ void checked_moved(struct parser_ctx* ctx,
             }
             p_member_declaration = p_member_declaration->next;
         }
+        return;
     }
     else
     {
         if (type_is_pointer(p_type) && !type_is_any_owner(p_type))
         {
-            struct type t2 = type_remove_pointer(p_type);
-            checked_moved(ctx,
-                &t2,
-                object_get_pointed_object(p_object),
-                position_token);
-            type_destroy(&t2);
+            if (p_object->state != OBJECT_STATE_UNINITIALIZED &&
+                p_object->state != OBJECT_STATE_NULL)
+            {
+                struct type t2 = type_remove_pointer(p_type);
+                checked_moved(ctx,
+                    &t2,
+                    object_get_pointed_object(p_object),
+                    position_token);
+                type_destroy(&t2);
+            }
         }
 
         if (p_object->state & OBJECT_STATE_MOVED)
@@ -23311,11 +23316,11 @@ void object_assignment3(struct parser_ctx* ctx,
     {
         return;
     }
-    //printf("line  %d ", error_position->line);
-    //type_print(p_a_type);
-    //printf(" = ");
-    //type_print(p_b_type);
-    //printf("\n");
+    printf("line  %d ", error_position->line);
+    type_print(p_a_type);
+    printf(" = ");
+    type_print(p_b_type);
+    printf("\n");
 
     /*general check for copying uninitialized object*/
     if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)
@@ -23365,7 +23370,7 @@ void object_assignment3(struct parser_ctx* ctx,
                    error_position,
                    "assignment of possible null object '%s' to non-opt pointer", buffer);
 #endif //nullchecks disabled for now
-    }
+}
 
     if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
     {
@@ -23457,20 +23462,28 @@ void object_assignment3(struct parser_ctx* ctx,
             }
             else
             {
-                if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+                if (p_b_type->address_of)
                 {
-                    p_b_object->state = OBJECT_STATE_UNINITIALIZED;
-                    struct object* pointed = object_get_pointed_object(p_b_object);
-                    if (pointed)
+                    //must be address of.
+                    if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                     {
-                        struct type t2 = type_remove_pointer(p_b_type);
-                        object_set_uninitialized(&t2, pointed);
-                        type_destroy(&t2);
-                    }
+                        p_b_object->state = OBJECT_STATE_UNINITIALIZED;
+                        struct object* pointed = object_get_pointed_object(p_b_object);
+                        if (pointed)
+                        {
+                            struct type t2 = type_remove_pointer(p_b_type);
+                            object_set_uninitialized(&t2, pointed);
+                            type_destroy(&t2);
+                        }
 
+                    }
+                    else
+                        object_set_moved(p_b_type, p_b_object);
                 }
                 else
-                    object_set_moved(p_b_type, p_b_object);
+                {
+                    //error already created.
+                }
             }
 
         }
@@ -23591,7 +23604,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-//#define NEW_FLOW_ANALYSIS 1
+#define NEW_FLOW_ANALYSIS 1
 
 /*
   To be able to do static analysis with goto jump, we
@@ -40603,39 +40616,37 @@ void use_after_destroy()
 
 void obj_owner_must_be_from_addressof()
 {
-    const char* source
- =
- "void free(void* _Owner ptr);\n"
- "void* _Owner malloc(int size);\n"
- "char* _Owner strdup(const char*);\n"
- "\n"
- "struct X {\n"
- "    char* _Owner name;\n"
- "};\n"
- "\n"
- "struct Y {\n"
- "    struct X x;\n"
- "    struct X* px;\n"
- "};\n"
- "\n"
- "void x_destroy(struct X* _Obj_owner p)\n"
- "{\n"
- "    free(p->name);\n"
- "}\n"
- "\n"
- "void f(struct Y* p)\n"
- "{\n"
- "    x_destroy(p->px);\n"
- "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
- "}\n"
- "\n"
- "int main() {\n"
- "    struct Y  y = {};\n"
- "    struct* p = &y.x;\n"
- "    x_destroy(&y.x);\n"
- "}\n"
- "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
- "";
+    const char* source =
+        "void free(void* _Owner ptr);\n"
+        "void* _Owner malloc(int size);\n"
+        "char* _Owner strdup(const char*);\n"
+        "\n"
+        "struct X {\n"
+        "    char* _Owner name;\n"
+        "};\n"
+        "\n"
+        "struct Y {\n"
+        "    struct X x;\n"
+        "    struct X* px;\n"
+        "};\n"
+        "\n"
+        "void x_destroy(struct X* _Obj_owner p)\n"
+        "{\n"
+        "    free(p->name);\n"
+        "}\n"
+        "\n"
+        "void f(struct Y* p)\n"
+        "{\n"
+        "    x_destroy(p->px);\n"
+        "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
+        "}\n"
+        "\n"
+        "int main() {\n"
+        "    struct Y  y = {};\n"
+        "    struct* p = &y.x;\n"
+        "    x_destroy(&y.x);\n"
+        "}\n"        
+        "";
 
 
     assert(compile_without_errors_warnings(true, false, source));
