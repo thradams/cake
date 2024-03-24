@@ -22437,7 +22437,7 @@ void object_set_unknown(struct type* p_type, struct object* p_object)
     else
     {
         if (!type_is_struct_or_union(p_type))
-          p_object->state = OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO;        
+            p_object->state = OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO;
     }
 }
 
@@ -22854,6 +22854,7 @@ void checked_read_object(struct parser_ctx* ctx,
             }
             p_member_declaration = p_member_declaration->next;
         }
+        return;
     }
     else
     {
@@ -23308,6 +23309,7 @@ void object_assignment3(struct parser_ctx* ctx,
     {
         return;
     }
+    printf("line  %d ", error_position->line);
     type_print(p_a_type);
     printf(" = ");
     type_print(p_b_type);
@@ -23361,17 +23363,29 @@ void object_assignment3(struct parser_ctx* ctx,
                    error_position,
                    "assignment of possible null object '%s' to non-opt pointer", buffer);
 #endif //nullchecks disabled for now
-    }
+}
 
     if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
     {
-        /*owner must be empty before assignment = 0*/
         checked_empty(ctx, p_a_type, p_a_object, error_position);
 
         if (object_is_zero_or_null(p_b_object))
         {
             //a = nullpr
             object_set_zero(p_a_type, p_a_object);
+            return;
+        }
+    }
+
+    if (type_is_obj_owner(p_a_type) && type_is_pointer(p_a_type))
+    {
+        checked_empty(ctx, p_a_type, p_a_object, error_position);
+
+        if (object_is_zero_or_null(p_b_object))
+        {
+            //0 to objec_owner??
+            //a = nullpr
+            //object_set_zero(p_a_type, p_a_object);
             return;
         }
     }
@@ -23403,8 +23417,8 @@ void object_assignment3(struct parser_ctx* ctx,
         p_a_object->state = p_b_object->state;
 
         struct type t = type_remove_pointer(p_a_type);
-        
-        /*if the parameter points to out object, then we don´t need to check 
+
+        /*if the parameter points to out object, then we don´t need to check
           argument pointed object.
         */
         const bool checked_pointed_object_read = !type_is_out(&t);
@@ -23420,6 +23434,23 @@ void object_assignment3(struct parser_ctx* ctx,
             else
                 object_set_moved(p_b_type, p_b_object);
         }
+        else if (type_is_obj_owner(p_a_type))
+        {
+            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+            {
+                p_b_object->state = OBJECT_STATE_UNINITIALIZED;
+                struct object* pointed = object_get_pointed_object(p_b_object);
+                if (pointed)
+                {
+                    struct type t2 = type_remove_pointer(p_b_type);
+                    object_set_uninitialized(&t2, pointed);
+                    type_destroy(&t2);
+                }
+                
+            }
+            else
+                object_set_moved(p_b_type, p_b_object);
+        }
         else
         {
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
@@ -23427,7 +23458,12 @@ void object_assignment3(struct parser_ctx* ctx,
                 struct type t = type_remove_pointer(p_a_type);
                 if (!type_is_const(&t))
                 {
-                    object_set_unknown(&t, object_get_pointed_object(p_b_object));
+                    struct object* pointed = object_get_pointed_object(p_b_object);
+                    if (pointed)
+                    {
+                        object_set_unknown(&t, pointed);
+                    }
+
                 }
                 type_destroy(&t);
             }
