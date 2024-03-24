@@ -1796,7 +1796,8 @@ void checked_moved(struct parser_ctx* ctx,
 
                     if (p_member_declarator->declarator)
                     {
-                        checked_moved(ctx, &p_member_declarator->declarator->type,
+                        checked_moved(ctx,
+                            &p_member_declarator->declarator->type,
                             &p_object->members.data[member_index],
                             position_token);
 
@@ -2422,11 +2423,14 @@ void object_assignment3(struct parser_ctx* ctx,
                    error_position,
                    "assignment of possible null object '%s' to non-opt pointer", buffer);
 #endif //nullchecks disabled for now
-}
+    }
 
-    if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
+    if (type_is_pointer(p_a_type))
     {
-        checked_empty(ctx, p_a_type, p_a_object, error_position);
+        if (type_is_owner(p_a_type))
+        {
+            checked_empty(ctx, p_a_type, p_a_object, error_position);
+        }
 
         if (object_is_zero_or_null(p_b_object))
         {
@@ -2452,6 +2456,8 @@ void object_assignment3(struct parser_ctx* ctx,
     /*copying to void * owner*/
     if (type_is_void_ptr(p_a_type) && type_is_pointer(p_b_type))
     {
+        p_a_object->state = p_b_object->state;
+
         if (type_is_owner(p_a_type))
         {
             if (object_get_pointed_object(p_b_object))
@@ -2465,7 +2471,10 @@ void object_assignment3(struct parser_ctx* ctx,
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 object_set_uninitialized(p_b_type, p_b_object);
             else
+            {
+                
                 object_set_moved(p_b_type, p_b_object);
+            }
 
         }
         return;

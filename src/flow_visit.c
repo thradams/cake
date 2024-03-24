@@ -831,10 +831,6 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
             struct object* p_right_object =
                 expression_get_object(p_init_declarator->initializer->assignment_expression, &temp_obj);
 
-            bool bool_source_zero_value = constant_value_is_valid(&p_init_declarator->initializer->assignment_expression->constant_value) &&
-                constant_value_to_ull(&p_init_declarator->initializer->assignment_expression->constant_value) == 0;
-
-
             //cast?
             if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL &&
                 p_init_declarator->initializer->assignment_expression->left &&
@@ -875,14 +871,15 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                         p_init_declarator->p_declarator->first_token
                         ;
 
-                    object_assignment(ctx->ctx, p_right_object,
-                        &p_init_declarator->initializer->assignment_expression->type,
-                        &p_init_declarator->p_declarator->object,
-                        &p_init_declarator->p_declarator->type,
+                    object_assignment3(ctx->ctx,
                         token_position,
-                        bool_source_zero_value,
-                        OBJECT_STATE_MOVED,
-                        ASSIGMENT_TYPE_OBJECTS);
+                        ASSIGMENT_TYPE_OBJECTS,
+                        false,
+                        &p_init_declarator->p_declarator->type,                                                                      
+                        &p_init_declarator->p_declarator->object,
+                        &p_init_declarator->initializer->assignment_expression->type,
+                        p_right_object                        
+                        );
                 }
             }
             else
@@ -893,15 +890,18 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                     p_init_declarator->p_declarator->first_token
                     ;
 
-                object_assignment(ctx->ctx,
-                    p_right_object,
-                    &p_init_declarator->initializer->assignment_expression->type,
-                    &p_init_declarator->p_declarator->object,
-                    &p_init_declarator->p_declarator->type,
-                    token_position,
-                    bool_source_zero_value,
-                    OBJECT_STATE_MOVED,
-                    ASSIGMENT_TYPE_OBJECTS);
+                 object_assignment3(ctx->ctx,
+                        token_position,
+                        ASSIGMENT_TYPE_OBJECTS,
+                        false,
+                        &p_init_declarator->p_declarator->type,                                                                      
+                        &p_init_declarator->p_declarator->object,
+                     &p_init_declarator->initializer->assignment_expression->type,
+                        p_right_object
+                        
+                        );
+
+
             }
 
             object_destroy(&temp_obj);

@@ -11158,10 +11158,10 @@ void object_destroy(struct object* obj_owner p);
 void object_delete(struct object* owner opt p);
 void object_swap(struct object* a, struct object* b);
 struct object* object_get_pointed_object(const struct object* p);
-void checked_empty(struct parser_ctx* ctx,
-    struct type* p_type,
-    struct object* p_object,
-    const struct token* position_token);
+//void checked_empty(struct parser_ctx* ctx,
+  //  struct type* p_type,
+//    struct object* p_object,
+  //  const struct token* position_token);
 struct declarator;
 struct object make_object(struct type* p_type,
     const struct declarator* p_declarator_opt,
@@ -22744,7 +22744,8 @@ void checked_moved(struct parser_ctx* ctx,
 
                     if (p_member_declarator->declarator)
                     {
-                        checked_moved(ctx, &p_member_declarator->declarator->type,
+                        checked_moved(ctx,
+                            &p_member_declarator->declarator->type,
                             &p_object->members.data[member_index],
                             position_token);
 
@@ -23370,11 +23371,14 @@ void object_assignment3(struct parser_ctx* ctx,
                    error_position,
                    "assignment of possible null object '%s' to non-opt pointer", buffer);
 #endif //nullchecks disabled for now
-}
+    }
 
-    if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
+    if (type_is_pointer(p_a_type))
     {
-        checked_empty(ctx, p_a_type, p_a_object, error_position);
+        if (type_is_owner(p_a_type))
+        {
+            checked_empty(ctx, p_a_type, p_a_object, error_position);
+        }
 
         if (object_is_zero_or_null(p_b_object))
         {
@@ -23400,6 +23404,8 @@ void object_assignment3(struct parser_ctx* ctx,
     /*copying to void * owner*/
     if (type_is_void_ptr(p_a_type) && type_is_pointer(p_b_type))
     {
+        p_a_object->state = p_b_object->state;
+
         if (type_is_owner(p_a_type))
         {
             if (object_get_pointed_object(p_b_object))
@@ -23413,7 +23419,10 @@ void object_assignment3(struct parser_ctx* ctx,
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 object_set_uninitialized(p_b_type, p_b_object);
             else
+            {
+                
                 object_set_moved(p_b_type, p_b_object);
+            }
 
         }
         return;
@@ -23482,7 +23491,9 @@ void object_assignment3(struct parser_ctx* ctx,
                 }
                 else
                 {
-                    //error already created.
+                    //avoid error on top of error
+                    //address error already emmited
+                    //at this point
                 }
             }
 
@@ -23604,7 +23615,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define NEW_FLOW_ANALYSIS 1
+//#define NEW_FLOW_ANALYSIS 1
 
 /*
   To be able to do static analysis with goto jump, we
@@ -35069,10 +35080,6 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
             struct object* p_right_object =
                 expression_get_object(p_init_declarator->initializer->assignment_expression, &temp_obj);
 
-            bool bool_source_zero_value = constant_value_is_valid(&p_init_declarator->initializer->assignment_expression->constant_value) &&
-                constant_value_to_ull(&p_init_declarator->initializer->assignment_expression->constant_value) == 0;
-
-
             //cast?
             if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL &&
                 p_init_declarator->initializer->assignment_expression->left &&
@@ -35113,14 +35120,15 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                         p_init_declarator->p_declarator->first_token
                         ;
 
-                    object_assignment(ctx->ctx, p_right_object,
-                        &p_init_declarator->initializer->assignment_expression->type,
-                        &p_init_declarator->p_declarator->object,
-                        &p_init_declarator->p_declarator->type,
+                    object_assignment3(ctx->ctx,
                         token_position,
-                        bool_source_zero_value,
-                        OBJECT_STATE_MOVED,
-                        ASSIGMENT_TYPE_OBJECTS);
+                        ASSIGMENT_TYPE_OBJECTS,
+                        false,
+                        &p_init_declarator->p_declarator->type,                                                                      
+                        &p_init_declarator->p_declarator->object,
+                        &p_init_declarator->initializer->assignment_expression->type,
+                        p_right_object                        
+                        );
                 }
             }
             else
@@ -35131,15 +35139,18 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                     p_init_declarator->p_declarator->first_token
                     ;
 
-                object_assignment(ctx->ctx,
-                    p_right_object,
-                    &p_init_declarator->initializer->assignment_expression->type,
-                    &p_init_declarator->p_declarator->object,
-                    &p_init_declarator->p_declarator->type,
-                    token_position,
-                    bool_source_zero_value,
-                    OBJECT_STATE_MOVED,
-                    ASSIGMENT_TYPE_OBJECTS);
+                 object_assignment3(ctx->ctx,
+                        token_position,
+                        ASSIGMENT_TYPE_OBJECTS,
+                        false,
+                        &p_init_declarator->p_declarator->type,                                                                      
+                        &p_init_declarator->p_declarator->object,
+                     &p_init_declarator->initializer->assignment_expression->type,
+                        p_right_object
+                        
+                        );
+
+
             }
 
             object_destroy(&temp_obj);

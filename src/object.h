@@ -88,10 +88,6 @@ void object_destroy(struct object* obj_owner p);
 void object_delete(struct object* owner opt p);
 void object_swap(struct object* a, struct object* b);
 struct object* object_get_pointed_object(const struct object* p);
-void checked_empty(struct parser_ctx* ctx,
-    struct type* p_type,
-    struct object* p_object,
-    const struct token* position_token);
 struct declarator;
 struct object make_object(struct type* p_type,
     const struct declarator* p_declarator_opt,
