@@ -1,28 +1,11 @@
-char* _Owner strdup(const char* s);
-void* _Owner malloc(unsigned size);
-
-void free(void* _Owner ptr);
 
 struct X {
-    char* _Owner name;
+    char* _Owner p;
 };
-
-void x_destroy(struct X* _Obj_owner p) {
-    free(p->name);
-}
-
-void x_print(struct X* p)
+void x_destroy(struct X* _Obj_owner p);
+void f(struct X* x)
 {
-    //printf("%s", p->name);
+    x_destroy(x);
 }
 
-int main() {
-    struct X x = { 0 };
-    x.name = strdup("a");
-    x_destroy(&x);
-    static_debug(x);
-    x_print(&x);
-    #pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"
-}
-#pragma cake diagnostic check "-Wmissing-destructor"
-
+#pragma cake diagnostic check "-Wmust-use-address-of"

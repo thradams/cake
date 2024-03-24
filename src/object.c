@@ -2415,7 +2415,7 @@ void object_assignment3(struct parser_ctx* ctx,
                    error_position,
                    "assignment of possible null object '%s' to non-opt pointer", buffer);
 #endif //nullchecks disabled for now
-}
+    }
 
     if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
     {
@@ -2488,20 +2488,41 @@ void object_assignment3(struct parser_ctx* ctx,
         }
         else if (type_is_obj_owner(p_a_type))
         {
-            if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+            if (type_is_owner(p_b_type))
             {
-                p_b_object->state = OBJECT_STATE_UNINITIALIZED;
-                struct object* pointed = object_get_pointed_object(p_b_object);
-                if (pointed)
+                if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 {
-                    struct type t2 = type_remove_pointer(p_b_type);
-                    object_set_uninitialized(&t2, pointed);
-                    type_destroy(&t2);
+                    //p_b_object->state = OBJECT_STATE_UNINITIALIZED;
+                    struct object* pointed = object_get_pointed_object(p_b_object);
+                    if (pointed)
+                    {
+                        struct type t2 = type_remove_pointer(p_b_type);
+                        object_set_uninitialized(&t2, pointed);
+                        type_destroy(&t2);
+                    }
+
                 }
-                
+                else
+                    object_set_moved(p_b_type, p_b_object);
             }
             else
-                object_set_moved(p_b_type, p_b_object);
+            {
+                if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
+                {
+                    p_b_object->state = OBJECT_STATE_UNINITIALIZED;
+                    struct object* pointed = object_get_pointed_object(p_b_object);
+                    if (pointed)
+                    {
+                        struct type t2 = type_remove_pointer(p_b_type);
+                        object_set_uninitialized(&t2, pointed);
+                        type_destroy(&t2);
+                    }
+
+                }
+                else
+                    object_set_moved(p_b_type, p_b_object);
+            }
+
         }
         else
         {
