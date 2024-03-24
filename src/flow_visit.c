@@ -628,7 +628,7 @@ static void pop_states(struct flow_visit_ctx* ctx, int n)
 static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initializer* p_initializer);
 static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator* p_declarator);
 
-static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+static void flow_visit_init_declarator_current(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     if (p_init_declarator->p_declarator)
     {
@@ -795,6 +795,188 @@ static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_d
 
     //if (p_init_declarator->p_declarator)
       //  flow_visit_declarator(ctx, p_init_declarator->p_declarator);
+}
+
+static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+{
+    if (p_init_declarator->p_declarator)
+    {
+        flow_visit_declarator(ctx, p_init_declarator->p_declarator);
+    }
+
+    if (p_init_declarator->initializer)
+    {
+        if (p_init_declarator->initializer->assignment_expression)
+        {
+            flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression);
+        }
+        else
+        {
+            assert(p_init_declarator->initializer->braced_initializer != NULL);
+            if (p_init_declarator->initializer->braced_initializer)
+            {
+                flow_visit_bracket_initializer_list(ctx,
+                    p_init_declarator->initializer->braced_initializer);
+            }
+        }
+    }
+
+    if (p_init_declarator->p_declarator->type.category != TYPE_CATEGORY_FUNCTION)
+    {
+        if (p_init_declarator->initializer &&
+            p_init_declarator->initializer->assignment_expression)
+        {
+
+            struct object temp_obj = { 0 };
+            struct object* p_right_object =
+                expression_get_object(p_init_declarator->initializer->assignment_expression, &temp_obj);
+
+            bool bool_source_zero_value = constant_value_is_valid(&p_init_declarator->initializer->assignment_expression->constant_value) &&
+                constant_value_to_ull(&p_init_declarator->initializer->assignment_expression->constant_value) == 0;
+
+
+            //cast?
+            if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL &&
+                p_init_declarator->initializer->assignment_expression->left &&
+                p_init_declarator->initializer->assignment_expression->left->declarator &&
+                p_init_declarator->initializer->assignment_expression->left->declarator->name)
+            {
+                if (strcmp(p_init_declarator->initializer->assignment_expression->left->declarator->name->lexeme, "calloc") == 0)
+                {
+                    if (object_get_pointed_object(&p_init_declarator->p_declarator->object))
+                    {
+                        struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
+                        object_set_zero(&t, object_get_pointed_object(&p_init_declarator->p_declarator->object));
+                        type_destroy(&t);
+                    }
+
+                    p_init_declarator->p_declarator->object.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
+
+                }
+                else if (strcmp(p_init_declarator->initializer->assignment_expression->left->declarator->name->lexeme, "malloc") == 0)
+                {
+                    if (object_get_pointed_object(&p_init_declarator->p_declarator->object))
+                    {
+                        struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
+                        object_set_uninitialized(&t, object_get_pointed_object(&p_init_declarator->p_declarator->object));
+                        type_destroy(&t);
+                    }
+
+                    
+
+
+                    p_init_declarator->p_declarator->object.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
+                }
+                else
+                {
+                    const struct token* const token_position =
+                        p_init_declarator->p_declarator->name ?
+                        p_init_declarator->p_declarator->name :
+                        p_init_declarator->p_declarator->first_token
+                        ;
+
+                    object_assignment(ctx->ctx, p_right_object,
+                        &p_init_declarator->initializer->assignment_expression->type,
+                        &p_init_declarator->p_declarator->object,
+                        &p_init_declarator->p_declarator->type,
+                        token_position,
+                        bool_source_zero_value,
+                        OBJECT_STATE_MOVED,
+                        ASSIGMENT_TYPE_OBJECTS);
+                }
+            }
+            else
+            {
+                const struct token* const token_position =
+                    p_init_declarator->p_declarator->name ?
+                    p_init_declarator->p_declarator->name :
+                    p_init_declarator->p_declarator->first_token
+                    ;
+
+                object_assignment(ctx->ctx,
+                    p_right_object,
+                    &p_init_declarator->initializer->assignment_expression->type,
+                    &p_init_declarator->p_declarator->object,
+                    &p_init_declarator->p_declarator->type,
+                    token_position,
+                    bool_source_zero_value,
+                    OBJECT_STATE_MOVED,
+                    ASSIGMENT_TYPE_OBJECTS);
+            }
+
+            object_destroy(&temp_obj);
+        }
+        else  if (p_init_declarator->initializer &&
+            p_init_declarator->initializer->braced_initializer)
+        {
+            bool is_zero_initialized = false;
+            if (p_init_declarator->initializer->braced_initializer->initializer_list == NULL)
+            {
+                is_zero_initialized = true;
+            }
+            else
+            {
+                if (p_init_declarator->initializer->braced_initializer->initializer_list->size == 1 &&
+                    p_init_declarator->initializer->braced_initializer->initializer_list->head->assignment_expression)
+                {
+                    struct constant_value* p_constant_value =
+                        &p_init_declarator->initializer->braced_initializer->initializer_list->head->assignment_expression->constant_value;
+
+                    if (constant_value_is_valid(p_constant_value) &&
+                        constant_value_to_ull(p_constant_value) == 0)
+                    {
+                        is_zero_initialized = true;
+                    }
+
+                }
+            }
+
+            if (is_zero_initialized)
+            {
+                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);                
+            }
+            else
+            {
+                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);                
+            }
+        }
+        else
+        {
+            if (p_init_declarator->p_declarator->declaration_specifiers &&
+                (
+                    (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) ||
+                    (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+                    )
+                )
+            {
+                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+            }
+            else
+            {
+                object_set_uninitialized(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+            }
+
+
+
+        }
+    }
+
+
+    //if (p_init_declarator->initializer)
+      //  flow_visit_initializer(ctx, p_init_declarator->initializer);
+
+    //if (p_init_declarator->p_declarator)
+      //  flow_visit_declarator(ctx, p_init_declarator->p_declarator);
+}
+
+
+static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+{
+#if NEW_FLOW_ANALYSIS
+    flow_visit_init_declarator_new(ctx, p_init_declarator);
+#else
+    flow_visit_init_declarator_current(ctx, p_init_declarator);
+#endif
 }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
@@ -2166,7 +2348,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
         {
             struct object temp_obj = { 0 };
             struct object* p_object = expression_get_object(p_jump_statement->expression_opt, &temp_obj);
-            
+
 
             checked_read_object(ctx->ctx,
                 &p_jump_statement->expression_opt->type,
@@ -2203,7 +2385,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 &dest_object, /*dest object*/
                 &p_jump_statement->expression_opt->type, /*source type*/
                 p_object /*source*/
-             );
+            );
 #endif
             object_destroy(&dest_object);
             object_destroy(&temp_obj);
@@ -2474,7 +2656,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 if (strcmp(lexeme, "\"zero\"") == 0)
                 {
                     //gives the semantics of {0} or calloc
-                    set_direct_state(&p_static_assert_declaration->constant_expression->type, p_obj, OBJECT_STATE_ZERO);
+                    object_set_zero(&p_static_assert_declaration->constant_expression->type, p_obj);
                 }
                 else
                 {

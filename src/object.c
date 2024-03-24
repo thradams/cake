@@ -525,6 +525,7 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 
     if (p_type->struct_or_union_specifier && p_object->members.size > 0)
     {
+        assert(p_object->state == OBJECT_STATE_NOT_APPLICABLE);
         struct struct_or_union_specifier* p_struct_or_union_specifier =
             get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
 
@@ -1327,6 +1328,7 @@ void checked_empty(struct parser_ctx* ctx,
             }
             p_member_declaration = p_member_declaration->next;
         }
+        return;
     }
 
     if (type_is_any_owner(p_type))

@@ -1,4 +1,4 @@
-void* _Owner malloc(unsigned long size);
+void* _Owner calloc(unsigned long n , unsigned long size);
 void free(void* _Owner ptr);
 
 struct Y {
@@ -14,18 +14,16 @@ struct X {
   struct Y  *pY;
 };
 
-void init(struct X * p);
-
 int main() {
-   struct X x = {0};   
+   struct X * _Owner x = calloc(1,sizeof * x);
    static_debug(x);
-   init(&x);
-   static_debug(x);
-   static_state(x.p1, "maybe-null");
-   static_state(x.i, "any");
-   static_state(x.pY, "maybe-null");
-   static_state(x.pY->p0, "maybe-null");
-   static_state(x.pY->p2, "maybe-null");
-   static_state(x.pY->i2, "any");
+   static_state(x, "maybe-null");
+
+   static_state(x->p1, "null");
+   static_state(x->i, "zero");
+   static_state(x->pY, "null");
+   static_state(x->pY->p0, "uninitialized");
+   static_state(x->pY->p2, "uninitialized");
+   static_state(x->pY->i2, "uninitialized");
    free(x);
 }
