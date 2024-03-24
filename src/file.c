@@ -1,14 +1,25 @@
 void* _Owner malloc(unsigned long size);
 void free(void* _Owner ptr);
 
-struct X {
-    char* _Owner name;
+struct Z {
+    char* _Owner nameZ;
 };
 
+struct Y {
+    char* _Owner nameY;
+    struct Z *pZ;
+};
+
+struct X {
+    char* _Owner nameX;
+    struct Y *pY;
+};
+
+void f(struct X * p)
+{
+  static_debug(p);
+}
 int main()
 {
-    struct X* p = (struct X* _Owner) malloc(1);
+    
 }
-
-//flow analyze
-#pragma cake diagnostic check "-Wmissing-owner-qualifier"
