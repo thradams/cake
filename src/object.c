@@ -2369,11 +2369,11 @@ void object_assignment3(struct parser_ctx* ctx,
     {
         return;
     }
-    printf("line  %d ", error_position->line);
-    type_print(p_a_type);
-    printf(" = ");
-    type_print(p_b_type);
-    printf("\n");
+    //printf("line  %d ", error_position->line);
+    //type_print(p_a_type);
+    //printf(" = ");
+    //type_print(p_b_type);
+    //printf("\n");
 
     /*general check for copying uninitialized object*/
     if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)
@@ -2472,7 +2472,7 @@ void object_assignment3(struct parser_ctx* ctx,
                 object_set_uninitialized(p_b_type, p_b_object);
             else
             {
-                
+
                 object_set_moved(p_b_type, p_b_object);
             }
 
@@ -2552,6 +2552,22 @@ void object_assignment3(struct parser_ctx* ctx,
         }
         else
         {
+            if (!type_is_owner(p_a_type))
+            {
+                if (type_is_owner(p_b_type) &&
+                    p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+                {
+                    /*
+                      This situation
+                      struct X* p = (struct X* _Owner) malloc(1);
+                    */
+                    compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+                   ctx,
+                   error_position,
+                   "owner object has short lifetime");
+                }
+            }
+
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
                 struct type t = type_remove_pointer(p_a_type);
