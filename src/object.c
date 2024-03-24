@@ -1333,18 +1333,20 @@ void checked_empty(struct parser_ctx* ctx,
 
     if (type_is_any_owner(p_type))
     {
-        if ((p_object->state & OBJECT_STATE_MOVED) ||
-            (p_object->state & OBJECT_STATE_UNINITIALIZED) ||
-            (p_object->state & OBJECT_STATE_NULL))
+        if ((p_object->state == OBJECT_STATE_MOVED) ||
+            (p_object->state == OBJECT_STATE_UNINITIALIZED) ||
+            (p_object->state == OBJECT_STATE_NULL))
         {
         }
         else if (p_object->state & OBJECT_STATE_NOT_NULL)
         {
-            struct type t = type_remove_pointer(p_type);
-            struct object* pointed = object_get_pointed_object(p_object);
-            if (pointed)
-                checked_empty(ctx, &t, pointed, position_token);
-            type_destroy(&t);
+            char name[200] = { 0 };
+            object_get_name(p_type, p_object, name, sizeof name);
+            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
+                ctx,
+                position_token,
+                "object '%s' is not empty",
+                name);
         }
         else
         {
