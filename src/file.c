@@ -1,4 +1,7 @@
-char * _Owner f() {
-    char * _Owner p = 0;
-    return p; /*implicit move*/
+void destroy(char* _Owner x);
+char   * _Owner _Notnull get();
+
+int main()
+{
+  destroy(get());
 }

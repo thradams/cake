@@ -2396,6 +2396,7 @@ void object_assignment3(struct parser_ctx* ctx,
         !type_is_opt(p_a_type) &&
         p_b_object->state & OBJECT_STATE_NULL)
     {
+#if 0
         char buffer[100] = { 0 };
         object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
 
@@ -2403,6 +2404,7 @@ void object_assignment3(struct parser_ctx* ctx,
                    ctx,
                    error_position,
                    "assignment of possible null object '%s' to non-opt pointer", buffer);
+#endif //nullchecks disabled for now
     }
 
     if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))

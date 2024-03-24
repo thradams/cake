@@ -7287,6 +7287,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
         case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
         case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
+        case TK_KEYWORD__NOTNULL: return "TK_KEYWORD__NOTNULL";
 
             /*extension compile time functions*/
         case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
@@ -10743,6 +10744,7 @@ bool type_is_array(const struct type* p_type);
 bool type_is_out(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
 bool type_is_opt(const struct type* p_type);
+bool type_is_notnull(const struct type* p_type);
 bool type_is_owner(const struct type* p_type);
 bool type_is_obj_owner(const struct type* p_type);
 bool type_is_any_owner(const struct type* p_type);
@@ -18285,6 +18287,12 @@ bool type_is_opt(const struct type* p_type)
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_OPT;
 }
 
+bool type_is_notnull(const struct type* p_type)
+{
+    return p_type->type_qualifier_flags & TYPE_QUALIFIER_NOT_NULL;
+}
+
+
 bool type_is_out(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_OUT;
@@ -23332,17 +23340,31 @@ void object_assignment3(struct parser_ctx* ctx,
     }
 
     /*general check passing possible null to non opt*/
-    if (type_is_pointer(p_a_type) &&
-        !type_is_opt(p_a_type) &&
-        p_b_object->state & OBJECT_STATE_NULL)
+    if (type_is_pointer(p_a_type) && p_b_object->state & OBJECT_STATE_NULL)
     {
         char buffer[100] = { 0 };
         object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
 
-        compiler_diagnostic_message(W_NON_NULL,
-                   ctx,
-                   error_position,
-                   "assignment of possible null object '%s' to non-opt pointer", buffer);
+        if (assigment_type == ASSIGMENT_TYPE_RETURN)
+        {
+            if (type_is_notnull(p_a_type))
+            {
+                compiler_diagnostic_message(W_NON_NULL,
+                           ctx,
+                           error_position,
+                           "assignment of possible null object '%s' to non-opt pointer", buffer);
+            }
+        }
+        else
+        {
+            if (!type_is_opt(p_a_type))
+            {
+                compiler_diagnostic_message(W_NON_NULL,
+                           ctx,
+                           error_position,
+                           "assignment of possible null object '%s' to non-opt pointer", buffer);
+            }
+        }
     }
 
     if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
@@ -23485,7 +23507,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-//#define NEW_FLOW_ANALYSIS 1
+#define NEW_FLOW_ANALYSIS 1
 
 /*
   To be able to do static analysis with goto jump, we
@@ -36311,6 +36333,9 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 ASSIGMENT_TYPE_RETURN);
 
 #else
+            //
+            object_set_zero(ctx->p_return_type, &dest_object);
+
             object_assignment3(ctx->ctx,
              p_jump_statement->expression_opt->first_token,
              ASSIGMENT_TYPE_RETURN,

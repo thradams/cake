@@ -1454,7 +1454,7 @@ static int compare_function_arguments3(struct parser_ctx* ctx,
         if (p_argument_object)
         {
             struct object parameter_object = make_object(&p_current_parameter_type->type, NULL, p_current_argument->expression);
-
+            object_set_uninitialized(&p_current_parameter_type->type, &parameter_object);
             object_assignment3(ctx,
               p_current_argument->expression->first_token,
               ASSIGMENT_TYPE_PARAMETER,
@@ -2192,6 +2192,9 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                 ASSIGMENT_TYPE_RETURN);
 
 #else
+            //
+            object_set_zero(ctx->p_return_type, &dest_object);
+
             object_assignment3(ctx->ctx,
              p_jump_statement->expression_opt->first_token,
              ASSIGMENT_TYPE_RETURN,
