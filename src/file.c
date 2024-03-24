@@ -1,16 +1,16 @@
-void* _Owner malloc(int i);
-void free(void* _Owner p);
 
 struct X {
-    char* _Owner name;
+    char* _Owner p;
 };
 
-void x_delete(struct X* _Owner p)
-{
-    if (p) {
-        //free(p->name);
-        free(p);
-    }
-}
+void x_destroy(struct X* _Obj_owner p);
 
+void f(struct X* x)
+{
+    x_destroy(x);
+    #pragma cake diagnostic check "-Wmust-use-address-of"
+}
 #pragma cake diagnostic check "-Wmissing-destructor"
+
+
+

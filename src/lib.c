@@ -23311,11 +23311,11 @@ void object_assignment3(struct parser_ctx* ctx,
     {
         return;
     }
-    printf("line  %d ", error_position->line);
-    type_print(p_a_type);
-    printf(" = ");
-    type_print(p_b_type);
-    printf("\n");
+    //printf("line  %d ", error_position->line);
+    //type_print(p_a_type);
+    //printf(" = ");
+    //type_print(p_b_type);
+    //printf("\n");
 
     /*general check for copying uninitialized object*/
     if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)
@@ -23591,7 +23591,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define NEW_FLOW_ANALYSIS 1
+//#define NEW_FLOW_ANALYSIS 1
 
 /*
   To be able to do static analysis with goto jump, we
@@ -40603,43 +40603,40 @@ void use_after_destroy()
 
 void obj_owner_must_be_from_addressof()
 {
-    const char* source =
-        "void free(void* _Owner ptr);\n"
-        "void* _Owner malloc(int size);\n"
-        "char* _Owner strdup(const char*);\n"
-        "\n"
-        "struct X {\n"
-        "    char* _Owner name;\n"
-        "};\n"
-        "\n"
-        "struct Y {\n"
-        "    struct X x;\n"
-        "    struct X* px;\n"
-        "};\n"
-        "\n"
-        "void x_destroy(struct X* _Obj_owner p)\n"
-        "{\n"
-        "    free(p->name);\n"
-        "}\n"
-        "\n"
-        "void f(struct Y* p)\n"
-        "{\n"
-        "    x_destroy(p->px);\n"
-        "}\n"
-        "\n"
-        "int main() {\n"
-        "    struct Y  y = {};\n"
-        "    struct* p = &y.x;\n"
-        "    x_destroy(&y.x);\n"
-        "}\n"
-        "\n"
-        "\n"
-        "\n"
-        "\n"
-        "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
-        "\n"
-        "";
+    const char* source
+ =
+ "void free(void* _Owner ptr);\n"
+ "void* _Owner malloc(int size);\n"
+ "char* _Owner strdup(const char*);\n"
+ "\n"
+ "struct X {\n"
+ "    char* _Owner name;\n"
+ "};\n"
+ "\n"
+ "struct Y {\n"
+ "    struct X x;\n"
+ "    struct X* px;\n"
+ "};\n"
+ "\n"
+ "void x_destroy(struct X* _Obj_owner p)\n"
+ "{\n"
+ "    free(p->name);\n"
+ "}\n"
+ "\n"
+ "void f(struct Y* p)\n"
+ "{\n"
+ "    x_destroy(p->px);\n"
+ "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
+ "}\n"
+ "\n"
+ "int main() {\n"
+ "    struct Y  y = {};\n"
+ "    struct* p = &y.x;\n"
+ "    x_destroy(&y.x);\n"
+ "}\n"
+ "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
+ "";
+
 
     assert(compile_without_errors_warnings(true, false, source));
 }

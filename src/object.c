@@ -2363,11 +2363,11 @@ void object_assignment3(struct parser_ctx* ctx,
     {
         return;
     }
-    printf("line  %d ", error_position->line);
-    type_print(p_a_type);
-    printf(" = ");
-    type_print(p_b_type);
-    printf("\n");
+    //printf("line  %d ", error_position->line);
+    //type_print(p_a_type);
+    //printf(" = ");
+    //type_print(p_b_type);
+    //printf("\n");
 
     /*general check for copying uninitialized object*/
     if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)

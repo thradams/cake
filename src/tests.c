@@ -2438,6 +2438,7 @@ void obj_owner_must_be_from_addressof()
         "void f(struct Y* p)\n"
         "{\n"
         "    x_destroy(p->px);\n"
+        "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
         "}\n"
         "\n"
         "int main() {\n"
@@ -2445,14 +2446,9 @@ void obj_owner_must_be_from_addressof()
         "    struct* p = &y.x;\n"
         "    x_destroy(&y.x);\n"
         "}\n"
-        "\n"
-        "\n"
-        "\n"
-        "\n"
-        "//flow analyze\n"
-        "#pragma cake diagnostic check \"-Wmust-use-address-of\"\n"
-        "\n"
+        "#pragma cake diagnostic check \"-Wmissing-destructor\"\n"
         "";
+
 
     assert(compile_without_errors_warnings(true, false, source));
 }
