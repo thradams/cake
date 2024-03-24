@@ -22277,30 +22277,32 @@ void checked_empty(struct parser_ctx* ctx,
         }
     }
 
-    if ((p_object->state & OBJECT_STATE_MOVED) ||
-        (p_object->state & OBJECT_STATE_UNINITIALIZED) ||
-        (p_object->state & OBJECT_STATE_NULL))
+    if (type_is_any_owner(p_type))
     {
+        if ((p_object->state & OBJECT_STATE_MOVED) ||
+            (p_object->state & OBJECT_STATE_UNINITIALIZED) ||
+            (p_object->state & OBJECT_STATE_NULL))
+        {
+        }
+        else if (p_object->state & OBJECT_STATE_NOT_NULL)
+        {
+            struct type t = type_remove_pointer(p_type);
+            struct object* pointed = object_get_pointed_object(p_object);
+            if (pointed)
+                checked_empty(ctx, &t, pointed, position_token);
+            type_destroy(&t);
+        }
+        else
+        {
+            char name[200] = { 0 };
+            object_get_name(p_type, p_object, name, sizeof name);
+            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MOVED,
+                ctx,
+                position_token,
+                "object '%s' it not empty",
+                name);
+        }
     }
-    else if (p_object->state & OBJECT_STATE_NOT_NULL)
-    {
-        struct type t = type_remove_pointer(p_type);
-        struct object* pointed = object_get_pointed_object(p_object);
-        if (pointed)
-            checked_empty(ctx, &t, pointed, position_token);
-        type_destroy(&t);
-    }
-    else
-    {
-        char name[200] = { 0 };
-        object_get_name(p_type, p_object, name, sizeof name);
-        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MOVED,
-            ctx,
-            position_token,
-            "object '%s' it not empty",
-            name);
-    }
-
 }
 
 void object_set_moved(struct type* p_type, struct object* p_object)
@@ -23340,32 +23342,20 @@ void object_assignment3(struct parser_ctx* ctx,
     }
 
     /*general check passing possible null to non opt*/
-    if (type_is_pointer(p_a_type) && p_b_object->state & OBJECT_STATE_NULL)
+    if (type_is_pointer(p_a_type) &&
+        !type_is_opt(p_a_type) &&
+        p_b_object->state & OBJECT_STATE_NULL)
     {
+#if 0
         char buffer[100] = { 0 };
         object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
 
-        if (assigment_type == ASSIGMENT_TYPE_RETURN)
-        {
-            if (type_is_notnull(p_a_type))
-            {
-                compiler_diagnostic_message(W_NON_NULL,
-                           ctx,
-                           error_position,
-                           "assignment of possible null object '%s' to non-opt pointer", buffer);
-            }
-        }
-        else
-        {
-            if (!type_is_opt(p_a_type))
-            {
-                compiler_diagnostic_message(W_NON_NULL,
-                           ctx,
-                           error_position,
-                           "assignment of possible null object '%s' to non-opt pointer", buffer);
-            }
-        }
-    }
+        compiler_diagnostic_message(W_NON_NULL,
+                   ctx,
+                   error_position,
+                   "assignment of possible null object '%s' to non-opt pointer", buffer);
+#endif //nullchecks disabled for now
+}
 
     if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
     {
@@ -35595,7 +35585,7 @@ static int compare_function_arguments3(struct parser_ctx* ctx,
         if (p_argument_object)
         {
             struct object parameter_object = make_object(&p_current_parameter_type->type, NULL, p_current_argument->expression);
-
+            object_set_uninitialized(&p_current_parameter_type->type, &parameter_object);
             object_assignment3(ctx,
               p_current_argument->expression->first_token,
               ASSIGMENT_TYPE_PARAMETER,

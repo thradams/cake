@@ -1329,30 +1329,32 @@ void checked_empty(struct parser_ctx* ctx,
         }
     }
 
-    if ((p_object->state & OBJECT_STATE_MOVED) ||
-        (p_object->state & OBJECT_STATE_UNINITIALIZED) ||
-        (p_object->state & OBJECT_STATE_NULL))
+    if (type_is_any_owner(p_type))
     {
+        if ((p_object->state & OBJECT_STATE_MOVED) ||
+            (p_object->state & OBJECT_STATE_UNINITIALIZED) ||
+            (p_object->state & OBJECT_STATE_NULL))
+        {
+        }
+        else if (p_object->state & OBJECT_STATE_NOT_NULL)
+        {
+            struct type t = type_remove_pointer(p_type);
+            struct object* pointed = object_get_pointed_object(p_object);
+            if (pointed)
+                checked_empty(ctx, &t, pointed, position_token);
+            type_destroy(&t);
+        }
+        else
+        {
+            char name[200] = { 0 };
+            object_get_name(p_type, p_object, name, sizeof name);
+            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MOVED,
+                ctx,
+                position_token,
+                "object '%s' it not empty",
+                name);
+        }
     }
-    else if (p_object->state & OBJECT_STATE_NOT_NULL)
-    {
-        struct type t = type_remove_pointer(p_type);
-        struct object* pointed = object_get_pointed_object(p_object);
-        if (pointed)
-            checked_empty(ctx, &t, pointed, position_token);
-        type_destroy(&t);
-    }
-    else
-    {
-        char name[200] = { 0 };
-        object_get_name(p_type, p_object, name, sizeof name);
-        compiler_diagnostic_message(W_OWNERSHIP_FLOW_MOVED,
-            ctx,
-            position_token,
-            "object '%s' it not empty",
-            name);
-    }
-
 }
 
 void object_set_moved(struct type* p_type, struct object* p_object)
@@ -2405,7 +2407,7 @@ void object_assignment3(struct parser_ctx* ctx,
                    error_position,
                    "assignment of possible null object '%s' to non-opt pointer", buffer);
 #endif //nullchecks disabled for now
-    }
+}
 
     if (type_is_owner(p_a_type) && type_is_pointer(p_a_type))
     {
