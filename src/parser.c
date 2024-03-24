@@ -531,7 +531,8 @@ bool first_of_type_qualifier_token(struct token* p_token)
         p_token->type == TK_KEYWORD__OWNER ||
         p_token->type == TK_KEYWORD__OBJ_OWNER ||
         p_token->type == TK_KEYWORD__VIEW ||
-        p_token->type == TK_KEYWORD__OPT;
+        p_token->type == TK_KEYWORD__OPT ||
+        p_token->type == TK_KEYWORD__NOTNULL;
 
     //__fastcall
     //__stdcall
@@ -1072,6 +1073,8 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD__OBJ_OWNER; /*extension*/
         else if (strcmp("_Opt", text) == 0)
             result = TK_KEYWORD__OPT; /*extension*/
+        else if (strcmp("_Notnull", text) == 0)
+            result = TK_KEYWORD__NOTNULL; /*extension*/
         else if (strcmp("_View", text) == 0)
             result = TK_KEYWORD__VIEW; /*extension*/
 
@@ -4048,6 +4051,10 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
         p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
         break;
 
+    case TK_KEYWORD__NOTNULL:
+        p_type_qualifier->flags = TYPE_QUALIFIER_NOT_NULL;
+        break;
+
     case TK_KEYWORD__OBJ_OWNER:
         p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
         break;
@@ -5929,10 +5936,10 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
-                }
             }
         }
+    }
+}
     }
     catch
     {
@@ -6394,20 +6401,20 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         /*
            init-statement and condition are  almost the same.
            the diference is that init-statement has ;
-        */        
+        */
         p_selection_statement->p_init_statement = init_statement(ctx, true);
         if (p_selection_statement->p_init_statement == NULL)
             throw;
 
         if (ctx->current->type == ';')
-        {     
+        {
             /*
-              We only know if we are at init-statement if we find ; 
+              We only know if we are at init-statement if we find ;
             */
 
             //  fixing the last_token            
             if (p_selection_statement->p_init_statement->p_simple_declaration)
-              p_selection_statement->p_init_statement->p_simple_declaration->last_token = ctx->current;
+                p_selection_statement->p_init_statement->p_simple_declaration->last_token = ctx->current;
             else if (p_selection_statement->p_init_statement->p_expression_statement)
                 p_selection_statement->p_init_statement->p_simple_declaration->last_token = ctx->current;
 
@@ -6459,8 +6466,8 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
                     p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers;
                 p_selection_statement->p_init_statement->p_simple_declaration->p_declaration_specifiers = NULL;
             }
-            
-                       
+
+
             init_statement_delete(p_selection_statement->p_init_statement);
             p_selection_statement->p_init_statement = NULL;
         }
@@ -6833,7 +6840,7 @@ void condition_delete(struct condition* owner opt p_condition)
     {
         init_declarator_delete(p_condition->p_init_declarator);
         expression_delete(p_condition->expression);
-        
+
         attribute_specifier_sequence_delete(p_condition->p_attribute_specifier_sequence_opt);
         declaration_specifiers_delete(p_condition->p_declaration_specifiers);
         free(p_condition);
@@ -6856,7 +6863,7 @@ struct condition* owner condition(struct parser_ctx* ctx)
         if (first_of_declaration_specifier(ctx))
         {
             p_condition->p_attribute_specifier_sequence_opt = attribute_specifier_sequence(ctx);
-            p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);            
+            p_condition->p_declaration_specifiers = declaration_specifiers(ctx, STORAGE_SPECIFIER_AUTOMATIC_STORAGE);
             p_condition->p_init_declarator = init_declarator(ctx, p_condition->p_declaration_specifiers);
         }
         else
@@ -7228,8 +7235,7 @@ void ast_format_visit(struct ast* ast)
 }
 
 void c_visit(struct ast* ast)
-{
-}
+{}
 
 int compile_one_file(const char* file_name,
     struct options* options,
@@ -7496,12 +7502,12 @@ static int create_multiple_paths(const char* root, const char* outdir)
         if (*p == '\0')
             break;
         p++;
-    }
+            }
     return 0;
 #else
     return -1;
 #endif
-}
+        }
 
 int compile(int argc, const char** argv, struct report* report)
 {

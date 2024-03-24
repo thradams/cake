@@ -447,6 +447,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD__OBJ_OWNER:
     case TK_KEYWORD__VIEW:
     case TK_KEYWORD__OPT:
+    case TK_KEYWORD__NOTNULL:
 
         /*extension compile time functions*/
     case TK_KEYWORD_STATIC_DEBUG: /*extension*/

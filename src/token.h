@@ -162,6 +162,7 @@ enum token_type
     TK_KEYWORD__OBJ_OWNER, 
     TK_KEYWORD__VIEW,    
     TK_KEYWORD__OPT, 
+    TK_KEYWORD__NOTNULL, 
 
     /*extension compile time functions*/
     TK_KEYWORD_STATIC_DEBUG, /*extension*/

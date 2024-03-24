@@ -4883,6 +4883,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
         case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
         case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
+        case TK_KEYWORD__NOTNULL: return "TK_KEYWORD__NOTNULL";
 
             /*extension compile time functions*/
         case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
