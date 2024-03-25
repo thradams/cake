@@ -3677,6 +3677,10 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner opt 
         alignment_specifier_delete(p->alignment_specifier);
 
         type_specifier_delete(p->type_specifier);
+        
+        //TODO
+        //type_qualifier_delete(p->type_qualifier);
+
         free(p);
     }
 }

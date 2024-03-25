@@ -858,7 +858,7 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                         type_destroy(&t);
                     }
 
-                    
+
 
 
                     p_init_declarator->p_declarator->object.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
@@ -875,11 +875,11 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                         token_position,
                         ASSIGMENT_TYPE_OBJECTS,
                         false,
-                        &p_init_declarator->p_declarator->type,                                                                      
+                        &p_init_declarator->p_declarator->type,
                         &p_init_declarator->p_declarator->object,
                         &p_init_declarator->initializer->assignment_expression->type,
-                        p_right_object                        
-                        );
+                        p_right_object
+                    );
                 }
             }
             else
@@ -890,17 +890,25 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                     p_init_declarator->p_declarator->first_token
                     ;
 
-                 object_assignment3(ctx->ctx,
-                        token_position,
-                        ASSIGMENT_TYPE_OBJECTS,
-                        false,
-                        &p_init_declarator->p_declarator->type,                                                                      
-                        &p_init_declarator->p_declarator->object,
-                     &p_init_declarator->initializer->assignment_expression->type,
-                        p_right_object
-                        
-                        );
+                if (p_right_object)
+                {
+                    object_assignment3(ctx->ctx,
+                           token_position,
+                           ASSIGMENT_TYPE_OBJECTS,
+                           false,
+                           &p_init_declarator->p_declarator->type,
+                           &p_init_declarator->p_declarator->object,
+                        &p_init_declarator->initializer->assignment_expression->type,
+                           p_right_object
 
+                    );
+                }
+                else
+                {
+                    //provisory handling too deep -> -> -> indirection
+                    object_set_unknown(&p_init_declarator->p_declarator->type,
+                          &p_init_declarator->p_declarator->object);
+                }
 
             }
 
@@ -933,11 +941,11 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
 
             if (is_zero_initialized)
             {
-                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);                
+                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
             }
             else
             {
-                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);                
+                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
             }
         }
         else
