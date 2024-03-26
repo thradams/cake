@@ -2027,7 +2027,16 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 bool_source_zero_value = true;
             }
         }
-
+#ifdef NEW_FLOW_ANALYSIS
+        object_assignment3(ctx->ctx,
+            p_expression->left->first_token,
+            ASSIGMENT_TYPE_OBJECTS,
+            true,
+            &p_expression->left->type, /*dest type*/
+            p_dest_object, /*dest object*/            
+            &p_expression->right->type, /*source type*/
+            p_right_object /*source*/);
+#else
         object_assignment(ctx->ctx,
             p_right_object, /*source*/
             &p_expression->right->type, /*source type*/
@@ -2037,7 +2046,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             bool_source_zero_value,
             OBJECT_STATE_MOVED,
             ASSIGMENT_TYPE_OBJECTS);
-
+#endif
 
         object_destroy(&temp_obj1);
         object_destroy(&temp_obj2);

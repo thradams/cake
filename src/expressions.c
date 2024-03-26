@@ -1961,7 +1961,7 @@ struct expression *owner postfix_expression_tail(struct parser_ctx *ctx, struct 
                                                         ctx->current,
                                                         "struct member '%s' not found in '%s'",
                                                         ctx->current->lexeme,
-                                                        p_expression_node->type.struct_or_union_specifier->tag_name);
+                                                        p_expression_node_new->type.struct_or_union_specifier->tag_name );
                         }
                     }
                     else

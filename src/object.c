@@ -2358,6 +2358,105 @@ bool object_is_zero_or_null(const struct object* p_object)
    This function must check and do the flow assignment of
    a = b
 */
+void object_copy_state(struct type* p_a_type, struct object* p_a_object,
+    struct type* p_b_type, struct object* p_b_object)
+{
+    if (p_a_object == NULL || p_b_object == NULL)
+    {
+        return;
+    }
+
+
+
+
+    if (p_a_type->struct_or_union_specifier && p_a_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_a_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_a_type->struct_or_union_specifier);
+
+        struct struct_or_union_specifier* p_b_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_b_type->struct_or_union_specifier);
+
+        if (p_a_struct_or_union_specifier && p_b_struct_or_union_specifier)
+        {
+            struct member_declaration* p_a_member_declaration =
+                p_a_struct_or_union_specifier->member_declaration_list.head;
+
+            struct member_declaration* p_b_member_declaration =
+                p_b_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_a_member_declaration && p_b_member_declaration)
+            {
+                if (p_a_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_a_member_declarator =
+                        p_a_member_declaration->member_declarator_list_opt->head;
+
+                    struct member_declarator* p_b_member_declarator =
+                        p_b_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_a_member_declarator && p_b_member_declarator)
+                    {
+                        if (p_a_member_declarator->declarator &&
+                            p_b_member_declarator->declarator)
+                        {
+                            if (member_index < p_a_object->members.size &&
+                                member_index < p_b_object->members.size)
+                            {
+
+                                struct type* p_a_member_type = &p_a_member_declarator->declarator->type;
+                                struct object* p_a_member_object = &p_a_object->members.data[member_index];
+
+                                struct type* p_b_member_type = &p_b_member_declarator->declarator->type;
+                                struct object* p_b_member_object = &p_b_object->members.data[member_index];
+
+                                object_copy_state(p_a_member_type, p_a_member_object,
+                                    p_b_member_type, p_b_member_object);
+                            }
+                            else
+                            {
+                                //TODO BUG union?                                
+                            }
+                            member_index++;
+                        }
+                        p_a_member_declarator = p_a_member_declarator->next;
+                        p_b_member_declarator = p_b_member_declarator->next;
+                    }
+                }
+                p_a_member_declaration = p_a_member_declaration->next;
+                p_b_member_declaration = p_b_member_declaration->next;
+            }
+            return;
+        }
+        return;
+    }
+
+    p_a_object->state = p_b_object->state;
+
+    if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
+    {
+        //*b must be empty before copying to void* owner
+        struct type ta = type_remove_pointer(p_a_type);
+        struct type tb = type_remove_pointer(p_b_type);
+
+        if (!type_is_void(&ta) && !type_is_void(&tb))
+        {
+            object_copy_state(&ta, object_get_pointed_object(p_a_object),
+                &tb, object_get_pointed_object(p_b_object));
+        }
+
+
+        type_destroy(&ta);
+        type_destroy(&tb);
+    }
+}
+
+
+/*
+   This function must check and do the flow assignment of
+   a = b
+*/
 void object_assignment3(struct parser_ctx* ctx,
     const struct token* error_position,
     enum assigment_type assigment_type,
@@ -2434,8 +2533,18 @@ void object_assignment3(struct parser_ctx* ctx,
 
         if (object_is_zero_or_null(p_b_object))
         {
-            //a = nullpr
-            object_set_zero(p_a_type, p_a_object);
+            if (type_is_array(p_b_type))
+            {
+                //int b[2] = {0};
+                //int * a = b;
+                object_set_zero(p_a_type, p_a_object);
+                p_a_object->state = OBJECT_STATE_NOT_NULL;
+            }
+            else
+            {
+                //a = nullpr
+                object_set_zero(p_a_type, p_a_object);
+            }
             return;
         }
     }
@@ -2457,6 +2566,7 @@ void object_assignment3(struct parser_ctx* ctx,
     if (type_is_void_ptr(p_a_type) && type_is_pointer(p_b_type))
     {
         p_a_object->state = p_b_object->state;
+        
 
         if (type_is_owner(p_a_type))
         {
@@ -2482,8 +2592,8 @@ void object_assignment3(struct parser_ctx* ctx,
 
     if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
     {
-        p_a_object->state = p_b_object->state;
-
+        //p_a_object->state = p_b_object->state;
+        object_copy_state(p_a_type, p_a_object, p_b_type, p_b_object);
         struct type t = type_remove_pointer(p_a_type);
 
         /*if the parameter points to out object, then we don´t need to check
@@ -2492,6 +2602,8 @@ void object_assignment3(struct parser_ctx* ctx,
         const bool checked_pointed_object_read = !type_is_out(&t);
 
         checked_read_object(ctx, p_b_type, p_b_object, error_position, checked_pointed_object_read);
+
+        
 
         type_destroy(&t);
 
@@ -2504,7 +2616,7 @@ void object_assignment3(struct parser_ctx* ctx,
         }
         else if (type_is_obj_owner(p_a_type))
         {
-            if (type_is_owner(p_b_type))
+            if (type_is_any_owner(p_b_type))
             {
                 if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 {

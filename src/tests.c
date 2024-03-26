@@ -1502,8 +1502,9 @@ void ownership_flow_test_no_warning()
 
 void ownership_flow_test_moved_if_not_null()
 {
-    const char* source =
-        "void * _Owner malloc(int i);\n"
+    const char* source
+        =
+        "void * _Owner calloc(int i, int sz);\n"
         "void free( void * _Owner p);\n"
         "\n"
         "struct X { int i; };\n"
@@ -1511,7 +1512,7 @@ void ownership_flow_test_moved_if_not_null()
         "\n"
         "int main() {\n"
         "   struct Y y = {0};\n"
-        "   struct X * _Owner p = malloc(sizeof(struct X));\n"
+        "   struct X * _Owner p = calloc(1, sizeof(struct X));\n"
         "   if (p){\n"
         "     y.p = p;\n"
         "   }\n"
@@ -1519,6 +1520,7 @@ void ownership_flow_test_moved_if_not_null()
         "}\n"
         "\n"
         "";
+
     assert(compile_without_errors_warnings(true, false, source));
 }
 
@@ -2070,14 +2072,13 @@ void passing_non_owner()
 void flow_analysis_else()
 {
     const char* source
-
         =
-        "void * _Owner malloc(int i);\n"
+        "void * _Owner calloc(int i, int n);\n"
         "void free(void * _Owner p);\n"
         "\n"
         "int main() {\n"
         "    int * _Owner p1 = 0;\n"
-        "    int * _Owner p2 = malloc(1);\n"
+        "    int * _Owner p2 = calloc(1, sizeof(int));\n"
         "\n"
         "    if (p2 == 0) {\n"
         "        return 1;\n"
@@ -2091,7 +2092,6 @@ void flow_analysis_else()
         "    return 0;\n"
         "}";
 
-    "}";
 
     assert(compile_without_errors_warnings(true, false, source));
 }
@@ -2445,7 +2445,7 @@ void obj_owner_must_be_from_addressof()
         "    struct Y  y = {};\n"
         "    struct* p = &y.x;\n"
         "    x_destroy(&y.x);\n"
-        "}\n"        
+        "}\n"
         "";
 
 
