@@ -101,6 +101,7 @@ void token_list_pop_back(struct token_list* list) /*unchecked*/
         return;
 
     struct token* p = list->tail;
+    assert(p->next == NULL);
     if (list->head == list->tail)
     {
         list->head = NULL;
@@ -127,7 +128,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
         return;
 
     struct token* owner p = list->head;
-
+    assert(p->prev == NULL);
     if (list->head == list->tail)
     {
         list->head = NULL;
@@ -135,7 +136,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     }
     else
     {
-        list->head = list->head->next;
+        list->head = p->next;
     }
     p->next = NULL;
     p->prev = NULL;

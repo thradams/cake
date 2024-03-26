@@ -1080,6 +1080,7 @@ void token_list_pop_back(struct token_list* list) /*unchecked*/
         return;
 
     struct token* p = list->tail;
+    assert(p->next == NULL);
     if (list->head == list->tail)
     {
         list->head = NULL;
@@ -1106,7 +1107,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
         return;
 
     struct token* owner p = list->head;
-
+    assert(p->prev == NULL);
     if (list->head == list->tail)
     {
         list->head = NULL;
@@ -1114,7 +1115,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     }
     else
     {
-        list->head = list->head->next;
+        list->head = p->next;
     }
     p->next = NULL;
     p->prev = NULL;
@@ -36404,7 +36405,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 bool_source_zero_value = true;
             }
         }
-#ifndef NEW_FLOW_ANALYSIS
+#ifdef NEW_FLOW_ANALYSIS
         object_assignment3(ctx->ctx,
             p_expression->left->first_token,
             ASSIGMENT_TYPE_OBJECTS,
