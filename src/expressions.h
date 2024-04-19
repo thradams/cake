@@ -1,4 +1,5 @@
 #pragma once
+
 #include "type.h"
 #include  "tokenizer.h"
 #include "ownership.h"
@@ -73,8 +74,9 @@ enum expression_type
     AND_EXPRESSION,
     EXCLUSIVE_OR_EXPRESSION,
     INCLUSIVE_OR_EXPRESSION,
-    INCLUSIVE_AND_EXPRESSION,
+    
     LOGICAL_OR_EXPRESSION,
+    LOGICAL_AND_EXPRESSION,
     ASSIGNMENT_EXPRESSION,
 
     CONDITIONAL_EXPRESSION,
@@ -87,11 +89,12 @@ struct argument_expression_list
         assignment-expression
         argument-expression-list , assignment-expression
     */
-    struct argument_expression* owner head;
-    struct argument_expression* tail;
+    struct argument_expression* owner opt head;
+    struct argument_expression* opt tail;
 };
 
 void argument_expression_list_destroy(struct argument_expression_list * obj_owner p);
+void argument_expression_list_push(struct argument_expression_list * list, struct argument_expression* owner p);
 
 struct generic_association
 {
@@ -113,8 +116,8 @@ struct generic_association
 
 struct generic_assoc_list
 {
-    struct generic_association* owner head;
-    struct generic_association* tail;
+    struct generic_association* owner opt head;
+    struct generic_association* opt tail;
 };
 
 void generic_assoc_list_add(struct generic_assoc_list * p, struct generic_association* owner item);
@@ -139,8 +142,8 @@ struct generic_selection
     */
 
 
-    struct expression* owner expression;
-    struct type_name* owner type_name;
+    struct expression* owner opt expression;
+    struct type_name* owner opt type_name;
     /*
     * Points to the matching expression
     */
@@ -184,8 +187,7 @@ void constant_value_to_string(const struct constant_value* a, char buffer[], int
 struct expression
 {
     enum expression_type expression_type;
-    struct type type;
-    //bool lvalue;
+    struct type type;    
 
     struct constant_value constant_value;
 
@@ -215,7 +217,13 @@ struct expression
 
     bool is_assigment_expression;
     
+    //used to simulate boolean expression results
+    int value_emulation;
 };
+
+//built-in semantics
+bool expression_is_malloc(const struct expression* p);
+bool expression_is_calloc(const struct expression* p);
 
 void expression_delete(struct expression* owner opt p);
 
@@ -226,7 +234,7 @@ bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
 bool expression_is_lvalue(const struct expression* expr);
 
-struct object* expression_get_object(struct expression* p_expression, struct object* p_object);
+struct object* expression_get_object(struct expression* p_expression, struct object* p_object, bool nullable_enabled);
 bool expression_is_null_pointer_constant(const struct expression* expression);
 void expression_evaluate_equal_not_equal(const struct expression* left,
     const struct expression* right,

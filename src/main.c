@@ -35,6 +35,12 @@ static void print_report(struct report* report, bool msvc)
         printf("%d" LIGHTCYAN    " notes " RESET, report->info_count);
     }
 
+    if (report->test_mode)
+    {
+        printf("\n");
+        printf(" %d tests of %d failed\n", report->test_failed, (report->test_failed+ report->test_succeeded));
+
+    }
 
     printf("\n");
 }
@@ -55,16 +61,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    struct report report = {0};
-    compile(argc, (const char**) argv, &report);
+    struct report report = { 0 };
+    compile(argc, (const char**)argv, &report);
     print_report(&report, true);
 
     return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
-    
+
 }
 #else
 #include "unit_test.c"
-#define CURRENT_NUMBER_OF_FAILING_TEST 2
+#define CURRENT_NUMBER_OF_FAILING_TEST 0
 int main(int argc, char** argv)
 {
 

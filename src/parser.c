@@ -531,8 +531,7 @@ bool first_of_type_qualifier_token(struct token* p_token)
         p_token->type == TK_KEYWORD__OWNER ||
         p_token->type == TK_KEYWORD__OBJ_OWNER ||
         p_token->type == TK_KEYWORD__VIEW ||
-        p_token->type == TK_KEYWORD__OPT ||
-        p_token->type == TK_KEYWORD__NOTNULL;
+        p_token->type == TK_KEYWORD__OPT;
 
     //__fastcall
     //__stdcall
@@ -1044,28 +1043,12 @@ enum token_type is_keyword(const char* text)
         break;
     case '_':
 
-        // begin microsoft
-        if (strcmp("__int8", text) == 0)
-            result = TK_KEYWORD__INT8;
-        else if (strcmp("__int16", text) == 0)
-            result = TK_KEYWORD__INT16;
-        else if (strcmp("__int32", text) == 0)
-            result = TK_KEYWORD__INT32;
-        else if (strcmp("__int64", text) == 0)
-            result = TK_KEYWORD__INT64;
-        else if (strcmp("__forceinline", text) == 0)
-            result = TK_KEYWORD_INLINE;
-        else if (strcmp("__inline", text) == 0)
-            result = TK_KEYWORD_INLINE;
-        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
-            result = TK_KEYWORD__ASM;
-        else if (strcmp("__alignof", text) == 0)
-            result = TK_KEYWORD__ALIGNOF;
+
         //
         // end microsoft
 
         /*ownership*/
-        else if (strcmp("_Out", text) == 0)
+        if (strcmp("_Out", text) == 0)
             result = TK_KEYWORD__OUT; /*extension*/
         else if (strcmp("_Owner", text) == 0)
             result = TK_KEYWORD__OWNER; /*extension*/
@@ -1073,8 +1056,7 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD__OBJ_OWNER; /*extension*/
         else if (strcmp("_Opt", text) == 0)
             result = TK_KEYWORD__OPT; /*extension*/
-        else if (strcmp("_Notnull", text) == 0)
-            result = TK_KEYWORD__NOTNULL; /*extension*/
+
         else if (strcmp("_View", text) == 0)
             result = TK_KEYWORD__VIEW; /*extension*/
 
@@ -1140,13 +1122,34 @@ enum token_type is_keyword(const char* text)
             result = TK_KEYWORD__BITINT; /*(C23)*/
         else if (strcmp("__typeof__", text) == 0)
             result = TK_KEYWORD_TYPEOF; /*(C23)*/
-
+#ifdef  _MSC_VER
+        // begin microsoft
+        else if (strcmp("__int8", text) == 0)
+            result = TK_KEYWORD__INT8;
+        else if (strcmp("__int16", text) == 0)
+            result = TK_KEYWORD__INT16;
+        else if (strcmp("__int32", text) == 0)
+            result = TK_KEYWORD__INT32;
+        else if (strcmp("__int64", text) == 0)
+            result = TK_KEYWORD__INT64;
+        else if (strcmp("__forceinline", text) == 0)
+            result = TK_KEYWORD_INLINE;
+        else if (strcmp("__inline", text) == 0)
+            result = TK_KEYWORD_INLINE;
+        else if (strcmp("_asm", text) == 0 || strcmp("__asm", text) == 0)
+            result = TK_KEYWORD__ASM;
+        else if (strcmp("__alignof", text) == 0)
+            result = TK_KEYWORD__ALIGNOF;
+        else if (strcmp("__restrict", text) == 0)
+            result = TK_KEYWORD_RESTRICT;
+#endif
         break;
     default:
         break;
     }
     return result;
 }
+
 
 static void token_promote(struct token* token)
 {
@@ -1579,7 +1582,7 @@ static void parse_pragma(struct parser_ctx* ctx, struct token* token)
             {
                 compiler_diagnostic_message(C_ERROR_PRAGMA_ERROR, ctx, ctx->current, "nullchecks pragma needs to use ON OFF");
             }
-            ctx->options.null_checks = onoff;
+            ctx->options.null_checks_enabled = onoff;
         }
 
         if (ctx->current && strcmp(ctx->current->lexeme, "diagnostic") == 0)
@@ -2373,27 +2376,24 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         const char* name = p_init_declarator->p_declarator->name->lexeme;
         if (name)
         {
-            if (tkname)
+            /*
+              Checking naming conventions
+            */
+            if (ctx->scopes.tail->scope_level == 0)
             {
-                /*
-                  Checking naming conventions
-                */
-                if (ctx->scopes.tail->scope_level == 0)
+                if (type_is_function(&p_init_declarator->p_declarator->type))
                 {
-                    if (type_is_function(&p_init_declarator->p_declarator->type))
-                    {
-                        naming_convention_global_var(ctx,
-                            tkname,
-                            &p_init_declarator->p_declarator->type,
-                            p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
-                    }
-                    else
-                    {
-                        naming_convention_global_var(ctx,
-                            tkname,
-                            &p_init_declarator->p_declarator->type,
-                            p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
-                    }
+                    naming_convention_global_var(ctx,
+                        tkname,
+                        &p_init_declarator->p_declarator->type,
+                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
+                }
+                else
+                {
+                    naming_convention_global_var(ctx,
+                        tkname,
+                        &p_init_declarator->p_declarator->type,
+                        p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags);
                 }
             }
 
@@ -2498,7 +2498,7 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     }
                     else
                     {
-                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type);
+                        struct type t2 = type_lvalue_conversion(&p_init_declarator->initializer->assignment_expression->type, ctx->options.null_checks_enabled);
                         type_swap(&t2, &t);
                         type_destroy(&t2);
                     }
@@ -2508,59 +2508,13 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                     t.name_opt = strdup(p_init_declarator->p_declarator->name->lexeme);
 
                     type_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
-                    // storage qualifiers?
 
                     type_visit_to_mark_anonymous(&t);
                     type_swap(&p_init_declarator->p_declarator->type, &t);
                     type_destroy(&t);
                 }
 
-                /*
-                  Checking for "const qualifier discarded"
-                */
-                if (type_is_pointer_to_const(&p_init_declarator->initializer->assignment_expression->type))
-                {
-                    if (p_init_declarator->p_declarator &&
-                        !type_is_pointer_to_const(&p_init_declarator->p_declarator->type))
-                    {
-                        compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx, ctx->current, "const qualifier discarded");
-                    }
-                }
-
-                if (type_is_owner(&p_init_declarator->initializer->assignment_expression->type))
-                {
-                    if (p_init_declarator->initializer->assignment_expression->expression_type == POSTFIX_FUNCTION_CALL)
-                    {
-                        // type * p = f();
-                        if (!type_is_owner(&p_init_declarator->p_declarator->type))
-                        {
-                            compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER, ctx, p_init_declarator->p_declarator->first_token, "missing owner qualifier");
-                        }
-                    }
-                }
-
-                if (type_is_owner(&p_init_declarator->p_declarator->type))
-                {
-                    if (!type_is_owner(&p_init_declarator->initializer->assignment_expression->type))
-                    {
-                        const bool is_zero =
-                            constant_value_is_valid(&p_init_declarator->initializer->assignment_expression->constant_value) &&
-                            constant_value_to_bool(&p_init_declarator->initializer->assignment_expression->constant_value) == false;
-
-                        if (!is_zero)
-                        {
-                            compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
-                                ctx,
-                                p_init_declarator->p_declarator->first_token, "cannot initialize an owner type with a non owner");
-                        }
-                        else
-                        {
-                            /*
-                                 T * owner p =  NULL; // OK
-                            */
-                        }
-                    }
-                }
+                check_assigment(ctx, &p_init_declarator->p_declarator->type, p_init_declarator->initializer->assignment_expression, ASSIGMENT_TYPE_OBJECTS);
             }
         }
     }
@@ -2805,7 +2759,7 @@ struct typeof_specifier* owner typeof_specifier(struct parser_ctx* ctx)
 
             if (type_is_array(&p_typeof_specifier->type))
             {
-                struct type t = type_param_array_to_pointer(&p_typeof_specifier->type);
+                struct type t = type_param_array_to_pointer(&p_typeof_specifier->type, ctx->options.null_checks_enabled);
                 type_swap(&t, &p_typeof_specifier->type);
                 type_destroy(&t);
             }
@@ -3677,7 +3631,7 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner opt 
         alignment_specifier_delete(p->alignment_specifier);
 
         type_specifier_delete(p->type_specifier);
-        
+
         //TODO
         //type_qualifier_delete(p->type_qualifier);
 
@@ -4052,12 +4006,9 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
         break;
 
     case TK_KEYWORD__OPT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OPT;
+        p_type_qualifier->flags = TYPE_QUALIFIER_NULLABLE;
         break;
 
-    case TK_KEYWORD__NOTNULL:
-        p_type_qualifier->flags = TYPE_QUALIFIER_NOT_NULL;
-        break;
 
     case TK_KEYWORD__OBJ_OWNER:
         p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
@@ -4862,7 +4813,7 @@ void type_name_delete(struct type_name* owner opt p)
         free(p);
     }
 }
-struct type_name* owner type_name(struct parser_ctx* ctx)
+struct type_name* owner opt type_name(struct parser_ctx* ctx)
 {
     struct type_name* owner p_type_name = calloc(1, sizeof(struct type_name));
 
@@ -5267,6 +5218,44 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         else
         {
             compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, p_pragma_token, "unknown pragma");
+        }
+    }
+    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "nullable") == 0)
+    {
+        //see
+        //https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references
+        p_pragma_token = pragma_match(p_pragma_token);
+
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
+        {
+            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
+
+            // Dereference warnings : Enabled
+            // Assignment warnings : Enabled
+            // Pointer types : Non-nullable unless declared with _Opt
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+
+            ctx->options.null_checks_enabled = true;
+
+        }
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
+        {
+            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+
+            // Dereference warnings : Disabled
+            // Assignment warnings : Disabled
+            // Pointer types : All are nullable
+            ctx->options.null_checks_enabled = false;
         }
     }
 }
@@ -5940,10 +5929,10 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
+                    }
+                }
             }
         }
-    }
-}
     }
     catch
     {
@@ -6737,13 +6726,10 @@ struct jump_statement* owner jump_statement(struct parser_ctx* ctx)
                     }
                     else
                     {
-                        if (p_jump_statement->expression_opt)
-                        {
-                            check_assigment(ctx,
-                                &return_type,
-                                p_jump_statement->expression_opt,
-                                true);
-                        }
+                        check_assigment(ctx,
+                            &return_type,
+                            p_jump_statement->expression_opt,
+                            ASSIGMENT_TYPE_RETURN);
                     }
 
                     type_destroy(&return_type);
@@ -7395,8 +7381,7 @@ int compile_one_file(const char* file_name,
 
         if (ctx.sarif_file)
         {
-            if (ctx.sarif_file)
-            {
+
 #define END                                                             \
     "      ],\n"                                                        \
     "      \"tool\": {\n"                                               \
@@ -7411,8 +7396,7 @@ int compile_one_file(const char* file_name,
     "  ]\n"                                                             \
     "}\n"                                                               \
     "\n"
-                fprintf(ctx.sarif_file, "%s", END);
-            }
+            fprintf(ctx.sarif_file, "%s", END);
             fclose(ctx.sarif_file);
             ctx.sarif_file = NULL;
         }
@@ -7422,7 +7406,41 @@ int compile_one_file(const char* file_name,
         // printf("Error %s\n", error->message);
     }
 
-    token_list_destroy(&tokens);
+    if (ctx.options.test_mode)
+    {
+        //lets check if the generated file is the expected
+        char buf[MYMAX_PATH];
+        snprintf(buf, sizeof buf, "%s.txt", file_name);
+        char* content_expected = read_file(buf);
+        if (content_expected)
+        {
+            if (strcmp(content_expected, s) != 0)
+            {
+                printf("diferent");
+                report->error_count++;
+            }
+            free(content_expected);
+        }
+
+        if (report->error_count > 0 || report->warnings_count > 0)
+        {
+            printf("-------------------------------------------\n");
+            printf("%s", content);
+            printf("\n-------------------------------------------\n");
+            printf(LIGHTRED "TEST FAILED" RESET " : error=%d, warnings=%d\n", report->error_count, report->warnings_count);
+            printf("\n\n");
+            report->test_failed++;
+        }
+        else
+        {
+            report->test_succeeded++;
+            printf(LIGHTGREEN "TEST OK\n" RESET);
+        }
+    }
+    else
+
+
+        token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
     parser_ctx_destroy(&ctx);
     free((void* owner)s);
@@ -7431,6 +7449,89 @@ int compile_one_file(const char* file_name,
     preprocessor_ctx_destroy(&prectx);
 
     return report->error_count > 0;
+}
+
+int compile_many_files(const char* file_name,
+    struct options* options,
+    const char* out_file_name,
+    int argc,
+    const char** argv,
+    struct report* report)
+{
+    const char* const file_name_name = basename(file_name);
+    const char* const file_name_extension = strrchr(file_name_name, '.');
+
+    int num_files = 0;
+
+    char path[MYMAX_PATH] = { 0 };
+    snprintf(path, sizeof path, "%s", file_name);
+    dirname(path);
+    DIR* owner dir = opendir(path);
+
+    if (dir == NULL)
+    {
+        return errno;
+    }
+
+    struct dirent* dp;
+    while ((dp = readdir(dir)) != NULL)
+    {
+        if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
+        {
+            /* skip self and parent */
+            continue;
+        }
+
+        char fromlocal[300] = { 0 };
+        snprintf(fromlocal, 200, "%s/%s", "", dp->d_name);
+
+        if (dp->d_type & DT_DIR)
+        {
+
+        }
+        else
+        {
+            const char* const file_name_iter = basename(dp->d_name);
+            const char* const file_extension = strrchr(file_name_iter, '.');
+
+            if (strcmp(file_name_extension, file_extension) == 0)
+            {
+                //Fixes the output file name replacing the current name
+                char out_file_name_final[MYMAX_PATH] = { 0 };
+                strcpy(out_file_name_final, out_file_name);
+                dirname(out_file_name_final);
+                strcat(out_file_name_final, "/");
+                strcat(out_file_name_final, file_name_iter);
+
+                char in_file_name_final[MYMAX_PATH] = { 0 };
+                strcpy(in_file_name_final, file_name);
+                dirname(in_file_name_final);
+                strcat(in_file_name_final, "/");
+                strcat(in_file_name_final, file_name_iter);
+
+
+                struct report report_local = { 0 };
+                report_local.test_mode = report->test_mode;
+                compile_one_file(in_file_name_final,
+                                 options,
+                                 out_file_name_final,
+                                 argc,
+                                 argv,
+                                 &report_local);
+
+
+                report->error_count += report_local.error_count;
+                report->warnings_count += report_local.warnings_count;
+                report->info_count += report_local.info_count;
+                report->test_succeeded += report_local.test_succeeded;
+                report->test_failed += report_local.test_failed;
+                num_files++;
+            }
+        }
+    }
+
+    closedir(dir);
+    return num_files;
 }
 
 static void longest_common_path(int argc, const char** argv, char root_dir[MYMAX_PATH])
@@ -7506,12 +7607,12 @@ static int create_multiple_paths(const char* root, const char* outdir)
         if (*p == '\0')
             break;
         p++;
-            }
+    }
     return 0;
 #else
     return -1;
 #endif
-        }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -7520,6 +7621,9 @@ int compile(int argc, const char** argv, struct report* report)
     {
         return 1;
     }
+
+
+    report->test_mode = options.test_mode;
 
     clock_t begin_clock = clock();
     int no_files = 0;
@@ -7573,7 +7677,18 @@ int compile(int argc, const char** argv, struct report* report)
 
         char fullpath[MYMAX_PATH] = { 0 };
         realpath(argv[i], fullpath);
-        compile_one_file(fullpath, &options, output_file, argc, argv, report);
+
+        const char* file_extension = basename(fullpath);
+
+        if (file_extension[0] == '*')
+        {
+            no_files--; //does not count *.c 
+            no_files += compile_many_files(fullpath, &options, output_file, argc, argv, report);
+        }
+        else
+        {
+            compile_one_file(fullpath, &options, output_file, argc, argv, report);
+        }
     }
 
     clock_t end_clock = clock();

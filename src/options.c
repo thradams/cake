@@ -7,8 +7,8 @@
 
 
 struct diagnostic default_diagnostic = {
-
       .warnings = (~0ULL) & ~(
+        NULLABLE_DISABLE_REMOVED_WARNINGS |
         (1ULL << W_NOTE) |
         (1ULL << W_STYLE) |
         (1ULL << W_UNUSED_PARAMETER) |
@@ -23,7 +23,7 @@ s_warnings[] = {
     {W_UNUSED_VARIABLE, "unused-variable"},
     {W_DEPRECATED, "deprecated"},
     {W_ENUN_CONVERSION,"enum-conversion"},
-    {W_NON_NULL, "nonnull"},
+    {W_FLOW_NON_NULL, "nonnull"},
     {W_ADDRESS, "address"},
     {W_UNUSED_PARAMETER, "unused-parameter"},
     {W_DECLARATOR_HIDE, "hide-declarator"},
@@ -49,12 +49,13 @@ s_warnings[] = {
     {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
     {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
     {W_OWNERSHIP_DISCARDING_OWNER, "discard-owner"},
-    {W_OWNERSHIP_FLOW_MISSING_DTOR, "missing-destructor"},
+    {W_FLOW_MISSING_DTOR, "missing-destructor"},
     {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
-    {W_OWNERSHIP_FLOW_MOVED, "using-moved-object"},
-    {W_OWNERSHIP_FLOW_UNINITIALIZED, "analyzer-maybe-uninitialized"},
-    {W_OWNERSHIP_FLOW_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
+    {W_FLOW_MOVED, "using-moved-object"},
+    {W_FLOW_UNINITIALIZED, "analyzer-maybe-uninitialized"},
+    {W_FLOW_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
+    {W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
+    {W_FLOW_LIFETIME_ENDED, "lifetime-ended"},
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
@@ -62,7 +63,8 @@ s_warnings[] = {
     {W_ARRAY_INDIRECTION,"array-indirection"},
     {W_OUT_OF_BOUNDS, "out-of-bounds"},
     {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
-    {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"}
+    {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
+    {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"}
 
 };
 
@@ -90,14 +92,16 @@ int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
     {
-        case W_OWNERSHIP_FLOW_MISSING_DTOR:
-        case W_OWNERSHIP_FLOW_UNINITIALIZED:
-        case W_OWNERSHIP_FLOW_MOVED:
-        case W_OWNERSHIP_FLOW_NULL_DEREFERENCE:
-        case W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
-            return 2; /*returns 2 if it flow analysis*/
-        default:
-            break;
+        //TODO should be everthing that starts with FLOW
+    case W_FLOW_MISSING_DTOR:
+    case W_FLOW_UNINITIALIZED:
+    case W_FLOW_MOVED:
+    case W_FLOW_NULL_DEREFERENCE:
+    case W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG:
+    case W_FLOW_NON_NULL:
+        return 2; /*returns 2 if it flow analysis*/
+    default:
+        break;
     }
     return 0;
 }
@@ -134,7 +138,7 @@ unsigned long long  get_warning_bit_mask(const char* wname)
     assert(wname[0] == '-');
     for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
     {
-        if (strncmp(s_warnings[j].name, wname+2, strlen(s_warnings[j].name)) == 0)
+        if (strncmp(s_warnings[j].name, wname + 2, strlen(s_warnings[j].name)) == 0)
         {
             return (1ULL << ((unsigned long long)s_warnings[j].w));
         }
@@ -237,12 +241,24 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-nullchecks") == 0)
+        {
+            options->null_checks_enabled = true;
+            continue;
+        }
+
         if (strcmp(argv[i], "-remove-comments") == 0)
         {
             options->remove_comments = true;
             continue;
         }
 
+        if (strcmp(argv[i], "-test-mode") == 0)
+        {
+            options->test_mode = true;
+            continue;
+        }
+       
         if (strcmp(argv[i], "-direct-compilation") == 0 ||
             strcmp(argv[i], "-rm") == 0)
         {
@@ -262,11 +278,6 @@ int fill_options(struct options* options,
             continue;
         }
 
-        if (strcmp(argv[i], "-nullchecks") == 0)
-        {
-            options->null_checks = true;
-            continue;
-        }
 
         if (strcmp(argv[i], "-msvc-output") == 0)
         {
@@ -291,6 +302,20 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-style=microsoft") == 0)
         {
             options->style = STYLE_GNU;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-nullable=disable") == 0)
+        {
+            options->null_checks_enabled = false;
+            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
+            options->diagnostic_stack[0].warnings &= ~w;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-nullable=enabled") == 0)
+        {
+            options->null_checks_enabled = true;
             continue;
         }
 
@@ -361,7 +386,7 @@ int fill_options(struct options* options,
             if (disable_warning)
                 w = get_warning_bit_mask(argv[i] + 3);
             else
-                w = get_warning_bit_mask(argv[i] );
+                w = get_warning_bit_mask(argv[i]);
 
             if (w == 0)
             {
@@ -485,11 +510,11 @@ void print_help()
 void test_get_warning_name()
 {
     char name[100];
-    get_warning_name(W_OWNERSHIP_FLOW_MISSING_DTOR, sizeof name, name);
+    get_warning_name(W_FLOW_MISSING_DTOR, sizeof name, name);
     assert(strcmp(name, "-Wmissing-destructor") == 0);
 
     unsigned long long  flags = get_warning_bit_mask(name);
-    assert(flags == (1ULL << W_OWNERSHIP_FLOW_MISSING_DTOR));
+    assert(flags == (1ULL << W_FLOW_MISSING_DTOR));
 
 
     get_warning_name(W_STYLE, sizeof name, name);

@@ -3182,10 +3182,11 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 }
                 else if (input_list->head && strcmp(input_list->head->lexeme, "nullchecks") == 0)
                 {
+                    assert(false);
                     match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//nullchecks
                     r.tail->flags |= TK_FLAG_FINAL;
                     skip_blanks_level(ctx, &r, input_list, level);
-                    ctx->options.null_checks = true;
+                    ctx->options.null_checks_enabled = true;
                 }
 
                 if (input_list->head && strcmp(input_list->head->lexeme, "diagnostic") == 0)
@@ -4883,7 +4884,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
         case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
         case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
-        case TK_KEYWORD__NOTNULL: return "TK_KEYWORD__NOTNULL";
+        
 
             /*extension compile time functions*/
         case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/

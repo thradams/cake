@@ -113,8 +113,8 @@ enum type_qualifier_flags
     TYPE_QUALIFIER_OWNER = 1 << 4,
     TYPE_QUALIFIER_OBJ_OWNER = 1 << 5,
     TYPE_QUALIFIER_VIEW = 1 << 6,
-    TYPE_QUALIFIER_OPT = 1 << 7,
-    TYPE_QUALIFIER_NOT_NULL = 1 << 8,
+    TYPE_QUALIFIER_NULLABLE = 1 << 7,
+    
     TYPE_QUALIFIER_OUT = 1 << 9,
 };
 
@@ -143,6 +143,13 @@ enum storage_class_specifier_flags
 
 struct declarator;
 struct type;
+
+enum assigment_type
+{
+    ASSIGMENT_TYPE_RETURN,    // T f() { return b; }
+    ASSIGMENT_TYPE_PARAMETER, // void f(T a); f(b);
+    ASSIGMENT_TYPE_OBJECTS,   // a = b
+};
 
 
 struct type_list {
@@ -207,7 +214,7 @@ struct expression;
 void check_assigment(struct parser_ctx* ctx,
     struct type* left_type,
     struct expression* right,
-    bool return_assignment);
+    enum assigment_type assigment_type);
 
 void print_type(struct osstream* ss, const  struct type* type);
 void print_type_no_names(struct osstream* ss, const struct type* p_type);
@@ -230,8 +237,9 @@ bool type_is_array(const struct type* p_type);
 
 bool type_is_out(const struct type* p_type);
 bool type_is_const(const struct type* p_type);
-bool type_is_opt(const struct type* p_type);
-bool type_is_notnull(const struct type* p_type);
+bool type_is_nullable(const struct type* p_type, bool nullable_enabled);
+bool type_is_view(const struct type* p_type);
+
 bool type_is_owner(const struct type* p_type);
 bool type_is_obj_owner(const struct type* p_type);
 bool type_is_any_owner(const struct type* p_type);
@@ -272,7 +280,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
     int param_num);
 
 struct type type_convert_to(const struct type* p_type, enum language_version target);
-struct type type_lvalue_conversion(struct type* p_type);
+struct type type_lvalue_conversion(struct type* p_type, bool nullchecks_enabled);
 void type_remove_qualifiers(struct type* p_type);
 void type_add_const(struct type* p_type);
 void type_swap(struct type* a, struct type* b);
@@ -282,7 +290,7 @@ void type_integer_promotion(struct type* a);
 struct type type_remove_pointer(const struct type* p_type);
 struct type get_array_item_type(const struct type* p_type);
 
-struct type type_param_array_to_pointer(const struct type* p_type);
+struct type type_param_array_to_pointer(const struct type* p_type, bool null_checks_enabled);
 
 struct type type_make_literal_string(int size, enum type_specifier_flags chartype);
 struct type type_make_int();
@@ -301,7 +309,7 @@ int type_get_num_members(const struct type* type);
 int type_get_alignof(const struct type* p_type);
 unsigned int type_get_hashof(struct parser_ctx* ctx, struct type* p_type);
 
-struct type type_add_pointer(const struct type* p_type);
+struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled);
 void type_print(const struct type* a);
 void type_println(const struct type* a);
 

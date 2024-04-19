@@ -1,7 +1,6 @@
 #pragma once
 #include "parser.h"
 
-//#define NEW_FLOW_ANALYSIS 1
 
 /*
   To be able to do static analysis with goto jump, we
@@ -28,6 +27,8 @@ struct flow_visit_ctx
     int throw_join_state; /*state where throws are joined*/
     int break_join_state; /*state where breaks are joined*/
     int initial_state;    /*used to keep the original state*/
+
+    struct objects arena;
 };
 
 

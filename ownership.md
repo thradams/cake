@@ -1,5 +1,5 @@
   
-Last Updated 22/03/2024
+Last Updated 19/04/2024
   
 This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.
 
@@ -8,45 +8,190 @@ The objective is to statically check code and prevent bugs, including memory bug
 
 The compiler doesn't read documentation, nor does it operate in the same way as humans. Instead, a formal means of communication with the compiler is necessary. To facilitate this, new qualifiers have been created, and new methods of communication with the compiler have been established.
 
-In the end, we still have the same language, but with a c\_type\_system++ version of C. This c\_type\_system++ can be disabled, and the language remains unmodified.
+In the end, we still have the same language, but with a improved type system that checks new contracts.  
+ 
+These new contracts can be ignored and the language remains unmodified.
 
-The creation of these rules follows certain principles, one of which is to default to safety.
-In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom 
+The creation of these rules follows certain principles, one of which is to default to safety.  
+
+In cases of uncertainty, the compiler asks for clarification. While C programmers retain the freedom 
 to code as they wish, they must either persuade the compiler or disable analysis in specific code sections.
-A human factor must be considered to ensure that annotations do not make the work too boring with 
-excessive details. In this regard, selecting defaults that cover the most common cases is crucial.
+
 
 ## Concepts
 
-### Owner Objects
+### Nullable types
 
-An **owner object** is an object referencing another object and managing its lifetime. 
+Nullable types are part of the safety strategy to ensure that we don't dereference a null pointer. 
+For this task, a new qualifier \_Opt has been created. 
+A pointer qualified with \_Opt is called nullable pointer. 
+Pointers without \_Opt qualifier are not nullable. 
+Existing code uses pointers as both as nullable or non-nullable. 
+To facilitate code migration a pragma #pragma nullable enabled\disable has been created.
 
-The most common type of owner objects are pointers, often referred as **owner pointers**. An owner pointer is created with the qualifier owner.
+#### pragma nullable enabled
+
+All pointers are non-nullable, unless qualified with \_Opt. 
+These warnings are enabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference.
+
+```c
+#pragma nullable enable
+
+void f(int * p) 
+{
+   if (p)  //warning p is not-null
+   {
+   }
+}
+
+int main()
+{ 
+  int * p = nullptr; //warning p is non-nullable
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+
+#### pragma nullable disabled
+
+All pointers are nullable. 
+These warnings are disabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference
+
+```c
+#pragma nullable disable
+void f(int * p) 
+{
+   //p can be null
+   if (p)
+   {
+   }
+}
+int main()
+{
+   int * p = nullptr; //ok
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+**Rule:** A non-nullable pointer can be assigned to a nullable pointer.
+**Rule:** The null pointer constant cannot be assigned to a non-nullable pointer.
+
+```c
+#pragma nullable enable
+
+int * f();
+
+int main()
+{
+   int * p = f();
+   int * _Opt p2 = p; //ok
+   int * p3 = nullptr; //warning
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+**Rule:** A nullable pointer can be assigned to a non-nullable pointer if the flow analysis can confirm the state of the pointer is not null.
+
+```c
+#pragma nullable enable
+
+int * _Opt f();
+
+int main()
+{
+   int * p0 = f(); //warning maybe null assigned to non-nullable
+   int * _Opt p = f();
+   if (p)
+   {
+      int * p2 = p; //ok because p is not null
+   }
+}
+```
+
+<button onclick="Try(this)">try</button>
+
+
+
+### Owner References
+
+An **owner reference** is an object referencing another object and managing its lifetime. 
+
+The most common type of owner reference are pointers, referred as **owner pointers**. An owner pointer is created with the qualifier owner.
 
 **Sample - Owner Pointer to FILE**
 
 ```c
+#pragma nullable enable
 #include <ownership.h>
 #include <stdio.h>
 
 int main()
 {
-  FILE *owner f = fopen("file.txt", "r"); 
-  if (f)
-    fclose(f);
+    FILE *owner opt f = fopen("file.txt", "r");
+    if (f)
+    {
+       fclose(f);
+    }
 }
 ```
 
-> Note: **owner** is actually a macro declared in <ownership.h> as **_Owner**. 
+<button onclick="Try(this)">try</button>
 
-The ownership mechanism has some rules that will be listed gradually throughout the text.
 
-**Rule:** An **owner object** is always the unique owner of the referenced object.
+If the programmer incorrectly assumes that `fclose` accepts NULL.
 
-**Rule:** When owner objects are copied the ownership is transferred.
+```c
+#pragma nullable enable
+#include <ownership.h>
+#include <stdio.h>
 
-**Rule:** Before the end of its lifetime, owner objects must move the ownership of the objects they own.
+int main()
+{
+    FILE *owner opt f = fopen("file.txt", "r");
+    if (f)
+    {
+    }
+    //warning: assignment of possible null object 'p' to non-opt pointer [-Wnullable-to-non-nullable]
+    fclose(f);
+}    
+```
+
+<button onclick="Try(this)">try</button>
+
+
+If the programmer incorrectly assumes that `fopen` is not owner.
+
+```
+warning: passing a temporary owner to a view [-Wtemp-owner]
+```
+
+If the programmer incorrectly assumes that `fopen` returns a non-nullable
+
+```c
+warning: assignment of possible null object 'fopen("file.txt", "r")' to non-opt pointer [-Wnullable-to-non-nullable]
+```
+
+If the programmer forgets to call fclose.
+
+```
+warning: ownership of 'f' not moved before the end of lifetime [-Wmissing-destructor]
+```
+
+As we can see we have compile-time checked contracts.
+
+
+> Note: **owner** is actually a macro declared in <ownership.h> as **_Owner**, and **opt** is **_Opt**. 
+
+The ownership mechanism has some rules.
+
+**Rule:** An **owner reference** is always the unique owner of the referenced object.
+
+**Rule:** When owner references are copied the ownership is transferred.
+
+**Rule:** Before the end of its lifetime, owner reference must move the ownership of the objects they own.
 
 
 Sample
@@ -57,8 +202,8 @@ Sample
 
 int main()
 {
-	FILE *owner f = fopen("file.txt", "r");
-	FILE *owner f2 = f; /*MOVED*/
+	FILE *owner opt f = fopen("file.txt", "r");
+	FILE *owner opt f2 = f; /*MOVED*/
 	if (f2)
        fclose(f2); /*MOVED*/
 }
@@ -75,9 +220,9 @@ void fclose(FILE * _Owner p);
 
 > Note: The cake ownership model does not include the concept of a destroyed or deleted object. Instead, everything is viewed as a transformation, where the object is broken into smaller parts and those parts are moved.
 
-### Non-pointer owner objects
+### Non-pointer owner references
 
-We can have other types of **owner objects**. For instance, Berkeley sockets use an integer to identify the socket.
+We can have other types of **owner references**. For instance, Berkeley sockets use an integer to identify the socket.
 
 Sample
 
@@ -105,46 +250,49 @@ int main() {
 
 **Rule:** A non-owner object cannot be copied to a owner object.
 
-**Rule:** The null pointer constant can be used to initialize owner objects. (Even it its type is non-owner)
+**Rule:** The null pointer constant can be used to initialize owner objects.
 
 **Sample**
 
 ```c
-FILE * f(); //returning non owner
+#pragma nullable enable
+typedef int T;
+T * f(); //returning non owner
 int main() {  
-   FILE * owner file = f(); //ERROR   
-   FILE * owner file2 = 0;  //OK
+   T * _Owner p = f(); //ERROR   
+   T * _Owner _Opt _p2 = 0;  //OK
 }
 ```
 
 
-### View Objects
+### View references
 
-A **view object** is an object referencing another object without managing its lifetime. 
+A **view reference** is an object referencing another object without managing its lifetime. 
 
-**Rule:** The lifetime of the referenced object must be longer than the lifetime of the view object.
+**Rule:** The lifetime of the referenced object must be longer than the lifetime of the view reference.
 
-The most common view objects are pointers called **view pointers**. 
+The most common view references are pointers called **view pointers**. 
 
-The view qualifier is not necessary for pointers, since it's the default behavior. When an owner object is copied to a view object, the ownership is not transferred.
+The view qualifier is not necessary for pointers, since it's the default behavior. 
+When an owner object is copied to a view object, the ownership is not transferred.
   
 **Sample**
 
 ```c
-#include <ownership.h>
+#pragma nullable enable
 #include <stdio.h>
 
 void use_file(FILE *f) {}
 
 int main() {
-    FILE *owner f = fopen("file.txt", "r");
+    FILE * _Owner _Opt _f = fopen("file.txt", "r");
     if (f) {
-        use_file(f); /*NOT MOVED*/
+        use_file(f); //not moved
         fclose(f);
     }
 }
 ```
-
+<button onclick="Try(this)">try</button>
 
 
 When a **view** qualifier is used in structs, it makes all members as view objects. 
@@ -443,6 +591,7 @@ To check the ownership rules, the compiler need flow analysis and it uses six st
 - not-null
 - zero
 - not-zero
+- lifetime-ended
  
 We can print these states using the **static_debug** declaration. We can also assert the variable is at a certain state using the **static_state** declaration. 
 
@@ -497,9 +646,12 @@ int main() {
 
 #### Moved state
 
-The **moved** state is similar to the uninitialized state. The difference is that the moved state is used when moving local variables. This information could be useful in the future to be less restrictive than uninitialized.
+The **moved** state is similar to the uninitialized state.
+The difference is that the moved state is used when moving local variables.  
+For pointers, the moved state implies that the pointer was not-null. 
+Moving a null object it is not a move.
   
- **Sample - local scope moves**
+**Sample - local scope moves**
 
 ```c
 int * _Owner f();

@@ -8,7 +8,21 @@
     <link rel="stylesheet" href="style.css" />
     <title>Cake Playground</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
-</head>
+    <script>
+    function Try(elm)
+    {
+        //collect the text previous sample
+        var source = elm.parentElement.previousElementSibling.innerText;
+
+        var link = "./playground.html?code=" + encodeURIComponent(btoa(source)) +
+            "&to=" + encodeURI("1") +
+            "&options=" + encodeURI("");
+
+        window.open(link, 'popup','width=800,height=600');
+    }
+// find-replace for this
+// <button onclick="Try(this)">try</button> 
+</script></head>
 <body>
     <article style="max-width: 40em; margin:auto">
 <p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>
@@ -22,41 +36,44 @@
 <a href="#toc_1">Concepts</a>
 <ul>
 <li>
-<a href="#toc_2">Owner Objects</a>
+<a href="#toc_2">Nullable types</a>
 </li>
 <li>
-<a href="#toc_3">Non-pointer owner objects</a>
+<a href="#toc_3">Owner References</a>
 </li>
 <li>
-<a href="#toc_4">View Objects</a>
+<a href="#toc_4">Non-pointer owner references</a>
 </li>
 <li>
-<a href="#toc_5">Returning a pointer to a view object</a>
+<a href="#toc_5">View references</a>
 </li>
 <li>
-<a href="#toc_6">View pointer as struct members</a>
+<a href="#toc_6">Returning a pointer to a view object</a>
 </li>
 <li>
-<a href="#toc_7">Deleting Owner Pointers</a>
+<a href="#toc_7">View pointer as struct members</a>
 </li>
 <li>
-<a href="#toc_8">Conversion from owner pointer to void * owner</a>
+<a href="#toc_8">Deleting Owner Pointers</a>
+</li>
+<li>
+<a href="#toc_9">Conversion from owner pointer to void * owner</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_9">Flow analysis</a>
+<a href="#toc_10">Flow analysis</a>
 <ul>
 <li>
-<a href="#toc_10">assert is a statement</a>
+<a href="#toc_11">assert is a statement</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_11">Ownership Feature Strategy (Inspired by stdbool.h)</a>
+<a href="#toc_12">Ownership Feature Strategy (Inspired by stdbool.h)</a>
 </li>
 </ul>
-<p>Last Updated 22/03/2024</p>
+<p>Last Updated 19/04/2024</p>
 
 <p>This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.</p>
 
@@ -66,46 +83,176 @@
 
 <p>The compiler doesn&#39;t read documentation, nor does it operate in the same way as humans. Instead, a formal means of communication with the compiler is necessary. To facilitate this, new qualifiers have been created, and new methods of communication with the compiler have been established.</p>
 
-<p>In the end, we still have the same language, but with a c_type_system++ version of C. This c_type_system++ can be disabled, and the language remains unmodified.</p>
+<p>In the end, we still have the same language, but with a improved type system that checks new contracts.  </p>
 
-<p>The creation of these rules follows certain principles, one of which is to default to safety.
-In cases of uncertainty, the compiler should seek clarification. While C programmers retain the freedom 
-to code as they wish, they must either persuade the compiler or disable analysis in specific code sections.
-A human factor must be considered to ensure that annotations do not make the work too boring with 
-excessive details. In this regard, selecting defaults that cover the most common cases is crucial.</p>
+<p>These new contracts can be ignored and the language remains unmodified.</p>
+
+<p>The creation of these rules follows certain principles, one of which is to default to safety.  </p>
+
+<p>In cases of uncertainty, the compiler asks for clarification. While C programmers retain the freedom 
+to code as they wish, they must either persuade the compiler or disable analysis in specific code sections.</p>
 
 <h2 id="toc_1">Concepts</h2>
 
-<h3 id="toc_2">Owner Objects</h3>
+<h3 id="toc_2">Nullable types</h3>
 
-<p>An <strong>owner object</strong> is an object referencing another object and managing its lifetime. </p>
+<p>Nullable types are part of the safety strategy to ensure that we don&#39;t dereference a null pointer. 
+For this task, a new qualifier _Opt has been created. 
+A pointer qualified with _Opt is called nullable pointer. 
+Pointers without _Opt qualifier are not nullable. 
+Existing code uses pointers as both as nullable or non-nullable. 
+To facilitate code migration a pragma #pragma nullable enabled\disable has been created.</p>
 
-<p>The most common type of owner objects are pointers, often referred as <strong>owner pointers</strong>. An owner pointer is created with the qualifier owner.</p>
+<h4>pragma nullable enabled</h4>
+
+<p>All pointers are non-nullable, unless qualified with _Opt. 
+These warnings are enabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference.</p>
+
+<pre><code class="language-c">#pragma nullable enable
+
+void f(int * p) 
+{
+   if (p)  //warning p is not-null
+   {
+   }
+}
+
+int main()
+{ 
+  int * p = nullptr; //warning p is non-nullable
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h4>pragma nullable disabled</h4>
+
+<p>All pointers are nullable. 
+These warnings are disabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference</p>
+
+<pre><code class="language-c">#pragma nullable disable
+void f(int * p) 
+{
+   //p can be null
+   if (p)
+   {
+   }
+}
+int main()
+{
+   int * p = nullptr; //ok
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p><strong>Rule:</strong> A non-nullable pointer can be assigned to a nullable pointer.
+<strong>Rule:</strong> The null pointer constant cannot be assigned to a non-nullable pointer.</p>
+
+<pre><code class="language-c">#pragma nullable enable
+
+int * f();
+
+int main()
+{
+   int * p = f();
+   int * _Opt p2 = p; //ok
+   int * p3 = nullptr; //warning
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p><strong>Rule:</strong> A nullable pointer can be assigned to a non-nullable pointer if the flow analysis can confirm the state of the pointer is not null.</p>
+
+<pre><code class="language-c">#pragma nullable enable
+
+int * _Opt f();
+
+int main()
+{
+   int * p0 = f(); //warning maybe null assigned to non-nullable
+   int * _Opt p = f();
+   if (p)
+   {
+      int * p2 = p; //ok because p is not null
+   }
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<h3 id="toc_3">Owner References</h3>
+
+<p>An <strong>owner reference</strong> is an object referencing another object and managing its lifetime. </p>
+
+<p>The most common type of owner reference are pointers, referred as <strong>owner pointers</strong>. An owner pointer is created with the qualifier owner.</p>
 
 <p><strong>Sample - Owner Pointer to FILE</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<pre><code class="language-c">#pragma nullable enable
+#include &lt;ownership.h&gt;
 #include &lt;stdio.h&gt;
 
 int main()
 {
-  FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;); 
-  if (f)
-    fclose(f);
+    FILE *owner opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    if (f)
+    {
+       fclose(f);
+    }
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
+<p>If the programmer incorrectly assumes that <code>fclose</code> accepts NULL.</p>
+
+<pre><code class="language-c">#pragma nullable enable
+#include &lt;ownership.h&gt;
+#include &lt;stdio.h&gt;
+
+int main()
+{
+    FILE *owner opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    if (f)
+    {
+    }
+    //warning: assignment of possible null object &#39;p&#39; to non-opt pointer [-Wnullable-to-non-nullable]
+    fclose(f);
+}    
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>If the programmer incorrectly assumes that <code>fopen</code> is not owner.</p>
+
+<pre><code>warning: passing a temporary owner to a view [-Wtemp-owner]
+</code></pre>
+
+<p>If the programmer incorrectly assumes that <code>fopen</code> returns a non-nullable</p>
+
+<pre><code class="language-c">warning: assignment of possible null object &#39;fopen(&quot;file.txt&quot;, &quot;r&quot;)&#39; to non-opt pointer [-Wnullable-to-non-nullable]
+</code></pre>
+
+<p>If the programmer forgets to call fclose.</p>
+
+<pre><code>warning: ownership of &#39;f&#39; not moved before the end of lifetime [-Wmissing-destructor]
+</code></pre>
+
+<p>As we can see we have compile-time checked contracts.</p>
+
 <blockquote>
-<p>Note: <strong>owner</strong> is actually a macro declared in <ownership.h> as <strong>_Owner</strong>. </p>
+<p>Note: <strong>owner</strong> is actually a macro declared in <ownership.h> as <strong>_Owner</strong>, and <strong>opt</strong> is <strong>_Opt</strong>. </p>
 </blockquote>
 
-<p>The ownership mechanism has some rules that will be listed gradually throughout the text.</p>
+<p>The ownership mechanism has some rules.</p>
 
-<p><strong>Rule:</strong> An <strong>owner object</strong> is always the unique owner of the referenced object.</p>
+<p><strong>Rule:</strong> An <strong>owner reference</strong> is always the unique owner of the referenced object.</p>
 
-<p><strong>Rule:</strong> When owner objects are copied the ownership is transferred.</p>
+<p><strong>Rule:</strong> When owner references are copied the ownership is transferred.</p>
 
-<p><strong>Rule:</strong> Before the end of its lifetime, owner objects must move the ownership of the objects they own.</p>
+<p><strong>Rule:</strong> Before the end of its lifetime, owner reference must move the ownership of the objects they own.</p>
 
 <p>Sample</p>
 
@@ -114,8 +261,8 @@ int main()
 
 int main()
 {
-    FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-    FILE *owner f2 = f; /*MOVED*/
+    FILE *owner opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    FILE *owner opt f2 = f; /*MOVED*/
     if (f2)
        fclose(f2); /*MOVED*/
 }
@@ -133,9 +280,9 @@ void fclose(FILE * _Owner p);
 <p>Note: The cake ownership model does not include the concept of a destroyed or deleted object. Instead, everything is viewed as a transformation, where the object is broken into smaller parts and those parts are moved.</p>
 </blockquote>
 
-<h3 id="toc_3">Non-pointer owner objects</h3>
+<h3 id="toc_4">Non-pointer owner references</h3>
 
-<p>We can have other types of <strong>owner objects</strong>. For instance, Berkeley sockets use an integer to identify the socket.</p>
+<p>We can have other types of <strong>owner references</strong>. For instance, Berkeley sockets use an integer to identify the socket.</p>
 
 <p>Sample</p>
 
@@ -163,42 +310,47 @@ int main() {
 
 <p><strong>Rule:</strong> A non-owner object cannot be copied to a owner object.</p>
 
-<p><strong>Rule:</strong> The null pointer constant can be used to initialize owner objects. (Even it its type is non-owner)</p>
+<p><strong>Rule:</strong> The null pointer constant can be used to initialize owner objects.</p>
 
 <p><strong>Sample</strong></p>
 
-<pre><code class="language-c">FILE * f(); //returning non owner
+<pre><code class="language-c">#pragma nullable enable
+typedef int T;
+T * f(); //returning non owner
 int main() {  
-   FILE * owner file = f(); //ERROR   
-   FILE * owner file2 = 0;  //OK
+   T * _Owner p = f(); //ERROR   
+   T * _Owner _Opt _p2 = 0;  //OK
 }
 </code></pre>
 
-<h3 id="toc_4">View Objects</h3>
+<h3 id="toc_5">View references</h3>
 
-<p>A <strong>view object</strong> is an object referencing another object without managing its lifetime. </p>
+<p>A <strong>view reference</strong> is an object referencing another object without managing its lifetime. </p>
 
-<p><strong>Rule:</strong> The lifetime of the referenced object must be longer than the lifetime of the view object.</p>
+<p><strong>Rule:</strong> The lifetime of the referenced object must be longer than the lifetime of the view reference.</p>
 
-<p>The most common view objects are pointers called <strong>view pointers</strong>. </p>
+<p>The most common view references are pointers called <strong>view pointers</strong>. </p>
 
-<p>The view qualifier is not necessary for pointers, since it&#39;s the default behavior. When an owner object is copied to a view object, the ownership is not transferred.</p>
+<p>The view qualifier is not necessary for pointers, since it&#39;s the default behavior. 
+When an owner object is copied to a view object, the ownership is not transferred.</p>
 
 <p><strong>Sample</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<pre><code class="language-c">#pragma nullable enable
 #include &lt;stdio.h&gt;
 
 void use_file(FILE *f) {}
 
 int main() {
-    FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    FILE * _Owner _Opt _f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
     if (f) {
-        use_file(f); /*NOT MOVED*/
+        use_file(f); //not moved
         fclose(f);
     }
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>When a <strong>view</strong> qualifier is used in structs, it makes all members as view objects. </p>
 
@@ -224,7 +376,7 @@ int main() {
 <p>Note: It is interesting to compare against const qualifier. While const adds a qualifier &quot;const&quot; &quot;view&quot; removes the qualifier &quot;owner&quot;.</p>
 </blockquote>
 
-<h3 id="toc_5">Returning a pointer to a view object</h3>
+<h3 id="toc_6">Returning a pointer to a view object</h3>
 
 <p>We can check the rule &quot;The lifetime of the referenced object must be longer than the lifetime of the view object&quot; with these constrains.</p>
 
@@ -282,7 +434,7 @@ int main(){
 <p>Note : Currently, this check is missing at cake </p>
 </blockquote>
 
-<h3 id="toc_6">View pointer as struct members</h3>
+<h3 id="toc_7">View pointer as struct members</h3>
 
 <p>Consider this sample.</p>
 
@@ -300,7 +452,7 @@ struct Y {
 <p>Note : Currently, this check is missing at cake </p>
 </blockquote>
 
-<h3 id="toc_7">Deleting Owner Pointers</h3>
+<h3 id="toc_8">Deleting Owner Pointers</h3>
 
 <p><strong>Owner pointers</strong> take on the responsibility of owning the pointed object and its associated memory, treating them as distinct entities. A common practice is to implement a delete function to release both resources.</p>
 
@@ -332,7 +484,7 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_8">Conversion from owner pointer to void * owner</h3>
+<h3 id="toc_9">Conversion from owner pointer to void * owner</h3>
 
 <p><strong>Rule:</strong> Assignment or cast of a owner pointer to void * owner requires the pointed object to be empty.</p>
 
@@ -461,7 +613,7 @@ int main() {
 
 <p>But I think this is quite uncommon.</p>
 
-<h2 id="toc_9">Flow analysis</h2>
+<h2 id="toc_10">Flow analysis</h2>
 
 <p>Let&#39;s revisit our first example:</p>
 
@@ -489,6 +641,7 @@ int main()
 <li>not-null</li>
 <li>zero</li>
 <li>not-zero</li>
+<li>lifetime-ended</li>
 </ul>
 
 <p>We can print these states using the <strong>static_debug</strong> declaration. We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. </p>
@@ -540,7 +693,10 @@ int main() {
 
 <h4>Moved state</h4>
 
-<p>The <strong>moved</strong> state is similar to the uninitialized state. The difference is that the moved state is used when moving local variables. This information could be useful in the future to be less restrictive than uninitialized.</p>
+<p>The <strong>moved</strong> state is similar to the uninitialized state.
+The difference is that the moved state is used when moving local variables.<br>
+For pointers, the moved state implies that the pointer was not-null. 
+Moving a null object it is not a move.</p>
 
 <p><strong>Sample - local scope moves</strong></p>
 
@@ -868,7 +1024,7 @@ int main()
 }
 </code></pre>
 
-<h3 id="toc_10">assert is a statement</h3>
+<h3 id="toc_11">assert is a statement</h3>
 
 <p>When possible we can use assert that works both as static information and runtime check in debug.</p>
 
@@ -904,7 +1060,7 @@ void list_append(struct list* list, struct node* owner node)
 }
 </code></pre>
 
-<h2 id="toc_11">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
+<h2 id="toc_12">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
 
 <p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it must define  <code>__STDC_OWNERSHIP__</code>. </p>
 

@@ -8,7 +8,21 @@
     <link rel="stylesheet" href="style.css" />
     <title>Cake Playground</title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
-</head>
+    <script>
+    function Try(elm)
+    {
+        //collect the text previous sample
+        var source = elm.parentElement.previousElementSibling.innerText;
+
+        var link = "./playground.html?code=" + encodeURIComponent(btoa(source)) +
+            "&to=" + encodeURI("1") +
+            "&options=" + encodeURI("");
+
+        window.open(link, 'popup','width=800,height=600');
+    }
+// find-replace for this
+// <button onclick="Try(this)">try</button> 
+</script></head>
 <body>
     <article style="max-width: 40em; margin:auto">
 <p><a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a></p>

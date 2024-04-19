@@ -5,7 +5,7 @@
 
 struct osstream
 {
-    char* owner c_str;
+    char* owner opt c_str;
     int size;
     int capacity;
 };

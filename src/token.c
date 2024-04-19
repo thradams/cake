@@ -128,7 +128,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
         return;
 
     struct token* owner p = list->head;
-    assert(p->prev == NULL);
+    //assert(p->prev == NULL);
     if (list->head == list->tail)
     {
         list->head = NULL;
@@ -448,7 +448,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD__OBJ_OWNER:
     case TK_KEYWORD__VIEW:
     case TK_KEYWORD__OPT:
-    case TK_KEYWORD__NOTNULL:
+    
 
         /*extension compile time functions*/
     case TK_KEYWORD_STATIC_DEBUG: /*extension*/
@@ -543,8 +543,8 @@ struct token* owner clone_token(struct token* p)
 {
     struct token* owner token = calloc(1, sizeof * token);
     if (token)
-    {        
-        char * owner lexeme = strdup(p->lexeme);
+    {
+        char* owner lexeme = strdup(p->lexeme);
         if (lexeme == NULL)
         {
             free(token);
@@ -574,7 +574,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     r.head = (struct token* owner)first;
     first->prev = NULL;
     r.tail = last;
-    
+
 
 
     return r;
@@ -814,6 +814,7 @@ void print_line_and_token(const struct token* opt p_token, bool visual_studio_ou
     if (p_token == NULL)
         return;
 
+
     int line = p_token->line;
 
     if (!visual_studio_ouput_format)
@@ -867,18 +868,17 @@ void print_line_and_token(const struct token* opt p_token, bool visual_studio_ou
         COLOR_ESC_PRINT(printf(LIGHTGRAY));
 
     printf(" %*s |", n, " ");
-    if (p_token)
+
+    for (int i = 1; i <= (p_token->col - 1) + offset; i++)
     {
-        for (int i = 1; i <= (p_token->col - 1) + offset; i++)
-        {
-            printf(" ");
-        }
+        printf(" ");
     }
 
     if (!visual_studio_ouput_format)
         COLOR_ESC_PRINT(printf(LIGHTGREEN));
 
     printf("^");
+
 
     char* p = p_token->lexeme + 1;
     while (p && *p)

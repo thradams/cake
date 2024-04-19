@@ -19,7 +19,7 @@ enum diagnostic_id {
     W_UNUSED_VARIABLE, //-Wunused-variable
     W_DEPRECATED,
     W_ENUN_CONVERSION,//-Wenum-conversion
-    W_NON_NULL, //-Wnonnull
+    
     W_ADDRESS, //-Waddress (always true)
     W_UNUSED_PARAMETER, //-Wno-unused-parameter
     W_DECLARATOR_HIDE, // gcc no
@@ -38,6 +38,7 @@ enum diagnostic_id {
 
     W_MUST_USE_ADDRESSOF,
     W_ARRAY_INDIRECTION,
+    
 
     /*ownership type system errors*/
     W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
@@ -48,13 +49,19 @@ enum diagnostic_id {
     W_OWNERSHIP_DISCARDING_OWNER,
     W_OWNERSHIP_NON_OWNER_MOVE,
     
-    
-    /*ownership flow analysis errors*/
-    W_OWNERSHIP_FLOW_MISSING_DTOR,
-    W_OWNERSHIP_FLOW_UNINITIALIZED,
-    W_OWNERSHIP_FLOW_MOVED,
-    W_OWNERSHIP_FLOW_NULL_DEREFERENCE,
-    W_OWNERSHIP_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
+   
+    /*
+      Flow analysis warning
+    */
+    W_FLOW_NON_NULL, //-Wnonnull
+    W_FLOW_MISSING_DTOR,
+    W_FLOW_UNINITIALIZED,
+    W_FLOW_LIFETIME_ENDED,
+    W_FLOW_MOVED,
+    W_FLOW_NULL_DEREFERENCE,
+    W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG,
+    W_FLOW_NULLABLE_TO_NON_NULLABLE,
+    /**/
 
     W_DIVIZION_BY_ZERO,
     W_PASSING_NULL_AS_ARRAY,
@@ -64,28 +71,27 @@ enum diagnostic_id {
     W_OUT_OF_BOUNDS,
     W_ASSIGNMENT_OF_ARRAY_PARAMETER,
     W_CONDITIONAL_IS_CONSTANT,
-    W_NOT_DEFINED1,
-    W_NOT_DEFINED2,
-    W_NOT_DEFINED3,
-    W_NOT_DEFINED4,
-    W_NOT_DEFINED5,
-    W_NOT_DEFINED6,
-    W_NOT_DEFINED7,
-    W_NOT_DEFINED8,
-    W_NOT_DEFINED9,
-    W_NOT_DEFINED10,
-    W_NOT_DEFINED11,
-    W_NOT_DEFINED12,
-    W_NOT_DEFINED13,
-    W_NOT_DEFINED14,
-    W_NOT_DEFINED15,
-    W_NOT_DEFINED16,
-    W_NOT_DEFINED17,
-    W_NOT_DEFINED18,
-    W_NOT_DEFINED19,
-    W_NOT_DEFINED20,
-    W_NOT_DEFINED21,
-    W_NOT_DEFINED22,
+    
+    W_NOT_DEFINED42,
+    W_NOT_DEFINED43,
+    W_NOT_DEFINED44,
+    W_NOT_DEFINED45,
+    W_NOT_DEFINED46,
+    W_NOT_DEFINED47,
+    W_NOT_DEFINED48,
+    W_NOT_DEFINED49,
+    W_NOT_DEFINED50,
+    W_NOT_DEFINED51,
+    W_NOT_DEFINED52,
+    W_NOT_DEFINED53,
+    W_NOT_DEFINED54,
+    W_NOT_DEFINED55,
+    W_NOT_DEFINED56,
+    W_NOT_DEFINED57,
+    W_NOT_DEFINED58,
+    W_NOT_DEFINED59,
+    W_NOT_DEFINED60,
+    W_NOT_DEFINED61,
 
     W_LOCATION, /*prints code location*/
     W_NOTE,
@@ -179,6 +185,11 @@ enum diagnostic_id {
     C_ERROR_STORAGE_SIZE,
 };
 
+/*
+* These warnings are removed when "nullable=disable"
+*/
+#define WFLAG(W) (1ULL << W)
+#define NULLABLE_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_NULL_DEREFERENCE) | WFLAG(W_FLOW_NULLABLE_TO_NON_NULLABLE))
 
 int get_diagnostic_phase(enum diagnostic_id w);
 
@@ -274,6 +285,16 @@ struct options
     bool flow_analysis;
 
     /*
+    * -testmode
+    */
+    bool test_mode;
+
+    /*
+    * -nullchecks
+    */
+    bool null_checks_enabled;
+
+    /*
       -E
     */
     bool preprocess_only;
@@ -300,12 +321,7 @@ struct options
     */
     bool no_output;
 
-    /*
-    -nullchecks
-
-    */
-    bool null_checks;
-
+    
     /*
       -msvc-output
     */
@@ -335,3 +351,4 @@ int fill_options(struct options* options,
                  const char** argv);
 
 void print_help();
+

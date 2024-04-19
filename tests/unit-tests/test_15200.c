@@ -1,0 +1,1 @@
+static_assert(sizeof("abc") == 4);

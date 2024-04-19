@@ -113,8 +113,7 @@ static void format_visit_selection_statement(struct format_visit_ctx* ctx, struc
     {
         ajust_line_and_identation(p_selection_statement->secondary_block->first_token, ctx);
 
-        if (p_selection_statement->secondary_block &&
-            p_selection_statement->secondary_block->statement &&
+        if (p_selection_statement->secondary_block->statement &&
             p_selection_statement->secondary_block->statement->unlabeled_statement &&
             p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block &&
             p_selection_statement->secondary_block->statement->unlabeled_statement->primary_block->compound_statement)

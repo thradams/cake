@@ -5,7 +5,6 @@
 #include <assert.h>
 #include "visit.h"
 #include "expressions.h"
-#include "ownership.h"
 
 /*imagine tou press DEL key*/
 static void del(struct token* from, struct token* to)
@@ -265,8 +264,7 @@ bool find_label_statement(struct statement* statement, const char* label)
 {
     if (statement->labeled_statement)
     {
-        if (statement->labeled_statement &&
-            statement->labeled_statement->label &&
+        if (statement->labeled_statement->label &&
             strcmp(statement->labeled_statement->label->name->lexeme, label) == 0)
         {
             /*achou*/
@@ -1117,9 +1115,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case EQUALITY_EXPRESSION_NOT_EQUAL:
     case AND_EXPRESSION:
     case EXCLUSIVE_OR_EXPRESSION:
-    case INCLUSIVE_OR_EXPRESSION:
-    case INCLUSIVE_AND_EXPRESSION:
-    case LOGICAL_OR_EXPRESSION:
+    case INCLUSIVE_OR_EXPRESSION:    
+    
     case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
     case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
 
@@ -2524,7 +2521,9 @@ int visit_tokens(struct visit_ctx* ctx)
                     char buffer[50] = { 0 };
                     snprintf(buffer, sizeof buffer, "%Lg", d);
 
+                    static_debug(current);
                     free(current->lexeme);
+                    static_debug(current);
                     current->lexeme = strdup(buffer);
                 }
             }

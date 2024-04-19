@@ -9,7 +9,8 @@
 //#include <winsock2.h>
 #endif
 
-void throw_break_point() {
+void throw_break_point()
+{
     /*
       put a break point here to stop when throw is called
     */
@@ -97,8 +98,8 @@ const char* get_posix_error_message(int error)
         return "Directory not empty";
     case  ELOOP:
         return "Too many symbolic links encountered";
-    //case  EWOULDBLOCK:
-    //case EAGAIN:  return "Operation would block";
+        //case  EWOULDBLOCK:
+        //case EAGAIN:  return "Operation would block";
     case  ENOMSG:
         return "No message of desired type";
     case  EIDRM:
@@ -204,8 +205,8 @@ const char* get_posix_error_message(int error)
     case  EBADSLT:
         return "Invalid slot";
 
-    //case  EDEADLOCK:
-    //case EDEADLK:
+        //case  EDEADLOCK:
+        //case EDEADLK:
 
     case  EBFONT:
         return "Bad font file string_format";

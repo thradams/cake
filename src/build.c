@@ -64,8 +64,7 @@ static int mychdir(const char *path)
     " visit.c "           \
     " flow_visit.c " \
     " error.c "           \
-    " format_visit.c "  \
-    " tests.c "
+    " format_visit.c "  
 
 
 void compile_cake()
@@ -199,6 +198,21 @@ void generate_doc(const char *mdfilename, const char *outfile)
         "    <link rel=\"stylesheet\" href=\"style.css\" />\n"
         "    <title>Cake Playground</title>\n"
         "    <link rel=\"icon\" type=\"image/x-icon\" href=\"favicon.ico\">\n"
+        "    <script>\n"
+        "    function Try(elm)\n"
+         "    {\n"
+         "        //collect the text previous sample\n"
+         "        var source = elm.parentElement.previousElementSibling.innerText;\n"
+         "\n"
+         "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
+         "            \"&to=\" + encodeURI(\"1\") +\n"
+         "            \"&options=\" + encodeURI(\"\");\n"
+         "\n"         
+         "        window.open(link, 'popup','width=800,height=600');\n"
+         "    }\n"
+         "// find-replace for this\n"
+         "// <button onclick=\"Try(this)\">try</button> \n"
+         "</script>"
         "</head>\n"
         "<body>\n"
         "    <article style=\"max-width: 40em; margin:auto\">\n"
@@ -291,9 +305,9 @@ int main()
     //-flow-analysis
     //-nullchecks
 #ifdef NULLCHECKS
-#define NC " -nullchecks "
+#define NC " -nullable=enable "
 #else
-#define NC "  "
+#define NC " -nullable=disable "
 #endif
 
     if (mysytem("cake.exe  " NC " -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)

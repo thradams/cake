@@ -93,6 +93,7 @@ int get_self_path(char* buffer, int maxsize);
 
 char* owner read_file(const char* path);
 char* dirname(char* path);
+char* basename(const char* filename);
 
 const char* get_posix_error_message(int error);
 

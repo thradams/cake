@@ -1,0 +1,12 @@
+static_assert(sizeof("ABC") == 4);
+char a[10];
+char b[10][2];
+static_assert(sizeof(a) == 10);
+static_assert(sizeof(b) == sizeof(char)*10*2);
+char *p[10];
+static_assert(sizeof(p) == sizeof(char*)*10);
+static_assert(sizeof(int) == 4);
+static_assert(sizeof(char) == 1);
+static_assert(sizeof(short) == 2);
+static_assert(sizeof(unsigned int) == 4);
+static_assert(sizeof(void (*)(int i)) == sizeof(void*));

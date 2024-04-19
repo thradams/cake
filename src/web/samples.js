@@ -38,12 +38,11 @@ sample["C99"]["int a[static]"] =
 
 void F(int a[static const 5]) 
 {
-    static_assert((typeof(a)) == (int * const));
-    
-    /*cake extention,array arguments cannot be modified*/
-    //a = 1;  /*try*/
+    //cake was a warning when modifing array arguments
+    a = 0;
 
-    int k = a[5]; //bounds check
+    //bounds check for constant indexes
+    int k = a[5];
 }
 
 
@@ -772,9 +771,37 @@ int main() {
 
 `;
 
+sample["C2Y"] = [];
+sample["C2Y"]["if with initialization (Like C++17)"] =
+    `
+#include <stdio.h>
 
-sample["Extensions"]=[];   
-sample["Extensions"]["_Generic(type-name)"] =
+int main()
+{
+   
+   FILE* f0;
+   if ( f0 = fopen("file.txt", "r"))
+   {
+     /*...*/
+     fclose(f0);
+   }
+   
+   if (FILE* f = fopen("file.txt", "r"); f)
+   {
+     /*...*/
+     fclose(f);
+   }
+
+   if (FILE* f = fopen("file.txt", "r"))
+   {    
+     /*...*/
+     fclose(f);
+   }
+}
+`;
+
+
+sample["C2Y"]["_Generic(type-name)"] =
 `
 /*
   cake accepts type-name on _Generic expression 
@@ -791,6 +818,174 @@ int main(void)
 
 `;
 
+
+sample["C2Y"]["defer inside try blocks"] =
+    `
+#include <stdio.h>
+
+int main()
+{
+
+  try
+  {
+     FILE* f = fopen("in.txt", "r");
+     if (f == NULL) throw;
+     defer fclose(f);
+
+     FILE* f2 = fopen("out.txt", "w");
+     if (f2 == NULL) throw;
+     defer fclose(f2);
+
+     //...
+
+    /*success here*/
+  }
+  catch
+  {
+     /*some error*/
+  }
+
+
+}
+
+`;
+
+sample["C2Y"]["defer with breaks III"] =
+    `
+
+#include <stdio.h>
+
+int main()
+{
+
+  do
+  {
+     FILE* f = fopen("in.txt", "r");
+     if (f == NULL) break;
+     defer fclose(f);
+
+     FILE* f2 = fopen("out.txt", "w");
+     if (f2 == NULL) break;
+     defer fclose(f2);
+
+     //...
+
+    /*success here*/
+  }
+  while(0);
+
+
+}
+
+`;
+
+
+sample["C2Y"]["defer with breaks IV"] =
+    `
+
+#include <stdio.h>
+
+int main()
+{
+  FILE* f = NULL;
+  defer if (f) fclose(f);
+
+  do
+  {
+     f = fopen("in.txt", "r");
+     if (f == NULL) break;     
+  }
+  while(0);
+
+}
+
+`;
+
+
+sample["C2Y"]["defer with return V"] =
+    `
+
+#include <stdio.h>
+
+int main()
+{
+  FILE* f = fopen("in.txt", "r");
+  if (f == NULL) return 1;
+  defer fclose(f);
+
+  FILE* f2 = fopen("out.txt", "w");
+  if (f2 == NULL) return 1;
+  defer fclose(f2);
+
+  return 0;
+}
+
+
+`;
+
+
+sample["C2Y"]["defer goto VI"] =
+    `
+
+#include <stdio.h>
+
+int main()
+{
+  FILE* f = fopen("in.txt", "r");
+  if (f != NULL)
+  {
+     defer fclose(f);
+
+     FILE* f2 = fopen("out.txt", "w");
+     if (f2 == NULL) goto LEND;
+     defer fclose(f2);
+  }
+  LEND:
+  return 0;
+}
+
+`;
+
+
+sample["C2Y"]["defer and flow analysis"] =
+    `
+void f2(int i){}
+void f(int k)
+{
+  int i;
+  defer f2(i);
+  
+  if (k > 1)
+   return;
+}
+
+`;
+
+
+sample["C2Y"]["defer interleaved with return"] =
+`
+
+int f(){
+  int i = 1;
+  defer {
+    i = 0;
+  }
+  return i++;
+}
+
+void f0(){
+  int i = 1;
+  defer {
+    i = 0;
+  }
+  return; //empty or constant expression
+}
+
+
+`;
+
+
+sample["Extensions"]=[];   
 sample["Extensions"]["try catch throw"] =
 `
 #include <stdio.h>
@@ -846,199 +1041,6 @@ int main()
 
 `;
 
-sample["Extensions"]["defer inside try blocks"] =
-    `
-#include <stdio.h>
-
-int main()
-{
-
-  try
-  {
-     FILE* f = fopen("in.txt", "r");
-     if (f == NULL) throw;
-     defer fclose(f);
-
-     FILE* f2 = fopen("out.txt", "w");
-     if (f2 == NULL) throw;
-     defer fclose(f2);
-
-     //...
-
-    /*success here*/
-  }
-  catch
-  {
-     /*some error*/
-  }
-
-
-}
-
-`;
-
-sample["Extensions"]["defer with breaks III"] =
-    `
-
-#include <stdio.h>
-
-int main()
-{
-
-  do
-  {
-     FILE* f = fopen("in.txt", "r");
-     if (f == NULL) break;
-     defer fclose(f);
-
-     FILE* f2 = fopen("out.txt", "w");
-     if (f2 == NULL) break;
-     defer fclose(f2);
-
-     //...
-
-    /*success here*/
-  }
-  while(0);
-
-
-}
-
-`;
-
-
-sample["Extensions"]["defer with breaks IV"] =
-    `
-
-#include <stdio.h>
-
-int main()
-{
-  FILE* f = NULL;
-  defer if (f) fclose(f);
-
-  do
-  {
-     f = fopen("in.txt", "r");
-     if (f == NULL) break;     
-  }
-  while(0);
-
-}
-
-`;
-
-
-sample["Extensions"]["defer with return V"] =
-    `
-
-#include <stdio.h>
-
-int main()
-{
-  FILE* f = fopen("in.txt", "r");
-  if (f == NULL) return 1;
-  defer fclose(f);
-
-  FILE* f2 = fopen("out.txt", "w");
-  if (f2 == NULL) return 1;
-  defer fclose(f2);
-
-  return 0;
-}
-
-
-`;
-
-
-sample["Extensions"]["defer goto VI"] =
-    `
-
-#include <stdio.h>
-
-int main()
-{
-  FILE* f = fopen("in.txt", "r");
-  if (f != NULL)
-  {
-     defer fclose(f);
-
-     FILE* f2 = fopen("out.txt", "w");
-     if (f2 == NULL) goto LEND;
-     defer fclose(f2);
-  }
-  LEND:
-  return 0;
-}
-
-`;
-
-
-sample["Extensions"]["defer and flow analysis"] =
-    `
-void f2(int i){}
-void f(int k)
-{
-  int i;
-  defer f2(i);
-  
-  if (k > 1)
-   return;
-}
-
-`;
-
-
-sample["Extensions"]["defer interleaved with return"] =
-`
-
-int f(){
-  int i = 1;
-  defer {
-    i = 0;
-  }
-  return i++;
-}
-
-void f0(){
-  int i = 1;
-  defer {
-    i = 0;
-  }
-  return; //empty or constant expression
-}
-
-
-`;
-
-
-sample["Extensions"]["if with initialization (Like C++17)"] =
-    `
-#include <stdio.h>
-
-int main()
-{
-   
-   FILE* f0;
-   if ( f0 = fopen("file.txt", "r"))
-   {
-     /*...*/
-     fclose(f0);
-   }
-   
-   if (FILE* f = fopen("file.txt", "r"); f)
-   {
-     /*...*/
-     fclose(f);
-   }
-
-   if (FILE* f = fopen("file.txt", "r"))
-   {    
-     /*...*/
-     fclose(f);
-   }
-}
-`;
 
 
 sample["Extensions"]["Literal function (lambda) I"] =
@@ -2080,3 +2082,25 @@ int main()
 }
 
 `;
+
+sample["find the bug"]["Bug #5"] =
+`
+#pragma nullable enable
+
+struct X
+{
+    int i;
+};
+
+void f(int condition)
+{
+   struct X * p = 0;
+   if (condition)
+   {
+     struct X x = {};
+     p = &x;
+   }
+   p->i = 1;
+}
+`;
+

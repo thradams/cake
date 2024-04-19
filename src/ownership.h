@@ -15,11 +15,11 @@
 #define unchecked "unchecked"
 
 
-void* owner calloc(int nmemb, int size);
+void* owner opt calloc(int nmemb, int size);
 void free(void* owner opt ptr);
-void* owner malloc(int size);
-void* owner realloc(void*  ptr, int size);
-char * owner strdup( const char *src );
+void* owner opt malloc(int size);
+void* owner opt realloc(void*  ptr, int size);
+char * owner opt strdup( const char *src );
 
 typedef struct _iobuf FILE;
 FILE* owner fopen(char const* _FileName, char const* _Mode);

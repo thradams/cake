@@ -45,9 +45,14 @@ struct report
     int error_count;
     int warnings_count;
     int info_count;
+    
+    bool test_mode;
+    int test_failed;
+    int test_succeeded;
 
     enum diagnostic_id last_diagnostic_id;
 };
+
 
 
 
@@ -85,6 +90,7 @@ struct parser_ctx
 
     bool inside_generic_association;
 
+    
     struct report* p_report;
 
 };
@@ -650,7 +656,7 @@ struct declarator
     struct object object;
 
     /*final declarator type (after auto, typeof etc)*/
-    struct type type;
+    struct type type;    
 };
 
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);

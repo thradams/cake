@@ -162,7 +162,7 @@ enum token_type
     TK_KEYWORD__OBJ_OWNER, 
     TK_KEYWORD__VIEW,    
     TK_KEYWORD__OPT, 
-    TK_KEYWORD__NOTNULL, 
+    
 
     /*extension compile time functions*/
     TK_KEYWORD_STATIC_DEBUG, /*extension*/
@@ -229,8 +229,8 @@ struct token
     /*points to the token with file name or macro*/
     struct token* token_origin;
 
-    struct token* owner next;
-    struct token* prev;
+    struct token* owner opt next;
+    struct token* opt prev;
 };
 
 void token_delete( struct token* owner opt p);

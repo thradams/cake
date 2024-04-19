@@ -58,9 +58,6 @@
     <ClCompile Include="..\src\flow_visit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\tests.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\object.c">
       <Filter>Source Files</Filter>
     </ClCompile>
