@@ -5303,6 +5303,19 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             ctx->options.ownership_enabled = false;
         }
     }
+    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "flow") == 0)
+    {
+        p_pragma_token = pragma_match(p_pragma_token);
+
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
+        {
+            ctx->options.flow_analysis = true;
+        }
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
+        {
+            ctx->options.flow_analysis = false;
+        }
+    }
 
 }
 
@@ -7649,16 +7662,16 @@ static int create_multiple_paths(const char* root, const char* outdir)
                 printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
                 return er;
             }
-        }
+    }
         if (*p == '\0')
             break;
         p++;
-    }
+}
     return 0;
 #else
     return -1;
 #endif
-}
+        }
 
 int compile(int argc, const char** argv, struct report* report)
 {

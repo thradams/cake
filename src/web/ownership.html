@@ -70,10 +70,10 @@
 </ul>
 </li>
 <li>
-<a href="#toc_12">Ownership Feature Strategy (Inspired by stdbool.h)</a>
+<a href="#toc_12">Code transition Strategy</a>
 </li>
 </ul>
-<p>Last Updated 19/04/2024</p>
+<p>Last Updated 20 April 2024</p>
 
 <p>This is a work in progress, both design and implementation. Cake source itself is being used to validate the concepts.</p>
 
@@ -131,6 +131,7 @@ int main()
 These warnings are disabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference</p>
 
 <pre><code class="language-c">#pragma nullable disable
+
 void f(int * p) 
 {
    //p can be null
@@ -146,8 +147,9 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p><strong>Rule:</strong> A non-nullable pointer can be assigned to a nullable pointer.
-<strong>Rule:</strong> The null pointer constant cannot be assigned to a non-nullable pointer.</p>
+<p><strong>Rule:</strong> A non-nullable pointer can be assigned to a nullable pointer.</p>
+
+<p><strong>Rule:</strong> The null pointer constant cannot be assigned to a non-nullable pointer.</p>
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -156,7 +158,11 @@ int * f();
 int main()
 {
    int * p = f();
+   
+   //A non-nullable pointer can be assigned to a nullable pointer.
    int * _Opt p2 = p; //ok
+
+   //The null pointer constant cannot be assigned to a non-nullable pointer.
    int * p3 = nullptr; //warning
 }
 </code></pre>
@@ -171,11 +177,12 @@ int * _Opt f();
 
 int main()
 {
-   int * p0 = f(); //warning maybe null assigned to non-nullable
    int * _Opt p = f();
    if (p)
    {
-      int * p2 = p; //ok because p is not null
+      //A nullable pointer can be assigned to a non-nullable pointer 
+      //if the flow analysis can confirm the state of the pointer is not null.
+      int * p2 = p; //ok
    }
 }
 </code></pre>
@@ -191,12 +198,13 @@ int main()
 <p><strong>Sample - Owner Pointer to FILE</strong></p>
 
 <pre><code class="language-c">#pragma nullable enable
-#include &lt;ownership.h&gt;
+#pragma ownership enable
+
 #include &lt;stdio.h&gt;
 
 int main()
 {
-    FILE *owner opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    FILE *_Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
     if (f)
     {
        fclose(f);
@@ -209,12 +217,13 @@ int main()
 <p>If the programmer incorrectly assumes that <code>fclose</code> accepts NULL.</p>
 
 <pre><code class="language-c">#pragma nullable enable
-#include &lt;ownership.h&gt;
+#pragma ownership enable
+
 #include &lt;stdio.h&gt;
 
 int main()
 {
-    FILE *owner opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    FILE * _Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
     if (f)
     {
     }
@@ -242,10 +251,6 @@ int main()
 
 <p>As we can see we have compile-time checked contracts.</p>
 
-<blockquote>
-<p>Note: <strong>owner</strong> is actually a macro declared in <ownership.h> as <strong>_Owner</strong>, and <strong>opt</strong> is <strong>_Opt</strong>. </p>
-</blockquote>
-
 <p>The ownership mechanism has some rules.</p>
 
 <p><strong>Rule:</strong> An <strong>owner reference</strong> is always the unique owner of the referenced object.</p>
@@ -256,17 +261,21 @@ int main()
 
 <p>Sample</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 #include &lt;stdio.h&gt;
 
 int main()
 {
-    FILE *owner opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
-    FILE *owner opt f2 = f; /*MOVED*/
+    FILE * _Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    FILE * _Owner _Opt f2 = f; /*MOVED*/
     if (f2)
        fclose(f2); /*MOVED*/
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>Invoking a function <code>fclose</code> is analogous to assignment of the argument <code>f2</code>, resulting in the transfer of ownership of <code>f2</code> to the function parameter.  </p>
 
@@ -300,13 +309,17 @@ void fclose(FILE * _Owner p);
 
 <p><strong>Rule:</strong> Owner objects cannot be discarded.</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
+
 #include &lt;stdio.h&gt;
 
 int main() {  
   fopen(&quot;file.txt&quot;, &quot;r&quot;); //warning   
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p><strong>Rule:</strong> A non-owner object cannot be copied to a owner object.</p>
 
@@ -315,6 +328,8 @@ int main() {
 <p><strong>Sample</strong></p>
 
 <pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 typedef int T;
 T * f(); //returning non owner
 int main() {  
@@ -322,6 +337,8 @@ int main() {
    T * _Owner _Opt _p2 = 0;  //OK
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_5">View references</h3>
 
@@ -337,12 +354,14 @@ When an owner object is copied to a view object, the ownership is not transferre
 <p><strong>Sample</strong></p>
 
 <pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 #include &lt;stdio.h&gt;
 
 void use_file(FILE *f) {}
 
 int main() {
-    FILE * _Owner _Opt _f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+    FILE * _Owner _Opt f = fopen(&quot;file.txt&quot;, &quot;r&quot;);
     if (f) {
         use_file(f); //not moved
         fclose(f);
@@ -356,14 +375,16 @@ int main() {
 
 <p><strong>Sample - A view parameter</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 
 struct X {   
-  char *owner text;   
+  char * _Owner text;   
 };  
 
-void f(view struct X x) { /*...*/ }  
+void f(_View struct X x) { /*...*/ }  
 
 int main() {
     struct X x = {};
@@ -371,6 +392,8 @@ int main() {
     free(x.text);
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <blockquote>
 <p>Note: It is interesting to compare against const qualifier. While const adds a qualifier &quot;const&quot; &quot;view&quot; removes the qualifier &quot;owner&quot;.</p>
@@ -382,12 +405,17 @@ int main() {
 
 <p>We cannot return the address of local variables</p>
 
-<pre><code class="language-c">int * f()
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
+int * f()
 {
    int a = 1;
    return &amp;a; //ERROR
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>We can return the address of global variables</p>
 
@@ -398,12 +426,16 @@ int * f()
 }  
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>And we can return parameters</p>
 
 <pre><code class="language-c">int * f2(int *p) {
    return p; //OK
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>Now consider:</p>
 
@@ -424,6 +456,8 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>Examining the implementation reveals that the returned view pointer&#39;s lifetime can be that of either &#39;a&#39; or &#39;b&#39;.</p>
 
 <p>Our goal is to set contracts at the declaration level.</p>
@@ -442,7 +476,7 @@ int main(){
  struct Y * pY;  
 };  
 struct Y {  
- char * owner name;  
+ char * _Owner name;  
 };  
 </code></pre>
 
@@ -458,14 +492,16 @@ struct Y {
 
 <p><strong>Sample - Implementing the delete function</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 
 struct X { 
-  char *owner text; 
+  char * _Owner _Opt text; 
 };
 
-void x_delete(struct X *owner p) {
+void x_delete(struct X * _Owner _Opt p) {
   if (p) {
     /*releasing the object*/ 
     free(p-&gt;text);
@@ -476,19 +512,26 @@ void x_delete(struct X *owner p) {
 }
 
 int main() {
-  struct X * owner pX = calloc(1, sizeof * pX);
+  struct X * _Owner pX = calloc(1, sizeof * pX);
   if (pX) {
     /*...*/;
     x_delete( pX); 
   }
 }
+
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_9">Conversion from owner pointer to void * owner</h3>
 
 <p><strong>Rule:</strong> Assignment or cast of a owner pointer to void * owner requires the pointed object to be empty.</p>
 
-<pre><code class="language-c">struct X {
+<pre><code class="language-c">
+#pragma nullable enable
+#pragma ownership enable
+
+struct X {
     char _Owner text;
 };
 
@@ -501,15 +544,19 @@ int main(){
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>When the object is created on the stack, we can implement a destructor.</p>
 
 <p><strong>Sample - Implementing a destructor</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 
 struct X {
-    char *owner text;
+    char * _Owner text;
 };  
 
 void x_destroy(struct X x) {
@@ -523,22 +570,26 @@ int main() {
 }
 </code></pre>
 
-<p>However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, Cake introduces a new qualifier, <strong>obj_owner</strong>. </p>
+<p><button onclick="Try(this)">try</button></p>
 
-<p>A pointer qualified with <strong>obj_owner</strong> is the owner of the pointed object but not responsible for managing its memory.</p>
+<p>However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, Cake introduces a new qualifier, <strong><em>Obj</em>wner</strong>. </p>
 
-<p>The next sample illustrates how to implement a destructor using a obj_owner pointer parameter.</p>
+<p>A pointer qualified with <strong><em>Obj</em>wner</strong> is the owner of the pointed object but not responsible for managing its memory.</p>
 
-<p><strong>Sample - Implementing a destructor using obj_owner</strong></p>
+<p>The next sample illustrates how to implement a destructor using a <em>Obj</em>owner pointer parameter.</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<p><strong>Sample - Implementing a destructor using <em>Obj</em>owner</strong></p>
+
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 
 struct X {
-    char *owner text;
+    char * _Owner text;
 };
 
-void x_destroy(struct X *obj_owner x) {
+void x_destroy(struct X * _Obj_owner x) {
     free(x-&gt;text);
     /*x is not the owner of the memory*/
 }
@@ -550,18 +601,22 @@ int main() {
 }
 </code></pre>
 
-<p>In order to prevent moving from a non owner object, only <em>address of expressions</em> to <strong>obj_owner</strong> are allowed. </p>
+<p><button onclick="Try(this)">try</button></p>
+
+<p>In order to prevent moving from a non owner object, only <em>address of expressions</em> to <strong><em>Obj</em>wner</strong> are allowed. </p>
 
 <p><strong>Sample - Non address of expression or owner pointer.</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 
 struct X {
  struct Y * p;
 };
 
-void y_destroy(struct Y * obj_owner p);
+void y_destroy(struct Y * _Obj_owner p);
 
 void f(struct X * x) {
   //Error: parameter 1 requires a pointer to owner object
@@ -570,22 +625,26 @@ void f(struct X * x) {
 }
 </code></pre>
 
-<p>We can copy an <strong>owner</strong> pointer to an <strong>obj_owner</strong> pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership.   </p>
+<p><button onclick="Try(this)">try</button></p>
+
+<p>We can copy an <strong>owner</strong> pointer to an <strong><em>Obj</em>wner</strong> pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership.   </p>
 
 <p><strong>Sample - Using <code>x_destroy</code> to implement <code>x_delete</code></strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 
 struct X {
-  char *owner text; 
+  char * _Owner text; 
 };
 
-void x_destroy(struct X *obj_owner x) {
+void x_destroy(struct X * _Obj_owner x) {
   free(x-&gt;text); 
 }
 
-void x_delete(struct X *owner p) { 
+void x_delete(struct X * _Owner _Opt p) { 
   if (p) {
     x_destroy(p); /* *p is moved*/
     free(p);
@@ -601,38 +660,39 @@ int main() {
  } 
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>In C, array types in arguments are pointers. This characteristics is preserved.</p>
 
 <p>To use owner qualifier in array we do. (Just like const)</p>
 
-<pre><code class="language-c">void f(int a[owner])
+<pre><code class="language-c">
+#pragma nullable enable
+#pragma ownership enable
+
+void free(void * _Owner _Opt p);
+
+void f(int a[_Owner])
 {
   free(a);
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>But I think this is quite uncommon.</p>
 
 <h2 id="toc_10">Flow analysis</h2>
 
-<p>Let&#39;s revisit our first example:</p>
+<p>Flow analysis is the core feature that enables the nullable and ownership checks.
+The compiler flag <code>-fanalyzer</code> activates the flow analysis that works a secondary pass.</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
-#include &lt;stdio.h&gt;
+<p>Flow analysis  also can be enabled/disable with pragma</p>
 
-int main()
-{
-  FILE *owner f = fopen(&quot;file.txt&quot;, &quot;r&quot;); 
-  if (f)
-    fclose(f); //f is moved
-}
+<pre><code class="language-c">#pragma flow enable
 </code></pre>
 
-<p>&quot;Rule: Before the end of its lifetime, owner objects must move the ownership of the objects they own.&quot;</p>
-
-<p>At the end of the scope, <code>f</code> can be either null or moved, and both states ensure that the rule is followed.</p>
-
-<p>To check the ownership rules, the compiler need flow analysis and it uses six states:</p>
+<p>To check the nullable and ownership rules, the compiler use these states:</p>
 
 <ul>
 <li>uninitialized</li>
@@ -648,20 +708,17 @@ int main()
 
 <p><strong>Sample - Usage of static_state and static_debug</strong></p>
 
-<pre><code class="language-c">int main() {
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
+int main() {
  int a;   
  static_state(a, &quot;uninitialized&quot;); //checks a state  
  static_debug(a);                  //prints &#39;a&#39; state 
 }
 </code></pre>
 
-<p>Output:</p>
-
-<pre><code>c:/main.c:4:2: note: static_debug
- 4 | static_debug(a);
-   | ^~~~~~~~~~~~
- a == &quot;uninitialized&quot;
-</code></pre>
+<p><button onclick="Try(this)">try</button></p>
 
 <h4>Uninitialized state</h4>
 
@@ -669,7 +726,12 @@ int main()
 
 <p>Flow analysis must  ensure that we don&#39;t read uninitialized objects.</p>
 
-<pre><code class="language-c">void f(int condition) {
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
+int printf(const char* restrict format, ...);
+
+void f(int condition) {
    int i;
    if (condition) 
     i = 0;
@@ -677,11 +739,16 @@ int main()
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>The other situation were variables becomes <strong>uninitialized</strong> is when moving ownership to function parameters. </p>
 
 <p>This prevents bugs like double free or use after free.</p>
 
-<pre><code class="language-c">int * _Owner f();
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
+int * _Owner f();
 void free(void * _Owner _Opt p);
 
 int main() {   
@@ -690,6 +757,8 @@ int main() {
    free(p); //warning p is uninitialized
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h4>Moved state</h4>
 
@@ -700,20 +769,26 @@ Moving a null object it is not a move.</p>
 
 <p><strong>Sample - local scope moves</strong></p>
 
-<pre><code class="language-c">int * _Owner f();
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
+int * _Owner f();
 void free(void * _Owner _Opt p);
 
 int main() {   
    int * _Owner p = f();
-   int * _Owner p2 = 0;
+   int * _Owner _Opt p2 = 0;
    p2 = p; // p moved to p2  
   
    //compiler knows that *p still valid  
 
    free(p); //warning p was moved
+
    free(p2); //ok
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h4>_Out qualifier</h4>
 
@@ -721,15 +796,17 @@ int main() {
 
 <p>This situation is addressed by the qualifier <strong>_Out/out</strong>.</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 #include &lt;string.h&gt;
 
 struct X {
-  char * owner text;
+  char * _Owner _Opt text;
 };
 
-int init(out struct X *p)
+int init(_Out struct X *p)
 {
   p-&gt;text = strdup(&quot;a&quot;); //safe
 }
@@ -739,7 +816,10 @@ int main() {
   init(&amp;x);  
   free(x.text);
 }  
+
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>With the out qualifier, caller is informed that the argument must be uninitialized.</p>
 
@@ -757,15 +837,17 @@ int main() {
 
 <p>For instance, at set implementation we need free text before assignment.</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 #include &lt;string.h&gt;
 
 struct X {
-  char * owner text;
+  char * _Owner _Opt text;
 };
 
-int init(out struct X *p, const char * text)
+int init(_Out struct X *p, const char * text)
 {
    p-&gt;text = strdup(text); //safe
 }
@@ -784,13 +866,17 @@ int main() {
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p><strong>Rule:</strong> Function never returns uninitialized objects or reachable uninitialized objects.</p>
 
 <p>TODO void objects.</p>
 
 <p><strong>Rule:</strong> Non owner objects accessible with parameters cannot leave scope with uninitialized/moved objects.</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
+
 #include &lt;string.h&gt;
 #include &lt;stdlib.h&gt;
 
@@ -798,7 +884,7 @@ struct X {
   char * owner name;
 };
 
-void x_destroy(struct X * obj_owner p) {
+void x_destroy(struct X * _Obj_owner p) {
   free(p-&gt;name); 
 }
 
@@ -819,17 +905,21 @@ int main() {
 
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>Sample of swap if fine because at end of scopes objects are not uninitialized/moved.</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 
 struct X
 {
-  char * owner name;
+  char * _Owner name;
 };
 
-void x_destroy(struct X * obj_owner p)
+void x_destroy(struct X * _Obj_owner p)
 {
   free(p-&gt;name); 
 }
@@ -851,31 +941,40 @@ int main() {
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <h4>Null and Not-Null state</h4>
 
 <p>The <strong>null</strong> state means that pointers/objects are initialized and not referencing any object. </p>
 
 <p><strong>Sample - Null state</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
 
 int main() {
- void * owner p = nullptr;   
+ void * _Owner _Opt p = nullptr;   
  static_state(p, &quot;null&quot;); 
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p><strong>Rule:</strong> Before assignment, owner objects, must not be holding objects. The state must be null or uninitialized/moved.</p>
 
 <p>Sample</p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
+
 #include &lt;stdio.h&gt;
 int main() {
-  FILE * owner file = fopen(&quot;file.txt&quot;, &quot;r&quot;);
+  FILE * _Owner _Opt file = fopen(&quot;file.txt&quot;, &quot;r&quot;);
   file = fopen(&quot;file.txt&quot;, &quot;r&quot;); //warning
 }
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>The <strong>not-null</strong> state indicates that the object is initialized and not referencing any object.</p>
 
@@ -885,12 +984,14 @@ int main() {
 
 <p><strong>Sample - not-null and maybe-null</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
+
 #include &lt;stdlib.h&gt;
 
 int main()
 {
-   void * owner p = malloc(1);
+   void * _Owner p = malloc(1);
    if (p) {
      static_state(p, &quot;not-null&quot;);
    }
@@ -900,61 +1001,11 @@ int main()
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p><strong>Rule:</strong> Pointer parameters are consider not-null by default. The exception is created using the qualifier  <strong>_Opt</strong>.</p>
 
 <p>The  <strong>_Opt</strong>. qualifier is used to tell the caller that the pointer can be at null state and tells the implementation that it is necessary to check the pointer for null before usage. </p>
-
-<p><strong>Rule:</strong> Pointers that can be null cannot be passed to functions that don&#39;t declare the pointer as opt.</p>
-
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
-#include &lt;stdlib.h&gt;
-
-struct X {int i;};
-
-void f(struct X * p){
-}
-
-int main()
-{
-   struct X * owner p = calloc(1, sizeof * p);
-   f(p); //warning pointer can be null
-   free(p);
-}
-</code></pre>
-
-<blockquote>
-<p>Note: To enable null checks in cake use -nullchecks</p>
-</blockquote>
-
-<p>This sample can be fixed in two ways.  </p>
-
-<pre><code class="language-c">/*...*/
-void f(struct X * p){}
-int main()
-{
-   struct X * owner p = calloc(1, sizeof * p);
-   if (p)   
-     f(p); //ok
-   free(p);
-}
-</code></pre>
-
-<p>or </p>
-
-<pre><code class="language-c">/*...*/
-void f(struct X * opt p){ }
-int main()
-{
-   struct X * owner p = calloc(1, sizeof * p);
-   f(p); //ok
-   free(p);
-}
-</code></pre>
-
-<p>Considering these semantics, the correct declaration of free is:</p>
-
-<pre><code class="language-c">void free(void * _Owner _Opt p); //p can be null 
-</code></pre>
 
 <h4>Zero and Not-Zero state</h4>
 
@@ -969,6 +1020,8 @@ int main()
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p><strong>Zero</strong> and <strong>null</strong> are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily means null. The compiler does not know the semantics for types that are not pointers.</p>
 
 <h4>static_set</h4>
@@ -977,7 +1030,7 @@ int main()
 
 <p><strong>Sample - Usage of static_set</strong></p>
 
-<pre><code class="language-c">  owner int server_socket =
+<pre><code class="language-c">  _Owner int server_socket =
      socket(AF_INET, SOCK_STREAM, 0);
   if (server_socket &lt; 0) {  
      static_set(server_socket, &quot;null&quot;);
@@ -999,21 +1052,27 @@ int main() {
 }
 </code></pre>
 
+<p><button onclick="Try(this)">try</button></p>
+
 <p>Now let&#39;s consider <code>realloc</code> function.</p>
 
-<pre><code class="language-c">void * owner realloc( void *ptr, size_t new_size ); 
+<pre><code class="language-c">void * _Owner realloc( void * _Opt ptr, size_t new_size );  
 </code></pre>
 
 <p>In the declaration of <code>realloc</code>, we are not moving the ptr. The reason for that is because the <code>ptr</code> may or may not be moved. If the function returns NULL, <code>ptr</code> was not moved. </p>
 
 <p><strong>Sample - Using static_set with realloc</strong></p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt; 
-#include &lt;stdlib.h&gt;
+<pre><code class="language-c">#pragma nullable enable 
+#pragma ownership enable
+
+void* _Owner _Opt malloc(size_t size);
+void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
+
 int main()
 {
-  void * owner p = malloc(1);
-  void * owner p2 = realloc(p, 2);
+  void * _Owner _Opt p = malloc(1);
+  void * _Owner _Opt p2 = realloc(p, 2);
   if (p2 != 0)
   {
      // if p2 != 0 it  means p was moved
@@ -1022,7 +1081,10 @@ int main()
   }    
   free(p);
 }
+
 </code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <h3 id="toc_11">assert is a statement</h3>
 
@@ -1033,58 +1095,80 @@ int main()
 <p><strong>Listing 22 shows the usage of assert.</strong> </p>
 
 <pre><code class="language-c">
-#include &lt;ownership.h&gt; 
+#pragma nullable enable 
+#pragma ownership enable
+
 #include &lt;string.h&gt;
 #include &lt;stdlib.h&gt;
 
 struct node {
- char * owner text;
- struct node* owner next;
+ char * _Owner text;
+ struct node* _Owner next;
 };
 
 struct list {
-  struct node * owner head;
+  struct node * _Owner head;
   struct node * tail;
 };
 
-void list_append(struct list* list, struct node* owner node)
+void list_append(struct list* list, struct node* _Owner node)
 {
   if (list-&gt;head == NULL) {
       list-&gt;head = node;
    }
    else {
+      
+      //list-&gt;tail-&gt;next is always null
       assert(list-&gt;tail-&gt;next == 0);
+
       list-&gt;tail-&gt;next = node;
    }
    list-&gt;tail = node;
 }
 </code></pre>
 
-<h2 id="toc_12">Ownership Feature Strategy (Inspired by stdbool.h)</h2>
+<p><button onclick="Try(this)">try</button></p>
 
-<p>If the compiler supports ownership checks and qualifiers such as _Owner, _View, _Obj_view, etc., it must define  <code>__STDC_OWNERSHIP__</code>. </p>
+<h2 id="toc_12">Code transition Strategy</h2>
 
-<p>We utilize a header with macro versions for each keyword. 
-For example, the macro owner corresponds to the keyword _Owner. 
-This approach offers the advantage that macros can be declared empty for compilers that 
-do not support ownership checks.</p>
+<p>If the compiler supports ownership checks it must define  <code>__STDC_OWNERSHIP__</code>. </p>
 
-<pre><code class="language-c">#include &lt;ownership.h&gt;
-#include &lt;stdlib.h&gt;
+<p>If the compiler supports nullable types it must define  <code>__STDC_NULLABLE__</code>. </p>
 
-int main() {
-  void * owner p = malloc(1); //error: missing owner qualifier
-}
+<p>If the compiler supports flow analysis it must define  <code>__STDC_FLOW__</code>. </p>
+
+<p>A header like this <code>safe.h</code> can be created.</p>
+
+<pre><code class="language-c">
+#ifdef  __STDC_FLOW__
+ #pragma flow enable
+#endif
+
+#ifdef  __STDC_OWNERSHIP__
+ #pragma ownership enable
+#else
+  /*empty macros*/
+
+  #define _Out
+  #define _Owner
+  #define _Obj_owner
+  #define _View
+
+#endif
+
+#ifdef  __STDC_NULLABLE__
+ #pragma nullable enable
+  #pragma flow enable
+#else
+  /*empty macros*/
+  #define _Opt
+#endif
+
 </code></pre>
 
-<blockquote>
-<p>Currently cake is using the same headers of VS and GCC that are not aware of ownership. 
-For this reason, <code>ownership.h</code> itself is declaring malloc.
-When we parsing malloc from MSVC/GCC we ignore the diferences, but at the current version 
-<code>ownership.h</code> header must be included before to take efect.</p>
-</blockquote>
-
-<p>The standard also could make out, opt, view, owner, obj_owner as reserved keyword for the future.</p>
-
-<p>_</p>
+<pre><code class="language-c">#include &lt;safe.h&gt;
+int main()
+{
+}
+</code></pre>
 </article></body></html>
