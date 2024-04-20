@@ -739,6 +739,9 @@ enum diagnostic_id {
 #define WFLAG(W) (1ULL << W)
 #define NULLABLE_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_NULL_DEREFERENCE) | WFLAG(W_FLOW_NULLABLE_TO_NON_NULLABLE))
 
+#define OWNERSHIP_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_UNINITIALIZED))
+
+
 int get_diagnostic_phase(enum diagnostic_id w);
 
 enum style
@@ -841,6 +844,8 @@ struct options
     * -nullchecks
     */
     bool null_checks_enabled;
+
+    bool ownership_enabled;
 
     /*
       -E
@@ -9456,13 +9461,13 @@ static const char* file_stdio_h =
 "int rename(const char* old, const char* news);\n"
 "FILE* _Opt tmpfile(void);\n"
 "char* tmpnam(char* s);\n"
-"#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)\n"
+"#if defined(__STDC_OWNERSHIP__) \n"
 "int fclose(FILE* _Owner stream);\n"
 "#else\n"
 "int fclose(FILE* stream);\n"
 "#endif\n"
 "int fflush(FILE* stream);\n"
-"#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)\n"
+"#if defined(__STDC_OWNERSHIP__) \n"
 "FILE* _Owner _Opt fopen(const char* restrict filename, const char* restrict mode);\n"
 "FILE* _Owner _Opt freopen(const char* restrict filename, const char* restrict mode, FILE* restrict stream);\n"
 "#else\n"
@@ -9667,7 +9672,7 @@ static const char* file_string_h =
 "char* strpbrk(char const* _Str, char const* _Control);\n"
 "size_t strspn(char const* _Str, char const* _Control);\n"
 "char* strtok(char* _String, char const* _Delimiter);\n"
-"#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)\n"
+"#if defined(__STDC_OWNERSHIP__) \n"
 "char* _Owner _Opt strdup(char const* _String);\n"
 "#else\n"
 "char* strdup(char const* _String);\n"
@@ -9916,9 +9921,9 @@ static const char* file_stdlib_h =
 "int rand(void);\n"
 "void srand(unsigned int seed);\n"
 "void* aligned_alloc(size_t alignment, size_t size);\n"
-"#if defined(__STDC_OWNERSHIP__) && defined(__OWNERSHIP_H__)\n"
+"#if defined(__STDC_OWNERSHIP__) \n"
 "[[nodiscard]] void* _Owner _Opt calloc(size_t nmemb, size_t size);\n"
-"void free(void* _Owner ptr);\n"
+"void free(void* _Owner _Opt ptr);\n"
 "[[nodiscard]] void* _Owner _Opt malloc(size_t size);\n"
 "[[nodiscard]] void* _Owner _Opt realloc(void* ptr, size_t size);\n"
 "#else\n"
@@ -9954,6 +9959,7 @@ const char* file_ownership_h =
 "#ifndef __OWNERSHIP_H__\n"
 "#define __OWNERSHIP_H__\n"
 "\n"
+"#pragma ownership enable\n"
 "#ifdef __STDC_OWNERSHIP__\n"
 "#define out _Out\n"
 "#define opt _Opt\n"
@@ -10294,6 +10300,18 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-nullchecks") == 0)
         {
             options->null_checks_enabled = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-ownership=enable") == 0)
+        {
+            options->ownership_enabled = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-ownership=disable") == 0)
+        {
+            options->ownership_enabled = false;
             continue;
         }
 
@@ -28399,32 +28417,47 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
         p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
         break;
 
-        /*
-          ownership extensions
-        */
-
-    case TK_KEYWORD__OUT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
-        break;
-
-    case TK_KEYWORD__OWNER:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
-        break;
-
-    case TK_KEYWORD__OPT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_NULLABLE;
-        break;
-
-
-    case TK_KEYWORD__OBJ_OWNER:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
-        break;
-    case TK_KEYWORD__VIEW:
-        p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
-        break;
     default:
         // do nothing
         break;
+    }
+
+    if (ctx->options.ownership_enabled)
+    {
+        switch (ctx->current->type)
+        {
+        case TK_KEYWORD__OUT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
+            break;
+
+        case TK_KEYWORD__OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+            break;
+
+        case TK_KEYWORD__OBJ_OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
+            break;
+        case TK_KEYWORD__VIEW:
+            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+            break;
+        default:
+            // do nothing
+            break;
+        }
+    }
+
+    if (ctx->options.null_checks_enabled)
+    {
+        switch (ctx->current->type)
+        {
+        case TK_KEYWORD__OPT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_NULLABLE;
+            break;
+
+        default:
+            // do nothing
+            break;
+        }
     }
 
     p_type_qualifier->token = ctx->current;
@@ -29664,6 +29697,37 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             ctx->options.null_checks_enabled = false;
         }
     }
+    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "ownership") == 0)
+    {
+        //see
+        //https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references
+        p_pragma_token = pragma_match(p_pragma_token);
+
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
+        {
+            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+
+            ctx->options.ownership_enabled = true;
+
+        }
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
+        {
+            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+            ctx->options.ownership_enabled = false;
+        }
+    }
+
 }
 
 struct pragma_declaration* owner pragma_declaration(struct parser_ctx* ctx)

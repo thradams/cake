@@ -3993,32 +3993,47 @@ struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
         p_type_qualifier->flags = TYPE_QUALIFIER__ATOMIC;
         break;
 
-        /*
-          ownership extensions
-        */
-
-    case TK_KEYWORD__OUT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
-        break;
-
-    case TK_KEYWORD__OWNER:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
-        break;
-
-    case TK_KEYWORD__OPT:
-        p_type_qualifier->flags = TYPE_QUALIFIER_NULLABLE;
-        break;
-
-
-    case TK_KEYWORD__OBJ_OWNER:
-        p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
-        break;
-    case TK_KEYWORD__VIEW:
-        p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
-        break;
     default:
         // do nothing
         break;
+    }
+
+    if (ctx->options.ownership_enabled)
+    {
+        switch (ctx->current->type)
+        {
+        case TK_KEYWORD__OUT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OUT;
+            break;
+
+        case TK_KEYWORD__OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OWNER;
+            break;
+
+        case TK_KEYWORD__OBJ_OWNER:
+            p_type_qualifier->flags = TYPE_QUALIFIER_OBJ_OWNER;
+            break;
+        case TK_KEYWORD__VIEW:
+            p_type_qualifier->flags = TYPE_QUALIFIER_VIEW;
+            break;
+        default:
+            // do nothing
+            break;
+        }
+    }
+
+    if (ctx->options.null_checks_enabled)
+    {
+        switch (ctx->current->type)
+        {
+        case TK_KEYWORD__OPT:
+            p_type_qualifier->flags = TYPE_QUALIFIER_NULLABLE;
+            break;
+
+        default:
+            // do nothing
+            break;
+        }
     }
 
     p_type_qualifier->token = ctx->current;
@@ -5258,6 +5273,37 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             ctx->options.null_checks_enabled = false;
         }
     }
+    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "ownership") == 0)
+    {
+        //see
+        //https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references
+        p_pragma_token = pragma_match(p_pragma_token);
+
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
+        {
+            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+
+            ctx->options.ownership_enabled = true;
+
+        }
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
+        {
+            unsigned long long w = OWNERSHIP_DISABLE_REMOVED_WARNINGS;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+            ctx->options.ownership_enabled = false;
+        }
+    }
+
 }
 
 struct pragma_declaration* owner pragma_declaration(struct parser_ctx* ctx)

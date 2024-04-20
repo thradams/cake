@@ -310,7 +310,7 @@ int main()
 #define NC " -nullable=disable "
 #endif
 
-    if (mysytem("cake.exe  " NC " -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    if (mysytem("cake.exe  " NC " -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
 #endif
 

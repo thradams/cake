@@ -191,6 +191,9 @@ enum diagnostic_id {
 #define WFLAG(W) (1ULL << W)
 #define NULLABLE_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_NULL_DEREFERENCE) | WFLAG(W_FLOW_NULLABLE_TO_NON_NULLABLE))
 
+#define OWNERSHIP_DISABLE_REMOVED_WARNINGS  (WFLAG(W_FLOW_UNINITIALIZED))
+
+
 int get_diagnostic_phase(enum diagnostic_id w);
 
 enum style
@@ -293,6 +296,8 @@ struct options
     * -nullchecks
     */
     bool null_checks_enabled;
+
+    bool ownership_enabled;
 
     /*
       -E

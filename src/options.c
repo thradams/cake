@@ -247,6 +247,18 @@ int fill_options(struct options* options,
             continue;
         }
 
+        if (strcmp(argv[i], "-ownership=enable") == 0)
+        {
+            options->ownership_enabled = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-ownership=disable") == 0)
+        {
+            options->ownership_enabled = false;
+            continue;
+        }
+
         if (strcmp(argv[i], "-remove-comments") == 0)
         {
             options->remove_comments = true;

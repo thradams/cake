@@ -1241,17 +1241,24 @@ sample["Ownership (experimental)"]=[];
 
 sample["Ownership (experimental)"]["hello"] =
 `
-void* _Owner malloc(unsigned long size);
-void free(void* _Owner ptr);
+#pragma ownership enable
+#pragma nullable enable
+
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
 
 int main() {
-   void * _Owner p = malloc(1);
+   void * _Owner _Opt p = malloc(1);
    free(p);
 }
+
 `;
 
 sample["Ownership (experimental)"]["static_state/static_debug"] =
 `
+#pragma ownership enable
+#pragma nullable enable
+
 void* _Owner malloc(unsigned long size);
 void free(void* _Owner ptr);
 
@@ -1270,19 +1277,14 @@ int main() {
 
 sample["Ownership (experimental)"]["implementing a destructor I"] =
 `
+#pragma ownership enable
+#pragma nullable enable
 
-/*
-  Header ownership.h defines macros owner, view etc.
-  It also "activate" ownership checks.
-  If the compiler does not suports ownership it defines as empty macros
-*/
-
-#include <ownership.h> 
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char *owner name;
+  char *_Owner _Opt name;
 };
 
 void x_destroy(struct X x) 
@@ -1296,23 +1298,25 @@ int main() {
    x_destroy(x);
 }
 
+
 `;
 
 
 sample["Ownership (experimental)"]["implementing a destructor II"] =
 `
+#pragma ownership enable
+#pragma nullable enable
 
-#include <ownership.h> 
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char * owner name;
+  char *_Owner _Opt name;
 };
 
-void x_destroy(struct X * obj_owner p) 
+void x_destroy(struct X * _Obj_owner x) 
 {
-  free(p->name);
+  free(x->name);
 }
 
 int main() {
@@ -1323,18 +1327,20 @@ int main() {
 
 `;
 
-sample["Ownership (experimental)"]["view qualifier"] =
+sample["Ownership (experimental)"]["_View qualifier"] =
 `
-#include <ownership.h> 
+#pragma ownership enable 
+#pragma nullable enable
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 struct X {
-  char *owner name;
+  char *_Owner name;
 };
 
-void f(view struct X x) 
+void f(_View struct X x) 
 {
   printf(x.name);
 }
@@ -1352,14 +1358,16 @@ int main() {
 
 sample["Ownership (experimental)"]["implementing delete"] =
 `
-#include <ownership.h> 
+#pragma ownership enable 
+#pragma nullable enable
+
 #include <stdlib.h>
 
 struct X {
-  char * owner text;
+  char * _Owner text;
 };
 
-void x_delete(struct X * owner p)
+void x_delete(struct X * _Owner p)
 {
     if (p)
     {
@@ -1369,7 +1377,7 @@ void x_delete(struct X * owner p)
 }
 
 int main() {   
-   struct X * owner p = malloc(sizeof(struct X));
+   struct X * _Owner p = malloc(sizeof(struct X));
       
    p->text = malloc(10);
 
@@ -1382,7 +1390,9 @@ int main() {
 sample["Ownership (experimental)"]["fix-me 1"] =
 `
 
-//#include <ownership.h> 
+//#pragma ownership enable 
+//#pragma nullable enable
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -1401,24 +1411,24 @@ int main() {
 
 sample["Ownership (experimental)"]["Linked list"] =
 `
-
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
 
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
 
 struct book {
-     char* owner title;
-     struct book* owner next;
+     char* _Owner title;
+     struct book* _Owner next;
 };
 
 
 struct books {
-    struct book* owner head, *tail;
+    struct book* _Owner head, *tail;
 };
 
-void books_insert_after(struct books* books, struct book* book, struct book* owner new_book)
+void books_insert_after(struct books* books, struct book* book, struct book* _Owner new_book)
 {
     assert(books != NULL);
     assert(book != NULL);
@@ -1438,7 +1448,7 @@ void books_insert_after(struct books* books, struct book* book, struct book* own
 
 
 
-void books_push_back(struct books* books, struct book* owner new_book)
+void books_push_back(struct books* books, struct book* _Owner new_book)
 {
    assert(books != NULL);
    assert(new_book != NULL);
@@ -1453,7 +1463,7 @@ void books_push_back(struct books* books, struct book* owner new_book)
    books->tail = new_book;
 }
 
-void books_push_front(struct books* books, struct book* owner new_book)
+void books_push_front(struct books* books, struct book* _Owner new_book)
 {
     assert(books != NULL);
     assert(new_book != NULL);
@@ -1468,14 +1478,14 @@ void books_push_front(struct books* books, struct book* owner new_book)
     books->head = new_book;
 }
 
-void books_destroy(struct books* obj_owner books)
+void books_destroy(struct books* _Obj_owner books)
 {
     //pre condition
     assert(books != NULL);
 
-    struct book* owner it = books->head;
+    struct book* _Owner it = books->head;
     while (it != NULL) {
-        struct book* owner next = it->next;
+        struct book* _Owner next = it->next;
         free(it->title);
         free(it);
         it = next;
@@ -1485,7 +1495,7 @@ void books_destroy(struct books* obj_owner books)
 int main(int argc, char* argv[])
 {
     struct books list = { 0 };
-    struct book* owner b1 = calloc(1, sizeof(struct book));
+    struct book* _Owner b1 = calloc(1, sizeof(struct book));
     if (b1)
     {
         books_push_front(&list, b1);
@@ -1497,7 +1507,9 @@ int main(int argc, char* argv[])
 
 sample["Ownership (experimental)"]["dynamic array"] =
 `
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <stdlib.h>
 #include <assert.h>
 #include <errno.h>
@@ -1506,7 +1518,7 @@ sample["Ownership (experimental)"]["dynamic array"] =
 #include <string.h>
 
 struct int_array {
-    int* owner data;
+    int* _Owner data;
     int size;
     int capacity;
 };
@@ -1517,7 +1529,7 @@ int int_array_reserve(struct int_array* p, int n)
             return EOVERFLOW;
         }
 
-        void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
         static_set(p->data, "moved");
         p->data = pnew;
@@ -1560,7 +1572,7 @@ int int_array_push_back(struct int_array* p, int value)
     return 0;
 }
 
-void int_array_destroy(struct int_array* obj_owner p)
+void int_array_destroy(struct int_array* _Obj_owner p)
 {
 
     free(p->data);
@@ -1577,7 +1589,9 @@ int main()
 
 sample["Ownership (experimental)"]["using moved object"] =
 `
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -1822,14 +1836,16 @@ int main()
 
 sample["Ownership (experimental)"]["assignment"] =
 `
-#include <ownership.h> 
+#pragma ownership enable 
+#pragma nullable enable
+
 #include <string.h>
 #include <stdlib.h>
 
 int main()
 {  
-  const char * owner s1 = strdup("hi");
-  const char * owner s2 = NULL;
+  const char * _Owner s1 = strdup("hi");
+  const char * _Owner s2 = NULL;
 
   s2 = s1;
 
@@ -1841,12 +1857,14 @@ int main()
 
 sample["Ownership (experimental)"]["takes_ownership"] =
 `
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-void takes_ownership(char * owner some_string)
+void takes_ownership(char * _Owner some_string)
 {
     printf("%s", some_string);  
     free(some_string);
@@ -1854,7 +1872,7 @@ void takes_ownership(char * owner some_string)
 
 int main()
 {
-    owner auto s = strdup("hello");
+    _Owner auto s = strdup("hello");
     takes_ownership(s);
 }
 `;
@@ -1862,30 +1880,34 @@ int main()
 
 sample["Ownership (experimental)"]["gives ownership"] =
 `
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <string.h>
 #include <stdlib.h>
 
-const char * owner gives_ownership() {  
-    owner auto some_string = strdup("yours");
+const char * _Owner gives_ownership() {  
+    _Owner auto some_string = strdup("yours");
     return some_string;
 }
 
 int main(){
-  owner auto s = gives_ownership();
+  _Owner auto s = gives_ownership();
   free(s);
 }
 `;
 
-sample["Ownership (experimental)"]["moving parts of view"] =
+sample["Ownership (experimental)"]["moving parts of _View"] =
 `
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <string.h>
 #include <stdlib.h>
 
 
 struct X {
-  char * owner name;
+  char * _Owner name;
 };
 
 struct Y {
@@ -1894,7 +1916,7 @@ struct Y {
 };
 
 
-void x_destroy(struct X * obj_owner p) 
+void x_destroy(struct X * _Obj_owner p) 
 {
   free(p->name);
 }
@@ -1914,7 +1936,7 @@ int main() {
 
 `;
 
-sample["Ownership (experimental)"]["owner pointer owns two objects"] =
+sample["Ownership (experimental)"]["_Owner pointer owns two objects"] =
 `
 void * _Owner calloc(unsigned long i, unsigned long sz);
 char * _Owner strdup(const char* );
@@ -1967,12 +1989,14 @@ sample["find the bug"] = [];
 sample["find the bug"]["Bug #1"] =
 `
 
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char *owner name;
+  char *_Owner name;
 };
 
 struct X f(int condition)
@@ -1994,15 +2018,17 @@ int main()
 sample["find the bug"]["Bug #2"] =
 `
 
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char *owner name;
+  char *_Owner name;
 };
 
-void delete(struct X * owner p)
+void delete(struct X * _Owner p)
 {
     if (p)
      free(p);
@@ -2010,7 +2036,7 @@ void delete(struct X * owner p)
 
 int main()
 {
-    struct X * owner p = calloc(1, sizeof * p);
+    struct X * _Owner p = calloc(1, sizeof * p);
     if (p)
     {
         p->name = strdup("a");
@@ -2024,16 +2050,18 @@ int main()
 sample["find the bug"]["Bug #3"] =
     `
 
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char *owner name;
-  char *owner surname;
+  char *_Owner name;
+  char *_Owner surname;
 };
 
-void delete(struct X * owner p)
+void delete(struct X * _Owner p)
 {
     if (p)
     {
@@ -2044,7 +2072,7 @@ void delete(struct X * owner p)
 
 int main()
 {
-    struct X * owner p = malloc(sizeof * p);
+    struct X * _Owner p = malloc(sizeof * p);
     if (p)
     {
         p->name = strdup("a");
@@ -2058,14 +2086,16 @@ int main()
 sample["find the bug"]["Bug #4"] =
 `
 
-#include <ownership.h>
+#pragma ownership enable
+#pragma nullable enable
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
 struct X {
-  char *owner name;
-  char *owner surname;
+  char *_Owner name;
+  char *_Owner surname;
 };
 
 void change(struct X * p)

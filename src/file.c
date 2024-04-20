@@ -1,9 +1,15 @@
-#pragma nullable enable
+#pragma ownership enable
 
-int * _Owner _Opt f();
-void close(int * _Owner p);
+void* _Owner malloc(unsigned long size);
+void free(void* _Owner ptr);
+
+void f(char s[12]);
+
 int main()
 {
-    int * _Owner _Opt  p = f();
-    close(p);
+    char s[21];
+    f(s);
+    void* _Owner p = malloc(1);
+    //return 0;
+    //free(p);
 }
