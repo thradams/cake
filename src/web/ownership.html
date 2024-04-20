@@ -36,7 +36,7 @@
 <a href="#toc_1">Concepts</a>
 <ul>
 <li>
-<a href="#toc_2">Nullable types</a>
+<a href="#toc_2">Nullable pointers</a>
 </li>
 <li>
 <a href="#toc_3">Owner References</a>
@@ -94,9 +94,9 @@ to code as they wish, they must either persuade the compiler or disable analysis
 
 <h2 id="toc_1">Concepts</h2>
 
-<h3 id="toc_2">Nullable types</h3>
+<h3 id="toc_2">Nullable pointers</h3>
 
-<p>Nullable types are part of the safety strategy to ensure that we don&#39;t dereference a null pointer. 
+<p>Nullable pointers are part of the safety strategy to ensure that we don&#39;t dereference a null pointer. 
 For this task, a new qualifier _Opt has been created. 
 A pointer qualified with _Opt is called nullable pointer. 
 Pointers without _Opt qualifier are not nullable. 
@@ -719,6 +719,8 @@ int main() {
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
+
+<p>Obj: The web version has the flow analysis active because if uses <code>-fanalyzer</code> by default.</p>
 
 <h4>Uninitialized state</h4>
 

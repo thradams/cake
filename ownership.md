@@ -20,9 +20,9 @@ to code as they wish, they must either persuade the compiler or disable analysis
 
 ## Concepts
 
-### Nullable types
+### Nullable pointers
 
-Nullable types are part of the safety strategy to ensure that we don't dereference a null pointer. 
+Nullable pointers are part of the safety strategy to ensure that we don't dereference a null pointer. 
 For this task, a new qualifier \_Opt has been created. 
 A pointer qualified with \_Opt is called nullable pointer. 
 Pointers without \_Opt qualifier are not nullable. 
@@ -1093,7 +1093,7 @@ void list_append(struct list* list, struct node* _Owner node)
   <button onclick="Try(this)">try</button>
 
 
-## Code transition Strategy 
+## Code transition Strategy
 
 If the compiler supports ownership checks it must define  `__STDC_OWNERSHIP__`. 
 
