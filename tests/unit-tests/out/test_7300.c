@@ -1,10 +1,13 @@
-void* /*_Owner*/ malloc(int i);
+#pragma nullable enable
+#pragma ownership enable
+
+void* /*_Owner*/ _Opt malloc(int i);
 void free(void* /*_Owner*/ _Opt p);
 int rand();
 
 int main()
 {
-    char* /*_Owner*/ s = malloc(1);
+    char* /*_Owner*/ _Opt s = malloc(1);
     if (1) /*try*/
     {
         if (rand())

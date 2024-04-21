@@ -1,3 +1,7 @@
+#pragma nullable enable
+#pragma ownership enable
+
+
 #define NULL ((void*)0)
 
 struct item {

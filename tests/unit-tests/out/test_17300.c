@@ -1,4 +1,6 @@
 #pragma nullable enable
+#pragma ownership enable
+
 int strlen(const char* s);
 
 int main()

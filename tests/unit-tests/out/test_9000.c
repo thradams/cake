@@ -1,3 +1,6 @@
+#pragma nullable enable
+#pragma ownership enable
+
 struct X {
   void * /*_Owner*/ _Opt text;
 };
@@ -9,6 +12,7 @@ int main()
 {
   struct X x = {0};
   x_change(&x);  
+  
 }
 //memory pointed by 'x.text' was not released.
 #pragma cake diagnostic check "-Wmissing-destructor"

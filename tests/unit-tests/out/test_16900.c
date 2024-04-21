@@ -1,4 +1,6 @@
 #pragma nullable enable
+#pragma ownership enable
+
 int * f();
 int main()
 {

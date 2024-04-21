@@ -1,3 +1,6 @@
+#pragma nullable enable
+#pragma ownership enable
+
 struct X { int i; void* p; };
 void* _Owner malloc(int i, int sz);
 void free(void* _Owner p);

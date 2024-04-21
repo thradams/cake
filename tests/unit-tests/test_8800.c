@@ -1,15 +1,16 @@
 #pragma nullable enable
+#pragma ownership enable
 
 void *_Owner _Opt malloc(int i);
 void free(void  *_Owner _Opt);
 
 struct X{
-  char * _Owner name;
+  char * _Owner _Opt name;
 };
 
 int main()
 {
-    struct X * _Owner p = malloc(sizeof(struct X));
+    struct X * _Owner _Opt p = malloc(sizeof(struct X));
     if (p)
     {
         p->name = malloc(1);

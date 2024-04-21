@@ -1,3 +1,4 @@
+
 static_assert(_Generic(typeof(-*""), int : 1));
 #pragma cake diagnostic check "-Warray-indirection"
 

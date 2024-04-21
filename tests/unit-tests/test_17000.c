@@ -1,3 +1,5 @@
+#pragma nullable enable
+#pragma ownership enable
 
 int* _Opt f();
 

@@ -1,15 +1,16 @@
-#pragma ownership enable
+#pragma 
+struct X {
+  void * _Owner _Opt text;
+};
 
-void* _Owner malloc(unsigned long size);
-void free(void* _Owner ptr);
-
-void f(char s[12]);
+void x_change(struct X* list);
+void x_destroy(struct X* _Obj_owner p);
 
 int main()
 {
-    char s[21];
-    f(s);
-    void* _Owner p = malloc(1);
-    //return 0;
-    //free(p);
+  struct X x = {};
+  x_change(&x);
+  static_debug(x);
 }
+//memory pointed by 'x.text' was not released.
+#pragma cake diagnostic check "-Wmissing-destructor"

@@ -1,3 +1,7 @@
+#pragma nullable enable
+#pragma ownership enable
+
+
 void */*_Owner*/ calloc(int n , int i);
 void free(void  * /*_Owner*/ _Opt p);
 

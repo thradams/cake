@@ -1,3 +1,7 @@
+#pragma nullable enable
+#pragma ownership enable
+
+
 struct X { int i; void* p; };
 void* _Owner calloc(int i, int sz);
 void free(void* _Owner p);

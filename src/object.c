@@ -2696,6 +2696,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
             type_is_owner(p_type) &&
             p_object->state & OBJECT_STATE_NOT_NULL)
         {
+            
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx,
                 position,
