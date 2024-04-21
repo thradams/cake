@@ -753,7 +753,12 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
             struct declarator* p_declarator = deferchild->declarator;
             const char* name = p_declarator->name ? p_declarator->name->lexeme : "?";
 
-            end_of_storage_visit(ctx->ctx, &p_declarator->type, &p_declarator->object, position_token, name);
+            end_of_storage_visit(ctx->ctx,
+                &p_declarator->type,
+                type_is_view(&p_declarator->type),
+                &p_declarator->object,
+                position_token,
+                name);
             //visit_object(ctx->ctx, &p_declarator->type, &p_declarator->object, position_token, name, false);
 
         }

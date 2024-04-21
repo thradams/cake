@@ -27,12 +27,11 @@ For this task, a new qualifier \_Opt has been created.
 A pointer qualified with \_Opt is called nullable pointer. 
 Pointers without \_Opt qualifier are not nullable. 
 Existing code uses pointers as both as nullable or non-nullable. 
-To facilitate code migration a pragma #pragma nullable enabled\disable has been created.
+To facilitate code migration, a `#pragma nullable enabled/disable` has been created.
 
 #### pragma nullable enabled
 
 All pointers are non-nullable, unless qualified with \_Opt. 
-These warnings are enabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference.
 
 ```c
 #pragma nullable enable
@@ -56,7 +55,6 @@ int main()
 #### pragma nullable disabled
 
 All pointers are nullable. 
-These warnings are disabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference
 
 ```c
 #pragma nullable disable
@@ -323,7 +321,7 @@ When a **view** qualifier is used in structs, it makes all members as view objec
 #include <stdlib.h>
 
 struct X {   
-  char * _Owner text;   
+  char * _Owner _Opt text;   
 };  
 
 void f(_View struct X x) { /*...*/ }  

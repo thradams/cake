@@ -2581,6 +2581,7 @@ void visit_object(struct parser_ctx* ctx,
 
 static void end_of_storage_visit_core(struct parser_ctx* ctx,
     struct type* p_type,
+    bool type_is_view,
     struct object* p_object,
     const struct token* position_token,
     const char* previous_names,
@@ -2650,7 +2651,9 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
                             else
                                 snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
-                            end_of_storage_visit_core(ctx, &p_member_declarator->declarator->type,
+                            end_of_storage_visit_core(ctx,
+                                &p_member_declarator->declarator->type,
+                                type_is_view,
                                 p_object->members.data[member_index],
                                 position_token,
                                 buffer,
@@ -2693,6 +2696,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
            the reference is not referring an object, the value could be -1 for instance.
         */
         if (type_is_pointer(p_type) &&
+            !type_is_view &&
             type_is_owner(p_type) &&
             p_object->state & OBJECT_STATE_NOT_NULL)
         {
@@ -2792,12 +2796,14 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
 
 void end_of_storage_visit(struct parser_ctx* ctx,
     struct type* p_type,
+    bool type_is_view,
     struct object* p_object,
     const struct token* position_token,
     const char* previous_names)
 {
     end_of_storage_visit_core(ctx,
     p_type,
+    type_is_view,
     p_object,
     position_token,
     previous_names,

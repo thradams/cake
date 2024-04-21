@@ -101,12 +101,11 @@ For this task, a new qualifier _Opt has been created.
 A pointer qualified with _Opt is called nullable pointer. 
 Pointers without _Opt qualifier are not nullable. 
 Existing code uses pointers as both as nullable or non-nullable. 
-To facilitate code migration a pragma #pragma nullable enabled\disable has been created.</p>
+To facilitate code migration, a <code>#pragma nullable enabled/disable</code> has been created.</p>
 
 <h4>pragma nullable enabled</h4>
 
-<p>All pointers are non-nullable, unless qualified with _Opt. 
-These warnings are enabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference.</p>
+<p>All pointers are non-nullable, unless qualified with _Opt. </p>
 
 <pre><code class="language-c">#pragma nullable enable
 
@@ -127,8 +126,7 @@ int main()
 
 <h4>pragma nullable disabled</h4>
 
-<p>All pointers are nullable. 
-These warnings are disabled -Wnullable-to-non-nullable, -Wanalyzer-null-dereference</p>
+<p>All pointers are nullable. </p>
 
 <pre><code class="language-c">#pragma nullable disable
 

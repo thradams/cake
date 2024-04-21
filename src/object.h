@@ -177,6 +177,7 @@ void checked_read_object(struct parser_ctx* ctx,
 bool object_is_zero_or_null(const struct object* p_object);
 void end_of_storage_visit(struct parser_ctx* ctx,
     struct type* p_type,
+    bool type_is_view,
     struct object* p_object,
     const struct token* position_token,
     const char* previous_names);
