@@ -2854,7 +2854,7 @@ void object_assignment3(
     }
     const bool nullable_enabled = ctx->options.null_checks_enabled;
 
-    //printf("line  %d\n", error_position->line);
+   // printf("line  %d\n", error_position->line);
     //type_print(p_a_type);
     //printf(" = ");
     //type_print(p_b_type);
@@ -2920,7 +2920,7 @@ void object_assignment3(
         compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                    ctx,
                    error_position,
-                   "assignment of possible null object '%s' to non-opt pointer", buffer);
+                   "assignment of possible null object '%s' to non-nullable pointer", buffer);
 
     }
 

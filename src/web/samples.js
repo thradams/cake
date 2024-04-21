@@ -1237,9 +1237,9 @@ int main()
 
 `;
 
-sample["Ownership (experimental)"]=[];
+sample["safe-mode"]=[];
 
-sample["Ownership (experimental)"]["hello"] =
+sample["safe-mode"]["malloc/free"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1254,16 +1254,16 @@ int main() {
 
 `;
 
-sample["Ownership (experimental)"]["static_state/static_debug"] =
+sample["safe-mode"]["static_state/static_debug"] =
 `
 #pragma ownership enable
 #pragma nullable enable
 
-void* _Owner malloc(unsigned long size);
+void* _Owner _Opt malloc(unsigned long size);
 void free(void* _Owner ptr);
 
 int main() {
-   void * _Owner p = malloc(1);
+   void * _Owner  _Opt p = malloc(1);
    if (p)
    {
      static_state(p, "not-null"); 
@@ -1273,9 +1273,10 @@ int main() {
    static_state(p, "null or uninitialized"); 
    static_debug(p);
 }
+
 `;
 
-sample["Ownership (experimental)"]["implementing a destructor I"] =
+sample["safe-mode"]["implementing a destructor I"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1302,7 +1303,7 @@ int main() {
 `;
 
 
-sample["Ownership (experimental)"]["implementing a destructor II"] =
+sample["safe-mode"]["implementing a destructor II"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1327,7 +1328,7 @@ int main() {
 
 `;
 
-sample["Ownership (experimental)"]["_View qualifier"] =
+sample["safe-mode"]["_View qualifier"] =
 `
 #pragma ownership enable 
 #pragma nullable enable
@@ -1337,12 +1338,13 @@ sample["Ownership (experimental)"]["_View qualifier"] =
 #include <string.h>
 
 struct X {
-  char *_Owner name;
+  char *_Owner _Opt name;
 };
 
 void f(_View struct X x) 
 {
-  printf(x.name);
+    if (x.name)
+      printf(x.name);
 }
 
 int main() {
@@ -1352,22 +1354,26 @@ int main() {
    free(x.name);
 }
 
+
+
 `;
 
 
 
-sample["Ownership (experimental)"]["implementing delete"] =
+sample["safe-mode"]["implementing delete"] =
 `
+
 #pragma ownership enable 
 #pragma nullable enable
 
 #include <stdlib.h>
+#include <string.h>
 
 struct X {
-  char * _Owner text;
+  char * _Owner _Opt text;
 };
 
-void x_delete(struct X * _Owner p)
+void x_delete(struct X * _Owner _Opt p)
 {
     if (p)
     {
@@ -1377,17 +1383,20 @@ void x_delete(struct X * _Owner p)
 }
 
 int main() {   
-   struct X * _Owner p = malloc(sizeof(struct X));
-      
-   p->text = malloc(10);
-
+   struct X * _Owner _Opt p = calloc(1, sizeof * p);
+   if (p){   
+     p->text = strdup("a");     
+   }
    x_delete(p);
+ 
 }
+
+
 
 `;
 
 
-sample["Ownership (experimental)"]["fix-me 1"] =
+sample["safe-mode"]["fix-me 1"] =
 `
 
 //#pragma ownership enable 
@@ -1409,7 +1418,7 @@ int main() {
 
 `;
 
-sample["Ownership (experimental)"]["Linked list"] =
+sample["safe-mode"]["Linked list"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1505,7 +1514,7 @@ int main(int argc, char* argv[])
 
 `;
 
-sample["Ownership (experimental)"]["dynamic array"] =
+sample["safe-mode"]["dynamic array"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1587,7 +1596,7 @@ int main()
 }
 `;
 
-sample["Ownership (experimental)"]["using moved object"] =
+sample["safe-mode"]["using moved object"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1613,7 +1622,7 @@ int main()
 }
 `;
 
-sample["Ownership (experimental)"]["static_set/realloc"] =
+sample["safe-mode"]["static_set/realloc"] =
 `
 
 void* _Owner realloc(void* ptr, unsigned size);
@@ -1780,7 +1789,7 @@ void f2(int condition)
 `;
 
 
-sample["Ownership (experimental)"]["mtx_t"] =
+sample["safe-mode"]["mtx_t"] =
 `
 enum {
     mtx_plain ,
@@ -1813,7 +1822,7 @@ int main()
 }
 `;
 
-sample["Ownership (experimental)"]["socket"] =
+sample["safe-mode"]["socket"] =
 `
 _Owner int socket();
 void close(_Owner int fd);
@@ -1834,7 +1843,7 @@ int main()
 `;
 
 
-sample["Ownership (experimental)"]["assignment"] =
+sample["safe-mode"]["assignment"] =
 `
 #pragma ownership enable 
 #pragma nullable enable
@@ -1855,7 +1864,7 @@ int main()
 
 
 
-sample["Ownership (experimental)"]["takes_ownership"] =
+sample["safe-mode"]["takes_ownership"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1878,7 +1887,7 @@ int main()
 `;
 
 
-sample["Ownership (experimental)"]["gives ownership"] =
+sample["safe-mode"]["gives ownership"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1897,7 +1906,7 @@ int main(){
 }
 `;
 
-sample["Ownership (experimental)"]["moving parts of _View"] =
+sample["safe-mode"]["moving parts of _View"] =
 `
 #pragma ownership enable
 #pragma nullable enable
@@ -1936,7 +1945,7 @@ int main() {
 
 `;
 
-sample["Ownership (experimental)"]["_Owner pointer owns two objects"] =
+sample["safe-mode"]["_Owner pointer owns two objects"] =
 `
 void * _Owner calloc(unsigned long i, unsigned long sz);
 char * _Owner strdup(const char* );
@@ -1962,7 +1971,7 @@ int main()
 `;
 
 
-sample["Ownership (experimental)"]["checking double free"] =
+sample["safe-mode"]["checking double free"] =
 `
 void free(void * _Owner p);
 

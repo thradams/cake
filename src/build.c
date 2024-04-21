@@ -312,6 +312,11 @@ int main()
 
     if (mysytem("cake.exe  " NC " -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
         exit(1);
+
+    if (mysytem("cake ../tests/unit-tests/*.c -fanalyzer  -test-mode") != 0)
+        exit(1);
+
+    
 #endif
 
 #if defined BUILD_LINUX_GCC

@@ -476,10 +476,11 @@ struct X {
 struct X * _Owner make();
 
 int main(){
-   void * _Owner p = nullptr;
-   _Owner auto pX = make();
+   void * _Owner _Opt p = nullptr;
+   struct X * _Owner pX = make();
    p = pX; //warning
 }
+
 ```
 
 <button onclick="Try(this)">try</button>

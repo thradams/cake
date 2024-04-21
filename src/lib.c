@@ -23959,7 +23959,7 @@ void object_assignment3(
     }
     const bool nullable_enabled = ctx->options.null_checks_enabled;
 
-    //printf("line  %d\n", error_position->line);
+   // printf("line  %d\n", error_position->line);
     //type_print(p_a_type);
     //printf(" = ");
     //type_print(p_b_type);
@@ -24025,7 +24025,7 @@ void object_assignment3(
         compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                    ctx,
                    error_position,
-                   "assignment of possible null object '%s' to non-opt pointer", buffer);
+                   "assignment of possible null object '%s' to non-nullable pointer", buffer);
 
     }
 
@@ -36391,12 +36391,21 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
             struct object* p_right_object =
                 expression_get_object(p_init_declarator->initializer->assignment_expression, &temp_obj, nullable_enabled);
 
+            object_assignment3(ctx->ctx,
+p_init_declarator->initializer->assignment_expression->first_token,
+ASSIGMENT_TYPE_OBJECTS,
+false,
+type_is_view(&p_init_declarator->p_declarator->type),
+type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
+&p_init_declarator->p_declarator->type,
+&p_init_declarator->p_declarator->object,
+&p_init_declarator->initializer->assignment_expression->type,
+p_right_object);
+
             //cast?
             if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
             {
                 struct object* owner po = calloc(1, sizeof * po);
-
-
                 struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
                 struct object o = make_object(&t, p_init_declarator->p_declarator, NULL);
                 *po = o; //MOVED
@@ -36405,6 +36414,9 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                 type_destroy(&t);
                 p_init_declarator->p_declarator->object.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
                 objects_push_back(&ctx->arena, po);
+
+
+
             }
             else if (expression_is_calloc(p_init_declarator->initializer->assignment_expression))
             {
@@ -36421,6 +36433,7 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                 p_init_declarator->p_declarator->object.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
                 objects_push_back(&ctx->arena, po);
             }
+#if 0
             else
             {
                 const struct token* const token_position =
@@ -36450,12 +36463,12 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                     const bool is_nullable = type_is_nullable(&p_init_declarator->p_declarator->type, nullable_enabled);
                     object_set_unknown(&p_init_declarator->p_declarator->type,
                           is_nullable,
-                          &p_init_declarator->p_declarator->object, 
+                          &p_init_declarator->p_declarator->object,
                         nullable_enabled);
                 }
 
             }
-
+#endif
             object_destroy(&temp_obj);
         }
         else  if (p_init_declarator->initializer &&
@@ -36599,7 +36612,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     if (p_selection_statement->else_secondary_block_opt)
     {
-        declarator_array_set_objects_to_false_branch(ctx, &declarator_array,nullable_enabled);
+        declarator_array_set_objects_to_false_branch(ctx, &declarator_array, nullable_enabled);
         flow_visit_secondary_block(ctx, p_selection_statement->else_secondary_block_opt);
     }
     else
@@ -37166,7 +37179,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 {
                 }
                 else
-                {                    
+                {
                     compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                             ctx->ctx,
                             p_expression->left->first_token, "object is possibly null");
@@ -37209,7 +37222,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     *p_object2 = make_object(&t2, NULL, p_expression->left);
                     const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
 
-                    object_set_unknown(&t2,is_nullable, p_object2, nullable_enabled);
+                    object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
                     object_set_pointer(p_object, p_object2);////obj.pointed2 = p_object;
                     object_push_states_from(p_object, p_object2);
                     objects_push_back(&ctx->arena, p_object2);
@@ -37336,7 +37349,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             check_uninitialized(ctx, p_expression->right);
             struct object temp_obj2 = { 0 };
-            struct object* p_object2 = expression_get_object(p_expression->right, &temp_obj2,nullable_enabled);
+            struct object* p_object2 = expression_get_object(p_expression->right, &temp_obj2, nullable_enabled);
 
             if (!ctx->expression_is_not_evaluated)
             {
@@ -37373,7 +37386,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 
         struct object temp_obj3 = { 0 };
-        struct object* p_object0 = expression_get_object(p_expression->right, &temp_obj3,nullable_enabled);
+        struct object* p_object0 = expression_get_object(p_expression->right, &temp_obj3, nullable_enabled);
 
         if (p_object0 && p_object0->state == OBJECT_STATE_UNINITIALIZED)
         {
@@ -37408,7 +37421,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 struct object* owner p_object2 = calloc(1, sizeof(struct object));
 
                 *p_object2 = make_object(&t2, NULL, p_expression->right);
-                const bool is_nullable = type_is_nullable(&t2,nullable_enabled);
+                const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
                 object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
                 object_set_pointer(p_object0, p_object2);////obj.pointed2 = p_object;
                 object_push_states_from(p_object0, p_object2);
@@ -38325,7 +38338,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
             }
             else if (type_is_struct_or_union(&p_declarator->type))
             {
-                const bool is_nullable = type_is_nullable(&p_declarator->type,nullable_enabled);
+                const bool is_nullable = type_is_nullable(&p_declarator->type, nullable_enabled);
                 object_set_unknown(&p_declarator->type, is_nullable, &p_declarator->object, nullable_enabled);
             }
             else if (type_is_array(&p_declarator->type))
