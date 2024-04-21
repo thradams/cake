@@ -496,7 +496,7 @@ When the object is created on the stack, we can implement a destructor.
 #include <stdlib.h>
 
 struct X {
-    char * _Owner _Opt _text;
+    char * _Owner _Opt text;
 };  
 
 void x_destroy(struct X x) {
@@ -583,11 +583,11 @@ struct X {
   char * _Owner text; 
 };
 
-void x_destroy(struct X * _Obj_owner x) {
+void x_destroy(_Opt struct X * _Obj_owner x) { 
   free(x->text); 
 }
 
-void x_delete(struct X * _Owner _Opt p) { 
+void x_delete(_Opt struct X * _Owner _Opt p) { 
   if (p) {
     x_destroy(p); /* *p is moved*/
     free(p);
@@ -601,6 +601,7 @@ int main() {
      x_delete( pX); 
    }
  } 
+
 ```
 
 <button onclick="Try(this)">try</button>

@@ -163,7 +163,7 @@ void object_assignment3(struct parser_ctx* ctx,
     struct type* p_a_type, struct object* p_a_object,
     struct type* p_b_type, struct object* p_b_object);
 
-void object_set_unknown(struct type* p_type, struct object* p_object, bool nullable_enabled);
+void object_set_unknown(struct type* p_type, bool t_is_nullable, struct object* p_object, bool nullable_enabled);
 void object_set_zero(struct type* p_type, struct object* p_object);
 void object_set_uninitialized(struct type* p_type, struct object* p_object);
 void object_set_nothing(struct type* p_type, struct object* p_object);
@@ -171,6 +171,7 @@ void object_set_moved(struct type* p_type, struct object* p_object);
 
 void checked_read_object(struct parser_ctx* ctx,
     struct type* p_type,
+    bool is_nullable,
     struct object* p_object,
     const struct token* position_token,
     bool check_pointed_object);

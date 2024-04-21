@@ -1248,8 +1248,11 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                 else
                 {
                     //provisory handling too deep -> -> -> indirection
+                    const bool is_nullable = type_is_nullable(&p_init_declarator->p_declarator->type, nullable_enabled);
                     object_set_unknown(&p_init_declarator->p_declarator->type,
-                          &p_init_declarator->p_declarator->object, nullable_enabled);
+                          is_nullable,
+                          &p_init_declarator->p_declarator->object, 
+                        nullable_enabled);
                 }
 
             }
@@ -1789,6 +1792,7 @@ static void compare_function_arguments3(struct parser_ctx* ctx,
         {
             checked_read_object(ctx,
                 &p_current_argument->expression->type,
+                type_is_nullable(&p_current_argument->expression->type, ctx->options.null_checks_enabled),
                 p_argument_object,
                 p_current_argument->expression->first_token,
                 false);
@@ -2004,7 +2008,9 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     struct object* owner p_object2 = calloc(1, sizeof(struct object));
 
                     *p_object2 = make_object(&t2, NULL, p_expression->left);
-                    object_set_unknown(&t2, p_object2, nullable_enabled);
+                    const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
+
+                    object_set_unknown(&t2,is_nullable, p_object2, nullable_enabled);
                     object_set_pointer(p_object, p_object2);////obj.pointed2 = p_object;
                     object_push_states_from(p_object, p_object2);
                     objects_push_back(&ctx->arena, p_object2);
@@ -2203,7 +2209,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 struct object* owner p_object2 = calloc(1, sizeof(struct object));
 
                 *p_object2 = make_object(&t2, NULL, p_expression->right);
-                object_set_unknown(&t2, p_object2, nullable_enabled);
+                const bool is_nullable = type_is_nullable(&t2,nullable_enabled);
+                object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
                 object_set_pointer(p_object0, p_object2);////obj.pointed2 = p_object;
                 object_push_states_from(p_object0, p_object2);
                 objects_push_back(&ctx->arena, p_object2);
@@ -2660,6 +2667,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
             {
                 checked_read_object(ctx->ctx,
                     &p_jump_statement->expression_opt->type,
+                    type_is_nullable(&p_jump_statement->expression_opt->type, ctx->ctx->options.null_checks_enabled),
                     p_object,
                     p_jump_statement->expression_opt->first_token,
                     true);
@@ -3106,7 +3114,9 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 
                     struct type t = type_remove_pointer(&p_declarator->type);
                     struct object o = make_object(&t, p_declarator, NULL);
-                    object_set_unknown(&t, &o, nullable_enabled);
+                    const bool t_is_nullable = type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
+
+                    object_set_unknown(&t, t_is_nullable, &o, nullable_enabled);
                     *po = o; //MOVED
                     object_set_pointer(&p_declarator->object, po); //MOVED                    
                     type_destroy(&t);
@@ -3116,7 +3126,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
             }
             else if (type_is_struct_or_union(&p_declarator->type))
             {
-                object_set_unknown(&p_declarator->type, &p_declarator->object, nullable_enabled);
+                const bool is_nullable = type_is_nullable(&p_declarator->type,nullable_enabled);
+                object_set_unknown(&p_declarator->type, is_nullable, &p_declarator->object, nullable_enabled);
             }
             else if (type_is_array(&p_declarator->type))
             {

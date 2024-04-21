@@ -1469,7 +1469,8 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
     {
         static_set(*p_object, "zero");
         *p_object = make_object(&p_expression->type, NULL, p_expression);
-        object_set_unknown(&p_expression->type, p_object, nullable_enabled);
+        const bool is_nullable = type_is_nullable(&p_expression->type, nullable_enabled);
+        object_set_unknown(&p_expression->type, is_nullable, p_object, nullable_enabled);
         return p_object;
     }
     else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)

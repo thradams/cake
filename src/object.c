@@ -1581,7 +1581,7 @@ void object_set_moved(struct type* p_type, struct object* p_object)
     }
 }
 
-static void object_set_unknown_core(struct type* p_type, struct object* p_object, unsigned int visit_number, bool nullable_enabled)
+static void object_set_unknown_core(struct type* p_type, bool t_is_nullable, struct object* p_object, unsigned int visit_number, bool nullable_enabled)
 {
     if (p_object == NULL || p_type == NULL)
     {
@@ -1616,7 +1616,9 @@ static void object_set_unknown_core(struct type* p_type, struct object* p_object
                         {
                             if (member_index < p_object->members.size)
                             {
-                                object_set_unknown_core(&p_member_declarator->declarator->type, p_object->members.data[member_index], visit_number, nullable_enabled);
+                                object_set_unknown_core(&p_member_declarator->declarator->type, 
+                                    t_is_nullable,
+                                    p_object->members.data[member_index], visit_number, nullable_enabled);
                             }
                             else
                             {
@@ -1636,7 +1638,7 @@ static void object_set_unknown_core(struct type* p_type, struct object* p_object
 
     if (type_is_pointer(p_type))
     {
-        if (type_is_nullable(p_type, nullable_enabled))
+        if (t_is_nullable || type_is_nullable(p_type, nullable_enabled))
             p_object->state = OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL;
         else
             p_object->state = OBJECT_STATE_NOT_NULL;
@@ -1648,7 +1650,8 @@ static void object_set_unknown_core(struct type* p_type, struct object* p_object
             if (pointed)
             {
                 struct type t2 = type_remove_pointer(p_type);
-                object_set_unknown_core(&t2, pointed, visit_number, nullable_enabled);
+                bool t2_is_nullable = type_is_nullable(&t2, nullable_enabled);
+                object_set_unknown_core(&t2, t2_is_nullable, pointed, visit_number, nullable_enabled);
                 type_destroy(&t2);
             }
         }
@@ -1660,9 +1663,9 @@ static void object_set_unknown_core(struct type* p_type, struct object* p_object
     }
 }
 
-void object_set_unknown(struct type* p_type, struct object* p_object, bool nullable_enabled)
+void object_set_unknown(struct type* p_type, bool t_is_nullable, struct object* p_object, bool nullable_enabled)
 {
-    object_set_unknown_core(p_type, p_object, s_visit_number++, nullable_enabled);
+    object_set_unknown_core(p_type, t_is_nullable, p_object, s_visit_number++, nullable_enabled);
 }
 
 
@@ -2001,12 +2004,12 @@ void object_get_name(const struct type* p_type,
     const struct object* p_object,
     char* outname,
     int out_size)
-{    
+{
     outname[0] = '\0';
 
     if (p_object->declarator)
     {
-        
+
         const char* root_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
         //snprintf(outname, out_size, "%s",root_name);
 
@@ -2015,7 +2018,7 @@ void object_get_name(const struct type* p_type,
         object_get_name_core(&p_object->declarator->type, root, p_object, root_name, outname, out_size, s_visit_number++);
     }
     else if (p_object->p_expression_origin)
-    {        
+    {
         int bytes_written = 0;
         struct token* p = p_object->p_expression_origin->first_token;
         for (int i = 0; i < 10; i++)
@@ -2023,15 +2026,15 @@ void object_get_name(const struct type* p_type,
             const char* ps = p->lexeme;
             while (ps && *ps)
             {
-                if (bytes_written < (out_size-1))
+                if (bytes_written < (out_size - 1))
                 {
                     outname[bytes_written] = *ps;
                 }
                 bytes_written++;
                 ps++;
             }
-            if (p == p_object->p_expression_origin->last_token)            
-                break;            
+            if (p == p_object->p_expression_origin->last_token)
+                break;
             p = p->next;
         }
         outname[bytes_written] = '\0';
@@ -2039,8 +2042,8 @@ void object_get_name(const struct type* p_type,
     else
     {
         outname[0] = '?';
-        outname[1] = '\0';        
-    }    
+        outname[1] = '\0';
+    }
 }
 
 void checked_moved_core(struct parser_ctx* ctx,
@@ -2164,6 +2167,7 @@ void checked_moved(struct parser_ctx* ctx,
 
 void checked_read_object_core(struct parser_ctx* ctx,
     struct type* p_type,
+    bool is_nullable,
     struct object* p_object,
     const struct token* position_token,
     bool check_pointed_object,
@@ -2214,7 +2218,9 @@ void checked_read_object_core(struct parser_ctx* ctx,
                         else
                             snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
-                        checked_read_object_core(ctx, &p_member_declarator->declarator->type,
+                        checked_read_object_core(ctx,
+                            &p_member_declarator->declarator->type,
+                            is_nullable,
                             p_object->members.data[member_index],
                             position_token,
                             check_pointed_object,
@@ -2232,7 +2238,11 @@ void checked_read_object_core(struct parser_ctx* ctx,
     }
     else
     {
-        if (type_is_pointer(p_type) && !type_is_nullable(p_type, ctx->options.null_checks_enabled) && maybe_is_null(p_object->state))
+
+        if (type_is_pointer(p_type) &&
+            !is_nullable &&
+            !type_is_nullable(p_type, ctx->options.null_checks_enabled) &&
+            maybe_is_null(p_object->state))
         {
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                 ctx,
@@ -2251,6 +2261,7 @@ void checked_read_object_core(struct parser_ctx* ctx,
             {
                 checked_read_object_core(ctx,
                     &t2,
+                    is_nullable,
                     p_object->ref.data[i],
                     position_token,
                     true,
@@ -2275,6 +2286,7 @@ void checked_read_object_core(struct parser_ctx* ctx,
 
 void checked_read_object(struct parser_ctx* ctx,
     struct type* p_type,
+    bool is_nullable,
     struct object* p_object,
     const struct token* position_token,
     bool check_pointed_object)
@@ -2302,6 +2314,7 @@ void checked_read_object(struct parser_ctx* ctx,
 
     checked_read_object_core(ctx,
     p_type,
+    is_nullable,
     p_object,
     position_token,
     check_pointed_object,
@@ -2700,7 +2713,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
             type_is_owner(p_type) &&
             p_object->state & OBJECT_STATE_NOT_NULL)
         {
-            
+
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx,
                 position,
@@ -2758,12 +2771,12 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
                             "memory pointed by owner pointer '%s' not deleted", name);
                         }
                     }
-                }
+            }
 
                 type_destroy(&t2);
-            }
-#endif
         }
+#endif
+    }
         else if (type_is_owner(p_type) && !type_is_pointer(p_type))
         {
             //non-pointer owner
@@ -2791,7 +2804,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
         }
 
         p_object->state = OBJECT_STATE_LIFE_TIME_ENDED;
-    }
+}
 }
 
 void end_of_storage_visit(struct parser_ctx* ctx,
@@ -3013,8 +3026,8 @@ void object_assignment3(
           argument pointed object.
         */
         const bool checked_pointed_object_read = !type_is_out(&t);
-
-        checked_read_object(ctx, p_b_type, p_b_object, error_position, checked_pointed_object_read);
+        bool is_nullable = type_is_nullable(&t, ctx->options.null_checks_enabled);
+        checked_read_object(ctx, p_b_type, is_nullable, p_b_object, error_position, checked_pointed_object_read);
 
 
         //object_copy_state(p_a_type, p_a_object, p_b_type, p_b_object);
@@ -3157,7 +3170,8 @@ void object_assignment3(
                         struct object* pointed = p_b_object->ref.data[i];
                         if (pointed)
                         {
-                            object_set_unknown(&t3, pointed, nullable_enabled);
+                            const bool t3_is_nullable = type_is_nullable(&t3,nullable_enabled);
+                            object_set_unknown(&t3,t3_is_nullable, pointed, nullable_enabled);
                         }
                     }
 

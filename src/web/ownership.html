@@ -554,7 +554,7 @@ int main(){
 #include &lt;stdlib.h&gt;
 
 struct X {
-    char * _Owner _Opt _text;
+    char * _Owner _Opt text;
 };  
 
 void x_destroy(struct X x) {
@@ -638,11 +638,11 @@ struct X {
   char * _Owner text; 
 };
 
-void x_destroy(struct X * _Obj_owner x) {
+void x_destroy(_Opt struct X * _Obj_owner x) { 
   free(x-&gt;text); 
 }
 
-void x_delete(struct X * _Owner _Opt p) { 
+void x_delete(_Opt struct X * _Owner _Opt p) { 
   if (p) {
     x_destroy(p); /* *p is moved*/
     free(p);
@@ -650,12 +650,13 @@ void x_delete(struct X * _Owner _Opt p) {
 }
 
 int main() {
-   struct X * owner pX = calloc(1, sizeof * pX);
+   struct X * _Owner pX = calloc(1, sizeof * pX);
    if (pX) {
      /*...*/;
      x_delete( pX); 
    }
  } 
+
 </code></pre>
 
 <p><button onclick="Try(this)">try</button></p>
