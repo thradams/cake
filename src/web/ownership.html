@@ -554,7 +554,7 @@ int main(){
 #include &lt;stdlib.h&gt;
 
 struct X {
-    char * _Owner text;
+    char * _Owner _Opt _text;
 };  
 
 void x_destroy(struct X x) {
@@ -570,9 +570,9 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, Cake introduces a new qualifier, <strong><em>Obj</em>wner</strong>. </p>
+<p>However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, Cake introduces a new qualifier, <strong>_Obj_owner</strong>. </p>
 
-<p>A pointer qualified with <strong><em>Obj</em>wner</strong> is the owner of the pointed object but not responsible for managing its memory.</p>
+<p>A pointer qualified with <strong>_Obj_owner</strong> is the owner of the pointed object but not responsible for managing its memory.</p>
 
 <p>The next sample illustrates how to implement a destructor using a <em>Obj</em>owner pointer parameter.</p>
 
@@ -584,10 +584,10 @@ int main() {
 #include &lt;stdlib.h&gt;
 
 struct X {
-    char * _Owner text;
+    char * _Owner _Opt text;
 };
 
-void x_destroy(struct X * _Obj_owner x) {
+void x_destroy(_Opt _struct X * _Obj_owner x) {
     free(x-&gt;text);
     /*x is not the owner of the memory*/
 }
@@ -601,7 +601,7 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>In order to prevent moving from a non owner object, only <em>address of expressions</em> to <strong><em>Obj</em>wner</strong> are allowed. </p>
+<p>In order to prevent moving from a non owner object, only <em>address of expressions</em> to <strong>_Obj_owner</strong> are allowed. </p>
 
 <p><strong>Sample - Non address of expression or owner pointer.</strong></p>
 
@@ -625,7 +625,7 @@ void f(struct X * x) {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>We can copy an <strong>owner</strong> pointer to an <strong><em>Obj</em>wner</strong> pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership.   </p>
+<p>We can copy an <strong>owner</strong> pointer to an <strong>_Obj_owner</strong> pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership.   </p>
 
 <p><strong>Sample - Using <code>x_destroy</code> to implement <code>x_delete</code></strong></p>
 

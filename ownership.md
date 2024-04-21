@@ -511,9 +511,9 @@ int main() {
 ```
 <button onclick="Try(this)">try</button>
 
-However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, Cake introduces a new qualifier, **_Obj_wner**. 
+However in C, structs are typically passed by pointer rather than by value. To transfer the ownership of an owner object to a pointer, Cake introduces a new qualifier, **\_Obj\_owner**. 
 
-A pointer qualified with **_Obj_wner** is the owner of the pointed object but not responsible for managing its memory.
+A pointer qualified with **\_Obj\_owner** is the owner of the pointed object but not responsible for managing its memory.
 
 The next sample illustrates how to implement a destructor using a _Obj_owner pointer parameter.
 
@@ -544,7 +544,7 @@ int main() {
 <button onclick="Try(this)">try</button>
 
 
-In order to prevent moving from a non owner object, only _address of expressions_ to **_Obj_wner** are allowed. 
+In order to prevent moving from a non owner object, only _address of expressions_ to **\_Obj\_owner** are allowed. 
 
 **Sample - Non address of expression or owner pointer.**
 
@@ -569,7 +569,7 @@ void f(struct X * x) {
  
  <button onclick="Try(this)">try</button>
 
-We can copy an **owner** pointer to an **_Obj_wner** pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership.   
+We can copy an **owner** pointer to an **\_Obj\_owner** pointer. In this scenario, only the ownership of the pointed object is transferred, not the memory ownership.   
 
 **Sample - Using `x_destroy` to implement `x_delete`**
 
@@ -595,7 +595,7 @@ void x_delete(struct X * _Owner _Opt p) {
 }
 
 int main() {
-   struct X * owner pX = calloc(1, sizeof * pX);
+   struct X * _Owner pX = calloc(1, sizeof * pX);
    if (pX) {
      /*...*/;
      x_delete( pX); 
