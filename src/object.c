@@ -2831,6 +2831,7 @@ void object_assignment3(
     enum assigment_type assigment_type,
     bool check_uninitialized_b,
     bool a_type_is_view,
+    bool a_type_is_nullable,
     struct type* p_a_type, struct object* p_a_object,
     struct type* p_b_type, struct object* p_b_object)
 {
@@ -3216,6 +3217,7 @@ void object_assignment3(
                                     assigment_type,
                                     check_uninitialized_b,
                                     a_type_is_view,
+                                    a_type_is_nullable,
                                     p_a_member_type, p_a_member_object,
                                     p_b_member_type, p_b_member_object);
                             }

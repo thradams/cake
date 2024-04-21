@@ -626,6 +626,7 @@ bool type_is_view(const struct type* p_type)
 
 
 
+
 bool type_is_out(const struct type* p_type)
 {
     return p_type->type_qualifier_flags & TYPE_QUALIFIER_OUT;

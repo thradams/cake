@@ -1237,6 +1237,7 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                            ASSIGMENT_TYPE_OBJECTS,
                            false,
                            type_is_view(&p_init_declarator->p_declarator->type),
+                           type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
                            &p_init_declarator->p_declarator->type,
                            &p_init_declarator->p_declarator->object,
                         &p_init_declarator->initializer->assignment_expression->type,
@@ -1759,6 +1760,7 @@ static void compare_function_arguments3(struct parser_ctx* ctx,
               ASSIGMENT_TYPE_PARAMETER,
               true,
               type_is_view(&p_current_parameter_type->type),
+              type_is_nullable(&p_current_parameter_type->type, ctx->options.null_checks_enabled),
               &p_current_parameter_type->type,
               &parameter_object, /*dest object*/
 
@@ -2254,6 +2256,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             ASSIGMENT_TYPE_OBJECTS,
             true,
             type_is_view(&p_expression->left->type), /*dest type*/
+            type_is_nullable(&p_expression->left->type, ctx->ctx->options.null_checks_enabled), /*dest type*/
             &p_expression->left->type, /*dest type*/
             p_dest_object, /*dest object*/
             &p_expression->right->type, /*source type*/
@@ -2671,6 +2674,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
                  ASSIGMENT_TYPE_RETURN,
                  true,
                     type_is_view(ctx->p_return_type), /*dest type*/
+                    type_is_nullable(ctx->p_return_type, ctx->ctx->options.null_checks_enabled), /*dest type*/
                     ctx->p_return_type, /*dest type*/
                     &dest_object, /*dest object*/
                     &p_jump_statement->expression_opt->type, /*source type*/

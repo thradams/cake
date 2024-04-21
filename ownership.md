@@ -496,7 +496,7 @@ When the object is created on the stack, we can implement a destructor.
 #include <stdlib.h>
 
 struct X {
-    char * _Owner text;
+    char * _Owner _Opt _text;
 };  
 
 void x_destroy(struct X x) {
@@ -526,10 +526,10 @@ The next sample illustrates how to implement a destructor using a _Obj_owner poi
 #include <stdlib.h>
 
 struct X {
-    char * _Owner text;
+    char * _Owner _Opt text;
 };
 
-void x_destroy(struct X * _Obj_owner x) {
+void x_destroy(_Opt _struct X * _Obj_owner x) {
     free(x->text);
     /*x is not the owner of the memory*/
 }

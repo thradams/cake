@@ -159,6 +159,7 @@ void object_assignment3(struct parser_ctx* ctx,
     enum  assigment_type assigment_type,
     bool check_uninitialized_b,
     bool a_type_is_view,
+    bool a_type_is_nullable,
     struct type* p_a_type, struct object* p_a_object,
     struct type* p_b_type, struct object* p_b_object);
 
