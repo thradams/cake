@@ -1,11 +1,15 @@
-void * _Owner malloc(int i);
-void free( void * _Owner p);
+
+#pragma nullable enable
+#pragma ownership enable
+
+void * _Owner _Opt malloc(int i);
+void free( void * _Owner _Opt  p);
 
 struct X {
   char * _Owner name;    
 };
 
 int main() {
-   struct X * _Owner p = malloc(sizeof * p);
+   struct X * _Owner _Opt p = malloc(sizeof * p);
    free(p);   
 } 

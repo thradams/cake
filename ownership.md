@@ -118,7 +118,99 @@ int main()
 
 <button onclick="Try(this)">try</button>
 
+When \_Opt qualifier is aplied to structs it makes all member \_Opt.
+For instance:
 
+```c
+#pragma nullable enable
+
+void free(void * _Opt p);
+char * _Opt strdup();
+
+void print_name(const char* name);
+
+struct X {
+  char * name;
+};
+
+void use_x(struct X * p)
+{
+   //p->name is non-nullable here
+   print_name(p->name);
+}
+
+void x_destroy(_Opt struct X * p)
+{
+   //p->name is nullable here
+   free(p); //free accepts null
+}
+
+int main()
+{
+  _Opt struct X x = {0};
+  char * _Opt temp = strdup();
+  if (temp)
+  {
+    x.name = temp;
+    use_x(&x);
+  }
+  x_destroy(&x);
+}
+
+```
+
+<button onclick="Try(this)">try</button>
+
+This can be used to implement destructors where the object can be partially 
+constructed in case of some error. 
+For other functions, like use_x, the object must be completely constructed, and in this case, name must not be null.
+
+
+Currently cake is not checkin nullable at initialization. 
+
+```c
+struct X x = {0}; //no complaing about name being null
+```
+
+This allows a initialization in multiple steps.
+
+```c
+  use_x(&x); //warning name is null
+```
+
+```c
+#pragma nullable enable
+
+void free(void * _Opt p);
+char * _Opt strdup();
+
+void print_name(const char* name);
+
+struct X {
+  char * name;
+};
+
+void use_x(struct X * p)
+{
+   //p->name is non-nullable here
+   print_name(p->name);
+}
+
+void x_destroy(_Opt struct X * p)
+{
+   //p->name is nullable here
+   free(p); //free accepts nullable p
+}
+
+int main()
+{
+  struct X x = {0};
+  use_x(&x);
+  x_destroy(&x);
+}
+```
+
+<button onclick="Try(this)">try</button>
 
 ### Owner References
 

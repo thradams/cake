@@ -1,4 +1,5 @@
 typedef struct X X;
-struct X {
-    void* data;
+struct X
+{
+    void *data;
 };

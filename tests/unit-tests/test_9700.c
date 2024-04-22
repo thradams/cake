@@ -1,4 +1,6 @@
 #pragma nullable enable
+#pragma ownership enable
+
 void* _Owner malloc(unsigned size);
 void free(void* _Owner ptr);
 

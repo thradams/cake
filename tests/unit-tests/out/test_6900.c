@@ -1,3 +1,7 @@
+#pragma nullable enable
+#pragma ownership enable
+
+
 struct X {
     int /*_Owner*/ i;
 };

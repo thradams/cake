@@ -1,12 +1,16 @@
 
-enum E : { A };
+enum E :
+{
+  A
+};
 
 int main()
 {
-  enum E { B } e2;
+  enum E
+  {
+    B
+  } e2;
 
-  
   static_assert(
-       _Generic(e2, enum E : 1, default: 0)
-    );
+      _Generic(e2, enum E: 1, default: 0));
 }

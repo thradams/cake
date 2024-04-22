@@ -1,4 +1,4 @@
-#define _is_same(T1, T2) _Generic(T1, T2 : 1, default: 0)
+#define _is_same(T1, T2) _Generic(T1, T2: 1, default: 0)
 
 int main()
 {
@@ -7,7 +7,7 @@ int main()
   static_assert(_is_floating_point(double) && _is_floating_point(float));
   static_assert(_is_function(main));
 
-  char * p;
+  char *p;
   static_assert(_is_scalar(p));
   static_assert(_is_scalar(nullptr));
 
@@ -22,7 +22,6 @@ int main()
   static_assert(_is_same(int, typeof(i)));
 
   static_assert(_is_const(const int));
-  static_assert(!_is_const(const int*));
-  static_assert(_is_const(int* const));
-
+  static_assert(!_is_const(const int *));
+  static_assert(_is_const(int *const));
 }

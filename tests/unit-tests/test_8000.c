@@ -1,4 +1,6 @@
 #pragma nullable enable
+#pragma ownership enable
+
 struct item {
     struct item* _Owner _Opt next;
 };

@@ -1,7 +1,14 @@
 
-enum E { A } e1;
+enum E
+{
+  A
+} e1;
+
 int main()
 {
-  enum E {A} e2;
+  enum E
+  {
+    A
+  } e2;
   
 }

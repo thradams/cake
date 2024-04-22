@@ -1,5 +1,8 @@
-void* /*_Owner*/ malloc(unsigned long size);
-void free(void* /*_Owner*/ ptr);
+#pragma nullable enable
+#pragma ownership enable
+
+void* /*_Owner*/ _Opt malloc(unsigned long size);
+void free(void* /*_Owner*/ _Opt ptr);
 
 struct X {
     char* /*_Owner*/ name;

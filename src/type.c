@@ -612,7 +612,7 @@ bool type_is_nullable(const struct type* p_type, bool nullable_enabled)
     {
         return p_type->type_qualifier_flags & TYPE_QUALIFIER_NULLABLE;
     }
-    
+
     //If  nullable_enabled is disabled then all pointer are nullable
     return true;
 }
@@ -1256,13 +1256,26 @@ void check_assigment(struct parser_ctx* ctx,
         if (!is_null_pointer_constant)
         {
             compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
-
-
-
             type_destroy(&lvalue_right_type);
             type_destroy(&t2);
-
             return;
+        }
+    }
+
+    if (assigment_type == ASSIGMENT_TYPE_RETURN)
+    {
+        if (!type_is_owner(p_a_type) && type_is_any_owner(&right->type))
+        {
+            if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+            {
+                compiler_diagnostic_message(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
+                    ctx,
+                    right->first_token,
+                    "cannot return a local owner variable to non owner");
+                type_destroy(&lvalue_right_type);
+                type_destroy(&t2);
+                return;
+            }
         }
     }
 
@@ -3080,7 +3093,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 list.head->next->attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_FUNC_RESULT;
             }
         }
-    }
+}
 #endif
 
     if (pdeclarator->name)

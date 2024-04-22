@@ -1358,7 +1358,27 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
     }
     else if (p_expression->expression_type == CAST_EXPRESSION)
     {
-        return expression_get_object(p_expression->left, p_object, nullable_enabled);
+
+        struct object* p = expression_get_object(p_expression->left, p_object, nullable_enabled);
+        if (p)
+        {
+            if (type_is_pointer(&p_expression->type_name->type))
+            {
+                //casting from 0 to pointer we need to change the zero to null
+                //#define NULL ((void*)0)
+                if (p->state & OBJECT_STATE_ZERO)
+                {
+                    p->state &= ~ OBJECT_STATE_ZERO;
+                    p->state |=  OBJECT_STATE_NULL;
+                }
+                if (p->state & OBJECT_STATE_NOT_ZERO)
+                {
+                    p->state &= ~ OBJECT_STATE_NOT_ZERO;
+                    p->state |=  OBJECT_STATE_NOT_NULL;
+                }
+            }
+        }
+        return p;
     }
     else if (p_expression->expression_type == POSTFIX_DOT)
     {
@@ -1510,6 +1530,25 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
         //
         //
         return p_obj;
+    }
+    else if (p_expression->expression_type == CONDITIONAL_EXPRESSION)
+    {
+        struct object o = make_object(&p_expression->type, NULL, p_expression);
+        struct object obj1 = { 0 };
+        struct object* p_obj1 = expression_get_object(p_expression->left, &obj1, nullable_enabled);
+
+        struct object obj2 = { 0 };
+        struct object* p_obj2 = expression_get_object(p_expression->right, &obj2, nullable_enabled);
+
+
+        object_merge_state(&o, p_obj1, p_obj2);
+        object_swap(p_object, &o);
+
+        object_destroy(&o);
+        object_destroy(&obj1);
+        object_destroy(&obj2);
+
+        return p_object;
     }
     else if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL ||
              p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)

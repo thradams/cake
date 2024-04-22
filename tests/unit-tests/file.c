@@ -1,12 +1,13 @@
+
 #pragma nullable enable
 #pragma ownership enable
 
 struct X {
-  char * _Owner name;
+  int * p;
 };
 
-struct X f();
-struct X f2()
+
+int main()
 {
-    return f();
+    struct X x = {0};
 }

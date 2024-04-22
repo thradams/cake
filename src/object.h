@@ -126,6 +126,7 @@ int object_merge_current_state_with_state_number(struct object* object, int stat
 void object_merge_current_state_with_state_number_or(struct object* object, int state_number);
 int object_restore_current_state_from(struct object* object, int state_number);
 void object_set_state_from_current(struct object* object, int state_number);
+void object_merge_state(struct object* pdest, struct object* object1, struct object* object2);
 
 struct parser_ctx;
 struct token;

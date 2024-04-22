@@ -1,6 +1,8 @@
+#pragma nullable enable
+#pragma ownership enable
 
 int main() {
-    int* ptr = 0;
+    int* _Opt ptr = 0;
     int k = *ptr;
     k = 0;
     return 0;

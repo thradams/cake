@@ -183,6 +183,7 @@ enum diagnostic_id {
     C_ERROR_PRAGMA_ERROR,
     C_ERROR_OUT_OF_MEM,
     C_ERROR_STORAGE_SIZE,
+    C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
 };
 
 /*

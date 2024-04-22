@@ -1,5 +1,6 @@
 typedef struct X X;
-struct X {
-    void* data;
+struct X
+{
+    void *data;
 };
-static_assert(sizeof(X) == sizeof(void*));
+static_assert(sizeof(X) == sizeof(void *));

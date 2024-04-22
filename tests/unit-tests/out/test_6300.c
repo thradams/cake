@@ -1,3 +1,5 @@
+#pragma nullable enable
+#pragma ownership enable
 
 char * /*_Owner*/ strdup(const char* s);
 void free(void* /*_Owner*/ p);

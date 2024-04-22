@@ -1,10 +1,13 @@
 
+#pragma nullable enable
+#pragma ownership enable
+
 struct Y { 
     int i;
 };
 
 struct X { 
-    char * _Owner name;
+    char * _Owner _Opt name;
 };
 
 int main()

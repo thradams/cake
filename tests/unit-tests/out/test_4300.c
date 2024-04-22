@@ -1,10 +1,15 @@
 
-enum E  { A };
+enum E 
+{
+  A
+};
 
 int main()
 {
-  enum E { B } e2;
+  enum E
+  {
+    B
+  } e2;
 
-  
   
 }

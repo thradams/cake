@@ -1,7 +1,11 @@
 #pragma nullable enable
+#pragma ownership enable
 
 char* _Opt f() {
     char* _Owner _Opt p = 0;
     return p;
-#pragma cake diagnostic check "-Wnon-owner-move"
+
+//cannot return a owner to non owner
+#pragma cake diagnostic check "-E127"
+
 }

@@ -1,1 +1,7 @@
-struct X { char s; double c; char s2;};
+struct X
+{
+    char s;
+    double c;
+    char s2;
+};
+

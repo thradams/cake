@@ -731,6 +731,7 @@ enum diagnostic_id {
     C_ERROR_PRAGMA_ERROR,
     C_ERROR_OUT_OF_MEM,
     C_ERROR_STORAGE_SIZE,
+    C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
 };
 
 /*
@@ -11298,6 +11299,7 @@ int object_merge_current_state_with_state_number(struct object* object, int stat
 void object_merge_current_state_with_state_number_or(struct object* object, int state_number);
 int object_restore_current_state_from(struct object* object, int state_number);
 void object_set_state_from_current(struct object* object, int state_number);
+void object_merge_state(struct object* pdest, struct object* object1, struct object* object2);
 
 struct parser_ctx;
 struct token;
@@ -14116,7 +14118,27 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
     }
     else if (p_expression->expression_type == CAST_EXPRESSION)
     {
-        return expression_get_object(p_expression->left, p_object, nullable_enabled);
+
+        struct object* p = expression_get_object(p_expression->left, p_object, nullable_enabled);
+        if (p)
+        {
+            if (type_is_pointer(&p_expression->type_name->type))
+            {
+                //casting from 0 to pointer we need to change the zero to null
+                //#define NULL ((void*)0)
+                if (p->state & OBJECT_STATE_ZERO)
+                {
+                    p->state &= ~ OBJECT_STATE_ZERO;
+                    p->state |=  OBJECT_STATE_NULL;
+                }
+                if (p->state & OBJECT_STATE_NOT_ZERO)
+                {
+                    p->state &= ~ OBJECT_STATE_NOT_ZERO;
+                    p->state |=  OBJECT_STATE_NOT_NULL;
+                }
+            }
+        }
+        return p;
     }
     else if (p_expression->expression_type == POSTFIX_DOT)
     {
@@ -14268,6 +14290,25 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
         //
         //
         return p_obj;
+    }
+    else if (p_expression->expression_type == CONDITIONAL_EXPRESSION)
+    {
+        struct object o = make_object(&p_expression->type, NULL, p_expression);
+        struct object obj1 = { 0 };
+        struct object* p_obj1 = expression_get_object(p_expression->left, &obj1, nullable_enabled);
+
+        struct object obj2 = { 0 };
+        struct object* p_obj2 = expression_get_object(p_expression->right, &obj2, nullable_enabled);
+
+
+        object_merge_state(&o, p_obj1, p_obj2);
+        object_swap(p_object, &o);
+
+        object_destroy(&o);
+        object_destroy(&obj1);
+        object_destroy(&obj2);
+
+        return p_object;
     }
     else if (p_expression->expression_type == EQUALITY_EXPRESSION_EQUAL ||
              p_expression->expression_type == EQUALITY_EXPRESSION_NOT_EQUAL)
@@ -18591,7 +18632,7 @@ bool type_is_nullable(const struct type* p_type, bool nullable_enabled)
     {
         return p_type->type_qualifier_flags & TYPE_QUALIFIER_NULLABLE;
     }
-    
+
     //If  nullable_enabled is disabled then all pointer are nullable
     return true;
 }
@@ -19235,13 +19276,26 @@ void check_assigment(struct parser_ctx* ctx,
         if (!is_null_pointer_constant)
         {
             compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
-
-
-
             type_destroy(&lvalue_right_type);
             type_destroy(&t2);
-
             return;
+        }
+    }
+
+    if (assigment_type == ASSIGMENT_TYPE_RETURN)
+    {
+        if (!type_is_owner(p_a_type) && type_is_any_owner(&right->type))
+        {
+            if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+            {
+                compiler_diagnostic_message(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
+                    ctx,
+                    right->first_token,
+                    "cannot return a local owner variable to non owner");
+                type_destroy(&lvalue_right_type);
+                type_destroy(&t2);
+                return;
+            }
         }
     }
 
@@ -21062,7 +21116,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 list.head->next->attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_FUNC_RESULT;
             }
         }
-    }
+}
 #endif
 
     if (pdeclarator->name)
@@ -22072,6 +22126,44 @@ static void object_set_state_from_current_core(struct object* object, int state_
 
 }
 
+void object_merge_state(struct object* pdest, struct object* object1, struct object* object2)
+{
+    pdest->state = object1->state | object2->state;
+
+    if (pdest->members.size == object1->members.size &&
+        object1->members.size == object2->members.size)
+    {
+        for (int i = 0; i < object1->members.size; i++)
+        {
+            struct object* m1 = object1->members.data[i];
+            struct object* m2 = object2->members.data[i];
+            object_merge_state(pdest->members.data[i], m1, m2);
+        }
+    }
+
+
+    for (int i = 0; i < object1->ref.size; i++)
+    {
+        struct object* pointed = object1->ref.data[i];
+        if (pointed)
+        {
+            objects_push_back(&pdest->ref, pointed);
+        }
+    }
+
+    for (int i = 0; i < object2->ref.size; i++)
+    {
+        struct object* pointed = object2->ref.data[i];
+        if (pointed)
+        {
+            objects_push_back(&pdest->ref, pointed);
+        }
+    }
+
+
+
+}
+
 void object_set_state_from_current(struct object* object, int state_number)
 {
     object_set_state_from_current_core(object, state_number, s_visit_number++);
@@ -22721,7 +22813,7 @@ static void object_set_unknown_core(struct type* p_type, bool t_is_nullable, str
                         {
                             if (member_index < p_object->members.size)
                             {
-                                object_set_unknown_core(&p_member_declarator->declarator->type, 
+                                object_set_unknown_core(&p_member_declarator->declarator->type,
                                     t_is_nullable,
                                     p_object->members.data[member_index], visit_number, nullable_enabled);
                             }
@@ -23876,12 +23968,12 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
                             "memory pointed by owner pointer '%s' not deleted", name);
                         }
                     }
-            }
+                }
 
                 type_destroy(&t2);
-        }
+            }
 #endif
-    }
+        }
         else if (type_is_owner(p_type) && !type_is_pointer(p_type))
         {
             //non-pointer owner
@@ -23909,7 +24001,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
         }
 
         p_object->state = OBJECT_STATE_LIFE_TIME_ENDED;
-}
+    }
 }
 
 void end_of_storage_visit(struct parser_ctx* ctx,
@@ -23959,13 +24051,13 @@ void object_assignment3(
     }
     const bool nullable_enabled = ctx->options.null_checks_enabled;
 
-   // printf("line  %d\n", error_position->line);
-    //type_print(p_a_type);
-    //printf(" = ");
-    //type_print(p_b_type);
-    //printf("\n");
+    // printf("line  %d\n", error_position->line);
+     //type_print(p_a_type);
+     //printf(" = ");
+     //type_print(p_b_type);
+     //printf("\n");
 
-    /*general check for copying uninitialized object*/
+     /*general check for copying uninitialized object*/
     if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)
     {
         //a = b where b is uninitialized
@@ -24016,16 +24108,19 @@ void object_assignment3(
 
     /*general check passing possible null to non opt*/
     if (type_is_pointer(p_a_type) &&
-        !type_is_nullable(p_a_type, ctx->options.null_checks_enabled) &&
+        (!type_is_nullable(p_a_type, ctx->options.null_checks_enabled)) &&
         p_b_object->state & OBJECT_STATE_NULL)
     {
-        char buffer[100] = { 0 };
-        object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
+        if (!a_type_is_nullable)
+        {
+            char buffer[100] = { 0 };
+            object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
 
-        compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
-                   ctx,
-                   error_position,
-                   "assignment of possible null object '%s' to non-nullable pointer", buffer);
+            compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                       ctx,
+                       error_position,
+                       "assignment of possible null object '%s' to non-nullable pointer", buffer);
+        }
 
     }
 
@@ -24045,16 +24140,17 @@ void object_assignment3(
                 //object_set_zero(p_a_type, p_a_object);
                 objects_view_clear(&p_a_object->ref);
                 p_a_object->state = OBJECT_STATE_NOT_NULL;
+                return;
             }
-            else
+            else if (type_is_nullptr_t(p_b_type) || type_is_integer(p_b_type))
             {
                 //a = nullpr
                 //object_set_zero(p_a_type, p_a_object);
                 //p_a_object->pointed_ref = NULL;
                 objects_view_clear(&p_a_object->ref);
                 p_a_object->state = OBJECT_STATE_NULL;
+                return;
             }
-            return;
         }
     }
 
@@ -24102,6 +24198,7 @@ void object_assignment3(
             }
             else
             {
+                p_b_object->state &= ~OBJECT_STATE_NOT_NULL;
                 p_b_object->state |= OBJECT_STATE_MOVED;
             }
 
@@ -24131,7 +24228,7 @@ void object_assignment3(
           argument pointed object.
         */
         const bool checked_pointed_object_read = !type_is_out(&t);
-        bool is_nullable = type_is_nullable(&t, ctx->options.null_checks_enabled);
+        bool is_nullable = a_type_is_nullable || type_is_nullable(&t, ctx->options.null_checks_enabled);
         checked_read_object(ctx, p_b_type, is_nullable, p_b_object, error_position, checked_pointed_object_read);
 
 
@@ -24275,8 +24372,8 @@ void object_assignment3(
                         struct object* pointed = p_b_object->ref.data[i];
                         if (pointed)
                         {
-                            const bool t3_is_nullable = type_is_nullable(&t3,nullable_enabled);
-                            object_set_unknown(&t3,t3_is_nullable, pointed, nullable_enabled);
+                            const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
+                            object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
                         }
                     }
 
@@ -36351,6 +36448,12 @@ static void pop_states(struct flow_visit_ctx* ctx, int n)
 static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initializer* p_initializer);
 static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator* p_declarator);
 
+static void braced_initializer_set_object(struct braced_initializer* p, struct type* type, struct object* object)
+{
+    if (p->initializer_list == NULL) {}
+    //TODO currently it is zero
+    object_set_zero(type, object);
+}
 
 static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
@@ -36391,17 +36494,19 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
             struct object* p_right_object =
                 expression_get_object(p_init_declarator->initializer->assignment_expression, &temp_obj, nullable_enabled);
 
-            object_assignment3(ctx->ctx,
-p_init_declarator->initializer->assignment_expression->first_token,
-ASSIGMENT_TYPE_OBJECTS,
-false,
-type_is_view(&p_init_declarator->p_declarator->type),
-type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
-&p_init_declarator->p_declarator->type,
-&p_init_declarator->p_declarator->object,
-&p_init_declarator->initializer->assignment_expression->type,
-p_right_object);
-
+            if (p_right_object)
+            {
+                object_assignment3(ctx->ctx,
+                                    p_init_declarator->initializer->assignment_expression->first_token,
+                                    ASSIGMENT_TYPE_OBJECTS,
+                                    false,
+                                    type_is_view(&p_init_declarator->p_declarator->type),
+                                    type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
+                                    &p_init_declarator->p_declarator->type,
+                                    &p_init_declarator->p_declarator->object,
+                                    &p_init_declarator->initializer->assignment_expression->type,
+                                    p_right_object);
+            }
             //cast?
             if (expression_is_malloc(p_init_declarator->initializer->assignment_expression))
             {
@@ -36414,15 +36519,10 @@ p_right_object);
                 type_destroy(&t);
                 p_init_declarator->p_declarator->object.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
                 objects_push_back(&ctx->arena, po);
-
-
-
             }
             else if (expression_is_calloc(p_init_declarator->initializer->assignment_expression))
             {
                 struct object* owner po = calloc(1, sizeof * po);
-
-
                 struct type t = type_remove_pointer(&p_init_declarator->p_declarator->type);
                 struct object o = make_object(&t, p_init_declarator->p_declarator, NULL);
                 object_set_zero(&t, &o);
@@ -36433,80 +36533,35 @@ p_right_object);
                 p_init_declarator->p_declarator->object.state = OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL;
                 objects_push_back(&ctx->arena, po);
             }
-#if 0
-            else
-            {
-                const struct token* const token_position =
-                    p_init_declarator->p_declarator->name ?
-                    p_init_declarator->p_declarator->name :
-                    p_init_declarator->p_declarator->first_token
-                    ;
 
-                if (p_right_object)
-                {
-                    object_assignment3(ctx->ctx,
-                           token_position,
-                           ASSIGMENT_TYPE_OBJECTS,
-                           false,
-                           type_is_view(&p_init_declarator->p_declarator->type),
-                           type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
-                           &p_init_declarator->p_declarator->type,
-                           &p_init_declarator->p_declarator->object,
-                        &p_init_declarator->initializer->assignment_expression->type,
-                           p_right_object
-
-                    );
-                }
-                else
-                {
-                    //provisory handling too deep -> -> -> indirection
-                    const bool is_nullable = type_is_nullable(&p_init_declarator->p_declarator->type, nullable_enabled);
-                    object_set_unknown(&p_init_declarator->p_declarator->type,
-                          is_nullable,
-                          &p_init_declarator->p_declarator->object,
-                        nullable_enabled);
-                }
-
-            }
-#endif
             object_destroy(&temp_obj);
         }
         else  if (p_init_declarator->initializer &&
             p_init_declarator->initializer->braced_initializer)
         {
-            bool is_zero_initialized = false;
-            if (p_init_declarator->initializer->braced_initializer->initializer_list == NULL)
-            {
-                is_zero_initialized = true;
-            }
-            else
-            {
-                if (p_init_declarator->initializer->braced_initializer->initializer_list->size == 1 &&
-                    p_init_declarator->initializer->braced_initializer->initializer_list->head->assignment_expression)
-                {
-                    struct constant_value* p_constant_value =
-                        &p_init_declarator->initializer->braced_initializer->initializer_list->head->assignment_expression->constant_value;
+            struct object o = make_object(&p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
 
-                    if (constant_value_is_valid(p_constant_value) &&
-                        constant_value_to_ull(p_constant_value) == 0)
-                    {
-                        is_zero_initialized = true;
-                    }
+            braced_initializer_set_object(p_init_declarator->initializer->braced_initializer,
+                &p_init_declarator->p_declarator->type,
+                &o);
 
-                }
-            }
-
-            if (is_zero_initialized)
-            {
-                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
-            }
-            else
-            {
-                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
-            }
+            struct object* p_right_object = &o;
+            object_assignment3(ctx->ctx,
+                                   p_init_declarator->p_declarator->first_token,
+                                   ASSIGMENT_TYPE_OBJECTS,
+                                   false,
+                                   type_is_view(&p_init_declarator->p_declarator->type),
+                                   type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
+                                   &p_init_declarator->p_declarator->type,
+                                   &p_init_declarator->p_declarator->object,
+                                   &p_init_declarator->p_declarator->type,
+                                   p_right_object);
+            object_destroy(&o);
         }
         else
         {
+            struct object o = make_object(&p_init_declarator->p_declarator->type, p_init_declarator->p_declarator, NULL);
+
             if (p_init_declarator->p_declarator->declaration_specifiers &&
                 (
                     (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_EXTERN) ||
@@ -36514,24 +36569,27 @@ p_right_object);
                     )
                 )
             {
-                object_set_zero(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                object_set_zero(&p_init_declarator->p_declarator->type, &o);
             }
             else
             {
-                object_set_uninitialized(&p_init_declarator->p_declarator->type, &p_init_declarator->p_declarator->object);
+                object_set_uninitialized(&p_init_declarator->p_declarator->type, &o);
             }
-
-
-
+            struct object* p_right_object = &o;
+            object_assignment3(ctx->ctx,
+                                   p_init_declarator->p_declarator->first_token,
+                                   ASSIGMENT_TYPE_OBJECTS,
+                                   false,
+                                   type_is_view(&p_init_declarator->p_declarator->type),
+                                   type_is_nullable(&p_init_declarator->p_declarator->type, ctx->ctx->options.null_checks_enabled),
+                                   &p_init_declarator->p_declarator->type,
+                                   &p_init_declarator->p_declarator->object,
+                                   &p_init_declarator->p_declarator->type,
+                                   p_right_object);
+            object_destroy(&o);
         }
     }
-
-
-    //if (p_init_declarator->initializer)
-      //  flow_visit_initializer(ctx, p_init_declarator->initializer);
-
-    //if (p_init_declarator->p_declarator)
-      //  flow_visit_declarator(ctx, p_init_declarator->p_declarator);
+    
 }
 
 
@@ -38363,10 +38421,10 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                     set_object(&t2, p_declarator->object.pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
                 }
                 type_destroy(&t2);
-        }
+            }
 #endif
+        }
     }
-}
 
     /*if (p_declarator->pointer)
     {

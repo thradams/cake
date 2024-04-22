@@ -1,20 +1,24 @@
-//https://en.cppreference.com/w/c/language/value_category
+// https://en.cppreference.com/w/c/language/value_category
 
 struct X
 {
 	int i;
 };
 
-struct X f() { struct X x = {0};  return x; }
+struct X f()
+{
+	struct X x = {0};
+	return x;
+}
 
 const int i;
 
 
-const int* const p;
+const int *const p;
 
 
-
-int main() {
+int main()
+{
 	
 	
 	
@@ -23,9 +27,11 @@ int main() {
 	
 	
 
-	enum  E { A };
+	enum E
+	{
+		A
+	};
 	
-
 
 	struct X x = {0};
 	
@@ -34,38 +40,37 @@ int main() {
 	
 
 	//== Non-lvalue object expressions ==
-	// 
-	//integer, character, and floating constants 
+	//
+	// integer, character, and floating constants
 	
 	
 	
 
-	//any function call expression
-	
-	
-	//any cast expression
+	// any function call expression
 	
 
-	//member access operator (dot) applied to a non-lvalue structure/union
+	// any cast expression
 	
+
+	// member access operator (dot) applied to a non-lvalue structure/union
 	
-	//results of all arithmetic, relational, logical, and bitwise operators
+
+	// results of all arithmetic, relational, logical, and bitwise operators
 	
 	
 	
 
-	//results of increment and decrement operators 
-	
-	
-	//results of assignment operators
-
-	//the conditional operator
+	// results of increment and decrement operators
 	
 
-	//the comma operator
-	 
-	
-	//the address-of operator, even if neutralized by application to the result of unary * operator 
+	// results of assignment operators
+
+	// the conditional operator
 	
 
+	// the comma operator
+	
+
+	// the address-of operator, even if neutralized by application to the result of unary * operator
+	
 }

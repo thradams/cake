@@ -1,31 +1,36 @@
 #pragma nullable enable
-void free(void* /*_Owner*/ _Opt ptr);
-void* /*_Owner*/ _Opt malloc(int size);
-char* /*_Owner*/ _Opt strdup(const char*);
+#pragma ownership enable
 
-struct X {
-    char* /*_Owner*/ _Opt name;
+
+void free(void */*_Owner*/ _Opt ptr);
+void */*_Owner*/ _Opt malloc(int size);
+char */*_Owner*/ _Opt strdup(const char *);
+
+struct X
+{
+    char */*_Owner*/ _Opt name;
 };
 
-struct Y {
+struct Y
+{
     struct X x;
-    struct X* px;
+    struct X *px;
 };
 
-void x_destroy(struct X* /*_Obj_owner*/ p)
+void x_destroy(struct X */*_Obj_owner*/ p)
 {
     free(p->name);
 }
 
-void f(struct Y* p)
+void f(struct Y *p)
 {
     x_destroy(p->px);
 #pragma cake diagnostic check "-Wmust-use-address-of"
 }
 
-int main() {
-    struct Y  y = {0};
-    struct X* p = &y.x;
+int main()
+{
+    struct Y y = {0};
+    struct X *p = &y.x;
     x_destroy(&y.x);
 }
-

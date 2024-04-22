@@ -1,3 +1,6 @@
+#pragma nullable enable
+#pragma ownership enable
+
 void destroy(_Owner int i);
 
 int main()

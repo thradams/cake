@@ -1,5 +1,5 @@
 const int i;
 
 
-const int * const p;
+const int *const p;
 

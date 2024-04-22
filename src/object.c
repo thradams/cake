@@ -967,6 +967,44 @@ static void object_set_state_from_current_core(struct object* object, int state_
 
 }
 
+void object_merge_state(struct object* pdest, struct object* object1, struct object* object2)
+{
+    pdest->state = object1->state | object2->state;
+
+    if (pdest->members.size == object1->members.size &&
+        object1->members.size == object2->members.size)
+    {
+        for (int i = 0; i < object1->members.size; i++)
+        {
+            struct object* m1 = object1->members.data[i];
+            struct object* m2 = object2->members.data[i];
+            object_merge_state(pdest->members.data[i], m1, m2);
+        }
+    }
+
+
+    for (int i = 0; i < object1->ref.size; i++)
+    {
+        struct object* pointed = object1->ref.data[i];
+        if (pointed)
+        {
+            objects_push_back(&pdest->ref, pointed);
+        }
+    }
+
+    for (int i = 0; i < object2->ref.size; i++)
+    {
+        struct object* pointed = object2->ref.data[i];
+        if (pointed)
+        {
+            objects_push_back(&pdest->ref, pointed);
+        }
+    }
+
+
+
+}
+
 void object_set_state_from_current(struct object* object, int state_number)
 {
     object_set_state_from_current_core(object, state_number, s_visit_number++);
@@ -1616,7 +1654,7 @@ static void object_set_unknown_core(struct type* p_type, bool t_is_nullable, str
                         {
                             if (member_index < p_object->members.size)
                             {
-                                object_set_unknown_core(&p_member_declarator->declarator->type, 
+                                object_set_unknown_core(&p_member_declarator->declarator->type,
                                     t_is_nullable,
                                     p_object->members.data[member_index], visit_number, nullable_enabled);
                             }
@@ -2771,12 +2809,12 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
                             "memory pointed by owner pointer '%s' not deleted", name);
                         }
                     }
-            }
+                }
 
                 type_destroy(&t2);
-        }
+            }
 #endif
-    }
+        }
         else if (type_is_owner(p_type) && !type_is_pointer(p_type))
         {
             //non-pointer owner
@@ -2804,7 +2842,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
         }
 
         p_object->state = OBJECT_STATE_LIFE_TIME_ENDED;
-}
+    }
 }
 
 void end_of_storage_visit(struct parser_ctx* ctx,
@@ -2854,13 +2892,13 @@ void object_assignment3(
     }
     const bool nullable_enabled = ctx->options.null_checks_enabled;
 
-   // printf("line  %d\n", error_position->line);
-    //type_print(p_a_type);
-    //printf(" = ");
-    //type_print(p_b_type);
-    //printf("\n");
+    // printf("line  %d\n", error_position->line);
+     //type_print(p_a_type);
+     //printf(" = ");
+     //type_print(p_b_type);
+     //printf("\n");
 
-    /*general check for copying uninitialized object*/
+     /*general check for copying uninitialized object*/
     if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)
     {
         //a = b where b is uninitialized
@@ -2911,16 +2949,19 @@ void object_assignment3(
 
     /*general check passing possible null to non opt*/
     if (type_is_pointer(p_a_type) &&
-        !type_is_nullable(p_a_type, ctx->options.null_checks_enabled) &&
+        (!type_is_nullable(p_a_type, ctx->options.null_checks_enabled)) &&
         p_b_object->state & OBJECT_STATE_NULL)
     {
-        char buffer[100] = { 0 };
-        object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
+        if (!a_type_is_nullable)
+        {
+            char buffer[100] = { 0 };
+            object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
 
-        compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
-                   ctx,
-                   error_position,
-                   "assignment of possible null object '%s' to non-nullable pointer", buffer);
+            compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+                       ctx,
+                       error_position,
+                       "assignment of possible null object '%s' to non-nullable pointer", buffer);
+        }
 
     }
 
@@ -2940,16 +2981,17 @@ void object_assignment3(
                 //object_set_zero(p_a_type, p_a_object);
                 objects_view_clear(&p_a_object->ref);
                 p_a_object->state = OBJECT_STATE_NOT_NULL;
+                return;
             }
-            else
+            else if (type_is_nullptr_t(p_b_type) || type_is_integer(p_b_type))
             {
                 //a = nullpr
                 //object_set_zero(p_a_type, p_a_object);
                 //p_a_object->pointed_ref = NULL;
                 objects_view_clear(&p_a_object->ref);
                 p_a_object->state = OBJECT_STATE_NULL;
+                return;
             }
-            return;
         }
     }
 
@@ -2997,6 +3039,7 @@ void object_assignment3(
             }
             else
             {
+                p_b_object->state &= ~OBJECT_STATE_NOT_NULL;
                 p_b_object->state |= OBJECT_STATE_MOVED;
             }
 
@@ -3026,7 +3069,7 @@ void object_assignment3(
           argument pointed object.
         */
         const bool checked_pointed_object_read = !type_is_out(&t);
-        bool is_nullable = type_is_nullable(&t, ctx->options.null_checks_enabled);
+        bool is_nullable = a_type_is_nullable || type_is_nullable(&t, ctx->options.null_checks_enabled);
         checked_read_object(ctx, p_b_type, is_nullable, p_b_object, error_position, checked_pointed_object_read);
 
 
@@ -3170,8 +3213,8 @@ void object_assignment3(
                         struct object* pointed = p_b_object->ref.data[i];
                         if (pointed)
                         {
-                            const bool t3_is_nullable = type_is_nullable(&t3,nullable_enabled);
-                            object_set_unknown(&t3,t3_is_nullable, pointed, nullable_enabled);
+                            const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
+                            object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
                         }
                     }
 

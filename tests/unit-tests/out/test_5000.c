@@ -1,3 +1,5 @@
+#pragma nullable enable
+#pragma ownership enable
 
 struct Y { 
     char  * /*_Owner*/ owner_variable;   

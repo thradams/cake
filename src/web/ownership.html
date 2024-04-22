@@ -187,6 +187,95 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
+<p>When _Opt qualifier is aplied to structs it makes all member _Opt.
+For instance:</p>
+
+<pre><code class="language-c">#pragma nullable enable
+
+void free(void * _Opt p);
+char * _Opt strdup();
+
+void print_name(const char* name);
+
+struct X {
+  char * name;
+};
+
+void use_x(struct X * p)
+{
+   //p-&gt;name is non-nullable here
+   print_name(p-&gt;name);
+}
+
+void x_destroy(_Opt struct X * p)
+{
+   //p-&gt;name is nullable here
+   free(p); //free accepts null
+}
+
+int main()
+{
+  _Opt struct X x = {0};
+  char * _Opt temp = strdup();
+  if (temp)
+  {
+    x.name = temp;
+    use_x(&amp;x);
+  }
+  x_destroy(&amp;x);
+}
+
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
+<p>This can be used to implement destructors where the object can be partially 
+constructed in case of some error. 
+For other functions, like use_x, the object must be completely constructed, and in this case, name must not be null.</p>
+
+<p>Currently cake is not checkin nullable at initialization. </p>
+
+<pre><code class="language-c">struct X x = {0}; //no complaing about name being null
+</code></pre>
+
+<p>This allows a initialization in multiple steps.</p>
+
+<pre><code class="language-c">  use_x(&amp;x); //warning name is null
+</code></pre>
+
+<pre><code class="language-c">#pragma nullable enable
+
+void free(void * _Opt p);
+char * _Opt strdup();
+
+void print_name(const char* name);
+
+struct X {
+  char * name;
+};
+
+void use_x(struct X * p)
+{
+   //p-&gt;name is non-nullable here
+   print_name(p-&gt;name);
+}
+
+void x_destroy(_Opt struct X * p)
+{
+   //p-&gt;name is nullable here
+   free(p); //free accepts nullable p
+}
+
+int main()
+{
+  struct X x = {0};
+  use_x(&amp;x);
+  x_destroy(&amp;x);
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
+
 <h3 id="toc_3">Owner References</h3>
 
 <p>An <strong>owner reference</strong> is an object referencing another object and managing its lifetime. </p>
