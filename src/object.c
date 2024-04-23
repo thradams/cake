@@ -1000,7 +1000,7 @@ void object_merge_state(struct object* pdest, struct object* object1, struct obj
         struct object* pointed = object1->ref.data[i];
         if (pointed)
         {
-            objects_push_back(&pdest->ref, pointed);
+            objects_view_push_back(&pdest->ref, pointed);
         }
     }
 
@@ -1009,7 +1009,7 @@ void object_merge_state(struct object* pdest, struct object* object1, struct obj
         struct object* pointed = object2->ref.data[i];
         if (pointed)
         {
-            objects_push_back(&pdest->ref, pointed);
+            objects_view_push_back(&pdest->ref, pointed);
         }
     }
 
