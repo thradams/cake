@@ -16,9 +16,10 @@ int main()
 {
   _Opt struct user user = {};
   user.name = strdup("a");
-  char* _Owner _Opt name = user.name;
+  char* _Owner _Opt name = user.name; //we need to create an object when we move
   static_debug(user);  
   free(name);
-  //if (user.name)
+  static_debug(user.name);
+  if (user.name)
     set_id(&user, 1); //warning: object 'user.name' was moved  
 }

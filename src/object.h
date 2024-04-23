@@ -128,10 +128,10 @@ int object_restore_current_state_from(struct object* object, int state_number);
 void object_set_state_from_current(struct object* object, int state_number);
 void object_merge_state(struct object* pdest, struct object* object1, struct object* object2);
 
-struct parser_ctx;
+struct flow_visit_ctx;
 struct token;
 
-void visit_object(struct parser_ctx* ctx,
+void visit_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
     const struct token* position_token,
@@ -155,7 +155,7 @@ void set_object(
 
 
 
-void object_assignment3(struct parser_ctx* ctx,
+void object_assignment3(struct flow_visit_ctx* ctx,
     const struct token* error_position,
     enum  assigment_type assigment_type,
     bool check_uninitialized_b,
@@ -170,7 +170,7 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object);
 void object_set_nothing(struct type* p_type, struct object* p_object);
 void object_set_moved(struct type* p_type, struct object* p_object);
 
-void checked_read_object(struct parser_ctx* ctx,
+void checked_read_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool is_nullable,
     struct object* p_object,
@@ -178,7 +178,7 @@ void checked_read_object(struct parser_ctx* ctx,
     bool check_pointed_object);
 
 bool object_is_zero_or_null(const struct object* p_object);
-void end_of_storage_visit(struct parser_ctx* ctx,
+void end_of_storage_visit(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool type_is_view,
     struct object* p_object,

@@ -753,7 +753,7 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
             struct declarator* p_declarator = deferchild->declarator;
             const char* name = p_declarator->name ? p_declarator->name->lexeme : "?";
 
-            end_of_storage_visit(ctx->ctx,
+            end_of_storage_visit(ctx,
                 &p_declarator->type,
                 type_is_view(&p_declarator->type),
                 &p_declarator->object,
@@ -1200,7 +1200,7 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
 
             if (p_right_object)
             {
-                object_assignment3(ctx->ctx,
+                object_assignment3(ctx,
                                     p_init_declarator->initializer->assignment_expression->first_token,
                                     ASSIGMENT_TYPE_OBJECTS,
                                     false,
@@ -1250,7 +1250,7 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                 &o);
 
             struct object* p_right_object = &o;
-            object_assignment3(ctx->ctx,
+            object_assignment3(ctx,
                                    p_init_declarator->p_declarator->first_token,
                                    ASSIGMENT_TYPE_OBJECTS,
                                    false,
@@ -1280,7 +1280,7 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                 object_set_uninitialized(&p_init_declarator->p_declarator->type, &o);
             }
             struct object* p_right_object = &o;
-            object_assignment3(ctx->ctx,
+            object_assignment3(ctx,
                                    p_init_declarator->p_declarator->first_token,
                                    ASSIGMENT_TYPE_OBJECTS,
                                    false,
@@ -1703,11 +1703,11 @@ static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct gene
 }
 
 
-static void compare_function_arguments3(struct parser_ctx* ctx,
+static void compare_function_arguments3(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct argument_expression_list* p_argument_expression_list)
 {
-    const bool nullable_enabled = ctx->options.null_checks_enabled;
+    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     struct param* p_current_parameter_type = NULL;
 
@@ -1737,7 +1737,7 @@ static void compare_function_arguments3(struct parser_ctx* ctx,
               ASSIGMENT_TYPE_PARAMETER,
               true,
               type_is_view(&p_current_parameter_type->type),
-              type_is_nullable(&p_current_parameter_type->type, ctx->options.null_checks_enabled),
+              type_is_nullable(&p_current_parameter_type->type, ctx->ctx->options.null_checks_enabled),
               &p_current_parameter_type->type,
               &parameter_object, /*dest object*/
 
@@ -1766,7 +1766,7 @@ static void compare_function_arguments3(struct parser_ctx* ctx,
         {
             checked_read_object(ctx,
                 &p_current_argument->expression->type,
-                type_is_nullable(&p_current_argument->expression->type, ctx->options.null_checks_enabled),
+                type_is_nullable(&p_current_argument->expression->type, ctx->ctx->options.null_checks_enabled),
                 p_argument_object,
                 p_current_argument->expression->first_token,
                 false);
@@ -2018,7 +2018,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
         //new function waiting all test to pass to become active
-        compare_function_arguments3(ctx->ctx, &p_expression->left->type, &p_expression->argument_expression_list);
+        compare_function_arguments3(ctx, &p_expression->left->type, &p_expression->argument_expression_list);
 
         break;
 
@@ -2232,7 +2232,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
         }
         
-        object_assignment3(ctx->ctx,
+        object_assignment3(ctx,
             p_expression->left->first_token,
             ASSIGMENT_TYPE_OBJECTS,
             true,
@@ -2639,7 +2639,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
             if (p_object)
             {
-                checked_read_object(ctx->ctx,
+                checked_read_object(ctx,
                     &p_jump_statement->expression_opt->type,
                     type_is_nullable(&p_jump_statement->expression_opt->type, ctx->ctx->options.null_checks_enabled),
                     p_object,
@@ -2651,7 +2651,7 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
 
                 object_set_zero(ctx->p_return_type, &dest_object);
 
-                object_assignment3(ctx->ctx,
+                object_assignment3(ctx,
                  p_jump_statement->expression_opt->first_token,
                  ASSIGMENT_TYPE_RETURN,
                  true,

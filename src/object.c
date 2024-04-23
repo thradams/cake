@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "console.h"
+#include "flow_visit.h"
 
 unsigned int s_visit_number = 1; //creates a unique number
 unsigned int s_object_id_generator = 0;
@@ -1466,7 +1467,7 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object)
 }
 
 
-static void checked_empty_core(struct parser_ctx* ctx,
+static void checked_empty_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
     const char* previous_names,
@@ -1538,7 +1539,7 @@ static void checked_empty_core(struct parser_ctx* ctx,
         {
 
             compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx,
+                ctx->ctx,
                 position_token,
                 "object '%s' may be not empty",
                 previous_names);
@@ -1546,7 +1547,7 @@ static void checked_empty_core(struct parser_ctx* ctx,
     }
 }
 
-void checked_empty(struct parser_ctx* ctx,
+void checked_empty(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
     const struct token* position_token)
@@ -2096,7 +2097,7 @@ void object_get_name(const struct type* p_type,
     }
 }
 
-void checked_moved_core(struct parser_ctx* ctx,
+void checked_moved_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
     const struct token* position_token,
@@ -2173,13 +2174,13 @@ void checked_moved_core(struct parser_ctx* ctx,
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx,
+                ctx->ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a moved object '%s'",
                 parameter_name,
                 name))
             {
-                compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
+                compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, "parameter", name);
             }
         }
 
@@ -2191,19 +2192,19 @@ void checked_moved_core(struct parser_ctx* ctx,
             char name[200] = { 0 };
             object_get_name(p_type, p_object, name, sizeof name);
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx,
+                ctx->ctx,
                 position_token,
                 "parameter '%s' is leaving scoped with a uninitialized object '%s'",
                 parameter_name,
                 name))
             {
-                compiler_diagnostic_message(W_LOCATION, ctx, name_pos, "parameter", name);
+                compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, "parameter", name);
             }
         }
     }
 }
 
-void checked_moved(struct parser_ctx* ctx,
+void checked_moved(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
     const struct token* position_token)
@@ -2215,7 +2216,7 @@ void checked_moved(struct parser_ctx* ctx,
     s_visit_number++);
 }
 
-void checked_read_object_core(struct parser_ctx* ctx,
+void checked_read_object_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool is_nullable,
     struct object* p_object,
@@ -2291,11 +2292,11 @@ void checked_read_object_core(struct parser_ctx* ctx,
 
         if (type_is_pointer(p_type) &&
             !is_nullable &&
-            !type_is_nullable(p_type, ctx->options.null_checks_enabled) &&
+            !type_is_nullable(p_type, ctx->ctx->options.null_checks_enabled) &&
             maybe_is_null(p_object->state))
         {
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
-                ctx,
+                ctx->ctx,
                 position_token,
                 "object '%s', (non-optional) may be null",
                 previous_names);
@@ -2325,7 +2326,7 @@ void checked_read_object_core(struct parser_ctx* ctx,
         if (p_object->state & OBJECT_STATE_UNINITIALIZED)
         {
             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                ctx,
+                ctx->ctx,
                 position_token,
                 "uninitialized object '%s'",
                 previous_names);
@@ -2334,7 +2335,7 @@ void checked_read_object_core(struct parser_ctx* ctx,
 }
 
 
-void checked_read_object(struct parser_ctx* ctx,
+void checked_read_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool is_nullable,
     struct object* p_object,
@@ -2374,7 +2375,7 @@ void checked_read_object(struct parser_ctx* ctx,
 }
 
 
-static void visit_object_core(struct parser_ctx* ctx,
+static void visit_object_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
     const struct token* position_token,
@@ -2430,14 +2431,14 @@ static void visit_object_core(struct parser_ctx* ctx,
             */
             const struct token* name = object_get_token(p_object);
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx,
+                ctx->ctx,
                 name,
                 "object '%s' was not moved/destroyed",
                 previous_names))
             {
 
                 if (p_object->declarator)
-                    compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", previous_names);
+                    compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", previous_names);
             }
         }
         else
@@ -2576,7 +2577,7 @@ static void visit_object_core(struct parser_ctx* ctx,
                         if (is_assigment)
                         {
                             compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                                ctx,
+                                ctx->ctx,
                                 position_token,
                                 "memory pointed by '%s' was not released before assignment.",
                                 name);
@@ -2584,13 +2585,13 @@ static void visit_object_core(struct parser_ctx* ctx,
                         else
                         {
                             compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                                ctx,
+                                ctx->ctx,
                                 position,
                                 "memory pointed by '%s' was not released.",
                                 name);
                             if (p_object->declarator)
                             {
-                                compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
+                                compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", name);
                             }
                         }
                     }
@@ -2600,7 +2601,7 @@ static void visit_object_core(struct parser_ctx* ctx,
                     if (is_assigment)
                     {
                         compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                            ctx,
+                            ctx->ctx,
                             position_token,
                             "previous members of '%s' were not moved before this assignment.",
                             name);
@@ -2608,13 +2609,13 @@ static void visit_object_core(struct parser_ctx* ctx,
                     else
                     {
                         compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                            ctx,
+                            ctx->ctx,
                             position,
                             "object '%s' was not moved.",
                             name);
                         if (p_object->declarator)
                         {
-                            compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", name);
+                            compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", name);
                         }
                     }
                 }
@@ -2626,7 +2627,7 @@ static void visit_object_core(struct parser_ctx* ctx,
 
 }
 
-void visit_object(struct parser_ctx* ctx,
+void visit_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct object* p_object,
     const struct token* position_token,
@@ -2642,7 +2643,7 @@ void visit_object(struct parser_ctx* ctx,
 }
 
 
-static void end_of_storage_visit_core(struct parser_ctx* ctx,
+static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool b_type_is_view,
     struct object* p_object,
@@ -2676,14 +2677,14 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
             */
             const struct token* name = object_get_token(p_object);
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx,
+                ctx->ctx,
                 name,
                 "object '%s' was not moved/destroyed",
                 previous_names))
             {
 
                 if (p_object->declarator)
-                    compiler_diagnostic_message(W_LOCATION, ctx, position_token, "end of '%s' scope", previous_names);
+                    compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", previous_names);
             }
         }
         else
@@ -2764,12 +2765,12 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
             p_object->state & OBJECT_STATE_NOT_NULL)
         {
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx,
+                ctx->ctx,
                 position,
                 "ownership of '%s' not moved before the end of lifetime", previous_names))
             {
                 compiler_diagnostic_message(W_LOCATION,
-                ctx,
+                ctx->ctx,
                 position_token,
                 "end of lifetime");
             }
@@ -2797,12 +2798,12 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
             else
             {
                 if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                    ctx,
+                    ctx->ctx,
                     position,
                     "ownership of '%s' not moved before the end of lifetime", previous_names))
                 {
                     compiler_diagnostic_message(W_LOCATION,
-                    ctx,
+                    ctx->ctx,
                     position_token,
                     "end of lifetime");
                 }
@@ -2816,7 +2817,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
     }
 }
 
-void end_of_storage_visit(struct parser_ctx* ctx,
+void end_of_storage_visit(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool type_is_view,
     struct object* p_object,
@@ -2848,7 +2849,7 @@ bool object_is_zero_or_null(const struct object* p_object)
    a = b
 */
 void object_assignment3(
-    struct parser_ctx* ctx,
+    struct flow_visit_ctx* ctx,
     const struct token* error_position,
     enum assigment_type assigment_type,
     bool check_uninitialized_b,
@@ -2861,7 +2862,7 @@ void object_assignment3(
     {
         return;
     }
-    const bool nullable_enabled = ctx->options.null_checks_enabled;
+    const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
     // printf("line  %d\n", error_position->line);
      //type_print(p_a_type);
@@ -2880,7 +2881,7 @@ void object_assignment3(
             if (!type_is_out(p_a_type))
             {
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                            ctx,
+                            ctx->ctx,
                             error_position,
                             "passing an uninitialized argument '%s' object", buffer);
             }
@@ -2888,14 +2889,14 @@ void object_assignment3(
         else if (assigment_type == ASSIGMENT_TYPE_RETURN)
         {
             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                        ctx,
+                        ctx->ctx,
                         error_position,
                         "returning an uninitialized '%s' object", buffer);
         }
         else
         {
             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                        ctx,
+                        ctx->ctx,
                         error_position,
                         "reading an uninitialized '%s' object", buffer);
         }
@@ -2910,7 +2911,7 @@ void object_assignment3(
         object_get_name(p_a_type, p_a_object, buffer, sizeof buffer);
 
         compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
-                    ctx,
+                    ctx->ctx,
                     error_position,
                     "The object '%s' may have been deleted or its lifetime have ended.", buffer);
 
@@ -2920,7 +2921,7 @@ void object_assignment3(
 
     /*general check passing possible null to non opt*/
     if (type_is_pointer(p_a_type) &&
-        (!type_is_nullable(p_a_type, ctx->options.null_checks_enabled)) &&
+        (!type_is_nullable(p_a_type, ctx->ctx->options.null_checks_enabled)) &&
         p_b_object->state & OBJECT_STATE_NULL)
     {
         if (!a_type_is_nullable)
@@ -2929,7 +2930,7 @@ void object_assignment3(
             object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
 
             compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
-                       ctx,
+                       ctx->ctx,
                        error_position,
                        "assignment of possible null object '%s' to non-nullable pointer", buffer);
         }
@@ -3002,7 +3003,7 @@ void object_assignment3(
                 {
                     //if the anwser is yes then we need a warning
                     compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                                                ctx,
+                                                ctx->ctx,
                                                 error_position,
                                                 "pointed object may be not empty");
                 }
@@ -3039,7 +3040,7 @@ void object_assignment3(
         if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
-            ctx,
+            ctx->ctx,
             error_position,
             "passing a temporary owner to a view");
         }
@@ -3056,7 +3057,7 @@ void object_assignment3(
           argument pointed object.
         */
         const bool checked_pointed_object_read = !type_is_out(&t);
-        bool is_nullable = a_type_is_nullable || type_is_nullable(&t, ctx->options.null_checks_enabled);
+        bool is_nullable = a_type_is_nullable || type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
         checked_read_object(ctx, p_b_type, is_nullable, p_b_object, error_position, checked_pointed_object_read);
 
 
@@ -3073,7 +3074,7 @@ void object_assignment3(
             {
                 //TODO we need 2 positions, source, dest
                 compiler_diagnostic_message(W_FLOW_MOVED,
-                   ctx,
+                   ctx->ctx,
                    error_position,
                    "source object has already been moved");
             }
@@ -3179,7 +3180,7 @@ void object_assignment3(
                       struct X* p = (struct X* _Owner) malloc(1);
                     */
                         compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
-                       ctx,
+                       ctx->ctx,
                        error_position,
                        "owner object has short lifetime");
                     }
