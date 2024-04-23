@@ -11359,6 +11359,9 @@ void end_of_storage_visit(struct parser_ctx* ctx,
     const char* previous_names);
 
 
+bool object_is_expansible(const struct object* p_object);
+
+
 
 #if __STDC_VERSION__  >= 202311L 
 #define NODISCARD [[nodiscard]]
@@ -21230,6 +21233,15 @@ bool is_uninitialized(enum object_state e)
     return (e & OBJECT_STATE_UNINITIALIZED);
 }
 
+/*
+  returns true if the pointer object can/should be expanded
+*/
+bool object_is_expansible(const struct object* p_object)
+{
+    return (p_object->state != OBJECT_STATE_NULL &&
+                p_object->state != OBJECT_STATE_UNINITIALIZED &&
+                p_object->ref.size == 0);
+}
 
 void object_state_to_string(enum object_state e)
 {
@@ -23946,7 +23958,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
             char buffer[100] = { 0 };
             snprintf(buffer, sizeof buffer, "%s", previous_names);
             struct type t2 = type_remove_pointer(p_type);
-            
+
             for (int i = 0; i < p_object->ref.size; i++)
             {
                 end_of_storage_visit_core(ctx, &t2, b_type_is_view, p_object->ref.data[i], position, buffer, visit_number);
@@ -24156,17 +24168,33 @@ void object_assignment3(
 
         if (!a_type_is_view && type_is_owner(p_a_type))
         {
-            if (p_b_object->ref.size > 0)
+            //*b must be empty before copying to void* owner
+            struct type t = type_remove_pointer(p_b_type);
+
+            if (p_b_object->ref.size == 0)
             {
-                //*b must be empty before copying to void* owner
-                struct type t = type_remove_pointer(p_b_type);
+                // The question is..if we had this object expanded
+                // could it possible have resources?
+                //-> {...}
+                if (object_is_expansible(p_b_object) &&
+                    type_is_owner(&t))
+                {
+                    //if the anwser is yes then we need a warning
+                    compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
+                                                ctx,
+                                                error_position,
+                                                "pointed object may be not empty");
+                }
+            }
+            else
+            {
                 for (int i = 0; i < p_b_object->ref.size; i++)
                 {
                     checked_empty(ctx, &t, p_b_object->ref.data[i], error_position);
                     object_set_deleted(&t, p_b_object->ref.data[i]);
                 }
-                type_destroy(&t);
             }
+            type_destroy(&t);
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {

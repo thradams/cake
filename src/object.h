@@ -184,3 +184,6 @@ void end_of_storage_visit(struct parser_ctx* ctx,
     struct object* p_object,
     const struct token* position_token,
     const char* previous_names);
+
+
+bool object_is_expansible(const struct object* p_object);

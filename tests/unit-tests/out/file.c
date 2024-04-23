@@ -1,13 +1,11 @@
-
-#pragma nullable enable
 #pragma ownership enable
+#pragma nullable enable
 
 struct X {
-  int * p;
+  char */*_Owner*/ name;
 };
 
-
-int main()
+void x_destroy(_Opt struct X * /*_Obj_owner*/ x) 
 {
-    struct X x = {0};
+  //free(x.name);
 }

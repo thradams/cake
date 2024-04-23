@@ -5,7 +5,8 @@ struct X {
   char *_Owner name;
 };
 
-void x_destroy(_Opt struct X * _Obj_owner x) 
-{
-  //free(x.name);
+struct X * _Owner f();
+int main(){
+    struct X * _Owner p = f();
+    void * _Owner p2 = p;
 }

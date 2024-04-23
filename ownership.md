@@ -268,7 +268,7 @@ Invoking a function `fclose` is analogous to assignment of the argument `f2`, re
 Sample - Declaration of fopen and fclose
 
 ```c
-FILE * _Owner _fopen( const char *filename, const char *mode );
+FILE * _Owner _Opt fopen( const char *filename, const char *mode );
 void fclose(FILE * _Owner p);
 ```
 
@@ -329,6 +329,28 @@ int main() {
 A **view reference** is an object referencing another object without managing its lifetime. 
 
 **Rule:** The lifetime of the referenced object must be longer than the lifetime of the view reference.
+
+Sample
+
+```c
+#pragma nullable enable
+#pragma ownership enable
+
+struct X
+{
+    int i;
+}
+int main(){
+
+  struct X * _Opt p = nullptr;
+  {
+    struct X x = {};
+    p = &x;
+  }
+  p->i = 1; //warning
+}
+```
+<button onclick="Try(this)">try</button>
 
 The most common view references are pointers called **view pointers**. 
 
@@ -495,7 +517,7 @@ void x_delete(struct X * _Owner _Opt p) {
 }
 
 int main() {
-  struct X * _Owner pX = calloc(1, sizeof * pX);
+  struct X * _Owner _Opt _pX = calloc(1, sizeof * pX);
   if (pX) {
     /*...*/;
     x_delete( pX); 
@@ -506,9 +528,9 @@ int main() {
 
 <button onclick="Try(this)">try</button>
 
-### Conversion from owner pointer to void * owner
+### Conversion from `T * _Owner` to `void * _Owner`
 
-**Rule:** Assignment or cast of a owner pointer to void * owner requires the pointed object to be empty.
+**Rule:** Assignment or cast from `T * _Owner` to `void * _Owner` requires the pointed object T to be empty.
 
 ```c  
 
@@ -516,7 +538,7 @@ int main() {
 #pragma ownership enable
 
 struct X {
-    char _Owner text;
+    char * _Owner text;
 };
 
 struct X * _Owner make();

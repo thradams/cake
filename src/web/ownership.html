@@ -57,7 +57,7 @@
 <a href="#toc_8">Deleting Owner Pointers</a>
 </li>
 <li>
-<a href="#toc_9">Conversion from owner pointer to void * owner</a>
+<a href="#toc_9">Conversion from <code>T * _Owner</code> to <code>void * _Owner</code></a>
 </li>
 </ul>
 </li>
@@ -325,7 +325,7 @@ int main()
 
 <p>Sample - Declaration of fopen and fclose</p>
 
-<pre><code class="language-c">FILE * _Owner _fopen( const char *filename, const char *mode );
+<pre><code class="language-c">FILE * _Owner _Opt fopen( const char *filename, const char *mode );
 void fclose(FILE * _Owner p);
 </code></pre>
 
@@ -389,6 +389,28 @@ int main() {
 <p>A <strong>view reference</strong> is an object referencing another object without managing its lifetime. </p>
 
 <p><strong>Rule:</strong> The lifetime of the referenced object must be longer than the lifetime of the view reference.</p>
+
+<p>Sample</p>
+
+<pre><code class="language-c">#pragma nullable enable
+#pragma ownership enable
+
+struct X
+{
+    int i;
+}
+int main(){
+
+  struct X * _Opt p = nullptr;
+  {
+    struct X x = {};
+    p = &amp;x;
+  }
+  p-&gt;i = 1; //warning
+}
+</code></pre>
+
+<p><button onclick="Try(this)">try</button></p>
 
 <p>The most common view references are pointers called <strong>view pointers</strong>. </p>
 
@@ -556,7 +578,7 @@ void x_delete(struct X * _Owner _Opt p) {
 }
 
 int main() {
-  struct X * _Owner pX = calloc(1, sizeof * pX);
+  struct X * _Owner _Opt _pX = calloc(1, sizeof * pX);
   if (pX) {
     /*...*/;
     x_delete( pX); 
@@ -567,16 +589,16 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h3 id="toc_9">Conversion from owner pointer to void * owner</h3>
+<h3 id="toc_9">Conversion from <code>T * _Owner</code> to <code>void * _Owner</code></h3>
 
-<p><strong>Rule:</strong> Assignment or cast of a owner pointer to void * owner requires the pointed object to be empty.</p>
+<p><strong>Rule:</strong> Assignment or cast from <code>T * _Owner</code> to <code>void * _Owner</code> requires the pointed object T to be empty.</p>
 
 <pre><code class="language-c">
 #pragma nullable enable
 #pragma ownership enable
 
 struct X {
-    char _Owner text;
+    char * _Owner text;
 };
 
 struct X * _Owner make();
