@@ -23811,7 +23811,7 @@ void visit_object(struct parser_ctx* ctx,
 
 static void end_of_storage_visit_core(struct parser_ctx* ctx,
     struct type* p_type,
-    bool type_is_view,
+    bool b_type_is_view,
     struct object* p_object,
     const struct token* position_token,
     const char* previous_names,
@@ -23883,7 +23883,7 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
 
                             end_of_storage_visit_core(ctx,
                                 &p_member_declarator->declarator->type,
-                                type_is_view,
+                                b_type_is_view,
                                 p_object->members.data[member_index],
                                 position_token,
                                 buffer,
@@ -23926,11 +23926,10 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
            the reference is not referring an object, the value could be -1 for instance.
         */
         if (type_is_pointer(p_type) &&
-            !type_is_view &&
+            !b_type_is_view &&
             type_is_owner(p_type) &&
             p_object->state & OBJECT_STATE_NOT_NULL)
         {
-
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx,
                 position,
@@ -23941,58 +23940,18 @@ static void end_of_storage_visit_core(struct parser_ctx* ctx,
                 position_token,
                 "end of lifetime");
             }
-#if 0
+        }
+        else if (!b_type_is_view && type_is_obj_owner(p_type) && type_is_pointer(p_type))
+        {
             char buffer[100] = { 0 };
             snprintf(buffer, sizeof buffer, "%s", previous_names);
             struct type t2 = type_remove_pointer(p_type);
-            if (p_object->ref.size == 0)
+            
+            for (int i = 0; i < p_object->ref.size; i++)
             {
-                if (position)
-                {
-                    compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
-                            ctx,
-                            position,
-                            "memory pointed by owner pointer '%s' not deleted", name);
-                }
+                end_of_storage_visit_core(ctx, &t2, b_type_is_view, p_object->ref.data[i], position, buffer, visit_number);
             }
-            else
-            {
-                for (int i = 0; i < p_object->ref.size; i++)
-                {
-                    if (p_object->ref.data[i]->state & OBJECT_STATE_LIFE_TIME_ENDED)
-                    {
-                    }
-                    else
-                    {
-                        bool memory_deleted = false;
-                        if (type_is_struct_or_union(&t2))
-                        {
-                            if (p_object->ref.data[i]->members.size > 0)
-                            {
-                                if (p_object->ref.data[i]->members.data[0]->state & OBJECT_STATE_LIFE_TIME_ENDED)
-                                {
-                                    memory_deleted = true;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            memory_deleted = p_object->ref.data[i]->state & OBJECT_STATE_LIFE_TIME_ENDED;
-                        }
-
-                        if (!memory_deleted)
-                        {
-                            compiler_diagnostic_message(W_OWNERSHIP_FLOW_MISSING_DTOR,
-                            ctx,
-                            position,
-                            "memory pointed by owner pointer '%s' not deleted", name);
-                        }
-                    }
-                }
-
-                type_destroy(&t2);
-            }
-#endif
+            type_destroy(&t2);
         }
         else if (type_is_owner(p_type) && !type_is_pointer(p_type))
         {
