@@ -18,15 +18,18 @@ bool is_moved(enum object_state e)
 
 bool is_not_null(enum object_state e)
 {
-    return (!(e & OBJECT_STATE_NULL) &&
-           (e & OBJECT_STATE_NOT_NULL));
+    return (
+             !(e & OBJECT_STATE_NULL) &&
+             ((e & OBJECT_STATE_NOT_NULL) || (e & OBJECT_STATE_MOVED))
+           );
 }
 
 
 bool is_null(enum object_state e)
 {
     return ((e & OBJECT_STATE_NULL) &&
-           !(e & OBJECT_STATE_NOT_NULL));
+           !(e & OBJECT_STATE_NOT_NULL) &&
+           !(e & OBJECT_STATE_MOVED));
 }
 
 bool is_zero(enum object_state e)
