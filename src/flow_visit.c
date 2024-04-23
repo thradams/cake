@@ -2231,7 +2231,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 bool_source_zero_value = true;
             }
         }
-
+        
         object_assignment3(ctx->ctx,
             p_expression->left->first_token,
             ASSIGMENT_TYPE_OBJECTS,

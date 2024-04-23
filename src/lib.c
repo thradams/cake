@@ -14128,13 +14128,13 @@ struct object* expression_get_object(struct expression* p_expression, struct obj
                 //#define NULL ((void*)0)
                 if (p->state & OBJECT_STATE_ZERO)
                 {
-                    p->state &= ~ OBJECT_STATE_ZERO;
-                    p->state |=  OBJECT_STATE_NULL;
+                    p->state &= ~OBJECT_STATE_ZERO;
+                    p->state |= OBJECT_STATE_NULL;
                 }
                 if (p->state & OBJECT_STATE_NOT_ZERO)
                 {
-                    p->state &= ~ OBJECT_STATE_NOT_ZERO;
-                    p->state |=  OBJECT_STATE_NOT_NULL;
+                    p->state &= ~OBJECT_STATE_NOT_ZERO;
+                    p->state |= OBJECT_STATE_NOT_NULL;
                 }
             }
         }
@@ -14711,6 +14711,17 @@ static void fix_member_type(struct type* p_type, const struct type* struct_type,
         */
         p_type->type_qualifier_flags &= ~TYPE_QUALIFIER_OWNER;
     }
+
+    if (struct_type->type_qualifier_flags & TYPE_QUALIFIER_NULLABLE)
+    {
+        /*
+          struct X { owner int i; };
+          view struct X x;
+          x.i ;//is is not owner
+        */
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_NULLABLE;
+    }
+
 }
 
 static void fix_arrow_member_type(struct type* p_type, const struct type* left, const struct type* member_type)
@@ -14724,6 +14735,15 @@ static void fix_arrow_member_type(struct type* p_type, const struct type* left, 
         */
 
         p_type->type_qualifier_flags |= TYPE_QUALIFIER_CONST;
+    }
+
+    if (t.type_qualifier_flags & TYPE_QUALIFIER_NULLABLE)
+    {
+        /*
+           const struct X * p;
+        */
+
+        p_type->type_qualifier_flags |= TYPE_QUALIFIER_NULLABLE;
     }
 
     if (t.type_qualifier_flags & TYPE_QUALIFIER_VIEW)
@@ -37527,7 +37547,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 bool_source_zero_value = true;
             }
         }
-
+        
         object_assignment3(ctx->ctx,
             p_expression->left->first_token,
             ASSIGMENT_TYPE_OBJECTS,
