@@ -1,11 +1,13 @@
-#pragma nullable disable
+#pragma nullable enable
+#pragma ownership enable
 
-void * /*_Owner*/ malloc(int sz);
-void free( void * /*_Owner*/ _Opt p);
+
+void * /*_Owner*/ /*_Opt*/  malloc(int sz);
+void free( void * /*_Owner*/ /*_Opt*/ p);
 
 
 void f(int i) {   
-    void * /*_Owner*/ p = 0;
+    void * /*_Owner*/ /*_Opt*/ p = 0;
     if (i)
     {
         if (i)

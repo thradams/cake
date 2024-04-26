@@ -35,7 +35,7 @@ static int mychdir(const char *path)
     " error.h "           \
     " fs.h "              \
     " hash.h "            \
-    " object.h "          \
+    " flow_object.h "     \
     " hashmap.h "         \
     " osstream.h "        \
     " options.h "         \
@@ -59,7 +59,7 @@ static int mychdir(const char *path)
     " expressions.c "     \
     " pre_expressions.c " \
     " type.c "            \
-    " object.c "          \
+    " flow_object.c "     \
     " parser.c "          \
     " visit.c "           \
     " flow_visit.c " \

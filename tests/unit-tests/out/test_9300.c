@@ -1,8 +1,12 @@
-void* /*_Owner*/ _Opt calloc(int n ,unsigned size);
+#pragma nullable enable
+#pragma ownership enable
 
-char* /*_Owner*/ _Opt f(int i)
+
+void* /*_Owner*/ /*_Opt*/ calloc(int n ,unsigned size);
+
+char* /*_Owner*/ /*_Opt*/ f(int i)
 {
-    char* /*_Owner*/ _Opt p = calloc(1,2);
+    char* /*_Owner*/ /*_Opt*/ p = calloc(1,2);
     switch (i)
     {
         case 1:

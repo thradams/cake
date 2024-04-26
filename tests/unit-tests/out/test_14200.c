@@ -2,7 +2,7 @@
 #pragma ownership enable
 
 int main() {
-    int* _Opt ptr = 0;
+    int* /*_Opt*/ ptr = 0;
     int k = *ptr;
     k = 0;
     return 0;

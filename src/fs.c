@@ -943,7 +943,7 @@ static const char* file_stdlib_h =
 "[[nodiscard]] void* _Owner _Opt calloc(size_t nmemb, size_t size);\n"
 "void free(void* _Owner _Opt ptr);\n"
 "[[nodiscard]] void* _Owner _Opt malloc(size_t size);\n"
-"[[nodiscard]] void* _Owner _Opt realloc(void* ptr, size_t size);\n"
+"[[nodiscard]] void* _Owner _Opt realloc(void* _Opt ptr, size_t size);\n"
 "#else\n"
 "[[nodiscard]] void* calloc(size_t nmemb, size_t size);\n"
 "void free(void* ptr);\n"

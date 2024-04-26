@@ -10,7 +10,7 @@
 #include "osstream.h"
 #include "type.h"
 #include "options.h"
-#include "object.h"
+#include "flow_object.h"
 
 
 #if __STDC_VERSION__  >= 202311L 
@@ -653,7 +653,7 @@ struct declarator
     int num_uses; /*used to show not used warnings*/
 
     /*user by flow analysis*/
-    struct object object;
+    struct object * p_object;
 
     /*final declarator type (after auto, typeof etc)*/
     struct type type;    
@@ -920,6 +920,7 @@ struct type_qualifier
 };
 
 struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx);
+void type_qualifier_delete(struct type_qualifier* owner opt p);
 
 struct member_declaration
 {

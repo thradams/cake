@@ -80,7 +80,7 @@ bool enable_vt_mode(void)
 
     DWORD mode = 0;
     HANDLE h_out = GetStdHandle(STD_OUTPUT_HANDLE);
-    if ((h_out = GetStdHandle(STD_OUTPUT_HANDLE)) != INVALID_HANDLE_VALUE &&
+    if (h_out != INVALID_HANDLE_VALUE &&
             GetConsoleMode(h_out, &mode) != 0 &&
             SetConsoleMode(h_out, mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0 &&
             SetConsoleOutputCP(CP_UTF8) != 0)

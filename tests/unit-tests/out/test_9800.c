@@ -5,12 +5,12 @@ void* /*_Owner*/ calloc(unsigned n, unsigned size);
 void free(void* /*_Owner*/ ptr);
 
 struct X {
-    char* /*_Owner*/ _Opt name;
+    char* /*_Owner*/ /*_Opt*/ name;
 };
 
-struct X* /*_Owner*/ _Opt F(int i)
+struct X* /*_Owner*/ /*_Opt*/ F(int i)
 {
-    struct X* /*_Owner*/ _Opt p1 = 0;
+    struct X* /*_Owner*/ /*_Opt*/ p1 = 0;
 
     switch (i)
     {

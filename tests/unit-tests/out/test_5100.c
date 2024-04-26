@@ -7,7 +7,7 @@ struct Y {
 };
 
 struct X { 
-    char * /*_Owner*/ _Opt name;
+    char * /*_Owner*/ /*_Opt*/ name;
 };
 
 int main()

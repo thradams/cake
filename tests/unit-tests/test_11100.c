@@ -1,3 +1,6 @@
+#pragma nullable enable
+#pragma ownership enable
+
 void* _Owner _Opt malloc(unsigned long size);
 
 struct X {

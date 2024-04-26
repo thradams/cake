@@ -1,3 +1,6 @@
+#pragma nullable enable
+#pragma ownership enable
+
 struct Y {
   char * _Owner p0;
   int * _Owner p2;
@@ -12,9 +15,9 @@ struct X {
 };
 
 int main() {   
-   struct X x = {0};   
-   static_state(x.text, "null ");
-   static_state(x.p1, "null ");
+   _Opt struct X x = {0};   
+   static_state(x.text, "null");
+   static_state(x.p1, "null");
    static_state(x.i, "zero");
    static_state(x.pY, "null");
 }

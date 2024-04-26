@@ -1,11 +1,13 @@
 #pragma nullable enable
+#pragma ownership enable
+
 void  free(void* /*_Owner*/ p);
 char* /*_Owner*/ strdup(const char* s);
 
 struct X {
     char* /*_Owner*/ s;
 };
-void init(_Out struct X* px)
+void init(/*_Out*/ struct X* px)
 {
     
     

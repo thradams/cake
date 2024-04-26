@@ -1,4 +1,4 @@
-struct X { int i; void* _Opt p; };
+struct X { int i; void* /*_Opt*/ p; };
 void f(struct X* p) {}
 
 int main()

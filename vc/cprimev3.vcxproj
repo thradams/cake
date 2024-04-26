@@ -65,10 +65,10 @@
     <ClInclude Include="..\src\visit.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\object.c">
+    <ClCompile Include="..\src\flow_object.c">
       <FileType>CppCode</FileType>
     </ClCompile>
-    <Text Include="..\src\object.h" />
+    <Text Include="..\src\flow_object.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

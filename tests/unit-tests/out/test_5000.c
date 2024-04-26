@@ -30,12 +30,12 @@ void f()
     
     
 
-    _View struct X x2;
+    /*_View*/ struct X x2;
     
     
     
 
-    _Owner char * p;
+    /*_Owner*/ char * p;
     
         
 }

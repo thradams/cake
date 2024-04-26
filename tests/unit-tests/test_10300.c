@@ -2,7 +2,7 @@
 #pragma ownership enable
 
 void* _Owner malloc(unsigned size);
-void free(void* _Owner ptr);
+void free(void* _Owner _Opt ptr);
 
 
 void f(int i)

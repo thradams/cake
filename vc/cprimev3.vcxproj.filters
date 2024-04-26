@@ -58,7 +58,7 @@
     <ClCompile Include="..\src\flow_visit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\object.c">
+    <ClCompile Include="..\src\flow_object.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -116,7 +116,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\src\object.h">
+    <Text Include="..\src\flow_object.h">
       <Filter>Source Files</Filter>
     </Text>
   </ItemGroup>

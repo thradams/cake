@@ -1,6 +1,8 @@
 #pragma nullable enable
+#pragma ownership enable
+
 void* /*_Owner*/ malloc(unsigned long size);
-void free(void* /*_Owner*/ _Opt ptr);
+void free(void* /*_Owner*/ /*_Opt*/ ptr);
 
 struct Y {
   char * /*_Owner*/ p0;

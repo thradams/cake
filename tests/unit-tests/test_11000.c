@@ -10,7 +10,7 @@ struct X {
 
 int main()
 {
-    struct X* p = (struct X* _Owner) malloc(1);
+    struct X* _Opt p = (struct X* _Owner _Opt) malloc(1);
 }
 
 //flow analyze

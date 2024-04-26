@@ -11,6 +11,6 @@ void x_destroy(_Opt struct X * _Obj_owner x) {
 }
 
 int main() {
-    struct X x = {};
+    _Opt struct X x = {};
     x_destroy(&x);
 }

@@ -1,4 +1,6 @@
 #pragma nullable enable
+#pragma ownership enable
+
 void* _Owner malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
 
@@ -17,7 +19,7 @@ struct X {
 
 int main() {   
    struct X * _Owner x = malloc(sizeof * x);
-   static_state(x, "maybe-null ");
+   static_state(x, "null | not-null ");
 
    static_state(x->p1, "uninitialized");
    static_state(x->i, "uninitialized");

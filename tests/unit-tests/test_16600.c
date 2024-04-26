@@ -6,7 +6,7 @@ void *_Owner calloc(int n , int i);
 void free(void  * _Owner _Opt p);
 
 struct X{
-  char * _Owner name;
+  char * _Owner _Opt name;
 };
 
 int main()
@@ -21,6 +21,5 @@ int main()
     if (p)
       free(p->name);
 
-    
     free(p);
 }

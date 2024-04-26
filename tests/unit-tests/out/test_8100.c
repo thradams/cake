@@ -1,12 +1,15 @@
 #pragma nullable enable
+#pragma ownership enable
+
+
 int* /*_Owner*/ make1();
-int* /*_Owner*/ _Opt make2();
-void free(void * /*_Owner*/ _Opt p);
+int* /*_Owner*/ /*_Opt*/ make2();
+void free(void * /*_Owner*/ /*_Opt*/ p);
 
 
 void f(int condition)
 {
-  int * /*_Owner*/ _Opt p = 0;
+  int * /*_Owner*/ /*_Opt*/ p = 0;
   
 
   if (condition)

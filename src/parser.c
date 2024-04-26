@@ -16,7 +16,7 @@
 #include "format_visit.h"
 #include "flow_visit.h"
 #include <errno.h>
-#include "object.h"
+#include "flow_object.h"
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -1893,46 +1893,42 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
 
             if (p_declaration_specifier->type_specifier_qualifier)
             {
-                if (p_declaration_specifier->type_specifier_qualifier)
+                if (p_declaration_specifier->type_specifier_qualifier->type_specifier)
                 {
-                    if (p_declaration_specifier->type_specifier_qualifier->type_specifier)
+                    if (add_specifier(ctx,
+                        &p_declaration_specifiers->type_specifier_flags,
+                        p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
                     {
-
-                        if (add_specifier(ctx,
-                            &p_declaration_specifiers->type_specifier_flags,
-                            p_declaration_specifier->type_specifier_qualifier->type_specifier->flags) != 0)
-                        {
-                            declaration_specifier_delete(p_declaration_specifier);
-                            throw;
-                        }
-
-                        if (p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier)
-                        {
-                            p_declaration_specifiers->struct_or_union_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier;
-                        }
-                        else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->enum_specifier)
-                        {
-                            p_declaration_specifiers->enum_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->enum_specifier;
-                        }
-                        else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier)
-                        {
-                            p_declaration_specifiers->typeof_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier;
-                        }
-                        else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->token &&
-                            p_declaration_specifier->type_specifier_qualifier->type_specifier->token->type == TK_IDENTIFIER)
-                        {
-                            p_declaration_specifiers->typedef_declarator =
-                                find_declarator(ctx,
-                                    p_declaration_specifier->type_specifier_qualifier->type_specifier->token->lexeme,
-                                    NULL);
-
-                            // p_declaration_specifiers->typedef_declarator = p_declaration_specifier->type_specifier_qualifier->pType_specifier->token->lexeme;
-                        }
+                        declaration_specifier_delete(p_declaration_specifier);
+                        throw;
                     }
-                    else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
+
+                    if (p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier)
                     {
-                        p_declaration_specifiers->type_qualifier_flags |= p_declaration_specifier->type_specifier_qualifier->type_qualifier->flags;
+                        p_declaration_specifiers->struct_or_union_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->struct_or_union_specifier;
                     }
+                    else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->enum_specifier)
+                    {
+                        p_declaration_specifiers->enum_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->enum_specifier;
+                    }
+                    else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier)
+                    {
+                        p_declaration_specifiers->typeof_specifier = p_declaration_specifier->type_specifier_qualifier->type_specifier->typeof_specifier;
+                    }
+                    else if (p_declaration_specifier->type_specifier_qualifier->type_specifier->token &&
+                        p_declaration_specifier->type_specifier_qualifier->type_specifier->token->type == TK_IDENTIFIER)
+                    {
+                        p_declaration_specifiers->typedef_declarator =
+                            find_declarator(ctx,
+                                p_declaration_specifier->type_specifier_qualifier->type_specifier->token->lexeme,
+                                NULL);
+
+                        // p_declaration_specifiers->typedef_declarator = p_declaration_specifier->type_specifier_qualifier->pType_specifier->token->lexeme;
+                    }
+                }
+                else if (p_declaration_specifier->type_specifier_qualifier->type_qualifier)
+                {
+                    p_declaration_specifiers->type_qualifier_flags |= p_declaration_specifier->type_specifier_qualifier->type_qualifier->flags;
                 }
             }
             else if (p_declaration_specifier->storage_class_specifier)
@@ -3618,6 +3614,14 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
     return p_specifier_qualifier_list;
 }
 
+void type_qualifier_delete(struct type_qualifier* owner opt p)
+{
+    if (p)
+    {
+        free(p);
+    }
+}
+
 void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner opt p)
 {
     if (p)
@@ -3632,7 +3636,7 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* owner opt 
 
         type_specifier_delete(p->type_specifier);
 
-        //TODO
+        //ATENTION LIST?? SEE ABOVE TODO
         //type_qualifier_delete(p->type_qualifier);
 
         free(p);
@@ -3974,6 +3978,7 @@ struct atomic_type_specifier* owner atomic_type_specifier(struct parser_ctx* ctx
     return p;
 }
 
+
 struct type_qualifier* owner type_qualifier(struct parser_ctx* ctx)
 {
     struct type_qualifier* owner p_type_qualifier = calloc(1, sizeof * p_type_qualifier);
@@ -4095,7 +4100,6 @@ void declarator_delete(struct declarator* owner opt p)
         type_destroy(&p->type);
         direct_declarator_delete(p->direct_declarator);
         pointer_delete(p->pointer);
-        object_destroy(&p->object);
         free(p);
     }
 }
@@ -5244,19 +5248,13 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
         {
             unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS;
-
-            // Dereference warnings : Enabled
-            // Assignment warnings : Enabled
-            // Pointer types : Non-nullable unless declared with _Opt
-
             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
 
             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
-
             ctx->options.null_checks_enabled = true;
-
+            ctx->options.flow_analysis = true; //also enable flow analysis
         }
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
         {
@@ -5290,6 +5288,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
 
             ctx->options.ownership_enabled = true;
+            ctx->options.flow_analysis = true; //also enable flow analysis
 
         }
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
@@ -5313,6 +5312,36 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
         }
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
         {
+            ctx->options.flow_analysis = false;
+        }
+    }
+    else if (p_pragma_token && strcmp(p_pragma_token->lexeme, "safety") == 0)
+    {
+        p_pragma_token = pragma_match(p_pragma_token);
+
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "enable") == 0)
+        {
+            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
+            ctx->options.null_checks_enabled = true;
+            ctx->options.flow_analysis = true; //also enable flow analysis
+            
+            ctx->options.ownership_enabled = true;
+        }
+        if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
+        {
+            unsigned long long w = NULLABLE_DISABLE_REMOVED_WARNINGS | OWNERSHIP_DISABLE_REMOVED_WARNINGS;
+
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].errors &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].notes &= ~w;
+            ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings &= ~w;
+
+            ctx->options.null_checks_enabled = false;
+            ctx->options.ownership_enabled = false;
             ctx->options.flow_analysis = false;
         }
     }
@@ -7468,12 +7497,12 @@ int compile_one_file(const char* file_name,
     if (ctx.options.test_mode)
     {
         //lets check if the generated file is the expected
-        char buf[MYMAX_PATH];
+        char buf[MYMAX_PATH] = { 0 };
         snprintf(buf, sizeof buf, "%s.txt", file_name);
-        char* content_expected = read_file(buf);
+        char* owner content_expected = read_file(buf);
         if (content_expected)
         {
-            if (strcmp(content_expected, s) != 0)
+            if (s && strcmp(content_expected, s) != 0)
             {
                 printf("diferent");
                 report->error_count++;
@@ -7496,10 +7525,8 @@ int compile_one_file(const char* file_name,
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }
     }
-    else
-
-
-        token_list_destroy(&tokens);
+    
+    token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
     parser_ctx_destroy(&ctx);
     free((void* owner)s);
@@ -7662,16 +7689,16 @@ static int create_multiple_paths(const char* root, const char* outdir)
                 printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
                 return er;
             }
-    }
+        }
         if (*p == '\0')
             break;
         p++;
-}
+    }
     return 0;
 #else
     return -1;
 #endif
-        }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {

@@ -327,10 +327,10 @@ sample["C23"]["_has_include|__has_embed|__has_c_attribute"] =
 #endif
 
 
-#if __has_include(<any.h>)
+#if __has_include(<otherfile.h>)
 #warning  YES
 #else
-#warning  NO we dont have <any.h>
+#warning  NO we dont have <otherfile.h>
 #endif
 
 
@@ -1270,7 +1270,7 @@ int main() {
      free(p);
      static_state(p, "uninitialized"); 
    }
-   static_state(p, "null or uninitialized"); 
+   static_state(p, "null | uninitialized"); 
    static_debug(p);
 }
 
@@ -1516,6 +1516,7 @@ int main(int argc, char* argv[])
 
 sample["safe-mode"]["dynamic array"] =
 `
+
 #pragma ownership enable
 #pragma nullable enable
 
@@ -1527,18 +1528,18 @@ sample["safe-mode"]["dynamic array"] =
 #include <string.h>
 
 struct int_array {
-    int* _Owner data;
+    int* _Owner _Opt data;
     int size;
     int capacity;
 };
 int int_array_reserve(struct int_array* p, int n)
 {
     if (n > p->capacity) {
-        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0])))) {        
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0])))) {
             return EOVERFLOW;
         }
 
-        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
         static_set(p->data, "moved");
         p->data = pnew;
@@ -1553,12 +1554,12 @@ int int_array_push_back(struct int_array* p, int value)
          return EOVERFLOW;
      }
 
-     if (p->size + 1 > p->capacity) {                
+     if (p->size + 1 > p->capacity) {
          int new_capacity = 0;
          if (p->capacity > (INT_MAX - p->capacity / 2))
          {
              /*overflow*/
-             new_capacity = INT_MAX; 
+             new_capacity = INT_MAX;
          }
          else {
              new_capacity =  p->capacity + p->capacity / 2;
@@ -1662,7 +1663,7 @@ void f1()
       static_state(p, "not-null");
     }
 
-    static_state(p, "maybe-null");
+    static_state(p, "null | not-null");
     free(p);
 }
 
@@ -1670,10 +1671,10 @@ void f2(int condition)
 {
     void * _Owner p = malloc(1);
     if (condition) {
-      static_state(p, "maybe-null");
+      static_state(p, "null | not-null");
     }
 
-    static_state(p, "maybe-null");
+    static_state(p, "null | not-null");
     free(p);
 }
 
@@ -1702,7 +1703,7 @@ void f3(int condition)
        free(p);
     }
 
-    static_state(p, "uninitialized or maybe_null");    
+    static_state(p, "uninitialized | maybe_null");    
 }
 
 
@@ -1717,7 +1718,7 @@ void f4(int condition)
        
     }
 
-    static_state(p, "uninitialized or maybe_null");    
+    static_state(p, "uninitialized | maybe_null");    
 }
 
 void f5(int condition)
@@ -1742,7 +1743,7 @@ void * next(void* p);
 void f1()
 {
     void * p = f();
-    static_state(p, "maybe-null");
+    static_state(p, "null | not-null");
 
     while (p) {
       p = next(p);
@@ -1767,7 +1768,7 @@ void f1(int condition)
             p = 0;
         break;
     }
-    static_state(p, "maybe-null");
+    static_state(p, "null | not-null");
 }
 
 
@@ -1808,7 +1809,7 @@ enum {
 };
 
 typedef struct { _Owner int dummy; } mtx_t;
-int mtx_init(mtx_t *mtx, int type);
+int mtx_init(_Out mtx_t *mtx, int type);
 void mtx_destroy( mtx_t * _Obj_owner mutex );
 
 int main()
@@ -1845,27 +1846,30 @@ int main()
 
 sample["safe-mode"]["assignment"] =
 `
-#pragma ownership enable 
+
+#pragma ownership enable
 #pragma nullable enable
 
 #include <string.h>
 #include <stdlib.h>
 
 int main()
-{  
-  const char * _Owner s1 = strdup("hi");
-  const char * _Owner s2 = NULL;
+{
+  const char * _Owner _Opt s1 = strdup("hi");
+  const char * _Owner _Opt s2 = NULL;
 
   s2 = s1;
 
-  free(s2);      
+  free(s2);
 }
+
 `;
 
 
 
 sample["safe-mode"]["takes_ownership"] =
 `
+
 #pragma ownership enable
 #pragma nullable enable
 
@@ -1873,37 +1877,43 @@ sample["safe-mode"]["takes_ownership"] =
 #include <stdio.h>
 #include <string.h>
 
-void takes_ownership(char * _Owner some_string)
+void takes_ownership(char * _Owner _Opt some_string)
 {
-    printf("%s", some_string);  
-    free(some_string);
+    if (some_string)
+    {
+      printf("%s", some_string);
+      free(some_string);
+    }
 }
 
 int main()
 {
-    _Owner auto s = strdup("hello");
+    _Opt _Owner auto  s = strdup("hello");
     takes_ownership(s);
 }
+
 `;
 
 
 sample["safe-mode"]["gives ownership"] =
 `
+
 #pragma ownership enable
 #pragma nullable enable
 
 #include <string.h>
 #include <stdlib.h>
 
-const char * _Owner gives_ownership() {  
-    _Owner auto some_string = strdup("yours");
+const char * _Owner _Opt gives_ownership() {
+    _Owner _Opt auto some_string = strdup("yours");
     return some_string;
 }
 
 int main(){
-  _Owner auto s = gives_ownership();
+  _Owner _Opt auto s = gives_ownership();
   free(s);
 }
+
 `;
 
 sample["safe-mode"]["moving parts of _View"] =
@@ -1947,27 +1957,32 @@ int main() {
 
 sample["safe-mode"]["_Owner pointer owns two objects"] =
 `
-void * _Owner calloc(unsigned long i, unsigned long sz);
-char * _Owner strdup(const char* );
-void free(void * _Owner p);
+#pragma ownership enable
+#pragma nullable enable
+
+
+void * _Owner _Opt calloc(unsigned long i, unsigned long sz);
+char * _Owner _Opt strdup(const char* );
+void free(void * _Owner _Opt p);
 
 struct X {
-  char *_Owner name;
+  char *_Owner _Opt name;
 };
 
 int main()
 {
-   struct X * _Owner p = calloc(1, sizeof * p);
+   struct X * _Owner _Opt p = calloc(1, sizeof * p);
    if (p) {
 
-     p->name = strdup("hi");     
+     p->name = strdup("hi");
      struct X x = {0};
      x = *p;
      free(x.name);
-     
+
      free(p);
    }
 }
+
 `;
 
 

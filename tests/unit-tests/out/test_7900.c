@@ -1,7 +1,7 @@
 #pragma nullable enable
 #pragma ownership enable
 
-void* /*_Owner*/ _Opt malloc(int i);
+void* /*_Owner*/ /*_Opt*/ malloc(int i);
 void free(void* /*_Owner*/ p);
 
 struct X {
@@ -9,7 +9,7 @@ struct X {
 };
 
 int main() {
-    struct X* /*_Owner*/ _Opt p = malloc(sizeof * p);
+    struct X* /*_Owner*/ /*_Opt*/ p = malloc(sizeof * p);
     p = 0;
 }
 

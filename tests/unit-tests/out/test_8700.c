@@ -1,3 +1,7 @@
+#pragma nullable enable
+#pragma ownership enable
+
+
 void* /*_Owner*/ make();
 void free( void* /*_Owner*/ p);
 

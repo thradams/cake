@@ -47,7 +47,7 @@ void f2()
     {        
     }
 
-    static_state(i ,"uninitialized or not-zero");
+    static_state(i ,"uninitialized | not-zero");
 }
 
 void f2()
@@ -68,7 +68,7 @@ void f2()
     {        
     }
 
-    static_state(i ,"uninitialized or zero or not-zero");
+    static_state(i ,"uninitialized | zero | not-zero");
 }
 
 void f3()
@@ -90,7 +90,7 @@ void f3()
     {        
     }
 
-    static_state(i ,"uninitialized or not-zero");
+    static_state(i ,"uninitialized | not-zero");
 }
 
 void f4()
@@ -110,7 +110,7 @@ void f4()
         i = 0;
     }
 
-    static_state(i ,"uninitialized or zero");
+    static_state(i ,"uninitialized | zero");
 }
 
 

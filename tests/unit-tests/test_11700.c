@@ -1,4 +1,5 @@
 #pragma nullable enable
+#pragma ownership enable
 
 struct Y {
     char* _Owner p0;
@@ -22,8 +23,8 @@ int main()
     x = f();
     static_state(x.text, "not-null ");
     static_state(x.p1, "not-null ");
-    static_state(x.i, "any");
-    static_state(x.pY, "maybe-null");
+    static_state(x.i, "zero | not-zero");
+    static_state(x.pY, "null | not-null");
     static_state(x.pY->p0, "not-null ");    
     destroy(&x);
 }

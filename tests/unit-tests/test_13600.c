@@ -1,5 +1,5 @@
 #pragma nullable disable
 void f(int  *p)
 {
-  static_state(p, "maybe-null");
+  static_state(p, "null | not-null");
 }

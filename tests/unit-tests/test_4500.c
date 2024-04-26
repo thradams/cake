@@ -46,10 +46,10 @@ int main()
 	static_assert(!_is_lvalue(1.2));
 	static_assert(!_is_lvalue('a'));
 
-	// any function call expression
+	// zero | not-zero function call expression
 	static_assert(!_is_lvalue(f()));
 
-	// any cast expression
+	// zero | not-zero cast expression
 	static_assert(!_is_lvalue((int)(0)));
 
 	// member access operator (dot) applied to a non-lvalue structure/union

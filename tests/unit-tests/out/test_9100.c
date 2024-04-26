@@ -1,5 +1,9 @@
+#pragma nullable enable
+#pragma ownership enable
+
+
 struct X {
-  void * /*_Owner*/ _Opt text;
+  void * /*_Owner*/ /*_Opt*/ text;
 };
 
 void f(const struct X* list);

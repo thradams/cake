@@ -46,10 +46,10 @@ int main()
 	
 	
 
-	// any function call expression
+	// zero | not-zero function call expression
 	
 
-	// any cast expression
+	// zero | not-zero cast expression
 	
 
 	// member access operator (dot) applied to a non-lvalue structure/union

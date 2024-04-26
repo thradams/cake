@@ -202,8 +202,7 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
                 p_unlabeled_statement->primary_block->compound_statement->block_item_list.head;
             while (block_item)
             {
-                if (block_item &&
-                    block_item->label &&
+                if (block_item->label &&
                     block_item->label->name &&
                     strcmp(block_item->label->name->lexeme, label) == 0)
                 {
@@ -669,6 +668,7 @@ static void visit_type_qualifier(struct visit_ctx* ctx, struct type_qualifier* p
         }
 
         if (p_type_qualifier->token->type == TK_KEYWORD__OUT ||
+            p_type_qualifier->token->type == TK_KEYWORD__OPT ||
             p_type_qualifier->token->type == TK_KEYWORD__OWNER ||
             p_type_qualifier->token->type == TK_KEYWORD__OBJ_OWNER ||
             p_type_qualifier->token->type == TK_KEYWORD__VIEW)
@@ -1115,8 +1115,8 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
     case EQUALITY_EXPRESSION_NOT_EQUAL:
     case AND_EXPRESSION:
     case EXCLUSIVE_OR_EXPRESSION:
-    case INCLUSIVE_OR_EXPRESSION:    
-    
+    case INCLUSIVE_OR_EXPRESSION:
+
     case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
     case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
 
@@ -1998,6 +1998,7 @@ static void visit_type_specifier_qualifier(struct visit_ctx* ctx, struct type_sp
 {
     if (p_type_specifier_qualifier->type_qualifier)
     {
+        visit_type_qualifier(ctx, p_type_specifier_qualifier->type_qualifier);
     }
     else if (p_type_specifier_qualifier->type_specifier)
     {
@@ -2520,10 +2521,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     long double d = strtold(current->lexeme, 0);
                     char buffer[50] = { 0 };
                     snprintf(buffer, sizeof buffer, "%Lg", d);
-
-                    static_debug(current);
                     free(current->lexeme);
-                    static_debug(current);
                     current->lexeme = strdup(buffer);
                 }
             }

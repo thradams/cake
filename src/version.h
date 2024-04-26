@@ -1,7 +1,4 @@
 #pragma once
 
-#define CAKE_VERSION "0.8.0"
+#define CAKE_VERSION "0.8.1"
 
-//0.7.5
-// pragma diagnostic error, warning, note, ignore working
-//

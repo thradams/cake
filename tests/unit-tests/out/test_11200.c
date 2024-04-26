@@ -1,3 +1,6 @@
+#pragma nullable enable
+#pragma ownership enable
+
 struct X {
     char* /*_Owner*/ text;
 };

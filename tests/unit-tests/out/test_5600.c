@@ -5,7 +5,7 @@
 
 int main()
 {
-    const char * /*_Owner*/ _Opt s;
+    const char * /*_Owner*/ /*_Opt*/ s;
     s = NULL;    
     s = 0;    
     s = ((void*)0);    

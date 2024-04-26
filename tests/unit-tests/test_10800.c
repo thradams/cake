@@ -1,11 +1,13 @@
 #pragma nullable enable
+#pragma ownership enable
+
 char* _Owner strdup(const char* s);
 void* _Owner malloc(unsigned size);
 
-void free(void* _Owner ptr);
+void free(void* _Owner _Opt ptr);
 
 struct X {
-    char* _Owner name;
+    char* _Owner _Opt name;
 };
 
 void x_destroy(struct X* _Obj_owner p) {

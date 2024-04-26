@@ -6,14 +6,14 @@
 
 struct item {
   int i;
-  struct item * /*_Owner*/ _Opt next;
-  struct item * _Opt previous;
+  struct item * /*_Owner*/ /*_Opt*/ next;
+  struct item * /*_Opt*/ previous;
 };
 
 struct list
 {
-    struct item* /*_Owner*/ _Opt head;
-    struct item* _Opt tail;
+    struct item* /*_Owner*/ /*_Opt*/ head;
+    struct item* /*_Opt*/ tail;
 };
 void list_push(struct list* list, struct item* /*_Owner*/ pnew)
 {

@@ -1,4 +1,6 @@
 #pragma nullable enable
+#pragma ownership enable
+
 void f(int * _Owner _Opt p);
 int main()
 {

@@ -1,14 +1,14 @@
 #pragma nullable enable
 #pragma ownership enable
 
-void* /*_Owner*/ _Opt malloc(int i);
-void free(void* /*_Owner*/ _Opt p);
+void* /*_Owner*/ /*_Opt*/ malloc(int i);
+void free(void* /*_Owner*/ /*_Opt*/ p);
 
 struct X {
     char* /*_Owner*/ name;
 };
 
-void x_delete(struct X* /*_Owner*/ _Opt p)
+void x_delete(struct X* /*_Owner*/ /*_Opt*/ p)
 {
     if (p) {
         free(p->name);
@@ -17,7 +17,7 @@ void x_delete(struct X* /*_Owner*/ _Opt p)
 }
 
 int main() {
-    struct X* /*_Owner*/ _Opt p = malloc(sizeof * p);
+    struct X* /*_Owner*/ /*_Opt*/ p = malloc(sizeof * p);
 
     x_delete(p);
 

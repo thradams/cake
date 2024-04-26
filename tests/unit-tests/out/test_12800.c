@@ -1,8 +1,11 @@
+#pragma nullable enable
+#pragma ownership enable
+
 void* /*_Owner*/ malloc(unsigned long size);
-void free(void* /*_Owner*/ _Opt ptr);
+void free(void* /*_Owner*/ /*_Opt*/ ptr);
 
 int main() {
-   void * /*_Owner*/ p = 0;
+   void * /*_Owner*/ /*_Opt*/ p = 0;
    for (int i=0; i < 2; i++) {
      p = malloc(1); /*leak*/
    }

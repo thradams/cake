@@ -2,7 +2,7 @@
 #pragma ownership enable
 
 void * /*_Owner*/ malloc(int i);
-void free( void * /*_Owner*/ _Opt p);
+void free( void * /*_Owner*/ /*_Opt*/ p);
 
 struct X {
   char * /*_Owner*/ name;    

@@ -9,7 +9,7 @@ void free(void* _Owner _Opt p);
 int main()
 {
     struct X* _Owner _Opt p = calloc(1, 1);
-    static_state(p, "maybe-null ");
+    static_state(p, "null | not-null ");
     if (p)
     {
     static_state(p->i, "zero");

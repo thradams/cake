@@ -2,13 +2,13 @@
 #pragma ownership enable
 
 
-void free(void* /*_Owner*/ _Opt p);
+void free(void* /*_Owner*/ /*_Opt*/ p);
 
 struct X {
     char* /*_Owner*/ name;
 };
 
-void x_delete(struct X* /*_Owner*/ _Opt p)
+void x_delete(struct X* /*_Owner*/ /*_Opt*/ p)
 {
     if (p) {
         //free(p->name);

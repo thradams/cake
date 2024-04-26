@@ -5,7 +5,7 @@ struct X {
   char * /*_Owner*/ name;
 };
 
-_View struct X f();
+/*_View*/ struct X f();
 
 int main()
 {

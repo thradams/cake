@@ -1,15 +1,15 @@
 #pragma nullable enable
 #pragma ownership enable
 
-void* /*_Owner*/ _Opt calloc(int n, int size);
+void* /*_Owner*/ /*_Opt*/ calloc(int n, int size);
 
 struct X {
-    char* /*_Owner*/ _Opt name;
+    char* /*_Owner*/ /*_Opt*/ name;
 };
 
-void* /*_Owner*/ _Opt f1()
+void* /*_Owner*/ /*_Opt*/ f1()
 {
-    struct X* /*_Owner*/ _Opt p = calloc(1, sizeof(struct X));
+    struct X* /*_Owner*/ /*_Opt*/ p = calloc(1, sizeof(struct X));
     if (p)
     {
         p->name = calloc(1,2);

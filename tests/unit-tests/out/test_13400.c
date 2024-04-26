@@ -1,4 +1,6 @@
-void f(int  *p)
+#pragma nullable enable
+
+void f(int *p)
 {
- 
+    
 }

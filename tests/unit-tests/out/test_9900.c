@@ -8,10 +8,10 @@ struct X {
     char* /*_Owner*/ name;
 };
 
-struct X* /*_Owner*/ _Opt F(int i)
+struct X* /*_Owner*/ /*_Opt*/ F(int i)
 {
 
-    struct X* /*_Owner*/ _Opt p1 = 0;
+    struct X* /*_Owner*/ /*_Opt*/ p1 = 0;
     if (1) /*try*/
     {
         if (i == 1)

@@ -1,8 +1,8 @@
 #pragma nullable enable
 #pragma ownership enable
 
-char* _Opt f() {
-    char* /*_Owner*/ _Opt p = 0;
+char* /*_Opt*/ f() {
+    char* /*_Owner*/ /*_Opt*/ p = 0;
     return p;
 
 //cannot return a owner to non owner

@@ -1,4 +1,5 @@
 #pragma nullable enable
+#pragma ownership enable
 
 struct Y {
     char* /*_Owner*/ p0;
@@ -10,7 +11,7 @@ struct X {
     char* /*_Owner*/ text;
     int* /*_Owner*/ p1;
     int i;
-    struct Y* _Opt pY;
+    struct Y* /*_Opt*/ pY;
 };
 
 struct X f();

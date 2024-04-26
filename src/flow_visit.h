@@ -1,6 +1,6 @@
 #pragma once
 #include "parser.h"
-
+#include "flow_object.h"
 
 /*
   To be able to do static analysis with goto jump, we

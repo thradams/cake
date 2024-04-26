@@ -1,5 +1,5 @@
-void f1(int array[5])
+int main()
 {
-    int i = array[5];
+ int * p = &1;
 }
-#pragma cake diagnostic check "-Wout-of-bounds"
+#pragma cake diagnostic check "-E121"

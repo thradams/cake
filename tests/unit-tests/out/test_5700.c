@@ -2,7 +2,7 @@
 #pragma ownership enable
 
 void F(int i);
-_Owner int make();
+/*_Owner*/ int make();
 int main()
 {
     F(make());

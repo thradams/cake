@@ -4,7 +4,7 @@
 int rand();
 void free(void* /*_Owner*/ ptr);
 
-struct X { char* /*_Owner*/ name; };
+struct X { char* /*_Owner*/ /*_Opt*/ name; };
 
 void x_destroy(struct X* /*_Obj_owner*/ p);
 struct X f();

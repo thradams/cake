@@ -2,6 +2,6 @@
 #pragma ownership enable
 
 void f() {
-    _Owner int * _Opt p = 0;
+    /*_Owner*/ int * /*_Opt*/ p = 0;
 }
  

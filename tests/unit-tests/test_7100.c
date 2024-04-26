@@ -5,7 +5,7 @@ void * _Owner _Opt calloc(int i, int sz);
 void free( void * _Owner _Opt p);
 
 struct X { int i; };
-struct Y { struct X * _Owner p; };
+struct Y { struct X * _Owner _Opt p; };
 
 int main() {
    struct Y y = {0};

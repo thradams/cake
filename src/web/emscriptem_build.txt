@@ -33,4 +33,5 @@ This can be used in html to open the sample in playground
 
         window.open(link);
     }
+
 </script>

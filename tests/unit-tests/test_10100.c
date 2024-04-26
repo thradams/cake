@@ -3,5 +3,5 @@
 
 void * f();
 int main() {
-  void * _Owner p = 0;
+  void * _Owner _Opt p = 0;
 }

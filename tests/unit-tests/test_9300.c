@@ -1,3 +1,7 @@
+#pragma nullable enable
+#pragma ownership enable
+
+
 void* _Owner _Opt calloc(int n ,unsigned size);
 
 char* _Owner _Opt f(int i)

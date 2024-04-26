@@ -1,9 +1,11 @@
 #pragma nullable enable
+#pragma ownership enable
+
 void* /*_Owner*/ malloc(unsigned long size);
-void free(void* /*_Owner*/ _Opt ptr);
+void free(void* /*_Owner*/ /*_Opt*/ ptr);
 
 struct X {
-    char* /*_Owner*/ _Opt text;
+    char* /*_Owner*/ /*_Opt*/ text;
 };
 
 void f(struct X* /*_Owner*/ p1, struct X* /*_Out*/ /*_Owner*/* p2)
@@ -17,7 +19,7 @@ int main()
     if (p1)
     {
         p1->text = 0;
-        struct X* /*_Owner*/ _Opt p2 = 0;
+        struct X* /*_Owner*/ /*_Opt*/ p2 = 0;
         f(p1, &p2);
 
         free(p2->text);

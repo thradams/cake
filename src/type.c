@@ -1514,9 +1514,7 @@ struct type type_remove_pointer(const struct type* p_type)
     {
         return r;
     }
-
-
-    assert(r.next);
+    
     if (r.next)
     {
         struct type next = *r.next;
@@ -1527,6 +1525,10 @@ struct type type_remove_pointer(const struct type* p_type)
         r.next = NULL;
         type_destroy_one(&r);
         r = next;
+    }
+    else
+    {
+        assert(false);
     }
 
     r.storage_class_specifier_flags = p_type->next->storage_class_specifier_flags;

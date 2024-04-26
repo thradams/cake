@@ -3,13 +3,13 @@
 
 struct item
 {
-    struct item* _Opt other;
+    struct item* /*_Opt*/ other;
 };
 
 struct items
 {
-    struct item * _Opt one;
-    struct item * _Opt two;
+    struct item * /*_Opt*/ one;
+    struct item * /*_Opt*/ two;
 };
 
 void f(struct items i){}

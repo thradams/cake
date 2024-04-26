@@ -1,8 +1,11 @@
-char * /*_Owner*/ strdup(const char* s);
-void free(void * /*_Owner*/ p);
+#pragma nullable enable
+#pragma ownership enable
+
+char * /*_Owner*/ /*_Opt*/ strdup(const char* s);
+void free(void * /*_Owner*/ /*_Opt*/ p);
 
 struct X {
-  char */*_Owner*/ name;
+  char */*_Owner*/ /*_Opt*/ name;
 };
 
 struct X make()
@@ -12,3 +15,4 @@ struct X make()
   free(x.name);
   return x;
 }
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized"

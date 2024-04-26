@@ -18,5 +18,5 @@ int main()
     {
         static_state(i, "not-zero");
     }
-    static_state(i, "zero or not-zero");
+    static_state(i, "zero | not-zero");
 }

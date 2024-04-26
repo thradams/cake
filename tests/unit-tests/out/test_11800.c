@@ -1,5 +1,5 @@
 #pragma nullable enable
-
+#pragma ownership enable
 
 struct Y {
   char * /*_Owner*/ p0;
@@ -14,8 +14,8 @@ struct X {
   struct Y  *pY;
 };
 
-void init(_Out struct X * p);
-void destroy(_Out struct X * /*_Obj_owner*/ p);
+void init(/*_Out*/ struct X * p);
+void destroy(/*_Out*/ struct X * /*_Obj_owner*/ p);
 
 int main() {
    struct X x;

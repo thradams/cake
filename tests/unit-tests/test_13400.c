@@ -1,4 +1,6 @@
-void f(int  *p)
+#pragma nullable enable
+
+void f(int *p)
 {
- static_state(p, "not-null");
+    static_state(p, "not-null");
 }

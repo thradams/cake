@@ -14,12 +14,13 @@ struct X
 struct Y
 {
     struct X x;
-    struct X *px;
+    struct X * _Opt px;
 };
 
-void x_destroy(struct X *_Obj_owner p)
+void x_destroy(struct X *_Obj_owner _Opt p)
 {
-    free(p->name);
+    if (p)
+     free(p->name);
 }
 
 void f(struct Y *p)

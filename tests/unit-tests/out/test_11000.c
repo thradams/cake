@@ -1,8 +1,8 @@
 #pragma nullable enable
 #pragma ownership enable
 
-void* /*_Owner*/ _Opt malloc(unsigned long size);
-void free(void* /*_Owner*/ _Opt ptr);
+void* /*_Owner*/ /*_Opt*/ malloc(unsigned long size);
+void free(void* /*_Owner*/ /*_Opt*/ ptr);
 
 struct X {
     char* /*_Owner*/ name;
@@ -10,7 +10,7 @@ struct X {
 
 int main()
 {
-    struct X* p = (struct X* /*_Owner*/) malloc(1);
+    struct X* /*_Opt*/ p = (struct X* /*_Owner*/ /*_Opt*/) malloc(1);
 }
 
 //flow analyze

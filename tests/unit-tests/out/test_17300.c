@@ -7,7 +7,7 @@ int main()
 {
     strlen(0);
 #pragma cake diagnostic check "-Wnullable-to-non-nullable"
-    char * _Opt p = 0;
+    char * /*_Opt*/ p = 0;
     strlen(p);
 #pragma cake diagnostic check "-Wnullable-to-non-nullable"
 }
