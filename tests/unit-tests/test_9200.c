@@ -1,5 +1,5 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 
 void* _Owner _Opt malloc(unsigned size);

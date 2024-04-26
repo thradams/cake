@@ -1,5 +1,5 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 void* _Owner calloc(unsigned n, unsigned size);
 void free(void* _Owner ptr);

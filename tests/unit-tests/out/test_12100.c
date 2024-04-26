@@ -1,5 +1,5 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 /*_Owner*/ int socket();
 void close(/*_Owner*/ int fd);

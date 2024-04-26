@@ -1,5 +1,5 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 
 char* /*_Owner*/ strdup(const char* s);

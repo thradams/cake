@@ -1,5 +1,5 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 void destroy(char* /*_Owner*/ x);
 char   * /*_Owner*/  get();

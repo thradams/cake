@@ -11,6 +11,12 @@
   nullchecks and imaginary flags.
 */
 
+struct label_state
+{
+    const char * label_name;
+    int state_number;
+};
+
 struct flow_visit_ctx
 {
     struct secondary_block* catch_secondary_block_opt;
@@ -29,6 +35,9 @@ struct flow_visit_ctx
     int initial_state;    /*used to keep the original state*/
 
     struct objects arena;
+
+    struct label_state labels[100]; //max 100 labels in a function (case not included)
+    int labels_size;
 };
 
 

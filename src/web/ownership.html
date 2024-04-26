@@ -295,18 +295,6 @@ int main()
 
 <p>As we can see we have compile-time checked contracts.</p>
 
-<p>The ownership is enabled with </p>
-
-<pre><code class="language-c">#pragma  ownership enabled
-</code></pre>
-
-<p>When ownership is disabled the ownership qualifiers like _Owner are parsed but ignored.</p>
-
-<p>The pragma safety  sets both ownership and nullable at same time</p>
-
-<pre><code class="language-c">#pragma safety enabled
-</code></pre>
-
 <p>The ownership mechanism has some rules.</p>
 
 <p><strong>Rule:</strong> An <strong>owner reference</strong> is always the unique owner of the referenced object.</p>
@@ -575,29 +563,27 @@ struct Y {
 
 #include &lt;stdlib.h&gt;
 
-struct X {
-  char * _Owner text; 
+struct X { 
+  char * _Owner _Opt text; 
 };
 
-void x_destroy(_Opt struct X * _Obj_owner x) { 
-  free(x-&gt;text); 
-}
-
-void x_delete(_Opt struct X * _Owner _Opt p) { 
+void x_delete(struct X * _Owner _Opt p) {
   if (p) {
-    x_destroy(p); /* *p is moved*/
-    free(p);
+    /*releasing the object*/ 
+    free(p-&gt;text);
+    
+    /*releasing the memory*/ 
+    free(p); 
   }
 }
 
 int main() {
-   _Opt struct X * _Owner _Opt pX = calloc(1, sizeof * pX);
-   if (pX) {
-     /*...*/;
-     x_delete( pX); 
-   }
- } 
-
+  struct X * _Owner _Opt _pX = calloc(1, sizeof * pX);
+  if (pX) {
+    /*...*/;
+    x_delete( pX); 
+  }
+}
 
 </code></pre>
 
@@ -659,7 +645,7 @@ int main() {
 
 <p>The next sample illustrates how to implement a destructor using a <em>Obj</em>owner pointer parameter.</p>
 
-<p><strong>Sample - Implementing a destructor using _Obj_owner</strong></p>
+<p><strong>Sample - Implementing a destructor using <em>Obj</em>owner</strong></p>
 
 <pre><code class="language-c">#pragma nullable enable
 #pragma ownership enable
@@ -1062,8 +1048,11 @@ int main() {
 
 <p>The <strong>not-null</strong> state indicates that the object is initialized and not referencing any object.</p>
 
-<p>The final state is combination of possibilities like <strong>null</strong> and <strong>not-null</strong>. 
-We can check possible combinations using &quot;|&quot; at <code>static_state</code>.  </p>
+<p>The final state is combination of possibilities like <strong>null</strong> and <strong>not-null</strong>. We can check possible combination using &quot;or&quot; at <code>static_state</code>.  </p>
+
+<p>The combination <strong>null or not-null</strong> has a alias <strong>maybe-null</strong>.</p>
+
+<p><strong>Sample - not-null and maybe-null</strong></p>
 
 <pre><code class="language-c">#pragma nullable enable 
 #pragma ownership enable
@@ -1075,8 +1064,9 @@ int main()
    void * _Owner p = malloc(1);
    if (p) {
      static_state(p, &quot;not-null&quot;);
-   }      
-   static_state(p, &quot;null | not-null&quot;);
+   }
+   static_state(p, &quot;maybe-null&quot;);   
+   static_state(p, &quot;null or not-null&quot;);
    free(p);
 }
 </code></pre>
@@ -1122,11 +1112,13 @@ int main()
 
 <p>The <strong>not-zero</strong> state is used in non-pointers objects to indicate the value is not zero.</p>
 
+<p><strong>any</strong> is a alias for <strong>zero or not-zero</strong> state.</p>
+
 <pre><code class="language-c">int f();
 
 int main() {   
     int i = f();
-    static_state(i, &quot;zero | not-zero&quot;);
+    static_state(i, &quot;any&quot;);
 }
 </code></pre>
 

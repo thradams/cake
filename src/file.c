@@ -1,13 +1,11 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
 
-struct X {
-  
-  int i;
-  
-};
 
-void f(_View struct X x){}
-int main() {
-
+void F(int i);
+_Owner int make();
+int main()
+{
+    F(make());
 }
+#pragma cake diagnostic check "-Wmissing-owner-qualifier"
+

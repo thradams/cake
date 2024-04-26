@@ -7568,8 +7568,8 @@ int compile_many_files(const char* file_name,
             continue;
         }
 
-        char fromlocal[300] = { 0 };
-        snprintf(fromlocal, 200, "%s/%s", "", dp->d_name);
+        char fromlocal[257] = { 0 };
+        snprintf(fromlocal, sizeof fromlocal, "%s/%s", "", dp->d_name);
 
         if (dp->d_type & DT_DIR)
         {

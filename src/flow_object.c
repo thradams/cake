@@ -60,9 +60,33 @@ bool is_uninitialized(enum object_state e)
 */
 bool object_is_expansible(const struct object* p_object)
 {
-    return (p_object->state != OBJECT_STATE_NULL &&
+    return (p_object &&
+            p_object->state != OBJECT_STATE_NULL &&
                 p_object->state != OBJECT_STATE_UNINITIALIZED &&
                 p_object->ref.size == 0);
+}
+
+
+void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct object* p_object)
+{
+    assert(type_is_pointer(p_type));
+
+    if (object_is_expansible(p_object))
+    {
+        const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+
+        struct type t2 = type_remove_pointer(p_type);
+        if (!type_is_void(&t2))
+        {
+            struct object* owner p_object2 = make_object(ctx, &t2, p_object->declarator, p_object->p_expression_origin);
+            const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
+
+            object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
+            object_set_pointer(p_object, p_object2);////obj.pointed2 = p_object;
+            object_push_states_from(p_object, p_object2);
+        }
+        type_destroy(&t2);
+    }
 }
 
 void object_state_to_string(enum object_state e)
@@ -87,7 +111,8 @@ void object_state_to_string(enum object_state e)
             printf(" | ");
         printf("not-null");
     }
-    else if (e & OBJECT_STATE_NULL)
+
+    if (e & OBJECT_STATE_NULL)
     {
         if (first)
             first = false;
@@ -104,7 +129,8 @@ void object_state_to_string(enum object_state e)
             printf(" | ");
         printf("zero");
     }
-    else if (e & OBJECT_STATE_NOT_ZERO)
+
+    if (e & OBJECT_STATE_NOT_ZERO)
     {
         if (first)
             first = false;
@@ -123,7 +149,6 @@ void object_state_to_string(enum object_state e)
         printf("lifetime-ended");
     }
 
-
     if (e & OBJECT_STATE_MOVED)
     {
         if (first)
@@ -132,8 +157,6 @@ void object_state_to_string(enum object_state e)
             printf(" | ");
         printf("moved");
     }
-
-
 
     printf("\"");
 
@@ -181,13 +204,13 @@ void object_destroy(struct object* obj_owner p)
 
 void object_state_stack_item_destroy(struct object_state_stack_item* obj_owner opt p)
 {
-    
-        objects_view_destroy(&p->ref);
-    
+
+    objects_view_destroy(&p->ref);
+
 }
 void object_state_stack_destroy(struct object_state_stack* obj_owner p)
 {
-    for (int i = 0 ; i < p->size; i++)
+    for (int i = 0; i < p->size; i++)
     {
         object_state_stack_item_destroy(&p->data[i]);
     }
@@ -638,10 +661,25 @@ struct token* object_get_token(const struct object* object)
     return NULL;
 }
 
+static int object_find_state_index(const struct object* object, int state_number)
+{
+    for (int i = 0; i < object->object_state_stack.size; i++)
+    {
+        if (object->object_state_stack.data[i].state_number == state_number)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void object_push_empty_core(struct object* object, const char* name, int state_number, unsigned int visit_number)
 {
     if (object->visit_number == visit_number) return;
     object->visit_number = visit_number;
+
+    if (object_find_state_index(object, state_number) != -1)
+        return;//already added
 
     object_state_stack_push_back(&object->object_state_stack, 0, NULL, name, state_number);
 
@@ -656,10 +694,11 @@ void object_push_empty_core(struct object* object, const char* name, int state_n
     }
 }
 
-void object_push_empty(struct object* object, const char* name, int state_number)
+void object_add_empty_state(struct object* object, const char* name, int state_number)
 {
     object_push_empty_core(object, name, state_number, s_visit_number++);
 }
+
 static void object_push_copy_current_state_core(struct object* object, const char* name, int state_number, unsigned int visit_number)
 {
     if (object == NULL) return;
@@ -679,34 +718,46 @@ static void object_push_copy_current_state_core(struct object* object, const cha
     }
 
 }
-void object_push_copy_current_state(struct object* object, const char* name, int state_number)
+
+void object_add_copy_current_state(struct object* object, const char* name, int state_number)
 {
     object_push_copy_current_state_core(object, name, state_number, s_visit_number++);
 }
 
-void object_pop_states(struct object* object, int n)
+static void object_remove_state_core(struct object* object, int state_number, unsigned int visit_number)
 {
+    if (object == NULL) return;
+    if (object->visit_number == visit_number) return;
+    object->visit_number = visit_number;
 
-    if (object->object_state_stack.size < n)
+    const int index_to_remove = object_find_state_index(object, state_number);
+
+    if (index_to_remove != -1)
     {
-        //assert(false);
-        return;
+        memmove(object->object_state_stack.data + index_to_remove,
+                object->object_state_stack.data + index_to_remove + 1,
+                sizeof(object->object_state_stack.data[0]) * (object->object_state_stack.size - index_to_remove - 1));
+
+        object->object_state_stack.size--;
     }
 
-    object->object_state_stack.size =
-        object->object_state_stack.size - n;
 
     for (int i = 0; i < object->ref.size; i++)
     {
-        object_pop_states(object->ref.data[i], n);
+        object_remove_state_core(object->ref.data[i], state_number, visit_number);
     }
 
     for (int i = 0; i < object->members.size; i++)
     {
-        object_pop_states(object->members.data[i], n);
+        object_remove_state_core(object->members.data[i], state_number, visit_number);
     }
-
 }
+
+void object_remove_state(struct object* object, int state_number)
+{
+    object_remove_state_core(object, state_number, s_visit_number++);
+}
+
 
 void object_restore_state(struct object* object, int state_to_restore)
 {
@@ -1056,6 +1107,14 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
         if (object->object_state_stack.data[i].state_number == state_number)
         {
             object->object_state_stack.data[i].state |= object->state;
+            if ((object->object_state_stack.data[i].state & OBJECT_STATE_NOT_NULL) &&
+                (object->object_state_stack.data[i].state & OBJECT_STATE_MOVED))
+            {
+                //TODO must be wrong...
+                //Cannot be at same time OBJECT_STATE_NOT_NULL and OBJECT_STATE_MOVED
+                object->object_state_stack.data[i].state &= ~OBJECT_STATE_NOT_NULL;
+            }
+
             objects_view_merge(&object->object_state_stack.data[i].ref, &object->ref);
             break;
         }
@@ -1527,7 +1586,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
             compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 position_token,
-                "object '%s' may be not empty",
+                "object '%s' may be not empty or it does not exist",
                 previous_names);
         }
     }
@@ -1546,6 +1605,97 @@ void checked_empty(struct flow_visit_ctx* ctx,
         name,
     position_token);
 
+}
+
+void object_set_to_nothing_core(struct type* p_type, struct object* p_object, unsigned int visit_number)
+{
+    if (p_object == NULL || p_type == NULL)
+    {
+        return;
+    }
+
+    if (p_object->visit_number == visit_number) return; //already visited
+    p_object->visit_number = visit_number;
+
+
+    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    {
+        struct struct_or_union_specifier* p_struct_or_union_specifier =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+
+        if (p_struct_or_union_specifier)
+        {
+            struct member_declaration* p_member_declaration =
+                p_struct_or_union_specifier->member_declaration_list.head;
+
+            int member_index = 0;
+            while (p_member_declaration)
+            {
+                if (p_member_declaration->member_declarator_list_opt)
+                {
+                    struct member_declarator* p_member_declarator =
+                        p_member_declaration->member_declarator_list_opt->head;
+
+                    while (p_member_declarator)
+                    {
+                        if (p_member_declarator->declarator)
+                        {
+                            if (member_index < p_object->members.size)
+                            {
+                                object_set_to_nothing_core(&p_member_declarator->declarator->type,
+                                    p_object->members.data[member_index], visit_number);
+                            }
+                            else
+                            {
+                                //TODO BUG union?                                
+                            }
+                            member_index++;
+                        }
+                        p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                p_member_declaration = p_member_declaration->next;
+            }
+            return;
+        }
+        return;
+    }
+
+    if (type_is_pointer(p_type))
+    {
+        p_object->state = 0;
+
+        for (int i = 0; i < p_object->ref.size; i++)
+        {
+            struct object* pointed = p_object->ref.data[i];
+            if (pointed)
+            {
+                struct type t2 = type_remove_pointer(p_type);
+                object_set_to_nothing_core(&t2, pointed, visit_number);
+                type_destroy(&t2);
+            }
+        }
+    }
+    else
+    {
+        p_object->state = 0;
+    }
+}
+
+void object_set_to_nothing(struct type* p_type, struct object* p_object)
+{
+    object_set_to_nothing_core(p_type, p_object, s_visit_number++);
+}
+
+void object_set_pointed_to_nothing(struct type* p_type, struct object* p_object)
+{
+    struct type t2 = type_remove_pointer(p_type);
+    for (int i = 0; i < p_object->ref.size; i++)
+    {
+        struct object* pointed = p_object->ref.data[i];
+        object_set_to_nothing(&t2, pointed);
+    }
+    type_destroy(&t2);
 }
 
 void object_set_moved(struct type* p_type, struct object* p_object)
@@ -2317,6 +2467,19 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                 "uninitialized object '%s'",
                 previous_names);
         }
+
+        /*
+          //TODO there is some problem with  OBJECT_STATE_LIFE_TIME_ENDED
+          //state somewhere!
+         if (p_object->state & OBJECT_STATE_LIFE_TIME_ENDED)
+         {
+             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                 ctx->ctx,
+                 position_token,
+                 "lifetime ended '%s'",
+                 previous_names);
+         }
+         */
     }
 }
 
@@ -2361,272 +2524,8 @@ void checked_read_object(struct flow_visit_ctx* ctx,
 }
 
 
-static void visit_object_core(struct flow_visit_ctx* ctx,
-    struct type* p_type,
-    struct object* p_object,
-    const struct token* position_token,
-    const char* previous_names,
-    bool is_assigment,
-    unsigned int visit_number)
-{
-    if (p_object == NULL)
-    {
-        return;
-    }
-
-    if (p_object->visit_number == visit_number) return;
-    p_object->visit_number = visit_number;
-
-    //if (p_type->type_qualifier_flags & TYPE_QUALIFIER_VIEW)
-    //{
-      //  if (!type_is_struct_or_union(p_type)
-        //  p_object->state = OBJECT_STATE_LIFE_TIME_ENDED;
-        //return;
-    //}
-
-    if (!type_is_any_owner(p_type))
-    {
-        //if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
-        //{
-            //for view parameters we need to check if they left something moved..
-          //  checked_moved(ctx,
-            //    p_type,
-              //  p_object,
-                //position_token);
-
-        //}
-        //p_object->state = OBJECT_STATE_LIFE_TIME_ENDED;
-        //return;
-    }
 
 
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
-    {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-        struct member_declaration* p_member_declaration =
-            p_struct_or_union_specifier->member_declaration_list.head;
-
-        if (object_check(p_type, p_object))
-        {
-            /*
-            *  All parts of the object needs to be moved, so instead of
-            *  describing each part we will just say that the object should
-            *  have been moved.
-            */
-            const struct token* name = object_get_token(p_object);
-            if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                ctx->ctx,
-                name,
-                "object '%s' was not moved/destroyed",
-                previous_names))
-            {
-
-                if (p_object->declarator)
-                    compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", previous_names);
-            }
-        }
-        else
-        {
-            /*
-            *  Some parts of the object needs to be moved..
-            *  we need to print error one by one
-            */
-
-            int member_index = 0;
-            while (p_member_declaration)
-            {
-
-                if (p_member_declaration->member_declarator_list_opt)
-                {
-                    struct member_declarator* p_member_declarator =
-                        p_member_declaration->member_declarator_list_opt->head;
-                    while (p_member_declarator)
-                    {
-
-                        if (p_member_declarator->declarator)
-                        {
-                            const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "?";
-
-                            char buffer[200] = { 0 };
-                            if (type_is_pointer(p_type))
-                                snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
-                            else
-                                snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
-
-                            visit_object_core(ctx, &p_member_declarator->declarator->type,
-                                p_object->members.data[member_index],
-                                position_token,
-                                buffer,
-                                is_assigment,
-                                visit_number);
-
-                            member_index++;
-                        }
-                        p_member_declarator = p_member_declarator->next;
-                    }
-                }
-                p_member_declaration = p_member_declaration->next;
-            }
-        }
-
-
-    }
-    else
-    {
-        const char* name = previous_names;
-        const struct token* position = NULL;
-        if (p_object->declarator)
-            position = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
-        else if (p_object->p_expression_origin)
-            position = p_object->p_expression_origin->first_token;
-        else
-        {
-            assert(false);
-        }
-
-        if (name[0] == '\0')
-        {
-            /*function arguments without name*/
-            name = "?";
-        }
-        bool should_had_been_moved = false;
-
-
-        /*
-           Despite the name OBJECT_STATE_NOT_NULL does not means null, it means
-           the reference is not referring an object, the value could be -1 for instance.
-        */
-        if (type_is_pointer(p_type))
-        {
-            should_had_been_moved = (p_object->state & OBJECT_STATE_NOT_NULL) &&
-                !(p_object->state & OBJECT_STATE_MOVED);
-        }
-        else
-        {
-            if (p_object->state == OBJECT_STATE_UNINITIALIZED ||
-                (p_object->state & OBJECT_STATE_MOVED) ||
-                p_object->state == OBJECT_STATE_NULL)
-            {
-            }
-            else
-            {
-                should_had_been_moved = true;
-            }
-        }
-
-
-        if (type_is_pointer(p_type))
-        {
-            if (should_had_been_moved)
-            {
-                char buffer[100] = { 0 };
-                snprintf(buffer, sizeof buffer, "%s", previous_names);
-
-                struct type t2 = type_remove_pointer(p_type);
-                if (type_is_owner(&t2))
-                {
-                    for (int i = 0; i < p_object->ref.size; i++)
-                    {
-                        visit_object_core(ctx,
-                            &t2,
-                            p_object->ref.data[i],
-                            position_token,
-                            buffer,
-                            is_assigment,
-                            visit_number);
-                    }
-                }
-                type_destroy(&t2);
-            }
-
-        }
-
-
-        if (should_had_been_moved)
-        {
-            if (type_is_obj_owner(p_type))
-            {
-
-            }
-            else
-            {
-                if (type_is_pointer(p_type))
-                {
-                    struct type t2 = type_remove_pointer(p_type);
-                    bool pointed_is_out = type_is_out(&t2);
-                    type_destroy(&t2);
-
-                    if (!pointed_is_out && !(p_object->state & OBJECT_STATE_MOVED))
-                    {
-                        if (is_assigment)
-                        {
-                            compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                                ctx->ctx,
-                                position_token,
-                                "memory pointed by '%s' was not released before assignment.",
-                                name);
-                        }
-                        else
-                        {
-                            compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                                ctx->ctx,
-                                position,
-                                "memory pointed by '%s' was not released.",
-                                name);
-                            if (p_object->declarator)
-                            {
-                                compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", name);
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    if (is_assigment)
-                    {
-                        compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                            ctx->ctx,
-                            position_token,
-                            "previous members of '%s' were not moved before this assignment.",
-                            name);
-                    }
-                    else
-                    {
-                        compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
-                            ctx->ctx,
-                            position,
-                            "object '%s' was not moved.",
-                            name);
-                        if (p_object->declarator)
-                        {
-                            compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", name);
-                        }
-                    }
-                }
-            }
-        }
-
-        p_object->state = OBJECT_STATE_LIFE_TIME_ENDED;
-    }
-
-}
-
-void visit_object(struct flow_visit_ctx* ctx,
-    struct type* p_type,
-    struct object* p_object,
-    const struct token* position_token,
-    const char* previous_names,
-    bool is_assigment)
-{
-    visit_object_core(ctx,
-    p_type,
-    p_object,
-    position_token,
-    previous_names,
-    is_assigment, s_visit_number++);
-}
 
 
 static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
@@ -2834,7 +2733,7 @@ bool object_is_zero_or_null(const struct object* p_object)
    This function must check and do the flow assignment of
    a = b
 */
-void object_assignment3(
+static void flow_assignment_core(
     struct flow_visit_ctx* ctx,
     const struct token* error_position,
     enum assigment_type assigment_type,
@@ -3021,21 +2920,30 @@ void object_assignment3(
         return;
     }
 
-    if (!type_is_any_owner(p_a_type) && type_is_any_owner(p_b_type))
+    if (a_type_is_view || !type_is_owner(p_a_type))
     {
-        if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+        if (type_is_owner(p_b_type))
         {
-            compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
-            ctx->ctx,
-            error_position,
-            "passing a temporary owner to a view");
+            if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+            {
+                /*
+              This situation
+              struct X* p = (struct X* _Owner) malloc(1);
+            */
+                compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
+               ctx->ctx,
+               error_position,
+               "owner object has short lifetime");
+            }
         }
     }
+
     if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
     {
+
+
         p_a_object->state = p_b_object->state;
         objects_view_copy(&p_a_object->ref, &p_b_object->ref);
-        //p_a_object->pointed_ref = p_b_object->pointed_ref;
 
         struct type t = type_remove_pointer(p_a_type);
 
@@ -3089,6 +2997,7 @@ void object_assignment3(
             }
             else
             {
+
                 //TODO
                 p_a_object->state = p_a_object->state & ~OBJECT_STATE_MOVED;
                 if (p_b_object->state & OBJECT_STATE_NOT_NULL)
@@ -3157,24 +3066,10 @@ void object_assignment3(
         {
             if (a_type_is_view || !type_is_owner(p_a_type))
             {
-                if (type_is_owner(p_b_type))
-                {
-                    if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
-                    {
-                        /*
-                      This situation
-                      struct X* p = (struct X* _Owner) malloc(1);
-                    */
-                        compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
-                       ctx->ctx,
-                       error_position,
-                       "owner object has short lifetime");
-                    }
-                }
-
+ 
                 p_a_object->state = p_b_object->state;
 
-                p_a_object->state = p_a_object->state & ~OBJECT_STATE_MOVED;
+                p_a_object->state &= ~OBJECT_STATE_MOVED;
             }
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
@@ -3243,7 +3138,7 @@ void object_assignment3(
                                 struct type* p_b_member_type = &p_b_member_declarator->declarator->type;
                                 struct object* p_b_member_object = p_b_object->members.data[member_index];
 
-                                object_assignment3(ctx,
+                                flow_assignment_core(ctx,
                                     error_position,
                                     assigment_type,
                                     check_uninitialized_b,
@@ -3561,7 +3456,35 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
     }
 
     printf("null object");
-    assert(false);
+    //assert(false);
     return NULL;
 }
 
+void flow_assignment(
+    struct flow_visit_ctx* ctx,
+    const struct token* error_position,
+    enum assigment_type assigment_type,
+    bool check_uninitialized_b,
+    bool a_type_is_view,
+    bool a_type_is_nullable,
+    struct type* p_a_type, struct object* p_a_object,
+    struct type* p_b_type, struct object* p_b_object)
+{
+    if (type_is_pointer(p_b_type) && object_is_expansible(p_b_object))
+    {
+        //number of warning goes up!
+        //expand_pointer_object(ctx, p_b_type, p_b_object);
+    }
+
+    flow_assignment_core(
+     ctx,
+    error_position,
+    assigment_type,
+    check_uninitialized_b,
+    a_type_is_view,
+    a_type_is_nullable,
+    p_a_type,
+    p_a_object,
+    p_b_type,
+    p_b_object);
+}

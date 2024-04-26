@@ -1,15 +1,20 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
 
-void free( void* /*_Owner*/ /*_Opt*/ ptr);
+
+void free(void* /*_Owner*/ /*_Opt*/ ptr);
 void* /*_Owner*/ /*_Opt*/ malloc(int size);
 
-void f(int condition) 
+void f(int condition)
 {
-    int * /*_Owner*/ /*_Opt*/ p = malloc(sizeof(int));
-  
+    int* /*_Owner*/ /*_Opt*/ p = malloc(sizeof(int));
+
     if (condition)
-       goto end;
-  end:
+    {
+        goto end;
+    }
+
     free(p);
+end:
 }
+#pragma cake diagnostic check "-Wmissing-destructor"
+

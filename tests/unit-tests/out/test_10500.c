@@ -1,5 +1,5 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 int rand();
 void free(void* /*_Owner*/ ptr);

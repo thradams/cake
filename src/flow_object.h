@@ -10,12 +10,15 @@
 struct flow_visit_ctx;
 
 extern unsigned int s_visit_number; //creates a unique number
-extern unsigned int s_object_id_generator; //used to create ids for objects (debug)
 
 enum object_state
 {
     /*
        Not applicable. The state cannot be used.
+       struct...
+       TODO we need empty state when object does not exist
+       and the merge it is not a problem
+       merge with nothing then 
     */
     OBJECT_STATE_NOT_APPLICABLE = 0,
 
@@ -123,15 +126,16 @@ struct object * make_object(struct flow_visit_ctx *ctx,
                             const struct declarator* p_declarator_opt,
                             const struct expression* p_expression_origin);
 
-void object_push_copy_current_state(struct object* object, const char* name, int state_number);
-void object_push_empty(struct object* object, const char* name, int state_number);
+void object_add_copy_current_state(struct object* object, const char* name, int state_number);
+void object_add_empty_state(struct object* object, const char* name, int state_number);
 struct token* object_get_token(const struct object* object);
-void object_pop_states(struct object* object, int n);
+void object_remove_state(struct object* object, int state_number);
 int object_merge_current_state_with_state_number(struct object* object, int state_number);
 void object_merge_current_state_with_state_number_or(struct object* object, int state_number);
 int object_restore_current_state_from(struct object* object, int state_number);
 void object_set_state_from_current(struct object* object, int state_number);
 void object_merge_state(struct object* pdest, struct object* object1, struct object* object2);
+
 
 struct flow_visit_ctx;
 struct token;
@@ -160,7 +164,7 @@ void set_object(
 
 
 
-void object_assignment3(struct flow_visit_ctx* ctx,
+void flow_assignment(struct flow_visit_ctx* ctx,
     const struct token* error_position,
     enum  assigment_type assigment_type,
     bool check_uninitialized_b,
@@ -174,6 +178,7 @@ void object_set_zero(struct type* p_type, struct object* p_object);
 void object_set_uninitialized(struct type* p_type, struct object* p_object);
 void object_set_nothing(struct type* p_type, struct object* p_object);
 void object_set_moved(struct type* p_type, struct object* p_object);
+void object_set_pointed_to_nothing(struct type* p_type, struct object* p_object);
 
 void checked_read_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
@@ -192,5 +197,7 @@ void end_of_storage_visit(struct flow_visit_ctx* ctx,
 
 
 bool object_is_expansible(const struct object* p_object);
+void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct object* p_object);
+void object_push_states_from(const struct object* p_object_from, struct object* p_object_to);
 
 struct object* expression_get_object(struct flow_visit_ctx * ctx, struct expression* p_expression, bool nullable_enabled);

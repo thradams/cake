@@ -1241,8 +1241,7 @@ sample["safe-mode"]=[];
 
 sample["safe-mode"]["malloc/free"] =
 `
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 void* _Owner _Opt malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
@@ -1256,8 +1255,7 @@ int main() {
 
 sample["safe-mode"]["static_state/static_debug"] =
 `
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 void* _Owner _Opt malloc(unsigned long size);
 void free(void* _Owner ptr);
@@ -1278,8 +1276,7 @@ int main() {
 
 sample["safe-mode"]["implementing a destructor I"] =
 `
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <stdlib.h>
 #include <string.h>
@@ -1305,8 +1302,7 @@ int main() {
 
 sample["safe-mode"]["implementing a destructor II"] =
 `
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <stdlib.h>
 #include <string.h>
@@ -1330,8 +1326,7 @@ int main() {
 
 sample["safe-mode"]["_View qualifier"] =
 `
-#pragma ownership enable 
-#pragma nullable enable
+#pragma safety enable 
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -1362,9 +1357,7 @@ int main() {
 
 sample["safe-mode"]["implementing delete"] =
 `
-
-#pragma ownership enable 
-#pragma nullable enable
+#pragma safety enable 
 
 #include <stdlib.h>
 #include <string.h>
@@ -1398,9 +1391,7 @@ int main() {
 
 sample["safe-mode"]["fix-me 1"] =
 `
-
-//#pragma ownership enable 
-//#pragma nullable enable
+//#pragma safety enable 
 
 #include <stdlib.h>
 #include <string.h>
@@ -1420,8 +1411,7 @@ int main() {
 
 sample["safe-mode"]["Linked list"] =
 `
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <stdlib.h>
 #include <assert.h>
@@ -1516,9 +1506,7 @@ int main(int argc, char* argv[])
 
 sample["safe-mode"]["dynamic array"] =
 `
-
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <stdlib.h>
 #include <assert.h>
@@ -1599,8 +1587,7 @@ int main()
 
 sample["safe-mode"]["using moved object"] =
 `
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <string.h>
 #include <stdlib.h>
@@ -1652,6 +1639,7 @@ void f()
 sample["flow-analysis"] = [];
 sample["flow-analysis"]["if-else 1"] =
 `
+#pragma safety enable
 
 void* _Owner malloc(unsigned long size);
 void free(void* _Owner ptr);
@@ -1703,7 +1691,7 @@ void f3(int condition)
        free(p);
     }
 
-    static_state(p, "uninitialized | maybe_null");    
+    static_state(p, "uninitialized | null | not-null");    
 }
 
 
@@ -1846,9 +1834,7 @@ int main()
 
 sample["safe-mode"]["assignment"] =
 `
-
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <string.h>
 #include <stdlib.h>
@@ -1869,9 +1855,7 @@ int main()
 
 sample["safe-mode"]["takes_ownership"] =
 `
-
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -1897,9 +1881,7 @@ int main()
 
 sample["safe-mode"]["gives ownership"] =
 `
-
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <string.h>
 #include <stdlib.h>
@@ -1918,12 +1900,10 @@ int main(){
 
 sample["safe-mode"]["moving parts of _View"] =
 `
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <string.h>
 #include <stdlib.h>
-
 
 struct X {
   char * _Owner name;
@@ -1957,9 +1937,7 @@ int main() {
 
 sample["safe-mode"]["_Owner pointer owns two objects"] =
 `
-#pragma ownership enable
-#pragma nullable enable
-
+#pragma safety enable
 
 void * _Owner _Opt calloc(unsigned long i, unsigned long sz);
 char * _Owner _Opt strdup(const char* );
@@ -2012,9 +1990,7 @@ void x_destroy(struct X * _Obj_owner p)
 sample["find the bug"] = [];
 sample["find the bug"]["Bug #1"] =
 `
-
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <stdlib.h>
 #include <string.h>
@@ -2041,9 +2017,7 @@ int main()
 
 sample["find the bug"]["Bug #2"] =
 `
-
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <stdlib.h>
 #include <string.h>
@@ -2072,10 +2046,8 @@ int main()
 
 
 sample["find the bug"]["Bug #3"] =
-    `
-
-#pragma ownership enable
-#pragma nullable enable
+`
+#pragma safety enable
 
 #include <stdlib.h>
 #include <string.h>
@@ -2109,9 +2081,7 @@ int main()
 
 sample["find the bug"]["Bug #4"] =
 `
-
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -2139,7 +2109,7 @@ int main()
 
 sample["find the bug"]["Bug #5"] =
 `
-#pragma nullable enable
+
 
 struct X
 {
@@ -2160,8 +2130,7 @@ void f(int condition)
 
 sample["find the bug"]["Bug #5"] =
 `
-#pragma ownership enable
-#pragma nullable enable
+#pragma safety enable
 
 void* _Owner _Opt calloc(unsigned int n, unsigned long size);
 void free(void* _Owner _Opt ptr);
@@ -2192,4 +2161,35 @@ int main()
     }
 }
 
+`;
+
+sample["find the bug"]["Bug #6"] =
+`
+#pragma safety enable
+
+#include <stdlib.h>
+
+struct Obj2 {
+    int i;
+};
+
+struct Obj {
+    int i;
+    struct Obj2* _Opt _Owner obj2;
+};
+
+void main() 
+{
+    struct Obj* _Opt _Owner o = calloc(1, sizeof *o);
+    if (o) {
+        o->obj2 = calloc(1, sizeof *o->obj2);
+        if (o->obj2) {
+            struct Obj* _Opt p = o;
+            free(o->obj2);
+            o->obj2 = nullptr;
+            p->obj2->i = 1; //warning: object is possibly null 
+        }
+        free(o);
+    }
+}
 `;

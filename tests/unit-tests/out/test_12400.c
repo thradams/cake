@@ -1,5 +1,5 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 void f(int * /*_Owner*/ /*_Opt*/ p);
 int main()

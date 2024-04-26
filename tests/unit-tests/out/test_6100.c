@@ -1,6 +1,6 @@
 
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 int* /*_Owner*/  get();
 void dtor(int* /*_Owner*/ p);

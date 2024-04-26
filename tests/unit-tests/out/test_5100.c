@@ -1,6 +1,6 @@
 
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 struct Y { 
     int i;

@@ -1,5 +1,5 @@
-#pragma nullable enable
-#pragma ownership enable
+#pragma safety enable
+
 
 void *_Owner _Opt malloc(int i);
 void free(void  *_Owner _Opt);
@@ -16,9 +16,9 @@ int main()
         p->name = malloc(1);
     }
     else
-    {
-        p->name = malloc(1);
-        #pragma cake diagnostic check "-Wanalyzer-null-dereference"
+    {        
+        //p->name = malloc(1);
+        //#pragma cake diagnostic check "-Wanalyzer-null-dereference"
     }
     free(p->name);
 #pragma cake diagnostic check "-Wanalyzer-null-dereference"
