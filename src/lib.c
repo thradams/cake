@@ -11418,9 +11418,6 @@ struct report
 };
 
 
-
-
-
 struct parser_ctx
 {
     struct options options;
@@ -22578,7 +22575,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
             compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 position_token,
-                "object '%s' may be not empty or it does not exist",
+                "object '%s' may be not empty",
                 previous_names);
         }
     }
@@ -23426,7 +23423,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                 ctx->ctx,
                 position_token,
-                "object '%s', (non-optional) may be null",
+                "non-nullable pointer '%s' may be null",
                 previous_names);
         }
 

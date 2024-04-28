@@ -32,6 +32,23 @@
             width: 100%;
             margin: auto;
         }
+        .outputstyle{
+            margin-top:0px;
+            overflow-y: scroll; 
+            height:100%;
+            line-height:1.5;
+            border: 1px solid #d2d3d4; 
+            font-weight: bolder; 
+            background-color:#f5f5f5; 
+            color:#007bfd; 
+            width: 100%;
+            font-size;12px; 
+            font: Consolas,Liberation Mono,Courier,monospace;
+            padding-left:16px;
+            padding-right:16px;
+            padding-top:3px;
+            padding-bottom:0px;
+        }
     </style>
 
     <link rel="stylesheet" data-name="min/vs/editor/editor.main" href="min/vs/editor/editor.main.css" />
@@ -39,6 +56,13 @@
 </head>
 
 <body>
+    <script src="splitterbar.js"></script>
+    <script>
+        var require = { paths: { vs: 'min/vs' } };
+    </script>
+    <script src="min/vs/loader.js"></script>
+    <script src="min/vs/editor/editor.main.nls.js"></script>
+    <script src="min/vs/editor/editor.main.js"></script>
 
     <div style="background-color: rgb(244,244,244); padding-top: 2px; padding-bottom: 2px">
 
@@ -52,9 +76,7 @@
             <option >Select...</option>
         </select>
 
-
         <button onclick="OnCompileButton()">Compile To</button>
-
 
         <select id="outtype" style="margin-left:auto;margin-right: 10px; ">
             <option value="-1">C89 (ANSI C)</option>
@@ -67,8 +89,6 @@
         </select>
 
         <label>Options</label><input type="text" id="options" />
-
-
 
         <button onclick="Share()">Share</button>
         <input type="text" id="sharelink" style="width:100%;display:none" />
@@ -89,32 +109,15 @@
         </div>
 
         <div id="div2" class="bottomSide">
-            <pre id="output" 
-                style=" overflow-y: scroll; height:100%;line-height:1.5;border: 1px solid #d2d3d4; font-weight: bolder; background-color:#f5f5f5; color:#007bfd; width: 100%;font-size;14px; font: Consolas,Liberation Mono,Courier,monospace;">
-            </pre>
+            <pre id="output" class="outputstyle"></pre>
         </div>
-
-
     </div>
-
-
-
-    <script src="splitterbar.js"></script>
-
-
-    <script>
-        var require = { paths: { vs: 'min/vs' } };
-    </script>
-    <script src="min/vs/loader.js"></script>
-    <script src="min/vs/editor/editor.main.nls.js"></script>
-    <script src="min/vs/editor/editor.main.js"></script>
-
 
     <script>
 
         //monta a lista com exemplos
         var se = document.getElementById("samples");
-        //var se2 = document.getElementById("sample");
+    
         for (var area in sample) {
             var o = document.createElement('option');
             o.textContent = area;
@@ -134,7 +137,6 @@
         const splitterBar2 = new SplitterBar(containerOne, div11, div22, false);
 
 
-
         var inputEditor = monaco.editor.create(document.getElementById('in'), {
             language: 'c',
             automaticLayout: true,
@@ -147,20 +149,7 @@
             minimap: { enabled: false }
         });
 
-        div1.onresize = function () {
-            inputEditor.layout();
-            outputEditor.layout();
-        };
-
-        div2.onresize = function () {
-            inputEditor.layout();
-            outputEditor.layout();
-        };
-
-
-
         const urlParams = new URLSearchParams(window.location.search);
-
 
         var to = urlParams.get('to');
         if (to) {
@@ -179,20 +168,13 @@
             } catch { }
         }
 
-
         var code = urlParams.get('code');
         if (code) {
             code = atob(decodeURIComponent(code));
-
-
             inputEditor.setValue(code);
-
-
         }
 
         function Share() {
-
-
             var source = inputEditor.getValue();
             var to = document.getElementById("outtype").value;
             var options = document.getElementById("options").value;
@@ -201,11 +183,9 @@
                 "&to=" + encodeURI(to) +
                 "&options=" + encodeURI(options);
 
-
             document.getElementById("sharelink").value = link;
             document.getElementById("sharelink").style.display = "block";
             document.getElementById("sharelink").select();
-
         }
 
         function OnSwap() {
@@ -222,26 +202,15 @@
             var text = http.response;
             if (text.length == 0)
                 text = "coliru compilation ok";
-            //document.getElementById("output").value = s;
             text = "\x1b[37m" + text;
-
             var element = document.getElementById('output');
             var convert = new Filter();
             text = convert.toHtml(text);
-            //console.log(convert.toHtml('\x1b[30mblack\x1b[37mwhite'));
-
             if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-            // These replacements are necessary if you render to raw HTML
-            //text = text.replace(/&/g, "&amp;");
-            //text = text.replace(/</g, "&lt;");
-            //text = text.replace(/>/g, "&gt;");
-            //text = text.replace('\n', '<br>', 'g');
-            //console.log(text);
             if (element) {
                 element.innerHTML = text + "\n";
                 element.scrollTop = element.scrollHeight; // focus on bottom
             }
-
         }
 
 
@@ -249,7 +218,6 @@
             document.getElementById("output").value = "";
             outputEditor.setValue("");
             var outputLanguage = document.getElementById("outtype").value;
-
 
             var options = document.getElementById("options").value;
 
@@ -276,11 +244,11 @@
 
         function OnChangeSelectionSample(index) {
             var area = document.getElementById("samples").value;
-
             var source = sample[area][index];
             inputEditor.setValue(source, -1);
             outputEditor.setValue("");
         }
+
         function OnChangeSelection(index) {
             var samples = sample[index];
             var se2 = document.getElementById("sample");
