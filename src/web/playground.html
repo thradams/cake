@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,11 +11,6 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link href="SplitterBar.css" type="text/css" rel="stylesheet">
 
-    <title>Document</title>
-
-    <script src="codemirror.js"></script>
-    <link rel="stylesheet" href="codemirror.css">
-    <script src="clike.js"></script>
     <script src="samples.js"></script>
     <script src="playground.js"></script>
     <script type="text/javascript" src="cake.js"></script>
@@ -23,7 +19,7 @@
     <style>
         .containerOne {
             position: relative;
-            height: 400px;
+            height: 500px;
             width: 100%;
             margin: auto;
         }
@@ -38,11 +34,10 @@
         }
     </style>
 
-    <link rel="stylesheet"
-          data-name="min/vs/editor/editor.main"
-          href="min/vs/editor/editor.main.css" />
+    <link rel="stylesheet" data-name="min/vs/editor/editor.main" href="min/vs/editor/editor.main.css" />
 
 </head>
+
 <body>
 
     <div style="background-color: rgb(244,244,244); padding-top: 2px; padding-bottom: 2px">
@@ -50,18 +45,18 @@
         <a href="index.html">Home</a> | <a href="manual.html">Manual</a> | <a href="playground.html">Playground</a>
 
         <select id="samples" onchange="OnChangeSelection(this.value)">
-            <option>Select...</option>
+            <option >Select...</option>
         </select>
 
-        <select id="sample" onchange="OnChangeSelectionSample(this.value)">
-            <option>Select...</option>
+        <select style="width: 10em;" id="sample" onchange="OnChangeSelectionSample(this.value)">
+            <option >Select...</option>
         </select>
 
 
         <button onclick="OnCompileButton()">Compile To</button>
 
 
-        <select id="outtype" style="margin-left:auto;margin-right: 10px">
+        <select id="outtype" style="margin-left:auto;margin-right: 10px; ">
             <option value="-1">C89 (ANSI C)</option>
             <option value="1">C99</option>
             <option value="2">C11</option>
@@ -80,26 +75,29 @@
     </div>
     <div id="containerOne" class="containerOne">
 
-        <div id="div1" class="leftSide">
-            <div id="in">
+        <div id="containerOne2" class="topSide">
+                <div id="div11" class="leftSide">
+                    <div id="in">
 
-            </div>
-        </div>
-        <div id="div2" class="rightSide">
-            <div id="out">
+                    </div>
+                </div>
+                <div id="div22" class="rightSide">
+                    <div id="out">
 
-            </div>
+                    </div>
+                </div>
         </div>
+
+        <div id="div2" class="bottomSide">
+            <pre id="output" 
+                style=" overflow-y: scroll; height:100%;line-height:1.5;border: 1px solid #d2d3d4; font-weight: bolder; background-color:#f5f5f5; color:#007bfd; width: 100%;font-size;14px; font: Consolas,Liberation Mono,Courier,monospace;">
+            </pre>
+        </div>
+
+
     </div>
 
 
-    <pre id="output" rows="8"
-         style="line-height:1.5;border: 1px solid #d2d3d4; font-weight: bolder; background-color:#f5f5f5; color:#007bfd; width: 100%;font-size;14px; font: Consolas,Liberation Mono,Courier,monospace;">
-    </pre>
-
-    <button onclick="OnCompileOuput()">Compile Ouput (using coliru online)</button>
-
-    <p>Cake is compiled with emscripten and it is running in your browser.</p>
 
     <script src="splitterbar.js"></script>
 
@@ -117,18 +115,23 @@
         //monta a lista com exemplos
         var se = document.getElementById("samples");
         //var se2 = document.getElementById("sample");
-        for (var area in sample)
-        {
+        for (var area in sample) {
             var o = document.createElement('option');
             o.textContent = area;
             o.value = area;
             se.appendChild(o);
         }
 
+        const containerOne2 = document.getElementById('containerOne2');
+        const div1 = document.getElementById('div11');
+        const div2 = document.getElementById('div22');
+        const splitterBar1 = new SplitterBar(containerOne2, div1, div2, true);
+
         const containerOne = document.getElementById('containerOne');
-        const div1 = document.getElementById('div1');
-        const div2 = document.getElementById('div2');
-        const splitterBar = new SplitterBar(containerOne, div1, div2);
+
+        const div11 = document.getElementById('containerOne2');
+        const div22 = document.getElementById('div2');
+        const splitterBar2 = new SplitterBar(containerOne, div11, div22, false);
 
 
 
@@ -144,14 +147,12 @@
             minimap: { enabled: false }
         });
 
-        div1.onresize = function ()
-        {
+        div1.onresize = function () {
             inputEditor.layout();
             outputEditor.layout();
         };
 
-        div2.onresize = function ()
-        {
+        div2.onresize = function () {
             inputEditor.layout();
             outputEditor.layout();
         };
@@ -162,10 +163,8 @@
 
 
         var to = urlParams.get('to');
-        if (to)
-        {
-            try
-            {
+        if (to) {
+            try {
                 to = decodeURI(to);
                 document.getElementById("outtype").value = to;
             }
@@ -173,10 +172,8 @@
         }
 
         var options = urlParams.get('options');
-        if (options)
-        {
-            try
-            {
+        if (options) {
+            try {
                 options = decodeURI(options);
                 document.getElementById("options").value = options;
             } catch { }
@@ -184,8 +181,7 @@
 
 
         var code = urlParams.get('code');
-        if (code)
-        {
+        if (code) {
             code = atob(decodeURIComponent(code));
 
 
@@ -194,8 +190,7 @@
 
         }
 
-        function Share()
-        {
+        function Share() {
 
 
             var source = inputEditor.getValue();
@@ -213,14 +208,12 @@
 
         }
 
-        function OnSwap()
-        {
+        function OnSwap() {
             var temp = inputEditor.getValue();
             inputEditor.setValue(outputEditor.getValue());
             outputEditor.setValue(temp);
         }
-        function OnCompileOuput()
-        {
+        function OnCompileOuput() {
             document.getElementById("output").value = "";
             var http = new XMLHttpRequest();
 
@@ -244,8 +237,7 @@
             //text = text.replace(/>/g, "&gt;");
             //text = text.replace('\n', '<br>', 'g');
             //console.log(text);
-            if (element)
-            {
+            if (element) {
                 element.innerHTML = text + "\n";
                 element.scrollTop = element.scrollHeight; // focus on bottom
             }
@@ -253,8 +245,7 @@
         }
 
 
-        function OnCompileButton()
-        {
+        function OnCompileButton() {
             document.getElementById("output").value = "";
             outputEditor.setValue("");
             var outputLanguage = document.getElementById("outtype").value;
@@ -283,22 +274,19 @@
             outputEditor.setValue(ot);
         }
 
-        function OnChangeSelectionSample(index)
-        {
+        function OnChangeSelectionSample(index) {
             var area = document.getElementById("samples").value;
 
             var source = sample[area][index];
             inputEditor.setValue(source, -1);
             outputEditor.setValue("");
         }
-        function OnChangeSelection(index)
-        {
+        function OnChangeSelection(index) {
             var samples = sample[index];
             var se2 = document.getElementById("sample");
             se2.innerText = "";
 
-            for (var i in samples)
-            {
+            for (var i in samples) {
                 var o = document.createElement('option');
                 o.textContent = i;
                 o.value = i;
@@ -309,4 +297,5 @@
 
     </script>
 </body>
+
 </html>

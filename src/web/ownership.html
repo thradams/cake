@@ -103,7 +103,7 @@ Pointers without _Opt qualifier are not nullable.
 Existing code uses pointers as both as nullable or non-nullable. 
 To facilitate code migration, a <code>#pragma nullable enabled/disable</code> has been created.</p>
 
-<h4>pragma nullable enabled</h4>
+<h4>#pragma nullable enabled</h4>
 
 <p>All pointers are non-nullable, unless qualified with _Opt. </p>
 
@@ -124,7 +124,7 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<h4>pragma nullable disabled</h4>
+<h4>#pragma nullable disabled</h4>
 
 <p>All pointers are nullable. </p>
 
@@ -241,8 +241,7 @@ For other functions, like use_x, the object must be completely constructed, and 
 
 <p><strong>Sample - Owner Pointer to FILE</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdio.h&gt;
 
@@ -258,10 +257,13 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
+<blockquote>
+<p>Note. Ownerhip checks are enabled with the pragma ownership. pragma safety enables both nullable and ownership.</p>
+</blockquote>
+
 <p>If the programmer incorrectly assumes that <code>fclose</code> accepts NULL.</p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdio.h&gt;
 
@@ -278,35 +280,23 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>If the programmer incorrectly assumes that <code>fopen</code> is not owner.</p>
-
-<pre><code>warning: passing a temporary owner to a view [-Wtemp-owner]
-</code></pre>
-
-<p>If the programmer incorrectly assumes that <code>fopen</code> returns a non-nullable</p>
-
-<pre><code class="language-c">warning: assignment of possible null object &#39;fopen(&quot;file.txt&quot;, &quot;r&quot;)&#39; to non-opt pointer [-Wnullable-to-non-nullable]
-</code></pre>
-
-<p>If the programmer forgets to call fclose.</p>
-
-<pre><code>warning: ownership of &#39;f&#39; not moved before the end of lifetime [-Wmissing-destructor]
-</code></pre>
-
-<p>As we can see we have compile-time checked contracts.</p>
-
 <p>The ownership mechanism has some rules.</p>
 
-<p><strong>Rule:</strong> An <strong>owner reference</strong> is always the unique owner of the referenced object.</p>
+<p><strong>Rule:</strong> An <strong>owner reference</strong> is always the unique owner of the referenced object, 
+as a consequence when owner references are copied the ownership is transferred.</p>
 
-<p><strong>Rule:</strong> When owner references are copied the ownership is transferred.</p>
+<p><strong>Rule:</strong> Before the end of its lifetime, owner references must move the ownership 
+of the objects they own.</p>
 
-<p><strong>Rule:</strong> Before the end of its lifetime, owner reference must move the ownership of the objects they own.</p>
+<blockquote>
+<p>Note: The cake ownership model does not include the concept of a destroyed object. 
+Instead, everything is viewed as a transformation, where the object is broken into 
+smaller parts and those parts are moved.</p>
+</blockquote>
 
 <p>Sample</p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdio.h&gt;
 
@@ -321,7 +311,8 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>Invoking a function <code>fclose</code> is analogous to assignment of the argument <code>f2</code>, resulting in the transfer of ownership of <code>f2</code> to the function parameter.  </p>
+<p>Invoking a function <code>fclose</code> is analogous to assignment of the argument <code>f2</code>,
+resulting in the transfer of ownership of <code>f2</code> to the function parameter.  </p>
 
 <p>Sample - Declaration of fopen and fclose</p>
 
@@ -329,32 +320,31 @@ int main()
 void fclose(FILE * _Owner p);
 </code></pre>
 
-<blockquote>
-<p>Note: The cake ownership model does not include the concept of a destroyed or deleted object. Instead, everything is viewed as a transformation, where the object is broken into smaller parts and those parts are moved.</p>
-</blockquote>
-
 <h3 id="toc_4">Non-pointer owner references</h3>
 
-<p>We can have other types of <strong>owner references</strong>. For instance, Berkeley sockets use an integer to identify the socket.</p>
+<p>We can have other types of <strong>owner references</strong>. 
+For instance, Berkeley sockets use an integer to identify the socket.</p>
 
 <p>Sample</p>
 
-<pre><code class="language-c"> owner int server_socket =
-     socket(AF_INET, SOCK_STREAM, 0);
+<pre><code class="language-c"> owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
  /*...*/
  close(server_socket);
 </code></pre>
 
 <blockquote>
-<p>Note: The location and usage of the qualifier owner is similar to the const qualifier. For pointers, it goes after *, and for this socket sample, it can be before int. The owner qualifier belongs to the object (memory) that holds the reference.</p>
+<p>Note: The location and usage of the qualifier owner is similar to 
+the const qualifier. For pointers, it goes after *, and for this socket sample, 
+it can be before int. The owner qualifier belongs to the object (memory) 
+that holds the reference.</p>
 </blockquote>
 
-<p>When a struct or union have at least one owner object it makes the struct a owner object too.</p>
+<p>When a struct or union have at least one owner object we can say the struct is 
+a owner object too.</p>
 
 <p><strong>Rule:</strong> Owner objects cannot be discarded.</p>
 
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdio.h&gt;
 
@@ -371,8 +361,7 @@ int main() {
 
 <p><strong>Sample</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 typedef int T;
 T * f(); //returning non owner
@@ -386,14 +375,15 @@ int main() {
 
 <h3 id="toc_5">View references</h3>
 
-<p>A <strong>view reference</strong> is an object referencing another object without managing its lifetime. </p>
+<p>A <strong>view reference</strong> is an object referencing another object without 
+managing its lifetime. </p>
 
-<p><strong>Rule:</strong> The lifetime of the referenced object must be longer than the lifetime of the view reference.</p>
+<p><strong>Rule:</strong> The lifetime of the referenced object must be longer than the 
+lifetime of the view reference.</p>
 
 <p>Sample</p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 struct X
 {
@@ -419,8 +409,7 @@ When an owner object is copied to a view object, the ownership is not transferre
 
 <p><strong>Sample</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdio.h&gt;
 
@@ -441,8 +430,7 @@ int main() {
 
 <p><strong>Sample - A view parameter</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 
@@ -462,17 +450,18 @@ int main() {
 <p><button onclick="Try(this)">try</button></p>
 
 <blockquote>
-<p>Note: It is interesting to compare against const qualifier. While const adds a qualifier &quot;const&quot; &quot;view&quot; removes the qualifier &quot;owner&quot;.</p>
+<p>Note: It is interesting to compare against const qualifier. 
+While const adds a qualifier &quot;const&quot; &quot;view&quot; removes the qualifier &quot;owner&quot;.</p>
 </blockquote>
 
 <h3 id="toc_6">Returning a pointer to a view object</h3>
 
-<p>We can check the rule &quot;The lifetime of the referenced object must be longer than the lifetime of the view object&quot; with these constrains.</p>
+<p>We can check the rule &quot;The lifetime of the referenced object must be longer
+than the lifetime of the view object&quot; with these constrains.</p>
 
 <p>We cannot return the address of local variables</p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 int * f()
 {
@@ -558,32 +547,32 @@ struct Y {
 
 <p><strong>Sample - Implementing the delete function</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 
-struct X { 
-  char * _Owner _Opt text; 
+struct X {
+  char * _Owner text; 
 };
 
-void x_delete(struct X * _Owner _Opt p) {
+void x_destroy(_Opt struct X * _Obj_owner x) { 
+  free(x-&gt;text); 
+}
+
+void x_delete(_Opt struct X * _Owner _Opt p) { 
   if (p) {
-    /*releasing the object*/ 
-    free(p-&gt;text);
-    
-    /*releasing the memory*/ 
-    free(p); 
+    x_destroy(p); /* *p is moved*/
+    free(p);
   }
 }
 
 int main() {
-  struct X * _Owner _Opt _pX = calloc(1, sizeof * pX);
-  if (pX) {
-    /*...*/;
-    x_delete( pX); 
-  }
-}
+   _Opt struct X * _Owner _Opt pX = calloc(1, sizeof * pX);
+   if (pX) {
+     /*...*/;
+     x_delete( pX); 
+   }
+ } 
 
 </code></pre>
 
@@ -591,11 +580,10 @@ int main() {
 
 <h3 id="toc_9">Conversion from <code>T * _Owner</code> to <code>void * _Owner</code></h3>
 
-<p><strong>Rule:</strong> Assignment or cast from <code>T * _Owner</code> to <code>void * _Owner</code> requires the pointed object T to be empty.</p>
+<p><strong>Rule:</strong> Assignment or cast from <code>T * _Owner</code> to <code>void * _Owner</code> requires the 
+pointed object T to be empty.</p>
 
-<pre><code class="language-c">
-#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 struct X {
     char * _Owner text;
@@ -617,8 +605,7 @@ int main(){
 
 <p><strong>Sample - Implementing a destructor</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 
@@ -645,10 +632,9 @@ int main() {
 
 <p>The next sample illustrates how to implement a destructor using a <em>Obj</em>owner pointer parameter.</p>
 
-<p><strong>Sample - Implementing a destructor using <em>Obj</em>owner</strong></p>
+<p><strong>Sample - Implementing a destructor using _Obj_owner</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 
@@ -674,8 +660,7 @@ int main() {
 
 <p><strong>Sample - Non address of expression or owner pointer.</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 
@@ -698,8 +683,7 @@ void f(struct X * x) {
 
 <p><strong>Sample - Using <code>x_destroy</code> to implement <code>x_delete</code></strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 
@@ -734,9 +718,7 @@ int main() {
 
 <p>To use owner qualifier in array we do. (Just like const)</p>
 
-<pre><code class="language-c">
-#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 void free(void * _Owner _Opt p);
 
@@ -760,9 +742,12 @@ The compiler flag <code>-fanalyzer</code> activates the flow analysis that works
 <pre><code class="language-c">#pragma flow enable
 </code></pre>
 
+<p>When pragma safety, nullable or ownership are enabled, they enable flow as well.</p>
+
 <p>To check the nullable and ownership rules, the compiler use these states:</p>
 
 <ul>
+<li>nothing</li>
 <li>uninitialized</li>
 <li>moved</li>
 <li>null</li>
@@ -772,12 +757,12 @@ The compiler flag <code>-fanalyzer</code> activates the flow analysis that works
 <li>lifetime-ended</li>
 </ul>
 
-<p>We can print these states using the <strong>static_debug</strong> declaration. We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. </p>
+<p>We can print these states using the <strong>static_debug</strong> declaration.
+We can also assert the variable is at a certain state using the <strong>static_state</strong> declaration. </p>
 
 <p><strong>Sample - Usage of static_state and static_debug</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 int main() {
  int a;   
@@ -788,16 +773,13 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>Obj: The web version has the flow analysis active because if uses <code>-fanalyzer</code> by default.</p>
-
 <h4>Uninitialized state</h4>
 
 <p>The <strong>uninitialized</strong> state is the state of variables that are declared but not initialized. </p>
 
 <p>Flow analysis must  ensure that we don&#39;t read uninitialized objects.</p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 int printf(const char* restrict format, ...);
 
@@ -815,8 +797,7 @@ void f(int condition) {
 
 <p>This prevents bugs like double free or use after free.</p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 int * _Owner f();
 void free(void * _Owner _Opt p);
@@ -834,13 +815,11 @@ int main() {
 
 <p>The <strong>moved</strong> state is similar to the uninitialized state.
 The difference is that the moved state is used when moving local variables.<br>
-For pointers, the moved state implies that the pointer was not-null. 
-Moving a null object it is not a move.</p>
+For pointers, the moved state implies that the pointer was not-null. </p>
 
 <p><strong>Sample - local scope moves</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 int * _Owner f();
 void free(void * _Owner _Opt p);
@@ -864,10 +843,9 @@ int main() {
 
 <p>A common scenario where uninitialized objects are utilized is when a pointer to an uninitialized object is passed to an &quot;init&quot; function.</p>
 
-<p>This situation is addressed by the qualifier <strong>_Out/out</strong>.</p>
+<p>This situation is addressed by the qualifier <strong>_Out</strong>.</p>
 
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 #include &lt;string.h&gt;
@@ -891,9 +869,10 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>With the out qualifier, caller is informed that the argument must be uninitialized.</p>
+<p>With the _Out qualifier, caller is informed that the argument must be uninitialized.</p>
 
-<p>The implementation is aware that it can safely override the contents of the object <code>p-&gt;text</code> without causing a memory leak.</p>
+<p>The implementation is aware that it can safely override the contents of the object <code>p-&gt;text</code> 
+without causing a memory leak.</p>
 
 <blockquote>
 <p>Note: There is no explicit &quot;initialized&quot; state. When referring to initialized objects, it means the state is neither &quot;moved&quot; nor &quot;uninitialized.&quot;.</p>
@@ -907,8 +886,7 @@ int main() {
 
 <p>For instance, at set implementation we need free text before assignment.</p>
 
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 #include &lt;string.h&gt;
@@ -944,8 +922,7 @@ int main() {
 
 <p><strong>Rule:</strong> Non owner objects accessible with parameters cannot leave scope with uninitialized/moved objects.</p>
 
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;string.h&gt;
 #include &lt;stdlib.h&gt;
@@ -979,8 +956,7 @@ int main() {
 
 <p>Sample of swap if fine because at end of scopes objects are not uninitialized/moved.</p>
 
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 
@@ -1015,12 +991,11 @@ int main() {
 
 <h4>Null and Not-Null state</h4>
 
-<p>The <strong>null</strong> state means that pointers/objects are initialized and not referencing any object. </p>
+<p>The <strong>null</strong> state means that pointers/objects are empty, In other words, not referencing any object. </p>
 
 <p><strong>Sample - Null state</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 int main() {
  void * _Owner _Opt p = nullptr;   
@@ -1030,12 +1005,12 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p><strong>Rule:</strong> Before assignment, owner objects, must not be holding objects. The state must be null or uninitialized/moved.</p>
+<p><strong>Rule:</strong> Before assignment, owner objects, must be empty or uninitialized.
+The state must be null or uninitialized/moved.</p>
 
 <p>Sample</p>
 
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdio.h&gt;
 int main() {
@@ -1046,16 +1021,12 @@ int main() {
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p>The <strong>not-null</strong> state indicates that the object is initialized and not referencing any object.</p>
+<p>The <strong>not-null</strong> state indicates that the object is initialized and referencing an object.</p>
 
-<p>The final state is combination of possibilities like <strong>null</strong> and <strong>not-null</strong>. We can check possible combination using &quot;or&quot; at <code>static_state</code>.  </p>
+<p>The final state is combination of possibilities like <strong>null</strong> and <strong>not-null</strong>. 
+We can check possible combinations using &quot;|&quot; at <code>static_state</code>.  </p>
 
-<p>The combination <strong>null or not-null</strong> has a alias <strong>maybe-null</strong>.</p>
-
-<p><strong>Sample - not-null and maybe-null</strong></p>
-
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;stdlib.h&gt;
 
@@ -1064,9 +1035,8 @@ int main()
    void * _Owner p = malloc(1);
    if (p) {
      static_state(p, &quot;not-null&quot;);
-   }
-   static_state(p, &quot;maybe-null&quot;);   
-   static_state(p, &quot;null or not-null&quot;);
+   }      
+   static_state(p, &quot;null | not-null&quot;);
    free(p);
 }
 </code></pre>
@@ -1092,11 +1062,17 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p><strong>Zero</strong> and <strong>null</strong> are different states. This difference is necessary because, for non-pointers like the socket sample, 0 does not necessarily means null. The compiler does not know the semantics for types that are not pointers.</p>
+<p><strong>Zero</strong> and <strong>null</strong> are different states.
+This difference is necessary because, for non-pointers like the socket sample, 
+0 does not necessarily means null. 
+The compiler does not know the semantics for types that are not pointers.</p>
 
 <h4>static_set</h4>
 
-<p>We can use <strong>static_set</strong> to override states. In the next sample, we annotate that server_socket is null, which doesn&#39;t mean it is zero but indicates that it is not holding any resources and is safe to return without calling close.</p>
+<p>We can use <strong>static_set</strong> to override states.
+In the next sample, we annotate that server_socket is null, which doesn&#39;t mean it 
+is zero but indicates that it is not holding any resources and 
+is safe to return without calling close.</p>
 
 <p><strong>Sample - Usage of static_set</strong></p>
 
@@ -1112,13 +1088,11 @@ int main()
 
 <p>The <strong>not-zero</strong> state is used in non-pointers objects to indicate the value is not zero.</p>
 
-<p><strong>any</strong> is a alias for <strong>zero or not-zero</strong> state.</p>
-
 <pre><code class="language-c">int f();
 
 int main() {   
     int i = f();
-    static_state(i, &quot;any&quot;);
+    static_state(i, &quot;zero | not-zero&quot;);
 }
 </code></pre>
 
@@ -1133,8 +1107,7 @@ int main() {
 
 <p><strong>Sample - Using static_set with realloc</strong></p>
 
-<pre><code class="language-c">#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 void* _Owner _Opt malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
@@ -1164,9 +1137,7 @@ int main()
 
 <p><strong>Listing 22 shows the usage of assert.</strong> </p>
 
-<pre><code class="language-c">
-#pragma nullable enable 
-#pragma ownership enable
+<pre><code class="language-c">#pragma safety enable
 
 #include &lt;string.h&gt;
 #include &lt;stdlib.h&gt;

@@ -1,19 +1,18 @@
 #pragma safety enable
 
-
 void* _Owner _Opt malloc(unsigned long size);
 void free(void* _Owner _Opt ptr);
 
-struct X {
-    char* _Owner name;
-};
-
 int main()
 {
-    struct X* _Opt p = (struct X* _Owner _Opt) malloc(1);
+    void* _Opt p = malloc(1);
+
+//left object must be an owner reference.
+#pragma cake diagnostic check "-Wtemp-owner"
+
+    free(p);
+#pragma cake diagnostic check "-Wnon-owner-to-owner-move"    
 }
 
-//flow analyze
-#pragma cake diagnostic check "-Wtemp-owner"
 
 

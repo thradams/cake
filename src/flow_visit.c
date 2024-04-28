@@ -146,7 +146,11 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                     if (is_pointer)
                     {
                         p_object->state = p_object->state & ~OBJECT_STATE_NULL;
-                        p_object->state |= OBJECT_STATE_NOT_NULL;
+                        if (p_object->state & OBJECT_STATE_MOVED)
+                        {
+                        }
+                        else
+                          p_object->state |= OBJECT_STATE_NOT_NULL;
                     }
                     else
                     {
@@ -192,11 +196,12 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                     {
 
                         p_object->state = p_object->state & ~OBJECT_STATE_NOT_NULL;
+                        p_object->state = p_object->state & ~OBJECT_STATE_MOVED;
                         p_object->state |= OBJECT_STATE_NULL;
                         //pointed object does not exist. set nothing
                         //See test_18000.c
                         //
-                        object_set_pointed_to_nothing(&a->data[i].p_expression->type, p_object);
+                        //object_set_pointed_to_nothing(&a->data[i].p_expression->type, p_object);
                     }
                     else
                     {
@@ -208,8 +213,15 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                 {
                     if (is_pointer)
                     {
-                        p_object->state = p_object->state & ~OBJECT_STATE_NULL;
-                        p_object->state |= OBJECT_STATE_NOT_NULL;
+                        //se era moved nao faz nada!
+                        if (p_object->state & OBJECT_STATE_MOVED)
+                        {
+                        }
+                        else
+                        {
+                            p_object->state = p_object->state & ~OBJECT_STATE_NULL;
+                            p_object->state |= OBJECT_STATE_NOT_NULL;
+                        }
                     }
                     else
                     {
@@ -1208,7 +1220,7 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
                 expression_get_object(ctx, p_init_declarator->initializer->assignment_expression, nullable_enabled);
 
             if (p_right_object)
-            {                
+            {
                 flow_assignment(ctx,
                                     p_init_declarator->initializer->assignment_expression->first_token,
                                     ASSIGMENT_TYPE_OBJECTS,

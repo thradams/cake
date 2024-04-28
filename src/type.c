@@ -1224,16 +1224,16 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
 void check_assigment(struct parser_ctx* ctx,
     struct type* p_a_type,
-    struct expression* right,
-    enum assigment_type assigment_type)
+    struct expression* p_b_expression,
+    enum assigment_type assignment_type)
 {
 
-    struct type* p_b_type = &right->type;
+    struct type* p_b_type = &p_b_expression->type;
     bool is_null_pointer_constant = false;
 
-    if (type_is_nullptr_t(&right->type) ||
-        (constant_value_is_valid(&right->constant_value) &&
-            constant_value_to_ull(&right->constant_value) == 0))
+    if (type_is_nullptr_t(&p_b_expression->type) ||
+        (constant_value_is_valid(&p_b_expression->constant_value) &&
+            constant_value_to_ull(&p_b_expression->constant_value) == 0))
     {
         is_null_pointer_constant = true;
     }
@@ -1241,7 +1241,7 @@ void check_assigment(struct parser_ctx* ctx,
     struct type lvalue_right_type = { 0 };
     struct type t2 = { 0 };
 
-    if (expression_is_subjected_to_lvalue_conversion(right))
+    if (expression_is_subjected_to_lvalue_conversion(p_b_expression))
     {
         lvalue_right_type = type_lvalue_conversion(p_b_type, ctx->options.null_checks_enabled);
     }
@@ -1251,27 +1251,41 @@ void check_assigment(struct parser_ctx* ctx,
     }
 
 
-    if (type_is_owner(p_a_type) && !type_is_owner(&right->type))
+    if (type_is_owner(p_a_type) && !type_is_owner(&p_b_expression->type))
     {
         if (!is_null_pointer_constant)
         {
-            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, right->first_token, "cannot assign a non owner to owner");
+            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, "cannot assign a non-owner to owner");
             type_destroy(&lvalue_right_type);
             type_destroy(&t2);
             return;
         }
     }
 
-    if (assigment_type == ASSIGMENT_TYPE_RETURN)
+    if (!type_is_owner(p_a_type) && type_is_any_owner(&p_b_expression->type))
     {
-        if (!type_is_owner(p_a_type) && type_is_any_owner(&right->type))
+        if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
         {
-            if (right->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+            compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
+                ctx,
+                p_b_expression->first_token,
+                "cannot assign a temporary owner to no-owner object.");
+            type_destroy(&lvalue_right_type);
+            type_destroy(&t2);
+            return;
+        }
+    }
+
+    if (assignment_type == ASSIGMENT_TYPE_RETURN)
+    {
+        if (!type_is_owner(p_a_type) && type_is_any_owner(&p_b_expression->type))
+        {
+            if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
             {
                 compiler_diagnostic_message(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
                     ctx,
-                    right->first_token,
-                    "cannot return a local owner variable to non owner");
+                    p_b_expression->first_token,
+                    "cannot return a automatic storage duration owner to non-owner");
                 type_destroy(&lvalue_right_type);
                 type_destroy(&t2);
                 return;
@@ -1288,7 +1302,7 @@ void check_assigment(struct parser_ctx* ctx,
         {
             compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
                        ctx,
-                       right->first_token,
+                       p_b_expression->first_token,
                        "source expression of obj_owner must be addressof");
         }
     }
@@ -1301,7 +1315,7 @@ void check_assigment(struct parser_ctx* ctx,
 
         compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
             ctx,
-            right->first_token,
+            p_b_expression->first_token,
             "cannot convert a null pointer constant to non-nullable pointer");
 
         type_destroy(&lvalue_right_type);
@@ -1321,7 +1335,7 @@ void check_assigment(struct parser_ctx* ctx,
         if (!type_is_same(p_b_type, p_a_type, false))
         {
             compiler_diagnostic_message(W_INCOMPATIBLE_ENUN_TYPES, ctx,
-                right->first_token,
+                p_b_expression->first_token,
                 " incompatible types ");
         }
 
@@ -1356,7 +1370,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         compiler_diagnostic_message(W_FLOW_NON_NULL,
             ctx,
-            right->first_token,
+            p_b_expression->first_token,
             " passing null as array");
 
 
@@ -1401,14 +1415,14 @@ void check_assigment(struct parser_ctx* ctx,
                     argument_array_size < parameter_array_size)
                 {
                     compiler_diagnostic_message(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
-                        right->first_token,
+                        p_b_expression->first_token,
                         " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
                 }
             }
             else if (is_null_pointer_constant || type_is_nullptr_t(p_b_type))
             {
                 compiler_diagnostic_message(W_PASSING_NULL_AS_ARRAY, ctx,
-                    right->first_token,
+                    p_b_expression->first_token,
                     " passing null as array");
             }
             t2 = type_lvalue_conversion(p_a_type, ctx->options.null_checks_enabled);
@@ -1426,7 +1440,7 @@ void check_assigment(struct parser_ctx* ctx,
             type_print(&t2);
 
             compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES, ctx,
-                right->first_token,
+                p_b_expression->first_token,
                 " incompatible types at argument ");
             //disabled for now util it works correctly
             //return false;
@@ -1441,7 +1455,7 @@ void check_assigment(struct parser_ctx* ctx,
             if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
             {
                 compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
-                    right->first_token,
+                    p_b_expression->first_token,
                     " discarding const at argument ");
             }
             type_destroy(&argument_pointer_to);
@@ -1514,7 +1528,7 @@ struct type type_remove_pointer(const struct type* p_type)
     {
         return r;
     }
-    
+
     if (r.next)
     {
         struct type next = *r.next;
@@ -3095,7 +3109,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
                 list.head->next->attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_FUNC_RESULT;
             }
         }
-}
+    }
 #endif
 
     if (pdeclarator->name)

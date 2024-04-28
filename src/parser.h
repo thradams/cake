@@ -54,9 +54,6 @@ struct report
 };
 
 
-
-
-
 struct parser_ctx
 {
     struct options options;

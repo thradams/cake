@@ -1,11 +1,11 @@
 #pragma safety enable
 
+void* _Owner _Opt malloc(unsigned long size);
+void free(void* _Owner _Opt ptr);
 
-void F(int i);
-_Owner int make();
-int main()
-{
-    F(make());
+int main() {
+   void * _Opt p = malloc(1);
+   free(p);
 }
-#pragma cake diagnostic check "-Wmissing-owner-qualifier"
+
 

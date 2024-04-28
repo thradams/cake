@@ -1346,6 +1346,7 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 
 ### C23 Variably-modified (VM) types
 
+
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
 

@@ -1,6 +1,4 @@
-
 #define _is_same_type(typeof(T1), typeof(T2)) _Generic(T1, T2: 1, default: 0)
-
 char((a1));
 char b1;
 static_assert(_is_same_type(a1, b1));

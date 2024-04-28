@@ -1106,15 +1106,7 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
     {
         if (object->object_state_stack.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state |= object->state;
-            if ((object->object_state_stack.data[i].state & OBJECT_STATE_NOT_NULL) &&
-                (object->object_state_stack.data[i].state & OBJECT_STATE_MOVED))
-            {
-                //TODO must be wrong...
-                //Cannot be at same time OBJECT_STATE_NOT_NULL and OBJECT_STATE_MOVED
-                object->object_state_stack.data[i].state &= ~OBJECT_STATE_NOT_NULL;
-            }
-
+            object->object_state_stack.data[i].state |= object->state;            
             objects_view_merge(&object->object_state_stack.data[i].ref, &object->ref);
             break;
         }
@@ -1124,13 +1116,35 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
     {
         object_merge_current_state_with_state_number_core(object->members.data[i], state_number, visit_number);
     }
-
-    for (int i = 0; i < object->ref.size; i++)
+    if (object->state == OBJECT_STATE_NULL ||
+        object->state == OBJECT_STATE_UNINITIALIZED) //moved
     {
-        struct object* pointed = object->ref.data[i];
-        if (pointed)
+        /*
+        struct Y { int i; };
+        struct X { struct Y y;  };
+
+        struct X* _Opt _Owner create(struct Y* pY)
         {
-            object_merge_current_state_with_state_number_core(pointed, state_number, visit_number);
+            struct X* _Opt _Owner p  = malloc(sizeof * p);
+            if (p)  {
+                p->y = *pY;
+            }
+            else
+            {
+               //p is null, so the pointed object does not need to merge
+            }
+            return p;
+        */
+    }
+    else
+    {
+        for (int i = 0; i < object->ref.size; i++)
+        {
+            struct object* pointed = object->ref.data[i];
+            if (pointed)
+            {
+                object_merge_current_state_with_state_number_core(pointed, state_number, visit_number);
+            }
         }
     }
     return 1;
@@ -2749,6 +2763,12 @@ static void flow_assignment_core(
     }
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
+#ifdef _DEBUG
+     while (error_position->line == 7)
+     {
+         break;
+     }
+#endif
     // printf("line  %d\n", error_position->line);
      //type_print(p_a_type);
      //printf(" = ");
@@ -2920,23 +2940,7 @@ static void flow_assignment_core(
         return;
     }
 
-    if (a_type_is_view || !type_is_owner(p_a_type))
-    {
-        if (type_is_owner(p_b_type))
-        {
-            if (p_b_type->storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
-            {
-                /*
-              This situation
-              struct X* p = (struct X* _Owner) malloc(1);
-            */
-                compiler_diagnostic_message(W_OWNERSHIP_MISSING_OWNER_QUALIFIER,
-               ctx->ctx,
-               error_position,
-               "owner object has short lifetime");
-            }
-        }
-    }
+
 
     if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
     {
@@ -3066,7 +3070,7 @@ static void flow_assignment_core(
         {
             if (a_type_is_view || !type_is_owner(p_a_type))
             {
- 
+
                 p_a_object->state = p_b_object->state;
 
                 p_a_object->state &= ~OBJECT_STATE_MOVED;
