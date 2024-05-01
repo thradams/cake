@@ -708,6 +708,8 @@ struct generic_association* owner opt generic_association(struct parser_ctx* ctx
     }
     catch
     {
+        generic_association_delete(p_generic_association);
+        p_generic_association = NULL;
     }
 
     return p_generic_association;
@@ -2097,6 +2099,8 @@ struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, st
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     type_name_delete(p_type_name);
     return p_expression_node;
@@ -2177,6 +2181,8 @@ struct expression* owner postfix_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     return p_expression_node;
 }
@@ -2780,6 +2786,8 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     if (p_expression_node && ctx->current)
     {
@@ -2909,6 +2917,8 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     return p_expression_node;
 }
@@ -3120,6 +3130,8 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -3188,6 +3200,8 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -3270,6 +3284,8 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -3396,6 +3412,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     expression_delete(new_expression);
@@ -3454,6 +3472,8 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     expression_delete(new_expression);
@@ -3513,6 +3533,8 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     expression_delete(new_expression);
@@ -3571,6 +3593,8 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -3629,6 +3653,8 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -3694,6 +3720,8 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -3812,6 +3840,8 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -3939,6 +3969,8 @@ struct expression* owner expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     return p_expression_node;
 }
@@ -4149,6 +4181,8 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     type_destroy(&left_type);

@@ -114,6 +114,8 @@ struct generic_association
     struct generic_association* owner next;
 };
 
+void generic_association_delete(struct generic_association* owner opt p);
+
 struct generic_assoc_list
 {
     struct generic_association* owner opt head;
@@ -219,6 +221,7 @@ struct expression
     
     //used to simulate boolean expression results
     int value_emulation;
+    bool emulation_used;
 };
 
 //built-in semantics

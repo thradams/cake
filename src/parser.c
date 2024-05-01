@@ -5329,7 +5329,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
             ctx->options.null_checks_enabled = true;
             ctx->options.flow_analysis = true; //also enable flow analysis
-            
+
             ctx->options.ownership_enabled = true;
         }
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
@@ -5796,15 +5796,29 @@ void statement_delete(struct statement* owner opt p)
 struct statement* owner statement(struct parser_ctx* ctx)
 {
     struct statement* owner p_statement = calloc(1, sizeof(struct statement));
-    if (first_of_labeled_statement(ctx))
+    try
     {
-        p_statement->labeled_statement = labeled_statement(ctx);
-    }
-    else
-    {
-        p_statement->unlabeled_statement = unlabeled_statement(ctx);
-    }
+        if (p_statement == NULL)
+            throw;
 
+        if (first_of_labeled_statement(ctx))
+        {
+            p_statement->labeled_statement = labeled_statement(ctx);
+            if (p_statement->labeled_statement == NULL)
+                throw;
+        }
+        else
+        {
+            p_statement->unlabeled_statement = unlabeled_statement(ctx);
+            if (p_statement->unlabeled_statement == NULL)
+                throw;
+        }
+    }
+    catch
+    {
+        statement_delete(p_statement);
+        p_statement = NULL;
+    }
     return p_statement;
 }
 
@@ -5812,29 +5826,50 @@ struct primary_block* owner primary_block(struct parser_ctx* ctx)
 {
     assert(ctx->current != NULL);
     struct primary_block* owner p_primary_block = calloc(1, sizeof(struct primary_block));
-    if (first_of_compound_statement(ctx))
+    try
     {
-        p_primary_block->compound_statement = compound_statement(ctx);
+        if (p_primary_block == NULL)
+            throw;
+
+        if (first_of_compound_statement(ctx))
+        {
+            p_primary_block->compound_statement = compound_statement(ctx);
+            if (p_primary_block->compound_statement == NULL)
+                throw;
+        }
+        else if (first_of_selection_statement(ctx))
+        {
+            p_primary_block->selection_statement = selection_statement(ctx);
+            if (p_primary_block->selection_statement == NULL)
+                throw;
+        }
+        else if (first_of_iteration_statement(ctx))
+        {
+            p_primary_block->iteration_statement = iteration_statement(ctx);
+            if (p_primary_block->iteration_statement == NULL)
+                throw;
+        }
+        else if (ctx->current->type == TK_KEYWORD_DEFER)
+        {
+            p_primary_block->defer_statement = defer_statement(ctx);
+            if (p_primary_block->defer_statement == NULL)
+                throw;
+        }
+        else if (ctx->current->type == TK_KEYWORD_TRY)
+        {
+            p_primary_block->try_statement = try_statement(ctx);
+            if (p_primary_block->try_statement == NULL)
+                throw;
+        }
+        else
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
+        }
     }
-    else if (first_of_selection_statement(ctx))
+    catch
     {
-        p_primary_block->selection_statement = selection_statement(ctx);
-    }
-    else if (first_of_iteration_statement(ctx))
-    {
-        p_primary_block->iteration_statement = iteration_statement(ctx);
-    }
-    else if (ctx->current->type == TK_KEYWORD_DEFER)
-    {
-        p_primary_block->defer_statement = defer_statement(ctx);
-    }
-    else if (ctx->current->type == TK_KEYWORD_TRY)
-    {
-        p_primary_block->try_statement = try_statement(ctx);
-    }
-    else
-    {
-        compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
+        primary_block_delete(p_primary_block);
+        p_primary_block = NULL;
     }
     return p_primary_block;
 }
@@ -5844,14 +5879,26 @@ struct secondary_block* owner secondary_block(struct parser_ctx* ctx)
     check_open_brace_style(ctx, ctx->current);
 
     struct secondary_block* owner p_secondary_block = calloc(1, sizeof(struct secondary_block));
-    p_secondary_block->first_token = ctx->current;
+    try
+    {
+        if (p_secondary_block == NULL)
+            throw;
 
-    p_secondary_block->statement = statement(ctx);
+        p_secondary_block->first_token = ctx->current;
 
-    p_secondary_block->last_token = ctx->previous;
+        p_secondary_block->statement = statement(ctx);
+        if (p_secondary_block->statement == NULL)
+            throw;
 
-    check_close_brace_style(ctx, p_secondary_block->last_token);
+        p_secondary_block->last_token = ctx->previous;
 
+        check_close_brace_style(ctx, p_secondary_block->last_token);
+    }
+    catch
+    {
+        secondary_block_delete(p_secondary_block);
+        p_secondary_block = NULL;
+    }
     return p_secondary_block;
 }
 
@@ -6563,6 +6610,8 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         //}
 
         p_selection_statement->secondary_block = secondary_block(ctx);
+        if (p_selection_statement->secondary_block == NULL)
+            throw;
 
         if (is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE)
         {
@@ -6668,6 +6717,7 @@ struct iteration_statement* owner iteration_statement(struct parser_ctx* ctx)
                     p_iteration_statement->expression1 = expression(ctx);
                     if (p_iteration_statement->expression1 == NULL)
                     {
+                        scope_list_pop(&ctx->scopes);
                         scope_destroy(&for_scope);
                         throw;
                     }
@@ -7525,7 +7575,7 @@ int compile_one_file(const char* file_name,
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }
     }
-    
+
     token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
     parser_ctx_destroy(&ctx);

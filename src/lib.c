@@ -9621,6 +9621,7 @@ static const char* file_string_h =
 "void* memmove(void* _Dst, void const* _Src, size_t _Size);\n"
 "void* memset(void* _Dst, int _Val, size_t _Size);\n"
 "char* strchr(char const* _Str, int _Val);\n"
+"char *strcpy(_Out char *restrict dest, const char *restrict src );\n"
 "char* strrchr(char const* _Str, int _Ch);\n"
 "char* strstr(char const* _Str, char const* _SubStr);\n"
 "wchar_t* wcschr(wchar_t const* _Str, wchar_t _Ch);\n"
@@ -11039,6 +11040,8 @@ struct generic_association
     struct generic_association* owner next;
 };
 
+void generic_association_delete(struct generic_association* owner opt p);
+
 struct generic_assoc_list
 {
     struct generic_association* owner opt head;
@@ -11144,6 +11147,7 @@ struct expression
     
     //used to simulate boolean expression results
     int value_emulation;
+    bool emulation_used;
 };
 
 //built-in semantics
@@ -13483,6 +13487,8 @@ struct generic_association* owner opt generic_association(struct parser_ctx* ctx
     }
     catch
     {
+        generic_association_delete(p_generic_association);
+        p_generic_association = NULL;
     }
 
     return p_generic_association;
@@ -14872,6 +14878,8 @@ struct expression* owner postfix_expression_type_name(struct parser_ctx* ctx, st
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     type_name_delete(p_type_name);
     return p_expression_node;
@@ -14952,6 +14960,8 @@ struct expression* owner postfix_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     return p_expression_node;
 }
@@ -15555,6 +15565,8 @@ struct expression* owner cast_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     if (p_expression_node && ctx->current)
     {
@@ -15684,6 +15696,8 @@ struct expression* owner multiplicative_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     return p_expression_node;
 }
@@ -15895,6 +15909,8 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -15963,6 +15979,8 @@ struct expression* owner shift_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -16045,6 +16063,8 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -16171,6 +16191,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     expression_delete(new_expression);
@@ -16229,6 +16251,8 @@ struct expression* owner and_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     expression_delete(new_expression);
@@ -16288,6 +16312,8 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     expression_delete(new_expression);
@@ -16346,6 +16372,8 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -16404,6 +16432,8 @@ struct expression* owner logical_and_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -16469,6 +16499,8 @@ struct expression* owner logical_or_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -16587,6 +16619,8 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     return p_expression_node;
@@ -16714,6 +16748,8 @@ struct expression* owner expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
     return p_expression_node;
 }
@@ -16924,6 +16960,8 @@ struct expression* owner conditional_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
     }
 
     type_destroy(&left_type);
@@ -21044,7 +21082,7 @@ bool object_is_expansible(const struct object* p_object)
 
 void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct object* p_object)
 {
-    assert(type_is_pointer(p_type));
+    assert(type_is_pointer_or_array(p_type));
 
     if (object_is_expansible(p_object))
     {
@@ -22081,7 +22119,7 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
     {
         if (object->object_state_stack.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state |= object->state;            
+            object->object_state_stack.data[i].state |= object->state;
             objects_view_merge(&object->object_state_stack.data[i].ref, &object->ref);
             break;
         }
@@ -22565,7 +22603,9 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
             p_object->state == (OBJECT_STATE_NULL | OBJECT_STATE_MOVED) ||
             p_object->state == OBJECT_STATE_NULL ||
             p_object->state == OBJECT_STATE_MOVED ||
-            p_object->state == OBJECT_STATE_UNINITIALIZED
+            p_object->state == OBJECT_STATE_UNINITIALIZED ||
+            p_object->state == (OBJECT_STATE_UNINITIALIZED | OBJECT_STATE_NULL) ||
+            p_object->state == (OBJECT_STATE_UNINITIALIZED | OBJECT_STATE_MOVED)
             )
         {
         }
@@ -23589,9 +23629,11 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
                             else
                                 snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
+                            bool member_is_view = type_is_view(&p_member_declarator->declarator->type);
+
                             end_of_storage_visit_core(ctx,
                                 &p_member_declarator->declarator->type,
-                                b_type_is_view,
+                                b_type_is_view || member_is_view,
                                 p_object->members.data[member_index],
                                 position_token,
                                 buffer,
@@ -23739,10 +23781,10 @@ static void flow_assignment_core(
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
 #ifdef _DEBUG
-     while (error_position->line == 7)
-     {
-         break;
-     }
+    while (error_position->line == 14)
+    {
+        break;
+    }
 #endif
     // printf("line  %d\n", error_position->line);
      //type_print(p_a_type);
@@ -24229,16 +24271,57 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
     }
     else if (p_expression->expression_type == POSTFIX_ARRAY)
     {
-        //array elements are being considered as one
-        //a[index] is the same of a
+        //All arrays items point to the same object.
+        struct object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
+        if (p_obj)
+        {
+            if (p_obj->ref.size == 0)
+            {
+                expand_pointer_object(ctx, &p_expression->left->type, p_obj);
+            }
 
-        return expression_get_object(ctx, p_expression->left, nullable_enabled);
+            if (p_obj->ref.size == 1)
+            {
+                struct object* pointed = p_obj->ref.data[0];
+                return pointed;                
+            }
+            else
+            {
+                struct object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+                object_set_nothing(&p_expression->type, p_object);
+                for (int i = 0; i < p_obj->ref.size; i++)
+                {
+                    struct object* pointed = p_obj->ref.data[i];
+                    if (pointed != NULL)
+                    {
+                        if (p_expression->member_index < pointed->members.size)
+                        {
+                            p_object->state |=
+                                pointed->members.data[p_expression->member_index]->state;
+                            objects_view_merge(&p_object->ref, &pointed->members.data[p_expression->member_index]->ref);
+                            //return pointed->members.data[p_expression->member_index];
+                        }
+                        else
+                        {
+                            //return NULL;
+                        }
+                    }
+                }
+                return p_object;
+            }
+        }
+        return NULL;        
     }
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
         struct object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
         if (p_obj)
         {
+            if (p_obj->ref.size == 0)
+            {
+                expand_pointer_object(ctx, &p_expression->left->type, p_obj);
+            }
+
             if (p_obj->ref.size == 1)
             {
                 struct object* pointed = p_obj->ref.data[0];
@@ -24284,6 +24367,11 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
         struct object* p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
         if (p_obj)
         {
+            if (p_obj->ref.size == 0)
+            {
+                expand_pointer_object(ctx, &p_expression->right->type, p_obj);
+            }
+
             if (p_obj->ref.size == 1)
             {
                 struct object* pointed = p_obj->ref.data[0];
@@ -29841,7 +29929,7 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings |= w;
             ctx->options.null_checks_enabled = true;
             ctx->options.flow_analysis = true; //also enable flow analysis
-            
+
             ctx->options.ownership_enabled = true;
         }
         if (p_pragma_token && strcmp(p_pragma_token->lexeme, "disable") == 0)
@@ -30308,15 +30396,29 @@ void statement_delete(struct statement* owner opt p)
 struct statement* owner statement(struct parser_ctx* ctx)
 {
     struct statement* owner p_statement = calloc(1, sizeof(struct statement));
-    if (first_of_labeled_statement(ctx))
+    try
     {
-        p_statement->labeled_statement = labeled_statement(ctx);
-    }
-    else
-    {
-        p_statement->unlabeled_statement = unlabeled_statement(ctx);
-    }
+        if (p_statement == NULL)
+            throw;
 
+        if (first_of_labeled_statement(ctx))
+        {
+            p_statement->labeled_statement = labeled_statement(ctx);
+            if (p_statement->labeled_statement == NULL)
+                throw;
+        }
+        else
+        {
+            p_statement->unlabeled_statement = unlabeled_statement(ctx);
+            if (p_statement->unlabeled_statement == NULL)
+                throw;
+        }
+    }
+    catch
+    {
+        statement_delete(p_statement);
+        p_statement = NULL;
+    }
     return p_statement;
 }
 
@@ -30324,29 +30426,50 @@ struct primary_block* owner primary_block(struct parser_ctx* ctx)
 {
     assert(ctx->current != NULL);
     struct primary_block* owner p_primary_block = calloc(1, sizeof(struct primary_block));
-    if (first_of_compound_statement(ctx))
+    try
     {
-        p_primary_block->compound_statement = compound_statement(ctx);
+        if (p_primary_block == NULL)
+            throw;
+
+        if (first_of_compound_statement(ctx))
+        {
+            p_primary_block->compound_statement = compound_statement(ctx);
+            if (p_primary_block->compound_statement == NULL)
+                throw;
+        }
+        else if (first_of_selection_statement(ctx))
+        {
+            p_primary_block->selection_statement = selection_statement(ctx);
+            if (p_primary_block->selection_statement == NULL)
+                throw;
+        }
+        else if (first_of_iteration_statement(ctx))
+        {
+            p_primary_block->iteration_statement = iteration_statement(ctx);
+            if (p_primary_block->iteration_statement == NULL)
+                throw;
+        }
+        else if (ctx->current->type == TK_KEYWORD_DEFER)
+        {
+            p_primary_block->defer_statement = defer_statement(ctx);
+            if (p_primary_block->defer_statement == NULL)
+                throw;
+        }
+        else if (ctx->current->type == TK_KEYWORD_TRY)
+        {
+            p_primary_block->try_statement = try_statement(ctx);
+            if (p_primary_block->try_statement == NULL)
+                throw;
+        }
+        else
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
+        }
     }
-    else if (first_of_selection_statement(ctx))
+    catch
     {
-        p_primary_block->selection_statement = selection_statement(ctx);
-    }
-    else if (first_of_iteration_statement(ctx))
-    {
-        p_primary_block->iteration_statement = iteration_statement(ctx);
-    }
-    else if (ctx->current->type == TK_KEYWORD_DEFER)
-    {
-        p_primary_block->defer_statement = defer_statement(ctx);
-    }
-    else if (ctx->current->type == TK_KEYWORD_TRY)
-    {
-        p_primary_block->try_statement = try_statement(ctx);
-    }
-    else
-    {
-        compiler_diagnostic_message(C_ERROR_UNEXPECTED_TOKEN, ctx, ctx->current, "unexpected token");
+        primary_block_delete(p_primary_block);
+        p_primary_block = NULL;
     }
     return p_primary_block;
 }
@@ -30356,14 +30479,26 @@ struct secondary_block* owner secondary_block(struct parser_ctx* ctx)
     check_open_brace_style(ctx, ctx->current);
 
     struct secondary_block* owner p_secondary_block = calloc(1, sizeof(struct secondary_block));
-    p_secondary_block->first_token = ctx->current;
+    try
+    {
+        if (p_secondary_block == NULL)
+            throw;
 
-    p_secondary_block->statement = statement(ctx);
+        p_secondary_block->first_token = ctx->current;
 
-    p_secondary_block->last_token = ctx->previous;
+        p_secondary_block->statement = statement(ctx);
+        if (p_secondary_block->statement == NULL)
+            throw;
 
-    check_close_brace_style(ctx, p_secondary_block->last_token);
+        p_secondary_block->last_token = ctx->previous;
 
+        check_close_brace_style(ctx, p_secondary_block->last_token);
+    }
+    catch
+    {
+        secondary_block_delete(p_secondary_block);
+        p_secondary_block = NULL;
+    }
     return p_secondary_block;
 }
 
@@ -31075,6 +31210,8 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         //}
 
         p_selection_statement->secondary_block = secondary_block(ctx);
+        if (p_selection_statement->secondary_block == NULL)
+            throw;
 
         if (is_if && ctx->current && ctx->current->type == TK_KEYWORD_ELSE)
         {
@@ -31180,6 +31317,7 @@ struct iteration_statement* owner iteration_statement(struct parser_ctx* ctx)
                     p_iteration_statement->expression1 = expression(ctx);
                     if (p_iteration_statement->expression1 == NULL)
                     {
+                        scope_list_pop(&ctx->scopes);
                         scope_destroy(&for_scope);
                         throw;
                     }
@@ -32037,7 +32175,7 @@ int compile_one_file(const char* file_name,
             printf(LIGHTGREEN "TEST OK\n" RESET);
         }
     }
-    
+
     token_list_destroy(&tokens);
     visit_ctx_destroy(&visit_ctx);
     parser_ctx_destroy(&ctx);
@@ -35407,6 +35545,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                 if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE)
                     )
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
                     if (is_pointer)
                         p_object->state |= (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
                     else
@@ -35414,6 +35553,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                 }
                 else if (flag & BOOLEAN_FLAG_FALSE)
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
                     if (is_pointer)
                     {
                         p_object->state = p_object->state & ~OBJECT_STATE_NOT_NULL;
@@ -35427,6 +35567,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                 }
                 else if (flag & BOOLEAN_FLAG_TRUE)
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
                     if (is_pointer)
                     {
                         p_object->state = p_object->state & ~OBJECT_STATE_NULL;
@@ -35434,7 +35575,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                         {
                         }
                         else
-                          p_object->state |= OBJECT_STATE_NOT_NULL;
+                            p_object->state |= OBJECT_STATE_NOT_NULL;
                     }
                     else
                     {
@@ -35469,6 +35610,8 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
 
                 if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE))
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
+
                     if (is_pointer)
                         p_object->state |= (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
                     else
@@ -35476,6 +35619,8 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                 }
                 else if (flag & BOOLEAN_FLAG_FALSE)
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
+
                     if (is_pointer)
                     {
 
@@ -35495,6 +35640,8 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                 }
                 else if (flag & BOOLEAN_FLAG_TRUE)
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
+
                     if (is_pointer)
                     {
                         //se era moved nao faz nada!
@@ -35502,8 +35649,8 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                         {
                         }
                         else
-                        {
-                            p_object->state = p_object->state & ~OBJECT_STATE_NULL;
+                        {                            
+                            p_object->state &= ~OBJECT_STATE_NULL;
                             p_object->state |= OBJECT_STATE_NOT_NULL;
                         }
                     }
@@ -35601,6 +35748,7 @@ static void flow_visit_expression_to_collect_objects(struct expression* expressi
     case PRIMARY_EXPRESSION_NUMBER:
         break;
     case PRIMARY_EXPRESSION_PARENTESIS:
+        flow_visit_expression_to_collect_objects(expression->right, a);
         break;
 
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
@@ -35659,7 +35807,8 @@ static void flow_visit_expression_to_collect_objects(struct expression* expressi
     case UNARY_EXPRESSION_PLUS:
     case UNARY_EXPRESSION_CONTENT:
     case UNARY_EXPRESSION_ADDRESSOF:
-        flow_visit_expression_to_collect_objects(expression->left, a);
+        assert(expression->right);
+        flow_visit_expression_to_collect_objects(expression->right, a);
         break;
 
 
@@ -35686,7 +35835,18 @@ static void flow_visit_expression_to_collect_objects(struct expression* expressi
 
     case LOGICAL_AND_EXPRESSION:
     case LOGICAL_OR_EXPRESSION:
+        flow_visit_expression_to_collect_objects(expression->left, a);
+        flow_visit_expression_to_collect_objects(expression->right, a);
+        break;
+
+
     case ASSIGNMENT_EXPRESSION:
+        /*
+           if ((p = f()) == nullptr) {...}
+        */
+        flow_visit_expression_to_collect_objects(expression->left, a);
+        break;
+
     case EQUALITY_EXPRESSION_EQUAL:
         flow_visit_expression_to_collect_objects(expression->left, a);
         flow_visit_expression_to_collect_objects(expression->right, a);
@@ -35700,8 +35860,13 @@ static void flow_visit_expression_to_collect_objects(struct expression* expressi
 
 static int flow_run_simulated_evaluation(struct expression* expression, int* error)
 {
+    if (expression == NULL)
+    {
+        return 0; //errro
+    }
     if (constant_value_is_valid(&expression->constant_value))
     {
+        expression->emulation_used = true;
         return constant_value_to_bool(&expression->constant_value);
     }
 
@@ -35711,6 +35876,7 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
     case PRIMARY_EXPRESSION_ENUMERATOR:break;
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
+        expression->emulation_used = true;
         return expression->value_emulation;
     }
     case PRIMARY_EXPRESSION_STRING_LITERAL: return true;
@@ -35728,6 +35894,7 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
         return constant_value_to_bool(&expression->constant_value);
         break;
     case PRIMARY_EXPRESSION_PARENTESIS:
+        return flow_run_simulated_evaluation(expression->right, error);
         break;
 
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
@@ -35738,6 +35905,7 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
     case POSTFIX_FUNCTION_CALL:
 
         // if (f() && p) { }
+        expression->emulation_used = true;
         return expression->value_emulation;
 
         //break;// ( ) :break;
@@ -35747,6 +35915,7 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
     case POSTFIX_ARROW:
         //arrow expressions are emulated all in one
         //a->b->c->d becomes one result
+        expression->emulation_used = true;
         return expression->value_emulation;
 
     case POSTFIX_INCREMENT:
@@ -35756,7 +35925,9 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
 
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
+        return 1;
         break;
+
     case UNARY_EXPRESSION_SIZEOF_TYPE:
         break;
 
@@ -35785,9 +35956,8 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
     case UNARY_EXPRESSION_ADDRESSOF:
         return true;
 
-
     case CAST_EXPRESSION:
-        break;
+        return flow_run_simulated_evaluation(expression->right, error);
 
     case MULTIPLICATIVE_EXPRESSION_MULT:
         return
@@ -35868,17 +36038,25 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
             flow_run_simulated_evaluation(expression->left, error) ||
             flow_run_simulated_evaluation(expression->right, error);
 
-
-
     case LOGICAL_AND_EXPRESSION:
         return
             flow_run_simulated_evaluation(expression->left, error) &&
             flow_run_simulated_evaluation(expression->right, error);
 
-    case LOGICAL_OR_EXPRESSION:break;
-    case ASSIGNMENT_EXPRESSION:break;
+    case LOGICAL_OR_EXPRESSION:
+        return
+            flow_run_simulated_evaluation(expression->left, error) ||
+            flow_run_simulated_evaluation(expression->right, error);
 
-    case CONDITIONAL_EXPRESSION:break;
+    case ASSIGNMENT_EXPRESSION:
+        return flow_run_simulated_evaluation(expression->left, error);
+
+    case CONDITIONAL_EXPRESSION:
+        return flow_run_simulated_evaluation(expression->condition_expr, error) ?
+            flow_run_simulated_evaluation(expression->left, error)
+            :
+            flow_run_simulated_evaluation(expression->right, error);
+        break;
 
     }
     *error = 1;
@@ -35891,6 +36069,11 @@ static int flow_simulated_evaluation(int k, struct expression* expression, struc
 
     if (k == a->n)
     {
+        for (int i = 0; i < a->n; i++)
+        {
+            a->data[i].p_expression->emulation_used = false;
+        }
+
         //we have a combination, now we check the evaluation with these variables
         bool r = flow_run_simulated_evaluation(expression, error);
         if (*error != 0)
@@ -35898,15 +36081,19 @@ static int flow_simulated_evaluation(int k, struct expression* expression, struc
 
         for (int i = 0; i < a->n; i++)
         {
-            if (r)
+            if (a->data[i].p_expression->emulation_used)
             {
-                a->data[i].true_branch_state |=
-                    (a->data[i].p_expression->value_emulation ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE);
-            }
-            else
-            {
-                a->data[i].false_branch_state |=
-                    (a->data[i].p_expression->value_emulation ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE);
+                // Expression not used, then ignore 
+                // Sample expr1 is true, then expr2 is not evaluated ( expr1 || expr2)
+                bool variable_is_true = a->data[i].p_expression->value_emulation;
+                if (r)
+                {
+                    a->data[i].true_branch_state |= variable_is_true ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE;
+                }
+                else
+                {
+                    a->data[i].false_branch_state |= variable_is_true ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE;
+                }
             }
         }
 
@@ -37274,26 +37461,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             p_expression->left->first_token, "object lifetime ended");
                 }
             }
-
-            if (p_object->state != OBJECT_STATE_NULL &&
-                p_object->state != OBJECT_STATE_UNINITIALIZED &&
-                p_object->ref.size == 0)
-            {
-                struct type t2 = type_remove_pointer(&p_expression->left->type);
-                if (!type_is_void(&t2))
-                {
-                    struct object* p_object2 = make_object(ctx, &t2, NULL, p_expression->left);
-                    const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
-
-                    object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
-                    object_set_pointer(p_object, p_object2);////obj.pointed2 = p_object;
-                    object_push_states_from(p_object, p_object2);
-
-                }
-                type_destroy(&t2);
-            }
-
-
         }
 
         //object_destroy(&temp_obj);
@@ -37468,25 +37635,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     p_expression->right->first_token, "dereference a NULL object");
             }
         }
-        //object_destroy(&temp_obj3);
 
-        if (p_object0 &&
-            p_object0->state != OBJECT_STATE_NULL &&
-                p_object0->state != OBJECT_STATE_UNINITIALIZED &&
-                p_object0->ref.size == 0)
-        {
-            struct type t2 = type_remove_pointer(&p_expression->right->type);
-            if (!type_is_void(&t2))
-            {
-                struct object* p_object2 = make_object(ctx, &t2, NULL, p_expression->right);
-                const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
-                object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
-                object_set_pointer(p_object0, p_object2);////obj.pointed2 = p_object;
-                object_push_states_from(p_object0, p_object2);
-
-            }
-            type_destroy(&t2);
-        }
 
         if (p_expression->right)
         {
@@ -38439,7 +38588,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-}
+            }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {

@@ -69,7 +69,7 @@ bool object_is_expansible(const struct object* p_object)
 
 void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct object* p_object)
 {
-    assert(type_is_pointer(p_type));
+    assert(type_is_pointer_or_array(p_type));
 
     if (object_is_expansible(p_object))
     {
@@ -1106,7 +1106,7 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
     {
         if (object->object_state_stack.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state |= object->state;            
+            object->object_state_stack.data[i].state |= object->state;
             objects_view_merge(&object->object_state_stack.data[i].ref, &object->ref);
             break;
         }
@@ -1590,7 +1590,9 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
             p_object->state == (OBJECT_STATE_NULL | OBJECT_STATE_MOVED) ||
             p_object->state == OBJECT_STATE_NULL ||
             p_object->state == OBJECT_STATE_MOVED ||
-            p_object->state == OBJECT_STATE_UNINITIALIZED
+            p_object->state == OBJECT_STATE_UNINITIALIZED ||
+            p_object->state == (OBJECT_STATE_UNINITIALIZED | OBJECT_STATE_NULL) ||
+            p_object->state == (OBJECT_STATE_UNINITIALIZED | OBJECT_STATE_MOVED)
             )
         {
         }
@@ -2614,9 +2616,11 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
                             else
                                 snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
+                            bool member_is_view = type_is_view(&p_member_declarator->declarator->type);
+
                             end_of_storage_visit_core(ctx,
                                 &p_member_declarator->declarator->type,
-                                b_type_is_view,
+                                b_type_is_view || member_is_view,
                                 p_object->members.data[member_index],
                                 position_token,
                                 buffer,
@@ -2764,10 +2768,10 @@ static void flow_assignment_core(
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
 #ifdef _DEBUG
-     while (error_position->line == 7)
-     {
-         break;
-     }
+    while (error_position->line == 14)
+    {
+        break;
+    }
 #endif
     // printf("line  %d\n", error_position->line);
      //type_print(p_a_type);
@@ -3254,16 +3258,57 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
     }
     else if (p_expression->expression_type == POSTFIX_ARRAY)
     {
-        //array elements are being considered as one
-        //a[index] is the same of a
+        //All arrays items point to the same object.
+        struct object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
+        if (p_obj)
+        {
+            if (p_obj->ref.size == 0)
+            {
+                expand_pointer_object(ctx, &p_expression->left->type, p_obj);
+            }
 
-        return expression_get_object(ctx, p_expression->left, nullable_enabled);
+            if (p_obj->ref.size == 1)
+            {
+                struct object* pointed = p_obj->ref.data[0];
+                return pointed;                
+            }
+            else
+            {
+                struct object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+                object_set_nothing(&p_expression->type, p_object);
+                for (int i = 0; i < p_obj->ref.size; i++)
+                {
+                    struct object* pointed = p_obj->ref.data[i];
+                    if (pointed != NULL)
+                    {
+                        if (p_expression->member_index < pointed->members.size)
+                        {
+                            p_object->state |=
+                                pointed->members.data[p_expression->member_index]->state;
+                            objects_view_merge(&p_object->ref, &pointed->members.data[p_expression->member_index]->ref);
+                            //return pointed->members.data[p_expression->member_index];
+                        }
+                        else
+                        {
+                            //return NULL;
+                        }
+                    }
+                }
+                return p_object;
+            }
+        }
+        return NULL;        
     }
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
         struct object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
         if (p_obj)
         {
+            if (p_obj->ref.size == 0)
+            {
+                expand_pointer_object(ctx, &p_expression->left->type, p_obj);
+            }
+
             if (p_obj->ref.size == 1)
             {
                 struct object* pointed = p_obj->ref.data[0];
@@ -3309,6 +3354,11 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
         struct object* p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
         if (p_obj)
         {
+            if (p_obj->ref.size == 0)
+            {
+                expand_pointer_object(ctx, &p_expression->right->type, p_obj);
+            }
+
             if (p_obj->ref.size == 1)
             {
                 struct object* pointed = p_obj->ref.data[0];

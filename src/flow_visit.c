@@ -123,6 +123,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                 if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE)
                     )
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
                     if (is_pointer)
                         p_object->state |= (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
                     else
@@ -130,6 +131,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                 }
                 else if (flag & BOOLEAN_FLAG_FALSE)
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
                     if (is_pointer)
                     {
                         p_object->state = p_object->state & ~OBJECT_STATE_NOT_NULL;
@@ -143,6 +145,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                 }
                 else if (flag & BOOLEAN_FLAG_TRUE)
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
                     if (is_pointer)
                     {
                         p_object->state = p_object->state & ~OBJECT_STATE_NULL;
@@ -150,7 +153,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
                         {
                         }
                         else
-                          p_object->state |= OBJECT_STATE_NOT_NULL;
+                            p_object->state |= OBJECT_STATE_NOT_NULL;
                     }
                     else
                     {
@@ -185,6 +188,8 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
 
                 if ((flag & BOOLEAN_FLAG_TRUE) && (flag & BOOLEAN_FLAG_FALSE))
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
+
                     if (is_pointer)
                         p_object->state |= (OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL);
                     else
@@ -192,6 +197,8 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                 }
                 else if (flag & BOOLEAN_FLAG_FALSE)
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
+
                     if (is_pointer)
                     {
 
@@ -211,6 +218,8 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                 }
                 else if (flag & BOOLEAN_FLAG_TRUE)
                 {
+                    p_object->state &= ~OBJECT_STATE_UNINITIALIZED;
+
                     if (is_pointer)
                     {
                         //se era moved nao faz nada!
@@ -218,8 +227,8 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                         {
                         }
                         else
-                        {
-                            p_object->state = p_object->state & ~OBJECT_STATE_NULL;
+                        {                            
+                            p_object->state &= ~OBJECT_STATE_NULL;
                             p_object->state |= OBJECT_STATE_NOT_NULL;
                         }
                     }
@@ -317,6 +326,7 @@ static void flow_visit_expression_to_collect_objects(struct expression* expressi
     case PRIMARY_EXPRESSION_NUMBER:
         break;
     case PRIMARY_EXPRESSION_PARENTESIS:
+        flow_visit_expression_to_collect_objects(expression->right, a);
         break;
 
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
@@ -375,7 +385,8 @@ static void flow_visit_expression_to_collect_objects(struct expression* expressi
     case UNARY_EXPRESSION_PLUS:
     case UNARY_EXPRESSION_CONTENT:
     case UNARY_EXPRESSION_ADDRESSOF:
-        flow_visit_expression_to_collect_objects(expression->left, a);
+        assert(expression->right);
+        flow_visit_expression_to_collect_objects(expression->right, a);
         break;
 
 
@@ -402,7 +413,18 @@ static void flow_visit_expression_to_collect_objects(struct expression* expressi
 
     case LOGICAL_AND_EXPRESSION:
     case LOGICAL_OR_EXPRESSION:
+        flow_visit_expression_to_collect_objects(expression->left, a);
+        flow_visit_expression_to_collect_objects(expression->right, a);
+        break;
+
+
     case ASSIGNMENT_EXPRESSION:
+        /*
+           if ((p = f()) == nullptr) {...}
+        */
+        flow_visit_expression_to_collect_objects(expression->left, a);
+        break;
+
     case EQUALITY_EXPRESSION_EQUAL:
         flow_visit_expression_to_collect_objects(expression->left, a);
         flow_visit_expression_to_collect_objects(expression->right, a);
@@ -416,8 +438,13 @@ static void flow_visit_expression_to_collect_objects(struct expression* expressi
 
 static int flow_run_simulated_evaluation(struct expression* expression, int* error)
 {
+    if (expression == NULL)
+    {
+        return 0; //errro
+    }
     if (constant_value_is_valid(&expression->constant_value))
     {
+        expression->emulation_used = true;
         return constant_value_to_bool(&expression->constant_value);
     }
 
@@ -427,6 +454,7 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
     case PRIMARY_EXPRESSION_ENUMERATOR:break;
     case PRIMARY_EXPRESSION_DECLARATOR:
     {
+        expression->emulation_used = true;
         return expression->value_emulation;
     }
     case PRIMARY_EXPRESSION_STRING_LITERAL: return true;
@@ -444,6 +472,7 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
         return constant_value_to_bool(&expression->constant_value);
         break;
     case PRIMARY_EXPRESSION_PARENTESIS:
+        return flow_run_simulated_evaluation(expression->right, error);
         break;
 
     case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
@@ -454,6 +483,7 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
     case POSTFIX_FUNCTION_CALL:
 
         // if (f() && p) { }
+        expression->emulation_used = true;
         return expression->value_emulation;
 
         //break;// ( ) :break;
@@ -463,6 +493,7 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
     case POSTFIX_ARROW:
         //arrow expressions are emulated all in one
         //a->b->c->d becomes one result
+        expression->emulation_used = true;
         return expression->value_emulation;
 
     case POSTFIX_INCREMENT:
@@ -472,7 +503,9 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
 
 
     case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
+        return 1;
         break;
+
     case UNARY_EXPRESSION_SIZEOF_TYPE:
         break;
 
@@ -501,9 +534,8 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
     case UNARY_EXPRESSION_ADDRESSOF:
         return true;
 
-
     case CAST_EXPRESSION:
-        break;
+        return flow_run_simulated_evaluation(expression->right, error);
 
     case MULTIPLICATIVE_EXPRESSION_MULT:
         return
@@ -584,17 +616,25 @@ static int flow_run_simulated_evaluation(struct expression* expression, int* err
             flow_run_simulated_evaluation(expression->left, error) ||
             flow_run_simulated_evaluation(expression->right, error);
 
-
-
     case LOGICAL_AND_EXPRESSION:
         return
             flow_run_simulated_evaluation(expression->left, error) &&
             flow_run_simulated_evaluation(expression->right, error);
 
-    case LOGICAL_OR_EXPRESSION:break;
-    case ASSIGNMENT_EXPRESSION:break;
+    case LOGICAL_OR_EXPRESSION:
+        return
+            flow_run_simulated_evaluation(expression->left, error) ||
+            flow_run_simulated_evaluation(expression->right, error);
 
-    case CONDITIONAL_EXPRESSION:break;
+    case ASSIGNMENT_EXPRESSION:
+        return flow_run_simulated_evaluation(expression->left, error);
+
+    case CONDITIONAL_EXPRESSION:
+        return flow_run_simulated_evaluation(expression->condition_expr, error) ?
+            flow_run_simulated_evaluation(expression->left, error)
+            :
+            flow_run_simulated_evaluation(expression->right, error);
+        break;
 
     }
     *error = 1;
@@ -607,6 +647,11 @@ static int flow_simulated_evaluation(int k, struct expression* expression, struc
 
     if (k == a->n)
     {
+        for (int i = 0; i < a->n; i++)
+        {
+            a->data[i].p_expression->emulation_used = false;
+        }
+
         //we have a combination, now we check the evaluation with these variables
         bool r = flow_run_simulated_evaluation(expression, error);
         if (*error != 0)
@@ -614,15 +659,19 @@ static int flow_simulated_evaluation(int k, struct expression* expression, struc
 
         for (int i = 0; i < a->n; i++)
         {
-            if (r)
+            if (a->data[i].p_expression->emulation_used)
             {
-                a->data[i].true_branch_state |=
-                    (a->data[i].p_expression->value_emulation ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE);
-            }
-            else
-            {
-                a->data[i].false_branch_state |=
-                    (a->data[i].p_expression->value_emulation ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE);
+                // Expression not used, then ignore 
+                // Sample expr1 is true, then expr2 is not evaluated ( expr1 || expr2)
+                bool variable_is_true = a->data[i].p_expression->value_emulation;
+                if (r)
+                {
+                    a->data[i].true_branch_state |= variable_is_true ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE;
+                }
+                else
+                {
+                    a->data[i].false_branch_state |= variable_is_true ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE;
+                }
             }
         }
 
@@ -1990,26 +2039,6 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             p_expression->left->first_token, "object lifetime ended");
                 }
             }
-
-            if (p_object->state != OBJECT_STATE_NULL &&
-                p_object->state != OBJECT_STATE_UNINITIALIZED &&
-                p_object->ref.size == 0)
-            {
-                struct type t2 = type_remove_pointer(&p_expression->left->type);
-                if (!type_is_void(&t2))
-                {
-                    struct object* p_object2 = make_object(ctx, &t2, NULL, p_expression->left);
-                    const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
-
-                    object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
-                    object_set_pointer(p_object, p_object2);////obj.pointed2 = p_object;
-                    object_push_states_from(p_object, p_object2);
-
-                }
-                type_destroy(&t2);
-            }
-
-
         }
 
         //object_destroy(&temp_obj);
@@ -2184,25 +2213,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     p_expression->right->first_token, "dereference a NULL object");
             }
         }
-        //object_destroy(&temp_obj3);
 
-        if (p_object0 &&
-            p_object0->state != OBJECT_STATE_NULL &&
-                p_object0->state != OBJECT_STATE_UNINITIALIZED &&
-                p_object0->ref.size == 0)
-        {
-            struct type t2 = type_remove_pointer(&p_expression->right->type);
-            if (!type_is_void(&t2))
-            {
-                struct object* p_object2 = make_object(ctx, &t2, NULL, p_expression->right);
-                const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
-                object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
-                object_set_pointer(p_object0, p_object2);////obj.pointed2 = p_object;
-                object_push_states_from(p_object0, p_object2);
-
-            }
-            type_destroy(&t2);
-        }
 
         if (p_expression->right)
         {
@@ -3155,7 +3166,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-}
+            }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {

@@ -4,6 +4,8 @@ Cake works as an extension for MSVC on Windows and as an extension for GCC on Li
 
 When applicable, Cake uses the same command line options of MSVC and GCC.
 
+## Static analyzer
+For static analyzer concepts of ownership and nullable pointers visit  [ownership](ownership.html) 
 
 ## Include directories
 

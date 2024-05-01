@@ -638,6 +638,7 @@ static const char* file_string_h =
 "void* memmove(void* _Dst, void const* _Src, size_t _Size);\n"
 "void* memset(void* _Dst, int _Val, size_t _Size);\n"
 "char* strchr(char const* _Str, int _Val);\n"
+"char *strcpy(_Out char *restrict dest, const char *restrict src );\n"
 "char* strrchr(char const* _Str, int _Ch);\n"
 "char* strstr(char const* _Str, char const* _SubStr);\n"
 "wchar_t* wcschr(wchar_t const* _Str, wchar_t _Ch);\n"
