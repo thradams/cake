@@ -32,7 +32,7 @@ const SplitterBar = function (container, leftContent, rightContent, is_vertical)
         splitter.style.background = 'RGB(244,244,244)';
         splitter.style.border = "1px solid #d2d3d4";
 
-        splitter.style.cursor = 'col-resize';
+        splitter.style.cursor = 'ew-resize';//'col-resize';
         
         leftSide.style.position = 'absolute';
         leftSide.style.left = 0;
@@ -58,7 +58,7 @@ const SplitterBar = function (container, leftContent, rightContent, is_vertical)
         splitter.style.zIndex  = 1;
         splitter.style.background = 'RGB(244,244,244)';
         splitter.style.border = "1px solid #d2d3d4";
-        splitter.style.cursor = 'row-resize';
+        splitter.style.cursor = 'ns-resize'; //'row-resize';
 
 
         leftSide.style.top = 0;
