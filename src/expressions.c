@@ -3855,7 +3855,7 @@ void argument_expression_list_push(struct argument_expression_list* list, struct
     }
     else
     {
-        assert(list->tail->next == NULL);
+        assert(list->tail->next == NULL);        
         list->tail->next = pitem;
     }
     list->tail = pitem;

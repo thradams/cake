@@ -451,8 +451,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, &l);
 
 
-        visit_ctx_pop_tail_block(ctx);
-
+        visit_ctx_pop_tail_block(ctx);        
 
         free(p_try_statement->first_token->lexeme);
         p_try_statement->first_token->lexeme = strdup("if (1) /*try*/");
@@ -2521,7 +2520,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     long double d = strtold(current->lexeme, 0);
                     char buffer[50] = { 0 };
                     snprintf(buffer, sizeof buffer, "%Lg", d);
-                    free(current->lexeme);
+                    free(current->lexeme);                    
                     current->lexeme = strdup(buffer);
                 }
             }

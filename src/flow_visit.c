@@ -1,3 +1,5 @@
+
+
 #include "ownership.h"
 
 #include <assert.h>
@@ -48,7 +50,8 @@ static void flow_visit_attribute_specifier_sequence(struct flow_visit_ctx* ctx, 
 
 static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
-static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression);
+struct declarator_array;
+static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct declarator_array* a);
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement);
 static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier);
@@ -77,13 +80,129 @@ struct declarator_array
     // 
     //The number of variables determines the possible number of combinations.
     //10 variables requires 2^10 = 1024 evaluations.
-    struct declarator_array_item data[10];
-    int n;
+    struct declarator_array_item* owner data;
+    int size;
+    int capacity;
 };
+
+void declarator_array_clear(struct declarator_array* p)
+{
+
+    free(p->data);
+    p->data = NULL;
+    p->size = 0;
+    p->capacity = 0;
+}
+
+void declarator_array_destroy(struct declarator_array* obj_owner p)
+{
+    free(p->data);
+}
+
+int declarator_array_reserve(struct declarator_array* p, int n)
+{
+    if (n > p->capacity)
+    {
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
+        {
+            return EOVERFLOW;
+        }
+
+        void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        if (pnew == NULL)
+            return ENOMEM;
+        static_set(p->data, "moved");
+        p->data = pnew;
+        p->capacity = n;
+    }
+    return 0;
+}
+
+int declarator_array_push_back(struct declarator_array* p, const struct declarator_array_item* book)
+{
+    if (p->size == INT_MAX)
+    {
+        return EOVERFLOW;
+    }
+
+    if (p->size + 1 > p->capacity)
+    {
+        int new_capacity = 0;
+        if (p->capacity > (INT_MAX - p->capacity / 2))
+        {
+            /*overflow*/
+            new_capacity = INT_MAX;
+        }
+        else
+        {
+            new_capacity = p->capacity + p->capacity / 2;
+            if (new_capacity < p->size + 1)
+            {
+                new_capacity = p->size + 1;
+            }
+        }
+
+        int error = declarator_array_reserve(p, new_capacity);
+        if (error != 0)
+        {
+            return error;
+        }
+    }
+
+    p->data[p->size] = *book; /*COPIED*/
+
+
+    p->size++;
+
+    return 0;
+}
+
+static void declarator_array_invert(struct declarator_array* true_false_sets)
+{
+    for (int i = 0; i < true_false_sets->size; i++)
+    {
+        enum boolean_flag temp = true_false_sets->data[i].true_branch_state;
+        true_false_sets->data[i].true_branch_state = true_false_sets->data[i].false_branch_state;
+        true_false_sets->data[i].false_branch_state = temp;
+    }
+}
+
+static void declarator_array_swap(struct declarator_array* a, struct declarator_array* b)
+{
+    struct declarator_array temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+static int find_item_index_by_expression(struct declarator_array* a, struct expression* p_expression)
+{
+    for (int i = 0; i < a->size; i++)
+    {
+        if (a->data[i].p_expression->declarator == p_expression->declarator)
+            return i;
+    }
+    return -1;
+}
+
+static bool declarator_array_is_same(struct declarator_array* a, struct declarator_array* b)
+{
+    if (a->size != b->size)
+        return false;
+    for (int i = 0; i < a->size; i++)
+    {
+        if (a->data[i].p_expression != b->data[i].p_expression)
+            return false;
+        if (a->data[i].false_branch_state != b->data[i].false_branch_state)
+            return false;
+        if (a->data[i].true_branch_state != b->data[i].true_branch_state)
+            return false;
+    }
+    return true;
+}
 
 static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* ctx, struct declarator_array* a, bool nullable_enabled)
 {
-    for (int i = 0; i < a->n; i++)
+    for (int i = 0; i < a->size; i++)
     {
         if (a->data[i].p_expression != NULL)
         {
@@ -172,7 +291,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
 
 static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* ctx, struct declarator_array* a, bool nullable_enabled)
 {
-    for (int i = 0; i < a->n; i++)
+    for (int i = 0; i < a->size; i++)
     {
         if (a->data[i].p_expression != NULL)
         {
@@ -227,7 +346,7 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                         {
                         }
                         else
-                        {                            
+                        {
                             p_object->state &= ~OBJECT_STATE_NULL;
                             p_object->state |= OBJECT_STATE_NOT_NULL;
                         }
@@ -247,471 +366,11 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
 }
 
 
-static void flow_visit_expression_to_collect_objects(struct expression* expression, struct declarator_array* a)
-{
-    if (expression == NULL)
-        return;
-    /*
-       The objective of this function is collect expressions that refers to objects
-       The result of these expression will be simulated.
-    */
 
-    if (constant_value_is_valid(&expression->constant_value))
-    {
-        //constant expression don't need to be simulated...they already have a value
-        return;
-    }
+static int push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name);
 
-    switch (expression->expression_type)
-    {
-    case PRIMARY_IDENTIFIER:break;
-    case PRIMARY_EXPRESSION_ENUMERATOR:break;
 
-    case PRIMARY_EXPRESSION_DECLARATOR:
-
-        if (expression->declarator)
-        {
-            // if (is_null(expression->declarator->object.state) ||
-              //   is_zero(expression->declarator->object.state))
-             //{
-                 //during the simulated evaluation ()
-               //  expression->value_emulation = 0;
-             //}
-             //else if (is_not_null(expression->declarator->object.state) ||
-                  //    is_not_zero(expression->declarator->object.state))
-             //{
-               //  expression->value_emulation = 1;
-             //}
-             //else
-            {
-                if (a->n == sizeof(a->data) / sizeof(a->data[0]) - 1)
-                {
-                    return /*error*/;
-                }
-
-                bool found = false;
-                for (int i = 0; i < a->n; i++)
-                {
-                    if (a->data[a->n].p_expression == expression)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    a->data[a->n].p_expression = expression;
-                    a->n++;
-                }
-
-                //we simulate true  and false null only if the object
-                //can be both
-
-            }
-        }
-        break;
-
-
-    case PRIMARY_EXPRESSION_STRING_LITERAL: break;
-    case PRIMARY_EXPRESSION__FUNC__: break;
-
-    case PRIMARY_EXPRESSION_CHAR_LITERAL:
-        break;
-
-    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-        break;
-
-    case PRIMARY_EXPRESSION_GENERIC:
-        break;
-    case PRIMARY_EXPRESSION_NUMBER:
-        break;
-    case PRIMARY_EXPRESSION_PARENTESIS:
-        flow_visit_expression_to_collect_objects(expression->right, a);
-        break;
-
-    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
-        break;
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-        break;
-
-    case POSTFIX_FUNCTION_CALL:
-        break;// ( ) :break;
-
-    case POSTFIX_ARRAY:
-    case POSTFIX_DOT:
-    case POSTFIX_ARROW:
-        //arrow expression are emulated as one object
-        //a->b->c->d
-        if (a->n == sizeof(a->data) / sizeof(a->data[0]) - 1)
-        {
-            return /*error*/;
-        }
-
-        assert(a->n < 10);
-        bool found = false;
-        for (int i = 0; i < a->n; i++)
-        {
-            if (a->data[a->n].p_expression == expression)
-            {
-                found = true;
-                break;
-            }
-        }
-        if (!found)
-        {
-            a->data[a->n].p_expression = expression;
-            a->n++;
-        }
-        break;// .
-
-    case POSTFIX_INCREMENT:
-        break;
-    case POSTFIX_DECREMENT:
-        break;
-
-
-    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-    case UNARY_EXPRESSION_SIZEOF_TYPE:
-    case UNARY_EXPRESSION_TRAITS:
-    case UNARY_EXPRESSION_IS_SAME:
-    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
-    case UNARY_EXPRESSION_ALIGNOF:
-    case UNARY_EXPRESSION_ASSERT:
-    case UNARY_EXPRESSION_INCREMENT:
-    case UNARY_EXPRESSION_DECREMENT:
-    case UNARY_EXPRESSION_NOT:
-    case UNARY_EXPRESSION_BITNOT:
-    case UNARY_EXPRESSION_NEG:
-    case UNARY_EXPRESSION_PLUS:
-    case UNARY_EXPRESSION_CONTENT:
-    case UNARY_EXPRESSION_ADDRESSOF:
-        assert(expression->right);
-        flow_visit_expression_to_collect_objects(expression->right, a);
-        break;
-
-
-    case CAST_EXPRESSION:
-        break;
-
-    case MULTIPLICATIVE_EXPRESSION_MULT:
-    case MULTIPLICATIVE_EXPRESSION_DIV:
-    case MULTIPLICATIVE_EXPRESSION_MOD:break;
-
-    case ADDITIVE_EXPRESSION_PLUS:
-    case ADDITIVE_EXPRESSION_MINUS:
-    case SHIFT_EXPRESSION_RIGHT:
-    case SHIFT_EXPRESSION_LEFT:
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
-    case RELATIONAL_EXPRESSION_LESS_THAN:
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-
-    case EQUALITY_EXPRESSION_NOT_EQUAL:
-    case AND_EXPRESSION:
-    case EXCLUSIVE_OR_EXPRESSION:
-    case INCLUSIVE_OR_EXPRESSION:
-
-    case LOGICAL_AND_EXPRESSION:
-    case LOGICAL_OR_EXPRESSION:
-        flow_visit_expression_to_collect_objects(expression->left, a);
-        flow_visit_expression_to_collect_objects(expression->right, a);
-        break;
-
-
-    case ASSIGNMENT_EXPRESSION:
-        /*
-           if ((p = f()) == nullptr) {...}
-        */
-        flow_visit_expression_to_collect_objects(expression->left, a);
-        break;
-
-    case EQUALITY_EXPRESSION_EQUAL:
-        flow_visit_expression_to_collect_objects(expression->left, a);
-        flow_visit_expression_to_collect_objects(expression->right, a);
-        break;
-
-    case CONDITIONAL_EXPRESSION:break;
-
-    }
-    //assert(false);
-}
-
-static int flow_run_simulated_evaluation(struct expression* expression, int* error)
-{
-    if (expression == NULL)
-    {
-        return 0; //errro
-    }
-    if (constant_value_is_valid(&expression->constant_value))
-    {
-        expression->emulation_used = true;
-        return constant_value_to_bool(&expression->constant_value);
-    }
-
-    switch (expression->expression_type)
-    {
-    case PRIMARY_IDENTIFIER:break;
-    case PRIMARY_EXPRESSION_ENUMERATOR:break;
-    case PRIMARY_EXPRESSION_DECLARATOR:
-    {
-        expression->emulation_used = true;
-        return expression->value_emulation;
-    }
-    case PRIMARY_EXPRESSION_STRING_LITERAL: return true;
-    case PRIMARY_EXPRESSION__FUNC__: return true;
-
-    case PRIMARY_EXPRESSION_CHAR_LITERAL:
-        return constant_value_to_bool(&expression->constant_value);
-
-    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-        return constant_value_to_bool(&expression->constant_value);
-
-    case PRIMARY_EXPRESSION_GENERIC:
-        break;
-    case PRIMARY_EXPRESSION_NUMBER:
-        return constant_value_to_bool(&expression->constant_value);
-        break;
-    case PRIMARY_EXPRESSION_PARENTESIS:
-        return flow_run_simulated_evaluation(expression->right, error);
-        break;
-
-    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
-        break;
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-        break;
-
-    case POSTFIX_FUNCTION_CALL:
-
-        // if (f() && p) { }
-        expression->emulation_used = true;
-        return expression->value_emulation;
-
-        //break;// ( ) :break;
-    case POSTFIX_ARRAY:
-        break;// [ ]:break;
-    case POSTFIX_DOT:
-    case POSTFIX_ARROW:
-        //arrow expressions are emulated all in one
-        //a->b->c->d becomes one result
-        expression->emulation_used = true;
-        return expression->value_emulation;
-
-    case POSTFIX_INCREMENT:
-        break;
-    case POSTFIX_DECREMENT:
-        break;
-
-
-    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-        return 1;
-        break;
-
-    case UNARY_EXPRESSION_SIZEOF_TYPE:
-        break;
-
-    case UNARY_EXPRESSION_TRAITS:
-        break;
-    case UNARY_EXPRESSION_IS_SAME:
-        break;
-    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
-        break;
-    case UNARY_EXPRESSION_ALIGNOF:break;
-    case UNARY_EXPRESSION_ASSERT:break;
-
-    case UNARY_EXPRESSION_INCREMENT:break;
-    case UNARY_EXPRESSION_DECREMENT:break;
-
-    case UNARY_EXPRESSION_NOT:
-        return !flow_run_simulated_evaluation(expression->right, error);
-
-
-    case UNARY_EXPRESSION_BITNOT:break;
-    case UNARY_EXPRESSION_NEG:break;
-    case UNARY_EXPRESSION_PLUS:break;
-    case UNARY_EXPRESSION_CONTENT:
-        break;
-
-    case UNARY_EXPRESSION_ADDRESSOF:
-        return true;
-
-    case CAST_EXPRESSION:
-        return flow_run_simulated_evaluation(expression->right, error);
-
-    case MULTIPLICATIVE_EXPRESSION_MULT:
-        return
-            flow_run_simulated_evaluation(expression->left, error) *
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case MULTIPLICATIVE_EXPRESSION_DIV:
-        return
-            flow_run_simulated_evaluation(expression->left, error) /
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case MULTIPLICATIVE_EXPRESSION_MOD:break;
-
-    case ADDITIVE_EXPRESSION_PLUS:
-        return
-            flow_run_simulated_evaluation(expression->left, error) +
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case ADDITIVE_EXPRESSION_MINUS:
-        return
-            flow_run_simulated_evaluation(expression->left, error) -
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case SHIFT_EXPRESSION_RIGHT:
-        return
-            flow_run_simulated_evaluation(expression->left, error) >>
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case SHIFT_EXPRESSION_LEFT:
-        return
-            flow_run_simulated_evaluation(expression->left, error) <<
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
-        return
-            flow_run_simulated_evaluation(expression->left, error) >
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case RELATIONAL_EXPRESSION_LESS_THAN:
-        return
-            flow_run_simulated_evaluation(expression->left, error) <
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-        return
-            flow_run_simulated_evaluation(expression->left, error) >=
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-        return
-            flow_run_simulated_evaluation(expression->left, error) <=
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case EQUALITY_EXPRESSION_EQUAL:
-        return
-            flow_run_simulated_evaluation(expression->left, error) ==
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case EQUALITY_EXPRESSION_NOT_EQUAL:
-        return
-            flow_run_simulated_evaluation(expression->left, error) !=
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case AND_EXPRESSION:
-
-        return
-            flow_run_simulated_evaluation(expression->left, error) &
-            flow_run_simulated_evaluation(expression->right, error);
-
-
-    case EXCLUSIVE_OR_EXPRESSION:
-        return
-            flow_run_simulated_evaluation(expression->left, error) |
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case INCLUSIVE_OR_EXPRESSION:
-        return
-            flow_run_simulated_evaluation(expression->left, error) ||
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case LOGICAL_AND_EXPRESSION:
-        return
-            flow_run_simulated_evaluation(expression->left, error) &&
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case LOGICAL_OR_EXPRESSION:
-        return
-            flow_run_simulated_evaluation(expression->left, error) ||
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case ASSIGNMENT_EXPRESSION:
-        return flow_run_simulated_evaluation(expression->left, error);
-
-    case CONDITIONAL_EXPRESSION:
-        return flow_run_simulated_evaluation(expression->condition_expr, error) ?
-            flow_run_simulated_evaluation(expression->left, error)
-            :
-            flow_run_simulated_evaluation(expression->right, error);
-        break;
-
-    }
-    *error = 1;
-    //assert(false);
-    return true;
-}
-
-static int flow_simulated_evaluation(int k, struct expression* expression, struct declarator_array* a, int* error)
-{
-
-    if (k == a->n)
-    {
-        for (int i = 0; i < a->n; i++)
-        {
-            a->data[i].p_expression->emulation_used = false;
-        }
-
-        //we have a combination, now we check the evaluation with these variables
-        bool r = flow_run_simulated_evaluation(expression, error);
-        if (*error != 0)
-            return *error;
-
-        for (int i = 0; i < a->n; i++)
-        {
-            if (a->data[i].p_expression->emulation_used)
-            {
-                // Expression not used, then ignore 
-                // Sample expr1 is true, then expr2 is not evaluated ( expr1 || expr2)
-                bool variable_is_true = a->data[i].p_expression->value_emulation;
-                if (r)
-                {
-                    a->data[i].true_branch_state |= variable_is_true ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE;
-                }
-                else
-                {
-                    a->data[i].false_branch_state |= variable_is_true ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE;
-                }
-            }
-        }
-
-        return 0;
-    }
-
-    a->data[k].p_expression->value_emulation = 1;
-    flow_simulated_evaluation(k + 1, expression, a, error);
-    if (*error != 0)
-        return *error;
-
-    a->data[k].p_expression->value_emulation = 0;
-    flow_simulated_evaluation(k + 1, expression, a, error);
-    if (*error != 0)
-        return *error;
-
-    return 0;
-}
-
-/*
-   This function computes the possible values for the expression to be true or false.
-   Anwser is stored at declarator_array
-*/
-static int compute_true_false_sets(struct expression* expression, struct declarator_array* a)
-{
-    int error = 0;
-    assert(a->n == 0);
-
-    //We collect expressions that may be null/not-null or zero/not-zero    
-    flow_visit_expression_to_collect_objects(expression, a);
-
-    flow_simulated_evaluation(0, expression, a, &error);
-
-    if (error != 0)
-    {
-        //TODO we can assume worst scenario
-         // Sample f() > 2.0 is not possible to evaluate (f return double)
-    }
-    return error;
-}
+void ctx_remove_state(struct flow_visit_ctx* ctx, int state_number);
 
 struct visit_objects {
     struct flow_defer_scope* current_block;
@@ -1204,10 +863,12 @@ static void ctx_object_restore_current_state_from(struct flow_visit_ctx* ctx, in
     };
 }
 
-static void ctx_remove_state(struct flow_visit_ctx* ctx, int state_number)
+void ctx_remove_state(struct flow_visit_ctx* ctx, int state_number)
 {
-    struct visit_objects v1 = { .current_block = ctx->tail_block,
-                               .next_child = ctx->tail_block->last_child };
+    struct visit_objects v1 = { 0 };
+
+    v1.current_block = ctx->tail_block;
+    v1.next_child = ctx->tail_block->last_child;
 
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
@@ -1224,12 +885,15 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 
 static void braced_initializer_set_object(struct braced_initializer* p, struct type* type, struct object* object)
 {
-    if (p->initializer_list == NULL) {}
+    if (p->initializer_list == NULL)
+    {
+    }
     //TODO currently it is zero
+    
     object_set_zero(type, object);
 }
 
-static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
@@ -1242,7 +906,9 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
     {
         if (p_init_declarator->initializer->assignment_expression)
         {
-            flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression);
+            struct declarator_array a = { 0 };
+            flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression, &a);
+            declarator_array_destroy(&a);
         }
         else
         {
@@ -1360,11 +1026,6 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
 }
 
 
-static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
-{
-    flow_visit_init_declarator_new(ctx, p_init_declarator);
-}
-
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
 
 static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
@@ -1399,10 +1060,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     if (p_selection_statement->condition->expression)
     {
-        flow_check_pointer_used_as_bool(ctx, p_selection_statement->condition->expression);
-
-        flow_visit_expression(ctx, p_selection_statement->condition->expression);
-        compute_true_false_sets(p_selection_statement->condition->expression, &declarator_array);
+        flow_visit_expression(ctx, p_selection_statement->condition->expression, &declarator_array);
     }
 
     if (p_selection_statement->condition->p_init_declarator)
@@ -1517,6 +1175,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     ctx_remove_state(ctx, before_if_state_number);
     ctx_remove_state(ctx, left_true_branch_state_number);
+    declarator_array_destroy(&declarator_array);
 }
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
@@ -1668,7 +1327,9 @@ static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initialize
 
     if (p_initializer->assignment_expression)
     {
-        flow_visit_expression(ctx, p_initializer->assignment_expression);
+        struct declarator_array a = { 0 };
+        flow_visit_expression(ctx, p_initializer->assignment_expression, &a);
+        declarator_array_destroy(&a);
     }
     else if (p_initializer->braced_initializer)
     {
@@ -1754,8 +1415,10 @@ static void flow_visit_argument_expression_list(struct flow_visit_ctx* ctx, stru
         p_argument_expression_list->head;
     while (p_argument_expression)
     {
-        flow_visit_expression(ctx, p_argument_expression->expression);
+        struct declarator_array a = { 0 };
+        flow_visit_expression(ctx, p_argument_expression->expression, &a);
         p_argument_expression = p_argument_expression->next;
+        declarator_array_destroy(&a);
     }
 }
 
@@ -1763,7 +1426,9 @@ static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct gene
 {
     if (p_generic_selection->expression)
     {
-        flow_visit_expression(ctx, p_generic_selection->expression);
+        struct declarator_array a = { 0 };
+        flow_visit_expression(ctx, p_generic_selection->expression, &a);
+        declarator_array_destroy(&a);
     }
     else if (p_generic_selection->type_name)
     {
@@ -1904,7 +1569,7 @@ void object_push_states_from(const struct object* p_object_from, struct object* 
         object_state_stack_push_back(
             &p_object_to->object_state_stack,
             p_object_to->state,
-            &p_object_to->ref,
+            &p_object_to->pointed,
             p_object_from->object_state_stack.data[i].name,
             p_object_from->object_state_stack.data[i].state_number);
     }
@@ -1948,10 +1613,11 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
     }
 }
 
-static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression)
+static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct declarator_array* d)
 {
     if (p_expression == NULL)
         return;
+    declarator_array_clear(d); //out
 
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
@@ -1966,23 +1632,24 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
-
+    {
+        struct declarator_array_item item;
+        item.p_expression = p_expression;
+        item.true_branch_state = BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        declarator_array_push_back(d, &item);
         check_uninitialized(ctx, p_expression);
-        break;
+    }
+    break;
 
     case PRIMARY_EXPRESSION_PARENTESIS:
-        flow_visit_expression(ctx, p_expression->right);
+        flow_visit_expression(ctx, p_expression->right, d);
         break;
 
     case PRIMARY_EXPRESSION_STRING_LITERAL:
-        break;
     case PRIMARY_EXPRESSION_CHAR_LITERAL:
-        break;
     case PRIMARY_EXPRESSION_NUMBER:
-        break;
-
     case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-
         break;
 
     case PRIMARY_EXPRESSION_GENERIC:
@@ -1990,14 +1657,29 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case POSTFIX_DOT:
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
-        break;
+    {
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
+        struct declarator_array right_set = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &right_set);
+
+        declarator_array_destroy(&left_set);
+        declarator_array_destroy(&right_set);
+
+
+        struct declarator_array_item item;
+        item.p_expression = p_expression;
+        item.true_branch_state = BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        declarator_array_push_back(d, &item);
+    }
+    break;
 
     case POSTFIX_ARROW:
-
-        flow_visit_expression(ctx, p_expression->left);
-
+    {
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
+        declarator_array_destroy(&left_set);
 
         struct object* p_object = expression_get_object(ctx, p_expression->left, nullable_enabled);
 
@@ -2041,26 +1723,36 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
         }
 
-        //object_destroy(&temp_obj);
-
-        flow_visit_expression(ctx, p_expression->right);
-        break;
+        struct declarator_array_item item;
+        item.p_expression = p_expression;
+        item.true_branch_state = BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        declarator_array_push_back(d, &item);
+    }
+    break;
 
     case POSTFIX_INCREMENT:
         break;
     case POSTFIX_DECREMENT:
         break;
     case POSTFIX_ARRAY:
+    {
+        flow_visit_expression(ctx, p_expression->left, d);
+        flow_visit_expression(ctx, p_expression->right, d);
+        declarator_array_clear(d);
 
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
+        struct declarator_array_item item;
+        item.p_expression = p_expression;
+        item.true_branch_state = BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        declarator_array_push_back(d, &item);
 
-
-        break;
+    }
+    break;
 
     case POSTFIX_FUNCTION_CALL:
 
-        flow_visit_expression(ctx, p_expression->left);
+        flow_visit_expression(ctx, p_expression->left, d);
 
         flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
         //new function waiting all test to pass to become active
@@ -2101,7 +1793,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
 
         if (p_expression->type_name)
@@ -2115,11 +1807,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
-
-            struct declarator_array declarator_array = { 0 };
-            compute_true_false_sets(p_expression->right, &declarator_array);
-            declarator_array_set_objects_to_true_branch(ctx, &declarator_array, nullable_enabled);
+            struct declarator_array declarator_array4 = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &declarator_array4); //assert(p == 0);
+            declarator_array_set_objects_to_true_branch(ctx, &declarator_array4, nullable_enabled);
+            declarator_array_destroy(&declarator_array4);
         }
 
         break;
@@ -2130,7 +1821,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             const bool t2 = ctx->expression_is_not_evaluated;
             ctx->expression_is_not_evaluated = true;
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
             ctx->expression_is_not_evaluated = t2;
         }
 
@@ -2143,10 +1834,15 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
 
+    case UNARY_EXPRESSION_NOT:
+        flow_visit_expression(ctx, p_expression->right, d);
+        declarator_array_invert(d);
+        break;
+
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
-    case UNARY_EXPRESSION_NOT:
+
     case UNARY_EXPRESSION_BITNOT:
     case UNARY_EXPRESSION_NEG:
     case UNARY_EXPRESSION_PLUS:
@@ -2175,9 +1871,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
             }
 
-
-            flow_visit_expression(ctx, p_expression->right);
-            //object_destroy(&temp_obj2);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
 
         if (p_expression->type_name)
@@ -2187,7 +1881,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         }
     }
     break;
-#if 1
+
     case UNARY_EXPRESSION_CONTENT:
     {
         struct object* p_object0 = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -2217,20 +1911,22 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
     }
     break;
-#endif
-
-
 
 
     case ASSIGNMENT_EXPRESSION:
     {
-        flow_visit_expression(ctx, p_expression->left);
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
+        declarator_array_swap(d, &left_set);
+        declarator_array_destroy(&left_set);
 
-        flow_visit_expression(ctx, p_expression->right);
+        struct declarator_array right_set = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &right_set);
+        declarator_array_destroy(&right_set);
 
         //struct object temp_obj1 = { 0 };
         struct object* const p_right_object = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -2285,65 +1981,232 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case SHIFT_EXPRESSION_LEFT:
     case RELATIONAL_EXPRESSION_BIGGER_THAN:
     case RELATIONAL_EXPRESSION_LESS_THAN:
+    {
+        if (p_expression->left)
+        {
+            struct declarator_array left_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &left_set);
+            declarator_array_destroy(&left_set);
+        }
 
-
+        if (p_expression->right)
+        {
+            struct declarator_array right_set = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &right_set);
+            declarator_array_destroy(&right_set);
+        }
+    }
+    break;
     case EQUALITY_EXPRESSION_EQUAL:
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
+    {
+        const int left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
+            constant_value_to_ull(&p_expression->left->constant_value) :
+            -1;
 
-        break;
+        const int right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
+            constant_value_to_ull(&p_expression->right->constant_value) :
+            -1;
+
+        if (left_value == 0 || left_value == 1)
+        {
+            struct declarator_array true_false_set_right = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
+            //0 == expression            
+            //1 == expression            
+            declarator_array_swap(d, &true_false_set_right);
+            if (left_value == 0)
+            {
+                declarator_array_invert(d);
+            }
+            declarator_array_destroy(&true_false_set_right);
+        }
+
+        else if (right_value == 0 || right_value == 1)
+        {
+            struct declarator_array true_false_set_left3 = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
+
+            //expression == 0
+            //expression == 1
+            declarator_array_swap(d, &true_false_set_left3);
+            if (right_value == 0)
+            {
+                declarator_array_invert(d);
+            }
+            declarator_array_destroy(&true_false_set_left3);
+        }
+        else
+        {
+        }
+    }
+    break;
 
     case EQUALITY_EXPRESSION_NOT_EQUAL:
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
-        break;
+    {
+        const int left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
+            constant_value_to_ull(&p_expression->left->constant_value) :
+            -1;
+        const int right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
+            constant_value_to_ull(&p_expression->right->constant_value) :
+            -1;
+
+        if (left_value == 0 || left_value == 1)
+        {
+            struct declarator_array true_false_set_right = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
+            //0 != expression            
+            //1 != expression            
+            declarator_array_swap(d, &true_false_set_right);
+            if (left_value == 1)
+            {
+                declarator_array_invert(d);
+            }
+            declarator_array_destroy(&true_false_set_right);
+        }
+
+        else if (right_value == 0 || right_value == 1)
+        {
+            struct declarator_array true_false_set_left2 = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set_left2);
+
+            //expression != 0
+            //expression != 1
+            declarator_array_swap(d, &true_false_set_left2);
+            if (right_value == 1)
+            {
+                declarator_array_invert(d);
+            }
+            declarator_array_destroy(&true_false_set_left2);
+        }
+        else
+        {
+
+        }
+    }
+    break;
 
     case LOGICAL_OR_EXPRESSION:
     {
         flow_check_pointer_used_as_bool(ctx, p_expression->left);
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
-        flow_visit_expression(ctx, p_expression->left);
 
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
 
         const int original_state_number = push_copy_of_current_state(ctx, "original");
-        struct declarator_array d = { 0 };
-        compute_true_false_sets(p_expression->left, &d);
+
 
         //Set all variables to false state, because otherwise, the right branch
         // would not be evaluated
-        declarator_array_set_objects_to_false_branch(ctx, &d, nullable_enabled);
-        flow_visit_expression(ctx, p_expression->right);
+        declarator_array_set_objects_to_false_branch(ctx, &left_set, nullable_enabled);
 
-        //Restore previous state "original"
+        struct declarator_array right_set = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &right_set);
         ctx_object_restore_current_state_from(ctx, original_state_number);
 
-        //Pop original state
-        //pop_states(ctx, 1);
+        //Tudo que faz left ser true ou right ser true
+
+        for (int i = 0; i < left_set.size; i++)
+        {
+            struct declarator_array_item item5;
+
+            item5.p_expression = left_set.data[i].p_expression;
+            item5.true_branch_state |= (left_set.data[i].true_branch_state | left_set.data[i].false_branch_state);
+            item5.false_branch_state |= left_set.data[i].false_branch_state;
+            declarator_array_push_back(d, &item5);
+        }
+
+        for (int k = 0; k < right_set.size; k++)
+        {
+            int index =
+                find_item_index_by_expression(d, right_set.data[k].p_expression);
+            if (index == -1)
+            {
+                index = d->size;
+                struct declarator_array_item item4 = { 0 };
+                declarator_array_push_back(d, &item4);
+            }
+
+            //Tudo que faz left true e right true faz expressao se true
+            d->data[index].p_expression = right_set.data[k].p_expression;
+            //d->data[index].true_branch_state |= right_set.data[k].true_branch_state;
+            //Tudo que faz left true ou left false, e right false faz ser false
+            d->data[index].false_branch_state |= right_set.data[k].false_branch_state;
+
+            //No path true seria possivel nao ser feito o right
+            d->data[index].true_branch_state |= (BOOLEAN_FLAG_TRUE | BOOLEAN_FLAG_FALSE);
+
+        }
+
         ctx_remove_state(ctx, original_state_number);
+        declarator_array_destroy(&left_set);
+        declarator_array_destroy(&right_set);
     }
     break;
 
     case LOGICAL_AND_EXPRESSION:
     {
-        flow_check_pointer_used_as_bool(ctx, p_expression->left);
-        flow_check_pointer_used_as_bool(ctx, p_expression->right);
+        //flow_check_pointer_used_as_bool(ctx, p_expression->left);
+        //flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
-        flow_visit_expression(ctx, p_expression->left);
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
 
         const int original_state_number = push_copy_of_current_state(ctx, "original");
 
-        struct declarator_array d = { 0 };
-        compute_true_false_sets(p_expression->left, &d);
 
         //Set all variables to true state, because otherwise, the right branch
         // would not be evaluated
-        declarator_array_set_objects_to_true_branch(ctx, &d, nullable_enabled);
+        declarator_array_set_objects_to_true_branch(ctx, &left_set, nullable_enabled);
 
-        flow_visit_expression(ctx, p_expression->right);
+        struct declarator_array right_set = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &right_set);
         ctx_object_restore_current_state_from(ctx, original_state_number);
 
+        //Tudo que faz left_true e right_true  também fazem esta expressao ser true
+
+        for (int i = 0; i < left_set.size; i++)
+        {
+            struct declarator_array_item item3 = { 0 };
+
+            //Tudo que faz left true e right true faz expressao se true
+            item3.p_expression = left_set.data[i].p_expression;
+            item3.true_branch_state |= left_set.data[i].true_branch_state;
+
+            //Tudo que faz left true ou left false, e right false faz ser false
+            item3.false_branch_state |= left_set.data[i].true_branch_state |
+                left_set.data[i].false_branch_state;
+
+            declarator_array_push_back(d, &item3);
+        }
+
+        for (int k = 0; k < right_set.size; k++)
+        {
+            int index =
+                find_item_index_by_expression(d, right_set.data[k].p_expression);
+            if (index == -1)
+            {
+                index = d->size;
+                struct declarator_array_item item2 = { 0 };
+                declarator_array_push_back(d, &item2);
+            }
+
+            //Tudo que faz left true e right true faz expressao se true
+            d->data[index].p_expression = right_set.data[k].p_expression;
+            d->data[index].true_branch_state |= right_set.data[k].true_branch_state;
+            //Tudo que faz left true ou left false, e right false faz ser false
+            d->data[index].false_branch_state |= right_set.data[k].false_branch_state;
+
+            //right expression may not be evaluated, in this case all previous states are also valid
+            //so if the variable could be true and false then we need to add            
+            d->data[index].false_branch_state |= (BOOLEAN_FLAG_TRUE | BOOLEAN_FLAG_FALSE);
+
+        }
+
         ctx_remove_state(ctx, original_state_number);
+        declarator_array_destroy(&left_set);
+        declarator_array_destroy(&right_set);
     }
     break;
 
@@ -2355,11 +2218,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->left)
         {
-            flow_visit_expression(ctx, p_expression->left);
+            flow_visit_expression(ctx, p_expression->left, d);
         }
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
         if (p_expression->type_name)
         {
@@ -2380,18 +2243,19 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case CONDITIONAL_EXPRESSION:
+        //TODO
         if (p_expression->condition_expr)
         {
-            flow_visit_expression(ctx, p_expression->condition_expr);
+            flow_visit_expression(ctx, p_expression->condition_expr, d);
         }
 
         if (p_expression->left)
         {
-            flow_visit_expression(ctx, p_expression->left);
+            flow_visit_expression(ctx, p_expression->left, d);
         }
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
 
         break;
@@ -2403,8 +2267,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
+    struct declarator_array d = { 0 };
     if (p_expression_statement->expression_opt)
-        flow_visit_expression(ctx, p_expression_statement->expression_opt);
+        flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
+    declarator_array_destroy(&d);
+
 }
 
 static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_item_list* p_block_item_list);
@@ -2431,8 +2298,8 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     if (p_iteration_statement->expression1)
     {
-        compute_true_false_sets(p_iteration_statement->expression1, &declarator_array);
-        flow_visit_expression(ctx, p_iteration_statement->expression1);
+        //compute_true_false_sets(p_iteration_statement->expression1, &declarator_array);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &declarator_array);
     }
 
     if (p_iteration_statement->secondary_block)
@@ -2465,6 +2332,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
             declarator_array_set_objects_to_false_branch(ctx, &declarator_array, nullable_enabled);
         }
     }
+    declarator_array_destroy(&declarator_array);
 }
 
 static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -2485,14 +2353,14 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     if (p_iteration_statement->expression1)
     {
-        compute_true_false_sets(p_iteration_statement->expression1, &declarator_array);
+        //compute_true_false_sets(p_iteration_statement->expression1, &declarator_array);
 
         //We do a visit but this is not conclusive..so we ignore warnings
         ctx->ctx->options.diagnostic_stack_top_index++;
         ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
         ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].errors = 0;
         ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].notes = 0;
-        flow_visit_expression(ctx, p_iteration_statement->expression1);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &declarator_array);
         ctx->ctx->options.diagnostic_stack_top_index--;
     }
 
@@ -2544,11 +2412,14 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     //Now we visit the expression again because we have the states
     //at end of while that will be used again for the expression.
     //At this time we print warnings
-    flow_visit_expression(ctx, p_iteration_statement->expression1);
+    struct declarator_array declarator_array2 = { 0 };
+    flow_visit_expression(ctx, p_iteration_statement->expression1, &declarator_array2);
 
     //restore
     ctx->initial_state = old_initial_state;
     ctx->break_join_state = old_break_join_state;
+    declarator_array_destroy(&declarator_array);
+    declarator_array_destroy(&declarator_array2);
 
 }
 
@@ -2557,18 +2428,19 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
 
 
+    struct declarator_array d = { 0 };
     if (p_iteration_statement->expression0)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression0);
+        flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
     }
 
     if (p_iteration_statement->expression1)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression1);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
     }
     if (p_iteration_statement->expression2)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression2);
+        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
     }
 
 
@@ -2590,6 +2462,8 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
         flow_visit_ctx_pop_tail_block(ctx);
     }
+
+    declarator_array_destroy(&d);
 }
 
 
@@ -2625,7 +2499,9 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
     {
         if (p_jump_statement->expression_opt)
         {
-            flow_visit_expression(ctx, p_jump_statement->expression_opt);
+            struct declarator_array d = { 0 };
+            flow_visit_expression(ctx, p_jump_statement->expression_opt, &d);
+            declarator_array_destroy(&d);
         }
 
         /*
@@ -2896,7 +2772,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     ctx->expression_is_not_evaluated = true;
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
-    flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
+    struct declarator_array a = { 0 };
+    flow_visit_expression(ctx, p_static_assert_declaration->constant_expression, &a);
 
     ctx->expression_is_not_evaluated = t2; //restore
 
@@ -2921,6 +2798,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
         {
             p_obj->state = OBJECT_STATE_LIFE_TIME_ENDED;
         }
+
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
@@ -2963,7 +2841,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 }
             }
 
-            if (p_obj->is_temporary)
+            if (p_obj && p_obj->is_temporary)
             {
                 p_obj->state = OBJECT_STATE_LIFE_TIME_ENDED;
             }
@@ -3014,6 +2892,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
         }
 
     }
+
+    declarator_array_destroy(&a);
 }
 
 static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
@@ -3054,7 +2934,9 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
     {
         if (p_direct_declarator->array_declarator->assignment_expression)
         {
-            flow_visit_expression(ctx, p_direct_declarator->array_declarator->assignment_expression);
+            struct declarator_array a = { 0 };
+            flow_visit_expression(ctx, p_direct_declarator->array_declarator->assignment_expression, &a);
+            declarator_array_destroy(&a);
         }
 
     }
@@ -3166,7 +3048,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-            }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -3252,8 +3134,10 @@ static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, str
 
 static void flow_visit_enumerator(struct flow_visit_ctx* ctx, struct enumerator* p_enumerator)
 {
+    struct declarator_array a = { 0 };
     if (p_enumerator->constant_expression_opt)
-        flow_visit_expression(ctx, p_enumerator->constant_expression_opt);
+        flow_visit_expression(ctx, p_enumerator->constant_expression_opt, &a);
+    declarator_array_destroy(&a);
 
 }
 

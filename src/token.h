@@ -277,20 +277,6 @@ int is_digit(struct stream* p);
 int is_nondigit(struct stream* p);
 void stream_match(struct stream* stream);
 
-#define LIST_ADD(list, pnew)\
-do {\
-    void* owner pitem = (void* owner) (pnew);\
-    if ((list)->head == NULL)\
-    {\
-        (list)->head = pitem;\
-        (list)->tail = pitem;\
-    } else \
-    {\
-        assert((list)->tail->next == NULL);\
-        (list)->tail->next = pitem;\
-        (list)->tail = pitem;\
-    }\
-} while(0)
 
 bool style_has_space(const struct token* token);
 bool style_has_one_space(const struct token* token);

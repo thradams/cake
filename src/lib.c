@@ -510,20 +510,6 @@ int is_digit(struct stream* p);
 int is_nondigit(struct stream* p);
 void stream_match(struct stream* stream);
 
-#define LIST_ADD(list, pnew)\
-do {\
-    void* owner pitem = (void* owner) (pnew);\
-    if ((list)->head == NULL)\
-    {\
-        (list)->head = pitem;\
-        (list)->tail = pitem;\
-    } else \
-    {\
-        assert((list)->tail->next == NULL);\
-        (list)->tail->next = pitem;\
-        (list)->tail = pitem;\
-    }\
-} while(0)
 
 bool style_has_space(const struct token* token);
 bool style_has_one_space(const struct token* token);
@@ -10773,6 +10759,7 @@ struct param_list {
 };
 
 void param_list_destroy(struct param_list* obj_owner p);
+void param_list_add(struct param_list*  p, struct param* owner p_item);
 
 struct type
 {
@@ -11195,7 +11182,7 @@ enum object_state
        struct...
        TODO we need empty state when object does not exist
        and the merge it is not a problem
-       merge with nothing then 
+       merge with nothing then
     */
     OBJECT_STATE_NOT_APPLICABLE = 0,
 
@@ -11206,7 +11193,7 @@ enum object_state
 
     //means not-null moved at same time
     OBJECT_STATE_MOVED = 1 << 3,
-    
+
     OBJECT_STATE_ZERO = 1 << 5,
     OBJECT_STATE_NOT_ZERO = 1 << 6,
 
@@ -11278,16 +11265,16 @@ struct object
     unsigned int visit_number;
 
     enum object_state state;
-    struct objects_view ref;
+    struct objects_view pointed;
 
-    /*declarator is used only to print the error message*/
-    const struct declarator* declarator;
+    /*object are the result of expressions or they are declarators*/
+    const struct declarator* p_declarator_origin;
     const struct expression* p_expression_origin;
 
     struct objects members;
     struct object_state_stack object_state_stack;
 
-    int id; //helps debuging
+    int id; //helps debugging
     bool is_temporary;
 };
 
@@ -11298,8 +11285,8 @@ void object_delete(struct object* owner opt p);
 void object_swap(struct object* a, struct object* b);
 
 struct declarator;
-struct object * make_object(struct flow_visit_ctx *ctx,
-                            struct type* p_type,
+struct object* make_object(struct flow_visit_ctx* ctx,
+                                 struct type* p_type,
                             const struct declarator* p_declarator_opt,
                             const struct expression* p_expression_origin);
 
@@ -11377,7 +11364,7 @@ bool object_is_expansible(const struct object* p_object);
 void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct object* p_object);
 void object_push_states_from(const struct object* p_object_from, struct object* p_object_to);
 
-struct object* expression_get_object(struct flow_visit_ctx * ctx, struct expression* p_expression, bool nullable_enabled);
+struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled);
 
 
 
@@ -11531,6 +11518,8 @@ struct declaration_specifiers
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
+    
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
 
     /*shortcuts*/
     struct struct_or_union_specifier* struct_or_union_specifier;
@@ -11548,6 +11537,7 @@ struct declaration_specifiers
 void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p);
 struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
 void declaration_specifiers_delete(struct declaration_specifiers* owner p);
+void declaration_specifiers_add(struct declaration_specifiers* p, struct declaration_specifier* owner item);
 
 struct static_assert_declaration
 {
@@ -11607,6 +11597,7 @@ struct attribute_specifier_sequence
 };
 struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(struct parser_ctx* ctx);
 void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner opt p);
+void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list, struct attribute_specifier* owner p_item);
 
 struct attribute_specifier
 {
@@ -11735,6 +11726,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers);
 
 void init_declarator_list_destroy(struct init_declarator_list* obj_owner p);
+void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* owner p_item);
 
 struct declaration
 {
@@ -11859,6 +11851,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx,
 );
 
 void enumerator_list_destroy(struct enumerator_list* obj_owner p_enum_specifier);
+void enumerator_list_add(struct enumerator_list* list, struct enumerator* owner p_item);
 
 struct enum_specifier
 {
@@ -11904,6 +11897,7 @@ struct member_declaration_list
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
 void member_declaration_list_destroy(struct member_declaration_list* obj_owner p);
+void member_declaration_list_add(struct member_declaration_list* list, struct member_declaration* owner p_item);
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
 
@@ -12139,6 +12133,7 @@ struct parameter_list
 };
 struct parameter_list* owner  parameter_list(struct parser_ctx* ctx);
 void parameter_list_delete(struct parameter_list* owner opt  p);
+void parameter_list_add(struct parameter_list* list, struct parameter_declaration* owner p_item);
 
 struct parameter_declaration
 {
@@ -12246,6 +12241,8 @@ struct specifier_qualifier_list
 
 struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ctx* ctx);
 void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner opt p);
+void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct type_specifier_qualifier* owner p_item);
+
 
 void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list);
 
@@ -12340,6 +12337,7 @@ struct member_declarator_list* owner member_declarator_list(struct parser_ctx* c
     const struct specifier_qualifier_list* specifier_qualifier_list
 );
 void member_declarator_list_delete(struct member_declarator_list* owner opt p);
+void member_declarator_list_add(struct member_declarator_list* list, struct member_declarator* owner p_item);
 
 struct block_item_list
 {
@@ -12354,6 +12352,7 @@ struct block_item_list
 
 struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error);
 void block_item_list_destroy(struct block_item_list* obj_owner p);
+void block_item_list_add(struct block_item_list* list, struct block_item* owner p_item);
 
 struct compound_statement
 {
@@ -12545,6 +12544,7 @@ struct initializer_list
 };
 struct initializer_list* owner initializer_list(struct parser_ctx* ctx);
 void initializer_list_delete(struct initializer_list* owner opt p);
+void initializer_list_add(struct initializer_list* list, struct initializer* owner p_item);
 
 struct primary_block
 {
@@ -12635,6 +12635,7 @@ struct designator_list
 
 struct designator_list* owner designator_list(struct parser_ctx* ctx);
 void designator_list_delete(struct designator_list* owner opt p);
+void designator_list_add(struct designator_list* list, struct designator* owner p_item);
 
 struct designation
 {
@@ -12662,6 +12663,7 @@ struct type_qualifier_list
 
 struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx);
 void type_qualifier_list_delete(struct type_qualifier_list* owner opt p);
+void type_qualifier_list_add(struct type_qualifier_list* list, struct type_qualifier* owner p_item);
 
 struct attribute_token
 {
@@ -12687,6 +12689,9 @@ struct attribute_list
 };
 struct attribute_list* owner attribute_list(struct parser_ctx* ctx);
 void attribute_list_destroy(struct attribute_list* obj_owner p);
+void attribute_list_delete(struct attribute_list* owner p);
+
+void attribute_list_add(struct attribute_list* list, struct attribute* owner p_item);
 
 struct enumerator
 {
@@ -16634,7 +16639,7 @@ void argument_expression_list_push(struct argument_expression_list* list, struct
     }
     else
     {
-        assert(list->tail->next == NULL);
+        assert(list->tail->next == NULL);        
         list->tail->next = pitem;
     }
     list->tail = pitem;
@@ -18262,6 +18267,20 @@ enum type_category type_get_category(const struct type* p_type)
     return p_type->category;
 }
 
+void param_list_add(struct param_list* list, struct param* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void param_list_destroy(struct param_list* obj_owner p)
 {
     struct param* owner item = p->head;
@@ -19552,8 +19571,8 @@ struct type type_dup(const struct type* p_type)
             {
                 struct param* owner p_new_param = calloc(1, sizeof * p_new_param);
                 p_new_param->type = type_dup(&p_param->type);
-
-                LIST_ADD(&p_new->params, p_new_param);
+                
+                param_list_add(&p_new->params, p_new_param);
                 p_param = p_param->next;
             }
         }
@@ -20657,7 +20676,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             {
                 struct param* owner p_new_param = calloc(1, sizeof(struct param));
                 p_new_param->type = type_dup(&p->declarator->type);
-                LIST_ADD(&p_func->params, p_new_param);
+                param_list_add(&p_func->params, p_new_param);
                 p = p->next;
             }
         }
@@ -21022,6 +21041,14 @@ void flow_visit_ctx_destroy(struct flow_visit_ctx* obj_owner p);
 void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
 
 
+struct object_visitor
+{
+    int member_index;
+    struct type* p_type;
+    struct object* p_object;
+
+};
+
 unsigned int s_visit_number = 1; //creates a unique number
 
 
@@ -21076,7 +21103,7 @@ bool object_is_expansible(const struct object* p_object)
     return (p_object &&
             p_object->state != OBJECT_STATE_NULL &&
                 p_object->state != OBJECT_STATE_UNINITIALIZED &&
-                p_object->ref.size == 0);
+                p_object->pointed.size == 0);
 }
 
 
@@ -21091,7 +21118,7 @@ void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, stru
         struct type t2 = type_remove_pointer(p_type);
         if (!type_is_void(&t2))
         {
-            struct object* owner p_object2 = make_object(ctx, &t2, p_object->declarator, p_object->p_expression_origin);
+            struct object* p_object2 = make_object(ctx, &t2, p_object->p_declarator_origin, p_object->p_expression_origin);
             const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
 
             object_set_unknown(&t2, is_nullable, p_object2, nullable_enabled);
@@ -21197,13 +21224,13 @@ void object_set_pointer(struct object* p_object, struct object* p_object2)
 {
     if (p_object)
     {
-        objects_view_reserve(&p_object->ref, 1);
-        p_object->ref.size = 1;
-        p_object->ref.data[0] = p_object2;
+        objects_view_reserve(&p_object->pointed, 1);
+        p_object->pointed.size = 1;
+        p_object->pointed.data[0] = p_object2;
     }
     else
     {
-        p_object->ref.size = 0;
+        p_object->pointed.size = 0;
     }
 
 }
@@ -21212,7 +21239,7 @@ void object_destroy(struct object* obj_owner p)
 {
     objects_destroy(&p->members);
     object_state_stack_destroy(&p->object_state_stack);
-    objects_view_destroy(&p->ref);
+    objects_view_destroy(&p->pointed);
 }
 
 void object_state_stack_item_destroy(struct object_state_stack_item* obj_owner opt p)
@@ -21532,7 +21559,7 @@ struct object make_object_core(struct type* p_type,
 
 
     obj.p_expression_origin = p_expression_origin;
-    obj.declarator = p_declarator_opt;
+    obj.p_declarator_origin = p_declarator_opt;
 
     if (p_type->struct_or_union_specifier)
     {
@@ -21577,7 +21604,7 @@ struct object make_object_core(struct type* p_type,
                             {
                                 struct object* owner member_obj = calloc(1, sizeof * member_obj);
                                 member_obj->p_expression_origin = p_expression_origin;
-                                member_obj->declarator = p_declarator_opt;
+                                member_obj->p_declarator_origin = p_declarator_opt;
                                 member_obj->state = OBJECT_STATE_NOT_APPLICABLE;
                                 objects_push_back(&obj.members, member_obj);
                             }
@@ -21608,9 +21635,14 @@ struct object make_object_core(struct type* p_type,
                         t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                         t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
                         struct object member_obj = make_object_core(&t, &l, p_declarator_opt, p_expression_origin);
-                        struct object* owner p_member_obj = calloc(1, sizeof * p_member_obj);
-                        *p_member_obj = member_obj;
-                        objects_push_back(&obj.members, p_member_obj);
+                        //struct object* owner p_member_obj = calloc(1, sizeof * p_member_obj);
+                        //*p_member_obj = member_obj;
+                        for (int k = 0; k < member_obj.members.size; k++)
+                        {
+                            objects_push_back(&obj.members, member_obj.members.data[k]);
+                            member_obj.members.data[k] = 0;
+                        }
+                        object_destroy(&member_obj);
                         type_destroy(&t);
                     }
                 }
@@ -21645,22 +21677,24 @@ struct object* make_object(struct flow_visit_ctx* ctx,
                            const struct declarator* p_declarator_opt,
                            const struct expression* p_expression_origin)
 {
+    struct object* p_obj = NULL;
     struct object* owner opt p_object = calloc(1, sizeof * p_object);
     if (p_object)
     {
         struct object_name_list list = { .name = "" };
         *p_object = make_object_core(p_type, &list, p_declarator_opt, p_expression_origin);
+        p_object->id = ctx->arena.size + 1;
+        p_obj = p_object;
         objects_push_back(&ctx->arena, p_object);
-        p_object->id = ctx->arena.size;
     }
-    return p_object;
+    return p_obj;
 }
 
 struct token* object_get_token(const struct object* object)
 {
-    if (object->declarator)
+    if (object->p_declarator_origin)
     {
-        return object->declarator->name;
+        return object->p_declarator_origin->name;
     }
     if (object->p_expression_origin)
     {
@@ -21696,9 +21730,9 @@ void object_push_empty_core(struct object* object, const char* name, int state_n
 
     object_state_stack_push_back(&object->object_state_stack, 0, NULL, name, state_number);
 
-    for (int i = 0; i < object->ref.size; i++)// object_get_pointed_object(object))
+    for (int i = 0; i < object->pointed.size; i++)// object_get_pointed_object(object))
     {
-        object_push_empty_core(object->ref.data[i], name, state_number, visit_number);
+        object_push_empty_core(object->pointed.data[i], name, state_number, visit_number);
     }
 
     for (int i = 0; i < object->members.size; i++)
@@ -21718,11 +21752,11 @@ static void object_push_copy_current_state_core(struct object* object, const cha
     if (object->visit_number == visit_number) return;
     object->visit_number = visit_number;
 
-    object_state_stack_push_back(&object->object_state_stack, object->state, &object->ref, name, state_number);
+    object_state_stack_push_back(&object->object_state_stack, object->state, &object->pointed, name, state_number);
 
-    for (int i = 0; i < object->ref.size; i++)
+    for (int i = 0; i < object->pointed.size; i++)
     {
-        object_push_copy_current_state_core(object->ref.data[i], name, state_number, visit_number);
+        object_push_copy_current_state_core(object->pointed.data[i], name, state_number, visit_number);
     }
 
     for (int i = 0; i < object->members.size; i++)
@@ -21755,9 +21789,9 @@ static void object_remove_state_core(struct object* object, int state_number, un
     }
 
 
-    for (int i = 0; i < object->ref.size; i++)
+    for (int i = 0; i < object->pointed.size; i++)
     {
-        object_remove_state_core(object->ref.data[i], state_number, visit_number);
+        object_remove_state_core(object->pointed.data[i], state_number, visit_number);
     }
 
     for (int i = 0; i < object->members.size; i++)
@@ -21791,9 +21825,9 @@ void object_restore_state(struct object* object, int state_to_restore)
     enum object_state sstate = object->object_state_stack.data[index].state;
     object->state = sstate;
 
-    for (int i = 0; i < object->ref.size; i++)
+    for (int i = 0; i < object->pointed.size; i++)
     {
-        object_restore_state(object->ref.data[i], state_to_restore);
+        object_restore_state(object->pointed.data[i], state_to_restore);
     }
 
     for (int i = 0; i < object->members.size; i++)
@@ -21802,38 +21836,42 @@ void object_restore_state(struct object* object, int state_to_restore)
     }
 }
 
-void print_object_core(int ident, struct type* p_type, struct object* p_object, const char* previous_names, bool is_pointer, bool short_version,
+void print_object_core(int ident,
+    struct object_visitor* p_visitor,
+    const char* previous_names,
+    bool is_pointer,
+    bool short_version,
     unsigned int visit_number)
 {
-    if (p_object == NULL)
+    if (p_visitor->p_object == NULL)
     {
         return;
     }
-    if (p_object->visit_number == visit_number) return;
-    p_object->visit_number = visit_number;
+    if (p_visitor->p_object->visit_number == visit_number) return;
+    p_visitor->p_object->visit_number = visit_number;
 
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    if (p_visitor->p_type->struct_or_union_specifier)
     {
-        assert(p_object->state == OBJECT_STATE_NOT_APPLICABLE);
+        assert(p_visitor->p_object->state == OBJECT_STATE_NOT_APPLICABLE);
         struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
         {
-            if (p_object == NULL)
+            if (p_visitor->p_object == NULL)
             {
                 printf("%*c", ident, ' ');
                 printf("%s %s\n", previous_names, "-");
                 return;
             }
-            //obj.state = OBJECT_STATE_STRUCT;
+
             printf("%*c", ident + 1, ' ');
-            printf("#%02d {\n", p_object->id);
+            printf("#%02d {\n", p_visitor->p_object->id);
 
             struct member_declaration* p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
-            int member_index = 0;
+
             while (p_member_declaration)
             {
                 if (p_member_declaration->member_declarator_list_opt)
@@ -21852,33 +21890,41 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                             else
                                 snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
+                            struct object_visitor  visitor = { 0 };
+                            visitor.p_type = &p_member_declarator->declarator->type;
+                            visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
-                            print_object_core(ident + 2, &p_member_declarator->declarator->type,
-                                p_object->members.data[member_index], buffer,
+                            print_object_core(ident + 2, &visitor, buffer,
                                 type_is_pointer(&p_member_declarator->declarator->type), short_version,
                                 visit_number);
 
-                            member_index++;
+                            p_visitor->member_index++;
                         }
                         p_member_declarator = p_member_declarator->next;
                     }
                 }
                 else
                 {
-                    //char buffer[200] = {0};
-                    //if (is_pointer)
-                    //  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
-                    //else
-                    //  snprintf(buffer, sizeof buffer, "%s", previous_names, "");
-
                     struct type t = { 0 };
                     t.category = TYPE_CATEGORY_ITSELF;
                     t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
                     t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
 
-                    print_object_core(ident + 1, &t, p_object->members.data[member_index], previous_names, false, short_version, visit_number);
 
-                    member_index++;
+                    struct type* temp = p_visitor->p_type;
+                    p_visitor->p_type = &t;
+
+                    int visit_number0 = p_visitor->p_object->visit_number;
+                    p_visitor->p_object->visit_number = 0;
+                    print_object_core(ident + 1,
+                        p_visitor,
+                        previous_names,
+                        false,
+                        short_version,
+                        visit_number);
+
+                    p_visitor->p_type = temp; //restore
+                    p_visitor->p_object->visit_number = visit_number0;
                     type_destroy(&t);
                 }
                 p_member_declaration = p_member_declaration->next;
@@ -21888,29 +21934,29 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
             printf("}\n");
         }
     }
-    else if (type_is_pointer(p_type))
+    else if (type_is_pointer(p_visitor->p_type))
     {
-        struct type t2 = type_remove_pointer(p_type);
+        struct type t2 = type_remove_pointer(p_visitor->p_type);
         printf("%*c", ident, ' ');
 
         if (short_version)
         {
-            printf("#%02d %s == ", p_object->id, previous_names);
-            object_state_to_string(p_object->state);
-            if (is_null(p_object->state))
+            printf("#%02d %s == ", p_visitor->p_object->id, previous_names);
+            object_state_to_string(p_visitor->p_object->state);
+            if (is_null(p_visitor->p_object->state))
             {
             }
-            else if (is_uninitialized(p_object->state))
+            else if (is_uninitialized(p_visitor->p_object->state))
             {
             }
             else
             {
                 printf(" -> ");
-                if (p_object->ref.size > 0)
+                if (p_visitor->p_object->pointed.size > 0)
                 {
-                    for (int i = 0; i < p_object->ref.size; i++)
+                    for (int i = 0; i < p_visitor->p_object->pointed.size; i++)
                     {
-                        printf(" #%02d", p_object->ref.data[i]->id);
+                        printf(" #%02d", p_visitor->p_object->pointed.data[i]->id);
                     }
                 }
                 else
@@ -21921,26 +21967,26 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
         }
         else
         {
-            printf("%p:%s == ", p_object, previous_names);
+            printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
-            for (int i = 0; i < p_object->object_state_stack.size; i++)
+            for (int i = 0; i < p_visitor->p_object->object_state_stack.size; i++)
             {
                 printf(LIGHTCYAN);
-                printf("(#%02d %s)", p_object->object_state_stack.data[i].state_number, p_object->object_state_stack.data[i].name);
-                object_state_to_string(p_object->object_state_stack.data[i].state);
+                printf("(#%02d %s)", p_visitor->p_object->object_state_stack.data[i].state_number, p_visitor->p_object->object_state_stack.data[i].name);
+                object_state_to_string(p_visitor->p_object->object_state_stack.data[i].state);
                 printf(RESET);
                 printf(",");
             }
             //printf("*");
             printf(LIGHTMAGENTA);
             printf("(current)");
-            object_state_to_string(p_object->state);
+            object_state_to_string(p_visitor->p_object->state);
             printf(RESET);
             printf("}");
         }
         printf("\n");
 
-        if (p_object->ref.size > 0)
+        if (p_visitor->p_object->pointed.size > 0)
         {
             char buffer[200] = { 0 };
             if (type_is_struct_or_union(&t2))
@@ -21952,9 +21998,12 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
                 snprintf(buffer, sizeof buffer, "*%s", previous_names);
             }
 
-            for (int i = 0; i < p_object->ref.size; i++)
+            for (int i = 0; i < p_visitor->p_object->pointed.size; i++)
             {
-                print_object_core(ident + 1, &t2, p_object->ref.data[i], buffer, is_pointer, short_version, visit_number);
+                struct object_visitor visitor = { 0 };
+                visitor.p_type = &t2;
+                visitor.p_object = p_visitor->p_object->pointed.data[i];
+                print_object_core(ident + 1, &visitor, buffer, is_pointer, short_version, visit_number);
             }
         }
 
@@ -21966,20 +22015,20 @@ void print_object_core(int ident, struct type* p_type, struct object* p_object, 
 
         if (short_version)
         {
-            printf("#%02d %s == ", p_object->id, previous_names);
-            object_state_to_string(p_object->state);
+            printf("#%02d %s == ", p_visitor->p_object->id, previous_names);
+            object_state_to_string(p_visitor->p_object->state);
         }
         else
         {
-            printf("%p:%s == ", p_object, previous_names);
+            printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
-            for (int i = 0; i < p_object->object_state_stack.size; i++)
+            for (int i = 0; i < p_visitor->p_object->object_state_stack.size; i++)
             {
-                printf("(#%02d %s)", p_object->object_state_stack.data[i].state_number, p_object->object_state_stack.data[i].name);
-                object_state_to_string(p_object->object_state_stack.data[i].state);
+                printf("(#%02d %s)", p_visitor->p_object->object_state_stack.data[i].state_number, p_visitor->p_object->object_state_stack.data[i].name);
+                object_state_to_string(p_visitor->p_object->object_state_stack.data[i].state);
                 printf(",");
             }
-            object_state_to_string(p_object->state);
+            object_state_to_string(p_visitor->p_object->state);
             printf("}");
         }
 
@@ -22016,9 +22065,9 @@ static void object_set_state_from_current_core(struct object* object, int state_
         object_set_state_from_current_core(object->members.data[i], state_number, visit_number);
     }
 
-    for (int i = 0; i < object->ref.size; i++)
+    for (int i = 0; i < object->pointed.size; i++)
     {
-        struct object* pointed = object->ref.data[i];
+        struct object* pointed = object->pointed.data[i];
         if (pointed)
         {
             object_set_state_from_current_core(pointed, state_number, visit_number);
@@ -22043,21 +22092,21 @@ void object_merge_state(struct object* pdest, struct object* object1, struct obj
     }
 
 
-    for (int i = 0; i < object1->ref.size; i++)
+    for (int i = 0; i < object1->pointed.size; i++)
     {
-        struct object* pointed = object1->ref.data[i];
+        struct object* pointed = object1->pointed.data[i];
         if (pointed)
         {
-            objects_view_push_back(&pdest->ref, pointed);
+            objects_view_push_back(&pdest->pointed, pointed);
         }
     }
 
-    for (int i = 0; i < object2->ref.size; i++)
+    for (int i = 0; i < object2->pointed.size; i++)
     {
-        struct object* pointed = object2->ref.data[i];
+        struct object* pointed = object2->pointed.data[i];
         if (pointed)
         {
-            objects_view_push_back(&pdest->ref, pointed);
+            objects_view_push_back(&pdest->pointed, pointed);
         }
     }
 
@@ -22080,7 +22129,7 @@ int object_restore_current_state_from_core(struct object* object, int state_numb
         if (object->object_state_stack.data[i].state_number == state_number)
         {
             object->state = object->object_state_stack.data[i].state;
-            objects_view_copy(&object->ref, &object->object_state_stack.data[i].ref);
+            objects_view_copy(&object->pointed, &object->object_state_stack.data[i].ref);
             break;
         }
     }
@@ -22090,9 +22139,9 @@ int object_restore_current_state_from_core(struct object* object, int state_numb
         object_restore_current_state_from_core(object->members.data[i], state_number, visit_number);
     }
 
-    for (int i = 0; i < object->ref.size; i++)
+    for (int i = 0; i < object->pointed.size; i++)
     {
-        struct object* pointed = object->ref.data[i];
+        struct object* pointed = object->pointed.data[i];
 
         if (pointed)
         {
@@ -22120,7 +22169,7 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
         if (object->object_state_stack.data[i].state_number == state_number)
         {
             object->object_state_stack.data[i].state |= object->state;
-            objects_view_merge(&object->object_state_stack.data[i].ref, &object->ref);
+            objects_view_merge(&object->object_state_stack.data[i].ref, &object->pointed);
             break;
         }
     }
@@ -22151,9 +22200,9 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
     }
     else
     {
-        for (int i = 0; i < object->ref.size; i++)
+        for (int i = 0; i < object->pointed.size; i++)
         {
-            struct object* pointed = object->ref.data[i];
+            struct object* pointed = object->pointed.data[i];
             if (pointed)
             {
                 object_merge_current_state_with_state_number_core(pointed, state_number, visit_number);
@@ -22178,7 +22227,7 @@ static void object_merge_current_state_with_state_number_or_core(struct object* 
         if (object->object_state_stack.data[i].state_number == state_number)
         {
             object->object_state_stack.data[i].state |= object->state;
-            objects_view_merge(&object->object_state_stack.data[i].ref, &object->ref);
+            objects_view_merge(&object->object_state_stack.data[i].ref, &object->pointed);
             break;
         }
     }
@@ -22188,9 +22237,9 @@ static void object_merge_current_state_with_state_number_or_core(struct object* 
         object_merge_current_state_with_state_number_or_core(object->members.data[i], state_number, visit_number);
     }
 
-    for (int i = 0; i < object->ref.size; i++)
+    for (int i = 0; i < object->pointed.size; i++)
     {
-        struct object* pointed = object->ref.data[i];
+        struct object* pointed = object->pointed.data[i];
 
         if (pointed)
         {
@@ -22221,7 +22270,10 @@ void print_object(struct type* p_type, struct object* p_object, bool short_versi
 
 
 
-    print_object_core(0, p_type, p_object, name, type_is_pointer(p_type), short_version, s_visit_number++);
+    struct object_visitor visitor = { 0 };
+    visitor.p_type = p_type;
+    visitor.p_object = p_object;
+    print_object_core(0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
 }
 
 void set_object(
@@ -22374,16 +22426,16 @@ void set_object(
     {
         p_object->state = flags;
 
-        if (p_object->ref.size > 0)
+        if (p_object->pointed.size > 0)
         {
             struct type t2 = type_remove_pointer(p_type);
             if (type_is_out(&t2))
             {
                 flags = OBJECT_STATE_UNINITIALIZED;
             }
-            for (int i = 0; i < p_object->ref.size; i++)
+            for (int i = 0; i < p_object->pointed.size; i++)
             {
-                struct object* pointed = p_object->ref.data[i];
+                struct object* pointed = p_object->pointed.data[i];
                 set_object(&t2, pointed, flags);
             }
 
@@ -22449,12 +22501,12 @@ void object_set_nothing(struct type* p_type, struct object* p_object)
     {
         p_object->state = 0;
 
-        if (p_object->ref.size > 0)
+        if (p_object->pointed.size > 0)
         {
             struct type t2 = type_remove_pointer(p_type);
-            for (int i = 0; i < p_object->ref.size; i++)
+            for (int i = 0; i < p_object->pointed.size; i++)
             {
-                struct object* pointed = p_object->ref.data[i];
+                struct object* pointed = p_object->pointed.data[i];
                 object_set_uninitialized(&t2, pointed);
             }
             type_destroy(&t2);
@@ -22465,24 +22517,26 @@ void object_set_nothing(struct type* p_type, struct object* p_object)
         p_object->state = 0;
     }
 }
-void object_set_uninitialized(struct type* p_type, struct object* p_object)
+
+
+void object_set_uninitialized_core(struct object_visitor* p_visitor)
 {
-    if (p_object == NULL || p_type == NULL)
+    if (p_visitor->p_object == NULL || p_visitor->p_type == NULL)
     {
         return;
     }
 
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    if (p_visitor->p_type->struct_or_union_specifier)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
         {
             struct member_declaration* p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
-            int member_index = 0;
+
             while (p_member_declaration)
             {
                 if (p_member_declaration->member_declarator_list_opt)
@@ -22494,18 +22548,38 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object)
                     {
                         if (p_member_declarator->declarator)
                         {
-                            if (member_index < p_object->members.size)
+                            if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                object_set_uninitialized(&p_member_declarator->declarator->type, p_object->members.data[member_index]);
+                                struct object_visitor visitor = { 0 };
+                                visitor.p_type = &p_member_declarator->declarator->type;
+                                visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
+                                object_set_uninitialized_core(&visitor);
                             }
-                            else
-                            {
-                                //TODO BUG union?                                
-                            }
-                            member_index++;
+                            p_visitor->member_index++;
                         }
                         p_member_declarator = p_member_declarator->next;
                     }
+                }
+                else
+                {
+                    if (p_member_declaration->specifier_qualifier_list &&
+                       p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    {
+                        struct type t = { 0 };
+                        t.category = TYPE_CATEGORY_ITSELF;
+                        t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                        struct type* type_temp = p_visitor->p_type;
+                        p_visitor->p_type = &t; //new type, same object
+
+                        object_set_uninitialized_core(p_visitor);
+
+                        p_visitor->p_type = type_temp; //restore                         
+
+                        type_destroy(&t);
+                    }
+
                 }
                 p_member_declaration = p_member_declaration->next;
             }
@@ -22513,17 +22587,17 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object)
         }
     }
 
-    if (type_is_pointer(p_type))
+    if (type_is_pointer(p_visitor->p_type))
     {
-        p_object->state = OBJECT_STATE_UNINITIALIZED;
+        p_visitor->p_object->state = OBJECT_STATE_UNINITIALIZED;
 
 
-        if (p_object->ref.size)
+        if (p_visitor->p_object->pointed.size)
         {
-            struct type t2 = type_remove_pointer(p_type);
-            for (int i = 0; i < p_object->ref.size; i++)
+            struct type t2 = type_remove_pointer(p_visitor->p_type);
+            for (int i = 0; i < p_visitor->p_object->pointed.size; i++)
             {
-                struct object* pointed = p_object->ref.data[i];
+                struct object* pointed = p_visitor->p_object->pointed.data[i];
                 object_set_nothing(&t2, pointed);
             }
             type_destroy(&t2);
@@ -22531,10 +22605,17 @@ void object_set_uninitialized(struct type* p_type, struct object* p_object)
     }
     else
     {
-        p_object->state = OBJECT_STATE_UNINITIALIZED;
+        p_visitor->p_object->state = OBJECT_STATE_UNINITIALIZED;
     }
 }
 
+void object_set_uninitialized(struct type* p_type, struct object* p_object)
+{
+    struct object_visitor visitor = { 0 };
+    visitor.p_type = p_type;
+    visitor.p_object = p_object;
+    object_set_uninitialized_core(&visitor);
+}
 
 static void checked_empty_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
@@ -22694,9 +22775,9 @@ void object_set_to_nothing_core(struct type* p_type, struct object* p_object, un
     {
         p_object->state = 0;
 
-        for (int i = 0; i < p_object->ref.size; i++)
+        for (int i = 0; i < p_object->pointed.size; i++)
         {
-            struct object* pointed = p_object->ref.data[i];
+            struct object* pointed = p_object->pointed.data[i];
             if (pointed)
             {
                 struct type t2 = type_remove_pointer(p_type);
@@ -22719,9 +22800,9 @@ void object_set_to_nothing(struct type* p_type, struct object* p_object)
 void object_set_pointed_to_nothing(struct type* p_type, struct object* p_object)
 {
     struct type t2 = type_remove_pointer(p_type);
-    for (int i = 0; i < p_object->ref.size; i++)
+    for (int i = 0; i < p_object->pointed.size; i++)
     {
-        struct object* pointed = p_object->ref.data[i];
+        struct object* pointed = p_object->pointed.data[i];
         object_set_to_nothing(&t2, pointed);
     }
     type_destroy(&t2);
@@ -22780,12 +22861,12 @@ void object_set_moved(struct type* p_type, struct object* p_object)
     {
         p_object->state |= OBJECT_STATE_MOVED;
 
-        if (p_object->ref.size > 0)
+        if (p_object->pointed.size > 0)
         {
             struct type t2 = type_remove_pointer(p_type);
-            for (int i = 0; i < p_object->ref.size; i++)
+            for (int i = 0; i < p_object->pointed.size; i++)
             {
-                struct object* pointed = p_object->ref.data[i];
+                struct object* pointed = p_object->pointed.data[i];
                 object_set_nothing(&t2, pointed);
             }
             type_destroy(&t2);
@@ -22797,28 +22878,28 @@ void object_set_moved(struct type* p_type, struct object* p_object)
     }
 }
 
-static void object_set_unknown_core(struct type* p_type, bool t_is_nullable, struct object* p_object, unsigned int visit_number, bool nullable_enabled)
+static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_nullable, unsigned int visit_number, bool nullable_enabled)
 {
-    if (p_object == NULL || p_type == NULL)
+    if (p_visitor->p_object == NULL || p_visitor->p_type == NULL)
     {
         return;
     }
 
-    if (p_object->visit_number == visit_number) return; //already visited
-    p_object->visit_number = visit_number;
+    if (p_visitor->p_object->visit_number == visit_number) return; //already visited
+    p_visitor->p_object->visit_number = visit_number;
 
 
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    if (p_visitor->p_type->struct_or_union_specifier)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
         {
             struct member_declaration* p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
-            int member_index = 0;
+
             while (p_member_declaration)
             {
                 if (p_member_declaration->member_declarator_list_opt)
@@ -22830,19 +22911,50 @@ static void object_set_unknown_core(struct type* p_type, bool t_is_nullable, str
                     {
                         if (p_member_declarator->declarator)
                         {
-                            if (member_index < p_object->members.size)
+                            if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                object_set_unknown_core(&p_member_declarator->declarator->type,
+                                struct object_visitor visitor = { 0 };
+                                visitor.p_type = &p_member_declarator->declarator->type;
+                                visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
+
+                                object_set_unknown_core(&visitor,
                                     t_is_nullable,
-                                    p_object->members.data[member_index], visit_number, nullable_enabled);
+                                    visit_number,
+                                    nullable_enabled);
                             }
                             else
                             {
                                 //TODO BUG union?                                
                             }
-                            member_index++;
+                            p_visitor->member_index++;
                         }
                         p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                else
+                {
+                    if (p_member_declaration->specifier_qualifier_list &&
+                        p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    {
+                        struct type t = { 0 };
+                        t.category = TYPE_CATEGORY_ITSELF;
+                        t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                        struct type* temp = p_visitor->p_type;
+                        p_visitor->p_type = &t;
+
+                        int vn = p_visitor->p_object->visit_number;
+                        p_visitor->p_object->visit_number = 0;
+                        object_set_unknown_core(p_visitor, t_is_nullable, visit_number, nullable_enabled);
+
+
+
+                        //restore
+                        p_visitor->p_object->visit_number = vn;
+                        p_visitor->p_type = temp;
+
+                        type_destroy(&t);
                     }
                 }
                 p_member_declaration = p_member_declaration->next;
@@ -22852,36 +22964,43 @@ static void object_set_unknown_core(struct type* p_type, bool t_is_nullable, str
         return;
     }
 
-    if (type_is_pointer(p_type))
+    if (type_is_pointer(p_visitor->p_type))
     {
-        if (t_is_nullable || type_is_nullable(p_type, nullable_enabled))
-            p_object->state = OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL;
+        if (t_is_nullable || type_is_nullable(p_visitor->p_type, nullable_enabled))
+            p_visitor->p_object->state = OBJECT_STATE_NULL | OBJECT_STATE_NOT_NULL;
         else
-            p_object->state = OBJECT_STATE_NOT_NULL;
+            p_visitor->p_object->state = OBJECT_STATE_NOT_NULL;
 
 
-        for (int i = 0; i < p_object->ref.size; i++)
+        for (int i = 0; i < p_visitor->p_object->pointed.size; i++)
         {
-            struct object* pointed = p_object->ref.data[i];
+            struct object* pointed = p_visitor->p_object->pointed.data[i];
             if (pointed)
             {
-                struct type t2 = type_remove_pointer(p_type);
+                struct type t2 = type_remove_pointer(p_visitor->p_type);
                 bool t2_is_nullable = type_is_nullable(&t2, nullable_enabled);
-                object_set_unknown_core(&t2, t2_is_nullable, pointed, visit_number, nullable_enabled);
+                struct object_visitor visitor = { 0 };
+                visitor.p_type = &t2;
+                visitor.p_object = pointed;
+
+                object_set_unknown_core(&visitor, t2_is_nullable, visit_number, nullable_enabled);
                 type_destroy(&t2);
             }
         }
     }
     else
     {
-        if (!type_is_struct_or_union(p_type))
-            p_object->state = OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO;
+        if (!type_is_struct_or_union(p_visitor->p_type))
+            p_visitor->p_object->state = OBJECT_STATE_ZERO | OBJECT_STATE_NOT_ZERO;
     }
 }
 
 void object_set_unknown(struct type* p_type, bool t_is_nullable, struct object* p_object, bool nullable_enabled)
 {
-    object_set_unknown_core(p_type, t_is_nullable, p_object, s_visit_number++, nullable_enabled);
+    struct object_visitor visitor = { 0 };
+    visitor.p_type = p_type;
+    visitor.p_object = p_object;
+    object_set_unknown_core(&visitor, t_is_nullable, s_visit_number++, nullable_enabled);
 }
 
 
@@ -22941,9 +23060,9 @@ static void object_set_deleted_core(struct type* p_type, struct object* p_object
     if (type_is_pointer(p_type))
     {
         p_object->state = OBJECT_STATE_LIFE_TIME_ENDED;
-        for (int i = 0; i < p_object->ref.size; i++)
+        for (int i = 0; i < p_object->pointed.size; i++)
         {
-            struct object* pointed = p_object->ref.data[i];
+            struct object* pointed = p_object->pointed.data[i];
             if (pointed)
             {
                 struct type t2 = type_remove_pointer(p_type);
@@ -22964,24 +23083,22 @@ void object_set_deleted(struct type* p_type, struct object* p_object)
     object_set_deleted_core(p_type, p_object, s_visit_number++);
 }
 
-void object_set_zero(struct type* p_type, struct object* p_object)
+void object_set_zero_core(struct object_visitor* p_visitor)
 {
-    if (p_object == NULL || p_type == NULL)
+    if (p_visitor->p_object == NULL || p_visitor->p_type == NULL)
     {
         return;
     }
 
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    if (p_visitor->p_type->struct_or_union_specifier)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
         {
-            struct member_declaration* p_member_declaration =
-                p_struct_or_union_specifier->member_declaration_list.head;
+            struct member_declaration* p_member_declaration = p_struct_or_union_specifier->member_declaration_list.head;
 
-            int member_index = 0;
             while (p_member_declaration)
             {
                 if (p_member_declaration->member_declarator_list_opt)
@@ -22993,17 +23110,33 @@ void object_set_zero(struct type* p_type, struct object* p_object)
                     {
                         if (p_member_declarator->declarator)
                         {
-                            if (member_index < p_object->members.size)
+                            if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                object_set_zero(&p_member_declarator->declarator->type, p_object->members.data[member_index]);
+                                struct object_visitor visitor = { 0 };
+                                visitor.p_type = &p_member_declarator->declarator->type;
+                                visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
+                                object_set_zero_core(&visitor);
                             }
-                            else
-                            {
-                                //TODO BUG union?                                
-                            }
-                            member_index++;
+                            p_visitor->member_index++;
                         }
                         p_member_declarator = p_member_declarator->next;
+                    }
+                }
+                else
+                {
+                    if (p_member_declaration->specifier_qualifier_list &&
+                        p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    {
+                        struct type t = { 0 };
+                        t.category = TYPE_CATEGORY_ITSELF;
+                        t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                        struct type* temp = p_visitor->p_type;
+                        p_visitor->p_type = &t;
+                        object_set_zero_core(p_visitor);
+                        p_visitor->p_type = temp; //restore
+                        type_destroy(&t);
                     }
                 }
                 p_member_declaration = p_member_declaration->next;
@@ -23013,28 +23146,36 @@ void object_set_zero(struct type* p_type, struct object* p_object)
         return;
     }
 
-    if (type_is_pointer(p_type))
+    if (type_is_pointer(p_visitor->p_type))
     {
-        p_object->state = OBJECT_STATE_NULL;
+        p_visitor->p_object->state = OBJECT_STATE_NULL;
 
 
-        if (p_object->ref.size)
+        if (p_visitor->p_object->pointed.size)
         {
             /*
               if the pointer is null, there is no pointed object
             */
-            struct type t2 = type_remove_pointer(p_type);
-            for (int i = 0; i < p_object->ref.size; i++)
+            struct type t2 = type_remove_pointer(p_visitor->p_type);
+            for (int i = 0; i < p_visitor->p_object->pointed.size; i++)
             {
-                object_set_nothing(&t2, p_object->ref.data[i]);
+                object_set_nothing(&t2, p_visitor->p_object->pointed.data[i]);
             }
             type_destroy(&t2);
         }
     }
     else
     {
-        p_object->state = OBJECT_STATE_ZERO;
+        p_visitor->p_object->state = OBJECT_STATE_ZERO;
     }
+}
+
+void object_set_zero(struct type* p_type, struct object* p_object)
+{
+    struct object_visitor visitor = { 0 };
+    visitor.p_type = p_type;
+    visitor.p_object = p_object;
+    object_set_zero_core(&visitor);
 }
 
 //returns true if all parts that need to be moved weren't moved.
@@ -23198,11 +23339,11 @@ void object_get_name_core(
             struct type t2 = type_remove_pointer(p_type);
             if (type_is_owner(&t2))
             {
-                if (p_object->ref.size > 0)
+                if (p_object->pointed.size > 0)
                 {
                     object_get_name_core(
                         &t2,
-                        p_object->ref.data[0],
+                        p_object->pointed.data[0],
                         p_object_target,
                         buffer,
                         outname,
@@ -23223,15 +23364,15 @@ void object_get_name(const struct type* p_type,
 {
     outname[0] = '\0';
 
-    if (p_object->declarator)
+    if (p_object->p_declarator_origin)
     {
 
-        const char* root_name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
+        const char* root_name = p_object->p_declarator_origin->name ? p_object->p_declarator_origin->name->lexeme : "?";
         //snprintf(outname, out_size, "%s",root_name);
 
-        const struct object* root = p_object->declarator->p_object;
+        const struct object* root = p_object->p_declarator_origin->p_object;
 
-        object_get_name_core(&p_object->declarator->type, root, p_object, root_name, outname, out_size, s_visit_number++);
+        object_get_name_core(&p_object->p_declarator_origin->type, root, p_object, root_name, outname, out_size, s_visit_number++);
     }
     else if (p_object->p_expression_origin)
     {
@@ -23318,11 +23459,11 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                 p_object->state != OBJECT_STATE_NULL)
             {
                 struct type t2 = type_remove_pointer(p_type);
-                for (int i = 0; i < p_object->ref.size; i++)
+                for (int i = 0; i < p_object->pointed.size; i++)
                 {
                     checked_moved_core(ctx,
                         &t2,
-                        p_object->ref.data[i],
+                        p_object->pointed.data[i],
                         position_token,
                         visit_number);
                 }
@@ -23473,12 +23614,12 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
             )
         {
             struct type t2 = type_remove_pointer(p_type);
-            for (int i = 0; i < p_object->ref.size; i++)
+            for (int i = 0; i < p_object->pointed.size; i++)
             {
                 checked_read_object_core(ctx,
                     &t2,
                     is_nullable,
-                    p_object->ref.data[i],
+                    p_object->pointed.data[i],
                     position_token,
                     true,
                     previous_names,
@@ -23522,8 +23663,8 @@ void checked_read_object(struct flow_visit_ctx* ctx,
 {
     const char* owner s = NULL;
     const char* name = "";
-    if (p_object->declarator)
-        name = p_object->declarator->name ? p_object->declarator->name->lexeme : "?";
+    if (p_object->p_declarator_origin)
+        name = p_object->p_declarator_origin->name ? p_object->p_declarator_origin->name->lexeme : "?";
     else if (p_object->p_expression_origin)
     {
         if (p_object->p_expression_origin->first_token &&
@@ -23597,7 +23738,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
                 previous_names))
             {
 
-                if (p_object->declarator)
+                if (p_object->p_declarator_origin)
                     compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", previous_names);
             }
         }
@@ -23654,8 +23795,8 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
     {
         const char* name = previous_names;
         const struct token* position = NULL;
-        if (p_object->declarator)
-            position = p_object->declarator->name ? p_object->declarator->name : p_object->declarator->first_token;
+        if (p_object->p_declarator_origin)
+            position = p_object->p_declarator_origin->name ? p_object->p_declarator_origin->name : p_object->p_declarator_origin->first_token;
         else if (p_object->p_expression_origin)
             position = p_object->p_expression_origin->first_token;
         else
@@ -23697,9 +23838,9 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
             snprintf(buffer, sizeof buffer, "%s", previous_names);
             struct type t2 = type_remove_pointer(p_type);
 
-            for (int i = 0; i < p_object->ref.size; i++)
+            for (int i = 0; i < p_object->pointed.size; i++)
             {
-                end_of_storage_visit_core(ctx, &t2, b_type_is_view, p_object->ref.data[i], position, buffer, visit_number);
+                end_of_storage_visit_core(ctx, &t2, b_type_is_view, p_object->pointed.data[i], position, buffer, visit_number);
             }
             type_destroy(&t2);
         }
@@ -23757,8 +23898,28 @@ bool object_is_zero_or_null(const struct object* p_object)
         (p_object->state == OBJECT_STATE_ZERO);
 }
 
-
-
+void object_propagate(struct flow_visit_ctx* ctx, struct object* p_object)
+{
+    //propagages the state for all left (left1. left2)
+    //left->obj.state = state
+    //
+    if (p_object->p_expression_origin)
+    {
+        if (p_object->p_expression_origin->expression_type == POSTFIX_ARROW)
+        {
+            struct object* p_left_object = expression_get_object(ctx, p_object->p_expression_origin->left, ctx->ctx->options.null_checks_enabled);
+            if (p_left_object)
+            {
+                for (int i = 0; i < p_left_object->pointed.size; i++)
+                {
+                    struct object* p =
+                        p_left_object->pointed.data[i]->members.data[p_object->p_expression_origin->member_index];
+                    p->state |= p_object->state;
+                }
+            }
+        }
+    }
+}
 
 /*
    This function must check and do the flow assignment of
@@ -23771,17 +23932,17 @@ static void flow_assignment_core(
     bool check_uninitialized_b,
     bool a_type_is_view,
     bool a_type_is_nullable,
-    struct type* p_a_type, struct object* p_a_object,
-    struct type* p_b_type, struct object* p_b_object)
+    struct object_visitor* p_visitor_a,
+    struct object_visitor* p_visitor_b)
 {
-    if (p_a_object == NULL || p_b_object == NULL)
+    if (p_visitor_a->p_object == NULL || p_visitor_b->p_object == NULL)
     {
         return;
     }
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
 #ifdef _DEBUG
-    while (error_position->line == 14)
+    while (error_position->line == 28)
     {
         break;
     }
@@ -23793,14 +23954,14 @@ static void flow_assignment_core(
      //printf("\n");
 
      /*general check for copying uninitialized object*/
-    if (check_uninitialized_b && p_b_object->state & OBJECT_STATE_UNINITIALIZED)
+    if (check_uninitialized_b && p_visitor_b->p_object->state & OBJECT_STATE_UNINITIALIZED)
     {
         //a = b where b is uninitialized
         char buffer[100] = { 0 };
-        object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
+        object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, buffer, sizeof buffer);
         if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
         {
-            if (!type_is_out(p_a_type))
+            if (!type_is_out(p_visitor_a->p_type))
             {
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                             ctx->ctx,
@@ -23826,11 +23987,11 @@ static void flow_assignment_core(
         return;
     }
 
-    if (check_uninitialized_b && p_a_object->state & OBJECT_STATE_LIFE_TIME_ENDED)
+    if (check_uninitialized_b && p_visitor_a->p_object->state & OBJECT_STATE_LIFE_TIME_ENDED)
     {
         //a = b where a was deleted
         char buffer[100] = { 0 };
-        object_get_name(p_a_type, p_a_object, buffer, sizeof buffer);
+        object_get_name(p_visitor_a->p_type, p_visitor_a->p_object, buffer, sizeof buffer);
 
         compiler_diagnostic_message(W_FLOW_LIFETIME_ENDED,
                     ctx->ctx,
@@ -23842,14 +24003,14 @@ static void flow_assignment_core(
     }
 
     /*general check passing possible null to non opt*/
-    if (type_is_pointer(p_a_type) &&
-        (!type_is_nullable(p_a_type, ctx->ctx->options.null_checks_enabled)) &&
-        p_b_object->state & OBJECT_STATE_NULL)
+    if (type_is_pointer(p_visitor_a->p_type) &&
+        (!type_is_nullable(p_visitor_a->p_type, ctx->ctx->options.null_checks_enabled)) &&
+        p_visitor_b->p_object->state & OBJECT_STATE_NULL)
     {
         if (!a_type_is_nullable)
         {
             char buffer[100] = { 0 };
-            object_get_name(p_b_type, p_b_object, buffer, sizeof buffer);
+            object_get_name(p_visitor_b->p_type, p_visitor_b->p_object, buffer, sizeof buffer);
 
             compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
                        ctx->ctx,
@@ -23859,41 +24020,41 @@ static void flow_assignment_core(
 
     }
 
-    if (type_is_pointer(p_a_type))
+    if (type_is_pointer(p_visitor_a->p_type))
     {
-        if (!a_type_is_view && type_is_owner(p_a_type))
+        if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
         {
-            checked_empty(ctx, p_a_type, p_a_object, error_position);
+            checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, error_position);
         }
 
-        if (object_is_zero_or_null(p_b_object))
+        if (object_is_zero_or_null(p_visitor_b->p_object))
         {
-            if (type_is_array(p_b_type))
+            if (type_is_array(p_visitor_b->p_type))
             {
                 //int b[2] = {0};
                 //int * a = b;
                 //object_set_zero(p_a_type, p_a_object);
-                objects_view_clear(&p_a_object->ref);
-                p_a_object->state = OBJECT_STATE_NOT_NULL;
+                objects_view_clear(&p_visitor_a->p_object->pointed);
+                p_visitor_a->p_object->state = OBJECT_STATE_NOT_NULL;
                 return;
             }
-            else if (type_is_nullptr_t(p_b_type) || type_is_integer(p_b_type))
+            else if (type_is_nullptr_t(p_visitor_b->p_type) || type_is_integer(p_visitor_b->p_type))
             {
                 //a = nullpr
                 //object_set_zero(p_a_type, p_a_object);
                 //p_a_object->pointed_ref = NULL;
-                objects_view_clear(&p_a_object->ref);
-                p_a_object->state = OBJECT_STATE_NULL;
+                objects_view_clear(&p_visitor_a->p_object->pointed);
+                p_visitor_a->p_object->state = OBJECT_STATE_NULL;
                 return;
             }
         }
     }
 
-    if (!a_type_is_view && type_is_obj_owner(p_a_type) && type_is_pointer(p_a_type))
+    if (!a_type_is_view && type_is_obj_owner(p_visitor_a->p_type) && type_is_pointer(p_visitor_a->p_type))
     {
-        checked_empty(ctx, p_a_type, p_a_object, error_position);
+        checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, error_position);
 
-        if (object_is_zero_or_null(p_b_object))
+        if (object_is_zero_or_null(p_visitor_b->p_object))
         {
             //0 to objec_owner??
             //a = nullpr
@@ -23903,24 +24064,23 @@ static void flow_assignment_core(
     }
 
     /*copying to void * owner*/
-    if (type_is_void_ptr(p_a_type) && type_is_pointer(p_b_type))
+    if (type_is_void_ptr(p_visitor_a->p_type) && type_is_pointer(p_visitor_b->p_type))
     {
-        p_a_object->state = p_b_object->state;
-        objects_view_copy(&p_a_object->ref, &p_b_object->ref);
-        //p_a_object->pointed_ref = p_b_object->pointed_ref;
+        p_visitor_a->p_object->state = p_visitor_b->p_object->state;
+        objects_view_copy(&p_visitor_a->p_object->pointed, &p_visitor_b->p_object->pointed);
 
 
-        if (!a_type_is_view && type_is_owner(p_a_type))
+        if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
         {
             //*b must be empty before copying to void* owner
-            struct type t = type_remove_pointer(p_b_type);
+            struct type t = type_remove_pointer(p_visitor_b->p_type);
 
-            if (p_b_object->ref.size == 0)
+            if (p_visitor_b->p_object->pointed.size == 0)
             {
                 // The question is..if we had this object expanded
                 // could it possible have resources?
                 //-> {...}
-                if (object_is_expansible(p_b_object) &&
+                if (object_is_expansible(p_visitor_b->p_object) &&
                     type_is_owner(&t))
                 {
                     //if the anwser is yes then we need a warning
@@ -23932,60 +24092,61 @@ static void flow_assignment_core(
             }
             else
             {
-                for (int i = 0; i < p_b_object->ref.size; i++)
+                for (int i = 0; i < p_visitor_b->p_object->pointed.size; i++)
                 {
-                    checked_empty(ctx, &t, p_b_object->ref.data[i], error_position);
-                    object_set_deleted(&t, p_b_object->ref.data[i]);
+                    checked_empty(ctx, &t, p_visitor_b->p_object->pointed.data[i], error_position);
+                    object_set_deleted(&t, p_visitor_b->p_object->pointed.data[i]);
                 }
             }
             type_destroy(&t);
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                p_b_object->state = OBJECT_STATE_UNINITIALIZED;
-                //objects_view_clear(&p_b_object->ref);
-                //p_b_object->pointed_ref = NULL;
-                //object_set_deleted(p_b_type, p_b_object);
+                p_visitor_b->p_object->state = OBJECT_STATE_UNINITIALIZED;                
             }
             else
             {
-                p_b_object->state &= ~OBJECT_STATE_NOT_NULL;
-                p_b_object->state |= OBJECT_STATE_MOVED;
+                p_visitor_b->p_object->state &= ~OBJECT_STATE_NOT_NULL;
+                p_visitor_b->p_object->state |= OBJECT_STATE_MOVED;
             }
-
+            
         }
+        
+        //Sample free(y->b)
+        
+        object_propagate(ctx, p_visitor_b->p_object);
         return;
     }
 
 
 
-    if (type_is_pointer(p_a_type) && type_is_pointer(p_b_type))
+    if (type_is_pointer(p_visitor_a->p_type) && type_is_pointer(p_visitor_b->p_type))
     {
 
 
-        p_a_object->state = p_b_object->state;
-        objects_view_copy(&p_a_object->ref, &p_b_object->ref);
+        p_visitor_a->p_object->state = p_visitor_b->p_object->state;
+        objects_view_copy(&p_visitor_a->p_object->pointed, &p_visitor_b->p_object->pointed);
 
-        struct type t = type_remove_pointer(p_a_type);
+        struct type t = type_remove_pointer(p_visitor_a->p_type);
 
         /*if the parameter points to out object, then we don´t need to check
           argument pointed object.
         */
         const bool checked_pointed_object_read = !type_is_out(&t);
         bool is_nullable = a_type_is_nullable || type_is_nullable(&t, ctx->ctx->options.null_checks_enabled);
-        checked_read_object(ctx, p_b_type, is_nullable, p_b_object, error_position, checked_pointed_object_read);
+        checked_read_object(ctx, p_visitor_b->p_type, is_nullable, p_visitor_b->p_object, error_position, checked_pointed_object_read);
 
 
         //object_copy_state(p_a_type, p_a_object, p_b_type, p_b_object);
         type_destroy(&t);
 
-        if (!a_type_is_view && type_is_owner(p_a_type))
+        if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
         {
             /*
                T * _Owner pA = pB;
             */
 
-            if (p_b_object->state & OBJECT_STATE_MOVED)
+            if (p_visitor_b->p_object->state & OBJECT_STATE_MOVED)
             {
                 //TODO we need 2 positions, source, dest
                 compiler_diagnostic_message(W_FLOW_MOVED,
@@ -23997,15 +24158,15 @@ static void flow_assignment_core(
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                p_b_object->state = OBJECT_STATE_UNINITIALIZED;
+                p_visitor_b->p_object->state = OBJECT_STATE_UNINITIALIZED;
 
-                for (int i = 0; i < p_b_object->ref.size; i++)
+                for (int i = 0; i < p_visitor_b->p_object->pointed.size; i++)
                 {
-                    struct object* pointed = p_b_object->ref.data[i];
+                    struct object* pointed = p_visitor_b->p_object->pointed.data[i];
                     if (pointed)
                     {
 
-                        struct type t2 = type_remove_pointer(p_b_type);
+                        struct type t2 = type_remove_pointer(p_visitor_b->p_type);
                         object_set_deleted(&t2, pointed);
                         type_destroy(&t2);
                     }
@@ -24020,28 +24181,28 @@ static void flow_assignment_core(
             {
 
                 //TODO
-                p_a_object->state = p_a_object->state & ~OBJECT_STATE_MOVED;
-                if (p_b_object->state & OBJECT_STATE_NOT_NULL)
+                p_visitor_a->p_object->state = p_visitor_a->p_object->state & ~OBJECT_STATE_MOVED;
+                if (p_visitor_b->p_object->state & OBJECT_STATE_NOT_NULL)
                 {
                     //null not-null -> null moved
-                    p_b_object->state &= ~OBJECT_STATE_NOT_NULL;
-                    p_b_object->state |= OBJECT_STATE_MOVED;
+                    p_visitor_b->p_object->state &= ~OBJECT_STATE_NOT_NULL;
+                    p_visitor_b->p_object->state |= OBJECT_STATE_MOVED;
                 }
             }
         }
-        else if (!a_type_is_view && type_is_obj_owner(p_a_type))
+        else if (!a_type_is_view && type_is_obj_owner(p_visitor_a->p_type))
         {
-            if (type_is_any_owner(p_b_type))
+            if (type_is_any_owner(p_visitor_b->p_type))
             {
                 if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                 {
                     //p_b_object->state = OBJECT_STATE_UNINITIALIZED;
-                    for (int i = 0; i < p_b_object->ref.size; i++)
+                    for (int i = 0; i < p_visitor_b->p_object->pointed.size; i++)
                     {
-                        struct object* pointed = p_b_object->ref.data[i];
+                        struct object* pointed = p_visitor_b->p_object->pointed.data[i];
                         if (pointed)
                         {
-                            struct type t2 = type_remove_pointer(p_b_type);
+                            struct type t2 = type_remove_pointer(p_visitor_b->p_type);
                             object_set_uninitialized(&t2, pointed);
                             type_destroy(&t2);
                         }
@@ -24049,22 +24210,22 @@ static void flow_assignment_core(
 
                 }
                 else
-                    object_set_moved(p_b_type, p_b_object);
+                    object_set_moved(p_visitor_b->p_type, p_visitor_b->p_object);
             }
             else
             {
-                if (p_b_type->address_of)
+                if (p_visitor_b->p_type->address_of)
                 {
                     //must be address of.
                     if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
                     {
-                        p_b_object->state = OBJECT_STATE_UNINITIALIZED;
-                        for (int i = 0; i < p_b_object->ref.size; i++)
+                        p_visitor_b->p_object->state = OBJECT_STATE_UNINITIALIZED;
+                        for (int i = 0; i < p_visitor_b->p_object->pointed.size; i++)
                         {
-                            struct object* pointed = p_b_object->ref.data[i];
+                            struct object* pointed = p_visitor_b->p_object->pointed.data[i];
                             if (pointed)
                             {
-                                struct type t2 = type_remove_pointer(p_b_type);
+                                struct type t2 = type_remove_pointer(p_visitor_b->p_type);
                                 object_set_uninitialized(&t2, pointed);
                                 type_destroy(&t2);
                             }
@@ -24072,7 +24233,7 @@ static void flow_assignment_core(
 
                     }
                     else
-                        object_set_moved(p_b_type, p_b_object);
+                        object_set_moved(p_visitor_b->p_type, p_visitor_b->p_object);
                 }
                 else
                 {
@@ -24085,22 +24246,22 @@ static void flow_assignment_core(
         }
         else
         {
-            if (a_type_is_view || !type_is_owner(p_a_type))
+            if (a_type_is_view || !type_is_owner(p_visitor_a->p_type))
             {
 
-                p_a_object->state = p_b_object->state;
+                p_visitor_a->p_object->state = p_visitor_b->p_object->state;
 
-                p_a_object->state &= ~OBJECT_STATE_MOVED;
+                p_visitor_a->p_object->state &= ~OBJECT_STATE_MOVED;
             }
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                struct type t3 = type_remove_pointer(p_a_type);
+                struct type t3 = type_remove_pointer(p_visitor_a->p_type);
                 if (!type_is_const(&t3))
                 {
-                    for (int i = 0; i < p_b_object->ref.size; i++)
+                    for (int i = 0; i < p_visitor_b->p_object->pointed.size; i++)
                     {
-                        struct object* pointed = p_b_object->ref.data[i];
+                        struct object* pointed = p_visitor_b->p_object->pointed.data[i];
                         if (pointed)
                         {
                             const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
@@ -24112,18 +24273,17 @@ static void flow_assignment_core(
                 type_destroy(&t3);
             }
         }
-
-
+        
         return;
     }
 
-    if (p_a_type->struct_or_union_specifier && p_a_object->members.size > 0)
+    if (p_visitor_a->p_type->struct_or_union_specifier && p_visitor_a->p_object->members.size > 0)
     {
         struct struct_or_union_specifier* p_a_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_a_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor_a->p_type->struct_or_union_specifier);
 
         struct struct_or_union_specifier* p_b_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_b_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor_b->p_type->struct_or_union_specifier);
 
         if (p_a_struct_or_union_specifier && p_b_struct_or_union_specifier)
         {
@@ -24133,7 +24293,7 @@ static void flow_assignment_core(
             struct member_declaration* p_b_member_declaration =
                 p_b_struct_or_union_specifier->member_declaration_list.head;
 
-            int member_index = 0;
+
             while (p_a_member_declaration && p_b_member_declaration)
             {
                 if (p_a_member_declaration->member_declarator_list_opt)
@@ -24149,15 +24309,18 @@ static void flow_assignment_core(
                         if (p_a_member_declarator->declarator &&
                             p_b_member_declarator->declarator)
                         {
-                            if (member_index < p_a_object->members.size &&
-                                member_index < p_b_object->members.size)
+                            if (p_visitor_a->member_index < p_visitor_a->p_object->members.size &&
+                                p_visitor_b->member_index < p_visitor_b->p_object->members.size)
                             {
+                                struct object_visitor visitor_a = { 0 };
+                                visitor_a.p_type = &p_a_member_declarator->declarator->type;
+                                visitor_a.p_object = p_visitor_a->p_object->members.data[p_visitor_a->member_index];
 
-                                struct type* p_a_member_type = &p_a_member_declarator->declarator->type;
-                                struct object* p_a_member_object = p_a_object->members.data[member_index];
 
-                                struct type* p_b_member_type = &p_b_member_declarator->declarator->type;
-                                struct object* p_b_member_object = p_b_object->members.data[member_index];
+                                struct object_visitor visitor_b = { 0 };
+                                visitor_b.p_type = &p_b_member_declarator->declarator->type;
+                                visitor_b.p_object = p_visitor_b->p_object->members.data[p_visitor_b->member_index];
+
 
                                 flow_assignment_core(ctx,
                                     error_position,
@@ -24165,33 +24328,67 @@ static void flow_assignment_core(
                                     check_uninitialized_b,
                                     a_type_is_view,
                                     a_type_is_nullable,
-                                    p_a_member_type, p_a_member_object,
-                                    p_b_member_type, p_b_member_object);
+                                    &visitor_a,
+                                    &visitor_b);
                             }
                             else
                             {
                                 //TODO BUG union?                                
                             }
-                            member_index++;
+                            p_visitor_a->member_index++;
+                            p_visitor_b->member_index++;
+
                         }
                         p_a_member_declarator = p_a_member_declarator->next;
                         p_b_member_declarator = p_b_member_declarator->next;
                     }
                 }
+                else
+                {
+                    if (p_a_member_declaration->specifier_qualifier_list &&
+                       p_a_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    {
+                        struct type t = { 0 };
+                        t.category = TYPE_CATEGORY_ITSELF;
+                        t.struct_or_union_specifier = p_a_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                        struct type* temp1 = p_visitor_a->p_type;
+                        struct type* temp2 = p_visitor_b->p_type;
+                        p_visitor_a->p_type = &t;
+                        p_visitor_b->p_type = &t;
+
+                        flow_assignment_core(
+                                            ctx,
+                                            error_position,
+                                            assigment_type,
+                                            check_uninitialized_b,
+                                            a_type_is_view,
+                                            a_type_is_nullable,
+                                            p_visitor_a,
+                                            p_visitor_b);
+
+                        //restore
+                        p_visitor_a->p_type = temp1;
+                        p_visitor_b->p_type = temp2;
+
+                        type_destroy(&t);
+                    }
+                }
                 p_a_member_declaration = p_a_member_declaration->next;
                 p_b_member_declaration = p_b_member_declaration->next;
-            }
+            }            
             return;
         }
     }
 
-    p_a_object->state = p_b_object->state;
-    if (!a_type_is_view && type_is_owner(p_a_type))
+    p_visitor_a->p_object->state = p_visitor_b->p_object->state;
+    if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
     {
         if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
-            object_set_uninitialized(p_b_type, p_b_object);
+            object_set_uninitialized(p_visitor_b->p_type, p_visitor_b->p_object);
         else
-            object_set_moved(p_b_type, p_b_object);
+            object_set_moved(p_visitor_b->p_type, p_visitor_b->p_object);
     }
 }
 
@@ -24275,30 +24472,30 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
         struct object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
         if (p_obj)
         {
-            if (p_obj->ref.size == 0)
+            if (p_obj->pointed.size == 0)
             {
                 expand_pointer_object(ctx, &p_expression->left->type, p_obj);
             }
 
-            if (p_obj->ref.size == 1)
+            if (p_obj->pointed.size == 1)
             {
-                struct object* pointed = p_obj->ref.data[0];
-                return pointed;                
+                struct object* pointed = p_obj->pointed.data[0];
+                return pointed;
             }
             else
             {
                 struct object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
                 object_set_nothing(&p_expression->type, p_object);
-                for (int i = 0; i < p_obj->ref.size; i++)
+                for (int i = 0; i < p_obj->pointed.size; i++)
                 {
-                    struct object* pointed = p_obj->ref.data[i];
+                    struct object* pointed = p_obj->pointed.data[i];
                     if (pointed != NULL)
                     {
                         if (p_expression->member_index < pointed->members.size)
                         {
                             p_object->state |=
                                 pointed->members.data[p_expression->member_index]->state;
-                            objects_view_merge(&p_object->ref, &pointed->members.data[p_expression->member_index]->ref);
+                            objects_view_merge(&p_object->pointed, &pointed->members.data[p_expression->member_index]->pointed);
                             //return pointed->members.data[p_expression->member_index];
                         }
                         else
@@ -24310,21 +24507,21 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
                 return p_object;
             }
         }
-        return NULL;        
+        return NULL;
     }
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
         struct object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
         if (p_obj)
         {
-            if (p_obj->ref.size == 0)
+            if (p_obj->pointed.size == 0)
             {
                 expand_pointer_object(ctx, &p_expression->left->type, p_obj);
             }
 
-            if (p_obj->ref.size == 1)
+            if (p_obj->pointed.size == 1)
             {
-                struct object* pointed = p_obj->ref.data[0];
+                struct object* pointed = p_obj->pointed.data[0];
                 if (pointed != NULL)
                 {
                     if (p_expression->member_index < pointed->members.size)
@@ -24339,16 +24536,16 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
             {
                 struct object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
                 object_set_nothing(&p_expression->type, p_object);
-                for (int i = 0; i < p_obj->ref.size; i++)
+                for (int i = 0; i < p_obj->pointed.size; i++)
                 {
-                    struct object* pointed = p_obj->ref.data[i];
+                    struct object* pointed = p_obj->pointed.data[i];
                     if (pointed != NULL)
                     {
                         if (p_expression->member_index < pointed->members.size)
                         {
                             p_object->state |=
                                 pointed->members.data[p_expression->member_index]->state;
-                            objects_view_merge(&p_object->ref, &pointed->members.data[p_expression->member_index]->ref);
+                            objects_view_merge(&p_object->pointed, &pointed->members.data[p_expression->member_index]->pointed);
                             //return pointed->members.data[p_expression->member_index];
                         }
                         else
@@ -24367,14 +24564,14 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
         struct object* p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
         if (p_obj)
         {
-            if (p_obj->ref.size == 0)
+            if (p_obj->pointed.size == 0)
             {
                 expand_pointer_object(ctx, &p_expression->right->type, p_obj);
             }
 
-            if (p_obj->ref.size == 1)
+            if (p_obj->pointed.size == 1)
             {
-                struct object* pointed = p_obj->ref.data[0];
+                struct object* pointed = p_obj->pointed.data[0];
                 if (pointed != NULL)
                 {
                     return pointed;
@@ -24384,16 +24581,16 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
             {
                 struct object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
                 object_set_nothing(&p_expression->type, p_object);
-                for (int i = 0; i < p_obj->ref.size; i++)
+                for (int i = 0; i < p_obj->pointed.size; i++)
                 {
-                    struct object* pointed = p_obj->ref.data[i];
+                    struct object* pointed = p_obj->pointed.data[i];
                     if (pointed != NULL)
                     {
                         if (p_expression->member_index < pointed->members.size)
                         {
                             p_object->state |=
                                 pointed->members.data[p_expression->member_index]->state;
-                            objects_view_merge(&p_object->ref, &pointed->members.data[p_expression->member_index]->ref);
+                            objects_view_merge(&p_object->pointed, &pointed->members.data[p_expression->member_index]->pointed);
                             //return pointed->members.data[p_expression->member_index];
                         }
                         else
@@ -24543,6 +24740,13 @@ void flow_assignment(
         //expand_pointer_object(ctx, p_b_type, p_b_object);
     }
 
+    struct object_visitor visitor_a = { 0 };
+    visitor_a.p_object = p_a_object;
+    visitor_a.p_type = p_a_type;
+    struct object_visitor visitor_b = { 0 };
+    visitor_b.p_object = p_b_object;
+    visitor_b.p_type = p_b_type;
+
     flow_assignment_core(
      ctx,
     error_position,
@@ -24550,13 +24754,12 @@ void flow_assignment(
     check_uninitialized_b,
     a_type_is_view,
     a_type_is_nullable,
-    p_a_type,
-    p_a_object,
-    p_b_type,
-    p_b_object);
+    &visitor_a,
+    &visitor_b);
 }
 
 
+#pragma ownership enable
 
 
 
@@ -25007,23 +25210,26 @@ void print_scope(struct scope_list* e)
     int level = 0;
     while (p)
     {
-        for (int i = 0; i < p->variables.capacity; i++)
+        if (p->variables.table)
         {
-            if (p->variables.table[i])
+            for (int i = 0; i < p->variables.capacity; i++)
             {
-                for (int k = 0; k < level; k++)
-                    printf(" ");
-                printf("%s\n", p->variables.table[i]->key);
+                if (p->variables.table[i])
+                {
+                    for (int k = 0; k < level; k++)
+                        printf(" ");
+                    printf("%s\n", p->variables.table[i]->key);
+                }
             }
-        }
 
-        for (int i = 0; i < p->tags.capacity; i++)
-        {
-            if (p->tags.table[i])
+            for (int i = 0; i < p->tags.capacity; i++)
             {
-                for (int k = 0; k < level; k++)
-                    printf(" ");
-                printf("tag %s\n", p->tags.table[i]->key);
+                if (p->tags.table[i])
+                {
+                    for (int k = 0; k < level; k++)
+                        printf(" ");
+                    printf("tag %s\n", p->tags.table[i]->key);
+                }
             }
         }
 
@@ -26438,6 +26644,8 @@ void declaration_specifiers_delete(struct declaration_specifiers* owner opt p)
 {
     if (p)
     {
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+
         struct declaration_specifier* owner item = p->head;
         while (item)
         {
@@ -26447,7 +26655,24 @@ void declaration_specifiers_delete(struct declaration_specifiers* owner opt p)
             item = next;
         }
         free(p);
+
+
     }
+}
+
+void declaration_specifiers_add(struct declaration_specifiers* list, struct declaration_specifier* owner p_item)
+{
+
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
 }
 
 struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* ctx,
@@ -26536,8 +26761,10 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
 
-            LIST_ADD(p_declaration_specifiers, p_declaration_specifier);
-            // attribute_specifier_sequence_opt(ctx);
+            declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
+
+            assert(p_declaration_specifiers->p_attribute_specifier_sequence_opt == NULL);
+            p_declaration_specifiers->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
             if (ctx->current->type == TK_IDENTIFIER &&
                 p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
@@ -26965,8 +27192,11 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         }
         else
         {
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"
             assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
             p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
+#pragma cake diagnostic pop
         }
 
         const char* name = p_init_declarator->p_declarator->name->lexeme;
@@ -27172,6 +27402,20 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
     return p_init_declarator;
 }
 
+void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void init_declarator_list_destroy(struct init_declarator_list* obj_owner p)
 {
     struct init_declarator* owner item = p->head;
@@ -27201,7 +27445,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
 
         if (p_init_declarator == NULL)
             throw;
-        LIST_ADD(&init_declarator_list, p_init_declarator);
+        init_declarator_list_add(&init_declarator_list, p_init_declarator);
         p_init_declarator = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -27210,7 +27454,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
             p_init_declarator = init_declarator(ctx, p_declaration_specifiers);
             if (p_init_declarator == NULL)
                 throw;
-            LIST_ADD(&init_declarator_list, p_init_declarator);
+            init_declarator_list_add(&init_declarator_list, p_init_declarator);
             p_init_declarator = NULL; /*MOVED*/
         }
     }
@@ -27799,7 +28043,11 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
             parser_match(ctx);
             if (ctx->current->type != '}') /*not official extensions yet..missing sizeof etc*/
             {
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"
                 p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
+#pragma cake diagnostic pop
+
             }
             p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
             p_struct_or_union_specifier->last_token = ctx->current;
@@ -27859,7 +28107,10 @@ struct member_declarator* owner member_declarator(
     p_member_declarator->declarator->name = p_token_name;
     p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"    
     p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+#pragma cake diagnostic pop
 
     /*extension*/
     if (type_is_owner(&p_member_declarator->declarator->type))
@@ -27890,6 +28141,20 @@ void member_declarator_delete(struct member_declarator* owner opt p)
     }
 }
 
+void member_declarator_list_add(struct member_declarator_list* list, struct member_declarator* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void member_declarator_list_delete(struct member_declarator_list* owner opt p)
 {
     if (p)
@@ -27911,15 +28176,28 @@ struct member_declarator_list* owner member_declarator_list(
     const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* owner p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
-    LIST_ADD(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
+    member_declarator_list_add(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
     while (ctx->current->type == ',')
     {
         parser_match(ctx);
-        LIST_ADD(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
+        member_declarator_list_add(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
     }
     return p_member_declarator_list;
 }
 
+void member_declaration_list_add(struct member_declaration_list* list, struct member_declaration* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
 void member_declaration_list_destroy(struct member_declaration_list* obj_owner p)
 {
     struct member_declaration* owner item = p->head;
@@ -27946,7 +28224,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
 
         if (p_member_declaration == NULL)
             throw;
-        LIST_ADD(&list, p_member_declaration);
+        member_declaration_list_add(&list, p_member_declaration);
         p_member_declaration = NULL; /*MOVED*/
 
         while (ctx->current && ctx->current->type != '}')
@@ -27954,7 +28232,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
             p_member_declaration = member_declaration(ctx, p_struct_or_union_specifier);
             if (p_member_declaration == NULL)
                 throw;
-            LIST_ADD(&list, p_member_declaration);
+            member_declaration_list_add(&list, p_member_declaration);
             p_member_declaration = NULL; /*MOVED*/
         }
     }
@@ -28021,8 +28299,6 @@ struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index)
 {
-    int member_index = 0;
-
     struct member_declaration* p_member_declaration = list->head;
     while (p_member_declaration)
     {
@@ -28036,50 +28312,25 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
             {
                 if (p_member_declarator->declarator->name && strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
                 {
-                    *p_member_index = member_index;
                     return p_member_declarator;
                 }
 
-                member_index++;
+                (*p_member_index)++;
                 p_member_declarator = p_member_declarator->next;
             }
         }
-        else if (p_member_declaration->specifier_qualifier_list)
+        else
         {
-            /*
-             struct X {
-                union  {
-                  unsigned char       Byte[16];
-                  unsigned short      Word[8];
-                  };
-            };
-
-            struct X* a;
-            a.Byte[0] & 0xe0;
-            */
-
-            if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+            if (p_member_declaration->specifier_qualifier_list &&
+                p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
             {
                 struct member_declaration_list* p_member_declaration_list =
                     &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
-                int inner_member_index = 0;
-                struct member_declarator* p = find_member_declarator(p_member_declaration_list, name, &inner_member_index);
-                if (p)
-                {
-                    *p_member_index = member_index + inner_member_index;
-                    return p;
-                }
+
+                p_member_declarator = find_member_declarator(p_member_declaration_list, name, p_member_index);
+                if (p_member_declarator)
+                    return p_member_declarator;
             }
-        }
-        else if (p_member_declaration->static_assert_declaration)
-        {
-        }
-        else if (p_member_declaration->pragma_declaration)
-        {
-        }
-        else
-        {
-            //ops
         }
 
         p_member_declaration = p_member_declaration->next;
@@ -28110,6 +28361,21 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
     {
         print_type_specifier_flags(ss, first, p_specifier_qualifier_list->type_specifier_flags);
     }
+}
+
+
+void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct type_specifier_qualifier* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
 }
 
 void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner opt p)
@@ -28201,8 +28467,9 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
                 p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->type_qualifier->flags;
             }
 
-            LIST_ADD(p_specifier_qualifier_list, p_type_specifier_qualifier);
             p_specifier_qualifier_list->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
+
+            specifier_qualifier_list_add(p_specifier_qualifier_list, p_type_specifier_qualifier);
         }
     }
     catch
@@ -28218,6 +28485,7 @@ void type_qualifier_delete(struct type_qualifier* owner opt p)
 {
     if (p)
     {
+        assert(p->next == NULL);
         free(p);
     }
 }
@@ -28393,6 +28661,20 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
     return p_enum_specifier;
 }
 
+void enumerator_list_add(struct enumerator_list* list, struct enumerator* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void enumerator_list_destroy(struct enumerator_list* obj_owner p)
 {
     struct enumerator* owner item = p->head;
@@ -28422,7 +28704,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
         if (p_enumerator == NULL)
             throw;
 
-        LIST_ADD(&enumeratorlist, p_enumerator);
+        enumerator_list_add(&enumeratorlist, p_enumerator);
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
@@ -28433,7 +28715,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
                 p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value);
                 if (p_enumerator == NULL)
                     throw;
-                LIST_ADD(&enumeratorlist, p_enumerator);
+                enumerator_list_add(&enumeratorlist, p_enumerator);
             }
         }
     }
@@ -29078,6 +29360,20 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
     return p;
 }
 
+void type_qualifier_list_add(struct type_qualifier_list* list, struct type_qualifier* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void type_qualifier_list_delete(struct type_qualifier_list* owner opt p)
 {
     if (p)
@@ -29113,7 +29409,7 @@ struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
             throw;
 
         p_type_qualifier_list->flags |= p_type_qualifier->flags;
-        LIST_ADD(p_type_qualifier_list, p_type_qualifier);
+        type_qualifier_list_add(p_type_qualifier_list, p_type_qualifier);
         p_type_qualifier = NULL; /*MOVED*/
 
         while (ctx->current != NULL && first_of_type_qualifier(ctx))
@@ -29123,7 +29419,7 @@ struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
                 throw;
 
             p_type_qualifier_list->flags |= p_type_qualifier->flags;
-            LIST_ADD(p_type_qualifier_list, p_type_qualifier);
+            type_qualifier_list_add(p_type_qualifier_list, p_type_qualifier);
             p_type_qualifier = NULL; /*MOVED*/
         }
     }
@@ -29169,6 +29465,20 @@ struct parameter_type_list* owner parameter_type_list(struct parser_ctx* ctx)
     return p_parameter_type_list;
 }
 
+void parameter_list_add(struct parameter_list* list, struct parameter_declaration* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void parameter_list_delete(struct parameter_list* owner p)
 {
     if (p)
@@ -29203,7 +29513,7 @@ struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
         if (p_parameter_declaration == NULL)
             throw;
 
-        LIST_ADD(p_parameter_list, p_parameter_declaration);
+        parameter_list_add(p_parameter_list, p_parameter_declaration);
         p_parameter_declaration = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -29219,7 +29529,7 @@ struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
             if (p_parameter_declaration == NULL)
                 throw;
 
-            LIST_ADD(p_parameter_list, p_parameter_declaration);
+            parameter_list_add(p_parameter_list, p_parameter_declaration);
             p_parameter_declaration = NULL; /*MOVED*/
         }
     }
@@ -29263,7 +29573,10 @@ struct parameter_declaration* owner parameter_declaration(struct parser_ctx* ctx
 
     p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"        
     p_parameter_declaration->declarator->type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+#pragma cake diagnostic pop
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
@@ -29335,7 +29648,7 @@ struct specifier_qualifier_list* owner copy(struct declaration_specifiers* p_dec
                 p_specifier_qualifier->type_specifier = p_type_specifier;
             }
 
-            LIST_ADD(p_specifier_qualifier_list, p_specifier_qualifier);
+            specifier_qualifier_list_add(p_specifier_qualifier_list, p_specifier_qualifier);
         }
         p_declaration_specifier = p_declaration_specifier->next;
     }
@@ -29446,7 +29759,11 @@ struct type_name* owner opt type_name(struct parser_ctx* ctx)
         true /*DEVE SER TODO*/,
         NULL);
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
+
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"    
     p_type_name->declarator->type = make_type_using_declarator(ctx, p_type_name->declarator);
+#pragma cake diagnostic pop
 
     p_type_name->last_token = ctx->current->prev;
     p_type_name->type = type_dup(&p_type_name->declarator->type);
@@ -29532,6 +29849,20 @@ struct initializer* owner initializer(struct parser_ctx* ctx)
     return p_initializer;
 }
 
+void initializer_list_add(struct initializer_list* list, struct initializer* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void initializer_list_delete(struct initializer_list* owner opt p)
 {
     if (p)
@@ -29569,7 +29900,7 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
     assert(p_initializer->designation == NULL);
     p_initializer->designation = p_designation;
 
-    LIST_ADD(p_initializer_list, p_initializer);
+    initializer_list_add(p_initializer_list, p_initializer);
     p_initializer_list->size++;
 
     while (ctx->current != NULL && ctx->current->type == ',')
@@ -29588,7 +29919,7 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
         assert(p_initializer2->designation == NULL);
         p_initializer2->designation = p_designation2;
 
-        LIST_ADD(p_initializer_list, p_initializer2);
+        initializer_list_add(p_initializer_list, p_initializer2);
         p_initializer_list->size++;
     }
 
@@ -29621,6 +29952,21 @@ struct designation* owner designation(struct parser_ctx* ctx)
     return p_designation;
 }
 
+
+void designator_list_add(struct designator_list* list, struct designator* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void designator_list_delete(struct designator_list* owner opt p)
 {
     if (p)
@@ -29651,7 +29997,7 @@ struct designator_list* owner designator_list(struct parser_ctx* ctx)
         p_designator = designator(ctx);
         if (p_designator == NULL)
             throw;
-        LIST_ADD(p_designator_list, p_designator);
+        designator_list_add(p_designator_list, p_designator);
         p_designator = NULL; /*MOVED*/
 
         while (ctx->current != NULL && first_of_designator(ctx))
@@ -29659,7 +30005,7 @@ struct designator_list* owner designator_list(struct parser_ctx* ctx)
             p_designator = designator(ctx);
             if (p_designator == NULL)
                 throw;
-            LIST_ADD(p_designator_list, p_designator);
+            designator_list_add(p_designator_list, p_designator);
             p_designator = NULL; /*MOVED*/
         }
     }
@@ -30049,6 +30395,20 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
     return p_static_assert_declaration;
 }
 
+void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list, struct attribute_specifier* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner opt p)
 {
     if (p)
@@ -30083,7 +30443,7 @@ struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(stru
             p_attribute_specifier_sequence->attributes_flags |=
                 p_attribute_specifier->attribute_list->attributes_flags;
 
-            LIST_ADD(p_attribute_specifier_sequence, p_attribute_specifier);
+            attribute_specifier_sequence_add(p_attribute_specifier_sequence, p_attribute_specifier);
         }
         p_attribute_specifier_sequence->last_token = ctx->previous;
     }
@@ -30097,7 +30457,7 @@ struct attribute_specifier_sequence* owner attribute_specifier_sequence(struct p
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
     while (ctx->current != NULL && first_of_attribute_specifier(ctx))
     {
-        LIST_ADD(p_attribute_specifier_sequence, attribute_specifier(ctx));
+        attribute_specifier_sequence_add(p_attribute_specifier_sequence, attribute_specifier(ctx));
     }
     return p_attribute_specifier_sequence;
 }
@@ -30106,8 +30466,7 @@ void attribute_specifier_delete(struct attribute_specifier* owner opt p)
 {
     if (p)
     {
-        attribute_list_destroy(p->attribute_list);
-        free(p->attribute_list);
+        attribute_list_delete(p->attribute_list);
         assert(p->next == NULL);
         free(p);
     }
@@ -30152,6 +30511,21 @@ void attribute_delete(struct attribute* owner opt p)
         free(p);
     }
 }
+
+void attribute_list_add(struct attribute_list* list, struct attribute* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void attribute_list_destroy(struct attribute_list* obj_owner p)
 {
     struct attribute* owner item = p->head;
@@ -30161,6 +30535,14 @@ void attribute_list_destroy(struct attribute_list* obj_owner p)
         item->next = NULL;
         attribute_delete(item);
         item = next;
+    }
+}
+void attribute_list_delete(struct attribute_list* owner p)
+{
+    if (p)
+    {
+        attribute_list_destroy(p);
+        free(p);
     }
 }
 
@@ -30176,7 +30558,7 @@ struct attribute_list* owner attribute_list(struct parser_ctx* ctx)
         {
             struct attribute* owner p_attribute = attribute(ctx);
             p_attribute_list->attributes_flags |= p_attribute->attributes_flags;
-            LIST_ADD(p_attribute_list, p_attribute);
+            attribute_list_add(p_attribute_list, p_attribute);
         }
         if (ctx->current->type == ',')
         {
@@ -30844,6 +31226,22 @@ struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
+void block_item_list_add(struct block_item_list* list, struct block_item* owner p_item)
+{
+
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+
+}
+
 void block_item_list_destroy(struct block_item_list* obj_owner list)
 {
     struct block_item* owner item = list->head;
@@ -30870,7 +31268,9 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error)
         p_block_item = block_item(ctx);
         if (p_block_item == NULL)
             throw;
-        LIST_ADD(&block_item_list, p_block_item);
+
+        block_item_list_add(&block_item_list, p_block_item);
+
         p_block_item = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type != '}') // follow
@@ -30878,7 +31278,7 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error)
             p_block_item = block_item(ctx);
             if (p_block_item == NULL)
                 throw;
-            LIST_ADD(&block_item_list, p_block_item);
+            block_item_list_add(&block_item_list, p_block_item);
             p_block_item = NULL; /*MOVED*/
         }
     }
@@ -31040,11 +31440,17 @@ struct try_statement* owner try_statement(struct parser_ctx* ctx)
         ctx->p_current_try_statement_opt = p_try_statement;
         ctx->try_catch_block_index++;
         p_try_statement->try_catch_block_index = ctx->try_catch_block_index;
+
+
         if (parser_match_tk(ctx, TK_KEYWORD_TRY) != 0)
             throw;
 
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"    
         p_try_statement->secondary_block = secondary_block(ctx);
-        /*retores the previous one*/
+#pragma cake diagnostic pop
+
+        /*restores the previous one*/
         ctx->p_current_try_statement_opt = try_statement_copy_opt;
 
         if (ctx->current->type == TK_KEYWORD_CATCH)
@@ -31052,6 +31458,7 @@ struct try_statement* owner try_statement(struct parser_ctx* ctx)
             p_try_statement->catch_token_opt = ctx->current;
             parser_match(ctx);
 
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
         }
         p_try_statement->last_token = ctx->previous;
@@ -33302,8 +33709,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, &l);
 
 
-        visit_ctx_pop_tail_block(ctx);
-
+        visit_ctx_pop_tail_block(ctx);        
 
         free(p_try_statement->first_token->lexeme);
         p_try_statement->first_token->lexeme = strdup("if (1) /*try*/");
@@ -35372,7 +35778,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     long double d = strtold(current->lexeme, 0);
                     char buffer[50] = { 0 };
                     snprintf(buffer, sizeof buffer, "%Lg", d);
-                    free(current->lexeme);
+                    free(current->lexeme);                    
                     current->lexeme = strdup(buffer);
                 }
             }
@@ -35432,6 +35838,8 @@ void visit(struct visit_ctx* ctx)
 
 
 
+
+
 /*
               NULL
                 |
@@ -35470,7 +35878,8 @@ static void flow_visit_attribute_specifier_sequence(struct flow_visit_ctx* ctx, 
 
 static void flow_visit_secondary_block(struct flow_visit_ctx* ctx, struct secondary_block* p_secondary_block);
 static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, struct struct_or_union_specifier* p_struct_or_union_specifier);
-static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression);
+struct declarator_array;
+static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct declarator_array* a);
 static void flow_visit_statement(struct flow_visit_ctx* ctx, struct statement* p_statement);
 static void flow_visit_enum_specifier(struct flow_visit_ctx* ctx, struct enum_specifier* p_enum_specifier);
 static void flow_visit_type_specifier(struct flow_visit_ctx* ctx, struct type_specifier* p_type_specifier);
@@ -35499,13 +35908,129 @@ struct declarator_array
     // 
     //The number of variables determines the possible number of combinations.
     //10 variables requires 2^10 = 1024 evaluations.
-    struct declarator_array_item data[10];
-    int n;
+    struct declarator_array_item* owner data;
+    int size;
+    int capacity;
 };
+
+void declarator_array_clear(struct declarator_array* p)
+{
+
+    free(p->data);
+    p->data = NULL;
+    p->size = 0;
+    p->capacity = 0;
+}
+
+void declarator_array_destroy(struct declarator_array* obj_owner p)
+{
+    free(p->data);
+}
+
+int declarator_array_reserve(struct declarator_array* p, int n)
+{
+    if (n > p->capacity)
+    {
+        if ((size_t)n > (SIZE_MAX / (sizeof(p->data[0]))))
+        {
+            return EOVERFLOW;
+        }
+
+        void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        if (pnew == NULL)
+            return ENOMEM;
+        static_set(p->data, "moved");
+        p->data = pnew;
+        p->capacity = n;
+    }
+    return 0;
+}
+
+int declarator_array_push_back(struct declarator_array* p, const struct declarator_array_item* book)
+{
+    if (p->size == INT_MAX)
+    {
+        return EOVERFLOW;
+    }
+
+    if (p->size + 1 > p->capacity)
+    {
+        int new_capacity = 0;
+        if (p->capacity > (INT_MAX - p->capacity / 2))
+        {
+            /*overflow*/
+            new_capacity = INT_MAX;
+        }
+        else
+        {
+            new_capacity = p->capacity + p->capacity / 2;
+            if (new_capacity < p->size + 1)
+            {
+                new_capacity = p->size + 1;
+            }
+        }
+
+        int error = declarator_array_reserve(p, new_capacity);
+        if (error != 0)
+        {
+            return error;
+        }
+    }
+
+    p->data[p->size] = *book; /*COPIED*/
+
+
+    p->size++;
+
+    return 0;
+}
+
+static void declarator_array_invert(struct declarator_array* true_false_sets)
+{
+    for (int i = 0; i < true_false_sets->size; i++)
+    {
+        enum boolean_flag temp = true_false_sets->data[i].true_branch_state;
+        true_false_sets->data[i].true_branch_state = true_false_sets->data[i].false_branch_state;
+        true_false_sets->data[i].false_branch_state = temp;
+    }
+}
+
+static void declarator_array_swap(struct declarator_array* a, struct declarator_array* b)
+{
+    struct declarator_array temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+static int find_item_index_by_expression(struct declarator_array* a, struct expression* p_expression)
+{
+    for (int i = 0; i < a->size; i++)
+    {
+        if (a->data[i].p_expression->declarator == p_expression->declarator)
+            return i;
+    }
+    return -1;
+}
+
+static bool declarator_array_is_same(struct declarator_array* a, struct declarator_array* b)
+{
+    if (a->size != b->size)
+        return false;
+    for (int i = 0; i < a->size; i++)
+    {
+        if (a->data[i].p_expression != b->data[i].p_expression)
+            return false;
+        if (a->data[i].false_branch_state != b->data[i].false_branch_state)
+            return false;
+        if (a->data[i].true_branch_state != b->data[i].true_branch_state)
+            return false;
+    }
+    return true;
+}
 
 static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* ctx, struct declarator_array* a, bool nullable_enabled)
 {
-    for (int i = 0; i < a->n; i++)
+    for (int i = 0; i < a->size; i++)
     {
         if (a->data[i].p_expression != NULL)
         {
@@ -35594,7 +36119,7 @@ static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* c
 
 static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* ctx, struct declarator_array* a, bool nullable_enabled)
 {
-    for (int i = 0; i < a->n; i++)
+    for (int i = 0; i < a->size; i++)
     {
         if (a->data[i].p_expression != NULL)
         {
@@ -35649,7 +36174,7 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                         {
                         }
                         else
-                        {                            
+                        {
                             p_object->state &= ~OBJECT_STATE_NULL;
                             p_object->state |= OBJECT_STATE_NOT_NULL;
                         }
@@ -35669,471 +36194,11 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
 }
 
 
-static void flow_visit_expression_to_collect_objects(struct expression* expression, struct declarator_array* a)
-{
-    if (expression == NULL)
-        return;
-    /*
-       The objective of this function is collect expressions that refers to objects
-       The result of these expression will be simulated.
-    */
 
-    if (constant_value_is_valid(&expression->constant_value))
-    {
-        //constant expression don't need to be simulated...they already have a value
-        return;
-    }
+static int push_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name);
 
-    switch (expression->expression_type)
-    {
-    case PRIMARY_IDENTIFIER:break;
-    case PRIMARY_EXPRESSION_ENUMERATOR:break;
 
-    case PRIMARY_EXPRESSION_DECLARATOR:
-
-        if (expression->declarator)
-        {
-            // if (is_null(expression->declarator->object.state) ||
-              //   is_zero(expression->declarator->object.state))
-             //{
-                 //during the simulated evaluation ()
-               //  expression->value_emulation = 0;
-             //}
-             //else if (is_not_null(expression->declarator->object.state) ||
-                  //    is_not_zero(expression->declarator->object.state))
-             //{
-               //  expression->value_emulation = 1;
-             //}
-             //else
-            {
-                if (a->n == sizeof(a->data) / sizeof(a->data[0]) - 1)
-                {
-                    return /*error*/;
-                }
-
-                bool found = false;
-                for (int i = 0; i < a->n; i++)
-                {
-                    if (a->data[a->n].p_expression == expression)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    a->data[a->n].p_expression = expression;
-                    a->n++;
-                }
-
-                //we simulate true  and false null only if the object
-                //can be both
-
-            }
-        }
-        break;
-
-
-    case PRIMARY_EXPRESSION_STRING_LITERAL: break;
-    case PRIMARY_EXPRESSION__FUNC__: break;
-
-    case PRIMARY_EXPRESSION_CHAR_LITERAL:
-        break;
-
-    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-        break;
-
-    case PRIMARY_EXPRESSION_GENERIC:
-        break;
-    case PRIMARY_EXPRESSION_NUMBER:
-        break;
-    case PRIMARY_EXPRESSION_PARENTESIS:
-        flow_visit_expression_to_collect_objects(expression->right, a);
-        break;
-
-    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
-        break;
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-        break;
-
-    case POSTFIX_FUNCTION_CALL:
-        break;// ( ) :break;
-
-    case POSTFIX_ARRAY:
-    case POSTFIX_DOT:
-    case POSTFIX_ARROW:
-        //arrow expression are emulated as one object
-        //a->b->c->d
-        if (a->n == sizeof(a->data) / sizeof(a->data[0]) - 1)
-        {
-            return /*error*/;
-        }
-
-        assert(a->n < 10);
-        bool found = false;
-        for (int i = 0; i < a->n; i++)
-        {
-            if (a->data[a->n].p_expression == expression)
-            {
-                found = true;
-                break;
-            }
-        }
-        if (!found)
-        {
-            a->data[a->n].p_expression = expression;
-            a->n++;
-        }
-        break;// .
-
-    case POSTFIX_INCREMENT:
-        break;
-    case POSTFIX_DECREMENT:
-        break;
-
-
-    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-    case UNARY_EXPRESSION_SIZEOF_TYPE:
-    case UNARY_EXPRESSION_TRAITS:
-    case UNARY_EXPRESSION_IS_SAME:
-    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
-    case UNARY_EXPRESSION_ALIGNOF:
-    case UNARY_EXPRESSION_ASSERT:
-    case UNARY_EXPRESSION_INCREMENT:
-    case UNARY_EXPRESSION_DECREMENT:
-    case UNARY_EXPRESSION_NOT:
-    case UNARY_EXPRESSION_BITNOT:
-    case UNARY_EXPRESSION_NEG:
-    case UNARY_EXPRESSION_PLUS:
-    case UNARY_EXPRESSION_CONTENT:
-    case UNARY_EXPRESSION_ADDRESSOF:
-        assert(expression->right);
-        flow_visit_expression_to_collect_objects(expression->right, a);
-        break;
-
-
-    case CAST_EXPRESSION:
-        break;
-
-    case MULTIPLICATIVE_EXPRESSION_MULT:
-    case MULTIPLICATIVE_EXPRESSION_DIV:
-    case MULTIPLICATIVE_EXPRESSION_MOD:break;
-
-    case ADDITIVE_EXPRESSION_PLUS:
-    case ADDITIVE_EXPRESSION_MINUS:
-    case SHIFT_EXPRESSION_RIGHT:
-    case SHIFT_EXPRESSION_LEFT:
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
-    case RELATIONAL_EXPRESSION_LESS_THAN:
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-
-    case EQUALITY_EXPRESSION_NOT_EQUAL:
-    case AND_EXPRESSION:
-    case EXCLUSIVE_OR_EXPRESSION:
-    case INCLUSIVE_OR_EXPRESSION:
-
-    case LOGICAL_AND_EXPRESSION:
-    case LOGICAL_OR_EXPRESSION:
-        flow_visit_expression_to_collect_objects(expression->left, a);
-        flow_visit_expression_to_collect_objects(expression->right, a);
-        break;
-
-
-    case ASSIGNMENT_EXPRESSION:
-        /*
-           if ((p = f()) == nullptr) {...}
-        */
-        flow_visit_expression_to_collect_objects(expression->left, a);
-        break;
-
-    case EQUALITY_EXPRESSION_EQUAL:
-        flow_visit_expression_to_collect_objects(expression->left, a);
-        flow_visit_expression_to_collect_objects(expression->right, a);
-        break;
-
-    case CONDITIONAL_EXPRESSION:break;
-
-    }
-    //assert(false);
-}
-
-static int flow_run_simulated_evaluation(struct expression* expression, int* error)
-{
-    if (expression == NULL)
-    {
-        return 0; //errro
-    }
-    if (constant_value_is_valid(&expression->constant_value))
-    {
-        expression->emulation_used = true;
-        return constant_value_to_bool(&expression->constant_value);
-    }
-
-    switch (expression->expression_type)
-    {
-    case PRIMARY_IDENTIFIER:break;
-    case PRIMARY_EXPRESSION_ENUMERATOR:break;
-    case PRIMARY_EXPRESSION_DECLARATOR:
-    {
-        expression->emulation_used = true;
-        return expression->value_emulation;
-    }
-    case PRIMARY_EXPRESSION_STRING_LITERAL: return true;
-    case PRIMARY_EXPRESSION__FUNC__: return true;
-
-    case PRIMARY_EXPRESSION_CHAR_LITERAL:
-        return constant_value_to_bool(&expression->constant_value);
-
-    case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-        return constant_value_to_bool(&expression->constant_value);
-
-    case PRIMARY_EXPRESSION_GENERIC:
-        break;
-    case PRIMARY_EXPRESSION_NUMBER:
-        return constant_value_to_bool(&expression->constant_value);
-        break;
-    case PRIMARY_EXPRESSION_PARENTESIS:
-        return flow_run_simulated_evaluation(expression->right, error);
-        break;
-
-    case POSTFIX_EXPRESSION_FUNCTION_LITERAL:
-        break;
-    case POSTFIX_EXPRESSION_COMPOUND_LITERAL:
-        break;
-
-    case POSTFIX_FUNCTION_CALL:
-
-        // if (f() && p) { }
-        expression->emulation_used = true;
-        return expression->value_emulation;
-
-        //break;// ( ) :break;
-    case POSTFIX_ARRAY:
-        break;// [ ]:break;
-    case POSTFIX_DOT:
-    case POSTFIX_ARROW:
-        //arrow expressions are emulated all in one
-        //a->b->c->d becomes one result
-        expression->emulation_used = true;
-        return expression->value_emulation;
-
-    case POSTFIX_INCREMENT:
-        break;
-    case POSTFIX_DECREMENT:
-        break;
-
-
-    case UNARY_EXPRESSION_SIZEOF_EXPRESSION:
-        return 1;
-        break;
-
-    case UNARY_EXPRESSION_SIZEOF_TYPE:
-        break;
-
-    case UNARY_EXPRESSION_TRAITS:
-        break;
-    case UNARY_EXPRESSION_IS_SAME:
-        break;
-    case UNARY_DECLARATOR_ATTRIBUTE_EXPR:
-        break;
-    case UNARY_EXPRESSION_ALIGNOF:break;
-    case UNARY_EXPRESSION_ASSERT:break;
-
-    case UNARY_EXPRESSION_INCREMENT:break;
-    case UNARY_EXPRESSION_DECREMENT:break;
-
-    case UNARY_EXPRESSION_NOT:
-        return !flow_run_simulated_evaluation(expression->right, error);
-
-
-    case UNARY_EXPRESSION_BITNOT:break;
-    case UNARY_EXPRESSION_NEG:break;
-    case UNARY_EXPRESSION_PLUS:break;
-    case UNARY_EXPRESSION_CONTENT:
-        break;
-
-    case UNARY_EXPRESSION_ADDRESSOF:
-        return true;
-
-    case CAST_EXPRESSION:
-        return flow_run_simulated_evaluation(expression->right, error);
-
-    case MULTIPLICATIVE_EXPRESSION_MULT:
-        return
-            flow_run_simulated_evaluation(expression->left, error) *
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case MULTIPLICATIVE_EXPRESSION_DIV:
-        return
-            flow_run_simulated_evaluation(expression->left, error) /
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case MULTIPLICATIVE_EXPRESSION_MOD:break;
-
-    case ADDITIVE_EXPRESSION_PLUS:
-        return
-            flow_run_simulated_evaluation(expression->left, error) +
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case ADDITIVE_EXPRESSION_MINUS:
-        return
-            flow_run_simulated_evaluation(expression->left, error) -
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case SHIFT_EXPRESSION_RIGHT:
-        return
-            flow_run_simulated_evaluation(expression->left, error) >>
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case SHIFT_EXPRESSION_LEFT:
-        return
-            flow_run_simulated_evaluation(expression->left, error) <<
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case RELATIONAL_EXPRESSION_BIGGER_THAN:
-        return
-            flow_run_simulated_evaluation(expression->left, error) >
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case RELATIONAL_EXPRESSION_LESS_THAN:
-        return
-            flow_run_simulated_evaluation(expression->left, error) <
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case RELATIONAL_EXPRESSION_BIGGER_OR_EQUAL_THAN:
-        return
-            flow_run_simulated_evaluation(expression->left, error) >=
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case RELATIONAL_EXPRESSION_LESS_OR_EQUAL_THAN:
-        return
-            flow_run_simulated_evaluation(expression->left, error) <=
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case EQUALITY_EXPRESSION_EQUAL:
-        return
-            flow_run_simulated_evaluation(expression->left, error) ==
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case EQUALITY_EXPRESSION_NOT_EQUAL:
-        return
-            flow_run_simulated_evaluation(expression->left, error) !=
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case AND_EXPRESSION:
-
-        return
-            flow_run_simulated_evaluation(expression->left, error) &
-            flow_run_simulated_evaluation(expression->right, error);
-
-
-    case EXCLUSIVE_OR_EXPRESSION:
-        return
-            flow_run_simulated_evaluation(expression->left, error) |
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case INCLUSIVE_OR_EXPRESSION:
-        return
-            flow_run_simulated_evaluation(expression->left, error) ||
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case LOGICAL_AND_EXPRESSION:
-        return
-            flow_run_simulated_evaluation(expression->left, error) &&
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case LOGICAL_OR_EXPRESSION:
-        return
-            flow_run_simulated_evaluation(expression->left, error) ||
-            flow_run_simulated_evaluation(expression->right, error);
-
-    case ASSIGNMENT_EXPRESSION:
-        return flow_run_simulated_evaluation(expression->left, error);
-
-    case CONDITIONAL_EXPRESSION:
-        return flow_run_simulated_evaluation(expression->condition_expr, error) ?
-            flow_run_simulated_evaluation(expression->left, error)
-            :
-            flow_run_simulated_evaluation(expression->right, error);
-        break;
-
-    }
-    *error = 1;
-    //assert(false);
-    return true;
-}
-
-static int flow_simulated_evaluation(int k, struct expression* expression, struct declarator_array* a, int* error)
-{
-
-    if (k == a->n)
-    {
-        for (int i = 0; i < a->n; i++)
-        {
-            a->data[i].p_expression->emulation_used = false;
-        }
-
-        //we have a combination, now we check the evaluation with these variables
-        bool r = flow_run_simulated_evaluation(expression, error);
-        if (*error != 0)
-            return *error;
-
-        for (int i = 0; i < a->n; i++)
-        {
-            if (a->data[i].p_expression->emulation_used)
-            {
-                // Expression not used, then ignore 
-                // Sample expr1 is true, then expr2 is not evaluated ( expr1 || expr2)
-                bool variable_is_true = a->data[i].p_expression->value_emulation;
-                if (r)
-                {
-                    a->data[i].true_branch_state |= variable_is_true ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE;
-                }
-                else
-                {
-                    a->data[i].false_branch_state |= variable_is_true ? BOOLEAN_FLAG_TRUE : BOOLEAN_FLAG_FALSE;
-                }
-            }
-        }
-
-        return 0;
-    }
-
-    a->data[k].p_expression->value_emulation = 1;
-    flow_simulated_evaluation(k + 1, expression, a, error);
-    if (*error != 0)
-        return *error;
-
-    a->data[k].p_expression->value_emulation = 0;
-    flow_simulated_evaluation(k + 1, expression, a, error);
-    if (*error != 0)
-        return *error;
-
-    return 0;
-}
-
-/*
-   This function computes the possible values for the expression to be true or false.
-   Anwser is stored at declarator_array
-*/
-static int compute_true_false_sets(struct expression* expression, struct declarator_array* a)
-{
-    int error = 0;
-    assert(a->n == 0);
-
-    //We collect expressions that may be null/not-null or zero/not-zero    
-    flow_visit_expression_to_collect_objects(expression, a);
-
-    flow_simulated_evaluation(0, expression, a, &error);
-
-    if (error != 0)
-    {
-        //TODO we can assume worst scenario
-         // Sample f() > 2.0 is not possible to evaluate (f return double)
-    }
-    return error;
-}
+void ctx_remove_state(struct flow_visit_ctx* ctx, int state_number);
 
 struct visit_objects {
     struct flow_defer_scope* current_block;
@@ -36626,10 +36691,12 @@ static void ctx_object_restore_current_state_from(struct flow_visit_ctx* ctx, in
     };
 }
 
-static void ctx_remove_state(struct flow_visit_ctx* ctx, int state_number)
+void ctx_remove_state(struct flow_visit_ctx* ctx, int state_number)
 {
-    struct visit_objects v1 = { .current_block = ctx->tail_block,
-                               .next_child = ctx->tail_block->last_child };
+    struct visit_objects v1 = { 0 };
+
+    v1.current_block = ctx->tail_block;
+    v1.next_child = ctx->tail_block->last_child;
 
     struct object* p_object = visit_objects_next(&v1);
     while (p_object)
@@ -36646,12 +36713,15 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
 
 static void braced_initializer_set_object(struct braced_initializer* p, struct type* type, struct object* object)
 {
-    if (p->initializer_list == NULL) {}
+    if (p->initializer_list == NULL)
+    {
+    }
     //TODO currently it is zero
+    
     object_set_zero(type, object);
 }
 
-static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
+static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
@@ -36664,7 +36734,9 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
     {
         if (p_init_declarator->initializer->assignment_expression)
         {
-            flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression);
+            struct declarator_array a = { 0 };
+            flow_visit_expression(ctx, p_init_declarator->initializer->assignment_expression, &a);
+            declarator_array_destroy(&a);
         }
         else
         {
@@ -36782,11 +36854,6 @@ static void flow_visit_init_declarator_new(struct flow_visit_ctx* ctx, struct in
 }
 
 
-static void flow_visit_init_declarator(struct flow_visit_ctx* ctx, struct init_declarator* p_init_declarator)
-{
-    flow_visit_init_declarator_new(ctx, p_init_declarator);
-}
-
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list);
 
 static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
@@ -36821,10 +36888,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     if (p_selection_statement->condition->expression)
     {
-        flow_check_pointer_used_as_bool(ctx, p_selection_statement->condition->expression);
-
-        flow_visit_expression(ctx, p_selection_statement->condition->expression);
-        compute_true_false_sets(p_selection_statement->condition->expression, &declarator_array);
+        flow_visit_expression(ctx, p_selection_statement->condition->expression, &declarator_array);
     }
 
     if (p_selection_statement->condition->p_init_declarator)
@@ -36939,6 +37003,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     ctx_remove_state(ctx, before_if_state_number);
     ctx_remove_state(ctx, left_true_branch_state_number);
+    declarator_array_destroy(&declarator_array);
 }
 
 static void flow_visit_block_item(struct flow_visit_ctx* ctx, struct block_item* p_block_item);
@@ -37090,7 +37155,9 @@ static void flow_visit_initializer(struct flow_visit_ctx* ctx, struct initialize
 
     if (p_initializer->assignment_expression)
     {
-        flow_visit_expression(ctx, p_initializer->assignment_expression);
+        struct declarator_array a = { 0 };
+        flow_visit_expression(ctx, p_initializer->assignment_expression, &a);
+        declarator_array_destroy(&a);
     }
     else if (p_initializer->braced_initializer)
     {
@@ -37176,8 +37243,10 @@ static void flow_visit_argument_expression_list(struct flow_visit_ctx* ctx, stru
         p_argument_expression_list->head;
     while (p_argument_expression)
     {
-        flow_visit_expression(ctx, p_argument_expression->expression);
+        struct declarator_array a = { 0 };
+        flow_visit_expression(ctx, p_argument_expression->expression, &a);
         p_argument_expression = p_argument_expression->next;
+        declarator_array_destroy(&a);
     }
 }
 
@@ -37185,7 +37254,9 @@ static void flow_visit_generic_selection(struct flow_visit_ctx* ctx, struct gene
 {
     if (p_generic_selection->expression)
     {
-        flow_visit_expression(ctx, p_generic_selection->expression);
+        struct declarator_array a = { 0 };
+        flow_visit_expression(ctx, p_generic_selection->expression, &a);
+        declarator_array_destroy(&a);
     }
     else if (p_generic_selection->type_name)
     {
@@ -37326,7 +37397,7 @@ void object_push_states_from(const struct object* p_object_from, struct object* 
         object_state_stack_push_back(
             &p_object_to->object_state_stack,
             p_object_to->state,
-            &p_object_to->ref,
+            &p_object_to->pointed,
             p_object_from->object_state_stack.data[i].name,
             p_object_from->object_state_stack.data[i].state_number);
     }
@@ -37370,10 +37441,11 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
     }
 }
 
-static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression)
+static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression* p_expression, struct declarator_array* d)
 {
     if (p_expression == NULL)
         return;
+    declarator_array_clear(d); //out
 
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
@@ -37388,23 +37460,24 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
     case PRIMARY_EXPRESSION_DECLARATOR:
-
+    {
+        struct declarator_array_item item;
+        item.p_expression = p_expression;
+        item.true_branch_state = BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        declarator_array_push_back(d, &item);
         check_uninitialized(ctx, p_expression);
-        break;
+    }
+    break;
 
     case PRIMARY_EXPRESSION_PARENTESIS:
-        flow_visit_expression(ctx, p_expression->right);
+        flow_visit_expression(ctx, p_expression->right, d);
         break;
 
     case PRIMARY_EXPRESSION_STRING_LITERAL:
-        break;
     case PRIMARY_EXPRESSION_CHAR_LITERAL:
-        break;
     case PRIMARY_EXPRESSION_NUMBER:
-        break;
-
     case PRIMARY_EXPRESSION_PREDEFINED_CONSTANT:
-
         break;
 
     case PRIMARY_EXPRESSION_GENERIC:
@@ -37412,14 +37485,29 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case POSTFIX_DOT:
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
-        break;
+    {
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
+        struct declarator_array right_set = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &right_set);
+
+        declarator_array_destroy(&left_set);
+        declarator_array_destroy(&right_set);
+
+
+        struct declarator_array_item item;
+        item.p_expression = p_expression;
+        item.true_branch_state = BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        declarator_array_push_back(d, &item);
+    }
+    break;
 
     case POSTFIX_ARROW:
-
-        flow_visit_expression(ctx, p_expression->left);
-
+    {
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
+        declarator_array_destroy(&left_set);
 
         struct object* p_object = expression_get_object(ctx, p_expression->left, nullable_enabled);
 
@@ -37463,26 +37551,36 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
             }
         }
 
-        //object_destroy(&temp_obj);
-
-        flow_visit_expression(ctx, p_expression->right);
-        break;
+        struct declarator_array_item item;
+        item.p_expression = p_expression;
+        item.true_branch_state = BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        declarator_array_push_back(d, &item);
+    }
+    break;
 
     case POSTFIX_INCREMENT:
         break;
     case POSTFIX_DECREMENT:
         break;
     case POSTFIX_ARRAY:
+    {
+        flow_visit_expression(ctx, p_expression->left, d);
+        flow_visit_expression(ctx, p_expression->right, d);
+        declarator_array_clear(d);
 
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
+        struct declarator_array_item item;
+        item.p_expression = p_expression;
+        item.true_branch_state = BOOLEAN_FLAG_TRUE;
+        item.false_branch_state = BOOLEAN_FLAG_FALSE;
+        declarator_array_push_back(d, &item);
 
-
-        break;
+    }
+    break;
 
     case POSTFIX_FUNCTION_CALL:
 
-        flow_visit_expression(ctx, p_expression->left);
+        flow_visit_expression(ctx, p_expression->left, d);
 
         flow_visit_argument_expression_list(ctx, &p_expression->argument_expression_list);
         //new function waiting all test to pass to become active
@@ -37523,7 +37621,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
 
         if (p_expression->type_name)
@@ -37537,11 +37635,10 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
-
-            struct declarator_array declarator_array = { 0 };
-            compute_true_false_sets(p_expression->right, &declarator_array);
-            declarator_array_set_objects_to_true_branch(ctx, &declarator_array, nullable_enabled);
+            struct declarator_array declarator_array4 = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &declarator_array4); //assert(p == 0);
+            declarator_array_set_objects_to_true_branch(ctx, &declarator_array4, nullable_enabled);
+            declarator_array_destroy(&declarator_array4);
         }
 
         break;
@@ -37552,7 +37649,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         {
             const bool t2 = ctx->expression_is_not_evaluated;
             ctx->expression_is_not_evaluated = true;
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
             ctx->expression_is_not_evaluated = t2;
         }
 
@@ -37565,10 +37662,15 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         break;
 
+    case UNARY_EXPRESSION_NOT:
+        flow_visit_expression(ctx, p_expression->right, d);
+        declarator_array_invert(d);
+        break;
+
     case UNARY_EXPRESSION_SIZEOF_TYPE:
     case UNARY_EXPRESSION_INCREMENT:
     case UNARY_EXPRESSION_DECREMENT:
-    case UNARY_EXPRESSION_NOT:
+
     case UNARY_EXPRESSION_BITNOT:
     case UNARY_EXPRESSION_NEG:
     case UNARY_EXPRESSION_PLUS:
@@ -37597,9 +37699,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                 }
             }
 
-
-            flow_visit_expression(ctx, p_expression->right);
-            //object_destroy(&temp_obj2);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
 
         if (p_expression->type_name)
@@ -37609,7 +37709,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         }
     }
     break;
-#if 1
+
     case UNARY_EXPRESSION_CONTENT:
     {
         struct object* p_object0 = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -37639,20 +37739,22 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
     }
     break;
-#endif
-
-
 
 
     case ASSIGNMENT_EXPRESSION:
     {
-        flow_visit_expression(ctx, p_expression->left);
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
+        declarator_array_swap(d, &left_set);
+        declarator_array_destroy(&left_set);
 
-        flow_visit_expression(ctx, p_expression->right);
+        struct declarator_array right_set = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &right_set);
+        declarator_array_destroy(&right_set);
 
         //struct object temp_obj1 = { 0 };
         struct object* const p_right_object = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -37707,65 +37809,232 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     case SHIFT_EXPRESSION_LEFT:
     case RELATIONAL_EXPRESSION_BIGGER_THAN:
     case RELATIONAL_EXPRESSION_LESS_THAN:
+    {
+        if (p_expression->left)
+        {
+            struct declarator_array left_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &left_set);
+            declarator_array_destroy(&left_set);
+        }
 
-
+        if (p_expression->right)
+        {
+            struct declarator_array right_set = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &right_set);
+            declarator_array_destroy(&right_set);
+        }
+    }
+    break;
     case EQUALITY_EXPRESSION_EQUAL:
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
+    {
+        const int left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
+            constant_value_to_ull(&p_expression->left->constant_value) :
+            -1;
 
-        break;
+        const int right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
+            constant_value_to_ull(&p_expression->right->constant_value) :
+            -1;
+
+        if (left_value == 0 || left_value == 1)
+        {
+            struct declarator_array true_false_set_right = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
+            //0 == expression            
+            //1 == expression            
+            declarator_array_swap(d, &true_false_set_right);
+            if (left_value == 0)
+            {
+                declarator_array_invert(d);
+            }
+            declarator_array_destroy(&true_false_set_right);
+        }
+
+        else if (right_value == 0 || right_value == 1)
+        {
+            struct declarator_array true_false_set_left3 = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set_left3);
+
+            //expression == 0
+            //expression == 1
+            declarator_array_swap(d, &true_false_set_left3);
+            if (right_value == 0)
+            {
+                declarator_array_invert(d);
+            }
+            declarator_array_destroy(&true_false_set_left3);
+        }
+        else
+        {
+        }
+    }
+    break;
 
     case EQUALITY_EXPRESSION_NOT_EQUAL:
-        flow_visit_expression(ctx, p_expression->left);
-        flow_visit_expression(ctx, p_expression->right);
-        break;
+    {
+        const int left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
+            constant_value_to_ull(&p_expression->left->constant_value) :
+            -1;
+        const int right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
+            constant_value_to_ull(&p_expression->right->constant_value) :
+            -1;
+
+        if (left_value == 0 || left_value == 1)
+        {
+            struct declarator_array true_false_set_right = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &true_false_set_right);
+            //0 != expression            
+            //1 != expression            
+            declarator_array_swap(d, &true_false_set_right);
+            if (left_value == 1)
+            {
+                declarator_array_invert(d);
+            }
+            declarator_array_destroy(&true_false_set_right);
+        }
+
+        else if (right_value == 0 || right_value == 1)
+        {
+            struct declarator_array true_false_set_left2 = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &true_false_set_left2);
+
+            //expression != 0
+            //expression != 1
+            declarator_array_swap(d, &true_false_set_left2);
+            if (right_value == 1)
+            {
+                declarator_array_invert(d);
+            }
+            declarator_array_destroy(&true_false_set_left2);
+        }
+        else
+        {
+
+        }
+    }
+    break;
 
     case LOGICAL_OR_EXPRESSION:
     {
         flow_check_pointer_used_as_bool(ctx, p_expression->left);
         flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
-        flow_visit_expression(ctx, p_expression->left);
 
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
 
         const int original_state_number = push_copy_of_current_state(ctx, "original");
-        struct declarator_array d = { 0 };
-        compute_true_false_sets(p_expression->left, &d);
+
 
         //Set all variables to false state, because otherwise, the right branch
         // would not be evaluated
-        declarator_array_set_objects_to_false_branch(ctx, &d, nullable_enabled);
-        flow_visit_expression(ctx, p_expression->right);
+        declarator_array_set_objects_to_false_branch(ctx, &left_set, nullable_enabled);
 
-        //Restore previous state "original"
+        struct declarator_array right_set = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &right_set);
         ctx_object_restore_current_state_from(ctx, original_state_number);
 
-        //Pop original state
-        //pop_states(ctx, 1);
+        //Tudo que faz left ser true ou right ser true
+
+        for (int i = 0; i < left_set.size; i++)
+        {
+            struct declarator_array_item item5;
+
+            item5.p_expression = left_set.data[i].p_expression;
+            item5.true_branch_state |= (left_set.data[i].true_branch_state | left_set.data[i].false_branch_state);
+            item5.false_branch_state |= left_set.data[i].false_branch_state;
+            declarator_array_push_back(d, &item5);
+        }
+
+        for (int k = 0; k < right_set.size; k++)
+        {
+            int index =
+                find_item_index_by_expression(d, right_set.data[k].p_expression);
+            if (index == -1)
+            {
+                index = d->size;
+                struct declarator_array_item item4 = { 0 };
+                declarator_array_push_back(d, &item4);
+            }
+
+            //Tudo que faz left true e right true faz expressao se true
+            d->data[index].p_expression = right_set.data[k].p_expression;
+            //d->data[index].true_branch_state |= right_set.data[k].true_branch_state;
+            //Tudo que faz left true ou left false, e right false faz ser false
+            d->data[index].false_branch_state |= right_set.data[k].false_branch_state;
+
+            //No path true seria possivel nao ser feito o right
+            d->data[index].true_branch_state |= (BOOLEAN_FLAG_TRUE | BOOLEAN_FLAG_FALSE);
+
+        }
+
         ctx_remove_state(ctx, original_state_number);
+        declarator_array_destroy(&left_set);
+        declarator_array_destroy(&right_set);
     }
     break;
 
     case LOGICAL_AND_EXPRESSION:
     {
-        flow_check_pointer_used_as_bool(ctx, p_expression->left);
-        flow_check_pointer_used_as_bool(ctx, p_expression->right);
+        //flow_check_pointer_used_as_bool(ctx, p_expression->left);
+        //flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
-        flow_visit_expression(ctx, p_expression->left);
+        struct declarator_array left_set = { 0 };
+        flow_visit_expression(ctx, p_expression->left, &left_set);
 
         const int original_state_number = push_copy_of_current_state(ctx, "original");
 
-        struct declarator_array d = { 0 };
-        compute_true_false_sets(p_expression->left, &d);
 
         //Set all variables to true state, because otherwise, the right branch
         // would not be evaluated
-        declarator_array_set_objects_to_true_branch(ctx, &d, nullable_enabled);
+        declarator_array_set_objects_to_true_branch(ctx, &left_set, nullable_enabled);
 
-        flow_visit_expression(ctx, p_expression->right);
+        struct declarator_array right_set = { 0 };
+        flow_visit_expression(ctx, p_expression->right, &right_set);
         ctx_object_restore_current_state_from(ctx, original_state_number);
 
+        //Tudo que faz left_true e right_true  também fazem esta expressao ser true
+
+        for (int i = 0; i < left_set.size; i++)
+        {
+            struct declarator_array_item item3 = { 0 };
+
+            //Tudo que faz left true e right true faz expressao se true
+            item3.p_expression = left_set.data[i].p_expression;
+            item3.true_branch_state |= left_set.data[i].true_branch_state;
+
+            //Tudo que faz left true ou left false, e right false faz ser false
+            item3.false_branch_state |= left_set.data[i].true_branch_state |
+                left_set.data[i].false_branch_state;
+
+            declarator_array_push_back(d, &item3);
+        }
+
+        for (int k = 0; k < right_set.size; k++)
+        {
+            int index =
+                find_item_index_by_expression(d, right_set.data[k].p_expression);
+            if (index == -1)
+            {
+                index = d->size;
+                struct declarator_array_item item2 = { 0 };
+                declarator_array_push_back(d, &item2);
+            }
+
+            //Tudo que faz left true e right true faz expressao se true
+            d->data[index].p_expression = right_set.data[k].p_expression;
+            d->data[index].true_branch_state |= right_set.data[k].true_branch_state;
+            //Tudo que faz left true ou left false, e right false faz ser false
+            d->data[index].false_branch_state |= right_set.data[k].false_branch_state;
+
+            //right expression may not be evaluated, in this case all previous states are also valid
+            //so if the variable could be true and false then we need to add            
+            d->data[index].false_branch_state |= (BOOLEAN_FLAG_TRUE | BOOLEAN_FLAG_FALSE);
+
+        }
+
         ctx_remove_state(ctx, original_state_number);
+        declarator_array_destroy(&left_set);
+        declarator_array_destroy(&right_set);
     }
     break;
 
@@ -37777,11 +38046,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_expression->left)
         {
-            flow_visit_expression(ctx, p_expression->left);
+            flow_visit_expression(ctx, p_expression->left, d);
         }
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
         if (p_expression->type_name)
         {
@@ -37802,18 +38071,19 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case CONDITIONAL_EXPRESSION:
+        //TODO
         if (p_expression->condition_expr)
         {
-            flow_visit_expression(ctx, p_expression->condition_expr);
+            flow_visit_expression(ctx, p_expression->condition_expr, d);
         }
 
         if (p_expression->left)
         {
-            flow_visit_expression(ctx, p_expression->left);
+            flow_visit_expression(ctx, p_expression->left, d);
         }
         if (p_expression->right)
         {
-            flow_visit_expression(ctx, p_expression->right);
+            flow_visit_expression(ctx, p_expression->right, d);
         }
 
         break;
@@ -37825,8 +38095,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
 static void flow_visit_expression_statement(struct flow_visit_ctx* ctx, struct expression_statement* p_expression_statement)
 {
+    struct declarator_array d = { 0 };
     if (p_expression_statement->expression_opt)
-        flow_visit_expression(ctx, p_expression_statement->expression_opt);
+        flow_visit_expression(ctx, p_expression_statement->expression_opt, &d);
+    declarator_array_destroy(&d);
+
 }
 
 static void flow_visit_block_item_list(struct flow_visit_ctx* ctx, struct block_item_list* p_block_item_list);
@@ -37853,8 +38126,8 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
 
     if (p_iteration_statement->expression1)
     {
-        compute_true_false_sets(p_iteration_statement->expression1, &declarator_array);
-        flow_visit_expression(ctx, p_iteration_statement->expression1);
+        //compute_true_false_sets(p_iteration_statement->expression1, &declarator_array);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &declarator_array);
     }
 
     if (p_iteration_statement->secondary_block)
@@ -37887,6 +38160,7 @@ static void flow_visit_do_while_statement(struct flow_visit_ctx* ctx, struct ite
             declarator_array_set_objects_to_false_branch(ctx, &declarator_array, nullable_enabled);
         }
     }
+    declarator_array_destroy(&declarator_array);
 }
 
 static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iteration_statement* p_iteration_statement)
@@ -37907,14 +38181,14 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
 
     if (p_iteration_statement->expression1)
     {
-        compute_true_false_sets(p_iteration_statement->expression1, &declarator_array);
+        //compute_true_false_sets(p_iteration_statement->expression1, &declarator_array);
 
         //We do a visit but this is not conclusive..so we ignore warnings
         ctx->ctx->options.diagnostic_stack_top_index++;
         ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].warnings = 0;
         ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].errors = 0;
         ctx->ctx->options.diagnostic_stack[ctx->ctx->options.diagnostic_stack_top_index].notes = 0;
-        flow_visit_expression(ctx, p_iteration_statement->expression1);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &declarator_array);
         ctx->ctx->options.diagnostic_stack_top_index--;
     }
 
@@ -37966,11 +38240,14 @@ static void flow_visit_while_statement(struct flow_visit_ctx* ctx, struct iterat
     //Now we visit the expression again because we have the states
     //at end of while that will be used again for the expression.
     //At this time we print warnings
-    flow_visit_expression(ctx, p_iteration_statement->expression1);
+    struct declarator_array declarator_array2 = { 0 };
+    flow_visit_expression(ctx, p_iteration_statement->expression1, &declarator_array2);
 
     //restore
     ctx->initial_state = old_initial_state;
     ctx->break_join_state = old_break_join_state;
+    declarator_array_destroy(&declarator_array);
+    declarator_array_destroy(&declarator_array2);
 
 }
 
@@ -37979,18 +38256,19 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
 
 
+    struct declarator_array d = { 0 };
     if (p_iteration_statement->expression0)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression0);
+        flow_visit_expression(ctx, p_iteration_statement->expression0, &d);
     }
 
     if (p_iteration_statement->expression1)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression1);
+        flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
     }
     if (p_iteration_statement->expression2)
     {
-        flow_visit_expression(ctx, p_iteration_statement->expression2);
+        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
     }
 
 
@@ -38012,6 +38290,8 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
         flow_visit_ctx_pop_tail_block(ctx);
     }
+
+    declarator_array_destroy(&d);
 }
 
 
@@ -38047,7 +38327,9 @@ static void flow_visit_jump_statement(struct flow_visit_ctx* ctx, struct jump_st
     {
         if (p_jump_statement->expression_opt)
         {
-            flow_visit_expression(ctx, p_jump_statement->expression_opt);
+            struct declarator_array d = { 0 };
+            flow_visit_expression(ctx, p_jump_statement->expression_opt, &d);
+            declarator_array_destroy(&d);
         }
 
         /*
@@ -38318,7 +38600,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
     ctx->expression_is_not_evaluated = true;
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
 
-    flow_visit_expression(ctx, p_static_assert_declaration->constant_expression);
+    struct declarator_array a = { 0 };
+    flow_visit_expression(ctx, p_static_assert_declaration->constant_expression, &a);
 
     ctx->expression_is_not_evaluated = t2; //restore
 
@@ -38343,6 +38626,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
         {
             p_obj->state = OBJECT_STATE_LIFE_TIME_ENDED;
         }
+
     }
     else if (p_static_assert_declaration->first_token->type == TK_KEYWORD_STATIC_STATE)
     {
@@ -38385,7 +38669,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
                 }
             }
 
-            if (p_obj->is_temporary)
+            if (p_obj && p_obj->is_temporary)
             {
                 p_obj->state = OBJECT_STATE_LIFE_TIME_ENDED;
             }
@@ -38436,6 +38720,8 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
         }
 
     }
+
+    declarator_array_destroy(&a);
 }
 
 static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
@@ -38476,7 +38762,9 @@ static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct dire
     {
         if (p_direct_declarator->array_declarator->assignment_expression)
         {
-            flow_visit_expression(ctx, p_direct_declarator->array_declarator->assignment_expression);
+            struct declarator_array a = { 0 };
+            flow_visit_expression(ctx, p_direct_declarator->array_declarator->assignment_expression, &a);
+            declarator_array_destroy(&a);
         }
 
     }
@@ -38588,7 +38876,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-            }
+}
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {
@@ -38674,8 +38962,10 @@ static void flow_visit_struct_or_union_specifier(struct flow_visit_ctx* ctx, str
 
 static void flow_visit_enumerator(struct flow_visit_ctx* ctx, struct enumerator* p_enumerator)
 {
+    struct declarator_array a = { 0 };
     if (p_enumerator->constant_expression_opt)
-        flow_visit_expression(ctx, p_enumerator->constant_expression_opt);
+        flow_visit_expression(ctx, p_enumerator->constant_expression_opt, &a);
+    declarator_array_destroy(&a);
 
 }
 

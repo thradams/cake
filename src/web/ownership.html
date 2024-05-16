@@ -327,13 +327,13 @@ For instance, Berkeley sockets use an integer to identify the socket.</p>
 
 <p>Sample</p>
 
-<pre><code class="language-c"> owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+<pre><code class="language-c"> _Owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
  /*...*/
  close(server_socket);
 </code></pre>
 
 <blockquote>
-<p>Note: The location and usage of the qualifier owner is similar to 
+<p>Note: The location and usage of the qualifier _Owner is similar to 
 the const qualifier. For pointers, it goes after *, and for this socket sample, 
 it can be before int. The owner qualifier belongs to the object (memory) 
 that holds the reference.</p>
@@ -630,7 +630,7 @@ int main() {
 
 <p>A pointer qualified with <strong>_Obj_owner</strong> is the owner of the pointed object but not responsible for managing its memory.</p>
 
-<p>The next sample illustrates how to implement a destructor using a <em>Obj</em>owner pointer parameter.</p>
+<p>The next sample illustrates how to implement a destructor using a _Obj_owner pointer parameter.</p>
 
 <p><strong>Sample - Implementing a destructor using _Obj_owner</strong></p>
 
@@ -642,7 +642,7 @@ struct X {
     char * _Owner _Opt text;
 };
 
-void x_destroy(_Opt _struct X * _Obj_owner x) {
+void x_destroy(_Opt struct X * _Obj_owner x) {
     free(x-&gt;text);
     /*x is not the owner of the memory*/
 }
@@ -703,10 +703,10 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 }
 
 int main() {
-   struct X * _Owner pX = calloc(1, sizeof * pX);
+   struct X * _Opt _Owner pX = calloc(1, sizeof * pX);
    if (pX) {
      /*...*/;
-     x_delete( pX); 
+     x_delete(pX); 
    }
  } 
 
@@ -880,9 +880,9 @@ without causing a memory leak.</p>
 
 <p><strong>Rule:</strong> All objects passed as arguments must be initialized and all objects reachable must be initialized.</p>
 
-<p><strong>Rule:</strong> By default, the parameters of a function are considered initialized. The exception is created with out qualifier.</p>
+<p><strong>Rule:</strong> By default, the parameters of a function are considered initialized. The exception is created with _Out qualifier.</p>
 
-<p><strong>Rule:</strong> We cannot pass initialized objects, or reachable initialized objects to <strong>out</strong> qualified object.</p>
+<p><strong>Rule:</strong> We cannot pass initialized objects, or reachable initialized objects to <strong>_Out</strong> qualified object.</p>
 
 <p>For instance, at set implementation we need free text before assignment.</p>
 
@@ -928,7 +928,7 @@ int main() {
 #include &lt;stdlib.h&gt;
 
 struct X {
-  char * owner name;
+  char * _Owner _Opt_ name;
 };
 
 void x_destroy(struct X * _Obj_owner p) {
@@ -1043,10 +1043,6 @@ int main()
 
 <p><button onclick="Try(this)">try</button></p>
 
-<p><strong>Rule:</strong> Pointer parameters are consider not-null by default. The exception is created using the qualifier  <strong>_Opt</strong>.</p>
-
-<p>The  <strong>_Opt</strong>. qualifier is used to tell the caller that the pointer can be at null state and tells the implementation that it is necessary to check the pointer for null before usage. </p>
-
 <h4>Zero and Not-Zero state</h4>
 
 <p>The <strong>zero</strong> state is used for non-pointer objects to complement and support uninitialized checks.</p>
@@ -1066,6 +1062,10 @@ int main()
 This difference is necessary because, for non-pointers like the socket sample, 
 0 does not necessarily means null. 
 The compiler does not know the semantics for types that are not pointers.</p>
+
+<h4>lifetime-ended state</h4>
+
+<p>This is the state when variables leave the scope or when objects are moved.</p>
 
 <h4>static_set</h4>
 
@@ -1100,7 +1100,7 @@ int main() {
 
 <p>Now let&#39;s consider <code>realloc</code> function.</p>
 
-<pre><code class="language-c">void * _Owner realloc( void * _Opt ptr, size_t new_size );  
+<pre><code class="language-c">void * _Owner _Opt _realloc( void * _Opt ptr, size_t new_size );    
 </code></pre>
 
 <p>In the declaration of <code>realloc</code>, we are not moving the ptr. The reason for that is because the <code>ptr</code> may or may not be moved. If the function returns NULL, <code>ptr</code> was not moved. </p>

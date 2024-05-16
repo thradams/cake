@@ -171,6 +171,7 @@ struct param_list {
 };
 
 void param_list_destroy(struct param_list* obj_owner p);
+void param_list_add(struct param_list*  p, struct param* owner p_item);
 
 struct type
 {

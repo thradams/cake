@@ -450,6 +450,20 @@ enum type_category type_get_category(const struct type* p_type)
     return p_type->category;
 }
 
+void param_list_add(struct param_list* list, struct param* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void param_list_destroy(struct param_list* obj_owner p)
 {
     struct param* owner item = p->head;
@@ -1740,8 +1754,8 @@ struct type type_dup(const struct type* p_type)
             {
                 struct param* owner p_new_param = calloc(1, sizeof * p_new_param);
                 p_new_param->type = type_dup(&p_param->type);
-
-                LIST_ADD(&p_new->params, p_new_param);
+                
+                param_list_add(&p_new->params, p_new_param);
                 p_param = p_param->next;
             }
         }
@@ -2842,7 +2856,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
             {
                 struct param* owner p_new_param = calloc(1, sizeof(struct param));
                 p_new_param->type = type_dup(&p->declarator->type);
-                LIST_ADD(&p_func->params, p_new_param);
+                param_list_add(&p_func->params, p_new_param);
                 p = p->next;
             }
         }

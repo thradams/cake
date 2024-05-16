@@ -18,7 +18,7 @@ enum object_state
        struct...
        TODO we need empty state when object does not exist
        and the merge it is not a problem
-       merge with nothing then 
+       merge with nothing then
     */
     OBJECT_STATE_NOT_APPLICABLE = 0,
 
@@ -29,7 +29,7 @@ enum object_state
 
     //means not-null moved at same time
     OBJECT_STATE_MOVED = 1 << 3,
-    
+
     OBJECT_STATE_ZERO = 1 << 5,
     OBJECT_STATE_NOT_ZERO = 1 << 6,
 
@@ -101,16 +101,16 @@ struct object
     unsigned int visit_number;
 
     enum object_state state;
-    struct objects_view ref;
+    struct objects_view pointed;
 
-    /*declarator is used only to print the error message*/
-    const struct declarator* declarator;
+    /*object are the result of expressions or they are declarators*/
+    const struct declarator* p_declarator_origin;
     const struct expression* p_expression_origin;
 
     struct objects members;
     struct object_state_stack object_state_stack;
 
-    int id; //helps debuging
+    int id; //helps debugging
     bool is_temporary;
 };
 
@@ -121,8 +121,8 @@ void object_delete(struct object* owner opt p);
 void object_swap(struct object* a, struct object* b);
 
 struct declarator;
-struct object * make_object(struct flow_visit_ctx *ctx,
-                            struct type* p_type,
+struct object* make_object(struct flow_visit_ctx* ctx,
+                                 struct type* p_type,
                             const struct declarator* p_declarator_opt,
                             const struct expression* p_expression_origin);
 
@@ -200,4 +200,4 @@ bool object_is_expansible(const struct object* p_object);
 void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct object* p_object);
 void object_push_states_from(const struct object* p_object_from, struct object* p_object_to);
 
-struct object* expression_get_object(struct flow_visit_ctx * ctx, struct expression* p_expression, bool nullable_enabled);
+struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled);

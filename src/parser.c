@@ -1,3 +1,4 @@
+#pragma ownership enable
 
 #include "ownership.h"
 
@@ -407,23 +408,26 @@ void print_scope(struct scope_list* e)
     int level = 0;
     while (p)
     {
-        for (int i = 0; i < p->variables.capacity; i++)
+        if (p->variables.table)
         {
-            if (p->variables.table[i])
+            for (int i = 0; i < p->variables.capacity; i++)
             {
-                for (int k = 0; k < level; k++)
-                    printf(" ");
-                printf("%s\n", p->variables.table[i]->key);
+                if (p->variables.table[i])
+                {
+                    for (int k = 0; k < level; k++)
+                        printf(" ");
+                    printf("%s\n", p->variables.table[i]->key);
+                }
             }
-        }
 
-        for (int i = 0; i < p->tags.capacity; i++)
-        {
-            if (p->tags.table[i])
+            for (int i = 0; i < p->tags.capacity; i++)
             {
-                for (int k = 0; k < level; k++)
-                    printf(" ");
-                printf("tag %s\n", p->tags.table[i]->key);
+                if (p->tags.table[i])
+                {
+                    for (int k = 0; k < level; k++)
+                        printf(" ");
+                    printf("tag %s\n", p->tags.table[i]->key);
+                }
             }
         }
 
@@ -1838,6 +1842,8 @@ void declaration_specifiers_delete(struct declaration_specifiers* owner opt p)
 {
     if (p)
     {
+        attribute_specifier_sequence_delete(p->p_attribute_specifier_sequence_opt);
+
         struct declaration_specifier* owner item = p->head;
         while (item)
         {
@@ -1847,7 +1853,24 @@ void declaration_specifiers_delete(struct declaration_specifiers* owner opt p)
             item = next;
         }
         free(p);
+
+
     }
+}
+
+void declaration_specifiers_add(struct declaration_specifiers* list, struct declaration_specifier* owner p_item)
+{
+
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
 }
 
 struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* ctx,
@@ -1936,8 +1959,10 @@ struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* c
                 p_declaration_specifiers->storage_class_specifier_flags |= p_declaration_specifier->storage_class_specifier->flags;
             }
 
-            LIST_ADD(p_declaration_specifiers, p_declaration_specifier);
-            // attribute_specifier_sequence_opt(ctx);
+            declaration_specifiers_add(p_declaration_specifiers, p_declaration_specifier);
+
+            assert(p_declaration_specifiers->p_attribute_specifier_sequence_opt == NULL);
+            p_declaration_specifiers->p_attribute_specifier_sequence_opt = attribute_specifier_sequence_opt(ctx);
 
             if (ctx->current->type == TK_IDENTIFIER &&
                 p_declaration_specifiers->type_specifier_flags != TYPE_SPECIFIER_NONE)
@@ -2365,8 +2390,11 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
         }
         else
         {
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"
             assert(p_init_declarator->p_declarator->type.type_specifier_flags == 0);
             p_init_declarator->p_declarator->type = make_type_using_declarator(ctx, p_init_declarator->p_declarator);
+#pragma cake diagnostic pop
         }
 
         const char* name = p_init_declarator->p_declarator->name->lexeme;
@@ -2572,6 +2600,20 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
     return p_init_declarator;
 }
 
+void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void init_declarator_list_destroy(struct init_declarator_list* obj_owner p)
 {
     struct init_declarator* owner item = p->head;
@@ -2601,7 +2643,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
 
         if (p_init_declarator == NULL)
             throw;
-        LIST_ADD(&init_declarator_list, p_init_declarator);
+        init_declarator_list_add(&init_declarator_list, p_init_declarator);
         p_init_declarator = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -2610,7 +2652,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
             p_init_declarator = init_declarator(ctx, p_declaration_specifiers);
             if (p_init_declarator == NULL)
                 throw;
-            LIST_ADD(&init_declarator_list, p_init_declarator);
+            init_declarator_list_add(&init_declarator_list, p_init_declarator);
             p_init_declarator = NULL; /*MOVED*/
         }
     }
@@ -3199,7 +3241,11 @@ struct struct_or_union_specifier* owner struct_or_union_specifier(struct parser_
             parser_match(ctx);
             if (ctx->current->type != '}') /*not official extensions yet..missing sizeof etc*/
             {
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"
                 p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
+#pragma cake diagnostic pop
+
             }
             p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
             p_struct_or_union_specifier->last_token = ctx->current;
@@ -3259,7 +3305,10 @@ struct member_declarator* owner member_declarator(
     p_member_declarator->declarator->name = p_token_name;
     p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"    
     p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+#pragma cake diagnostic pop
 
     /*extension*/
     if (type_is_owner(&p_member_declarator->declarator->type))
@@ -3290,6 +3339,20 @@ void member_declarator_delete(struct member_declarator* owner opt p)
     }
 }
 
+void member_declarator_list_add(struct member_declarator_list* list, struct member_declarator* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void member_declarator_list_delete(struct member_declarator_list* owner opt p)
 {
     if (p)
@@ -3311,15 +3374,28 @@ struct member_declarator_list* owner member_declarator_list(
     const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* owner p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
-    LIST_ADD(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
+    member_declarator_list_add(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
     while (ctx->current->type == ',')
     {
         parser_match(ctx);
-        LIST_ADD(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
+        member_declarator_list_add(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
     }
     return p_member_declarator_list;
 }
 
+void member_declaration_list_add(struct member_declaration_list* list, struct member_declaration* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
 void member_declaration_list_destroy(struct member_declaration_list* obj_owner p)
 {
     struct member_declaration* owner item = p->head;
@@ -3346,7 +3422,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
 
         if (p_member_declaration == NULL)
             throw;
-        LIST_ADD(&list, p_member_declaration);
+        member_declaration_list_add(&list, p_member_declaration);
         p_member_declaration = NULL; /*MOVED*/
 
         while (ctx->current && ctx->current->type != '}')
@@ -3354,7 +3430,7 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
             p_member_declaration = member_declaration(ctx, p_struct_or_union_specifier);
             if (p_member_declaration == NULL)
                 throw;
-            LIST_ADD(&list, p_member_declaration);
+            member_declaration_list_add(&list, p_member_declaration);
             p_member_declaration = NULL; /*MOVED*/
         }
     }
@@ -3421,8 +3497,6 @@ struct member_declaration* owner member_declaration(struct parser_ctx* ctx,
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index)
 {
-    int member_index = 0;
-
     struct member_declaration* p_member_declaration = list->head;
     while (p_member_declaration)
     {
@@ -3436,50 +3510,25 @@ struct member_declarator* find_member_declarator(struct member_declaration_list*
             {
                 if (p_member_declarator->declarator->name && strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
                 {
-                    *p_member_index = member_index;
                     return p_member_declarator;
                 }
 
-                member_index++;
+                (*p_member_index)++;
                 p_member_declarator = p_member_declarator->next;
             }
         }
-        else if (p_member_declaration->specifier_qualifier_list)
+        else
         {
-            /*
-             struct X {
-                union  {
-                  unsigned char       Byte[16];
-                  unsigned short      Word[8];
-                  };
-            };
-
-            struct X* a;
-            a.Byte[0] & 0xe0;
-            */
-
-            if (p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+            if (p_member_declaration->specifier_qualifier_list &&
+                p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
             {
                 struct member_declaration_list* p_member_declaration_list =
                     &p_member_declaration->specifier_qualifier_list->struct_or_union_specifier->member_declaration_list;
-                int inner_member_index = 0;
-                struct member_declarator* p = find_member_declarator(p_member_declaration_list, name, &inner_member_index);
-                if (p)
-                {
-                    *p_member_index = member_index + inner_member_index;
-                    return p;
-                }
+
+                p_member_declarator = find_member_declarator(p_member_declaration_list, name, p_member_index);
+                if (p_member_declarator)
+                    return p_member_declarator;
             }
-        }
-        else if (p_member_declaration->static_assert_declaration)
-        {
-        }
-        else if (p_member_declaration->pragma_declaration)
-        {
-        }
-        else
-        {
-            //ops
         }
 
         p_member_declaration = p_member_declaration->next;
@@ -3510,6 +3559,21 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
     {
         print_type_specifier_flags(ss, first, p_specifier_qualifier_list->type_specifier_flags);
     }
+}
+
+
+void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct type_specifier_qualifier* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
 }
 
 void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner opt p)
@@ -3601,8 +3665,9 @@ struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ct
                 p_specifier_qualifier_list->type_qualifier_flags |= p_type_specifier_qualifier->type_qualifier->flags;
             }
 
-            LIST_ADD(p_specifier_qualifier_list, p_type_specifier_qualifier);
             p_specifier_qualifier_list->p_attribute_specifier_sequence = attribute_specifier_sequence_opt(ctx);
+
+            specifier_qualifier_list_add(p_specifier_qualifier_list, p_type_specifier_qualifier);
         }
     }
     catch
@@ -3618,6 +3683,7 @@ void type_qualifier_delete(struct type_qualifier* owner opt p)
 {
     if (p)
     {
+        assert(p->next == NULL);
         free(p);
     }
 }
@@ -3793,6 +3859,20 @@ struct enum_specifier* owner enum_specifier(struct parser_ctx* ctx)
     return p_enum_specifier;
 }
 
+void enumerator_list_add(struct enumerator_list* list, struct enumerator* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void enumerator_list_destroy(struct enumerator_list* obj_owner p)
 {
     struct enumerator* owner item = p->head;
@@ -3822,7 +3902,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
         if (p_enumerator == NULL)
             throw;
 
-        LIST_ADD(&enumeratorlist, p_enumerator);
+        enumerator_list_add(&enumeratorlist, p_enumerator);
 
         while (ctx->current != NULL && ctx->current->type == ',')
         {
@@ -3833,7 +3913,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx, const struct enum
                 p_enumerator = enumerator(ctx, p_enum_specifier, &next_enumerator_value);
                 if (p_enumerator == NULL)
                     throw;
-                LIST_ADD(&enumeratorlist, p_enumerator);
+                enumerator_list_add(&enumeratorlist, p_enumerator);
             }
         }
     }
@@ -4478,6 +4558,20 @@ struct pointer* owner pointer_opt(struct parser_ctx* ctx)
     return p;
 }
 
+void type_qualifier_list_add(struct type_qualifier_list* list, struct type_qualifier* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void type_qualifier_list_delete(struct type_qualifier_list* owner opt p)
 {
     if (p)
@@ -4513,7 +4607,7 @@ struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
             throw;
 
         p_type_qualifier_list->flags |= p_type_qualifier->flags;
-        LIST_ADD(p_type_qualifier_list, p_type_qualifier);
+        type_qualifier_list_add(p_type_qualifier_list, p_type_qualifier);
         p_type_qualifier = NULL; /*MOVED*/
 
         while (ctx->current != NULL && first_of_type_qualifier(ctx))
@@ -4523,7 +4617,7 @@ struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx)
                 throw;
 
             p_type_qualifier_list->flags |= p_type_qualifier->flags;
-            LIST_ADD(p_type_qualifier_list, p_type_qualifier);
+            type_qualifier_list_add(p_type_qualifier_list, p_type_qualifier);
             p_type_qualifier = NULL; /*MOVED*/
         }
     }
@@ -4569,6 +4663,20 @@ struct parameter_type_list* owner parameter_type_list(struct parser_ctx* ctx)
     return p_parameter_type_list;
 }
 
+void parameter_list_add(struct parameter_list* list, struct parameter_declaration* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void parameter_list_delete(struct parameter_list* owner p)
 {
     if (p)
@@ -4603,7 +4711,7 @@ struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
         if (p_parameter_declaration == NULL)
             throw;
 
-        LIST_ADD(p_parameter_list, p_parameter_declaration);
+        parameter_list_add(p_parameter_list, p_parameter_declaration);
         p_parameter_declaration = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type == ',')
@@ -4619,7 +4727,7 @@ struct parameter_list* owner parameter_list(struct parser_ctx* ctx)
             if (p_parameter_declaration == NULL)
                 throw;
 
-            LIST_ADD(p_parameter_list, p_parameter_declaration);
+            parameter_list_add(p_parameter_list, p_parameter_declaration);
             p_parameter_declaration = NULL; /*MOVED*/
         }
     }
@@ -4663,7 +4771,10 @@ struct parameter_declaration* owner parameter_declaration(struct parser_ctx* ctx
 
     p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"        
     p_parameter_declaration->declarator->type = make_type_using_declarator(ctx, p_parameter_declaration->declarator);
+#pragma cake diagnostic pop
 
     if (p_parameter_declaration->attribute_specifier_sequence_opt)
     {
@@ -4735,7 +4846,7 @@ struct specifier_qualifier_list* owner copy(struct declaration_specifiers* p_dec
                 p_specifier_qualifier->type_specifier = p_type_specifier;
             }
 
-            LIST_ADD(p_specifier_qualifier_list, p_specifier_qualifier);
+            specifier_qualifier_list_add(p_specifier_qualifier_list, p_specifier_qualifier);
         }
         p_declaration_specifier = p_declaration_specifier->next;
     }
@@ -4846,7 +4957,11 @@ struct type_name* owner opt type_name(struct parser_ctx* ctx)
         true /*DEVE SER TODO*/,
         NULL);
     p_type_name->declarator->specifier_qualifier_list = p_type_name->specifier_qualifier_list;
+
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"    
     p_type_name->declarator->type = make_type_using_declarator(ctx, p_type_name->declarator);
+#pragma cake diagnostic pop
 
     p_type_name->last_token = ctx->current->prev;
     p_type_name->type = type_dup(&p_type_name->declarator->type);
@@ -4932,6 +5047,20 @@ struct initializer* owner initializer(struct parser_ctx* ctx)
     return p_initializer;
 }
 
+void initializer_list_add(struct initializer_list* list, struct initializer* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void initializer_list_delete(struct initializer_list* owner opt p)
 {
     if (p)
@@ -4969,7 +5098,7 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
     assert(p_initializer->designation == NULL);
     p_initializer->designation = p_designation;
 
-    LIST_ADD(p_initializer_list, p_initializer);
+    initializer_list_add(p_initializer_list, p_initializer);
     p_initializer_list->size++;
 
     while (ctx->current != NULL && ctx->current->type == ',')
@@ -4988,7 +5117,7 @@ struct initializer_list* owner initializer_list(struct parser_ctx* ctx)
         assert(p_initializer2->designation == NULL);
         p_initializer2->designation = p_designation2;
 
-        LIST_ADD(p_initializer_list, p_initializer2);
+        initializer_list_add(p_initializer_list, p_initializer2);
         p_initializer_list->size++;
     }
 
@@ -5021,6 +5150,21 @@ struct designation* owner designation(struct parser_ctx* ctx)
     return p_designation;
 }
 
+
+void designator_list_add(struct designator_list* list, struct designator* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void designator_list_delete(struct designator_list* owner opt p)
 {
     if (p)
@@ -5051,7 +5195,7 @@ struct designator_list* owner designator_list(struct parser_ctx* ctx)
         p_designator = designator(ctx);
         if (p_designator == NULL)
             throw;
-        LIST_ADD(p_designator_list, p_designator);
+        designator_list_add(p_designator_list, p_designator);
         p_designator = NULL; /*MOVED*/
 
         while (ctx->current != NULL && first_of_designator(ctx))
@@ -5059,7 +5203,7 @@ struct designator_list* owner designator_list(struct parser_ctx* ctx)
             p_designator = designator(ctx);
             if (p_designator == NULL)
                 throw;
-            LIST_ADD(p_designator_list, p_designator);
+            designator_list_add(p_designator_list, p_designator);
             p_designator = NULL; /*MOVED*/
         }
     }
@@ -5449,6 +5593,20 @@ struct static_assert_declaration* owner static_assert_declaration(struct parser_
     return p_static_assert_declaration;
 }
 
+void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list, struct attribute_specifier* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner opt p)
 {
     if (p)
@@ -5483,7 +5641,7 @@ struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(stru
             p_attribute_specifier_sequence->attributes_flags |=
                 p_attribute_specifier->attribute_list->attributes_flags;
 
-            LIST_ADD(p_attribute_specifier_sequence, p_attribute_specifier);
+            attribute_specifier_sequence_add(p_attribute_specifier_sequence, p_attribute_specifier);
         }
         p_attribute_specifier_sequence->last_token = ctx->previous;
     }
@@ -5497,7 +5655,7 @@ struct attribute_specifier_sequence* owner attribute_specifier_sequence(struct p
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence = calloc(1, sizeof(struct attribute_specifier_sequence));
     while (ctx->current != NULL && first_of_attribute_specifier(ctx))
     {
-        LIST_ADD(p_attribute_specifier_sequence, attribute_specifier(ctx));
+        attribute_specifier_sequence_add(p_attribute_specifier_sequence, attribute_specifier(ctx));
     }
     return p_attribute_specifier_sequence;
 }
@@ -5506,8 +5664,7 @@ void attribute_specifier_delete(struct attribute_specifier* owner opt p)
 {
     if (p)
     {
-        attribute_list_destroy(p->attribute_list);
-        free(p->attribute_list);
+        attribute_list_delete(p->attribute_list);
         assert(p->next == NULL);
         free(p);
     }
@@ -5552,6 +5709,21 @@ void attribute_delete(struct attribute* owner opt p)
         free(p);
     }
 }
+
+void attribute_list_add(struct attribute_list* list, struct attribute* owner p_item)
+{
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+}
+
 void attribute_list_destroy(struct attribute_list* obj_owner p)
 {
     struct attribute* owner item = p->head;
@@ -5561,6 +5733,14 @@ void attribute_list_destroy(struct attribute_list* obj_owner p)
         item->next = NULL;
         attribute_delete(item);
         item = next;
+    }
+}
+void attribute_list_delete(struct attribute_list* owner p)
+{
+    if (p)
+    {
+        attribute_list_destroy(p);
+        free(p);
     }
 }
 
@@ -5576,7 +5756,7 @@ struct attribute_list* owner attribute_list(struct parser_ctx* ctx)
         {
             struct attribute* owner p_attribute = attribute(ctx);
             p_attribute_list->attributes_flags |= p_attribute->attributes_flags;
-            LIST_ADD(p_attribute_list, p_attribute);
+            attribute_list_add(p_attribute_list, p_attribute);
         }
         if (ctx->current->type == ',')
         {
@@ -6244,6 +6424,22 @@ struct compound_statement* owner compound_statement(struct parser_ctx* ctx)
     return p_compound_statement;
 }
 
+void block_item_list_add(struct block_item_list* list, struct block_item* owner p_item)
+{
+
+    if (list->head == NULL)
+    {
+        list->head = p_item;
+    }
+    else
+    {
+        assert(list->tail->next == NULL);
+        list->tail->next = p_item;
+    }
+    list->tail = p_item;
+
+}
+
 void block_item_list_destroy(struct block_item_list* obj_owner list)
 {
     struct block_item* owner item = list->head;
@@ -6270,7 +6466,9 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error)
         p_block_item = block_item(ctx);
         if (p_block_item == NULL)
             throw;
-        LIST_ADD(&block_item_list, p_block_item);
+
+        block_item_list_add(&block_item_list, p_block_item);
+
         p_block_item = NULL; /*MOVED*/
 
         while (ctx->current != NULL && ctx->current->type != '}') // follow
@@ -6278,7 +6476,7 @@ struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error)
             p_block_item = block_item(ctx);
             if (p_block_item == NULL)
                 throw;
-            LIST_ADD(&block_item_list, p_block_item);
+            block_item_list_add(&block_item_list, p_block_item);
             p_block_item = NULL; /*MOVED*/
         }
     }
@@ -6440,11 +6638,17 @@ struct try_statement* owner try_statement(struct parser_ctx* ctx)
         ctx->p_current_try_statement_opt = p_try_statement;
         ctx->try_catch_block_index++;
         p_try_statement->try_catch_block_index = ctx->try_catch_block_index;
+
+
         if (parser_match_tk(ctx, TK_KEYWORD_TRY) != 0)
             throw;
 
+#pragma cake diagnostic push
+#pragma cake diagnostic ignored "-Wmissing-destructor"    
         p_try_statement->secondary_block = secondary_block(ctx);
-        /*retores the previous one*/
+#pragma cake diagnostic pop
+
+        /*restores the previous one*/
         ctx->p_current_try_statement_opt = try_statement_copy_opt;
 
         if (ctx->current->type == TK_KEYWORD_CATCH)
@@ -6452,6 +6656,7 @@ struct try_statement* owner try_statement(struct parser_ctx* ctx)
             p_try_statement->catch_token_opt = ctx->current;
             parser_match(ctx);
 
+            assert(p_try_statement->catch_secondary_block_opt == NULL);
             p_try_statement->catch_secondary_block_opt = secondary_block(ctx);
         }
         p_try_statement->last_token = ctx->previous;

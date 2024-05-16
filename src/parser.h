@@ -163,6 +163,8 @@ struct declaration_specifiers
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
+    
+    struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
 
     /*shortcuts*/
     struct struct_or_union_specifier* struct_or_union_specifier;
@@ -180,6 +182,7 @@ struct declaration_specifiers
 void print_declaration_specifiers(struct osstream* ss, struct declaration_specifiers* p);
 struct declaration_specifiers* owner declaration_specifiers(struct parser_ctx* ctx, enum storage_class_specifier_flags default_storage_flag);
 void declaration_specifiers_delete(struct declaration_specifiers* owner p);
+void declaration_specifiers_add(struct declaration_specifiers* p, struct declaration_specifier* owner item);
 
 struct static_assert_declaration
 {
@@ -239,6 +242,7 @@ struct attribute_specifier_sequence
 };
 struct attribute_specifier_sequence* owner attribute_specifier_sequence_opt(struct parser_ctx* ctx);
 void attribute_specifier_sequence_delete(struct attribute_specifier_sequence* owner opt p);
+void attribute_specifier_sequence_add(struct attribute_specifier_sequence* list, struct attribute_specifier* owner p_item);
 
 struct attribute_specifier
 {
@@ -367,6 +371,7 @@ struct init_declarator_list init_declarator_list(struct parser_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers);
 
 void init_declarator_list_destroy(struct init_declarator_list* obj_owner p);
+void init_declarator_list_add(struct init_declarator_list* list, struct init_declarator* owner p_item);
 
 struct declaration
 {
@@ -491,6 +496,7 @@ struct enumerator_list enumerator_list(struct parser_ctx* ctx,
 );
 
 void enumerator_list_destroy(struct enumerator_list* obj_owner p_enum_specifier);
+void enumerator_list_add(struct enumerator_list* list, struct enumerator* owner p_item);
 
 struct enum_specifier
 {
@@ -536,6 +542,7 @@ struct member_declaration_list
 
 struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, struct struct_or_union_specifier*);
 void member_declaration_list_destroy(struct member_declaration_list* obj_owner p);
+void member_declaration_list_add(struct member_declaration_list* list, struct member_declaration* owner p_item);
 
 struct member_declarator* find_member_declarator(struct member_declaration_list* list, const char* name, int* p_member_index);
 
@@ -771,6 +778,7 @@ struct parameter_list
 };
 struct parameter_list* owner  parameter_list(struct parser_ctx* ctx);
 void parameter_list_delete(struct parameter_list* owner opt  p);
+void parameter_list_add(struct parameter_list* list, struct parameter_declaration* owner p_item);
 
 struct parameter_declaration
 {
@@ -878,6 +886,8 @@ struct specifier_qualifier_list
 
 struct specifier_qualifier_list* owner specifier_qualifier_list(struct parser_ctx* ctx);
 void specifier_qualifier_list_delete(struct specifier_qualifier_list* owner opt p);
+void specifier_qualifier_list_add(struct specifier_qualifier_list* list, struct type_specifier_qualifier* owner p_item);
+
 
 void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct specifier_qualifier_list* p_specifier_qualifier_list);
 
@@ -972,6 +982,7 @@ struct member_declarator_list* owner member_declarator_list(struct parser_ctx* c
     const struct specifier_qualifier_list* specifier_qualifier_list
 );
 void member_declarator_list_delete(struct member_declarator_list* owner opt p);
+void member_declarator_list_add(struct member_declarator_list* list, struct member_declarator* owner p_item);
 
 struct block_item_list
 {
@@ -986,6 +997,7 @@ struct block_item_list
 
 struct block_item_list block_item_list(struct parser_ctx* ctx, bool* error);
 void block_item_list_destroy(struct block_item_list* obj_owner p);
+void block_item_list_add(struct block_item_list* list, struct block_item* owner p_item);
 
 struct compound_statement
 {
@@ -1177,6 +1189,7 @@ struct initializer_list
 };
 struct initializer_list* owner initializer_list(struct parser_ctx* ctx);
 void initializer_list_delete(struct initializer_list* owner opt p);
+void initializer_list_add(struct initializer_list* list, struct initializer* owner p_item);
 
 struct primary_block
 {
@@ -1267,6 +1280,7 @@ struct designator_list
 
 struct designator_list* owner designator_list(struct parser_ctx* ctx);
 void designator_list_delete(struct designator_list* owner opt p);
+void designator_list_add(struct designator_list* list, struct designator* owner p_item);
 
 struct designation
 {
@@ -1294,6 +1308,7 @@ struct type_qualifier_list
 
 struct type_qualifier_list* owner type_qualifier_list(struct parser_ctx* ctx);
 void type_qualifier_list_delete(struct type_qualifier_list* owner opt p);
+void type_qualifier_list_add(struct type_qualifier_list* list, struct type_qualifier* owner p_item);
 
 struct attribute_token
 {
@@ -1319,6 +1334,9 @@ struct attribute_list
 };
 struct attribute_list* owner attribute_list(struct parser_ctx* ctx);
 void attribute_list_destroy(struct attribute_list* obj_owner p);
+void attribute_list_delete(struct attribute_list* owner p);
+
+void attribute_list_add(struct attribute_list* list, struct attribute* owner p_item);
 
 struct enumerator
 {

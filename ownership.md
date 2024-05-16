@@ -261,12 +261,12 @@ For instance, Berkeley sockets use an integer to identify the socket.
 Sample
 
 ```c
- owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+ _Owner int server_socket = socket(AF_INET, SOCK_STREAM, 0);
  /*...*/
  close(server_socket);
 ```
 
-> Note: The location and usage of the qualifier owner is similar to 
+> Note: The location and usage of the qualifier \_Owner is similar to 
 the const qualifier. For pointers, it goes after *, and for this socket sample, 
 it can be before int. The owner qualifier belongs to the object (memory) 
 that holds the reference.
@@ -563,7 +563,7 @@ However in C, structs are typically passed by pointer rather than by value. To t
 
 A pointer qualified with **\_Obj\_owner** is the owner of the pointed object but not responsible for managing its memory.
 
-The next sample illustrates how to implement a destructor using a _Obj_owner pointer parameter.
+The next sample illustrates how to implement a destructor using a \_Obj\_owner pointer parameter.
 
 **Sample - Implementing a destructor using \_Obj\_owner**
 
@@ -576,7 +576,7 @@ struct X {
     char * _Owner _Opt text;
 };
 
-void x_destroy(_Opt _struct X * _Obj_owner x) {
+void x_destroy(_Opt struct X * _Obj_owner x) {
     free(x->text);
     /*x is not the owner of the memory*/
 }
@@ -640,10 +640,10 @@ void x_delete(_Opt struct X * _Owner _Opt p) {
 }
 
 int main() {
-   struct X * _Owner pX = calloc(1, sizeof * pX);
+   struct X * _Opt _Owner pX = calloc(1, sizeof * pX);
    if (pX) {
      /*...*/;
-     x_delete( pX); 
+     x_delete(pX); 
    }
  } 
 
@@ -823,9 +823,9 @@ without causing a memory leak.
 
 **Rule:** All objects passed as arguments must be initialized and all objects reachable must be initialized.
 
-**Rule:** By default, the parameters of a function are considered initialized. The exception is created with out qualifier.
+**Rule:** By default, the parameters of a function are considered initialized. The exception is created with \_Out qualifier.
 
-**Rule:** We cannot pass initialized objects, or reachable initialized objects to **out** qualified object.
+**Rule:** We cannot pass initialized objects, or reachable initialized objects to **\_Out** qualified object.
 
 For instance, at set implementation we need free text before assignment.
 
@@ -872,7 +872,7 @@ TODO void objects.
 #include <stdlib.h>
 
 struct X {
-  char * owner name;
+  char * _Owner _Opt_ name;
 };
 
 void x_destroy(struct X * _Obj_owner p) {
@@ -992,11 +992,6 @@ int main()
 <button onclick="Try(this)">try</button>
 
 
-**Rule:** Pointer parameters are consider not-null by default. The exception is created using the qualifier  **_Opt**.
-
-The  **_Opt**. qualifier is used to tell the caller that the pointer can be at null state and tells the implementation that it is necessary to check the pointer for null before usage. 
-
-
 #### Zero and Not-Zero state
 
 The **zero** state is used for non-pointer objects to complement and support uninitialized checks.
@@ -1018,6 +1013,11 @@ int main()
 This difference is necessary because, for non-pointers like the socket sample, 
 0 does not necessarily means null. 
 The compiler does not know the semantics for types that are not pointers.
+
+#### lifetime-ended state
+
+This is the state when variables leave the scope or when objects are moved.
+
 
 #### static_set
 
@@ -1057,7 +1057,7 @@ int main() {
 Now let's consider `realloc` function.
 
 ```c
-void * _Owner realloc( void * _Opt ptr, size_t new_size );	
+void * _Owner _Opt _realloc( void * _Opt ptr, size_t new_size );	
 ```
 
 In the declaration of `realloc`, we are not moving the ptr. The reason for that is because the `ptr` may or may not be moved. If the function returns NULL, `ptr` was not moved. 
