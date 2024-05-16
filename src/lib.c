@@ -24780,7 +24780,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.8.2"
+#define CAKE_VERSION "0.8.3"
 
 
 
