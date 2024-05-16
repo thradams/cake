@@ -30891,6 +30891,16 @@ bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
         p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement)
     {
+        if (p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement &&
+            p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement->expression_opt)
+        {
+            if (p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement->expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
+            {
+                //calling a function declared with [[noreturn]]
+                return p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement->expression_opt->type.attributes_flags & STD_ATTRIBUTE_NORETURN;
+            }          
+        }
+
         return
             p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
     }
