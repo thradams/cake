@@ -30886,28 +30886,40 @@ struct secondary_block* owner secondary_block(struct parser_ctx* ctx)
 
 bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_statement)
 {
-    if (p_unlabeled_statement->primary_block &&
-        p_unlabeled_statement->primary_block->compound_statement &&
-        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
-        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement)
-    {
-        if (p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement &&
-            p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement->expression_opt)
-        {
-            if (p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement->expression_opt->expression_type == POSTFIX_FUNCTION_CALL)
-            {
-                //calling a function declared with [[noreturn]]
-                return p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement->expression_opt->type.attributes_flags & STD_ATTRIBUTE_NORETURN;
-            }          
-        }
+    struct expression* p_expression = NULL;
 
-        return
-            p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
+    if (p_unlabeled_statement->expression_statement)
+    {
+        p_expression = p_unlabeled_statement->expression_statement->expression_opt;
     }
     else if (p_unlabeled_statement->jump_statement)
     {
         return true;
     }
+    else if (p_unlabeled_statement->primary_block &&
+        p_unlabeled_statement->primary_block->compound_statement &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement)
+    {
+        p_expression =
+            p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->expression_statement->expression_opt;
+    }
+
+    if (p_expression)
+    {
+        return p_expression->type.attributes_flags & STD_ATTRIBUTE_NORETURN;
+    }
+
+    if (p_unlabeled_statement->primary_block &&
+        p_unlabeled_statement->primary_block->compound_statement &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail &&
+        p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement)
+    {
+        return
+            p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
+    }
+    
     return false;
 }
 
@@ -31059,8 +31071,8 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                     }
                 }
             }
-        }
-    }
+                    }
+                }
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -31068,7 +31080,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
     }
 
     return p_unlabeled_statement;
-}
+            }
 
 void label_delete(struct label* owner opt p)
 {
@@ -32316,7 +32328,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         }
     }
 #endif
-}
+        }
 
 const char* owner format_code(struct options* options, const char* content)
 {
