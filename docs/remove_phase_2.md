@@ -7,41 +7,112 @@ about where the backslash character `\` followed by a newline can be used. This 
 nonsensical places like in the middle of identifiers, punctuations and `//single-line comment`.
 I propose we remove Phase 2 and handle the backslash character `\` followed by a newline in Phase 3.
 
+## Current Text of Phase 2
 
-## Phase 3 (modified)
+2. Each instance of a backslash character (\) immediately followed by a new-line character is
+deleted, splicing physical source lines to form logical source lines. Only the last backslash on
+any physical source line shall be eligible for being part of such a splice. A source file that is
+not empty shall end in a new-line character, which shall not be immediately preceded by a
+backslash character before any such splicing takes place.
 
-The source file is decomposed into preprocessing tokens and sequences of white-space
-characters (including comments).
+## New text for phase 2
 
-_While parsing comments, white-spaces and literal strings a backslash character `\` immediately followed by a newline 
-can be skipped as if non-exitent. For other types of tokens, such as identifiers, it is considered an error if present in 
-the middle of token.
+2. Phase 2, responsable for line splicing has been removed in C2Y.
+ The backslash character (\) followed by new line are now handled at phase 3.
 
-The usage of backslash-new-line inside of `//single-line comment` is deprecated. (GCC, CLANG and MSVC already have a warning for this)_
+## 6.4 Lexical elements
+
+I propouse the  backslash character (\) followed by spaces and new line to be handled inside 
+string-literal, single line comment, comment and white spaces as follow.
+
+
+Backslash character (\) followed optionally by spaces and new line are part of comment and single-line comments.
+
+Sample:
+
+```c
+int main() {
+  int i = 0;
+  // See this path: c:\path\
+  i = 2;
+  return i; //always returns 2
+}
+```
+
+```c
+/*********\
+  comment
+\*********/
+```
+
+Backslash character (\) followed optionally by spaces and new line are ignored inside literal strings
+Note: I will use · to represent the space character.
+
+```c
+const·char·s =
+"a·\··
+b";
+```
+Same as
+
+```c
+const·char·s·=·
+"a·b";
+```
+
+Backslash character (\) followed optionally by spaces and new line are ignored inside whitespaces
+
+```c
+const char s = 1·+·\···
+····2;
+```
+Same as 
+```c
+const char s = 1·+·····2;
+```
 
 ## Breaking changes
+For all other tokens like idenfifiers, keywords, punctuators, constant the backslash character (\) is not accepct.
 
-Code that slices tokens other than `literal strings`, `/*comments*/` or `//single-line comment` will result in an error.
+Currently we have
 
 ```c
 #define A\
 B\
 C
 ```
+This is the same as
+```c
+#define ABC
+```
+But if we had one space before B. This would be the same as
+```c
+#define A BC
+```
+With this proposal we have a error while parcing identifer A.
+This will promove clarification because the code will have to be write as
+```c
+#define AB \
+C
+```
+or
+```c
+#define A B \
+C
+```
+Slicing punctuators and other tokens will be an error.
 
-This code is easy to fix by promoting a clarification and not being dependent on where whitespace is used.
- 
-Ideally backslash character `\` used in `//single-line comment` should be part of the comment.
+```c
+ int i;
+ i+\
++;
+```
 
-This is the behavior of any other language (except C and C++)  that uses `//single-line comment` . 
 
-Unfortunatly some existing C++ and C code uses backslash-newline on purpouse to split the comment 
-and this could be dangerous making the next line that before was a comment to be valid. Deprecation
-will give time to remove \ from single-line comments.
-When \ is intented to be part of the comment we can add a extra space after \. The problem here is
-that C++ already make the spaces after \ and before new-line valid.
+## References
 
-//TODO C++ comparion  (allow spaces beetwen backslash-newline  )
+Trimming whitespaces before line splicing
+https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2223r2.pdf
 
 
 
