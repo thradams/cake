@@ -9,6 +9,7 @@ This complexity makes the language and tools more cumbersome and can create erro
 
 I propose we remove Phase 2 and handle the backslash character `\` as part of lexical elements.
 
+
 ## Current Text of Phase 2
 
 2. Each instance of a backslash character (\) immediately followed by a newline character is deleted, splicing physical source lines to form logical source lines. Only the last backslash on any physical source line shall be eligible for being part of such a splice. A source file that is not empty shall end in a newline character, which shall not be immediately preceded by a backslash character before any such splicing takes place.
@@ -65,6 +66,8 @@ is the same as
 const char s = 1·+·····2;
 ```
 
+
+
 ## Breaking Changes
 For all other tokens like identifiers, keywords, and punctuators, the backslash character (`\`) is not accepted.
 
@@ -102,9 +105,26 @@ i+\
 +;
 ```
 
+Consider this macro
+
+```c
+#define A \·
+1
+```
+GCC is already considering A as 1 even with the extra whitespace before the new line.
+https://godbolt.org/z/z5fEe63qG
+
+With this proposal this is already equivalent of 
+```c
+#define A 1
+```
+
+
+
+
 ## References
 
-Trimming whitespace before line splicing:
+C++ Trimming whitespace before line splicing
 [https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2223r2.pdf](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2223r2.pdf)
 
 
