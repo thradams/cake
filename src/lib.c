@@ -683,7 +683,7 @@ enum diagnostic_id {
     C_ERROR_INCOMPATIBLE_TYPES,
     C_ERROR_EXPECTED_CONSTANT_EXPRESSION,
     C_ERROR_UNEXPECTED_TOKEN,
-    C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,
+    C_ERROR_CANNOT_COMBINE_WITH_PREVIOUS_LONG_LONG,    
     C_ERROR_EXPECTED_DECLARATION,
     C_ERROR_STATIC_OR_TYPE_QUALIFIERS_NOT_ALLOWED_IN_NON_PARAMETER,
     C_ERROR_OBJ_OWNER_CAN_BE_USED_ONLY_IN_POINTER,
@@ -718,6 +718,10 @@ enum diagnostic_id {
     C_ERROR_OUT_OF_MEM,
     C_ERROR_STORAGE_SIZE,
     C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
+    C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR,    
+    C_ERROR_TWO_OR_MORE_SPECIFIERS,
+    C_ERROR_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER,
+    C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
 };
 
 /*
@@ -11238,22 +11242,21 @@ void objects_view_merge(struct objects_view* dest, const struct objects_view* so
 void objects_view_clear(struct objects_view* p);
 
 
-
-struct object_state_stack_item {
+struct object_state_set_item {
     const char* name;
     int state_number;
     enum object_state state;
     struct objects_view ref;
 };
 
-struct object_state_stack
+struct object_state_set
 {
-    struct object_state_stack_item* owner data;
+    struct object_state_set_item* owner data;
     int size;
     int capacity;
 };
-void object_state_stack_destroy(struct object_state_stack* obj_owner p);
-int object_state_stack_push_back(struct object_state_stack* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number);
+void object_state_set_destroy(struct object_state_set* obj_owner p);
+int object_state_set_add(struct object_state_set* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number);
 
 
 /*
@@ -11272,7 +11275,7 @@ struct object
     const struct expression* p_expression_origin;
 
     struct objects members;
-    struct object_state_stack object_state_stack;
+    struct object_state_set object_state_set;
 
     int id; //helps debugging
     bool is_temporary;
@@ -14776,6 +14779,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             }
             else if (ctx->current->type == '++')
             {
+                if (type_is_owner(&p_expression_node->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER,
+                                                ctx,
+                                                p_expression_node->first_token,
+                                                "operator ++ cannot be used in owner pointers");
+                }
+
                 if (!expression_is_lvalue(p_expression_node))
                 {
                     compiler_diagnostic_message(C_ERROR_OPERATOR_NEEDS_LVALUE,
@@ -14797,6 +14808,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             }
             else if (ctx->current->type == '--')
             {
+                if (type_is_owner(&p_expression_node->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
+                                                ctx,
+                                                p_expression_node->first_token,
+                                                "operator -- cannot be used in owner pointers");
+                }
+
                 if (!expression_is_lvalue(p_expression_node))
                 {
                     compiler_diagnostic_message(C_ERROR_OPERATOR_NEEDS_LVALUE,
@@ -21238,26 +21257,26 @@ void object_set_pointer(struct object* p_object, struct object* p_object2)
 void object_destroy(struct object* obj_owner p)
 {
     objects_destroy(&p->members);
-    object_state_stack_destroy(&p->object_state_stack);
+    object_state_set_destroy(&p->object_state_set);
     objects_view_destroy(&p->pointed);
 }
 
-void object_state_stack_item_destroy(struct object_state_stack_item* obj_owner opt p)
+void object_state_set_item_destroy(struct object_state_set_item* obj_owner opt p)
 {
 
     objects_view_destroy(&p->ref);
 
 }
-void object_state_stack_destroy(struct object_state_stack* obj_owner p)
+void object_state_set_destroy(struct object_state_set* obj_owner p)
 {
     for (int i = 0; i < p->size; i++)
     {
-        object_state_stack_item_destroy(&p->data[i]);
+        object_state_set_item_destroy(&p->data[i]);
     }
     free(p->data);
 }
 
-int object_state_stack_reserve(struct object_state_stack* p, int n)
+int object_state_set_reserve(struct object_state_set* p, int n)
 {
     if (n > p->capacity)
     {
@@ -21275,7 +21294,7 @@ int object_state_stack_reserve(struct object_state_stack* p, int n)
     return 0;
 }
 
-int object_state_stack_push_back(struct object_state_stack* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number)
+int object_state_set_add(struct object_state_set* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number)
 {
     if (p->size == INT_MAX)
     {
@@ -21299,7 +21318,7 @@ int object_state_stack_push_back(struct object_state_stack* p, enum object_state
             }
         }
 
-        int error = object_state_stack_reserve(p, new_capacity);
+        int error = object_state_set_reserve(p, new_capacity);
         if (error != 0)
         {
             return error;
@@ -21710,9 +21729,9 @@ struct token* object_get_token(const struct object* object)
 
 static int object_find_state_index(const struct object* object, int state_number)
 {
-    for (int i = 0; i < object->object_state_stack.size; i++)
+    for (int i = 0; i < object->object_state_set.size; i++)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
             return i;
         }
@@ -21728,7 +21747,7 @@ void object_push_empty_core(struct object* object, const char* name, int state_n
     if (object_find_state_index(object, state_number) != -1)
         return;//already added
 
-    object_state_stack_push_back(&object->object_state_stack, 0, NULL, name, state_number);
+    object_state_set_add(&object->object_state_set, 0, NULL, name, state_number);
 
     for (int i = 0; i < object->pointed.size; i++)// object_get_pointed_object(object))
     {
@@ -21752,7 +21771,7 @@ static void object_push_copy_current_state_core(struct object* object, const cha
     if (object->visit_number == visit_number) return;
     object->visit_number = visit_number;
 
-    object_state_stack_push_back(&object->object_state_stack, object->state, &object->pointed, name, state_number);
+    object_state_set_add(&object->object_state_set, object->state, &object->pointed, name, state_number);
 
     for (int i = 0; i < object->pointed.size; i++)
     {
@@ -21781,11 +21800,11 @@ static void object_remove_state_core(struct object* object, int state_number, un
 
     if (index_to_remove != -1)
     {
-        memmove(object->object_state_stack.data + index_to_remove,
-                object->object_state_stack.data + index_to_remove + 1,
-                sizeof(object->object_state_stack.data[0]) * (object->object_state_stack.size - index_to_remove - 1));
+        memmove(object->object_state_set.data + index_to_remove,
+                object->object_state_set.data + index_to_remove + 1,
+                sizeof(object->object_state_set.data[0]) * (object->object_state_set.size - index_to_remove - 1));
 
-        object->object_state_stack.size--;
+        object->object_state_set.size--;
     }
 
 
@@ -21812,8 +21831,8 @@ void object_restore_state(struct object* object, int state_to_restore)
 
     //0 zero is top of stack
     //1 is the before top
-    int index = object->object_state_stack.size - state_to_restore;
-    if (index >= 0 && index < object->object_state_stack.size)
+    int index = object->object_state_set.size - state_to_restore;
+    if (index >= 0 && index < object->object_state_set.size)
     {
     }
     else
@@ -21822,7 +21841,7 @@ void object_restore_state(struct object* object, int state_to_restore)
         return;
     }
 
-    enum object_state sstate = object->object_state_stack.data[index].state;
+    enum object_state sstate = object->object_state_set.data[index].state;
     object->state = sstate;
 
     for (int i = 0; i < object->pointed.size; i++)
@@ -21969,11 +21988,11 @@ void print_object_core(int ident,
         {
             printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
-            for (int i = 0; i < p_visitor->p_object->object_state_stack.size; i++)
+            for (int i = 0; i < p_visitor->p_object->object_state_set.size; i++)
             {
                 printf(LIGHTCYAN);
-                printf("(#%02d %s)", p_visitor->p_object->object_state_stack.data[i].state_number, p_visitor->p_object->object_state_stack.data[i].name);
-                object_state_to_string(p_visitor->p_object->object_state_stack.data[i].state);
+                printf("(#%02d %s)", p_visitor->p_object->object_state_set.data[i].state_number, p_visitor->p_object->object_state_set.data[i].name);
+                object_state_to_string(p_visitor->p_object->object_state_set.data[i].state);
                 printf(RESET);
                 printf(",");
             }
@@ -22022,10 +22041,10 @@ void print_object_core(int ident,
         {
             printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
-            for (int i = 0; i < p_visitor->p_object->object_state_stack.size; i++)
+            for (int i = 0; i < p_visitor->p_object->object_state_set.size; i++)
             {
-                printf("(#%02d %s)", p_visitor->p_object->object_state_stack.data[i].state_number, p_visitor->p_object->object_state_stack.data[i].name);
-                object_state_to_string(p_visitor->p_object->object_state_stack.data[i].state);
+                printf("(#%02d %s)", p_visitor->p_object->object_state_set.data[i].state_number, p_visitor->p_object->object_state_set.data[i].name);
+                object_state_to_string(p_visitor->p_object->object_state_set.data[i].state);
                 printf(",");
             }
             object_state_to_string(p_visitor->p_object->state);
@@ -22051,11 +22070,11 @@ static void object_set_state_from_current_core(struct object* object, int state_
     if (object->visit_number == visit_number) return;
     object->visit_number = visit_number;
 
-    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    for (int i = object->object_state_set.size - 1; i >= 0; i--)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state = object->state;
+            object->object_state_set.data[i].state = object->state;
             break;
         }
     }
@@ -22124,12 +22143,12 @@ int object_restore_current_state_from_core(struct object* object, int state_numb
     object->visit_number = visit_number;
 
 
-    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    for (int i = object->object_state_set.size - 1; i >= 0; i--)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
-            object->state = object->object_state_stack.data[i].state;
-            objects_view_copy(&object->pointed, &object->object_state_stack.data[i].ref);
+            object->state = object->object_state_set.data[i].state;
+            objects_view_copy(&object->pointed, &object->object_state_set.data[i].ref);
             break;
         }
     }
@@ -22164,12 +22183,12 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
     }
     object->visit_number = visit_number;
 
-    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    for (int i = object->object_state_set.size - 1; i >= 0; i--)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state |= object->state;
-            objects_view_merge(&object->object_state_stack.data[i].ref, &object->pointed);
+            object->object_state_set.data[i].state |= object->state;
+            objects_view_merge(&object->object_state_set.data[i].ref, &object->pointed);
             break;
         }
     }
@@ -22222,12 +22241,12 @@ static void object_merge_current_state_with_state_number_or_core(struct object* 
     if (object->visit_number == visit_number) return;
     object->visit_number = visit_number;
 
-    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    for (int i = object->object_state_set.size - 1; i >= 0; i--)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state |= object->state;
-            objects_view_merge(&object->object_state_stack.data[i].ref, &object->pointed);
+            object->object_state_set.data[i].state |= object->state;
+            objects_view_merge(&object->object_state_set.data[i].ref, &object->pointed);
             break;
         }
     }
@@ -24102,18 +24121,18 @@ static void flow_assignment_core(
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                p_visitor_b->p_object->state = OBJECT_STATE_UNINITIALIZED;                
+                p_visitor_b->p_object->state = OBJECT_STATE_UNINITIALIZED;
             }
             else
             {
                 p_visitor_b->p_object->state &= ~OBJECT_STATE_NOT_NULL;
                 p_visitor_b->p_object->state |= OBJECT_STATE_MOVED;
             }
-            
+
         }
-        
+
         //Sample free(y->b)
-        
+
         object_propagate(ctx, p_visitor_b->p_object);
         return;
     }
@@ -24273,7 +24292,7 @@ static void flow_assignment_core(
                 type_destroy(&t3);
             }
         }
-        
+
         return;
     }
 
@@ -24377,7 +24396,7 @@ static void flow_assignment_core(
                 }
                 p_a_member_declaration = p_a_member_declaration->next;
                 p_b_member_declaration = p_b_member_declaration->next;
-            }            
+            }
             return;
         }
     }
@@ -24607,9 +24626,17 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
     else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
     {
         struct object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+
         const bool is_nullable = type_is_nullable(&p_expression->type, nullable_enabled);
         object_set_unknown(&p_expression->type, is_nullable, p_object, nullable_enabled);
         p_object->is_temporary = true;
+
+        if (type_is_pointer(&p_expression->type) && object_is_expansible(p_object))
+        {
+            expand_pointer_object(ctx, &p_expression->type, p_object);
+        }
+        
+
         return p_object;
     }
     else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)
@@ -24758,8 +24785,6 @@ void flow_assignment(
     &visitor_b);
 }
 
-
-#pragma ownership enable
 
 
 
@@ -25142,7 +25167,10 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
         }
         else if (is_note)
         {
-            printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "%s" WHITE "]\n" RESET, buffer, diagnostic_name);
+            if (w == W_LOCATION)
+                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
+            else
+                printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "%s" WHITE "]\n" RESET, buffer, diagnostic_name);
         }
     }
 
@@ -26612,9 +26640,10 @@ int add_specifier(struct parser_ctx* ctx,
     enum type_specifier_flags new_flag)
 {
     /*
-     * Verifica as combinaçòes possíveis
-     */
-
+        transform the sequence of two longs        
+        in 
+        TYPE_SPECIFIER_LONG_LONG
+    */
     if (new_flag & TYPE_SPECIFIER_LONG) // adicionando um long
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) // ja tinha long long
@@ -26637,6 +26666,74 @@ int add_specifier(struct parser_ctx* ctx,
     {
         (*flags) |= new_flag;
     }
+
+    //Following 6.7.2 we check possible combinations
+    switch ((unsigned int)*flags)
+    {
+    case TYPE_SPECIFIER_VOID:  //void
+    case TYPE_SPECIFIER_CHAR:  //char
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR:  //signed char
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR:  //unsigned char
+    case TYPE_SPECIFIER_SHORT:  //short
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT:  //signed short
+    case TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:  //short int
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:  //signed short int
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT:  //unsigned short 
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:  //unsigned short int
+    case TYPE_SPECIFIER_INT:  //int
+    case TYPE_SPECIFIER_SIGNED:  //signed
+    case TYPE_SPECIFIER_INT | TYPE_SPECIFIER_SIGNED:  //int signed
+    case TYPE_SPECIFIER_UNSIGNED:  //signed
+    case TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED:  //int unsigned
+    case TYPE_SPECIFIER_LONG:  //long
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG:  //signed long
+    case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:  //long int
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:  //signed long int
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG:  //unsigned long
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:  //unsigned long int
+    case TYPE_SPECIFIER_LONG_LONG:  //long long
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG:  //signed long long
+    case TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:  //long long int
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:  //signed long long
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG:  //unsigned long long
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:  //unsigned long long int
+        // _BitInt constant-expression, or signed _BitInt constant-expression        
+        // unsigned _BitInt constant-expression
+    case TYPE_SPECIFIER_FLOAT:  //float
+    case TYPE_SPECIFIER_DOUBLE:  //double
+    case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE:  //long double
+    case TYPE_SPECIFIER_DECIMAL32:  //_Decimal32
+    case TYPE_SPECIFIER_DECIMAL64:  //_Decimal64
+    case TYPE_SPECIFIER_DECIMAL128:  //_Decimal128
+    case TYPE_SPECIFIER_BOOL:  //bool
+    case TYPE_SPECIFIER_COMPLEX | TYPE_SPECIFIER_FLOAT:  //complex float
+    case TYPE_SPECIFIER_COMPLEX | TYPE_SPECIFIER_DOUBLE:  //complex double
+    case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_COMPLEX | TYPE_SPECIFIER_DOUBLE:  //complex long double        
+    case TYPE_SPECIFIER_ATOMIC:  //complex long double
+    case TYPE_SPECIFIER_STRUCT_OR_UNION:  //complex long double
+    case TYPE_SPECIFIER_ENUM:  //complex long double
+    case TYPE_SPECIFIER_TYPEOF:  //typeof        
+    case TYPE_SPECIFIER_TYPEDEF:
+
+    case TYPE_SPECIFIER_INT8:
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT8:
+
+    case TYPE_SPECIFIER_INT16:
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT16:
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT16:
+    case TYPE_SPECIFIER_INT32:
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT32:
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT32:
+    case TYPE_SPECIFIER_INT64:
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64:
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT64:
+        //VALID
+        break;
+    default:
+        compiler_diagnostic_message(C_ERROR_TWO_OR_MORE_SPECIFIERS, ctx, ctx->current, "incompatible specifiers");
+        return 1;
+    }
+
     return 0;
 }
 
@@ -27316,6 +27413,20 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 */
                 if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
                 {
+
+                    if (p_init_declarator->p_declarator->direct_declarator &&
+                        p_init_declarator->p_declarator->direct_declarator->array_declarator != NULL ||
+                        p_init_declarator->p_declarator->direct_declarator->function_declarator != NULL)
+                    {
+                        compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token, "'auto' requires a plain identifier, possibly with attributes, as declarator");
+                        throw;
+                    }
+                    if (p_init_declarator->p_declarator->pointer != NULL)
+                    {
+                        compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token, "'auto' requires a plain identifier, possibly with attributes, as declarator");
+                        throw;
+                    }
+
                     struct type t = { 0 };
 
                     if (p_init_declarator->initializer->assignment_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
@@ -30919,7 +31030,7 @@ bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_
         return
             p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
     }
-    
+
     return false;
 }
 
@@ -31068,11 +31179,11 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
                 }
             }
-                    }
-                }
+        }
+    }
+}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -31080,7 +31191,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
     }
 
     return p_unlabeled_statement;
-            }
+}
 
 void label_delete(struct label* owner opt p)
 {
@@ -32328,7 +32439,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         }
     }
 #endif
-        }
+}
 
 const char* owner format_code(struct options* options, const char* content)
 {
@@ -32777,7 +32888,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-}
+    }
 
 int compile(int argc, const char** argv, struct report* report)
 {
@@ -35861,7 +35972,6 @@ void visit(struct visit_ctx* ctx)
 
 
 
-
 /*
               NULL
                 |
@@ -36034,21 +36144,6 @@ static int find_item_index_by_expression(struct declarator_array* a, struct expr
     return -1;
 }
 
-static bool declarator_array_is_same(struct declarator_array* a, struct declarator_array* b)
-{
-    if (a->size != b->size)
-        return false;
-    for (int i = 0; i < a->size; i++)
-    {
-        if (a->data[i].p_expression != b->data[i].p_expression)
-            return false;
-        if (a->data[i].false_branch_state != b->data[i].false_branch_state)
-            return false;
-        if (a->data[i].true_branch_state != b->data[i].true_branch_state)
-            return false;
-    }
-    return true;
-}
 
 static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* ctx, struct declarator_array* a, bool nullable_enabled)
 {
@@ -37414,14 +37509,14 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
 
 void object_push_states_from(const struct object* p_object_from, struct object* p_object_to)
 {
-    for (int i = 0; i < p_object_from->object_state_stack.size; i++)
+    for (int i = 0; i < p_object_from->object_state_set.size; i++)
     {
-        object_state_stack_push_back(
-            &p_object_to->object_state_stack,
+        object_state_set_add(
+            &p_object_to->object_state_set,
             p_object_to->state,
             &p_object_to->pointed,
-            p_object_from->object_state_stack.data[i].name,
-            p_object_from->object_state_stack.data[i].state_number);
+            p_object_from->object_state_set.data[i].name,
+            p_object_from->object_state_set.data[i].state_number);
     }
     for (int i = 0; i < p_object_to->members.size; i++)
     {
@@ -37849,12 +37944,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     break;
     case EQUALITY_EXPRESSION_EQUAL:
     {
-        const int left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
-            constant_value_to_ull(&p_expression->left->constant_value) :
+        const long long left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
+            constant_value_to_ll(&p_expression->left->constant_value) :
             -1;
 
-        const int right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
-            constant_value_to_ull(&p_expression->right->constant_value) :
+        const long long right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
+            constant_value_to_ll(&p_expression->right->constant_value) :
             -1;
 
         if (left_value == 0 || left_value == 1)
@@ -37893,11 +37988,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case EQUALITY_EXPRESSION_NOT_EQUAL:
     {
-        const int left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
-            constant_value_to_ull(&p_expression->left->constant_value) :
+        const long long left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
+            constant_value_to_ll(&p_expression->left->constant_value) :
             -1;
-        const int right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
-            constant_value_to_ull(&p_expression->right->constant_value) :
+        const long long right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
+            constant_value_to_ll(&p_expression->right->constant_value) :
             -1;
 
         if (left_value == 0 || left_value == 1)

@@ -206,26 +206,26 @@ void object_set_pointer(struct object* p_object, struct object* p_object2)
 void object_destroy(struct object* obj_owner p)
 {
     objects_destroy(&p->members);
-    object_state_stack_destroy(&p->object_state_stack);
+    object_state_set_destroy(&p->object_state_set);
     objects_view_destroy(&p->pointed);
 }
 
-void object_state_stack_item_destroy(struct object_state_stack_item* obj_owner opt p)
+void object_state_set_item_destroy(struct object_state_set_item* obj_owner opt p)
 {
 
     objects_view_destroy(&p->ref);
 
 }
-void object_state_stack_destroy(struct object_state_stack* obj_owner p)
+void object_state_set_destroy(struct object_state_set* obj_owner p)
 {
     for (int i = 0; i < p->size; i++)
     {
-        object_state_stack_item_destroy(&p->data[i]);
+        object_state_set_item_destroy(&p->data[i]);
     }
     free(p->data);
 }
 
-int object_state_stack_reserve(struct object_state_stack* p, int n)
+int object_state_set_reserve(struct object_state_set* p, int n)
 {
     if (n > p->capacity)
     {
@@ -243,7 +243,7 @@ int object_state_stack_reserve(struct object_state_stack* p, int n)
     return 0;
 }
 
-int object_state_stack_push_back(struct object_state_stack* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number)
+int object_state_set_add(struct object_state_set* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number)
 {
     if (p->size == INT_MAX)
     {
@@ -267,7 +267,7 @@ int object_state_stack_push_back(struct object_state_stack* p, enum object_state
             }
         }
 
-        int error = object_state_stack_reserve(p, new_capacity);
+        int error = object_state_set_reserve(p, new_capacity);
         if (error != 0)
         {
             return error;
@@ -678,9 +678,9 @@ struct token* object_get_token(const struct object* object)
 
 static int object_find_state_index(const struct object* object, int state_number)
 {
-    for (int i = 0; i < object->object_state_stack.size; i++)
+    for (int i = 0; i < object->object_state_set.size; i++)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
             return i;
         }
@@ -696,7 +696,7 @@ void object_push_empty_core(struct object* object, const char* name, int state_n
     if (object_find_state_index(object, state_number) != -1)
         return;//already added
 
-    object_state_stack_push_back(&object->object_state_stack, 0, NULL, name, state_number);
+    object_state_set_add(&object->object_state_set, 0, NULL, name, state_number);
 
     for (int i = 0; i < object->pointed.size; i++)// object_get_pointed_object(object))
     {
@@ -720,7 +720,7 @@ static void object_push_copy_current_state_core(struct object* object, const cha
     if (object->visit_number == visit_number) return;
     object->visit_number = visit_number;
 
-    object_state_stack_push_back(&object->object_state_stack, object->state, &object->pointed, name, state_number);
+    object_state_set_add(&object->object_state_set, object->state, &object->pointed, name, state_number);
 
     for (int i = 0; i < object->pointed.size; i++)
     {
@@ -749,11 +749,11 @@ static void object_remove_state_core(struct object* object, int state_number, un
 
     if (index_to_remove != -1)
     {
-        memmove(object->object_state_stack.data + index_to_remove,
-                object->object_state_stack.data + index_to_remove + 1,
-                sizeof(object->object_state_stack.data[0]) * (object->object_state_stack.size - index_to_remove - 1));
+        memmove(object->object_state_set.data + index_to_remove,
+                object->object_state_set.data + index_to_remove + 1,
+                sizeof(object->object_state_set.data[0]) * (object->object_state_set.size - index_to_remove - 1));
 
-        object->object_state_stack.size--;
+        object->object_state_set.size--;
     }
 
 
@@ -780,8 +780,8 @@ void object_restore_state(struct object* object, int state_to_restore)
 
     //0 zero is top of stack
     //1 is the before top
-    int index = object->object_state_stack.size - state_to_restore;
-    if (index >= 0 && index < object->object_state_stack.size)
+    int index = object->object_state_set.size - state_to_restore;
+    if (index >= 0 && index < object->object_state_set.size)
     {
     }
     else
@@ -790,7 +790,7 @@ void object_restore_state(struct object* object, int state_to_restore)
         return;
     }
 
-    enum object_state sstate = object->object_state_stack.data[index].state;
+    enum object_state sstate = object->object_state_set.data[index].state;
     object->state = sstate;
 
     for (int i = 0; i < object->pointed.size; i++)
@@ -937,11 +937,11 @@ void print_object_core(int ident,
         {
             printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
-            for (int i = 0; i < p_visitor->p_object->object_state_stack.size; i++)
+            for (int i = 0; i < p_visitor->p_object->object_state_set.size; i++)
             {
                 printf(LIGHTCYAN);
-                printf("(#%02d %s)", p_visitor->p_object->object_state_stack.data[i].state_number, p_visitor->p_object->object_state_stack.data[i].name);
-                object_state_to_string(p_visitor->p_object->object_state_stack.data[i].state);
+                printf("(#%02d %s)", p_visitor->p_object->object_state_set.data[i].state_number, p_visitor->p_object->object_state_set.data[i].name);
+                object_state_to_string(p_visitor->p_object->object_state_set.data[i].state);
                 printf(RESET);
                 printf(",");
             }
@@ -990,10 +990,10 @@ void print_object_core(int ident,
         {
             printf("%p:%s == ", p_visitor->p_object, previous_names);
             printf("{");
-            for (int i = 0; i < p_visitor->p_object->object_state_stack.size; i++)
+            for (int i = 0; i < p_visitor->p_object->object_state_set.size; i++)
             {
-                printf("(#%02d %s)", p_visitor->p_object->object_state_stack.data[i].state_number, p_visitor->p_object->object_state_stack.data[i].name);
-                object_state_to_string(p_visitor->p_object->object_state_stack.data[i].state);
+                printf("(#%02d %s)", p_visitor->p_object->object_state_set.data[i].state_number, p_visitor->p_object->object_state_set.data[i].name);
+                object_state_to_string(p_visitor->p_object->object_state_set.data[i].state);
                 printf(",");
             }
             object_state_to_string(p_visitor->p_object->state);
@@ -1019,11 +1019,11 @@ static void object_set_state_from_current_core(struct object* object, int state_
     if (object->visit_number == visit_number) return;
     object->visit_number = visit_number;
 
-    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    for (int i = object->object_state_set.size - 1; i >= 0; i--)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state = object->state;
+            object->object_state_set.data[i].state = object->state;
             break;
         }
     }
@@ -1092,12 +1092,12 @@ int object_restore_current_state_from_core(struct object* object, int state_numb
     object->visit_number = visit_number;
 
 
-    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    for (int i = object->object_state_set.size - 1; i >= 0; i--)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
-            object->state = object->object_state_stack.data[i].state;
-            objects_view_copy(&object->pointed, &object->object_state_stack.data[i].ref);
+            object->state = object->object_state_set.data[i].state;
+            objects_view_copy(&object->pointed, &object->object_state_set.data[i].ref);
             break;
         }
     }
@@ -1132,12 +1132,12 @@ int object_merge_current_state_with_state_number_core(struct object* object, int
     }
     object->visit_number = visit_number;
 
-    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    for (int i = object->object_state_set.size - 1; i >= 0; i--)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state |= object->state;
-            objects_view_merge(&object->object_state_stack.data[i].ref, &object->pointed);
+            object->object_state_set.data[i].state |= object->state;
+            objects_view_merge(&object->object_state_set.data[i].ref, &object->pointed);
             break;
         }
     }
@@ -1190,12 +1190,12 @@ static void object_merge_current_state_with_state_number_or_core(struct object* 
     if (object->visit_number == visit_number) return;
     object->visit_number = visit_number;
 
-    for (int i = object->object_state_stack.size - 1; i >= 0; i--)
+    for (int i = object->object_state_set.size - 1; i >= 0; i--)
     {
-        if (object->object_state_stack.data[i].state_number == state_number)
+        if (object->object_state_set.data[i].state_number == state_number)
         {
-            object->object_state_stack.data[i].state |= object->state;
-            objects_view_merge(&object->object_state_stack.data[i].ref, &object->pointed);
+            object->object_state_set.data[i].state |= object->state;
+            objects_view_merge(&object->object_state_set.data[i].ref, &object->pointed);
             break;
         }
     }
@@ -3070,18 +3070,18 @@ static void flow_assignment_core(
 
             if (assigment_type == ASSIGMENT_TYPE_PARAMETER)
             {
-                p_visitor_b->p_object->state = OBJECT_STATE_UNINITIALIZED;                
+                p_visitor_b->p_object->state = OBJECT_STATE_UNINITIALIZED;
             }
             else
             {
                 p_visitor_b->p_object->state &= ~OBJECT_STATE_NOT_NULL;
                 p_visitor_b->p_object->state |= OBJECT_STATE_MOVED;
             }
-            
+
         }
-        
+
         //Sample free(y->b)
-        
+
         object_propagate(ctx, p_visitor_b->p_object);
         return;
     }
@@ -3241,7 +3241,7 @@ static void flow_assignment_core(
                 type_destroy(&t3);
             }
         }
-        
+
         return;
     }
 
@@ -3345,7 +3345,7 @@ static void flow_assignment_core(
                 }
                 p_a_member_declaration = p_a_member_declaration->next;
                 p_b_member_declaration = p_b_member_declaration->next;
-            }            
+            }
             return;
         }
     }
@@ -3575,9 +3575,17 @@ struct object* expression_get_object(struct flow_visit_ctx* ctx, struct expressi
     else if (p_expression->expression_type == POSTFIX_FUNCTION_CALL)
     {
         struct object* p_object = make_object(ctx, &p_expression->type, NULL, p_expression);
+
         const bool is_nullable = type_is_nullable(&p_expression->type, nullable_enabled);
         object_set_unknown(&p_expression->type, is_nullable, p_object, nullable_enabled);
         p_object->is_temporary = true;
+
+        if (type_is_pointer(&p_expression->type) && object_is_expansible(p_object))
+        {
+            expand_pointer_object(ctx, &p_expression->type, p_object);
+        }
+        
+
         return p_object;
     }
     else if (p_expression->expression_type == POSTFIX_EXPRESSION_COMPOUND_LITERAL)

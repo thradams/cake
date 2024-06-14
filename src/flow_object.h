@@ -74,22 +74,21 @@ void objects_view_merge(struct objects_view* dest, const struct objects_view* so
 void objects_view_clear(struct objects_view* p);
 
 
-
-struct object_state_stack_item {
+struct object_state_set_item {
     const char* name;
     int state_number;
     enum object_state state;
     struct objects_view ref;
 };
 
-struct object_state_stack
+struct object_state_set
 {
-    struct object_state_stack_item* owner data;
+    struct object_state_set_item* owner data;
     int size;
     int capacity;
 };
-void object_state_stack_destroy(struct object_state_stack* obj_owner p);
-int object_state_stack_push_back(struct object_state_stack* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number);
+void object_state_set_destroy(struct object_state_set* obj_owner p);
+int object_state_set_add(struct object_state_set* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number);
 
 
 /*
@@ -108,7 +107,7 @@ struct object
     const struct expression* p_expression_origin;
 
     struct objects members;
-    struct object_state_stack object_state_stack;
+    struct object_state_set object_state_set;
 
     int id; //helps debugging
     bool is_temporary;

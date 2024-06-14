@@ -1351,46 +1351,12 @@ https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm
 
 https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf
 
+## C2Y Transformations
 
-## Cake Extensions (Not in C23)
-
-###  Extension - try catch throw
-
-```
-   try-statement:
-      try secondary-block
-      try secondary-block catch secondary-block   
-```
-
-```
-jump-statement:
-  throw;
-```
-
-try catch is a external block that we can jump off.
-
-try catch is a **LOCAL jump** this is on purpose not a limitation.
-
-
-catch block is optional.
-
-```c
-try
-{
-   for (int i = 0 ; i < 10; i++) {
-      for (int j = 0 ; j < 10; j++) {
-        ... 
-        if (error) throw;
-        ...
-      }
-   }
-}
-catch
-{
-}
-```
 
 ###  Extension - defer
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm
 
 *defer* will call the defer statement before the block exit at inverse order of declaration.
 
@@ -1440,8 +1406,7 @@ int main() {
 
 ###  Extension - if with initializer
 
-No idea why C++ 17 if with initializer was not proposed for C23!
-But in cake it is implemented.
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm
 
 ```c
 #include <stdio.h>
@@ -1471,10 +1436,63 @@ int main()
 }
 ```
 
-An extension if + initializer + defer expression was considered but not implemented yet.
-
 C++ proposal
 https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html
+
+### Extension typename on _Generic
+
+https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf
+
+```c
+ int main()
+{
+    const int * const p;
+    static_assert(_Generic(p, const int *: 1));
+
+    /*extension*/
+    static_assert(_Generic(int, int : 1));
+    static_assert(_Generic(typeof(p), const int * const: 1));
+}
+```
+
+
+## Cake Extensions (Not in C23, C2Y)
+
+###  Extension - try catch throw
+
+```
+   try-statement:
+      try secondary-block
+      try secondary-block catch secondary-block   
+```
+
+```
+jump-statement:
+  throw;
+```
+
+try catch is a external block that we can jump off.
+
+try catch is a **LOCAL jump** this is on purpose not a limitation.
+
+
+catch block is optional.
+
+```c
+try
+{
+   for (int i = 0 ; i < 10; i++) {
+      for (int j = 0 ; j < 10; j++) {
+        ... 
+        if (error) throw;
+        ...
+      }
+   }
+}
+catch
+{
+}
+```
 
 ###  Extension Literal function - lambdas
 
@@ -1610,23 +1628,7 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 
 See [ownership](ownership.html)
 
-### Extension typename on _Generic
 
-```c
- int main()
-{
-    const int * const p;
-    static_assert(_Generic(p, const int *: 1));
-
-    /*extension*/
-    static_assert(_Generic(int, int : 1));
-    static_assert(_Generic(typeof(p), const int * const: 1));
-}
-
-```
-
-and the lvalue conversion will not happen, allowing 
-more precise (with qualifiers) type match.
 
 ### Extension assert statement
 

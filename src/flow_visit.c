@@ -10,7 +10,8 @@
 #include "ownership.h"
 #include <ctype.h>
 #include <stdlib.h>
-
+#include <stdint.h>
+#include <limits.h>
 
 /*
               NULL
@@ -184,21 +185,6 @@ static int find_item_index_by_expression(struct declarator_array* a, struct expr
     return -1;
 }
 
-static bool declarator_array_is_same(struct declarator_array* a, struct declarator_array* b)
-{
-    if (a->size != b->size)
-        return false;
-    for (int i = 0; i < a->size; i++)
-    {
-        if (a->data[i].p_expression != b->data[i].p_expression)
-            return false;
-        if (a->data[i].false_branch_state != b->data[i].false_branch_state)
-            return false;
-        if (a->data[i].true_branch_state != b->data[i].true_branch_state)
-            return false;
-    }
-    return true;
-}
 
 static void declarator_array_set_objects_to_true_branch(struct flow_visit_ctx* ctx, struct declarator_array* a, bool nullable_enabled)
 {
@@ -1564,14 +1550,14 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
 
 void object_push_states_from(const struct object* p_object_from, struct object* p_object_to)
 {
-    for (int i = 0; i < p_object_from->object_state_stack.size; i++)
+    for (int i = 0; i < p_object_from->object_state_set.size; i++)
     {
-        object_state_stack_push_back(
-            &p_object_to->object_state_stack,
+        object_state_set_add(
+            &p_object_to->object_state_set,
             p_object_to->state,
             &p_object_to->pointed,
-            p_object_from->object_state_stack.data[i].name,
-            p_object_from->object_state_stack.data[i].state_number);
+            p_object_from->object_state_set.data[i].name,
+            p_object_from->object_state_set.data[i].state_number);
     }
     for (int i = 0; i < p_object_to->members.size; i++)
     {
@@ -1999,12 +1985,12 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     break;
     case EQUALITY_EXPRESSION_EQUAL:
     {
-        const int left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
-            constant_value_to_ull(&p_expression->left->constant_value) :
+        const long long left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
+            constant_value_to_ll(&p_expression->left->constant_value) :
             -1;
 
-        const int right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
-            constant_value_to_ull(&p_expression->right->constant_value) :
+        const long long right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
+            constant_value_to_ll(&p_expression->right->constant_value) :
             -1;
 
         if (left_value == 0 || left_value == 1)
@@ -2043,11 +2029,11 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case EQUALITY_EXPRESSION_NOT_EQUAL:
     {
-        const int left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
-            constant_value_to_ull(&p_expression->left->constant_value) :
+        const long long left_value = constant_value_is_valid(&p_expression->left->constant_value) ?
+            constant_value_to_ll(&p_expression->left->constant_value) :
             -1;
-        const int right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
-            constant_value_to_ull(&p_expression->right->constant_value) :
+        const long long right_value = constant_value_is_valid(&p_expression->right->constant_value) ?
+            constant_value_to_ll(&p_expression->right->constant_value) :
             -1;
 
         if (left_value == 0 || left_value == 1)

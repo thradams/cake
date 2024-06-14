@@ -1,5 +1,3 @@
-#pragma ownership enable
-
 #include "ownership.h"
 
 #include <stdlib.h>
@@ -340,7 +338,10 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
         }
         else if (is_note)
         {
-            printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "%s" WHITE "]\n" RESET, buffer, diagnostic_name);
+            if (w == W_LOCATION)
+                printf(LIGHTCYAN "note: " WHITE "%s\n" RESET, buffer);
+            else
+                printf(LIGHTCYAN "note: " WHITE "%s [" LIGHTCYAN "%s" WHITE "]\n" RESET, buffer, diagnostic_name);
         }
     }
 
@@ -1810,9 +1811,10 @@ int add_specifier(struct parser_ctx* ctx,
     enum type_specifier_flags new_flag)
 {
     /*
-     * Verifica as combinaçòes possíveis
-     */
-
+        transform the sequence of two longs        
+        in 
+        TYPE_SPECIFIER_LONG_LONG
+    */
     if (new_flag & TYPE_SPECIFIER_LONG) // adicionando um long
     {
         if ((*flags) & TYPE_SPECIFIER_LONG_LONG) // ja tinha long long
@@ -1835,6 +1837,74 @@ int add_specifier(struct parser_ctx* ctx,
     {
         (*flags) |= new_flag;
     }
+
+    //Following 6.7.2 we check possible combinations
+    switch ((unsigned int)*flags)
+    {
+    case TYPE_SPECIFIER_VOID:  //void
+    case TYPE_SPECIFIER_CHAR:  //char
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR:  //signed char
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR:  //unsigned char
+    case TYPE_SPECIFIER_SHORT:  //short
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT:  //signed short
+    case TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:  //short int
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:  //signed short int
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT:  //unsigned short 
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:  //unsigned short int
+    case TYPE_SPECIFIER_INT:  //int
+    case TYPE_SPECIFIER_SIGNED:  //signed
+    case TYPE_SPECIFIER_INT | TYPE_SPECIFIER_SIGNED:  //int signed
+    case TYPE_SPECIFIER_UNSIGNED:  //signed
+    case TYPE_SPECIFIER_INT | TYPE_SPECIFIER_UNSIGNED:  //int unsigned
+    case TYPE_SPECIFIER_LONG:  //long
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG:  //signed long
+    case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:  //long int
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:  //signed long int
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG:  //unsigned long
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:  //unsigned long int
+    case TYPE_SPECIFIER_LONG_LONG:  //long long
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG:  //signed long long
+    case TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:  //long long int
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:  //signed long long
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG:  //unsigned long long
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:  //unsigned long long int
+        // _BitInt constant-expression, or signed _BitInt constant-expression        
+        // unsigned _BitInt constant-expression
+    case TYPE_SPECIFIER_FLOAT:  //float
+    case TYPE_SPECIFIER_DOUBLE:  //double
+    case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE:  //long double
+    case TYPE_SPECIFIER_DECIMAL32:  //_Decimal32
+    case TYPE_SPECIFIER_DECIMAL64:  //_Decimal64
+    case TYPE_SPECIFIER_DECIMAL128:  //_Decimal128
+    case TYPE_SPECIFIER_BOOL:  //bool
+    case TYPE_SPECIFIER_COMPLEX | TYPE_SPECIFIER_FLOAT:  //complex float
+    case TYPE_SPECIFIER_COMPLEX | TYPE_SPECIFIER_DOUBLE:  //complex double
+    case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_COMPLEX | TYPE_SPECIFIER_DOUBLE:  //complex long double        
+    case TYPE_SPECIFIER_ATOMIC:  //complex long double
+    case TYPE_SPECIFIER_STRUCT_OR_UNION:  //complex long double
+    case TYPE_SPECIFIER_ENUM:  //complex long double
+    case TYPE_SPECIFIER_TYPEOF:  //typeof        
+    case TYPE_SPECIFIER_TYPEDEF:
+
+    case TYPE_SPECIFIER_INT8:
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT8:
+
+    case TYPE_SPECIFIER_INT16:
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT16:
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT16:
+    case TYPE_SPECIFIER_INT32:
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT32:
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT32:
+    case TYPE_SPECIFIER_INT64:
+    case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT64:
+    case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT64:
+        //VALID
+        break;
+    default:
+        compiler_diagnostic_message(C_ERROR_TWO_OR_MORE_SPECIFIERS, ctx, ctx->current, "incompatible specifiers");
+        return 1;
+    }
+
     return 0;
 }
 
@@ -2514,6 +2584,20 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                 */
                 if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
                 {
+
+                    if (p_init_declarator->p_declarator->direct_declarator &&
+                        p_init_declarator->p_declarator->direct_declarator->array_declarator != NULL ||
+                        p_init_declarator->p_declarator->direct_declarator->function_declarator != NULL)
+                    {
+                        compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token, "'auto' requires a plain identifier, possibly with attributes, as declarator");
+                        throw;
+                    }
+                    if (p_init_declarator->p_declarator->pointer != NULL)
+                    {
+                        compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token, "'auto' requires a plain identifier, possibly with attributes, as declarator");
+                        throw;
+                    }
+
                     struct type t = { 0 };
 
                     if (p_init_declarator->initializer->assignment_expression->expression_type == UNARY_EXPRESSION_ADDRESSOF)
@@ -6117,7 +6201,7 @@ bool unlabeled_statement_ends_with_jump(struct unlabeled_statement* p_unlabeled_
         return
             p_unlabeled_statement->primary_block->compound_statement->block_item_list.tail->unlabeled_statement->jump_statement != NULL;
     }
-    
+
     return false;
 }
 
@@ -6266,11 +6350,11 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
                 }
             }
-                    }
-                }
+        }
+    }
+}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -6278,7 +6362,7 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
     }
 
     return p_unlabeled_statement;
-            }
+}
 
 void label_delete(struct label* owner opt p)
 {
@@ -7526,7 +7610,7 @@ void append_msvc_include_dir(struct preprocessor_ctx* prectx)
         }
     }
 #endif
-        }
+}
 
 const char* owner format_code(struct options* options, const char* content)
 {
@@ -7975,7 +8059,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-}
+    }
 
 int compile(int argc, const char** argv, struct report* report)
 {

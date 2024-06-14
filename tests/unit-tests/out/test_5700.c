@@ -7,5 +7,5 @@ int main()
 {
     F(make());
 }
-#pragma cake diagnostic check "-Wmissing-owner-qualifier"
+#pragma cake diagnostic check "-Wtemp-owner"
 

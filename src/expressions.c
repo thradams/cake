@@ -1992,6 +1992,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             }
             else if (ctx->current->type == '++')
             {
+                if (type_is_owner(&p_expression_node->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_OPERATOR_INCREMENT_CANNOT_BE_USED_IN_OWNER,
+                                                ctx,
+                                                p_expression_node->first_token,
+                                                "operator ++ cannot be used in owner pointers");
+                }
+
                 if (!expression_is_lvalue(p_expression_node))
                 {
                     compiler_diagnostic_message(C_ERROR_OPERATOR_NEEDS_LVALUE,
@@ -2013,6 +2021,14 @@ struct expression* owner postfix_expression_tail(struct parser_ctx* ctx, struct 
             }
             else if (ctx->current->type == '--')
             {
+                if (type_is_owner(&p_expression_node->type))
+                {
+                    compiler_diagnostic_message(C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
+                                                ctx,
+                                                p_expression_node->first_token,
+                                                "operator -- cannot be used in owner pointers");
+                }
+
                 if (!expression_is_lvalue(p_expression_node))
                 {
                     compiler_diagnostic_message(C_ERROR_OPERATOR_NEEDS_LVALUE,

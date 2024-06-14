@@ -247,42 +247,47 @@
 </ul>
 </li>
 <li>
-<a href="#toc_69">Cake Extensions (Not in C23)</a>
+<a href="#toc_69">C2Y Transformations</a>
 <ul>
 <li>
-<a href="#toc_70">Extension - try catch throw</a>
+<a href="#toc_70">Extension - defer</a>
 </li>
 <li>
-<a href="#toc_71">Extension - defer</a>
+<a href="#toc_71">Extension - if with initializer</a>
 </li>
 <li>
-<a href="#toc_72">Extension - if with initializer</a>
-</li>
-<li>
-<a href="#toc_73">Extension Literal function - lambdas</a>
-</li>
-<li>
-<a href="#toc_74">Extension #pragma dir</a>
-</li>
-<li>
-<a href="#toc_75">Extension #pragma expand</a>
-</li>
-<li>
-<a href="#toc_76">Type traits</a>
-</li>
-<li>
-<a href="#toc_77">Extension - Ownership checks</a>
-</li>
-<li>
-<a href="#toc_78">Extension typename on _Generic</a>
-</li>
-<li>
-<a href="#toc_79">Extension assert statement</a>
+<a href="#toc_72">Extension typename on _Generic</a>
 </li>
 </ul>
 </li>
 <li>
-<a href="#toc_80">Versions</a>
+<a href="#toc_73">Cake Extensions (Not in C23, C2Y)</a>
+<ul>
+<li>
+<a href="#toc_74">Extension - try catch throw</a>
+</li>
+<li>
+<a href="#toc_75">Extension Literal function - lambdas</a>
+</li>
+<li>
+<a href="#toc_76">Extension #pragma dir</a>
+</li>
+<li>
+<a href="#toc_77">Extension #pragma expand</a>
+</li>
+<li>
+<a href="#toc_78">Type traits</a>
+</li>
+<li>
+<a href="#toc_79">Extension - Ownership checks</a>
+</li>
+<li>
+<a href="#toc_80">Extension assert statement</a>
+</li>
+</ul>
+</li>
+<li>
+<a href="#toc_81">Versions</a>
 </li>
 </ul>
 <h2 id="toc_0">Intro</h2>
@@ -1592,41 +1597,11 @@ x   }
 
 <p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2778.pdf</a></p>
 
-<h2 id="toc_69">Cake Extensions (Not in C23)</h2>
+<h2 id="toc_69">C2Y Transformations</h2>
 
-<h3 id="toc_70">Extension - try catch throw</h3>
+<h3 id="toc_70">Extension - defer</h3>
 
-<pre><code>   try-statement:
-      try secondary-block
-      try secondary-block catch secondary-block   
-</code></pre>
-
-<pre><code>jump-statement:
-  throw;
-</code></pre>
-
-<p>try catch is a external block that we can jump off.</p>
-
-<p>try catch is a <strong>LOCAL jump</strong> this is on purpose not a limitation.</p>
-
-<p>catch block is optional.</p>
-
-<pre><code class="language-c">try
-{
-   for (int i = 0 ; i &lt; 10; i++) {
-      for (int j = 0 ; j &lt; 10; j++) {
-        ... 
-        if (error) throw;
-        ...
-      }
-   }
-}
-catch
-{
-}
-</code></pre>
-
-<h3 id="toc_71">Extension - defer</h3>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3199.htm</a></p>
 
 <p><em>defer</em> will call the defer statement before the block exit at inverse order of declaration.</p>
 
@@ -1671,10 +1646,9 @@ int main() {
 }
 </code></pre>
 
-<h3 id="toc_72">Extension - if with initializer</h3>
+<h3 id="toc_71">Extension - if with initializer</h3>
 
-<p>No idea why C++ 17 if with initializer was not proposed for C23!
-But in cake it is implemented.</p>
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3196.htm</a></p>
 
 <pre><code class="language-c">#include &lt;stdio.h&gt;
 int main()
@@ -1703,12 +1677,59 @@ int main()
 }
 </code></pre>
 
-<p>An extension if + initializer + defer expression was considered but not implemented yet.</p>
-
 <p>C++ proposal
 <a href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html">https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0305r0.html</a></p>
 
-<h3 id="toc_73">Extension Literal function - lambdas</h3>
+<h3 id="toc_72">Extension typename on _Generic</h3>
+
+<p><a href="https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf">https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3260.pdf</a></p>
+
+<pre><code class="language-c"> int main()
+{
+    const int * const p;
+    static_assert(_Generic(p, const int *: 1));
+
+    /*extension*/
+    static_assert(_Generic(int, int : 1));
+    static_assert(_Generic(typeof(p), const int * const: 1));
+}
+</code></pre>
+
+<h2 id="toc_73">Cake Extensions (Not in C23, C2Y)</h2>
+
+<h3 id="toc_74">Extension - try catch throw</h3>
+
+<pre><code>   try-statement:
+      try secondary-block
+      try secondary-block catch secondary-block   
+</code></pre>
+
+<pre><code>jump-statement:
+  throw;
+</code></pre>
+
+<p>try catch is a external block that we can jump off.</p>
+
+<p>try catch is a <strong>LOCAL jump</strong> this is on purpose not a limitation.</p>
+
+<p>catch block is optional.</p>
+
+<pre><code class="language-c">try
+{
+   for (int i = 0 ; i &lt; 10; i++) {
+      for (int j = 0 ; j &lt; 10; j++) {
+        ... 
+        if (error) throw;
+        ...
+      }
+   }
+}
+catch
+{
+}
+</code></pre>
+
+<h3 id="toc_75">Extension Literal function - lambdas</h3>
 
 <p>Lambdas without capture where implemented using a syntax similar of compound literal for function pointer.</p>
 
@@ -1749,14 +1770,14 @@ void create_app(const char* appname)
 }
 </code></pre>
 
-<h3 id="toc_74">Extension #pragma dir</h3>
+<h3 id="toc_76">Extension #pragma dir</h3>
 
 <pre><code class="language-c">#pragma dir &quot;C:/Program Files (x86)/Windows Kits/10//include/10.0.22000.0/cppwinrt&quot;
 </code></pre>
 
 <p>pragma dir makes the preprocessor include the directory when searching for includes.</p>
 
-<h3 id="toc_75">Extension #pragma expand</h3>
+<h3 id="toc_77">Extension #pragma expand</h3>
 
 <p>pragma expand tells the C back-end to not hide macro expansions. This is necessary when
 the compiler makes changes inside the macro code.</p>
@@ -1799,7 +1820,7 @@ int main()
 
 </code></pre>
 
-<h3 id="toc_76">Type traits</h3>
+<h3 id="toc_78">Type traits</h3>
 
 <p>We have some compile time functions to infer properties of types.</p>
 
@@ -1831,28 +1852,11 @@ Arithmetic types, pointer types, and the nullptr_t type are collectively called 
 
 </code></pre>
 
-<h3 id="toc_77">Extension - Ownership checks</h3>
+<h3 id="toc_79">Extension - Ownership checks</h3>
 
 <p>See <a href="ownership.html">ownership</a></p>
 
-<h3 id="toc_78">Extension typename on _Generic</h3>
-
-<pre><code class="language-c"> int main()
-{
-    const int * const p;
-    static_assert(_Generic(p, const int *: 1));
-
-    /*extension*/
-    static_assert(_Generic(int, int : 1));
-    static_assert(_Generic(typeof(p), const int * const: 1));
-}
-
-</code></pre>
-
-<p>and the lvalue conversion will not happen, allowing 
-more precise (with qualifiers) type match.</p>
-
-<h3 id="toc_79">Extension assert statement</h3>
+<h3 id="toc_80">Extension assert statement</h3>
 
 <p>In cake assert is an statement. The reason is because it works as tips for flow analysis 
 and these checks are checked in runtime in debug bugs.
@@ -1863,5 +1867,5 @@ To disable this extension use -disable-assert options. </p>
 <p>When cake reads GCC MSVC headers it overrides the macro assert to match the cake
 assert statement.</p>
 
-<h2 id="toc_80">Versions</h2>
+<h2 id="toc_81">Versions</h2>
 </article></body></html>
