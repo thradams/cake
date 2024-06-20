@@ -529,15 +529,14 @@ static int compare_function_arguments(struct parser_ctx* ctx,
             p_current_parameter_type = p_param_list->head;
         }
 
-        int param_num = 1;
+        
         struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
         while (p_current_argument && p_current_parameter_type)
         {
             check_assigment(ctx, &p_current_parameter_type->type, p_current_argument->expression, ASSIGMENT_TYPE_PARAMETER);
             p_current_argument = p_current_argument->next;
-            p_current_parameter_type = p_current_parameter_type->next;
-            param_num++;
+            p_current_parameter_type = p_current_parameter_type->next;            
         }
 
         if (p_current_argument != NULL && !p_param_list->is_var_args)
@@ -2979,8 +2978,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            static int count = 0;
-            count++;
+            
             new_expression->right = multiplicative_expression(ctx);
             if (new_expression->right == NULL)
             {

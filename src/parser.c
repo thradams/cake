@@ -1811,8 +1811,8 @@ int add_specifier(struct parser_ctx* ctx,
     enum type_specifier_flags new_flag)
 {
     /*
-        transform the sequence of two longs        
-        in 
+        transform the sequence of two longs
+        in
         TYPE_SPECIFIER_LONG_LONG
     */
     if (new_flag & TYPE_SPECIFIER_LONG) // adicionando um long
@@ -6350,11 +6350,11 @@ struct unlabeled_statement* owner unlabeled_statement(struct parser_ctx* ctx)
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
+                    }
                 }
             }
         }
     }
-}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -8059,7 +8059,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-    }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {

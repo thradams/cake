@@ -657,7 +657,7 @@ struct declarator
     int num_uses; /*used to show not used warnings*/
 
     /*user by flow analysis*/
-    struct object * p_object;
+    struct flow_object * p_object;
 
     /*final declarator type (after auto, typeof etc)*/
     struct type type;    

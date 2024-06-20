@@ -1,22 +1,21 @@
 #pragma safety enable
 
 
-#pragma safety enable
 
-#include <stdlib.h>
-#include <string.h>
+void free( void* _Owner ptr);
+void* _Owner malloc(int size);
+struct X { char * _Owner text; };
 
-struct X {
-  char *_Owner _Opt name;
-};
-
-struct X * _Owner make();
-
-
-int main() {
-   struct X * _Owner p = make();
-   
-   static_debug(p);
+void x_destroy(struct X* _Obj_owner p)
+{
+    free(p->text);
 }
 
-
+void x_delete(struct X* _Owner _Opt p)
+{
+    if (p)
+    {
+        x_destroy(p);
+        free(p);
+    }
+}

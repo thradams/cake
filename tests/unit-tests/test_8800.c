@@ -20,6 +20,7 @@ int main()
         //p->name = malloc(1);
         //#pragma cake diagnostic check "-Wanalyzer-null-dereference"
     }
+    static_debug(p);
     free(p->name);
 #pragma cake diagnostic check "-Wanalyzer-null-dereference"
     free(p);
