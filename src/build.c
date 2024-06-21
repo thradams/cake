@@ -353,7 +353,7 @@ int main()
     //`gcc` also likley refers to apple clang, but often is changed to actual GCC
     //all of these have different includes, and the include directories change on OS versions
     //Therefore, we need to run `GCC -E -Wp,-v -` to find the directories
-    FILE *f = popen(GCC" -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'", "r");
+    FILE *f = popen("sh -c \""GCC" -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'\"", "r");
     if (!f)
     {
         perror("popen");
