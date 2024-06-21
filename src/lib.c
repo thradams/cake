@@ -24245,7 +24245,7 @@ struct flow_object* expression_get_object(struct flow_visit_ctx* ctx, struct exp
         struct flow_object* p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
         if (p_obj)
         {
-            if (p_obj->current.pointed == 0)
+            if (p_obj->current.pointed == NULL)
             {
                 expand_pointer_object(ctx, &p_expression->right->type, p_obj);
             }
@@ -36545,6 +36545,7 @@ void flow_object_set_state_from_current(struct flow_object* object, int state_nu
             flow_object_state_copy(p_flow_object_state, &object->current);
             break;
         }
+        p_flow_object_state = p_flow_object_state->next;
     }
 }
 
