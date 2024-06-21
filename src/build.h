@@ -129,7 +129,7 @@ int system_like(const char* command)
 #define BUILD_MACOS
 #define RUN "./"
 
-#if defined __clang__ && false
+#if defined __clang__
 
 #define BUILD_MACOS_CLANG
 #define CC "clang "

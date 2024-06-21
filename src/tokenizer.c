@@ -2230,7 +2230,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
     struct token_list list2 = preprocessor(ctx, &list1, 1);
     ctx->flags = flags;
-    
+
     long long value = 0;
 
     if (list2.head == NULL)
@@ -2251,10 +2251,10 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
         struct preprocessor_ctx pre_ctx = { 0 };
 
-        
+
         pre_ctx.input_list = list4;
         pre_ctx.current = pre_ctx.input_list.head;
-        
+
         if (pre_constant_expression(&pre_ctx, &value) != 0)
         {
             preprocessor_diagnostic_message(C_ERROR_EXPRESSION_ERROR, ctx, first, "expression error");
@@ -2263,7 +2263,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         ctx->conditional_inclusion = false;
 
         preprocessor_ctx_destroy(&pre_ctx);
-        
+
 
     }
 
@@ -3029,7 +3029,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
             if (!ctx->options.disable_assert && strcmp(macro->name, "assert") == 0)
             {
-                //cake overrides macro assert in debug and release to be defined as 
+                //cake overrides macro assert in debug and release to be defined as
                 //assert(__VA_ARGS__)
                 if (!is_empty_assert(&macro->replacement_list))
                 {
@@ -4475,7 +4475,6 @@ void include_config_header(struct preprocessor_ctx* ctx)
     /*restore*/
     ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
 }
-
 void add_standard_macros(struct preprocessor_ctx* ctx)
 {
     /*
@@ -4546,7 +4545,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #endif
 
         "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
-       
+
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
         "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
         "#define __fastcall\n"
@@ -4560,11 +4559,16 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 
 #endif
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 
     //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
         /*some gcc stuff need to parse linux headers*/
+#ifdef __linux__
     "#define __linux__\n"
+#elif defined __APPLE__
+    "#define __APPLE__\n"
+#endif
+
         "#define __builtin_va_list\n"
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
@@ -4826,7 +4830,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD__INT16: return "TK_KEYWORD__INT16";
         case TK_KEYWORD__INT32: return "TK_KEYWORD__INT32";
         case TK_KEYWORD__INT64: return "TK_KEYWORD__INT64";
-        
+
 
         case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
         case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
@@ -4884,7 +4888,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
         case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
         case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
-        
+
 
             /*extension compile time functions*/
         case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
@@ -5012,7 +5016,7 @@ const char* owner get_code_as_we_see_plus_macros(struct token_list* list)
 /*useful to debug visit.c*/
 void print_code_as_we_see(struct token_list* list, bool remove_comments)
 {
-    
+
     struct token* current = list->head;
     while (current && current != list->tail->next)
     {
