@@ -28,5 +28,9 @@ struct X* _Owner _Opt F(int i)
     {
     }
 
-    return p1;
+    return p1;  //p1.name not initialized
 }
+
+#pragma cake diagnostic check "-Wanalyzer-maybe-uninitialized]"
+
+ 

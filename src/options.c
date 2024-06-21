@@ -521,18 +521,18 @@ void print_help()
 
 void test_get_warning_name()
 {
-    char name[100];
-    get_warning_name(W_FLOW_MISSING_DTOR, sizeof name, name);
-    assert(strcmp(name, "-Wmissing-destructor") == 0);
+    char dbg_name[100];
+    get_warning_name(W_FLOW_MISSING_DTOR, sizeof dbg_name, dbg_name);
+    assert(strcmp(dbg_name, "-Wmissing-destructor") == 0);
 
-    unsigned long long  flags = get_warning_bit_mask(name);
+    unsigned long long  flags = get_warning_bit_mask(dbg_name);
     assert(flags == (1ULL << W_FLOW_MISSING_DTOR));
 
 
-    get_warning_name(W_STYLE, sizeof name, name);
-    assert(strcmp(name, "-Wstyle") == 0);
+    get_warning_name(W_STYLE, sizeof dbg_name, dbg_name);
+    assert(strcmp(dbg_name, "-Wstyle") == 0);
 
-    unsigned long long  flags2 = get_warning_bit_mask(name);
+    unsigned long long  flags2 = get_warning_bit_mask(dbg_name);
     assert(flags2 == (1ULL << W_STYLE));
 }
 

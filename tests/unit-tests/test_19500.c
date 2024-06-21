@@ -12,21 +12,28 @@ struct X* _Owner make();
 void f(int condition)
 {
     struct X* _Owner _Opt p1 = make();
-    struct X* _Owner _Opt p2 = make();
-
-    struct X* _Owner _Opt p = nullptr;
-    if (condition)
+    
+    
     {
-        p = p1;
-    }
-    else
-    {
-        p = p2;
-    }
+        struct X* _Owner _Opt p2 = make();
 
-    free(p->text);
-    p->text = strdup("c");
+        struct X* _Owner _Opt p = nullptr;
+        if (condition)
+        {
+            p = p1;
+        }
+        else
+        {
+            p = p2;
+        }
 
-    free(p->text);
-    free(p);
+        free(p->text);
+        p->text = strdup("c");
+
+        free(p->text);
+        free(p);
+    }
+#pragma cake diagnostic check "-Wmissing-destructor"
+
 }
+#pragma cake diagnostic check "-Wmissing-destructor"

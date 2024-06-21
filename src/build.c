@@ -365,7 +365,9 @@ int main()
     //    exit(1);
 
     if (mysytem("cake.exe  " NC " -ownership=enable -Wstyle -fanalyzer -Wno-unused-parameter -Wno-unused-variable -sarif " HEADER_FILES SOURCE_FILES) != 0)
+    {
         exit(1);
+    }
 
     printf("\n");
     printf("To run unit test use:\n");
