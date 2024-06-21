@@ -394,7 +394,7 @@ int main()
     }
 #endif
 
-#if defined BUILD_MACOS_GCC || true
+#if defined BUILD_MACOS_GCC
     //`clang` could refer to homebrew clang, or apple clang. Both have different directories.
     //`cc` most likley refers to apple clang
     //`gcc` also likley refers to apple clang, but often is changed to actual GCC
