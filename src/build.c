@@ -392,7 +392,9 @@ int main()
     pclose(f);
     free(buffer);
 
-    const size_t CMD_SIZE = sizeof("./cake -fanalyzer -I/usr/local/include/ -I/usr/include/ ") + sizeof(HEADER_FILES) + sizeof(SOURCE_FILES) + sizeof(include_directories[i]) * i;
+    const size_t CMD_SIZE = sizeof("./cake -fanalyzer -I/usr/local/include/ -I/usr/include/ ")
+                          + (sizeof(HEADER_FILES) + sizeof(SOURCE_FILES))
+                          + (sizeof(include_directories[i]) * i);
     char *cmd = malloc(CMD_SIZE);
     if (!cmd)
     {

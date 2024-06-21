@@ -98,7 +98,7 @@ const char* get_posix_error_message(int error)
         return "Directory not empty";
     case  ELOOP:
         return "Too many symbolic links encountered";
-        //case  EWOULDBLOCK:
+        // case  EWOULDBLOCK:
         //case EAGAIN:  return "Operation would block";
     case  ENOMSG:
         return "No message of desired type";
@@ -196,6 +196,54 @@ const char* get_posix_error_message(int error)
         return "Stale NFS file handle";
     case  EDQUOT:
         return "Quota exceeded";
+#if defined __APPLE__ && __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+    case EPROCLIM:
+        return "Too many processes";
+    case EBADRPC:
+        return "RPC struct is bad";
+    case ERPCMISMATCH:
+        return "RPC version wrong";
+    case EPROGUNAVAIL:
+        return "RPC prog. not avail";
+    case EPROGMISMATCH:
+        return "Program version wrong";
+    case EPROCUNAVAIL:
+        return "Bad procedure for program";
+
+
+    case EBADEXEC:
+        return "Bad executable";
+    case EBADARCH:
+        return "Bad CPU type in executable";
+    case ESHLIBVERS:
+        return "Shared library version mismatch";
+    case EBADMACHO:
+        return "Malformed Macho file";
+
+    case EFTYPE:
+        return "Inappropriate file type or format";
+    case EAUTH:
+        return "Authentication error";
+    case ENEEDAUTH:
+        return "Need authenticator";
+
+    case EPWROFF:
+        return "Device power is off"; // can this even fire?
+    case EDEVERR:
+        return "Device error";
+
+    case ENOPOLICY:
+        return "No such policy registered";
+
+    case ENOTRECOVERABLE:
+        return "State not recoverable";
+    case EOWNERDEAD:
+        return "Previous owner died";
+
+    case EQFULL:
+        return "Interface output queue is full";
+#endif
+
 #ifndef __APPLE__
     case  ECHRNG:
         return "Channel number out of range";
