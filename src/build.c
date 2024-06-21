@@ -28,6 +28,10 @@ static int mychdir(const char *path)
 #define OUTPUT "cake"
 #endif
 
+#ifdef BUILD_MACOS
+#include <sys/syslimits.h>
+#endif
+
 #define HEADER_FILES      \
     " console.h "         \
     " tokenizer.h "       \
@@ -348,19 +352,67 @@ int main()
     //`cc` most likley refers to apple clang
     //`gcc` also likley refers to apple clang, but often is changed to actual GCC
     //all of these have different includes, and the include directories change on OS versions
-    //Therefore, we will assume apple clang as it has the most "canonical" path for includes
-    if (mysytem("./cake "
-               " -fanalyzer "
-               " -I/usr/local/include/ "
-               " -I/usr/include/ "
-               " -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include "
-               " -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include "
-               " -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/ "
-               HEADER_FILES
-               SOURCE_FILES) != 0)
+    //Therefore, we need to run `GCC -E -Wp,-v -` to find the directories
+    FILE *f = popen(GCC" -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'", "r");
+    if (!f)
     {
-       exit(1);
+        perror("popen");
+        exit(1);
     }
+
+    enum { INCLUDE_DIRECTORY_MAX = 8 };
+    int i = 0;
+    char include_directories[INCLUDE_DIRECTORY_MAX][PATH_MAX + sizeof("-I")];
+    size_t bufsiz = 0xFF;
+    char *buffer = malloc(bufsiz);
+    if (!buffer)
+    {
+        perror("malloc");
+        exit(1);
+    }
+
+    while (getline(&buffer, &bufsiz, f) != -1)
+    {
+        size_t len = strlen(buffer);
+        if (len > 1)
+        {
+            //get rid of the newline
+            buffer[len - 1] = '\0';
+            //buffer + 1 to ignore trailing space
+            strlcpy(include_directories[i], buffer + 1, sizeof(include_directories[i]));
+        } else {
+            include_directories[i][0] = '\0';
+        }
+
+        i++;
+        if (i == INCLUDE_DIRECTORY_MAX)
+            break;
+    }
+
+    pclose(f);
+    free(buffer);
+
+    const size_t CMD_SIZE = sizeof("./cake -fanalyzer -I/usr/local/include/ -I/usr/include/ ") + sizeof(HEADER_FILES) + sizeof(SOURCE_FILES) + sizeof(include_directories[i]) * i;
+    char *cmd = malloc(CMD_SIZE);
+    if (!cmd)
+    {
+        perror("malloc");
+        exit(1);
+    }
+
+    size_t offset = snprintf(cmd, CMD_SIZE, "./cake -fanalyzer -I/usr/local/include/ -I/usr/include/ ");
+    for (int j = 0; j < i; j++)
+    {
+        offset += snprintf(cmd + offset, CMD_SIZE - offset, "-I%s ", include_directories[j]);
+    }
+    snprintf(cmd + offset, CMD_SIZE - offset, HEADER_FILES SOURCE_FILES);
+    if (mysytem(cmd) != 0)
+    {
+        free(cmd);
+        exit(1);
+    }
+
+    free(cmd);
 #endif
 
 #endif
