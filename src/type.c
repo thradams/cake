@@ -2327,7 +2327,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 int status;
 #define TYPE(EXPR) \
  printf("%s=", #EXPR); \
- printf("%s\n", abi::__cxa_demangle(typeid(typeof(EXPR)).name(),0,0,&status))
+ printf("%s\n", abi::__cxa_demangle(typeid(typeof(EXPR)).dbg_name(),0,0,&status))
 
 
 typedef char* T1;

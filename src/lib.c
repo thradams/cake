@@ -2486,11 +2486,9 @@ int pre_constant_expression(struct preprocessor_ctx* ctx, long long* pvalue);
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-/*
- Se for 1 inclui todos os ignorados de dentro dos includes
- se for 0 ele faz so resumido e desctart oq nao eh usado.
-*/
-#define INCLUDE_ALL 1
+
+// Includes tokens that are not necessary for compilation at second level of includes
+static const bool INCLUDE_ALL = true;
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
@@ -10567,18 +10565,18 @@ void print_help()
 
 void test_get_warning_name()
 {
-    char name[100];
-    get_warning_name(W_FLOW_MISSING_DTOR, sizeof name, name);
-    assert(strcmp(name, "-Wmissing-destructor") == 0);
+    char dbg_name[100];
+    get_warning_name(W_FLOW_MISSING_DTOR, sizeof dbg_name, dbg_name);
+    assert(strcmp(dbg_name, "-Wmissing-destructor") == 0);
 
-    unsigned long long  flags = get_warning_bit_mask(name);
+    unsigned long long  flags = get_warning_bit_mask(dbg_name);
     assert(flags == (1ULL << W_FLOW_MISSING_DTOR));
 
 
-    get_warning_name(W_STYLE, sizeof name, name);
-    assert(strcmp(name, "-Wstyle") == 0);
+    get_warning_name(W_STYLE, sizeof dbg_name, dbg_name);
+    assert(strcmp(dbg_name, "-Wstyle") == 0);
 
-    unsigned long long  flags2 = get_warning_bit_mask(name);
+    unsigned long long  flags2 = get_warning_bit_mask(dbg_name);
     assert(flags2 == (1ULL << W_STYLE));
 }
 
@@ -11176,15 +11174,6 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
 //#pragma once
 
 
-/*
-   NEW idea for v3
-   change struct object_state_set object_state_set; for a linked list
-   where head is alwasys current and cannot be removed. it can be number 0 where 0 is reserved
-   then ref are used at same time to possible values for instante pointer can point to 1 , 2 3..
-   or it can be used to possible objectis that makes the value. it one or another never both at same time
-   if ref were int we could also use for possible integer values.
-*/
-
 struct flow_visit_ctx;
 
 extern unsigned int s_visit_number; //creates a unique number
@@ -11243,7 +11232,7 @@ void objects_view_clear(struct objects_view* p);
 
 
 struct flow_object_state {
-    const char* name;
+    const char* dbg_name;
     int state_number;
 
     struct flow_object* pointed;
@@ -11278,14 +11267,14 @@ struct flow_object
     bool is_temporary;
 };
 void flow_object_set_is_moved(struct flow_object* p_object);
-void flow_object_set_can_be_nitialized(struct flow_object* p_object);
+void flow_object_set_can_be_uninitialized(struct flow_object* p_object);
 void flow_object_set_is_unitialized(struct flow_object* p_object);
 void flow_object_update_current(struct flow_object* p);
 void flow_object_set_current_state_to_can_be_null(struct flow_object* p);
 void flow_object_set_current_state_to_is_null(struct flow_object* p);
 
-int flow_object_add_state2(struct flow_object* p, struct flow_object_state *owner pnew);
-int flow_object_add_state(struct flow_object* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number);
+int flow_object_add_state(struct flow_object* p, struct flow_object_state *owner pnew);
+
 
 bool flow_object_is_not_null(struct flow_object* p);
 bool flow_object_is_null(struct flow_object* p);
@@ -11313,28 +11302,17 @@ struct flow_object* make_object(struct flow_visit_ctx* ctx,
                             const struct expression* p_expression_origin);
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number);
-void object_add_empty_state(struct flow_object* object, const char* name, int state_number);
 struct token* object_get_token(const struct flow_object* object);
 void object_remove_state(struct flow_object* object, int state_number);
-void object_remove_state(struct flow_object* object, int state_number);
-int object_merge_current_state_with_state_number(struct flow_object* object, int state_number);
-void object_merge_current_state_with_state_number_or(struct flow_object* object, int state_number);
+
+
 int object_restore_current_state_from(struct flow_object* object, int state_number);
-void object_set_state_from_current(struct flow_object* object, int state_number);
+
 void object_merge_state(struct flow_object* pdest, struct flow_object* object1, struct flow_object* object2);
 
 
 struct flow_visit_ctx;
 struct token;
-
-void visit_object(struct flow_visit_ctx* ctx,
-    struct type* p_type,
-    struct flow_object* p_object,
-    const struct token* position_token,
-    const char* previous_names,
-    bool is_assigment);
-
-void object_restore_state(struct flow_object* object, int state_to_restore);
 
 
 void print_object(struct type* p_type, struct flow_object* p_object, bool short_version);
@@ -11348,12 +11326,13 @@ void flow_assignment(struct flow_visit_ctx* ctx,
     struct type* p_a_type, struct flow_object* p_a_object,
     struct type* p_b_type, struct flow_object* p_b_object);
 
-void object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled);
+
 void object_set_zero(struct type* p_type, struct flow_object* p_object);
 void object_set_uninitialized(struct type* p_type, struct flow_object* p_object);
-void object_set_nothing(struct type* p_type, struct flow_object* p_object);
 void object_set_moved(struct type* p_type, struct flow_object* p_object);
-void object_set_pointed_to_nothing(struct type* p_type, struct flow_object* p_object);
+
+void object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled);
+
 
 void checked_read_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
@@ -20172,7 +20151,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 int status;
 #define TYPE(EXPR) \
  printf("%s=", #EXPR); \
- printf("%s\n", abi::__cxa_demangle(typeid(typeof(EXPR)).name(),0,0,&status))
+ printf("%s\n", abi::__cxa_demangle(typeid(typeof(EXPR)).dbg_name(),0,0,&status))
 
 
 typedef char* T1;
@@ -21068,6 +21047,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 void print_arena(struct flow_visit_ctx* ctx);
 struct flow_object* arena_new_object(struct flow_visit_ctx* ctx);
 
+
 struct object_visitor
 {
     int member_index;
@@ -21196,13 +21176,13 @@ static void object_state_to_string_core(enum object_state e)
 
 }
 
-void flow_object_state_delete(struct flow_object_state * owner opt p)
+void flow_object_state_delete(struct flow_object_state* owner opt p)
 {
     if (p)
     {
-       objects_view_destroy(&p->alternatives);
-       assert(p->next == NULL);
-       free(p);
+        objects_view_destroy(&p->alternatives);
+        assert(p->next == NULL);
+        free(p);
     }
 }
 void flow_object_state_copy(struct flow_object_state* to, const struct flow_object_state* from)
@@ -21325,7 +21305,7 @@ void flow_object_set_current_state_to_is_null(struct flow_object* p)
     }
 }
 
-int flow_object_add_state2(struct flow_object* p, struct flow_object_state* owner pnew)
+int flow_object_add_state(struct flow_object* p, struct flow_object_state* owner pnew)
 {
     assert(pnew->next == NULL);
     pnew->next = p->current.next;
@@ -21334,28 +21314,7 @@ int flow_object_add_state2(struct flow_object* p, struct flow_object_state* owne
 }
 
 
-int flow_object_add_state(struct flow_object* p,
-    enum object_state e,
-    struct objects_view* pointed,
-    const char* name,
-    int state_number)
-{
 
-    struct flow_object_state* owner pnew = calloc(1, sizeof * pnew);
-    if (pnew == NULL) return ENOMEM;
-
-    pnew->state = e;
-    pnew->name = name;
-    pnew->state_number = state_number;
-
-    //objects_view_copy(&pnew->ref, pointed);
-
-    pnew->next = p->current.next;
-    p->current.next = pnew;
-
-
-    return 0;
-}
 
 
 void objects_view_destroy(struct objects_view* obj_owner p)
@@ -21503,7 +21462,7 @@ int objects_reserve(struct objects* p, int n)
 }
 
 const struct flow_object* objects_find(const struct objects* p_objects, const struct flow_object* object)
-{
+{    
     for (int i = 0; i < p_objects->size; i++)
     {
         if (p_objects->data[i] == object)
@@ -21589,7 +21548,6 @@ struct flow_object* make_object_core(struct flow_visit_ctx* ctx,
     {
         assert(p_declarator_opt != NULL);
     }
-
 
 
     struct flow_object* p_object = arena_new_object(ctx);
@@ -21710,7 +21668,7 @@ struct flow_object* make_object_core(struct flow_visit_ctx* ctx,
     return p_object;
 }
 
-struct flow_object*  make_object(struct flow_visit_ctx* ctx,
+struct flow_object* make_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
                            const struct declarator* p_declarator_opt,
                            const struct expression* p_expression_origin)
@@ -21740,25 +21698,12 @@ struct token* object_get_token(const struct flow_object* object)
     return NULL;
 }
 
-static struct flow_object_state* object_find_state(struct flow_object* object, int state)
-{
-    //TODO current of not findable
-    struct flow_object_state* p = object->current.next;
-    while (p)
-    {
-        if (p->state == state)
-            return p;
-        p = p->next;
-    }
-    return NULL;
-}
-
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number)
 {
     struct flow_object_state* owner pnew = calloc(1, sizeof * pnew);
     if (pnew == NULL) return;//ENOMEM;
 
-    pnew->name = name;
+    pnew->dbg_name = name;
     pnew->state_number = state_number;
 
 
@@ -21766,7 +21711,7 @@ void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* ob
     object->current.next = pnew;
 
     flow_object_state_copy(pnew, &object->current);
-    
+
 }
 
 void object_remove_state(struct flow_object* object, int state_number)
@@ -21778,9 +21723,9 @@ void object_remove_state(struct flow_object* object, int state_number)
         if (it->state_number == state_number)
         {
             struct flow_object_state* owner p_it_next = it->next;
-            it->next = NULL;            
+            it->next = NULL;
             flow_object_state_delete(previous->next);
-            previous->next = p_it_next;       
+            previous->next = p_it_next;
             break;
         }
         previous = it;
@@ -21925,7 +21870,7 @@ void print_object_core(int ident,
             while (it)
             {
                 printf(LIGHTCYAN);
-                printf("(#%02d %s)", it->state_number, it->name);
+                printf("(#%02d %s)", it->state_number, it->dbg_name);
                 object_state_set_item_print(it);
                 printf(RESET);
                 printf(",");
@@ -21981,7 +21926,7 @@ void print_object_core(int ident,
             struct flow_object_state* it = p_visitor->p_object->current.next;
             while (it)
             {
-                printf("(#%02d %s)", it->state_number, it->name);
+                printf("(#%02d %s)", it->state_number, it->dbg_name);
                 object_state_set_item_print(it);
                 printf(",");
                 it = it->next;
@@ -21998,38 +21943,6 @@ void print_object_core(int ident,
 
 }
 
-static void object_set_state_from_current_core(struct flow_object* object, int state_number, unsigned int visit_number)
-{
-    if (object->visit_number == visit_number) return;
-    object->visit_number = visit_number;
-
-
-    struct flow_object_state* it = object->current.next;
-    while (it)
-    {
-        if (it->state_number == state_number)
-        {
-            it->state = object->current.state;
-            break;
-        }
-        it = it->next;
-    }
-
-    for (int i = 0; i < object->members.size; i++)
-    {
-        object_set_state_from_current_core(object->members.data[i], state_number, visit_number);
-    }
-#if 0
-    for (int i = 0; i < object->current.ref.size; i++)
-    {
-        struct flow_object* pointed = object->current.ref.data[i];
-        if (pointed)
-        {
-            object_set_state_from_current_core(pointed, state_number, visit_number);
-        }
-    }
-#endif
-}
 
 void object_merge_state(struct flow_object* pdest, struct flow_object* object1, struct flow_object* object2)
 {
@@ -22070,10 +21983,7 @@ void object_merge_state(struct flow_object* pdest, struct flow_object* object1, 
 
 }
 
-void object_set_state_from_current(struct flow_object* object, int state_number)
-{
-    object_set_state_from_current_core(object, state_number, s_visit_number++);
-}
+
 int object_restore_current_state_from_core(struct flow_object* object, int state_number, unsigned int visit_number)
 {
     if (object->visit_number == visit_number) return 1;//already visited    
@@ -22219,10 +22129,7 @@ static void object_merge_current_state_with_state_number_or_core(struct flow_obj
 #endif
 }
 
-void object_merge_current_state_with_state_number_or(struct flow_object* object, int state_number)
-{
-    object_merge_current_state_with_state_number_or_core(object, state_number, s_visit_number++);
-}
+
 void object_get_name(const struct type* p_type,
     const struct flow_object* p_object,
     char* outname,
@@ -22245,76 +22152,6 @@ void print_object(struct type* p_type, struct flow_object* p_object, bool short_
     visitor.p_type = p_type;
     visitor.p_object = p_object;
     print_object_core(0, &visitor, name, type_is_pointer(p_type), short_version, s_visit_number++);
-}
-
-void object_set_nothing(struct type* p_type, struct flow_object* p_object)
-{
-    if (p_object == NULL || p_type == NULL)
-    {
-        return;
-    }
-
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
-    {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-        if (p_struct_or_union_specifier)
-        {
-            struct member_declaration* p_member_declaration =
-                p_struct_or_union_specifier->member_declaration_list.head;
-
-            int member_index = 0;
-            while (p_member_declaration)
-            {
-                if (p_member_declaration->member_declarator_list_opt)
-                {
-                    struct member_declarator* p_member_declarator =
-                        p_member_declaration->member_declarator_list_opt->head;
-
-                    while (p_member_declarator)
-                    {
-                        if (p_member_declarator->declarator)
-                        {
-                            if (member_index < p_object->members.size)
-                            {
-                                object_set_nothing(&p_member_declarator->declarator->type, p_object->members.data[member_index]);
-                            }
-                            else
-                            {
-                                //TODO BUG union?                                
-                            }
-                            member_index++;
-                        }
-                        p_member_declarator = p_member_declarator->next;
-                    }
-                }
-                p_member_declaration = p_member_declaration->next;
-            }
-            return;
-        }
-    }
-
-    if (type_is_pointer(p_type))
-    {
-        p_object->current.state = 0;
-#if 0
-        if (p_object->current.ref.size > 0)
-        {
-            struct type t2 = type_remove_pointer(p_type);
-            for (int i = 0; i < p_object->current.ref.size; i++)
-            {
-                struct flow_object* pointed = p_object->current.ref.data[i];
-                object_set_uninitialized(&t2, pointed);
-            }
-            type_destroy(&t2);
-        }
-#endif
-    }
-    else
-    {
-        p_object->current.state = 0;
-    }
 }
 
 
@@ -22517,28 +22354,24 @@ void checked_empty(struct flow_visit_ctx* ctx,
 
 }
 
-void object_set_to_nothing_core(struct type* p_type, struct flow_object* p_object, unsigned int visit_number)
+static void object_set_moved_core(struct object_visitor* p_visitor)
 {
-    if (p_object == NULL || p_type == NULL)
+    if (p_visitor->p_object == NULL || p_visitor->p_type == NULL)
     {
         return;
     }
 
-    if (p_object->visit_number == visit_number) return; //already visited
-    p_object->visit_number = visit_number;
-
-
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    if (p_visitor->p_type->struct_or_union_specifier)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         if (p_struct_or_union_specifier)
         {
             struct member_declaration* p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
-            int member_index = 0;
+
             while (p_member_declaration)
             {
                 if (p_member_declaration->member_declarator_list_opt)
@@ -22550,137 +22383,61 @@ void object_set_to_nothing_core(struct type* p_type, struct flow_object* p_objec
                     {
                         if (p_member_declarator->declarator)
                         {
-                            if (member_index < p_object->members.size)
+                            if (p_visitor->member_index < p_visitor->p_object->members.size)
                             {
-                                object_set_to_nothing_core(&p_member_declarator->declarator->type,
-                                    p_object->members.data[member_index], visit_number);
+                                struct object_visitor visitor = { 0 };
+                                visitor.p_type = &p_member_declarator->declarator->type;
+                                visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
+                                object_set_moved_core(&visitor);
                             }
-                            else
-                            {
-                                //TODO BUG union?                                
-                            }
-                            member_index++;
+                            p_visitor->member_index++;
                         }
                         p_member_declarator = p_member_declarator->next;
                     }
+                }
+                else
+                {
+                    if (p_member_declaration->specifier_qualifier_list &&
+                       p_member_declaration->specifier_qualifier_list->struct_or_union_specifier)
+                    {
+                        struct type t = { 0 };
+                        t.category = TYPE_CATEGORY_ITSELF;
+                        t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                        t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                        struct type* type_temp = p_visitor->p_type;
+                        p_visitor->p_type = &t; //new type, same object
+
+                        object_set_moved_core(p_visitor);
+
+                        p_visitor->p_type = type_temp; //restore                         
+
+                        type_destroy(&t);
+                    }
+
                 }
                 p_member_declaration = p_member_declaration->next;
             }
             return;
         }
-        return;
     }
 
-    if (type_is_pointer(p_type))
+    if (type_is_pointer(p_visitor->p_type))
     {
-        p_object->current.state = 0;
-#if 0
-        for (int i = 0; i < p_object->current.ref.size; i++)
-        {
-            struct flow_object* pointed = p_object->current.ref.data[i];
-            if (pointed)
-            {
-                struct type t2 = type_remove_pointer(p_type);
-                object_set_to_nothing_core(&t2, pointed, visit_number);
-                type_destroy(&t2);
-            }
-        }
-#endif
+        p_visitor->p_object->current.state = OBJECT_STATE_MOVED;
     }
     else
     {
-        p_object->current.state = 0;
+        p_visitor->p_object->current.state = OBJECT_STATE_MOVED;
     }
-}
-
-void object_set_to_nothing(struct type* p_type, struct flow_object* p_object)
-{
-    object_set_to_nothing_core(p_type, p_object, s_visit_number++);
-}
-
-void object_set_pointed_to_nothing(struct type* p_type, struct flow_object* p_object)
-{
-    struct type t2 = type_remove_pointer(p_type);
-#if 0
-    for (int i = 0; i < p_object->current.ref.size; i++)
-    {
-        struct flow_object* pointed = p_object->current.ref.data[i];
-        object_set_to_nothing(&t2, pointed);
-    }
-#endif
-    type_destroy(&t2);
 }
 
 void object_set_moved(struct type* p_type, struct flow_object* p_object)
 {
-    if (p_object == NULL || p_type == NULL)
-    {
-        return;
-    }
-
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
-    {
-        struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
-
-        if (p_struct_or_union_specifier)
-        {
-            struct member_declaration* p_member_declaration =
-                p_struct_or_union_specifier->member_declaration_list.head;
-
-            int member_index = 0;
-            while (p_member_declaration)
-            {
-                if (p_member_declaration->member_declarator_list_opt)
-                {
-                    struct member_declarator* p_member_declarator =
-                        p_member_declaration->member_declarator_list_opt->head;
-
-                    while (p_member_declarator)
-                    {
-                        if (p_member_declarator->declarator)
-                        {
-                            if (member_index < p_object->members.size)
-                            {
-                                object_set_moved(&p_member_declarator->declarator->type, p_object->members.data[member_index]);
-                            }
-                            else
-                            {
-                                //TODO BUG union?                                
-                            }
-                            member_index++;
-                        }
-                        p_member_declarator = p_member_declarator->next;
-                    }
-                }
-                p_member_declaration = p_member_declaration->next;
-            }
-            return;
-        }
-        return;
-    }
-
-    if (type_is_pointer(p_type))
-    {
-        p_object->current.state |= OBJECT_STATE_MOVED;
-
-#if 0
-        if (p_object->current.ref.size > 0)
-        {
-            struct type t2 = type_remove_pointer(p_type);
-            for (int i = 0; i < p_object->current.ref.size; i++)
-            {
-                struct flow_object* pointed = p_object->current.ref.data[i];
-                object_set_nothing(&t2, pointed);
-            }
-            type_destroy(&t2);
-        }
-#endif
-    }
-    else
-    {
-        p_object->current.state |= OBJECT_STATE_MOVED;
-    }
+    struct object_visitor visitor = { 0 };
+    visitor.p_type = p_type;
+    visitor.p_object = p_object;
+    object_set_moved_core(&visitor);
 }
 
 static void object_set_unknown_core(struct object_visitor* p_visitor, bool t_is_nullable, unsigned int visit_number, bool nullable_enabled)
@@ -22883,7 +22640,7 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
     }
 }
 
-void flow_object_set_can_be_nitialized(struct flow_object* p_object)
+void flow_object_set_can_be_uninitialized(struct flow_object* p_object)
 {
     p_object->current.state |= OBJECT_STATE_UNINITIALIZED;
 }
@@ -22894,7 +22651,7 @@ void flow_object_set_is_unitialized(struct flow_object* p_object)
     {
         for (int i = 0; i < p_object->current.alternatives.size; i++)
         {
-            flow_object_set_can_be_nitialized(p_object->current.alternatives.data[i]);
+            flow_object_set_can_be_uninitialized(p_object->current.alternatives.data[i]);
         }
     }
 }
@@ -22993,21 +22750,6 @@ void object_set_zero_core(struct object_visitor* p_visitor)
     if (type_is_pointer(p_visitor->p_type))
     {
         p_visitor->p_object->current.state = OBJECT_STATE_NULL;
-
-#if 0
-        if (p_visitor->p_object->current.ref.size)
-        {
-            /*
-              if the pointer is null, there is no pointed object
-            */
-            struct type t2 = type_remove_pointer(p_visitor->p_type);
-            for (int i = 0; i < p_visitor->p_object->current.ref.size; i++)
-            {
-                object_set_nothing(&t2, p_visitor->p_object->current.ref.data[i]);
-            }
-            type_destroy(&t2);
-        }
-#endif
     }
     else
     {
@@ -23372,27 +23114,26 @@ void checked_moved(struct flow_visit_ctx* ctx,
 }
 
 void checked_read_object_core(struct flow_visit_ctx* ctx,
-    struct type* p_type,
+    struct object_visitor* p_visitor,
     bool is_nullable,
-    struct flow_object* p_object,
     const struct token* position_token,
     bool check_pointed_object,
     const char* previous_names,
     unsigned int visit_number)
 {
-    if (p_object == NULL)
+    if (p_visitor->p_object == NULL)
     {
         return;
     }
 
-    if (p_object->visit_number == visit_number) return;
-    p_object->visit_number = visit_number;
+    if (p_visitor->p_object->visit_number == visit_number) return;
+    p_visitor->p_object->visit_number = visit_number;
 
 
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    if (p_visitor->p_type->struct_or_union_specifier && p_visitor->p_object->members.size > 0)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         struct member_declaration* p_member_declaration =
             p_struct_or_union_specifier ?
@@ -23403,7 +23144,6 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
         *  Some parts of the object needs to be moved..
         *  we need to print error one by one
         */
-        int member_index = 0;
         while (p_member_declaration)
         {
             if (p_member_declaration->member_declarator_list_opt)
@@ -23419,24 +23159,60 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                             p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "?";
 
                         char buffer[200] = { 0 };
-                        if (type_is_pointer(p_type))
+                        if (type_is_pointer(p_visitor->p_type))
                             snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
                         else
                             snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
+                        struct object_visitor  visitor = { 0 };
+                        visitor.p_type = &p_member_declarator->declarator->type;
+                        visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
+
+
                         checked_read_object_core(ctx,
-                            &p_member_declarator->declarator->type,
+                            &visitor,
                             is_nullable,
-                            p_object->members.data[member_index],
                             position_token,
                             check_pointed_object,
                             buffer,
                             visit_number);
 
-                        member_index++;
+                        p_visitor->member_index++;
                     }
                     p_member_declarator = p_member_declarator->next;
                 }
+            }
+            else
+            {
+                struct type t = { 0 };
+                t.category = TYPE_CATEGORY_ITSELF;
+                t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                char buffer[200] = { 0 };
+                if (type_is_pointer(p_visitor->p_type))
+                    snprintf(buffer, sizeof buffer, "%s->", previous_names);
+                else
+                    snprintf(buffer, sizeof buffer, "%s.", previous_names);
+
+                struct type* temp = p_visitor->p_type;
+                p_visitor->p_type = &t;
+
+                int visit_number0 = p_visitor->p_object->visit_number;
+                p_visitor->p_object->visit_number = 0;
+
+                checked_read_object_core(ctx,
+                        p_visitor,
+                        is_nullable,
+                        position_token,
+                        check_pointed_object,
+                        buffer,
+                        visit_number);
+
+                p_visitor->p_type = temp; //restore
+                p_visitor->p_object->visit_number = visit_number0;
+                type_destroy(&t);
+
             }
             p_member_declaration = p_member_declaration->next;
         }
@@ -23445,10 +23221,10 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
     else
     {
 
-        if (type_is_pointer(p_type) &&
+        if (type_is_pointer(p_visitor->p_type) &&
             !is_nullable &&
-            !type_is_nullable(p_type, ctx->ctx->options.null_checks_enabled) &&
-            flow_object_maybe_is_null(p_object))
+            !type_is_nullable(p_visitor->p_type, ctx->ctx->options.null_checks_enabled) &&
+            flow_object_maybe_is_null(p_visitor->p_object))
         {
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                 ctx->ctx,
@@ -23457,19 +23233,22 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                 previous_names);
         }
 
-        if (type_is_pointer(p_type) &&
+        if (type_is_pointer(p_visitor->p_type) &&
             check_pointed_object &&
-            p_object->current.state & OBJECT_STATE_NOT_NULL /*we don't need to check pointed object*/
+            p_visitor->p_object->current.state & OBJECT_STATE_NOT_NULL /*we don't need to check pointed object*/
             )
         {
-            struct type t2 = type_remove_pointer(p_type);
+            struct type t2 = type_remove_pointer(p_visitor->p_type);
 
-            if (p_object->current.pointed)
+            if (p_visitor->p_object->current.pointed)
             {
+                struct object_visitor  visitor = { 0 };
+                visitor.p_type = &t2;
+                visitor.p_object = p_visitor->p_object->current.pointed;
+
                 checked_read_object_core(ctx,
-                    &t2,
+                    &visitor,
                     is_nullable,
-                    p_object->current.pointed,
                     position_token,
                     true,
                     previous_names,
@@ -23480,7 +23259,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
         }
 
 
-        if (p_object->current.state & OBJECT_STATE_UNINITIALIZED)
+        if (p_visitor->p_object->current.state & OBJECT_STATE_UNINITIALIZED)
         {
             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                 ctx->ctx,
@@ -23489,22 +23268,26 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                 previous_names);
         }
 
-        /*
-          //TODO there is some problem with  OBJECT_STATE_LIFE_TIME_ENDED
-          //state somewhere!
-         if (p_object->state & OBJECT_STATE_LIFE_TIME_ENDED)
-         {
-             compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                 ctx->ctx,
-                 position_token,
-                 "lifetime ended '%s'",
-                 previous_names);
-         }
-         */
+#if 0
+        //TODO there is some problem with  OBJECT_STATE_LIFE_TIME_ENDED
+        //state somewhere!
+        if (p_object->current.state & OBJECT_STATE_LIFE_TIME_ENDED)
+        {
+            compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+                ctx->ctx,
+                position_token,
+                "lifetime ended '%s'",
+                previous_names);
+        }
+#endif
+
     }
 }
 
-
+/*
+  Check if all objects connect to this one
+   - are initialized
+*/
 void checked_read_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool is_nullable,
@@ -23533,10 +23316,13 @@ void checked_read_object(struct flow_visit_ctx* ctx,
         }
     }
 
+    struct object_visitor visitor = { 0 };
+    visitor.p_object = p_object;
+    visitor.p_type = p_type;
+
     checked_read_object_core(ctx,
-    p_type,
+    &visitor,
     is_nullable,
-    p_object,
     position_token,
     check_pointed_object,
     name,
@@ -23546,38 +23332,37 @@ void checked_read_object(struct flow_visit_ctx* ctx,
 
 
 static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
-    struct type* p_type,
+    struct object_visitor* p_visitor,
     bool b_type_is_view,
-    struct flow_object* p_object,
     const struct token* position_token,
     const char* previous_names,
     unsigned int visit_number)
 {
-    if (p_object == NULL)
+    if (p_visitor->p_object == NULL)
     {
         return;
     }
 
-    if (p_object->visit_number == visit_number) return;
-    p_object->visit_number = visit_number;
+    if (p_visitor->p_object->visit_number == visit_number) return;
+    p_visitor->p_object->visit_number = visit_number;
 
 
-    if (p_type->struct_or_union_specifier && p_object->members.size > 0)
+    if (p_visitor->p_type->struct_or_union_specifier && p_visitor->p_object->members.size > 0)
     {
         struct struct_or_union_specifier* p_struct_or_union_specifier =
-            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+            get_complete_struct_or_union_specifier(p_visitor->p_type->struct_or_union_specifier);
 
         struct member_declaration* p_member_declaration =
             p_struct_or_union_specifier->member_declaration_list.head;
 
-        if (object_check(p_type, p_object))
+        if (object_check(p_visitor->p_type, p_visitor->p_object))
         {
             /*
             *  All parts of the object needs to be moved, so instead of
             *  describing each part we will just say that the object should
             *  have been moved.
             */
-            const struct token* name = object_get_token(p_object);
+            const struct token* name = object_get_token(p_visitor->p_object);
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
                 name,
@@ -23585,7 +23370,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
                 previous_names))
             {
 
-                if (p_object->p_declarator_origin)
+                if (p_visitor->p_object->p_declarator_origin)
                     compiler_diagnostic_message(W_LOCATION, ctx->ctx, position_token, "end of '%s' scope", previous_names);
             }
         }
@@ -23596,10 +23381,9 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
             *  we need to print error one by one
             */
 
-            int member_index = 0;
+
             while (p_member_declaration)
             {
-
                 if (p_member_declaration->member_declarator_list_opt)
                 {
                     struct member_declarator* p_member_declarator =
@@ -23612,25 +23396,53 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
                             const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "?";
 
                             char buffer[200] = { 0 };
-                            if (type_is_pointer(p_type))
+                            if (type_is_pointer(p_visitor->p_type))
                                 snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
                             else
                                 snprintf(buffer, sizeof buffer, "%s.%s", previous_names, name);
 
-                            bool member_is_view = type_is_view(&p_member_declarator->declarator->type);
+                            const bool member_is_view = type_is_view(&p_member_declarator->declarator->type);
+
+                            struct object_visitor  visitor = { 0 };
+                            visitor.p_type = &p_member_declarator->declarator->type;
+                            visitor.p_object = p_visitor->p_object->members.data[p_visitor->member_index];
 
                             end_of_storage_visit_core(ctx,
-                                &p_member_declarator->declarator->type,
+                                &visitor,
                                 b_type_is_view || member_is_view,
-                                p_object->members.data[member_index],
                                 position_token,
                                 buffer,
                                 visit_number);
-
-                            member_index++;
+                            p_visitor->member_index++;
                         }
                         p_member_declarator = p_member_declarator->next;
                     }
+                }
+                else
+                {
+                    struct type t = { 0 };
+                    t.category = TYPE_CATEGORY_ITSELF;
+                    t.struct_or_union_specifier = p_member_declaration->specifier_qualifier_list->struct_or_union_specifier;
+                    t.type_specifier_flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
+
+                    struct type* temp = p_visitor->p_type;
+                    p_visitor->p_type = &t;
+
+                    const bool member_is_view = type_is_view(&t);
+
+                    int visit_number0 = p_visitor->p_object->visit_number;
+                    p_visitor->p_object->visit_number = 0;
+                    end_of_storage_visit_core(ctx,
+                        p_visitor,
+                        member_is_view,
+                        position_token,
+                        previous_names,
+                        visit_number);
+
+                    p_visitor->p_type = temp; //restore
+                    p_visitor->p_object->visit_number = visit_number0;
+                    type_destroy(&t);
+
                 }
                 p_member_declaration = p_member_declaration->next;
             }
@@ -23642,10 +23454,10 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
     {
         const char* name = previous_names;
         const struct token* position = NULL;
-        if (p_object->p_declarator_origin)
-            position = p_object->p_declarator_origin->name ? p_object->p_declarator_origin->name : p_object->p_declarator_origin->first_token;
-        else if (p_object->p_expression_origin)
-            position = p_object->p_expression_origin->first_token;
+        if (p_visitor->p_object->p_declarator_origin)
+            position = p_visitor->p_object->p_declarator_origin->name ? p_visitor->p_object->p_declarator_origin->name : p_visitor->p_object->p_declarator_origin->first_token;
+        else if (p_visitor->p_object->p_expression_origin)
+            position = p_visitor->p_object->p_expression_origin->first_token;
         else
         {
             assert(false);
@@ -23663,10 +23475,10 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
            Despite the name OBJECT_STATE_NOT_NULL does not means null, it means
            the reference is not referring an object, the value could be -1 for instance.
         */
-        if (type_is_pointer(p_type) &&
+        if (type_is_pointer(p_visitor->p_type) &&
             !b_type_is_view &&
-            type_is_owner(p_type) &&
-            p_object->current.state & OBJECT_STATE_NOT_NULL)
+            type_is_owner(p_visitor->p_type) &&
+            p_visitor->p_object->current.state & OBJECT_STATE_NOT_NULL)
         {
             if (compiler_diagnostic_message(W_FLOW_MISSING_DTOR,
                 ctx->ctx,
@@ -23679,26 +23491,29 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
                 "end of lifetime");
             }
         }
-        else if (!b_type_is_view && type_is_obj_owner(p_type) && type_is_pointer(p_type))
+        else if (!b_type_is_view && type_is_obj_owner(p_visitor->p_type) && type_is_pointer(p_visitor->p_type))
         {
             char buffer[100] = { 0 };
             snprintf(buffer, sizeof buffer, "%s", previous_names);
-            struct type t2 = type_remove_pointer(p_type);
+            struct type t2 = type_remove_pointer(p_visitor->p_type);
 
-            if (p_object->current.pointed)
+            if (p_visitor->p_object->current.pointed)
             {
-                end_of_storage_visit_core(ctx, &t2, b_type_is_view, p_object->current.pointed, position, buffer, visit_number);
+                struct object_visitor visitor = { 0 };
+                visitor.p_type = &t2;
+                visitor.p_object = p_visitor->p_object->current.pointed;
+                end_of_storage_visit_core(ctx, &visitor, b_type_is_view, position, buffer, visit_number);
             }
 
 
             type_destroy(&t2);
         }
-        else if (type_is_owner(p_type) && !type_is_pointer(p_type))
+        else if (type_is_owner(p_visitor->p_type) && !type_is_pointer(p_visitor->p_type))
         {
             //non-pointer owner
-            if (p_object->current.state == OBJECT_STATE_UNINITIALIZED ||
-                p_object->current.state == OBJECT_STATE_NULL ||
-                p_object->current.state == OBJECT_STATE_MOVED)
+            if (p_visitor->p_object->current.state == OBJECT_STATE_UNINITIALIZED ||
+                p_visitor->p_object->current.state == OBJECT_STATE_NULL ||
+                p_visitor->p_object->current.state == OBJECT_STATE_MOVED)
             {
             }
             else
@@ -23719,7 +23534,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
         {
         }
 
-        p_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
+        p_visitor->p_object->current.state = OBJECT_STATE_LIFE_TIME_ENDED;
     }
 }
 
@@ -23730,10 +23545,12 @@ void end_of_storage_visit(struct flow_visit_ctx* ctx,
     const struct token* position_token,
     const char* previous_names)
 {
+    struct object_visitor visitor = { 0 };
+    visitor.p_type = p_type;
+    visitor.p_object = p_object;
     end_of_storage_visit_core(ctx,
-    p_type,
+    &visitor,
     type_is_view,
-    p_object,
     position_token,
     previous_names,
     s_visit_number++);
@@ -32376,10 +32193,12 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
 }
 
 #ifdef _WIN32
-unsigned long __stdcall GetEnvironmentVariableA(
-    const char* lpname,
-    char* lpbuffer,
-    unsigned long nsize);
+WINBASEAPI DWORD WINAPI GetEnvironmentVariableA(
+    LPCSTR lpName,
+    LPSTR lpBuffer,
+    DWORD nSize
+    );
+
 #else
 
 unsigned long GetEnvironmentVariableA(
@@ -36262,8 +36081,7 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                         p_object->current.state |= OBJECT_STATE_NULL;
                         //pointed object does not exist. set nothing
                         //See test_18000.c
-                        //
-                        //object_set_pointed_to_nothing(&a->data[i].p_expression->type, p_object);
+                        //                        
                     }
                     else
                     {
@@ -36306,7 +36124,7 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
 static int arena_add_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name);
 
 
-void arena_remove_state(struct flow_visit_ctx* ctx, int state_number);
+static void arena_remove_state(struct flow_visit_ctx* ctx, int state_number);
 
 struct visit_objects {
     struct flow_defer_scope* current_block;
@@ -36708,16 +36526,16 @@ static int arena_add_empty_state(struct flow_visit_ctx* ctx, const char* name)
         struct flow_object_state* owner p_flow_object_state = calloc(1, sizeof * p_flow_object_state);
         if (p_flow_object_state)
         {
-            p_flow_object_state->name = name;
+            p_flow_object_state->dbg_name = name;
             p_flow_object_state->state_number = state_number;
-            flow_object_add_state2(p_object, p_flow_object_state);
+            flow_object_add_state(p_object, p_flow_object_state);
         }
 
     }
     return state_number;
 }
 
-void flow_object_set_state_from_current2(struct flow_object* object, int state_number)
+void flow_object_set_state_from_current(struct flow_object* object, int state_number)
 {
     struct flow_object_state* p_flow_object_state = object->current.next;
     while (p_flow_object_state)
@@ -36735,7 +36553,7 @@ static void arena_set_state_from_current(struct flow_visit_ctx* ctx, int number_
     for (int i = 0; i < ctx->arena.size; i++)
     {
         struct flow_object* p_object = ctx->arena.data[i];
-        flow_object_set_state_from_current2(p_object, number_state);
+        flow_object_set_state_from_current(p_object, number_state);
     }
 }
 
@@ -36772,7 +36590,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                     p_new_state->state_number = state_number;
                     objects_view_push_back(&p_new_state->alternatives, object->current.pointed);
                     objects_view_push_back(&p_new_state->alternatives, it->pointed);
-                    flow_object_add_state2(p_new_object, p_new_state);
+                    flow_object_add_state(p_new_object, p_new_state);
 
                     int n_childs_1 = object->current.pointed->members.size;
                     int n_childs_2 = it->pointed->members.size;
@@ -36796,7 +36614,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                             p_child_new_state->state = child1->current.state | it->state;
                             objects_view_push_back(&p_child_new_state->alternatives, child1);
                             objects_view_push_back(&p_child_new_state->alternatives, child2);
-                            flow_object_add_state2(p_new_child, p_child_new_state);
+                            flow_object_add_state(p_new_child, p_child_new_state);
                             objects_view_push_back(&p_new_object->members, p_new_child);
                         }
                     }
@@ -36853,7 +36671,7 @@ static void arena_restore_current_state_from(struct flow_visit_ctx* ctx, int num
 
 }
 
-void arena_remove_state(struct flow_visit_ctx* ctx, int state_number)
+static void arena_remove_state(struct flow_visit_ctx* ctx, int state_number)
 {
     for (int i = 0; i < ctx->arena.size; i++)
     {
@@ -37630,7 +37448,7 @@ void object_push_states_from(const struct flow_object* p_object_from, struct flo
         p_object_to,
         p_object_to->current.state,
         &p_object_to->current.ref,
-        it_from->name,
+        it_from->dbg_name,
         it_from->state_number);
 #endif
 
@@ -37677,7 +37495,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
     }
 }
 
-void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_object* p)
+static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_object* p)
 {
     for (int i = 0; i < ctx->arena.size; i++)
     {
@@ -38512,7 +38330,11 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
 
-
+    if (p_iteration_statement->declaration &&
+        p_iteration_statement->declaration->init_declarator_list.head)
+    {
+       flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
+    }
     struct declarator_array d = { 0 };
     if (p_iteration_statement->expression0)
     {

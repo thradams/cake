@@ -67,11 +67,9 @@
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-/*
- Se for 1 inclui todos os ignorados de dentro dos includes
- se for 0 ele faz so resumido e desctart oq nao eh usado.
-*/
-#define INCLUDE_ALL 1
+
+// Includes tokens that are not necessary for compilation at second level of includes
+static const bool INCLUDE_ALL = true;
 
 ///////////////////////////////////////////////////////////////////////////////
 void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);

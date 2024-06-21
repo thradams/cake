@@ -312,8 +312,7 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
                         p_object->current.state |= OBJECT_STATE_NULL;
                         //pointed object does not exist. set nothing
                         //See test_18000.c
-                        //
-                        //object_set_pointed_to_nothing(&a->data[i].p_expression->type, p_object);
+                        //                        
                     }
                     else
                     {
@@ -356,7 +355,7 @@ static void declarator_array_set_objects_to_false_branch(struct flow_visit_ctx* 
 static int arena_add_copy_of_current_state(struct flow_visit_ctx* ctx, const char* name);
 
 
-void arena_remove_state(struct flow_visit_ctx* ctx, int state_number);
+static void arena_remove_state(struct flow_visit_ctx* ctx, int state_number);
 
 struct visit_objects {
     struct flow_defer_scope* current_block;
@@ -758,16 +757,16 @@ static int arena_add_empty_state(struct flow_visit_ctx* ctx, const char* name)
         struct flow_object_state* owner p_flow_object_state = calloc(1, sizeof * p_flow_object_state);
         if (p_flow_object_state)
         {
-            p_flow_object_state->name = name;
+            p_flow_object_state->dbg_name = name;
             p_flow_object_state->state_number = state_number;
-            flow_object_add_state2(p_object, p_flow_object_state);
+            flow_object_add_state(p_object, p_flow_object_state);
         }
 
     }
     return state_number;
 }
 
-void flow_object_set_state_from_current2(struct flow_object* object, int state_number)
+void flow_object_set_state_from_current(struct flow_object* object, int state_number)
 {
     struct flow_object_state* p_flow_object_state = object->current.next;
     while (p_flow_object_state)
@@ -785,7 +784,7 @@ static void arena_set_state_from_current(struct flow_visit_ctx* ctx, int number_
     for (int i = 0; i < ctx->arena.size; i++)
     {
         struct flow_object* p_object = ctx->arena.data[i];
-        flow_object_set_state_from_current2(p_object, number_state);
+        flow_object_set_state_from_current(p_object, number_state);
     }
 }
 
@@ -822,7 +821,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                     p_new_state->state_number = state_number;
                     objects_view_push_back(&p_new_state->alternatives, object->current.pointed);
                     objects_view_push_back(&p_new_state->alternatives, it->pointed);
-                    flow_object_add_state2(p_new_object, p_new_state);
+                    flow_object_add_state(p_new_object, p_new_state);
 
                     int n_childs_1 = object->current.pointed->members.size;
                     int n_childs_2 = it->pointed->members.size;
@@ -846,7 +845,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                             p_child_new_state->state = child1->current.state | it->state;
                             objects_view_push_back(&p_child_new_state->alternatives, child1);
                             objects_view_push_back(&p_child_new_state->alternatives, child2);
-                            flow_object_add_state2(p_new_child, p_child_new_state);
+                            flow_object_add_state(p_new_child, p_child_new_state);
                             objects_view_push_back(&p_new_object->members, p_new_child);
                         }
                     }
@@ -903,7 +902,7 @@ static void arena_restore_current_state_from(struct flow_visit_ctx* ctx, int num
 
 }
 
-void arena_remove_state(struct flow_visit_ctx* ctx, int state_number)
+static void arena_remove_state(struct flow_visit_ctx* ctx, int state_number)
 {
     for (int i = 0; i < ctx->arena.size; i++)
     {
@@ -1680,7 +1679,7 @@ void object_push_states_from(const struct flow_object* p_object_from, struct flo
         p_object_to,
         p_object_to->current.state,
         &p_object_to->current.ref,
-        it_from->name,
+        it_from->dbg_name,
         it_from->state_number);
 #endif
 
@@ -1727,7 +1726,7 @@ static void flow_check_pointer_used_as_bool(struct flow_visit_ctx* ctx, struct e
     }
 }
 
-void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_object* p)
+static void arena_broadcast_change(struct flow_visit_ctx* ctx, struct flow_object* p)
 {
     for (int i = 0; i < ctx->arena.size; i++)
     {
@@ -2562,7 +2561,11 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 {
     assert(p_iteration_statement->first_token->type == TK_KEYWORD_FOR);
 
-
+    if (p_iteration_statement->declaration &&
+        p_iteration_statement->declaration->init_declarator_list.head)
+    {
+       flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
+    }
     struct declarator_array d = { 0 };
     if (p_iteration_statement->expression0)
     {

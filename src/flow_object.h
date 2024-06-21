@@ -8,15 +8,6 @@
 #include "type.h"
 
 
-/*
-   NEW idea for v3
-   change struct object_state_set object_state_set; for a linked list
-   where head is alwasys current and cannot be removed. it can be number 0 where 0 is reserved
-   then ref are used at same time to possible values for instante pointer can point to 1 , 2 3..
-   or it can be used to possible objectis that makes the value. it one or another never both at same time
-   if ref were int we could also use for possible integer values.
-*/
-
 struct flow_visit_ctx;
 
 extern unsigned int s_visit_number; //creates a unique number
@@ -75,7 +66,7 @@ void objects_view_clear(struct objects_view* p);
 
 
 struct flow_object_state {
-    const char* name;
+    const char* dbg_name;
     int state_number;
 
     struct flow_object* pointed;
@@ -110,14 +101,14 @@ struct flow_object
     bool is_temporary;
 };
 void flow_object_set_is_moved(struct flow_object* p_object);
-void flow_object_set_can_be_nitialized(struct flow_object* p_object);
+void flow_object_set_can_be_uninitialized(struct flow_object* p_object);
 void flow_object_set_is_unitialized(struct flow_object* p_object);
 void flow_object_update_current(struct flow_object* p);
 void flow_object_set_current_state_to_can_be_null(struct flow_object* p);
 void flow_object_set_current_state_to_is_null(struct flow_object* p);
 
-int flow_object_add_state2(struct flow_object* p, struct flow_object_state *owner pnew);
-int flow_object_add_state(struct flow_object* p, enum object_state e, struct objects_view* pointed_ref, const char* name, int state_number);
+int flow_object_add_state(struct flow_object* p, struct flow_object_state *owner pnew);
+
 
 bool flow_object_is_not_null(struct flow_object* p);
 bool flow_object_is_null(struct flow_object* p);
@@ -145,28 +136,17 @@ struct flow_object* make_object(struct flow_visit_ctx* ctx,
                             const struct expression* p_expression_origin);
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number);
-void object_add_empty_state(struct flow_object* object, const char* name, int state_number);
 struct token* object_get_token(const struct flow_object* object);
 void object_remove_state(struct flow_object* object, int state_number);
-void object_remove_state(struct flow_object* object, int state_number);
-int object_merge_current_state_with_state_number(struct flow_object* object, int state_number);
-void object_merge_current_state_with_state_number_or(struct flow_object* object, int state_number);
+
+
 int object_restore_current_state_from(struct flow_object* object, int state_number);
-void object_set_state_from_current(struct flow_object* object, int state_number);
+
 void object_merge_state(struct flow_object* pdest, struct flow_object* object1, struct flow_object* object2);
 
 
 struct flow_visit_ctx;
 struct token;
-
-void visit_object(struct flow_visit_ctx* ctx,
-    struct type* p_type,
-    struct flow_object* p_object,
-    const struct token* position_token,
-    const char* previous_names,
-    bool is_assigment);
-
-void object_restore_state(struct flow_object* object, int state_to_restore);
 
 
 void print_object(struct type* p_type, struct flow_object* p_object, bool short_version);
@@ -180,12 +160,13 @@ void flow_assignment(struct flow_visit_ctx* ctx,
     struct type* p_a_type, struct flow_object* p_a_object,
     struct type* p_b_type, struct flow_object* p_b_object);
 
-void object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled);
+
 void object_set_zero(struct type* p_type, struct flow_object* p_object);
 void object_set_uninitialized(struct type* p_type, struct flow_object* p_object);
-void object_set_nothing(struct type* p_type, struct flow_object* p_object);
 void object_set_moved(struct type* p_type, struct flow_object* p_object);
-void object_set_pointed_to_nothing(struct type* p_type, struct flow_object* p_object);
+
+void object_set_unknown(struct type* p_type, bool t_is_nullable, struct flow_object* p_object, bool nullable_enabled);
+
 
 void checked_read_object(struct flow_visit_ctx* ctx,
     struct type* p_type,

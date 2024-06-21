@@ -7556,10 +7556,12 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
 }
 
 #ifdef _WIN32
-unsigned long __stdcall GetEnvironmentVariableA(
-    const char* lpname,
-    char* lpbuffer,
-    unsigned long nsize);
+WINBASEAPI DWORD WINAPI GetEnvironmentVariableA(
+    LPCSTR lpName,
+    LPSTR lpBuffer,
+    DWORD nSize
+    );
+
 #else
 
 unsigned long GetEnvironmentVariableA(
