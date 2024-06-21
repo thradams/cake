@@ -247,6 +247,53 @@ void generate_doc(const char *mdfilename, const char *outfile)
     }
 }
 
+static int get_include_directories(const char *compiler, size_t out_max, char out[static out_max][PATH_MAX])
+{
+    char cmd[sizeof("sh -c \"\"") + PATH_MAX + sizeof(" -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'")];
+    snprintf(cmd, sizeof cmd, "sh -c \"%s -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'\"", compiler);
+
+    FILE *f = popen(cmd, "r");
+    if (!f)
+    {
+        perror("popen");
+        return -1;
+    }
+
+    size_t bufsiz = 0xFF;
+    char *buffer = malloc(bufsiz);
+    if (!buffer)
+    {
+        perror("malloc");
+        return -1;
+    }
+
+    int i = 0;
+    while (getline(&buffer, &bufsiz, f) != -1)
+    {
+        size_t len = strlen(buffer);
+        if (len > 1)
+        {
+            //get rid of the newline
+            buffer[len - 1] = '\0';
+            //buffer + 1 to ignore trailing space
+            strlcpy(out[i], buffer + 1, PATH_MAX);
+        }
+        else
+        {
+            out[i][0] = '\0';
+        }
+
+        i++;
+        if (i == out_max)
+            break;
+    }
+
+    pclose(f);
+    free(buffer);
+
+    return i;
+}
+
 int main()
 {
     printf(CC_DESCRIPTION "\n");
@@ -347,54 +394,19 @@ int main()
     }
 #endif
 
-#if defined BUILD_MACOS_GCC
+#if defined BUILD_MACOS_GCC || true
     //`clang` could refer to homebrew clang, or apple clang. Both have different directories.
     //`cc` most likley refers to apple clang
     //`gcc` also likley refers to apple clang, but often is changed to actual GCC
     //all of these have different includes, and the include directories change on OS versions
     //Therefore, we need to run `GCC -E -Wp,-v -` to find the directories
-    FILE *f = popen("sh -c \""GCC" -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'\"", "r");
-    if (!f)
-    {
-        perror("popen");
-        exit(1);
-    }
-
     enum { INCLUDE_DIRECTORY_MAX = 8 };
-    int i = 0;
-    char include_directories[INCLUDE_DIRECTORY_MAX][PATH_MAX + sizeof("-I")];
-    size_t bufsiz = 0xFF;
-    char *buffer = malloc(bufsiz);
-    if (!buffer)
-    {
-        perror("malloc");
-        exit(1);
-    }
-
-    while (getline(&buffer, &bufsiz, f) != -1)
-    {
-        size_t len = strlen(buffer);
-        if (len > 1)
-        {
-            //get rid of the newline
-            buffer[len - 1] = '\0';
-            //buffer + 1 to ignore trailing space
-            strlcpy(include_directories[i], buffer + 1, sizeof(include_directories[i]));
-        } else {
-            include_directories[i][0] = '\0';
-        }
-
-        i++;
-        if (i == INCLUDE_DIRECTORY_MAX)
-            break;
-    }
-
-    pclose(f);
-    free(buffer);
+    char include_directories[INCLUDE_DIRECTORY_MAX][PATH_MAX];
+    int inc_dir_count = get_include_directories(GCC, INCLUDE_DIRECTORY_MAX, include_directories);
 
     const size_t CMD_SIZE = sizeof("./cake -fanalyzer -I/usr/local/include/ -I/usr/include/ ")
                           + (sizeof(HEADER_FILES) + sizeof(SOURCE_FILES))
-                          + (sizeof(include_directories[i]) * i);
+                          + (sizeof(include_directories[inc_dir_count]) * inc_dir_count);
     char *cmd = malloc(CMD_SIZE);
     if (!cmd)
     {
@@ -403,7 +415,7 @@ int main()
     }
 
     size_t offset = snprintf(cmd, CMD_SIZE, "./cake -fanalyzer -I/usr/local/include/ -I/usr/include/ ");
-    for (int j = 0; j < i; j++)
+    for (int j = 0; j < inc_dir_count; j++)
     {
         offset += snprintf(cmd + offset, CMD_SIZE - offset, "-I%s ", include_directories[j]);
     }
