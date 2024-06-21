@@ -176,6 +176,27 @@ const char* get_posix_error_message(int error)
 #ifndef _WIN32
     case  ENOTBLK:
         return "Block device required";
+    case  EREMOTE:
+        return "Object is remote";
+    case  EMULTIHOP:
+        return "Multihop attempted";
+    case  EUSERS:
+        return "Too many users";
+    case  ESOCKTNOSUPPORT:
+        return "Socket type not supported";
+    case  EPFNOSUPPORT:
+        return "Protocol family not supported";
+    case  EHOSTDOWN:
+        return "Host is down";
+    case  ESHUTDOWN:
+        return "Cannot send after transport endpoint shutdown";
+    case  ETOOMANYREFS:
+        return "Too many references: cannot splice";
+    case  ESTALE:
+        return "Stale NFS file handle";
+    case  EDQUOT:
+        return "Quota exceeded";
+#ifndef __APPLE__
     case  ECHRNG:
         return "Channel number out of range";
     case  EL2NSYNC:
@@ -214,11 +235,6 @@ const char* get_posix_error_message(int error)
         return "Machine is not on the network";
     case  ENOPKG:
         return "Package not installed";
-    case  EREMOTE:
-        return "Object is remote";
-
-    case  EMULTIHOP:
-        return "Multihop attempted";
     case  EDOTDOT:
         return "RFS specific error";
     case  EADV:
@@ -231,8 +247,6 @@ const char* get_posix_error_message(int error)
         return "Interrupted system call should be restarted";
     case  ESTRPIPE:
         return "Streams pipe error";
-    case  EUSERS:
-        return "Too many users";
     case  ENOTUNIQ:
         return "Email not unique on network";
     case  EBADFD:
@@ -249,18 +263,6 @@ const char* get_posix_error_message(int error)
         return "Attempting to link in too many shared libraries";
     case  ELIBEXEC:
         return "Cannot exec a shared library directly";
-    case  ESOCKTNOSUPPORT:
-        return "Socket type not supported";
-    case  EPFNOSUPPORT:
-        return "Protocol family not supported";
-    case  EHOSTDOWN:
-        return "Host is down";
-    case  ESHUTDOWN:
-        return "Cannot send after transport endpoint shutdown";
-    case  ETOOMANYREFS:
-        return "Too many references: cannot splice";
-    case  ESTALE:
-        return "Stale NFS file handle";
     case  EUCLEAN:
         return "Structure needs cleaning";
     case  ENOTNAM:
@@ -271,12 +273,11 @@ const char* get_posix_error_message(int error)
         return "Is a named type file";
     case  EREMOTEIO:
         return "Remote I/O error";
-    case  EDQUOT:
-        return "Quota exceeded";
     case  ENOMEDIUM:
         return "No medium found";
     case  EMEDIUMTYPE:
         return "Wrong medium type";
+#endif
 #endif
     default:
         break;

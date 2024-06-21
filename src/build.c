@@ -2,7 +2,7 @@
 /*
  WINDOWS
  cl -DTEST build.c && build
- LINUX
+ LINUX/MACOS
  gcc  build.c -o build && ./build
  */
 
@@ -64,7 +64,7 @@ static int mychdir(const char *path)
     " visit.c "           \
     " flow_visit.c " \
     " error.c "           \
-    " format_visit.c "  
+    " format_visit.c "
 
 
 void compile_cake()
@@ -142,7 +142,7 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#ifdef BUILD_LINUX_CLANG
+#if defined BUILD_LINUX_CLANG || defined BUILD_MACOS_CLANG
     result = mysytem("clang " SOURCE_FILES " main.c "
 #ifdef TEST
            "-DTEST"
@@ -152,7 +152,7 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC
+#if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC  || defined BUILD_MACOS_GCC
 
     // #define GCC_ANALIZER  " -fanalyzer "
     result = mysytem("gcc "
@@ -207,7 +207,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
          "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
          "            \"&to=\" + encodeURI(\"1\") +\n"
          "            \"&options=\" + encodeURI(\"\");\n"
-         "\n"         
+         "\n"
          "        window.open(link, 'popup','width=800,height=600');\n"
          "    }\n"
          "// find-replace for this\n"
@@ -320,7 +320,7 @@ int main()
     printf("To run unit test use:\n");
     printf("cake ../tests/unit-tests/*.c -test-mode\n");
 
-    
+
 #endif
 
 #if defined BUILD_LINUX_GCC
@@ -336,6 +336,26 @@ int main()
                " -I/usr/local/include/ "
                " -I/usr/include/x86_64-linux-gnu/ "
                " -I/usr/include/ "
+               HEADER_FILES
+               SOURCE_FILES) != 0)
+    {
+       exit(1);
+    }
+#endif
+
+#if defined BUILD_MACOS_GCC
+    //`clang` could refer to homebrew clang, or apple clang. Both have different directories.
+    //`cc` most likley refers to apple clang
+    //`gcc` also likley refers to apple clang, but often is changed to actual GCC
+    //all of these have different includes, and the include directories change on OS versions
+    //Therefore, we will assume apple clang as it has the most "canonical" path for includes
+    if (mysytem("./cake "
+               " -fanalyzer "
+               " -I/usr/local/include/ "
+               " -I/usr/include/ "
+               " -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include "
+               " -I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include "
+               " -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/ "
                HEADER_FILES
                SOURCE_FILES) != 0)
     {

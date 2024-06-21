@@ -3,7 +3,7 @@
 #include <stdbool.h>
 
 
-#ifdef _WIN32 
+#ifdef _WIN32
 #include <direct.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -71,9 +71,12 @@ struct dirent* readdir(DIR* dirp);
 
 #else
 
+
+#ifndef __APPLE__
 typedef struct __dirstream DIR;
 DIR * owner opendir (const char *__name);
 int closedir(DIR* owner dirp);
+#endif
 
 #define MAX_PATH 500
 
