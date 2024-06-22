@@ -98,7 +98,7 @@ const char* get_posix_error_message(int error)
         return "Directory not empty";
     case  ELOOP:
         return "Too many symbolic links encountered";
-        //case  EWOULDBLOCK:
+        // case  EWOULDBLOCK:
         //case EAGAIN:  return "Operation would block";
     case  ENOMSG:
         return "No message of desired type";
@@ -176,6 +176,75 @@ const char* get_posix_error_message(int error)
 #ifndef _WIN32
     case  ENOTBLK:
         return "Block device required";
+    case  EREMOTE:
+        return "Object is remote";
+    case  EMULTIHOP:
+        return "Multihop attempted";
+    case  EUSERS:
+        return "Too many users";
+    case  ESOCKTNOSUPPORT:
+        return "Socket type not supported";
+    case  EPFNOSUPPORT:
+        return "Protocol family not supported";
+    case  EHOSTDOWN:
+        return "Host is down";
+    case  ESHUTDOWN:
+        return "Cannot send after transport endpoint shutdown";
+    case  ETOOMANYREFS:
+        return "Too many references: cannot splice";
+    case  ESTALE:
+        return "Stale NFS file handle";
+    case  EDQUOT:
+        return "Quota exceeded";
+#if defined __APPLE__ && __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+    case EPROCLIM:
+        return "Too many processes";
+    case EBADRPC:
+        return "RPC struct is bad";
+    case ERPCMISMATCH:
+        return "RPC version wrong";
+    case EPROGUNAVAIL:
+        return "RPC prog. not avail";
+    case EPROGMISMATCH:
+        return "Program version wrong";
+    case EPROCUNAVAIL:
+        return "Bad procedure for program";
+
+
+    case EBADEXEC:
+        return "Bad executable";
+    case EBADARCH:
+        return "Bad CPU type in executable";
+    case ESHLIBVERS:
+        return "Shared library version mismatch";
+    case EBADMACHO:
+        return "Malformed Macho file";
+
+    case EFTYPE:
+        return "Inappropriate file type or format";
+    case EAUTH:
+        return "Authentication error";
+    case ENEEDAUTH:
+        return "Need authenticator";
+
+    case EPWROFF:
+        return "Device power is off"; // can this even fire?
+    case EDEVERR:
+        return "Device error";
+
+    case ENOPOLICY:
+        return "No such policy registered";
+
+    case ENOTRECOVERABLE:
+        return "State not recoverable";
+    case EOWNERDEAD:
+        return "Previous owner died";
+
+    case EQFULL:
+        return "Interface output queue is full";
+#endif
+
+#ifndef __APPLE__
     case  ECHRNG:
         return "Channel number out of range";
     case  EL2NSYNC:
@@ -214,11 +283,6 @@ const char* get_posix_error_message(int error)
         return "Machine is not on the network";
     case  ENOPKG:
         return "Package not installed";
-    case  EREMOTE:
-        return "Object is remote";
-
-    case  EMULTIHOP:
-        return "Multihop attempted";
     case  EDOTDOT:
         return "RFS specific error";
     case  EADV:
@@ -231,8 +295,6 @@ const char* get_posix_error_message(int error)
         return "Interrupted system call should be restarted";
     case  ESTRPIPE:
         return "Streams pipe error";
-    case  EUSERS:
-        return "Too many users";
     case  ENOTUNIQ:
         return "Email not unique on network";
     case  EBADFD:
@@ -249,18 +311,6 @@ const char* get_posix_error_message(int error)
         return "Attempting to link in too many shared libraries";
     case  ELIBEXEC:
         return "Cannot exec a shared library directly";
-    case  ESOCKTNOSUPPORT:
-        return "Socket type not supported";
-    case  EPFNOSUPPORT:
-        return "Protocol family not supported";
-    case  EHOSTDOWN:
-        return "Host is down";
-    case  ESHUTDOWN:
-        return "Cannot send after transport endpoint shutdown";
-    case  ETOOMANYREFS:
-        return "Too many references: cannot splice";
-    case  ESTALE:
-        return "Stale NFS file handle";
     case  EUCLEAN:
         return "Structure needs cleaning";
     case  ENOTNAM:
@@ -271,12 +321,11 @@ const char* get_posix_error_message(int error)
         return "Is a named type file";
     case  EREMOTEIO:
         return "Remote I/O error";
-    case  EDQUOT:
-        return "Quota exceeded";
     case  ENOMEDIUM:
         return "No medium found";
     case  EMEDIUMTYPE:
         return "Wrong medium type";
+#endif
 #endif
     default:
         break;

@@ -2353,9 +2353,6 @@ void c_clrscr()
 #include <ctype.h>
 
 
-#include <sys/stat.h>
-
-
 #include <errno.h>
 
 
@@ -2368,13 +2365,10 @@ void c_clrscr()
 //#pragma once
 
 
-#ifdef _WIN32 
+#ifdef _WIN32
 
 
 #include <direct.h>
-
-
-#include <sys/types.h>
 
 #ifdef __CAKE__
 #pragma cake diagnostic push
@@ -2439,9 +2433,12 @@ struct dirent* readdir(DIR* dirp);
 
 #else
 
+
+#ifndef __APPLE__
 typedef struct __dirstream DIR;
 DIR * owner opendir (const char *__name);
 int closedir(DIR* owner dirp);
+#endif
 
 #define MAX_PATH 500
 
@@ -2466,6 +2463,7 @@ const char* get_posix_error_message(int error);
 
 bool path_is_relative(const char* path);
 bool path_is_absolute(const char* path);
+
 
 
 
@@ -4647,7 +4645,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
     struct token_list list2 = preprocessor(ctx, &list1, 1);
     ctx->flags = flags;
-    
+
     long long value = 0;
 
     if (list2.head == NULL)
@@ -4668,10 +4666,10 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
 
         struct preprocessor_ctx pre_ctx = { 0 };
 
-        
+
         pre_ctx.input_list = list4;
         pre_ctx.current = pre_ctx.input_list.head;
-        
+
         if (pre_constant_expression(&pre_ctx, &value) != 0)
         {
             preprocessor_diagnostic_message(C_ERROR_EXPRESSION_ERROR, ctx, first, "expression error");
@@ -4680,7 +4678,7 @@ long long preprocessor_constant_expression(struct preprocessor_ctx* ctx,
         ctx->conditional_inclusion = false;
 
         preprocessor_ctx_destroy(&pre_ctx);
-        
+
 
     }
 
@@ -5446,7 +5444,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_NEWLINE, level, ctx);
             if (!ctx->options.disable_assert && strcmp(macro->name, "assert") == 0)
             {
-                //cake overrides macro assert in debug and release to be defined as 
+                //cake overrides macro assert in debug and release to be defined as
                 //assert(__VA_ARGS__)
                 if (!is_empty_assert(&macro->replacement_list))
                 {
@@ -6892,7 +6890,6 @@ void include_config_header(struct preprocessor_ctx* ctx)
     /*restore*/
     ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index].warnings = w;
 }
-
 void add_standard_macros(struct preprocessor_ctx* ctx)
 {
     /*
@@ -6963,7 +6960,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #endif
 
         "#define _INTEGRAL_MAX_BITS " TOSTRING(_INTEGRAL_MAX_BITS) "\n" /*Use of __int64 should be conditional on the predefined macro _INTEGRAL_MAX_BITS*/
-       
+
         "#define _MSC_VER " TOSTRING(_MSC_VER) "\n"
         "#define _M_IX86 "  TOSTRING(_M_IX86) "\n"
         "#define __fastcall\n"
@@ -6977,11 +6974,16 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 
 #endif
 
-#ifdef __linux__
+#if defined __linux__ || defined __APPLE__
 
     //https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
         /*some gcc stuff need to parse linux headers*/
+#ifdef __linux__
     "#define __linux__\n"
+#elif defined __APPLE__
+    "#define __APPLE__\n"
+#endif
+
         "#define __builtin_va_list\n"
         "#define __builtin_va_start(a, b)\n"
         "#define __builtin_va_end(a)\n"
@@ -7243,7 +7245,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD__INT16: return "TK_KEYWORD__INT16";
         case TK_KEYWORD__INT32: return "TK_KEYWORD__INT32";
         case TK_KEYWORD__INT64: return "TK_KEYWORD__INT64";
-        
+
 
         case TK_KEYWORD_REGISTER: return "TK_KEYWORD_REGISTER";
         case TK_KEYWORD_RESTRICT: return "TK_KEYWORD_RESTRICT";
@@ -7301,7 +7303,7 @@ const char* get_token_name(enum token_type tk)
         case TK_KEYWORD__OBJ_OWNER: return "TK_KEYWORD__OBJ_OWNER";
         case TK_KEYWORD__VIEW: return "TK_KEYWORD__VIEW";
         case TK_KEYWORD__OPT: return "TK_KEYWORD__OPT";
-        
+
 
             /*extension compile time functions*/
         case TK_KEYWORD_STATIC_DEBUG: return "TK_KEYWORD_STATIC_DEBUG"; /*extension*/
@@ -7429,7 +7431,7 @@ const char* owner get_code_as_we_see_plus_macros(struct token_list* list)
 /*useful to debug visit.c*/
 void print_code_as_we_see(struct token_list* list, bool remove_comments)
 {
-    
+
     struct token* current = list->head;
     while (current && current != list->tail->next)
     {
@@ -39429,7 +39431,7 @@ const char* get_posix_error_message(int error)
         return "Directory not empty";
     case  ELOOP:
         return "Too many symbolic links encountered";
-        //case  EWOULDBLOCK:
+        // case  EWOULDBLOCK:
         //case EAGAIN:  return "Operation would block";
     case  ENOMSG:
         return "No message of desired type";
@@ -39507,6 +39509,75 @@ const char* get_posix_error_message(int error)
 #ifndef _WIN32
     case  ENOTBLK:
         return "Block device required";
+    case  EREMOTE:
+        return "Object is remote";
+    case  EMULTIHOP:
+        return "Multihop attempted";
+    case  EUSERS:
+        return "Too many users";
+    case  ESOCKTNOSUPPORT:
+        return "Socket type not supported";
+    case  EPFNOSUPPORT:
+        return "Protocol family not supported";
+    case  EHOSTDOWN:
+        return "Host is down";
+    case  ESHUTDOWN:
+        return "Cannot send after transport endpoint shutdown";
+    case  ETOOMANYREFS:
+        return "Too many references: cannot splice";
+    case  ESTALE:
+        return "Stale NFS file handle";
+    case  EDQUOT:
+        return "Quota exceeded";
+#if defined __APPLE__ && __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+    case EPROCLIM:
+        return "Too many processes";
+    case EBADRPC:
+        return "RPC struct is bad";
+    case ERPCMISMATCH:
+        return "RPC version wrong";
+    case EPROGUNAVAIL:
+        return "RPC prog. not avail";
+    case EPROGMISMATCH:
+        return "Program version wrong";
+    case EPROCUNAVAIL:
+        return "Bad procedure for program";
+
+
+    case EBADEXEC:
+        return "Bad executable";
+    case EBADARCH:
+        return "Bad CPU type in executable";
+    case ESHLIBVERS:
+        return "Shared library version mismatch";
+    case EBADMACHO:
+        return "Malformed Macho file";
+
+    case EFTYPE:
+        return "Inappropriate file type or format";
+    case EAUTH:
+        return "Authentication error";
+    case ENEEDAUTH:
+        return "Need authenticator";
+
+    case EPWROFF:
+        return "Device power is off"; // can this even fire?
+    case EDEVERR:
+        return "Device error";
+
+    case ENOPOLICY:
+        return "No such policy registered";
+
+    case ENOTRECOVERABLE:
+        return "State not recoverable";
+    case EOWNERDEAD:
+        return "Previous owner died";
+
+    case EQFULL:
+        return "Interface output queue is full";
+#endif
+
+#ifndef __APPLE__
     case  ECHRNG:
         return "Channel number out of range";
     case  EL2NSYNC:
@@ -39545,11 +39616,6 @@ const char* get_posix_error_message(int error)
         return "Machine is not on the network";
     case  ENOPKG:
         return "Package not installed";
-    case  EREMOTE:
-        return "Object is remote";
-
-    case  EMULTIHOP:
-        return "Multihop attempted";
     case  EDOTDOT:
         return "RFS specific error";
     case  EADV:
@@ -39562,8 +39628,6 @@ const char* get_posix_error_message(int error)
         return "Interrupted system call should be restarted";
     case  ESTRPIPE:
         return "Streams pipe error";
-    case  EUSERS:
-        return "Too many users";
     case  ENOTUNIQ:
         return "Email not unique on network";
     case  EBADFD:
@@ -39580,18 +39644,6 @@ const char* get_posix_error_message(int error)
         return "Attempting to link in too many shared libraries";
     case  ELIBEXEC:
         return "Cannot exec a shared library directly";
-    case  ESOCKTNOSUPPORT:
-        return "Socket type not supported";
-    case  EPFNOSUPPORT:
-        return "Protocol family not supported";
-    case  EHOSTDOWN:
-        return "Host is down";
-    case  ESHUTDOWN:
-        return "Cannot send after transport endpoint shutdown";
-    case  ETOOMANYREFS:
-        return "Too many references: cannot splice";
-    case  ESTALE:
-        return "Stale NFS file handle";
     case  EUCLEAN:
         return "Structure needs cleaning";
     case  ENOTNAM:
@@ -39602,12 +39654,11 @@ const char* get_posix_error_message(int error)
         return "Is a named type file";
     case  EREMOTEIO:
         return "Remote I/O error";
-    case  EDQUOT:
-        return "Quota exceeded";
     case  ENOMEDIUM:
         return "No medium found";
     case  EMEDIUMTYPE:
         return "Wrong medium type";
+#endif
 #endif
     default:
         break;

@@ -2,7 +2,7 @@
 /*
  WINDOWS
  cl -DTEST build.c && build
- LINUX
+ LINUX/MACOS
  gcc  build.c -o build && ./build
  */
 
@@ -26,6 +26,10 @@ static int mychdir(const char *path)
 #define OUTPUT "cake.exe"
 #else
 #define OUTPUT "cake"
+#endif
+
+#ifdef BUILD_MACOS
+#include <sys/syslimits.h>
 #endif
 
 #define HEADER_FILES      \
@@ -64,7 +68,7 @@ static int mychdir(const char *path)
     " visit.c "           \
     " flow_visit.c " \
     " error.c "           \
-    " format_visit.c "  
+    " format_visit.c "
 
 
 void compile_cake()
@@ -142,7 +146,7 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#ifdef BUILD_LINUX_CLANG
+#if defined BUILD_LINUX_CLANG || defined BUILD_MACOS_CLANG
     result = mysytem("clang " SOURCE_FILES " main.c "
 #ifdef TEST
            "-DTEST"
@@ -152,7 +156,7 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC
+#if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC  || defined BUILD_MACOS_GCC
 
     // #define GCC_ANALIZER  " -fanalyzer "
     result = mysytem("gcc "
@@ -207,7 +211,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
          "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
          "            \"&to=\" + encodeURI(\"1\") +\n"
          "            \"&options=\" + encodeURI(\"\");\n"
-         "\n"         
+         "\n"
          "        window.open(link, 'popup','width=800,height=600');\n"
          "    }\n"
          "// find-replace for this\n"
@@ -241,6 +245,53 @@ void generate_doc(const char *mdfilename, const char *outfile)
         fwrite("</article></body></html>", 1, strlen("</article></body></html>"), f3);
         fclose(f3);
     }
+}
+
+static int get_include_directories(const char *compiler, size_t out_max, char out[static out_max][PATH_MAX])
+{
+    char cmd[sizeof("sh -c \"\"") + PATH_MAX + sizeof(" -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'")];
+    snprintf(cmd, sizeof cmd, "sh -c \"%s -E -Wp,-v - < /dev/null 2>&1 | grep '^ /'\"", compiler);
+
+    FILE *f = popen(cmd, "r");
+    if (!f)
+    {
+        perror("popen");
+        return -1;
+    }
+
+    size_t bufsiz = 0xFF;
+    char *buffer = malloc(bufsiz);
+    if (!buffer)
+    {
+        perror("malloc");
+        return -1;
+    }
+
+    int i = 0;
+    while (getline(&buffer, &bufsiz, f) != -1)
+    {
+        size_t len = strlen(buffer);
+        if (len > 1)
+        {
+            //get rid of the newline
+            buffer[len - 1] = '\0';
+            //buffer + 1 to ignore trailing space
+            strlcpy(out[i], buffer + 1, PATH_MAX);
+        }
+        else
+        {
+            out[i][0] = '\0';
+        }
+
+        i++;
+        if (i == out_max)
+            break;
+    }
+
+    pclose(f);
+    free(buffer);
+
+    return i;
 }
 
 int main()
@@ -322,7 +373,7 @@ int main()
     printf("To run unit test use:\n");
     printf("cake ../tests/unit-tests/*.c -test-mode\n");
 
-    
+
 #endif
 
 #if defined BUILD_LINUX_GCC
@@ -344,6 +395,42 @@ int main()
        exit(1);
     }
 #endif
+
+#if defined BUILD_MACOS_GCC
+    //`clang` could refer to homebrew clang, or apple clang. Both have different directories.
+    //`cc` most likley refers to apple clang
+    //`gcc` also likley refers to apple clang, but often is changed to actual GCC
+    //all of these have different includes, and the include directories change on OS versions
+    //Therefore, we need to run `GCC -E -Wp,-v -` to find the directories
+    enum { INCLUDE_DIRECTORY_MAX = 8 };
+    char include_directories[INCLUDE_DIRECTORY_MAX][PATH_MAX];
+    int inc_dir_count = get_include_directories(GCC, INCLUDE_DIRECTORY_MAX, include_directories);
+
+    const size_t CMD_SIZE = sizeof("./cake -fanalyzer -I/usr/local/include/ -I/usr/include/ ")
+                          + (sizeof(HEADER_FILES) + sizeof(SOURCE_FILES))
+                          + (sizeof(include_directories[inc_dir_count]) * inc_dir_count);
+    char *cmd = malloc(CMD_SIZE);
+    if (!cmd)
+    {
+        perror("malloc");
+        exit(1);
+    }
+
+    size_t offset = snprintf(cmd, CMD_SIZE, "./cake -fanalyzer -I/usr/local/include/ -I/usr/include/ ");
+    for (int j = 0; j < inc_dir_count; j++)
+    {
+        offset += snprintf(cmd + offset, CMD_SIZE - offset, "-I%s ", include_directories[j]);
+    }
+    snprintf(cmd + offset, CMD_SIZE - offset, HEADER_FILES SOURCE_FILES);
+    if (mysytem(cmd) != 0)
+    {
+        free(cmd);
+        exit(1);
+    }
+
+    free(cmd);
+#endif
+
 
 #endif
 

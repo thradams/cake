@@ -1,0 +1,8 @@
+CompileFlags:
+  Compiler: gcc-14
+  Add:
+    - -std=gnu2x
+    - -Wall
+    - -Wextra
+    - -DGCC="gcc-14"
+
