@@ -61,7 +61,7 @@ double constant_value_to_double(const struct constant_value* a)
     case TYPE_UNSIGNED_LONG_LONG:
         return (double)a->ullvalue;
     default:
-        return 0;
+        break;
     }
 
     return 0;
@@ -103,7 +103,7 @@ unsigned long long constant_value_to_ull(const struct constant_value* a)
     case TYPE_UNSIGNED_LONG_LONG:
         return (unsigned long long)a->ullvalue;
     default:
-        return 0;
+        break;
     }
 
     return 0;
@@ -119,7 +119,7 @@ long long constant_value_to_ll(const struct constant_value* a)
     case TYPE_UNSIGNED_LONG_LONG:
         return (long long)a->ullvalue;
     default:
-        return 0;
+        break;
     }
 
     return 0;
@@ -135,7 +135,7 @@ bool constant_value_to_bool(const struct constant_value* a)
     case TYPE_UNSIGNED_LONG_LONG:
         return a->ullvalue != 0;
     default:
-        return 0;
+        break;
     }
 
     return 0;
@@ -529,14 +529,14 @@ static int compare_function_arguments(struct parser_ctx* ctx,
             p_current_parameter_type = p_param_list->head;
         }
 
-        
+
         struct argument_expression* p_current_argument = p_argument_expression_list->head;
 
         while (p_current_argument && p_current_parameter_type)
         {
             check_assigment(ctx, &p_current_parameter_type->type, p_current_argument->expression, ASSIGMENT_TYPE_PARAMETER);
             p_current_argument = p_current_argument->next;
-            p_current_parameter_type = p_current_parameter_type->next;            
+            p_current_parameter_type = p_current_parameter_type->next;
         }
 
         if (p_current_argument != NULL && !p_param_list->is_var_args)
@@ -2978,7 +2978,7 @@ struct expression* owner additive_expression(struct parser_ctx* ctx)
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
-            
+
             new_expression->right = multiplicative_expression(ctx);
             if (new_expression->right == NULL)
             {
@@ -3305,10 +3305,11 @@ struct expression* owner relational_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-static void check_diferent_enuns(struct parser_ctx* ctx,
+void check_diferent_enuns(struct parser_ctx* ctx,
                                  const struct token* operator_token,
                                  struct expression* left,
-                                 struct expression* right)
+                                 struct expression* right,
+                                 const char * message)
 {
     if (left->type.type_specifier_flags & TYPE_SPECIFIER_ENUM &&
         right->type.type_specifier_flags & TYPE_SPECIFIER_ENUM)
@@ -3324,10 +3325,18 @@ static void check_diferent_enuns(struct parser_ctx* ctx,
             if (right->type.enum_specifier->tag_token)
                 righttag = right->type.enum_specifier->tag_token->lexeme;
 
+            char finalmessage[200]={0};
+            snprintf(finalmessage, 
+                sizeof finalmessage,
+                "%s (enum %s, enum %s)", 
+                message, 
+                lefttag,
+                righttag);
+
             compiler_diagnostic_message(W_ENUN_CONVERSION,
                                         ctx,
                                         operator_token,
-                                        "implicit conversion from 'enum %s' to 'enum %s'",
+                                        finalmessage,
                                         lefttag,
                                         righttag);
         }
@@ -3391,7 +3400,8 @@ struct expression* owner equality_expression(struct parser_ctx* ctx)
                 throw;
 
             new_expression->last_token = new_expression->right->last_token;
-            check_diferent_enuns(ctx, operator_token, new_expression->left, new_expression->right);
+            check_diferent_enuns(ctx, operator_token, new_expression->left, new_expression->right,
+                "comparing different enums.");
 
             new_expression->first_token = operator_token;
 
@@ -3557,7 +3567,6 @@ struct expression* owner exclusive_or_expression(struct parser_ctx* ctx)
 
 struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
 {
-
     /*
     inclusive-OR-expression:
     exclusive-OR-expression
@@ -3573,6 +3582,7 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
         while (ctx->current != NULL &&
                (ctx->current->type == '|'))
         {
+            struct token* operator_token = ctx->current;
             parser_match(ctx);
             struct expression* owner new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
@@ -3590,6 +3600,13 @@ struct expression* owner inclusive_or_expression(struct parser_ctx* ctx)
                 expression_delete(new_expression);
                 throw;
             }
+
+            check_diferent_enuns(ctx,
+                                operator_token,
+                                new_expression->left,
+                                new_expression->right,
+                                "operator '|' between enumerations of different types.");
+
             new_expression->last_token = new_expression->right->last_token;
             new_expression->constant_value =
                 constant_value_op(&new_expression->left->constant_value, &new_expression->right->constant_value, '|');
@@ -3845,7 +3862,9 @@ struct expression* owner assignment_expression(struct parser_ctx* ctx)
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN;
             new_expression->type.storage_class_specifier_flags &= ~STORAGE_SPECIFIER_FUNCTION_RETURN_NODISCARD;
 
-            check_diferent_enuns(ctx, op_token, new_expression->left, new_expression->right);
+            check_diferent_enuns(ctx, op_token, new_expression->left, new_expression->right,
+            "assignment of different enums.");
+
             new_expression->left->is_assigment_expression = true;
             if (new_expression->left->left)
                 new_expression->left->left->is_assigment_expression = true;
@@ -3869,7 +3888,7 @@ void argument_expression_list_push(struct argument_expression_list* list, struct
     }
     else
     {
-        assert(list->tail->next == NULL);        
+        assert(list->tail->next == NULL);
         list->tail->next = pitem;
     }
     list->tail = pitem;

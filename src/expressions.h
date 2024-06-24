@@ -244,3 +244,9 @@ void expression_evaluate_equal_not_equal(const struct expression* left,
     struct expression* result,
     int op,
     bool disabled);
+
+void check_diferent_enuns(struct parser_ctx* ctx,
+                                 const struct token* operator_token,
+                                 struct expression* left,
+                                 struct expression* right,
+                                 const char * message);

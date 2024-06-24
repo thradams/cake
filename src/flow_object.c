@@ -29,6 +29,13 @@ bool flow_object_is_not_null(struct flow_object* p)
 
 }
 
+bool flow_object_can_be_not_null_or_moved(struct flow_object* p)
+{
+    enum object_state e = p->current.state;
+    return (e & OBJECT_STATE_NOT_NULL) ||
+           (e & OBJECT_STATE_MOVED);
+}
+
 bool flow_object_is_null(struct flow_object* p)
 {
     enum object_state e = p->current.state;
@@ -51,7 +58,7 @@ bool flow_object_is_not_zero(struct flow_object* p)
            (e & OBJECT_STATE_NOT_ZERO));
 }
 
-bool flow_object_maybe_is_null(struct flow_object* p)
+bool flow_object_can_be_null(struct flow_object* p)
 {
     enum object_state e = p->current.state;
 
@@ -61,7 +68,19 @@ bool flow_object_maybe_is_null(struct flow_object* p)
 bool flow_object_is_uninitialized(struct flow_object* p)
 {
     enum object_state e = p->current.state;
+    return e == OBJECT_STATE_UNINITIALIZED;
+}
+
+bool flow_object_can_be_uninitialized(struct flow_object* p)
+{
+    enum object_state e = p->current.state;
     return (e & OBJECT_STATE_UNINITIALIZED);
+}
+
+bool flow_object_can_have_its_lifetime_ended(struct flow_object* p)
+{
+    enum object_state e = p->current.state;
+    return (e & OBJECT_STATE_LIFE_TIME_ENDED);
 }
 
 
@@ -504,11 +523,11 @@ struct flow_object* make_object_core(struct flow_visit_ctx* ctx,
     //assert((p_declarator_opt == NULL) != (p_expression_origin == NULL));
     if (p_declarator_opt == NULL)
     {
-        assert(p_expression_origin != NULL);
+        //assert(p_expression_origin != NULL);
     }
     if (p_expression_origin == NULL)
     {
-        assert(p_declarator_opt != NULL);
+       // assert(p_declarator_opt != NULL);
     }
 
 
@@ -806,7 +825,7 @@ void print_object_core(int ident,
             if (flow_object_is_null(p_visitor->p_object))
             {
             }
-            else if (flow_object_is_uninitialized(p_visitor->p_object))
+            else if (flow_object_can_be_uninitialized(p_visitor->p_object))
             {
             }
             else
@@ -2186,7 +2205,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
         if (type_is_pointer(p_visitor->p_type) &&
             !is_nullable &&
             !type_is_nullable(p_visitor->p_type, ctx->ctx->options.null_checks_enabled) &&
-            flow_object_maybe_is_null(p_visitor->p_object))
+            flow_object_can_be_null(p_visitor->p_object))
         {
             compiler_diagnostic_message(W_FLOW_NULL_DEREFERENCE,
                 ctx->ctx,
@@ -2197,8 +2216,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
 
         if (type_is_pointer(p_visitor->p_type) &&
             check_pointed_object &&
-            p_visitor->p_object->current.state & OBJECT_STATE_NOT_NULL /*we don't need to check pointed object*/
-            )
+            flow_object_can_be_not_null_or_moved(p_visitor->p_object))            
         {
             struct type t2 = type_remove_pointer(p_visitor->p_type);
 
@@ -2230,18 +2248,18 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                 previous_names);
         }
 
-#if 0
+
         //TODO there is some problem with  OBJECT_STATE_LIFE_TIME_ENDED
         //state somewhere!
-        if (p_object->current.state & OBJECT_STATE_LIFE_TIME_ENDED)
+        if (p_visitor->p_object->current.state & OBJECT_STATE_LIFE_TIME_ENDED)
         {
-            compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
-                ctx->ctx,
-                position_token,
-                "lifetime ended '%s'",
-                previous_names);
+            //compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
+            //    ctx->ctx,
+            //    position_token,
+            //    "lifetime ended '%s'",
+            //    previous_names);
         }
-#endif
+
 
     }
 }
@@ -2518,13 +2536,11 @@ void end_of_storage_visit(struct flow_visit_ctx* ctx,
     s_visit_number++);
 }
 
-
-bool object_is_zero_or_null(const struct flow_object* p_object)
+bool flow_object_is_zero_or_null(const struct flow_object* p_object)
 {
     return (p_object->current.state == OBJECT_STATE_NULL) ||
         (p_object->current.state == OBJECT_STATE_ZERO);
 }
-
 
 /*
    This function must check and do the flow assignment of
@@ -2632,7 +2648,7 @@ static void flow_assignment_core(
             checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, error_position);
         }
 
-        if (object_is_zero_or_null(p_visitor_b->p_object))
+        if (flow_object_is_zero_or_null(p_visitor_b->p_object))
         {
             if (type_is_array(p_visitor_b->p_type))
             {
@@ -2664,7 +2680,7 @@ static void flow_assignment_core(
     {
         checked_empty(ctx, p_visitor_a->p_type, p_visitor_a->p_object, error_position);
 
-        if (object_is_zero_or_null(p_visitor_b->p_object))
+        if (flow_object_is_zero_or_null(p_visitor_b->p_object))
         {
             //0 to objec_owner??
             //a = nullpr

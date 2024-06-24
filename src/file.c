@@ -1,21 +1,13 @@
 #pragma safety enable
+enum E1 {A, B};
+enum E2 {C, D};
 
-
-
-void free( void* _Owner ptr);
-void* _Owner malloc(int size);
-struct X { char * _Owner text; };
-
-void x_destroy(struct X* _Obj_owner p)
+void f(enum E1 e)
 {
-    free(p->text);
-}
-
-void x_delete(struct X* _Owner _Opt p)
-{
-    if (p)
+    switch(e)
     {
-        x_destroy(p);
-        free(p);
+        case A:break;
+        case 12:break;
     }
 }
+int main(){}

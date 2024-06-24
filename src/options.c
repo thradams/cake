@@ -291,7 +291,8 @@ int fill_options(struct options* options,
         }
 
 
-        if (strcmp(argv[i], "-msvc-output") == 0)
+        if (strcmp(argv[i], "-msvc-output") == 0 ||
+            strcmp(argv[i], "-fdiagnostics-format=msvc") == 0) //same as clang
         {
             options->visual_studio_ouput_format = true;
             continue;
@@ -328,6 +329,12 @@ int fill_options(struct options* options,
         if (strcmp(argv[i], "-nullable=enabled") == 0)
         {
             options->null_checks_enabled = true;
+            continue;
+        }
+
+        if (strcmp(argv[i], "-autoconfig") == 0)
+        {
+            options->auto_config = true;
             continue;
         }
 

@@ -18,6 +18,7 @@ int main()
   user.name = strdup("a");
   char* _Owner _Opt name = user.name;
   free(name);
+  static_debug(user.name);
   if (user.name)
     set_id(&user, 1); //warning: object 'user.name' was moved  
 }

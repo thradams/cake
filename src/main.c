@@ -51,6 +51,9 @@ int main(int argc, char** argv)
 
     //-msvc-output 
 
+    /*
+      /nologo ?
+    */
     printf("Cake " CAKE_VERSION "\n");
     printf("\n\n");
 
@@ -63,7 +66,11 @@ int main(int argc, char** argv)
 
     struct report report = { 0 };
     compile(argc, (const char**)argv, &report);
-    print_report(&report, true);
+
+    if (!report.ignore_this_report)
+    {
+        print_report(&report, true);
+    }
 
     return report.error_count > 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 

@@ -98,8 +98,9 @@ struct flow_object
     struct flow_object_state current;
 
     int id; //helps debugging
-    bool is_temporary;
+    bool is_temporary;    
 };
+
 void flow_object_set_is_moved(struct flow_object* p_object);
 void flow_object_set_can_be_uninitialized(struct flow_object* p_object);
 void flow_object_set_is_unitialized(struct flow_object* p_object);
@@ -109,15 +110,22 @@ void flow_object_set_current_state_to_is_null(struct flow_object* p);
 
 int flow_object_add_state(struct flow_object* p, struct flow_object_state *owner pnew);
 
+bool flow_object_is_zero_or_null(const struct flow_object* p_object);
 
 bool flow_object_is_not_null(struct flow_object* p);
+bool flow_object_can_be_not_null_or_moved(struct flow_object* p);
+
 bool flow_object_is_null(struct flow_object* p);
+bool flow_object_can_be_null(struct flow_object* p);
+
 
 bool flow_object_is_not_zero(struct flow_object* p);
 bool flow_object_is_zero(struct flow_object* p);
 
-bool flow_object_maybe_is_null(struct flow_object* p);
 bool flow_object_is_uninitialized(struct flow_object* p);
+bool flow_object_can_be_uninitialized(struct flow_object* p);
+
+bool flow_object_can_have_its_lifetime_ended(struct flow_object* p);
 
 void flow_object_print_state(struct flow_object* p);
 
@@ -175,7 +183,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     const struct token* position_token,
     bool check_pointed_object);
 
-bool object_is_zero_or_null(const struct flow_object* p_object);
+
 void end_of_storage_visit(struct flow_visit_ctx* ctx,
     struct type* p_type,
     bool type_is_view,

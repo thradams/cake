@@ -58,6 +58,8 @@ Sample of cakeconfig.h
 
 ```
 
+Cake also have the option -autoconfig that generates the cakeconfig.h automatically.
+
 Cake also includes standard header files. The objective is to allow usage even without installing GCC or MSVC. You can set this path on `cakeconfig.h` but mixing cake headers with other headers is not recommended.
 
 ## Command line
@@ -139,6 +141,11 @@ Output is compatible with visual studio IDE. We can click on the error message a
 ### -fanalyzer
 This option enables an static analysis of program flow. This is required for some
 ownership checks
+
+### -autoconfig
+Generates cakeconfig.h header. 
+On Windows, it must be generated inside the Visual Studio Command Prompt to read the INCLUDE variable.
+On Linux, it calls GCC with echo | gcc -v -E - 2>&1 and reads the output.
 
 ## Output
 

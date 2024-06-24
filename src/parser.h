@@ -45,14 +45,18 @@ struct report
     int error_count;
     int warnings_count;
     int info_count;
-    
+
     bool test_mode;
     int test_failed;
     int test_succeeded;
 
     enum diagnostic_id last_diagnostic_id;
-};
 
+    /*
+      direct commands like -autoconfig doesnt use report
+    */
+    bool ignore_this_report;
+};
 
 struct parser_ctx
 {
@@ -73,6 +77,15 @@ struct parser_ctx
     */
     const struct try_statement* p_current_try_statement_opt;
 
+    /*
+    * Points to the select_stament we're in. Or null.
+    */
+    const struct selection_statement* p_current_selection_statement;
+
+    struct  switch_value { long long value; struct switch_value* next; };
+    struct  switch_value* switch_value;
+
+
     FILE* owner sarif_file;
 
     view struct token_list input_list;
@@ -87,7 +100,7 @@ struct parser_ctx
 
     bool inside_generic_association;
 
-    
+
     struct report* p_report;
 
 };
@@ -163,7 +176,7 @@ struct declaration_specifiers
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-    
+
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
 
     /*shortcuts*/
@@ -203,7 +216,7 @@ struct static_assert_declaration
       "static_debug" ( constant-expression ) ;
       "static_set" ( constant-expression , string-literal) ;
     */
- 
+
     struct token* first_token;
     struct token* last_token;
     struct expression* owner constant_expression;
@@ -396,7 +409,7 @@ struct declaration
 
     struct token* first_token;
     struct token* last_token;
-    
+
     struct declaration* owner next;
 };
 void declaration_delete(struct declaration* owner opt p);
@@ -404,10 +417,10 @@ struct declaration* owner external_declaration(struct parser_ctx* ctx);
 
 struct simple_declaration
 {
-    /*    
+    /*
     This is an extension to support C++ 17 if with initialization
-    
-    simple-declaration:    
+
+    simple-declaration:
       declaration-specifiers init-declarator-list opt ;
       attribute-specifier-sequence declaration-specifiers init-declarator-list ;
     */
@@ -435,14 +448,14 @@ struct condition {
     struct expression* owner expression;
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     struct declaration_specifiers* owner p_declaration_specifiers;
-    
+
     /*
       OBS:
       We must use p_init_declarator because it is kept on the scope
       as init_declarator when we are trying to parse init-statement or condition that
       are very similar
     */
-    struct init_declarator * owner p_init_declarator;
+    struct init_declarator* owner p_init_declarator;
 
     struct token* first_token;
     struct token* last_token;
@@ -472,7 +485,7 @@ struct atomic_type_specifier
     /*
       atomic-type-specifier:
         "_Atomic" ( type-name )
-    */    
+    */
     struct token* token;
     struct type_name* owner type_name;
 };
@@ -525,6 +538,10 @@ struct enum_specifier
 struct enum_specifier* owner enum_specifier(struct parser_ctx*);
 void enum_specifier_delete(struct enum_specifier* owner opt p);
 const struct enum_specifier* get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
+
+const struct enumerator* find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value);
+
+
 
 struct member_declaration_list
 {
@@ -657,10 +674,10 @@ struct declarator
     int num_uses; /*used to show not used warnings*/
 
     /*user by flow analysis*/
-    struct flow_object * p_object;
+    struct flow_object* p_object;
 
     /*final declarator type (after auto, typeof etc)*/
-    struct type type;    
+    struct type type;
 };
 
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
@@ -1063,11 +1080,11 @@ struct selection_statement
     selection-statement:
        "if" ( init-statement opt condition ) secondary-block
        "if" ( init-statement opt condition ) secondary-block "else" secondary-block
-       switch ( init-statement opt condition ) secondary-block    
+       switch ( init-statement opt condition ) secondary-block
     */
     struct init_statement* owner p_init_statement;
     struct condition* owner condition;
-        
+
     struct secondary_block* owner secondary_block;
     struct secondary_block* owner else_secondary_block_opt;
 
@@ -1223,7 +1240,7 @@ struct secondary_block
 };
 
 void secondary_block_delete(struct secondary_block* owner opt p);
-bool secondary_block_ends_with_jump(struct secondary_block * p_secondary_block);
+bool secondary_block_ends_with_jump(struct secondary_block* p_secondary_block);
 
 struct unlabeled_statement
 {

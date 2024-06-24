@@ -331,13 +331,14 @@ int main()
       To find GCC directories use
       echo | gcc -E -Wp,-v -
     */
-    if (mysytem("./cake "
+   
+   //Generates cakeconfig.h
+   mysytem("./cake -autoconfig");
+
+   //Uses previouly generated cakeconfig.h to find include dir
+   if (mysytem("./cake "
                " -D__x86_64__ "
                " -fanalyzer "
-               " -I/usr/lib/gcc/x86_64-linux-gnu/11/include/ "
-               " -I/usr/local/include/ "
-               " -I/usr/include/x86_64-linux-gnu/ "
-               " -I/usr/include/ "
                HEADER_FILES
                SOURCE_FILES) != 0)
     {

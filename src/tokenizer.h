@@ -5,6 +5,8 @@
 #include "options.h"
 #include "ownership.h"
 
+#define CAKE_CFG_FNAME "/cakeconfig.h"
+
 struct include_dir
 {
     const char* owner path;

@@ -333,6 +333,7 @@ struct options
 
     
     /*
+      -fdiagnostics-format=msvc
       -msvc-output
     */
     bool visual_studio_ouput_format;
@@ -348,6 +349,11 @@ struct options
       (print tokens after preprocessor)
     */
     bool dump_pptokens;
+
+    /*
+      -autoconfig      
+    */
+    bool auto_config;
 
     /*
       -o filename

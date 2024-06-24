@@ -2589,12 +2589,12 @@ struct init_declarator* owner init_declarator(struct parser_ctx* ctx,
                         p_init_declarator->p_declarator->direct_declarator->array_declarator != NULL ||
                         p_init_declarator->p_declarator->direct_declarator->function_declarator != NULL)
                     {
-                        compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token, "'auto' requires a plain identifier, possibly with attributes, as declarator");
+                        compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token, "'auto' requires a plain identifier");
                         throw;
                     }
                     if (p_init_declarator->p_declarator->pointer != NULL)
                     {
-                        compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token, "'auto' requires a plain identifier, possibly with attributes, as declarator");
+                        compiler_diagnostic_message(C_ERROR_AUTO_NEEDS_SINGLE_DECLARATOR, ctx, p_init_declarator->p_declarator->first_token, "'auto' requires a plain identifier");
                         throw;
                     }
 
@@ -3815,6 +3815,18 @@ struct type_specifier_qualifier* owner type_specifier_qualifier(struct parser_ct
         assert(false);
     }
     return type_specifier_qualifier;
+}
+
+const struct enumerator* find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value)
+{
+    struct enumerator* p = p_enum_specifier->enumerator_list.head;
+    while (p)
+    {
+        if (p->value == value)
+            return p;
+        p = p->next;
+    }
+    return NULL;
 }
 
 void enum_specifier_delete(struct enum_specifier* owner opt p)
@@ -6390,6 +6402,70 @@ struct label* owner label(struct parser_ctx* ctx)
             p_label->constant_expression = constant_expression(ctx, true);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
+
+            long long case_value = constant_value_to_ll(&p_label->constant_expression->constant_value);
+
+            struct  switch_value* p_switch_value = ctx->switch_value;
+            while (p_switch_value)
+            {
+                if (p_switch_value->value == case_value)
+                {
+                    //already handled
+                    break;
+                }
+                p_switch_value = p_switch_value->next;
+            }
+
+            struct  switch_value* newvalue = calloc(1, sizeof * newvalue);
+            if (newvalue)
+            {
+                newvalue->value = case_value;
+                newvalue->next = ctx->switch_value ? ctx->switch_value->next : NULL;
+                ctx->switch_value = newvalue;
+            }
+
+            if (p_label->constant_expression &&
+                ctx->p_current_selection_statement &&
+                ctx->p_current_selection_statement->condition &&
+                ctx->p_current_selection_statement->condition->expression)
+            {
+                if (type_is_enum(&ctx->p_current_selection_statement->condition->expression->type))
+                {
+                    if (type_is_enum(&p_label->constant_expression->type))
+                    {
+                        check_diferent_enuns(ctx,
+                                    p_label->constant_expression->first_token,
+                                    p_label->constant_expression,
+                                    ctx->p_current_selection_statement->condition->expression,
+                                    "mismatch in enumeration types");
+                    }
+                    else
+                    {
+                        //enum and something else...
+                    }
+                }
+
+                const struct enum_specifier* p_enum_specifier =
+                    get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
+                if (p_enum_specifier)
+                {
+                    const struct enumerator* p_enumerator = find_enumerator_by_value(p_enum_specifier, case_value);
+                    if (p_enumerator == NULL)
+                    {
+                        compiler_diagnostic_message(W_ENUN_CONVERSION,
+                                        ctx,
+                                        p_label->constant_expression->first_token,
+                                        "case value '%lld' not in enumerated type 'enum %s'",
+                                        case_value,
+                                        p_enum_specifier->tag_name);
+                    }
+                    else
+                    {
+
+                    }
+                }
+            }
+
         }
         else if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
@@ -6920,7 +6996,17 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
             //compiler_diagnostic_message(W_CONDITIONAL_IS_CONSTANT, ctx, p_selection_statement->init_statement_expression->first_token, "conditional expression is constant");
         //}
 
+        const struct selection_statement* previous = ctx->p_current_selection_statement;
+        ctx->p_current_selection_statement = p_selection_statement;
+                
+        struct  switch_value* previous_switch_value = ctx->switch_value;
+        
         p_selection_statement->secondary_block = secondary_block(ctx);
+        ctx->p_current_selection_statement = previous;
+
+        //ver auqias naoi foram usados
+        ctx->switch_value = previous_switch_value;
+
         if (p_selection_statement->secondary_block == NULL)
             throw;
 
@@ -7560,7 +7646,7 @@ WINBASEAPI DWORD WINAPI GetEnvironmentVariableA(
     LPCSTR lpName,
     LPSTR lpBuffer,
     DWORD nSize
-    );
+);
 
 #else
 
@@ -7677,6 +7763,143 @@ void ast_format_visit(struct ast* ast)
 
 void c_visit(struct ast* ast)
 {}
+
+
+int generate_config_file(const char* configpath)
+{
+    FILE* outfile = NULL;
+    int error = 0;
+    try
+    {
+        outfile = fopen(configpath, "w");
+        if (outfile == NULL)
+        {
+            printf("Cannot open the file '%s' for writing.\n", configpath);
+            error = errno;
+            throw;
+        }
+
+        fprintf(outfile, "//This was generated by running cake -autoconfig \n");
+
+
+#ifdef __linux__
+
+        fprintf(outfile, "This file was generated reading the ouput of\n");
+        fprintf(outfile, "//echo | gcc -v -E - 2>&1\n");
+        fprintf(outfile, "\n");
+
+        char path[400] = { 0 };
+        char* command = "echo | gcc -v -E - 2>&1";
+        int in_include_section = 0;
+
+        // Open the command for reading
+        FILE* fp = popen(command, "r");
+        if (fp == NULL)
+        {
+            fprintf(stderr, "Failed to run command\n");
+            error = errno;
+            throw;
+        }
+
+        // Read the output a line at a time
+        while (fgets(path, sizeof(path), fp) != NULL)
+        {
+            // Check if we are in the "#include <...> search starts here:" section
+            if (strstr(path, "#include <...> search starts here:") != NULL)
+            {
+                in_include_section = 1;
+                continue;
+            }
+            // Check if we have reached the end of the include section
+            if (in_include_section && strstr(path, "End of search list.") != NULL)
+            {
+                break;
+            }
+            // Print the include directories
+            if (in_include_section)
+            {
+                const char* p = path;
+                while (*p == ' ') p++;
+
+                int len = strlen(path);
+                if (path[len - 1] == '\n')
+                    path[len - 1] = '\0';
+
+                fprintf(outfile, "#pragma dir \"%s\"\n", p);
+}
+        }
+
+        fprintf(outfile, "\n");
+
+        // Close the command stream
+        pclose(fp);
+
+#endif
+
+#ifdef _WIN32
+        char env[2000] = { 0 };
+        int n = GetEnvironmentVariableA("INCLUDE", env, sizeof(env));
+
+        if (n <= 0)
+        {
+            printf("INCLUDE not found.\nPlease, run cake -autoconfig inside visual studio command prompty.\n");
+            error = 1;
+            throw;
+        }
+
+        fprintf(outfile, "This file was generated reading the variable INCLUDE inside Visual Studio Command Prompt.\n");
+        fprintf(outfile, "echo %%INCLUDE%% \n");
+
+        const char* p = env;
+        for (;;)
+        {
+            if (*p == '\0')
+            {
+                break;
+            }
+            char filename_local[500] = { 0 };
+            int count = 0;
+            while (*p != '\0' && (*p != ';' && *p != '\n'))
+            {
+                filename_local[count] = *p;
+                p++;
+                count++;
+            }
+            filename_local[count] = 0;
+            if (count > 0)
+            {
+                strcat(filename_local, "/");
+                char* pch = filename_local;
+                while (*pch)
+                {
+                    if (*pch == '\\')
+                        *pch = '/';
+                    pch++;
+                }
+
+                fprintf(outfile, "#pragma dir \"%s\"\n", filename_local);
+            }
+            if (*p == '\0')
+            {
+                break;
+            }
+            p++;
+        }
+#endif
+    }
+    catch
+    {
+    }
+    if (outfile)
+        fclose(outfile);
+
+    if (error == 0)
+    {
+        printf("file '%s'\n", configpath);
+        printf("successfully generated\n");
+    }
+    return error;
+}
 
 int compile_one_file(const char* file_name,
     struct options* options,
@@ -8052,11 +8275,11 @@ static int create_multiple_paths(const char* root, const char* outdir)
                 printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
                 return er;
             }
-        }
+    }
         if (*p == '\0')
             break;
         p++;
-    }
+}
     return 0;
 #else
     return -1;
@@ -8071,6 +8294,17 @@ int compile(int argc, const char** argv, struct report* report)
         return 1;
     }
 
+    char executable_path[MAX_PATH - sizeof(CAKE_CFG_FNAME)] = { 0 };
+    get_self_path(executable_path, sizeof(executable_path));
+    dirname(executable_path);
+    char cakeconfig_path[MAX_PATH] = { 0 };
+    snprintf(cakeconfig_path, sizeof cakeconfig_path, "%s" CAKE_CFG_FNAME, executable_path);
+
+    if (options.auto_config) //-autoconfig
+    {
+        report->ignore_this_report = true;
+        return generate_config_file(cakeconfig_path);
+    }
 
     report->test_mode = options.test_mode;
 

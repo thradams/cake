@@ -1818,7 +1818,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
         if (p_object != NULL)
         {
-            if (p_object->current.state & OBJECT_STATE_NULL)
+            if (flow_object_can_be_null(p_object))
             {
                 if (ctx->expression_is_not_evaluated)
                 {
@@ -1830,7 +1830,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             p_expression->left->first_token, "object is possibly null");
                 }
             }
-            else if (p_object->current.state & OBJECT_STATE_UNINITIALIZED)
+            else if (flow_object_can_be_uninitialized(p_object))
             {
                 if (ctx->expression_is_not_evaluated)
                 {
@@ -1842,7 +1842,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                             p_expression->left->first_token, "object is possibly uninitialized");
                 }
             }
-            else if (p_object->current.state & OBJECT_STATE_LIFE_TIME_ENDED)
+            else if (flow_object_can_have_its_lifetime_ended(p_object))
             {
                 if (ctx->expression_is_not_evaluated)
                 {
@@ -1967,6 +1967,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         break;
 
     case UNARY_EXPRESSION_NOT:
+        flow_check_pointer_used_as_bool(ctx, p_expression->right);
         flow_visit_expression(ctx, p_expression->right, d);
         declarator_array_invert(d);
         break;
@@ -2027,7 +2028,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
                     p_expression->right->first_token, "using a uninitialized object");
             }
         }
-        else if (p_object0 && flow_object_maybe_is_null(p_object0))
+        else if (p_object0 && flow_object_can_be_null(p_object0))
         {
             /*
               *p = 1*
@@ -2282,8 +2283,8 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
 
     case LOGICAL_AND_EXPRESSION:
     {
-        //flow_check_pointer_used_as_bool(ctx, p_expression->left);
-        //flow_check_pointer_used_as_bool(ctx, p_expression->right);
+        flow_check_pointer_used_as_bool(ctx, p_expression->left);
+        flow_check_pointer_used_as_bool(ctx, p_expression->right);
 
         struct declarator_array left_set = { 0 };
         flow_visit_expression(ctx, p_expression->left, &left_set);
