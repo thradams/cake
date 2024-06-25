@@ -2246,3 +2246,36 @@ struct nlist *install(char *name, char *defn)
 }
 `;
 
+sample["find the bug"]["Bug #8"] =
+`
+#pragma safety enable
+
+void  f(int i)
+{
+    int k = 1;
+    int * p = &k;
+       
+    if (i) {
+       *p =0;
+    }
+    int h = 212/k;
+}
+
+int main() {}
+`;
+
+sample["find the bug"]["Bug #9"] =
+`
+enum E1 {A, B};
+enum E2 {C, D};
+
+void f(enum E1 e)
+{
+    switch(e)
+    {
+        case A:break;
+        case D:break;
+    }
+}
+int main(){}
+`;
