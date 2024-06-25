@@ -65,13 +65,6 @@ bool flow_object_can_be_null(struct flow_object* p)
     return (e & OBJECT_STATE_NULL);
 }
 
-bool flow_object_can_be_zero(struct flow_object* p)
-{
-    enum object_state e = p->current.state;
-
-    return (e & OBJECT_STATE_ZERO);
-}
-
 bool flow_object_is_uninitialized(struct flow_object* p)
 {
     enum object_state e = p->current.state;
