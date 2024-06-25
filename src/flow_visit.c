@@ -2107,9 +2107,35 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
 
+    case MULTIPLICATIVE_EXPRESSION_DIV:
+    {
+        if (p_expression->left)
+        {
+            struct declarator_array left_set = { 0 };
+            flow_visit_expression(ctx, p_expression->left, &left_set);
+            declarator_array_destroy(&left_set);
+        }
+
+        if (p_expression->right)
+        {
+            struct declarator_array right_set = { 0 };
+            flow_visit_expression(ctx, p_expression->right, &right_set);
+            declarator_array_destroy(&right_set);
+
+            struct flow_object* p_object = expression_get_object(ctx, p_expression->right, ctx->ctx->options.null_checks_enabled);
+            if (p_object)
+            {
+                if (flow_object_can_be_zero(p_object))
+                {
+                    compiler_diagnostic_message(W_DIVIZION_BY_ZERO, ctx->ctx, p_expression->right->first_token, "possible division by zero");
+                }
+            }
+        }
+    }
+    break;
+
     case CAST_EXPRESSION:
     case MULTIPLICATIVE_EXPRESSION_MULT:
-    case MULTIPLICATIVE_EXPRESSION_DIV:
     case MULTIPLICATIVE_EXPRESSION_MOD:
     case ADDITIVE_EXPRESSION_PLUS:
     case ADDITIVE_EXPRESSION_MINUS:
@@ -2566,7 +2592,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     if (p_iteration_statement->declaration &&
         p_iteration_statement->declaration->init_declarator_list.head)
     {
-       flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
+        flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
     }
     struct declarator_array d = { 0 };
     if (p_iteration_statement->expression0)
@@ -3182,8 +3208,8 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 type_destroy(&t2);
             }
 #endif
+            }
         }
-    }
 
     /*if (p_declarator->pointer)
     {
@@ -3199,7 +3225,7 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
     {
         flow_visit_direct_declarator(ctx, p_declarator->direct_declarator);
     }
-}
+    }
 
 static void flow_visit_init_declarator_list(struct flow_visit_ctx* ctx, struct init_declarator_list* p_init_declarator_list)
 {

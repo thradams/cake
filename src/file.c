@@ -1,13 +1,13 @@
 #pragma safety enable
-enum E1 {A, B};
-enum E2 {C, D};
 
-void f(enum E1 e)
+int f(int i)
 {
-    switch(e)
-    {
-        case 2:break;        
-            case 2:break;        
-    }
+    int k = 0;
+    if (i != 0)
+      k = 1/i;
+
 }
-int main(){}
+int main() {
+   
+}
+
