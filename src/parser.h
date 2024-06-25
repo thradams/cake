@@ -58,6 +58,24 @@ struct report
     bool ignore_this_report;
 };
 
+struct switch_value 
+{
+    long long value; 
+    struct label* p_label;
+    struct switch_value* next; 
+};
+
+struct  switch_value_list
+{
+    struct switch_value * head;
+    struct switch_value * tail;
+    struct switch_value * p_default;
+};
+
+void switch_value_destroy(struct switch_value_list* obj_owner list);
+void switch_value_list_push(struct switch_value_list* list, struct switch_value* pnew);
+struct switch_value * switch_value_list_find(struct switch_value_list* list, long long value);
+
 struct parser_ctx
 {
     struct options options;
@@ -78,13 +96,11 @@ struct parser_ctx
     const struct try_statement* p_current_try_statement_opt;
 
     /*
-    * Points to the select_stament we're in. Or null.
+    * Points to the selection_statement we're in. Or null.
     */
     const struct selection_statement* p_current_selection_statement;
 
-    struct  switch_value { long long value; struct switch_value* next; };
-    struct  switch_value* switch_value;
-
+    struct  switch_value_list *p_switch_value_list;
 
     FILE* owner sarif_file;
 

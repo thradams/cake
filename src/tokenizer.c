@@ -287,7 +287,7 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
           not ending with \, we add it
         */
         p_new_include_dir->path = malloc(len + 2);
-        snprintf(p_new_include_dir->path, len + 2, "%s/", path);
+        snprintf((char*)p_new_include_dir->path, len + 2, "%s/", path);
     }
     else
     {

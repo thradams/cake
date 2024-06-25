@@ -217,6 +217,45 @@ void scope_list_pop(struct scope_list* list)
     p->previous = NULL;
 }
 
+void switch_value_destroy(struct switch_value_list* obj_owner p)
+{
+    struct switch_value* owner item = p->head;
+    while (item)
+    {
+        struct switch_value* owner next = item->next;
+        item->next = NULL;
+        free(item);
+        item = next;
+    }
+}
+void switch_value_list_push(struct switch_value_list* list, struct switch_value* pnew)
+{
+    if (list->head == NULL)
+    {
+        list->head = pnew;
+        list->tail = pnew;
+    }
+    else
+    {
+        list->tail->next = pnew;
+        list->tail = pnew;
+    }
+}
+
+struct switch_value* switch_value_list_find(struct switch_value_list* list, long long value)
+{
+    struct switch_value* p = list->head;
+    while (p)
+    {
+        if (p->value == value)
+        {
+            return p;
+        }
+        p = p->next;
+    }
+    return NULL;
+}
+
 void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 {
     if (ctx->sarif_file)
@@ -6403,31 +6442,32 @@ struct label* owner label(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
 
-            long long case_value = constant_value_to_ll(&p_label->constant_expression->constant_value);
+            const long long case_value = constant_value_to_ll(&p_label->constant_expression->constant_value);
 
-            struct  switch_value* p_switch_value = ctx->switch_value;
-            while (p_switch_value)
+            struct switch_value* p_switch_value = switch_value_list_find(ctx->p_switch_value_list, case_value);
+
+            if (p_switch_value)
             {
-                if (p_switch_value->value == case_value)
-                {
-                    //already handled
-                    break;
-                }
-                p_switch_value = p_switch_value->next;
+                compiler_diagnostic_message(W_SWITCH,
+                        ctx,
+                        p_label->constant_expression->first_token,
+                        "duplicate case value '%lld'", case_value);
+
+                compiler_diagnostic_message(W_LOCATION,
+                    ctx,
+                    p_switch_value->p_label->constant_expression->first_token, "previous declaration");
             }
 
             struct  switch_value* newvalue = calloc(1, sizeof * newvalue);
-            if (newvalue)
-            {
-                newvalue->value = case_value;
-                newvalue->next = ctx->switch_value ? ctx->switch_value->next : NULL;
-                ctx->switch_value = newvalue;
-            }
+            if (newvalue == NULL) throw;
+            newvalue->p_label = p_label;
+            newvalue->value = case_value;
+            switch_value_list_push(ctx->p_switch_value_list, newvalue);
 
             if (p_label->constant_expression &&
-                ctx->p_current_selection_statement &&
-                ctx->p_current_selection_statement->condition &&
-                ctx->p_current_selection_statement->condition->expression)
+            ctx->p_current_selection_statement &&
+            ctx->p_current_selection_statement->condition &&
+            ctx->p_current_selection_statement->condition->expression)
             {
                 if (type_is_enum(&ctx->p_current_selection_statement->condition->expression->type))
                 {
@@ -6469,6 +6509,11 @@ struct label* owner label(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
+            struct  switch_value* p_default = calloc(1, sizeof * p_default);
+            if (p_default == NULL) throw;
+            p_default->p_label = p_label;
+            ctx->p_switch_value_list->p_default = p_default;
+
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
@@ -6998,14 +7043,45 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
 
         const struct selection_statement* previous = ctx->p_current_selection_statement;
         ctx->p_current_selection_statement = p_selection_statement;
-                
-        struct  switch_value* previous_switch_value = ctx->switch_value;
-        
+
+        struct  switch_value_list* previous_switch_value_list = ctx->p_switch_value_list;
+        struct  switch_value_list  switch_value_list = { 0 };
+        ctx->p_switch_value_list = &switch_value_list;
+
         p_selection_statement->secondary_block = secondary_block(ctx);
+
+        if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
+        {
+            //switch of enum without default, then we check if all items were used
+            if (switch_value_list.p_default == NULL)
+            {
+                const struct enum_specifier* p_enum_specifier =
+                    get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
+                if (p_enum_specifier)
+                {
+                    struct enumerator* p = p_enum_specifier->enumerator_list.head;
+                    while (p)
+                    {                        
+                        struct switch_value* p_used = switch_value_list_find(&switch_value_list, p->value);
+
+                        if (p_used == NULL)
+                        {
+                            compiler_diagnostic_message(W_SWITCH,
+                                ctx,
+                                ctx->current,
+                                "enumeration value '%s' not handled in switch", p->token->lexeme);
+                        }
+                        p = p->next;
+                    }
+                }
+            }
+        }
+
         ctx->p_current_selection_statement = previous;
 
-        //ver auqias naoi foram usados
-        ctx->switch_value = previous_switch_value;
+        ctx->p_switch_value_list = previous_switch_value_list;
+
+        switch_value_destroy(&switch_value_list);
 
         if (p_selection_statement->secondary_block == NULL)
             throw;
@@ -7826,7 +7902,7 @@ int generate_config_file(const char* configpath)
                     path[len - 1] = '\0';
 
                 fprintf(outfile, "#pragma dir \"%s\"\n", p);
-}
+            }
         }
 
         fprintf(outfile, "\n");
@@ -8275,11 +8351,11 @@ static int create_multiple_paths(const char* root, const char* outdir)
                 printf("error creating output folder '%s' - %s\n", temp, get_posix_error_message(er));
                 return er;
             }
-    }
+        }
         if (*p == '\0')
             break;
         p++;
-}
+    }
     return 0;
 #else
     return -1;

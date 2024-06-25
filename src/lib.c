@@ -11449,7 +11449,7 @@ struct report
     int error_count;
     int warnings_count;
     int info_count;
-    
+
     bool test_mode;
     int test_failed;
     int test_succeeded;
@@ -11461,6 +11461,23 @@ struct report
     */
     bool ignore_this_report;
 };
+
+struct switch_value 
+{
+    long long value; 
+    struct switch_value* next; 
+};
+
+struct  switch_value_list
+{
+    struct switch_value * head;
+    struct switch_value * tail;
+    struct switch_value * p_default;
+};
+
+void switch_value_list_push(struct switch_value_list* list, struct switch_value* pnew);
+struct switch_value * switch_value_list_find(struct switch_value_list* list, long long value);
+
 
 struct parser_ctx
 {
@@ -11482,11 +11499,11 @@ struct parser_ctx
     const struct try_statement* p_current_try_statement_opt;
 
     /*
-    * Points to the select_stament we're in. Or null.
+    * Points to the selection_statement we're in. Or null.
     */
-    const struct selection_statement * p_current_selection_statement;
+    const struct selection_statement* p_current_selection_statement;
 
-
+    struct  switch_value_list *p_switch_value_list;
 
     FILE* owner sarif_file;
 
@@ -11502,7 +11519,7 @@ struct parser_ctx
 
     bool inside_generic_association;
 
-    
+
     struct report* p_report;
 
 };
@@ -11578,7 +11595,7 @@ struct declaration_specifiers
     enum type_specifier_flags type_specifier_flags;
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
-    
+
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
 
     /*shortcuts*/
@@ -11618,7 +11635,7 @@ struct static_assert_declaration
       "static_debug" ( constant-expression ) ;
       "static_set" ( constant-expression , string-literal) ;
     */
- 
+
     struct token* first_token;
     struct token* last_token;
     struct expression* owner constant_expression;
@@ -11811,7 +11828,7 @@ struct declaration
 
     struct token* first_token;
     struct token* last_token;
-    
+
     struct declaration* owner next;
 };
 void declaration_delete(struct declaration* owner opt p);
@@ -11819,10 +11836,10 @@ struct declaration* owner external_declaration(struct parser_ctx* ctx);
 
 struct simple_declaration
 {
-    /*    
+    /*
     This is an extension to support C++ 17 if with initialization
-    
-    simple-declaration:    
+
+    simple-declaration:
       declaration-specifiers init-declarator-list opt ;
       attribute-specifier-sequence declaration-specifiers init-declarator-list ;
     */
@@ -11850,14 +11867,14 @@ struct condition {
     struct expression* owner expression;
     struct attribute_specifier_sequence* owner p_attribute_specifier_sequence_opt;
     struct declaration_specifiers* owner p_declaration_specifiers;
-    
+
     /*
       OBS:
       We must use p_init_declarator because it is kept on the scope
       as init_declarator when we are trying to parse init-statement or condition that
       are very similar
     */
-    struct init_declarator * owner p_init_declarator;
+    struct init_declarator* owner p_init_declarator;
 
     struct token* first_token;
     struct token* last_token;
@@ -11887,7 +11904,7 @@ struct atomic_type_specifier
     /*
       atomic-type-specifier:
         "_Atomic" ( type-name )
-    */    
+    */
     struct token* token;
     struct type_name* owner type_name;
 };
@@ -11940,6 +11957,10 @@ struct enum_specifier
 struct enum_specifier* owner enum_specifier(struct parser_ctx*);
 void enum_specifier_delete(struct enum_specifier* owner opt p);
 const struct enum_specifier* get_complete_enum_specifier(const struct enum_specifier* p_enum_specifier);
+
+const struct enumerator* find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value);
+
+
 
 struct member_declaration_list
 {
@@ -12072,10 +12093,10 @@ struct declarator
     int num_uses; /*used to show not used warnings*/
 
     /*user by flow analysis*/
-    struct flow_object * p_object;
+    struct flow_object* p_object;
 
     /*final declarator type (after auto, typeof etc)*/
-    struct type type;    
+    struct type type;
 };
 
 enum type_specifier_flags declarator_get_type_specifier_flags(const struct declarator* p);
@@ -12478,11 +12499,11 @@ struct selection_statement
     selection-statement:
        "if" ( init-statement opt condition ) secondary-block
        "if" ( init-statement opt condition ) secondary-block "else" secondary-block
-       switch ( init-statement opt condition ) secondary-block    
+       switch ( init-statement opt condition ) secondary-block
     */
     struct init_statement* owner p_init_statement;
     struct condition* owner condition;
-        
+
     struct secondary_block* owner secondary_block;
     struct secondary_block* owner else_secondary_block_opt;
 
@@ -12638,7 +12659,7 @@ struct secondary_block
 };
 
 void secondary_block_delete(struct secondary_block* owner opt p);
-bool secondary_block_ends_with_jump(struct secondary_block * p_secondary_block);
+bool secondary_block_ends_with_jump(struct secondary_block* p_secondary_block);
 
 struct unlabeled_statement
 {
@@ -24959,6 +24980,34 @@ void scope_list_pop(struct scope_list* list)
     p->previous = NULL;
 }
 
+void switch_value_list_push(struct switch_value_list* list, struct switch_value* pnew)
+{
+    if (list->head == NULL)
+    {
+        list->head = pnew;
+        list->tail = pnew;
+    }
+    else
+    {
+        list->tail->next = pnew;
+        list->tail = pnew;
+    }
+}
+
+struct switch_value* switch_value_list_find(struct switch_value_list* list, long long value)
+{
+    struct switch_value* p = list->head;
+    while (p)
+    {
+        if (p->value == value)
+        {
+            return p;
+        }
+        p = p->next;
+    }
+    return NULL;
+}
+
 void parser_ctx_destroy(struct parser_ctx* obj_owner ctx)
 {
     if (ctx->sarif_file)
@@ -28559,6 +28608,18 @@ struct type_specifier_qualifier* owner type_specifier_qualifier(struct parser_ct
     return type_specifier_qualifier;
 }
 
+const struct enumerator* find_enumerator_by_value(const struct enum_specifier* p_enum_specifier, long long value)
+{
+    struct enumerator* p = p_enum_specifier->enumerator_list.head;
+    while (p)
+    {
+        if (p->value == value)
+            return p;
+        p = p->next;
+    }
+    return NULL;
+}
+
 void enum_specifier_delete(struct enum_specifier* owner opt p)
 {
     if (p)
@@ -31132,10 +31193,29 @@ struct label* owner label(struct parser_ctx* ctx)
             p_label->constant_expression = constant_expression(ctx, true);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
+
+            long long case_value = constant_value_to_ll(&p_label->constant_expression->constant_value);
+
+            struct  switch_value* p_switch_value = switch_value_list_find(ctx->p_switch_value_list, case_value);
+
+            if (p_switch_value)
+            {
+                compiler_diagnostic_message(W_NOT_DEFINED50,
+                        ctx,
+                        ctx->current,
+                        "duplicate case value '%lld'", case_value);
+            }
+
+            struct  switch_value* newvalue = calloc(1, sizeof * newvalue);
+            if (newvalue == NULL) throw;
+
+            newvalue->value = case_value;
+            switch_value_list_push(ctx->p_switch_value_list, newvalue);
+
             if (p_label->constant_expression &&
-                ctx->p_current_selection_statement &&
-                ctx->p_current_selection_statement->condition &&
-                ctx->p_current_selection_statement->condition->expression)
+            ctx->p_current_selection_statement &&
+            ctx->p_current_selection_statement->condition &&
+            ctx->p_current_selection_statement->condition->expression)
             {
                 if (type_is_enum(&ctx->p_current_selection_statement->condition->expression->type))
                 {
@@ -31145,11 +31225,31 @@ struct label* owner label(struct parser_ctx* ctx)
                                     p_label->constant_expression->first_token,
                                     p_label->constant_expression,
                                     ctx->p_current_selection_statement->condition->expression,
-                                    "switch case between enumerations of different types.");
+                                    "mismatch in enumeration types");
                     }
                     else
                     {
                         //enum and something else...
+                    }
+                }
+
+                const struct enum_specifier* p_enum_specifier =
+                    get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
+                if (p_enum_specifier)
+                {
+                    const struct enumerator* p_enumerator = find_enumerator_by_value(p_enum_specifier, case_value);
+                    if (p_enumerator == NULL)
+                    {
+                        compiler_diagnostic_message(W_ENUN_CONVERSION,
+                                        ctx,
+                                        p_label->constant_expression->first_token,
+                                        "case value '%lld' not in enumerated type 'enum %s'",
+                                        case_value,
+                                        p_enum_specifier->tag_name);
+                    }
+                    else
+                    {
+
                     }
                 }
             }
@@ -31157,6 +31257,11 @@ struct label* owner label(struct parser_ctx* ctx)
         }
         else if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
+            struct  switch_value* p_default = calloc(1, sizeof * p_default);
+            if (p_default == NULL) throw;
+            ctx->p_switch_value_list->p_default = p_default;
+
+
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
@@ -31686,8 +31791,44 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
 
         const struct selection_statement* previous = ctx->p_current_selection_statement;
         ctx->p_current_selection_statement = p_selection_statement;
+
+        struct  switch_value_list* previous_switch_value_list = ctx->p_switch_value_list;
+        struct  switch_value_list  switch_value_list = { 0 };
+        ctx->p_switch_value_list = &switch_value_list;
+
         p_selection_statement->secondary_block = secondary_block(ctx);
+
+        if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
+        {
+            //switch of enum without default, then we check if all items were used
+            if (switch_value_list.p_default == NULL)
+            {
+                const struct enum_specifier* p_enum_specifier =
+                    get_complete_enum_specifier(ctx->p_current_selection_statement->condition->expression->type.enum_specifier);
+                if (p_enum_specifier)
+                {
+                    struct enumerator* p = p_enum_specifier->enumerator_list.head;
+                    while (p)
+                    {
+                        bool found = false;
+                        struct switch_value* p_used = switch_value_list_find(&switch_value_list, p->value);
+
+                        if (p_used == NULL)
+                        {
+                            compiler_diagnostic_message(W_NOT_DEFINED50,
+                                ctx,
+                                ctx->current,
+                                "enumeration value '%s' not handled in switch", p->token->lexeme);
+                        }
+                        p = p->next;
+                    }
+                }
+            }
+        }
+
         ctx->p_current_selection_statement = previous;
+
+        ctx->p_switch_value_list = previous_switch_value_list;
 
         if (p_selection_statement->secondary_block == NULL)
             throw;
@@ -32966,7 +33107,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-}
+    }
 
 int compile(int argc, const char** argv, struct report* report)
 {

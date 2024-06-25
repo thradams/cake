@@ -6,8 +6,8 @@ void f(enum E1 e)
 {
     switch(e)
     {
-        case A:break;
-        case 12:break;
+        case 2:break;        
+            case 2:break;        
     }
 }
 int main(){}

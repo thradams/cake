@@ -33,7 +33,7 @@ s_warnings[] = {
     {W_STYLE, "style"},
     {W_COMMENT,"comment"},
     {W_LINE_SLICING,"line-slicing"},
-
+    {W_SWITCH, "switch"},
 
     {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"},
     {W_UNINITIALZED, "uninitialized"},
