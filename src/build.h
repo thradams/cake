@@ -120,6 +120,73 @@ int system_like(const char* command)
 }
 
 #define system system_like
+#elif __APPLE__
+
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#define BUILD_MACOS
+#define RUN "./"
+
+#if defined __clang__
+
+#define BUILD_MACOS_CLANG
+#define CC "clang "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION "clang macos"
+
+#elif defined __GNUC__
+
+#define BUILD_MACOS_GCC
+
+#ifndef GCC
+#error "You must specify the GCC executable to use, as `gcc` redirects to apple clang!"
+#endif
+#define CC GCC" "
+#define OUT_OPT " -o "
+#define CC_DESCRIPTION GCC
+
+#else
+
+#error unknown compiler for macos
+
+#endif
+
+int system_like(const char* command)
+{
+    int status;
+
+    // Execute the command
+    status = system(command);
+
+    // Check if the command executed successfully
+    if (status == -1)
+    {
+        perror("Error executing command");
+        return -1;
+    }
+    else
+    {
+        // Wait for the command to finish
+        while (wait(&status) > 0);
+
+        // Check the exit status of the command
+        if (WIFEXITED(status))
+        {
+            // Command exited normally
+            return WEXITSTATUS(status);
+        }
+        else
+        {
+            // Command exited abnormally
+            return -1;
+        }
+    }
+}
+
+#define system system_like
+
 #else
 
 #error Unknown Platform

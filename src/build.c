@@ -2,7 +2,7 @@
 /*
  WINDOWS
  cl -DTEST build.c && build
- LINUX
+ LINUX/MACOS
  gcc  build.c -o build && ./build
  */
 
@@ -64,7 +64,7 @@ static int mychdir(const char *path)
     " visit.c "           \
     " flow_visit.c " \
     " error.c "           \
-    " format_visit.c "  
+    " format_visit.c "
 
 
 void compile_cake()
@@ -142,7 +142,7 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#ifdef BUILD_LINUX_CLANG
+#if defined BUILD_LINUX_CLANG || defined BUILD_MACOS_CLANG
     result = mysytem("clang " SOURCE_FILES " main.c "
 #ifdef TEST
            "-DTEST"
@@ -152,7 +152,7 @@ void compile_cake()
            " -o " OUTPUT);
 #endif
 
-#if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC
+#if defined BUILD_LINUX_GCC || defined BUILD_WINDOWS_GCC  || defined BUILD_MACOS_GCC
 
     // #define GCC_ANALIZER  " -fanalyzer "
     result = mysytem("gcc "
@@ -207,7 +207,7 @@ void generate_doc(const char *mdfilename, const char *outfile)
          "        var link = \"./playground.html?code=\" + encodeURIComponent(btoa(source)) +\n"
          "            \"&to=\" + encodeURI(\"1\") +\n"
          "            \"&options=\" + encodeURI(\"\");\n"
-         "\n"         
+         "\n"
          "        window.open(link, 'popup','width=800,height=600');\n"
          "    }\n"
          "// find-replace for this\n"
@@ -322,7 +322,7 @@ int main()
     printf("To run unit test use:\n");
     printf("cake ../tests/unit-tests/*.c -test-mode\n");
 
-    
+
 #endif
 
 #if defined BUILD_LINUX_GCC
@@ -331,14 +331,14 @@ int main()
       To find GCC directories use
       echo | gcc -E -Wp,-v -
     */
-   
-   //Generates cakeconfig.h
+
+    //Generates cakeconfig.h
    mysytem("./cake -autoconfig");
 
    //Uses previouly generated cakeconfig.h to find include dir
-   if (mysytem("./cake "
+    if (mysytem("./cake "
                " -D__x86_64__ "
-               " -fanalyzer "
+               " -fanalyzer "               
                HEADER_FILES
                SOURCE_FILES) != 0)
     {

@@ -7923,8 +7923,8 @@ int generate_config_file(const char* configpath)
             throw;
         }
 
-        fprintf(outfile, "This file was generated reading the variable INCLUDE inside Visual Studio Command Prompt.\n");
-        fprintf(outfile, "echo %%INCLUDE%% \n");
+        fprintf(outfile, "//This file was generated reading the variable INCLUDE inside Visual Studio Command Prompt.\n");
+        fprintf(outfile, "//echo %%INCLUDE%% \n");
 
         const char* p = env;
         for (;;)
