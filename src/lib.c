@@ -606,7 +606,7 @@ enum diagnostic_id {
     W_ASSIGNMENT_OF_ARRAY_PARAMETER,
     W_CONDITIONAL_IS_CONSTANT,
     
-    W_NOT_DEFINED42,
+    W_SWITCH,
     W_NOT_DEFINED43,
     W_NOT_DEFINED44,
     W_NOT_DEFINED45,
@@ -2714,7 +2714,7 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
           not ending with \, we add it
         */
         p_new_include_dir->path = malloc(len + 2);
-        snprintf(p_new_include_dir->path, len + 2, "%s/", path);
+        snprintf((char*)p_new_include_dir->path, len + 2, "%s/", path);
     }
     else
     {
@@ -10117,7 +10117,7 @@ s_warnings[] = {
     {W_STYLE, "style"},
     {W_COMMENT,"comment"},
     {W_LINE_SLICING,"line-slicing"},
-
+    {W_SWITCH, "switch"},
 
     {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"},
     {W_UNINITIALZED, "uninitialized"},
@@ -11465,6 +11465,7 @@ struct report
 struct switch_value 
 {
     long long value; 
+    struct label* p_label;
     struct switch_value* next; 
 };
 
@@ -11475,9 +11476,9 @@ struct  switch_value_list
     struct switch_value * p_default;
 };
 
+void switch_value_destroy(struct switch_value_list* obj_owner list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* pnew);
 struct switch_value * switch_value_list_find(struct switch_value_list* list, long long value);
-
 
 struct parser_ctx
 {
@@ -24739,7 +24740,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.0"
+#define CAKE_VERSION "0.9.1"
 
 
 
@@ -24980,6 +24981,17 @@ void scope_list_pop(struct scope_list* list)
     p->previous = NULL;
 }
 
+void switch_value_destroy(struct switch_value_list* obj_owner p)
+{
+    struct switch_value* owner item = p->head;
+    while (item)
+    {
+        struct switch_value* owner next = item->next;
+        item->next = NULL;
+        free(item);
+        item = next;
+    }
+}
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* pnew)
 {
     if (list->head == NULL)
@@ -31194,21 +31206,25 @@ struct label* owner label(struct parser_ctx* ctx)
             if (parser_match_tk(ctx, ':') != 0)
                 throw;
 
-            long long case_value = constant_value_to_ll(&p_label->constant_expression->constant_value);
+            const long long case_value = constant_value_to_ll(&p_label->constant_expression->constant_value);
 
-            struct  switch_value* p_switch_value = switch_value_list_find(ctx->p_switch_value_list, case_value);
+            struct switch_value* p_switch_value = switch_value_list_find(ctx->p_switch_value_list, case_value);
 
             if (p_switch_value)
             {
-                compiler_diagnostic_message(W_NOT_DEFINED50,
+                compiler_diagnostic_message(W_SWITCH,
                         ctx,
-                        ctx->current,
+                        p_label->constant_expression->first_token,
                         "duplicate case value '%lld'", case_value);
+
+                compiler_diagnostic_message(W_LOCATION,
+                    ctx,
+                    p_switch_value->p_label->constant_expression->first_token, "previous declaration");
             }
 
             struct  switch_value* newvalue = calloc(1, sizeof * newvalue);
             if (newvalue == NULL) throw;
-
+            newvalue->p_label = p_label;
             newvalue->value = case_value;
             switch_value_list_push(ctx->p_switch_value_list, newvalue);
 
@@ -31259,8 +31275,8 @@ struct label* owner label(struct parser_ctx* ctx)
         {
             struct  switch_value* p_default = calloc(1, sizeof * p_default);
             if (p_default == NULL) throw;
+            p_default->p_label = p_label;
             ctx->p_switch_value_list->p_default = p_default;
-
 
             parser_match(ctx);
             if (parser_match_tk(ctx, ':') != 0)
@@ -31809,13 +31825,12 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
                 {
                     struct enumerator* p = p_enum_specifier->enumerator_list.head;
                     while (p)
-                    {
-                        bool found = false;
+                    {                        
                         struct switch_value* p_used = switch_value_list_find(&switch_value_list, p->value);
 
                         if (p_used == NULL)
                         {
-                            compiler_diagnostic_message(W_NOT_DEFINED50,
+                            compiler_diagnostic_message(W_SWITCH,
                                 ctx,
                                 ctx->current,
                                 "enumeration value '%s' not handled in switch", p->token->lexeme);
@@ -31829,6 +31844,8 @@ struct selection_statement* owner selection_statement(struct parser_ctx* ctx)
         ctx->p_current_selection_statement = previous;
 
         ctx->p_switch_value_list = previous_switch_value_list;
+
+        switch_value_destroy(&switch_value_list);
 
         if (p_selection_statement->secondary_block == NULL)
             throw;
@@ -33107,7 +33124,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-    }
+}
 
 int compile(int argc, const char** argv, struct report* report)
 {

@@ -37,12 +37,5 @@ int main() {
 ### -Wstyle
 
 
-|C23 feature                    |Paper(s) |Cake |
-|-------------------------------|---------|-----|
-|_Static_assert with no message | [N2265](https://open-std.org/JTC1/SC22/WG14/www/docs/n2265.pdf)  |     |   
-|                               |         |     |   
-|                               |         |     |   
-
-
 
 
