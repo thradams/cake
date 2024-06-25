@@ -2487,6 +2487,9 @@ struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flag
     char_type.category = TYPE_CATEGORY_ITSELF;
     char_type.type_specifier_flags = chartype;
     int char_size = type_get_sizeof(&char_type);
+    if (char_size == 0)
+        char_size = 1;
+
     type_destroy(&char_type);
 
     struct type t = { 0 };

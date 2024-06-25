@@ -117,6 +117,8 @@ bool flow_object_can_be_not_null_or_moved(struct flow_object* p);
 
 bool flow_object_is_null(struct flow_object* p);
 bool flow_object_can_be_null(struct flow_object* p);
+bool flow_object_can_be_zero(const struct flow_object* p);
+
 
 
 bool flow_object_is_not_zero(struct flow_object* p);
