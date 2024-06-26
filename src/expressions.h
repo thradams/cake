@@ -89,12 +89,12 @@ struct argument_expression_list
         assignment-expression
         argument-expression-list , assignment-expression
     */
-    struct argument_expression* owner opt head;
-    struct argument_expression* opt tail;
+    struct argument_expression* _Owner _Opt head;
+    struct argument_expression* _Opt tail;
 };
 
-void argument_expression_list_destroy(struct argument_expression_list * obj_owner p);
-void argument_expression_list_push(struct argument_expression_list * list, struct argument_expression* owner p);
+void argument_expression_list_destroy(struct argument_expression_list * _Obj_owner p);
+void argument_expression_list_push(struct argument_expression_list * list, struct argument_expression* _Owner p);
 
 struct generic_association
 {
@@ -105,25 +105,25 @@ struct generic_association
     */
 
     struct type type;
-    struct type_name* owner p_type_name;
-    struct expression* owner expression;
+    struct type_name* _Owner p_type_name;
+    struct expression* _Owner expression;
 
     struct token* first_token;
     struct token* last_token;
 
-    struct generic_association* owner next;
+    struct generic_association* _Owner next;
 };
 
-void generic_association_delete(struct generic_association* owner opt p);
+void generic_association_delete(struct generic_association* _Owner _Opt p);
 
 struct generic_assoc_list
 {
-    struct generic_association* owner opt head;
-    struct generic_association* opt tail;
+    struct generic_association* _Owner _Opt head;
+    struct generic_association* _Opt tail;
 };
 
-void generic_assoc_list_add(struct generic_assoc_list * p, struct generic_association* owner item);
-void generic_assoc_list_destroy(struct generic_assoc_list * obj_owner p);
+void generic_assoc_list_add(struct generic_assoc_list * p, struct generic_association* _Owner item);
+void generic_assoc_list_destroy(struct generic_assoc_list * _Obj_owner p);
 
 struct generic_selection
 {
@@ -144,8 +144,8 @@ struct generic_selection
     */
 
 
-    struct expression* owner opt expression;
-    struct type_name* owner opt type_name;
+    struct expression* _Owner _Opt expression;
+    struct type_name* _Owner _Opt type_name;
     /*
     * Points to the matching expression
     */
@@ -156,7 +156,7 @@ struct generic_selection
     struct token* last_token;
 };
 
-void generic_selection_delete(struct generic_selection * owner opt p);
+void generic_selection_delete(struct generic_selection * _Owner _Opt p);
 
 enum constant_value_type {
     TYPE_NOT_CONSTANT,
@@ -193,11 +193,11 @@ struct expression
 
     struct constant_value constant_value;
 
-    struct type_name* owner type_name; 
-    struct type_name* owner type_name2; /*is_same*/
-    struct braced_initializer* owner braced_initializer;
-    struct compound_statement* owner compound_statement; //function literal (lambda)
-    struct generic_selection* owner generic_selection; //_Generic
+    struct type_name* _Owner type_name; 
+    struct type_name* _Owner type_name2; /*is_same*/
+    struct braced_initializer* _Owner braced_initializer;
+    struct compound_statement* _Owner compound_statement; //function literal (lambda)
+    struct generic_selection* _Owner generic_selection; //_Generic
 
     struct token* first_token;
     struct token* last_token;
@@ -213,9 +213,9 @@ struct expression
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
-    struct expression* owner condition_expr;
-    struct expression* owner left;
-    struct expression* owner right;
+    struct expression* _Owner condition_expr;
+    struct expression* _Owner left;
+    struct expression* _Owner right;
 
     bool is_assigment_expression;
     
@@ -228,11 +228,11 @@ struct expression
 bool expression_is_malloc(const struct expression* p);
 bool expression_is_calloc(const struct expression* p);
 
-void expression_delete(struct expression* owner opt p);
+void expression_delete(struct expression* _Owner _Opt p);
 
-struct expression* owner assignment_expression(struct parser_ctx* ctx);
-struct expression* owner expression(struct parser_ctx* ctx);
-struct expression* owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
+struct expression* _Owner assignment_expression(struct parser_ctx* ctx);
+struct expression* _Owner expression(struct parser_ctx* ctx);
+struct expression* _Owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
 bool expression_is_subjected_to_lvalue_conversion(struct expression*);
 bool expression_is_zero(struct expression*);
 bool expression_is_lvalue(const struct expression* expr);

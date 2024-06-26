@@ -10,11 +10,11 @@ struct defer_scope
     struct iteration_statement* p_iteration_statement; //for do while
     struct statement* p_statement; //
     struct compound_statement* p_function_body;
-    struct defer_scope* owner lastchild;
+    struct defer_scope* _Owner lastchild;
 
-    struct defer_scope* owner previous;
+    struct defer_scope* _Owner previous;
 };
-void defer_scope_delete(struct defer_scope * owner opt p);
+void defer_scope_delete(struct defer_scope * _Owner _Opt p);
 struct visit_ctx
 {
     /*
@@ -35,10 +35,10 @@ struct visit_ctx
     
     struct token_list insert_before_declaration;
     struct token_list insert_before_block_item;
-    view struct ast ast;
+    _View struct ast ast;
     enum language_version target;
-    struct defer_scope* owner tail_block;
+    struct defer_scope* _Owner tail_block;
 };
 
 void visit(struct visit_ctx* ctx);
-void visit_ctx_destroy( struct visit_ctx* obj_owner ctx);
+void visit_ctx_destroy( struct visit_ctx* _Obj_owner ctx);

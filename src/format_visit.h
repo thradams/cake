@@ -5,7 +5,7 @@
 
 struct format_visit_ctx
 {
-    view struct ast ast;
+    _View struct ast ast;
     int indentation;
 };
 

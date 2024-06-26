@@ -28,10 +28,10 @@
 */
 #ifdef __CAKE__
 #pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wdiscard-owner"
+#pragma cake diagnostic ignored "-Wdiscard-_Owner"
 #pragma cake diagnostic ignored "-Wmissing-destructor"
-#pragma cake diagnostic ignored "-Wnon-owner-move"
-#pragma cake diagnostic ignored "-Wnon-owner-to-owner-move"
+#pragma cake diagnostic ignored "-Wnon-_Owner-move"
+#pragma cake diagnostic ignored "-Wnon-_Owner-to-_Owner-move"
 #endif
 
 //#pragma cake diagnostic pop
@@ -51,10 +51,10 @@ void print_literal2(const char* s);
 
 void token_list_clear(struct token_list* list)
 {
-    struct token* owner p = list->head;
+    struct token* _Owner p = list->head;
     while (p)
     {
-        struct token* owner next = p->next;
+        struct token* _Owner next = p->next;
         p->next = NULL;
         token_delete(p);
         p = next;
@@ -127,7 +127,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     if (list->head == NULL)
         return;
 
-    struct token* owner p = list->head;
+    struct token* _Owner p = list->head;
     //assert(p->prev == NULL);
     if (list->head == list->tail)
     {
@@ -143,7 +143,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     token_delete(p);
 }
 
-struct token* owner token_list_pop_front_get(struct token_list* list)  /*unchecked*/
+struct token* _Owner token_list_pop_front_get(struct token_list* list)  /*unchecked*/
 {
     if (list->head == NULL)
         return NULL;
@@ -172,7 +172,7 @@ void token_list_swap(struct token_list* a, struct token_list* b)
     *b = temp;
 }
 
-void token_delete(struct token* owner p)
+void token_delete(struct token* _Owner p)
 {
     if (p)
     {
@@ -199,19 +199,19 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
     }
 }
 
-void token_list_destroy(struct token_list* obj_owner list)
+void token_list_destroy(struct token_list* _Obj_owner list)
 {
-    struct token* owner p = list->head;
+    struct token* _Owner p = list->head;
     while (p)
     {
-        struct token* owner next = p->next;
+        struct token* _Owner next = p->next;
         p->next = NULL;
         token_delete(p);
         p = next;
     }
 }
 
-char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
+char* _Owner token_list_join_tokens(struct token_list* list, bool bliteral)
 {
     struct osstream ss = { 0 };
     if (bliteral)
@@ -250,7 +250,7 @@ char* owner token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    char* owner cstr = ss.c_str;
+    char* _Owner cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -298,7 +298,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
     else
     {
-        struct token* owner follow = after->next;
+        struct token* _Owner follow = after->next;
         if (token_list->tail == after)
         {
             token_list->tail = append_list->tail;
@@ -324,7 +324,7 @@ void token_list_insert_before(struct token_list* token_list, struct token* after
     token_list_insert_after(token_list, after->prev, append_list);
 }
 
-struct token* token_list_add(struct token_list* list, struct token* owner pnew) /*unchecked*/
+struct token* token_list_add(struct token_list* list, struct token* _Owner pnew) /*unchecked*/
 {
     /*evitar que sem querer esteja em 2 listas diferentes*/
     assert(pnew->next == NULL);
@@ -490,7 +490,7 @@ bool token_is_blank(struct token* p)
 
 struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
-    struct token* owner clone = clone_token(pnew);
+    struct token* _Owner clone = clone_token(pnew);
     return token_list_add(list, clone);
 }
 
@@ -539,12 +539,12 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 }
 
 
-struct token* owner clone_token(struct token* p)
+struct token* _Owner clone_token(struct token* p)
 {
-    struct token* owner token = calloc(1, sizeof * token);
+    struct token* _Owner token = calloc(1, sizeof * token);
     if (token)
     {
-        char* owner lexeme = strdup(p->lexeme);
+        char* _Owner lexeme = strdup(p->lexeme);
         if (lexeme == NULL)
         {
             free(token);
@@ -565,13 +565,13 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     struct token_list r = { 0 };
 
     struct token* before_first = first->prev;
-    struct token* owner after_last = last->next; /*MOVED*/
+    struct token* _Owner after_last = last->next; /*MOVED*/
     last->next = NULL; /*MOVED*/
 
     before_first->next = after_last;
     after_last->prev = before_first;
 
-    r.head = (struct token* owner)first;
+    r.head = (struct token* _Owner)first;
     first->prev = NULL;
     r.tail = last;
 
@@ -809,7 +809,7 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     }
 }
 
-void print_line_and_token(const struct token* opt p_token, bool visual_studio_ouput_format)
+void print_line_and_token(const struct token* _Opt p_token, bool visual_studio_ouput_format)
 {
     if (p_token == NULL)
         return;

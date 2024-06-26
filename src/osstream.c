@@ -6,9 +6,9 @@
 #include <assert.h>
 #include "ownership.h"
 
-void ss_swap(view struct osstream* a, view struct osstream* b)
+void ss_swap(_View struct osstream* a, _View struct osstream* b)
 {
-    view struct osstream r = *a;
+    _View struct osstream r = *a;
     *a = *b;
     *b = r;    
 }
@@ -19,7 +19,7 @@ void ss_clear(struct osstream* stream)
 }
 
 
-void ss_close( struct osstream * obj_owner stream)
+void ss_close( struct osstream * _Obj_owner stream)
 {
     free(stream->c_str);    
 }
@@ -29,7 +29,7 @@ static int reserve(struct osstream* stream, int size)
     int errorcode = 0;
     if (size > stream->capacity)
     {
-        void* owner pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
+        void* _Owner pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
             static_set(stream->c_str, "moved");

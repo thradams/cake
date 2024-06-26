@@ -5,13 +5,13 @@
 
 struct osstream
 {
-    char* owner opt c_str;
+    char* _Owner _Opt c_str;
     int size;
     int capacity;
 };
 
 
-void ss_close( struct osstream * obj_owner stream);
+void ss_close( struct osstream * _Obj_owner stream);
 
 int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args);
 int ss_fprintf(struct osstream* stream, const char* fmt, ...);

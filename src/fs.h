@@ -14,7 +14,7 @@
 #endif
 
 
-//https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?view=msvc-160
+//https://docs.microsoft.com/pt-br/cpp/c-runtime-library/reference/mkdir-wmkdir?_View=msvc-160
 #define mkdir(a, b) _mkdir(a)
 #define rmdir _rmdir
 #define chdir _chdir
@@ -64,16 +64,16 @@ typedef struct TAGDIR DIR;
 #pragma CAKE diagnostic pop
 #endif
 
-DIR* owner opendir(const char* name);
-int closedir(DIR* owner dirp);
+DIR* _Owner opendir(const char* name);
+int closedir(DIR* _Owner dirp);
 struct dirent* readdir(DIR* dirp);
 
 
 #else
 
 typedef struct __dirstream DIR;
-DIR * owner opendir (const char *__name);
-int closedir(DIR* owner dirp);
+DIR * _Owner opendir (const char *__name);
+int closedir(DIR* _Owner dirp);
 
 #define MAX_PATH 500
 
@@ -91,7 +91,7 @@ char* realpath(const char* restrict path, char* restrict resolved_path);
 
 int get_self_path(char* buffer, int maxsize);
 
-char* owner read_file(const char* path);
+char* _Owner read_file(const char* path);
 char* dirname(char* path);
 char* basename(const char* filename);
 

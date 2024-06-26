@@ -32,7 +32,7 @@ static struct token_list cut(struct token* from, struct token* to)
             !(p->flags & TK_C_BACKEND_FLAG_HIDE) &&
             p->type != TK_BEGIN_OF_FILE)
         {
-            struct token* owner clone = clone_token(p);
+            struct token* _Owner clone = clone_token(p);
             p->flags |= TK_C_BACKEND_FLAG_HIDE;
             token_list_add(&l, clone);
             if (p == to)
@@ -47,9 +47,9 @@ static struct token_list cut(struct token* from, struct token* to)
 }
 
 
-void defer_scope_delete_all(struct defer_scope* owner p);
+void defer_scope_delete_all(struct defer_scope* _Owner p);
 
-void visit_ctx_destroy(struct visit_ctx* obj_owner ctx)
+void visit_ctx_destroy(struct visit_ctx* _Obj_owner ctx)
 {
     defer_scope_delete_all(ctx->tail_block);
     token_list_destroy(&ctx->insert_before_declaration);
@@ -142,20 +142,20 @@ void print_block_defer(struct defer_scope* defer_block, struct osstream* ss, boo
     struct defer_scope* defer_child = defer_block->lastchild;
     while (defer_child != NULL)
     {
-        view struct token_list l = { 0 };
+        _View struct token_list l = { 0 };
 
         l.head = defer_child->defer_statement->first_token;
         l.tail = defer_child->defer_statement->last_token;
 
         l.head->flags |= TK_C_BACKEND_FLAG_HIDE;
-        const char* owner s = get_code_as_compiler_see(&l);
+        const char* _Owner s = get_code_as_compiler_see(&l);
         if (s != NULL)
         {
             if (hide_tokens)
                 token_range_add_flag(l.head, l.tail, TK_C_BACKEND_FLAG_HIDE);
 
             ss_fprintf(ss, "%s", s);
-            free((void* owner)s);
+            free((void* _Owner)s);
         }
         defer_child = defer_child->previous;
     }
@@ -380,7 +380,7 @@ static void visit_secondary_block(struct visit_ctx* ctx, struct secondary_block*
 }
 struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
 {
-    struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
+    struct defer_scope* _Owner p_defer = calloc(1, sizeof * p_defer);
     p_defer->previous = ctx->tail_block->lastchild;
     ctx->tail_block->lastchild = p_defer;
 
@@ -390,7 +390,7 @@ struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
 
 struct defer_scope* visit_ctx_push_tail_block(struct visit_ctx* ctx)
 {
-    struct defer_scope* owner p_defer = calloc(1, sizeof * p_defer);
+    struct defer_scope* _Owner p_defer = calloc(1, sizeof * p_defer);
     p_defer->previous = ctx->tail_block;
     ctx->tail_block = p_defer;
 
@@ -419,13 +419,13 @@ static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement*
 
 
 
-void defer_scope_delete_one(struct defer_scope* owner p_block);
+void defer_scope_delete_one(struct defer_scope* _Owner p_block);
 
 void visit_ctx_pop_tail_block(struct visit_ctx* ctx)
 {
     if (ctx->tail_block)
     {
-        struct defer_scope* owner previous = ctx->tail_block->previous;
+        struct defer_scope* _Owner previous = ctx->tail_block->previous;
         ctx->tail_block->previous = NULL;
         defer_scope_delete_one(ctx->tail_block);
         ctx->tail_block = previous;
@@ -865,7 +865,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
         {
             if (constant_value_is_valid(&p_expression->constant_value))
             {
-                free((void* owner)p_expression->type.name_opt);
+                free((void* _Owner)p_expression->type.name_opt);
                 p_expression->type.name_opt = NULL;
 
                 struct osstream ss1 = { 0 };
@@ -993,7 +993,7 @@ static void visit_expression(struct visit_ctx* ctx, struct expression* p_express
             print_type_specifier_flags(&ss, &is_first, p_expression->type_name->declarator->type.type_specifier_flags);
 
 
-            free((void* owner)p_expression->type_name->declarator->type.name_opt);
+            free((void* _Owner)p_expression->type_name->declarator->type.name_opt);
             p_expression->type_name->declarator->type.name_opt = strdup(name);
 
             struct osstream ss0 = { 0 };
@@ -1655,7 +1655,7 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
         type_remove_names(&new_type);
         if (p_declarator->name)
         {
-            free((void* owner)new_type.name_opt);
+            free((void* _Owner)new_type.name_opt);
             new_type.name_opt = strdup(p_declarator->name->lexeme);
         }
 
@@ -2215,14 +2215,14 @@ static bool is_last_item_return(struct compound_statement* p_compound_statement)
     return false;
 }
 
-void defer_scope_delete_one(struct defer_scope* owner p_block)
+void defer_scope_delete_one(struct defer_scope* _Owner p_block)
 {
     if (p_block != NULL)
     {
-        struct defer_scope* owner child = p_block->lastchild;
+        struct defer_scope* _Owner child = p_block->lastchild;
         while (child != NULL)
         {
-            struct defer_scope* owner prev = child->previous;
+            struct defer_scope* _Owner prev = child->previous;
 
             child->previous = NULL;
             defer_scope_delete_one(child);
@@ -2235,12 +2235,12 @@ void defer_scope_delete_one(struct defer_scope* owner p_block)
     }
 }
 
-void defer_scope_delete_all(struct defer_scope* owner p)
+void defer_scope_delete_all(struct defer_scope* _Owner p)
 {
-    struct defer_scope* owner p_block = p;
+    struct defer_scope* _Owner p_block = p;
     while (p_block != NULL)
     {
-        struct defer_scope* owner prev_block = p_block->previous;
+        struct defer_scope* _Owner prev_block = p_block->previous;
         p_block->previous = NULL;
         defer_scope_delete_one(p_block);
         p_block = prev_block;

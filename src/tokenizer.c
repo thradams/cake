@@ -79,17 +79,17 @@ void naming_convention_macro(struct preprocessor_ctx* ctx, struct token* token);
 
 struct macro_parameter
 {
-    const char* owner name;
-    struct macro_parameter* owner next;
+    const char* _Owner name;
+    struct macro_parameter* _Owner next;
 };
 
 
 
 struct macro
 {
-    const char* owner name;
+    const char* _Owner name;
     struct token_list replacement_list; /*copia*/
-    struct macro_parameter* owner parameters;
+    struct macro_parameter* _Owner parameters;
     bool is_function;
     int usage;
 
@@ -97,27 +97,27 @@ struct macro
 };
 
 
-void delete_macro(struct macro* owner macro);
+void delete_macro(struct macro* _Owner macro);
 
-static void delete_macro_void(void* owner p)
+static void delete_macro_void(void* _Owner p)
 {
-    struct macro* owner p_macro = p;
+    struct macro* _Owner p_macro = p;
     delete_macro(p_macro);
 }
 
-void include_dir_list_destroy(struct include_dir_list* obj_owner list)
+void include_dir_list_destroy(struct include_dir_list* _Obj_owner list)
 {
-    struct include_dir* owner p = list->head;
+    struct include_dir* _Owner p = list->head;
     while (p)
     {
-        struct include_dir* owner next = p->next;
-        free((void* owner)p->path);
+        struct include_dir* _Owner next = p->next;
+        free((void* _Owner)p->path);
         free(p);
         p = next;
     }
 }
 
-void preprocessor_ctx_destroy(struct preprocessor_ctx* obj_owner p)
+void preprocessor_ctx_destroy(struct preprocessor_ctx* _Obj_owner p)
 {
     owner_hashmap_destroy(&p->macros, delete_macro_void);
     include_dir_list_destroy(&p->include_dir);
@@ -271,7 +271,7 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
     if (path == NULL)
         return NULL;
 
-    struct include_dir* owner p_new_include_dir = calloc(1, sizeof * p_new_include_dir);
+    struct include_dir* _Owner p_new_include_dir = calloc(1, sizeof * p_new_include_dir);
     if (p_new_include_dir == NULL)
         return NULL;
 
@@ -309,10 +309,10 @@ struct include_dir* include_dir_add(struct include_dir_list* list, const char* p
 }
 
 
-const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
+const char* _Owner find_and_read_include_file(struct preprocessor_ctx* ctx,
     const char* path, /*as in include*/
     const char* current_file_dir, /*this is the dir of the file that includes*/
-    bool* p_already_included, /*out file alread included pragma once*/
+    bool* p_already_included, /*_Out file alread included pragma once*/
     char full_path_out[], /*this is the final full path of the file*/
     int full_path_out_size)
 {
@@ -328,7 +328,7 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
             return NULL;
         }
 
-        char* owner content = read_file(path);
+        char* _Owner content = read_file(path);
         if (content != NULL)
         {
             snprintf(full_path_out, full_path_out_size, "%s", path);
@@ -357,7 +357,7 @@ const char* owner find_and_read_include_file(struct preprocessor_ctx* ctx,
         return NULL;
     }
 
-    char* owner content = read_file(full_path_out);
+    char* _Owner content = read_file(full_path_out);
     if (content != NULL)
         return content;
 
@@ -406,11 +406,11 @@ struct macro_expanded
 
 void add_macro(struct preprocessor_ctx* ctx, const char* name)
 {
-    struct macro* owner macro = calloc(1, sizeof * macro);
+    struct macro* _Owner macro = calloc(1, sizeof * macro);
     if (macro != NULL)
     {
         macro->name = strdup(name);
-        struct macro* owner previous = (struct macro* owner)owner_hashmap_set(&ctx->macros, name, (void* owner) macro, 0);
+        struct macro* _Owner previous = (struct macro* _Owner)owner_hashmap_set(&ctx->macros, name, (void* _Owner) macro, 0);
         if (previous)
         {
             delete_macro(previous);
@@ -421,11 +421,11 @@ void add_macro(struct preprocessor_ctx* ctx, const char* name)
 
 struct macro_argument
 {
-    const char* owner name;
+    const char* _Owner name;
     struct token_list tokens;
-    struct macro_argument* owner next; /*linked list*/
+    struct macro_argument* _Owner next; /*linked list*/
 };
-void macro_argument_delete(struct macro_argument* owner p);
+void macro_argument_delete(struct macro_argument* _Owner p);
 
 
 struct token_list copy_replacement_list(struct token_list* list);
@@ -479,13 +479,13 @@ struct token_list copy_argument_list_tokens(struct token_list* list)
     return r;
 }
 
-void macro_argument_delete(struct macro_argument* owner p)
+void macro_argument_delete(struct macro_argument* _Owner p)
 {
     if (p)
     {
         assert(p->next == NULL);
         token_list_destroy(&p->tokens);
-        free((void* owner) p->name);
+        free((void* _Owner) p->name);
         free(p);
     }
 }
@@ -496,7 +496,7 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
     if (list.head == NULL)
     {
         /*nunca eh vazio..se for ele colocar um TK_PLACEMARKER*/
-        struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
+        struct token* _Owner p_new_token = calloc(1, sizeof * p_new_token);
         if (p_new_token)
         {
             p_new_token->lexeme = strdup("");
@@ -513,17 +513,17 @@ struct token_list copy_argument_list(struct macro_argument* p_macro_argument)
 struct macro_argument_list
 {
     struct token_list tokens;
-    struct macro_argument* owner head;
+    struct macro_argument* _Owner head;
     struct macro_argument* tail;
 };
 
-void macro_argument_list_destroy(struct macro_argument_list* obj_owner list)
+void macro_argument_list_destroy(struct macro_argument_list* _Obj_owner list)
 {
     token_list_destroy(&list->tokens);
-    struct macro_argument* owner p = list->head;
+    struct macro_argument* _Owner p = list->head;
     while (p)
     {
-        struct macro_argument* owner next = p->next;
+        struct macro_argument* _Owner next = p->next;
         p->next = NULL;
         macro_argument_delete(p);
         p = next;
@@ -560,7 +560,7 @@ struct macro_argument* find_macro_argument_by_name(struct macro_argument_list* p
 }
 
 
-void argument_list_add(struct macro_argument_list* list, struct macro_argument* owner pnew)
+void argument_list_add(struct macro_argument_list* list, struct macro_argument* _Owner pnew)
 {
     assert(pnew->next == NULL);
     if (list->head == NULL)
@@ -596,34 +596,34 @@ void print_macro(struct macro* macro)
     print_list(&macro->replacement_list);
 }
 
-void macro_parameters_delete(struct macro_parameter* owner parameters)
+void macro_parameters_delete(struct macro_parameter* _Owner parameters)
 {
-    struct macro_parameter* owner p = parameters;
+    struct macro_parameter* _Owner p = parameters;
     while (p)
     {
-        struct macro_parameter* owner p_next = p->next;
-        free((void* owner)p->name);
+        struct macro_parameter* _Owner p_next = p->next;
+        free((void* _Owner)p->name);
         free(p);
         p = p_next;
     }
 }
 
-void delete_macro(struct macro* owner macro)
+void delete_macro(struct macro* _Owner macro)
 {
     if (macro)
     {
         token_list_destroy(&macro->replacement_list);
 
-        struct macro_parameter* owner p_macro_parameter = macro->parameters;
+        struct macro_parameter* _Owner p_macro_parameter = macro->parameters;
         while (p_macro_parameter)
         {
-            struct macro_parameter* owner p_next = p_macro_parameter->next;
-            free((void* owner)p_macro_parameter->name);
+            struct macro_parameter* _Owner p_next = p_macro_parameter->next;
+            free((void* _Owner)p_macro_parameter->name);
             free(p_macro_parameter);
             p_macro_parameter = p_next;
         }
 
-        free((void* owner) macro->name);
+        free((void* _Owner) macro->name);
         free(macro);
     }
 }
@@ -965,9 +965,9 @@ enum token_type is_punctuator(struct stream* stream)
 }
 
 
-struct token* owner new_token(const char* lexeme_head, const char* lexeme_tail, enum token_type type)
+struct token* _Owner new_token(const char* lexeme_head, const char* lexeme_tail, enum token_type type)
 {
-    struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
+    struct token* _Owner p_new_token = calloc(1, sizeof * p_new_token);
     size_t sz = lexeme_tail - lexeme_head;
     p_new_token->lexeme = calloc(sz + 1, sizeof(char));
     p_new_token->type = type;
@@ -975,7 +975,7 @@ struct token* owner new_token(const char* lexeme_head, const char* lexeme_tail, 
     return p_new_token;
 }
 
-struct token* owner identifier(struct stream* stream)
+struct token* _Owner identifier(struct stream* stream)
 {
     const char* start = stream->current;
     stream_match(stream);
@@ -995,7 +995,7 @@ struct token* owner identifier(struct stream* stream)
         stream_match(stream);
     }
 
-    struct token* owner p_new_token = new_token(start, stream->current, TK_IDENTIFIER);
+    struct token* _Owner p_new_token = new_token(start, stream->current, TK_IDENTIFIER);
 
 
     return p_new_token;
@@ -1013,7 +1013,7 @@ bool first_of_character_constant(struct stream* stream)
         (stream->current[0] == 'L' && stream->current[1] == '\'');
 }
 
-struct token* owner character_constant(struct tokenizer_ctx* ctx, struct stream* stream)
+struct token* _Owner character_constant(struct tokenizer_ctx* ctx, struct stream* stream)
 {
     const char* start = stream->current;
 
@@ -1055,7 +1055,7 @@ struct token* owner character_constant(struct tokenizer_ctx* ctx, struct stream*
         }
     }
     stream_match(stream);
-    struct token* owner p_new_token = new_token(start, stream->current, TK_CHAR_CONSTANT);
+    struct token* _Owner p_new_token = new_token(start, stream->current, TK_CHAR_CONSTANT);
     return p_new_token;
 }
 
@@ -1079,9 +1079,9 @@ bool first_of_string_literal(struct stream* stream)
         (stream->current[0] == 'L' && stream->current[1] == '"');
 }
 
-struct token* owner string_literal(struct tokenizer_ctx* ctx, struct stream* stream)
+struct token* _Owner string_literal(struct tokenizer_ctx* ctx, struct stream* stream)
 {
-    struct token* owner p_new_token = NULL;
+    struct token* _Owner p_new_token = NULL;
     const char* start = stream->current;
 
     try
@@ -1200,7 +1200,7 @@ int string_literal_byte_size(const char* s)
     return size * charsize;
 }
 
-struct token* owner ppnumber(struct stream* stream)
+struct token* _Owner ppnumber(struct stream* stream)
 {
     /*
      pp-number:
@@ -1286,7 +1286,7 @@ struct token* owner ppnumber(struct stream* stream)
             break;
         }
     }
-    struct token* owner p_new_token = new_token(start, stream->current, TK_PPNUMBER);
+    struct token* _Owner p_new_token = new_token(start, stream->current, TK_PPNUMBER);
     return p_new_token;
 }
 
@@ -1294,7 +1294,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 {
     struct token_list list = { 0 };
 
-    FILE* owner file = NULL;
+    FILE* _Owner file = NULL;
 
     bool b_first = true;
     int line = 1;
@@ -1303,7 +1303,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
     try
     {
 #ifndef MOCKFILES
-        file = (FILE * owner)fopen(filename_opt, "rb");
+        file = (FILE * _Owner)fopen(filename_opt, "rb");
         if (file == NULL)
         {
             preprocessor_diagnostic_message(C_ERROR_FILE_NOT_FOUND, ctx, ctx->current, "file '%s' not found", filename_opt);
@@ -1338,7 +1338,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
             else
             {
                 char b[] = ",";
-                struct token* owner p_new_token = new_token(b, &b[1], TK_COMMA);
+                struct token* _Owner p_new_token = new_token(b, &b[1], TK_COMMA);
                 p_new_token->flags |= addflags;
                 p_new_token->level = level;
                 p_new_token->token_origin = NULL;
@@ -1350,7 +1350,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
                 {
                     /*new line*/
                     char newline[] = "\n";
-                    struct token* owner p_new3 = new_token(newline, &newline[1], TK_NEWLINE);
+                    struct token* _Owner p_new3 = new_token(newline, &newline[1], TK_NEWLINE);
                     p_new3->level = level;
                     p_new3->token_origin = NULL;
                     p_new3->line = line;
@@ -1362,7 +1362,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
             char buffer[30] = { 0 };
             int c = snprintf(buffer, sizeof buffer, "%d", (int)ch);
 
-            struct token* owner p_new_token = new_token(buffer, &buffer[c], TK_PPNUMBER);
+            struct token* _Owner p_new_token = new_token(buffer, &buffer[c], TK_PPNUMBER);
             p_new_token->flags |= addflags;
             p_new_token->level = level;
             p_new_token->token_origin = NULL;
@@ -1383,7 +1383,7 @@ struct token_list embed_tokenizer(struct preprocessor_ctx* ctx, const char* file
 
     /*new line*/
     char newline[] = "\n";
-    struct token* owner p_new_token = new_token(newline, &newline[1], TK_NEWLINE);
+    struct token* _Owner p_new_token = new_token(newline, &newline[1], TK_NEWLINE);
     p_new_token->level = level;
     p_new_token->token_origin = NULL;
     p_new_token->line = line;
@@ -1448,7 +1448,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
         {
             const char* begin = filename_opt;
             const char* end = filename_opt + strlen(filename_opt);
-            struct token* owner p_new = new_token(begin, end, TK_BEGIN_OF_FILE);
+            struct token* _Owner p_new = new_token(begin, end, TK_BEGIN_OF_FILE);
 #ifdef _WINDOWS_
             //windows have case insensive paths
             for (char* p = p_new->lexeme; *p; p++)
@@ -1478,7 +1478,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             if (is_digit(&stream) ||
                 (stream.current[0] == '.' && isdigit(stream.current[0])))
             {
-                struct token* owner p_new_token = ppnumber(&stream);
+                struct token* _Owner p_new_token = ppnumber(&stream);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1501,7 +1501,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             */
             if (first_of_string_literal(&stream))
             {
-                struct token* owner p_new_token = string_literal(ctx, &stream);
+                struct token* _Owner p_new_token = string_literal(ctx, &stream);
                 if (p_new_token == NULL) throw;
 
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
@@ -1525,7 +1525,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             if (first_of_character_constant(&stream))
             {
                 //TODO if we have ' in the middle then it is not character constant
-                struct token* owner p_new_token = character_constant(ctx, &stream);
+                struct token* _Owner p_new_token = character_constant(ctx, &stream);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1544,7 +1544,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
 
             if (is_nondigit(&stream))
             {
-                struct token* owner p_new_token = identifier(&stream);
+                struct token* _Owner p_new_token = identifier(&stream);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1576,7 +1576,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                 {
                     stream_match(&stream);
                 }
-                struct token* owner p_new_token = new_token(start, stream.current, TK_BLANKS);
+                struct token* _Owner p_new_token = new_token(start, stream.current, TK_BLANKS);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1606,7 +1606,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                     if (stream.current[0] == '\0')
                         break;
                 }
-                struct token* owner p_new_token = new_token(start, stream.current, TK_LINE_COMMENT);
+                struct token* _Owner p_new_token = new_token(start, stream.current, TK_LINE_COMMENT);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1651,7 +1651,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                         stream_match(&stream);
                     }
                 }
-                struct token* owner p_new_token = new_token(start, stream.current, TK_COMMENT);
+                struct token* _Owner p_new_token = new_token(start, stream.current, TK_COMMENT);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1676,7 +1676,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             {
                 const char* start = stream.current;
                 stream_match(&stream);
-                struct token* owner p_new_token = new_token(start, stream.current, '#');
+                struct token* _Owner p_new_token = new_token(start, stream.current, '#');
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1707,7 +1707,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
                     stream_match(&stream);
                 }
                 char  newline[] = "\n";
-                struct token* owner p_new_token = new_token(newline, newline + 1, TK_NEWLINE);
+                struct token* _Owner p_new_token = new_token(newline, newline + 1, TK_NEWLINE);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1728,7 +1728,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             if (t != TK_NONE)
             {
 
-                struct token* owner p_new_token = new_token(start, stream.current, t);
+                struct token* _Owner p_new_token = new_token(start, stream.current, t);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1747,7 +1747,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
             else
             {
                 stream_match(&stream);
-                struct token* owner p_new_token = new_token(start, stream.current, ANY_OTHER_PP_TOKEN);
+                struct token* _Owner p_new_token = new_token(start, stream.current, ANY_OTHER_PP_TOKEN);
                 p_new_token->flags |= has_space ? TK_FLAG_HAS_SPACE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= new_line ? TK_FLAG_HAS_NEWLINE_BEFORE : TK_FLAG_NONE;
                 p_new_token->flags |= addflags;
@@ -1781,7 +1781,7 @@ struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const c
 
 bool fread2(void* buffer, size_t size, size_t count, FILE * stream, size_t * sz)
 {
-    *sz = 0;//out
+    *sz = 0;//_Out
     bool result = false;
     size_t n = fread(buffer, size, count, stream);
     if (n == count)
@@ -1999,7 +1999,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
 
                 struct macro* macro = find_macro(ctx, input_list->head->lexeme);
-                struct token* owner p_new_token = token_list_pop_front_get(input_list);
+                struct token* _Owner p_new_token = token_list_pop_front_get(input_list);
                 p_new_token->type = TK_PPNUMBER;
                 free(p_new_token->lexeme);
                 if (macro)
@@ -2061,7 +2061,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
 
                 char full_path_result[200] = { 0 };
                 bool already_included = false;
-                const char* owner s = find_and_read_include_file(ctx,
+                const char* _Owner s = find_and_read_include_file(ctx,
                     path,
                     fullpath,
                     &already_included,
@@ -2069,9 +2069,9 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                     sizeof full_path_result);
 
                 bool has_include = s != NULL;
-                free((void* owner)s);
+                free((void* _Owner)s);
 
-                struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
+                struct token* _Owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 p_new_token->lexeme = strdup(has_include ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
@@ -2128,7 +2128,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
                 */
                 bool has_c_attribute = false;
 
-                struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
+                struct token* _Owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->type = TK_PPNUMBER;
                 p_new_token->lexeme = strdup(has_c_attribute ? "1" : "0");
                 p_new_token->flags |= TK_FLAG_FINAL;
@@ -2149,7 +2149,7 @@ struct token_list process_defined(struct preprocessor_ctx* ctx, struct token_lis
     return r;
 }
 
-struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token_list* obj_owner list)
+struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token_list* _Obj_owner list)
 {
     assert(!token_list_is_empty(list));
 
@@ -2162,7 +2162,7 @@ struct token_list process_identifiers(struct preprocessor_ctx* ctx, struct token
         {
 
             struct macro* macro = find_macro(ctx, list->head->lexeme);
-            struct token* owner p_new_token = token_list_pop_front_get(list);
+            struct token* _Owner p_new_token = token_list_pop_front_get(list);
             p_new_token->type = TK_PPNUMBER;
 
             if (macro)
@@ -2345,7 +2345,7 @@ int match_token_level(struct token_list* dest, struct token_list* input_list, en
 
 struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* p_result)
 {
-    *p_result = 0; //out
+    *p_result = 0; //_Out
 
     struct token_list r = { 0 };
     try
@@ -2425,7 +2425,7 @@ struct token_list if_group(struct preprocessor_ctx* ctx, struct token_list* inpu
 
 struct token_list elif_group(struct preprocessor_ctx* ctx, struct token_list* input_list, bool is_active, int level, bool* p_elif_result)
 {
-    *p_elif_result = 0; //out
+    *p_elif_result = 0; //_Out
 
     struct token_list r = { 0 };
     /*
@@ -2635,7 +2635,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
     */
     skip_blanks(ctx, &r, input_list);
 
-    struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+    struct macro_parameter* _Owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
     p_macro_parameter->name = strdup(input_list->head->lexeme);
 
     assert(macro->parameters == NULL);
@@ -2655,7 +2655,7 @@ struct token_list identifier_list(struct preprocessor_ctx* ctx, struct macro* ma
             break;
         }
 
-        struct macro_parameter* owner p_new_macro_parameter = calloc(1, sizeof * p_new_macro_parameter);
+        struct macro_parameter* _Owner p_new_macro_parameter = calloc(1, sizeof * p_new_macro_parameter);
         p_new_macro_parameter->name = strdup(input_list->head->lexeme);
 
         assert(p_last_parameter->next == NULL);
@@ -2739,14 +2739,14 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             # "include" pp-tokens new-line
             # "embed" pp-tokens new-line
             # "define" identifier replacement-list new-line
-            # "define" identifier ( identifier-list opt ) replacement-list new-line
+            # "define" identifier ( identifier-list _Opt ) replacement-list new-line
             # "define" identifier ( ... ) replacement-list new-line
             # "define" identifier ( identifier-list , ... ) replacement-list new-line
             # "undef" identifier new-line
             # "line" pp-tokens new-line
-            # "error" pp-tokens opt new-line
-            # "warning" pp-tokens opt new-line
-            # "pragma" pp-tokens opt new-line
+            # "error" pp-tokens _Opt new-line
+            # "warning" pp-tokens _Opt new-line
+            # "pragma" pp-tokens _Opt new-line
             # new-line
     */
 
@@ -2816,7 +2816,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
             char full_path_result[200] = { 0 };
             bool already_included = false;
-            const char* owner content = find_and_read_include_file(ctx,
+            const char* _Owner content = find_and_read_include_file(ctx,
                 path + 1,
                 current_file_dir,
                 &already_included,
@@ -2834,7 +2834,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
 
                 struct tokenizer_ctx tctx = { 0 };
                 struct token_list list = tokenizer(&tctx, content, full_path_result, level + 1, TK_FLAG_NONE);
-                free((void* owner)content);
+                free((void* _Owner)content);
 
                 struct token_list list2 = preprocessor(ctx, &list, level + 1);
                 token_list_append_list(&r, &list2);
@@ -2948,10 +2948,10 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             A
             */
 
-            struct macro* owner macro = calloc(1, sizeof * macro);
+            struct macro* _Owner macro = calloc(1, sizeof * macro);
             if (macro == NULL)
             {
-                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "out of mem");
+                preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, "_Out of mem");
                 throw;
             }
 
@@ -2998,7 +2998,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 skip_blanks_level(ctx, &r, input_list, level);
                 if (input_list->head->type == '...')
                 {
-                    struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                    struct macro_parameter* _Owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                     p_macro_parameter->name = strdup("__VA_ARGS__");
                     macro->parameters = p_macro_parameter;
 
@@ -3022,7 +3022,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                     skip_blanks_level(ctx, &r, input_list, level);
                     if (input_list->head->type == '...')
                     {
-                        struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                        struct macro_parameter* _Owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                         p_macro_parameter->name = strdup("__VA_ARGS__");
                         struct macro_parameter* p_last = macro->parameters;
                         assert(p_last != NULL);
@@ -3056,7 +3056,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
                 {
                     macro_parameters_delete(macro->parameters);
 
-                    struct macro_parameter* owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
+                    struct macro_parameter* _Owner p_macro_parameter = calloc(1, sizeof * p_macro_parameter);
                     p_macro_parameter->name = strdup("__VA_ARGS__");
                     macro->parameters = p_macro_parameter;
 
@@ -3069,8 +3069,8 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             if (macro_name_token)
                 naming_convention_macro(ctx, macro_name_token);
 
-            struct macro* owner previous =
-                owner_hashmap_set(&ctx->macros, macro->name, (void* owner)macro, 0);
+            struct macro* _Owner previous =
+                owner_hashmap_set(&ctx->macros, macro->name, (void* _Owner)macro, 0);
 
             if (previous)
             {
@@ -3087,7 +3087,7 @@ struct token_list control_line(struct preprocessor_ctx* ctx, struct token_list* 
             match_token_level(&r, input_list, TK_IDENTIFIER, level, ctx);//undef
             skip_blanks_level(ctx, &r, input_list, level);
 
-            struct macro* owner macro = (struct macro* owner) owner_hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
+            struct macro* _Owner macro = (struct macro* _Owner) owner_hashmap_remove(&ctx->macros, input_list->head->lexeme, NULL);
             assert(find_macro(ctx, input_list->head->lexeme) == NULL);
             if (macro)
             {
@@ -3334,14 +3334,14 @@ static struct macro_argument_list collect_macro_arguments(struct preprocessor_ct
         {
             if (macro->parameters != NULL)
             {
-                struct macro_argument* owner p_argument = calloc(1, sizeof(struct macro_argument));
+                struct macro_argument* _Owner p_argument = calloc(1, sizeof(struct macro_argument));
                 p_argument->name = strdup(p_current_parameter->name);
                 argument_list_add(&macro_argument_list, p_argument);
             }
             match_token_level(&macro_argument_list.tokens, input_list, ')', level, ctx);
             return macro_argument_list;
         }
-        struct macro_argument* owner p_argument = calloc(1, sizeof(struct macro_argument));
+        struct macro_argument* _Owner p_argument = calloc(1, sizeof(struct macro_argument));
         p_argument->name = strdup(p_current_parameter->name);
         while (input_list->head != NULL)
         {
@@ -3501,7 +3501,7 @@ static struct token_list concatenate(struct preprocessor_ctx* ctx, struct token_
             }
             else
             {
-                struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
+                struct token* _Owner p_new_token = calloc(1, sizeof * p_new_token);
                 p_new_token->lexeme = strdup("");
                 p_new_token->type = TK_PLACEMARKER;
                 token_list_add(&newlist, p_new_token);
@@ -3642,14 +3642,14 @@ static struct token_list replace_macro_arguments(struct preprocessor_ctx* ctx, s
                     ///----------------------------
                     //transforma tudo em string e coloca no resultado
                     struct token_list argumentlist = copy_argument_list(p_argument);
-                    char* owner s = token_list_join_tokens(&argumentlist, true);
+                    char* _Owner s = token_list_join_tokens(&argumentlist, true);
                     if (s == NULL)
                     {
                         token_list_destroy(&argumentlist);
                         preprocessor_diagnostic_message(C_ERROR_UNEXPECTED, ctx, input_list->head, "unexpected");
                         throw;
                     }
-                    struct token* owner p_new_token = calloc(1, sizeof * p_new_token);
+                    struct token* _Owner p_new_token = calloc(1, sizeof * p_new_token);
                     p_new_token->lexeme = s;
                     p_new_token->type = TK_STRING_LITERAL;
                     p_new_token->flags = flags;
@@ -4481,7 +4481,7 @@ void include_config_header(struct preprocessor_ctx* ctx)
      echo | gcc -E -Wp,-v -
     */
 
-    char* owner str = read_file(path);
+    char* _Owner str = read_file(path);
     if (str)
     {
         const enum diagnostic_id w =
@@ -4565,7 +4565,7 @@ void add_standard_macros(struct preprocessor_ctx* ctx)
 #ifdef _WIN32
 
         //see
-        //https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170
+        //https://learn.microsoft.com/en-us/cpp/preprocessor/predefined-macros?_View=msvc-170
         "#define _WIN32 " TOSTRING(_WIN32) "\n"
 
 
@@ -5010,7 +5010,7 @@ void print_literal(const char* s)
 
 
 
-const char* owner get_code_as_we_see_plus_macros(struct token_list* list)
+const char* _Owner get_code_as_we_see_plus_macros(struct token_list* list)
 {
     struct osstream ss = { 0 };
     struct token* current = list->head;
@@ -5029,7 +5029,7 @@ const char* owner get_code_as_we_see_plus_macros(struct token_list* list)
         current = current->next;
     }
 
-    const char* owner cstr = ss.c_str;
+    const char* _Owner cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -5073,7 +5073,7 @@ void print_code_as_we_see(struct token_list* list, bool remove_comments)
         current = current->next;
     }
 }
-const char* owner get_code_as_we_see(struct token_list* list, bool remove_comments)
+const char* _Owner get_code_as_we_see(struct token_list* list, bool remove_comments)
 {
     struct osstream ss = { 0 };
     struct token* current = list->head;
@@ -5108,7 +5108,7 @@ const char* owner get_code_as_we_see(struct token_list* list, bool remove_commen
         current = current->next;
     }
 
-    const char* owner cstr = ss.c_str;
+    const char* _Owner cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -5117,7 +5117,7 @@ const char* owner get_code_as_we_see(struct token_list* list, bool remove_commen
 }
 
 
-const char* owner get_code_as_compiler_see(struct token_list* list)
+const char* _Owner get_code_as_compiler_see(struct token_list* list)
 {
     struct osstream ss = { 0 };
 
@@ -5148,7 +5148,7 @@ const char* owner get_code_as_compiler_see(struct token_list* list)
     return ss.c_str;
 }
 
-const char* owner print_preprocessed_to_string2(struct token* opt p_token)
+const char* _Owner print_preprocessed_to_string2(struct token* _Opt p_token)
 {
     /*
     * No nivel > 0 (ou seja dentro dos includes)
@@ -5225,7 +5225,7 @@ const char* owner print_preprocessed_to_string2(struct token* opt p_token)
     return ss.c_str;
 }
 
-const char* owner print_preprocessed_to_string(struct token* p_token)
+const char* _Owner print_preprocessed_to_string(struct token* p_token)
 {
     /*
     * Esta funcao imprime os tokens como o compilador ve
@@ -5277,11 +5277,11 @@ const char* owner print_preprocessed_to_string(struct token* p_token)
 
 void print_preprocessed(struct token* p_token)
 {
-    const char* owner s = print_preprocessed_to_string(p_token);
+    const char* _Owner s = print_preprocessed_to_string(p_token);
     if (s)
     {
         printf("%s", s);
-        free((void* owner)s);
+        free((void* _Owner)s);
     }
 }
 
@@ -5414,7 +5414,7 @@ void print_preprocessed_to_file(struct token* p_token, const char* filename)
         if (s)
         {
             fprintf(f, "%s", s);
-            free((void* owner)s);
+            free((void* _Owner)s);
         }
         fclose(f);
     }
@@ -5492,7 +5492,7 @@ int test_preprossessor_input_output(const char* input, const char* output)
         printf("TEST 0 FAILED\n");
         return 1;
     }
-    free((void* owner)s);
+    free((void* _Owner)s);
     return 0;
 }
 
@@ -5585,7 +5585,7 @@ int test_preprocessor_in_out_using_file(const char* fileName)
                 *pos = 0;
         }
         res = test_preprocessor_in_out(input, output);
-        free((void* owner)input);
+        free((void* _Owner)input);
     }
     return res;
 }

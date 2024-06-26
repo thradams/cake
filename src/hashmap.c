@@ -20,11 +20,11 @@ void hashmap_remove_all(struct hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* owner pentry = map->table[i];
+            struct map_entry* _Owner pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct map_entry* owner next = pentry->next;                
+                struct map_entry* _Owner next = pentry->next;                
                 free(pentry->key);
                 free(pentry);
                 pentry = next;
@@ -37,7 +37,7 @@ void hashmap_remove_all(struct hash_map* map)
     }
 }
 
-void hashmap_destroy( struct hash_map* obj_owner map)
+void hashmap_destroy( struct hash_map* _Obj_owner map)
 {
     hashmap_remove_all(map);
     assert(map->table == NULL);
@@ -65,7 +65,7 @@ struct map_entry* hashmap_find(struct hash_map* map, const char* key)
 }
 
 
-void * view hashmap_remove(struct hash_map* map, const char* key, enum tag * p_type_opt)
+void * _View hashmap_remove(struct hash_map* map, const char* key, enum tag * p_type_opt)
 {
     if (map->table != NULL)
     {
@@ -82,9 +82,9 @@ void * view hashmap_remove(struct hash_map* map, const char* key, enum tag * p_t
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* view p = p_entry->p;
-                free((void* owner)p_entry->key);
-                free((void* owner)p_entry);
+                void* _View p = p_entry->p;
+                free((void* _Owner)p_entry->key);
+                free((void* _Owner)p_entry);
                 
                 return p;
             }
@@ -96,7 +96,7 @@ void * view hashmap_remove(struct hash_map* map, const char* key, enum tag * p_t
 }
 
 
-int hashmap_set(struct hash_map* map, const char* key, const void* view p, enum tag type)
+int hashmap_set(struct hash_map* map, const char* key, const void* _View p, enum tag type)
 {
     int result = 0;
 
@@ -127,7 +127,7 @@ int hashmap_set(struct hash_map* map, const char* key, const void* view p, enum 
 
         if (pentry == NULL)
         {
-            struct map_entry* owner p_new_entry = calloc(1, sizeof(*pentry));
+            struct map_entry* _Owner p_new_entry = calloc(1, sizeof(*pentry));
             p_new_entry->hash = hash;
             p_new_entry->p = (void*) p;
             p_new_entry->type = type;
@@ -153,17 +153,17 @@ int hashmap_set(struct hash_map* map, const char* key, const void* view p, enum 
 
 
 
-void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner))
+void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* _Owner))
 {
     if (map->table != NULL)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct owner_map_entry* owner pentry = map->table[i];
+            struct owner_map_entry* _Owner pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct owner_map_entry* owner next = pentry->next;                
+                struct owner_map_entry* _Owner next = pentry->next;                
                 
                 pf(pentry->p); //TODO
 
@@ -180,7 +180,7 @@ void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner
     }
 }
 
-void owner_hashmap_destroy( struct owner_hash_map* obj_owner map, void (*pf)(void* owner))
+void owner_hashmap_destroy( struct owner_hash_map* _Obj_owner map, void (*pf)(void* _Owner))
 {
     owner_hashmap_remove_all(map, pf );
     assert(map->table == NULL);
@@ -208,7 +208,7 @@ struct owner_map_entry* owner_hashmap_find(struct owner_hash_map* map, const cha
 }
 
 
-void * owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, enum tag * p_type_opt)
+void * _Owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, enum tag * p_type_opt)
 {
     if (map->table != NULL)
     {
@@ -225,9 +225,9 @@ void * owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, e
                 if (p_type_opt)
                     *p_type_opt = p_entry->type;
 
-                void* owner p = p_entry->p;
+                void* _Owner p = p_entry->p;
                 free(p_entry->key);
-                free((void  * owner)p_entry);
+                free((void  * _Owner)p_entry);
                 
                 return p;
             }
@@ -239,9 +239,9 @@ void * owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, e
 }
 
 
-void* owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const void* owner p, enum tag type)
+void* _Owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const void* _Owner p, enum tag type)
 {
-    void* owner previous = NULL;
+    void* _Owner previous = NULL;
 
     if (map->table == NULL)
     {
@@ -270,9 +270,9 @@ void* owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const
 
         if (pentry == NULL)
         {
-            struct owner_map_entry* owner p_new_entry = calloc(1, sizeof(*pentry));
+            struct owner_map_entry* _Owner p_new_entry = calloc(1, sizeof(*pentry));
             p_new_entry->hash = hash;
-            p_new_entry->p = (void * owner)p;
+            p_new_entry->p = (void * _Owner)p;
             p_new_entry->type = type;
             p_new_entry->key = strdup(key);
             p_new_entry->next = map->table[index];
@@ -282,7 +282,7 @@ void* owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const
         else
         {            
             previous = pentry->p;
-            pentry->p = (void * owner) p;
+            pentry->p = (void * _Owner) p;
             pentry->type = type;
         }
     }

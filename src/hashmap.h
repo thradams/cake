@@ -17,43 +17,43 @@ enum tag
 
 
 struct map_entry {
-    struct map_entry* owner next;
+    struct map_entry* _Owner next;
     unsigned int hash;
-    char* owner key;
+    char* _Owner key;
     void* p;
     enum tag type; /*type of the object pointed by p*/
 };
 
 struct hash_map {
-    struct map_entry *owner * owner table;
+    struct map_entry *_Owner * _Owner table;
     int capacity;
     int  size;
 };
 
 void hashmap_remove_all(struct hash_map* map);
-void hashmap_destroy( struct hash_map* obj_owner map);
+void hashmap_destroy( struct hash_map* _Obj_owner map);
 struct map_entry* hashmap_find(struct hash_map* map, const char* key);
 void* hashmap_remove(struct hash_map* map, const char* key, enum tag* p_type_opt);
 int hashmap_set(struct hash_map* map, const char* key, const void* p, enum tag type);
 
 
 struct owner_map_entry {
-    struct owner_map_entry* owner next;
+    struct owner_map_entry* _Owner next;
     unsigned int hash;
-    char* owner key;
-    void* owner p;
+    char* _Owner key;
+    void* _Owner p;
     enum tag type; /*type of the object pointed by p*/
 };
 
 struct owner_hash_map {
-    struct owner_map_entry *owner * owner table;
+    struct owner_map_entry *_Owner * _Owner table;
     int capacity;
     int  size;
 };
 
-void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* owner ));
-void owner_hashmap_destroy( struct owner_hash_map* obj_owner map, void (*pf)(void*));
+void owner_hashmap_remove_all(struct owner_hash_map* map, void (*pf)(void* _Owner ));
+void owner_hashmap_destroy( struct owner_hash_map* _Obj_owner map, void (*pf)(void*));
 struct owner_map_entry* owner_hashmap_find(struct owner_hash_map* map, const char* key);
-void*  owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, enum tag* p_type_opt);
-void* owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const void* owner p, enum tag type);
+void*  _Owner owner_hashmap_remove(struct owner_hash_map* map, const char* key, enum tag* p_type_opt);
+void* _Owner owner_hashmap_set(struct owner_hash_map* map, const char* key, const void* _Owner p, enum tag type);
 

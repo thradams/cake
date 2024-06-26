@@ -43,25 +43,25 @@ s_warnings[] = {
 
     {W_STRING_SLICED,"string-slicing"},
     {W_DECLARATOR_STATE,"declarator-state"},
-    {W_OWNERSHIP_MISSING_OWNER_QUALIFIER, "missing-owner-qualifier"},
-    {W_OWNERSHIP_NOT_OWNER,"not-owner"},
-    {W_OWNERSHIP_USING_TEMPORARY_OWNER,"temp-owner"},
-    {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-owner-move"},
-    {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-owner-to-owner-move"},
-    {W_OWNERSHIP_DISCARDING_OWNER, "discard-owner"},
+    {W_OWNERSHIP_MISSING_OWNER_QUALIFIER, "missing-_Owner-qualifier"},
+    {W_OWNERSHIP_NOT_OWNER,"not-_Owner"},
+    {W_OWNERSHIP_USING_TEMPORARY_OWNER,"temp-_Owner"},
+    {W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER, "non-_Owner-move"},
+    {W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, "non-_Owner-to-_Owner-move"},
+    {W_OWNERSHIP_DISCARDING_OWNER, "discard-_Owner"},
     {W_FLOW_MISSING_DTOR, "missing-destructor"},
-    {W_OWNERSHIP_NON_OWNER_MOVE, "non-owner-move"},
+    {W_OWNERSHIP_NON_OWNER_MOVE, "non-_Owner-move"},
     {W_FLOW_MOVED, "using-moved-object"},
     {W_FLOW_UNINITIALIZED, "analyzer-maybe-uninitialized"},
     {W_FLOW_NULL_DEREFERENCE, "analyzer-null-dereference"}, // -fanalyzer
-    {W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-opt-arg"},
+    {W_FLOW_MAYBE_NULL_TO_NON_OPT_ARG, "analyzer-non-_Opt-arg"},
     {W_FLOW_LIFETIME_ENDED, "lifetime-ended"},
     {W_MUST_USE_ADDRESSOF, "must-use-address-of"},
     {W_PASSING_NULL_AS_ARRAY, "null-as-array"},
     {W_INCOMPATIBLE_ENUN_TYPES, "incompatible-enum"},
     {W_MULTICHAR_ERROR, "multi-char"},
     {W_ARRAY_INDIRECTION,"array-indirection"},
-    {W_OUT_OF_BOUNDS, "out-of-bounds"},
+    {W_OUT_OF_BOUNDS, "_Out-of-bounds"},
     {W_ASSIGNMENT_OF_ARRAY_PARAMETER, "array-parameter-assignment"},
     {W_CONDITIONAL_IS_CONSTANT,"conditional-constant"},
     {W_FLOW_NULLABLE_TO_NON_NULLABLE, "nullable-to-non-nullable"}
@@ -150,7 +150,7 @@ int get_warning_name(enum diagnostic_id w, int n, char buffer[/*n*/])
 {
     if (w >= 0 && w <= W_NOTE)
     {
-        //TODO because s_warnings is out of order ....
+        //TODO because s_warnings is _Out of order ....
         //this is a linear seatch instead of just index! TODOD
         for (int j = 0; j < sizeof(s_warnings) / sizeof(s_warnings[0]); j++)
         {
@@ -461,10 +461,10 @@ void print_help()
         WHITE "SAMPLES\n" RESET
         "\n"
         WHITE "    cake source.c\n" RESET
-        "    Compiles source.c and outputs /out/source.c\n"
+        "    Compiles source.c and outputs /_Out/source.c\n"
         "\n"
         WHITE "    cake -target=C11 source.c\n" RESET
-        "    Compiles source.c and outputs C11 code at /out/source.c\n"
+        "    Compiles source.c and outputs C11 code at /_Out/source.c\n"
         "\n"
         WHITE "cake file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"

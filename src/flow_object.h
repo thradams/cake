@@ -40,24 +40,24 @@ enum object_state
 
 
 struct objects {
-    struct flow_object* owner* owner data;
+    struct flow_object* _Owner* _Owner data;
     int size;
     int capacity;
 };
 
 void objects_clear(struct objects* p);
-void objects_destroy(struct objects* obj_owner p);
-int objects_push_back(struct objects* p, struct flow_object* owner p_object);
+void objects_destroy(struct objects* _Obj_owner p);
+int objects_push_back(struct objects* p, struct flow_object* _Owner p_object);
 const struct flow_object* objects_find(const struct objects* p, const struct flow_object* p_object);
 
 
 struct objects_view {
-    struct flow_object** owner opt data;
+    struct flow_object** _Owner _Opt data;
     int size;
     int capacity;
 };
 
-void objects_view_destroy(struct objects_view* obj_owner p);
+void objects_view_destroy(struct objects_view* _Obj_owner p);
 int objects_view_push_back(struct objects_view* p, struct flow_object* p_object);
 bool objects_view_find(const struct objects_view* p, const struct flow_object* p_object);
 void objects_view_copy(struct objects_view* dest, const struct objects_view* source);
@@ -72,11 +72,11 @@ struct flow_object_state {
     struct flow_object* pointed;
     enum object_state state;
     struct objects_view alternatives;
-    struct flow_object_state* owner next;
+    struct flow_object_state* _Owner next;
 };
 
 void flow_object_state_copy(struct flow_object_state *to, const struct flow_object_state * from);
-void flow_object_state_delete(struct flow_object_state * owner opt p);
+void flow_object_state_delete(struct flow_object_state * _Owner _Opt p);
 
 
 /*
@@ -108,7 +108,7 @@ void flow_object_update_current(struct flow_object* p);
 void flow_object_set_current_state_to_can_be_null(struct flow_object* p);
 void flow_object_set_current_state_to_is_null(struct flow_object* p);
 
-int flow_object_add_state(struct flow_object* p, struct flow_object_state *owner pnew);
+int flow_object_add_state(struct flow_object* p, struct flow_object_state *_Owner pnew);
 
 bool flow_object_is_zero_or_null(const struct flow_object* p_object);
 
@@ -133,8 +133,8 @@ void flow_object_print_state(struct flow_object* p);
 
 void object_set_pointer(struct flow_object* p_object, struct flow_object* p_object2);
 
-void object_destroy(struct flow_object* obj_owner p);
-void object_delete(struct flow_object* owner opt p);
+void object_destroy(struct flow_object* _Obj_owner p);
+void object_delete(struct flow_object* _Owner _Opt p);
 void object_swap(struct flow_object* a, struct flow_object* b);
 void print_object_line(struct flow_object* p_object, int cols);
 void print_object_state_to_str(enum object_state e, char str[], int sz);

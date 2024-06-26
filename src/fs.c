@@ -88,7 +88,7 @@ struct TAGDIR
 #pragma CAKE diagnostic pop
 #endif
 
-DIR* owner opendir(const char* name)
+DIR* _Owner opendir(const char* name)
 {
     assert(name != 0);
     WIN32_FIND_DATAA fdfile = { 0 };
@@ -101,7 +101,7 @@ DIR* owner opendir(const char* name)
 
     if (handle != INVALID_HANDLE_VALUE)
     {
-        DIR* owner p = calloc(1, sizeof * p);
+        DIR* _Owner p = calloc(1, sizeof * p);
         if (p)
         {
             p->handle = handle;
@@ -121,7 +121,7 @@ DIR* owner opendir(const char* name)
     return NULL;
 }
 
-int closedir(DIR* owner dirp)
+int closedir(DIR* _Owner dirp)
 {
     FindClose(dirp->handle);
     free(dirp);
@@ -194,11 +194,11 @@ char* realpath(const char* restrict path, char* restrict resolved_path)
 int copy_file(const char* pathfrom, const char* pathto)
 {
 
-    FILE* owner fd_from = fopen(pathfrom, "rb");
+    FILE* _Owner fd_from = fopen(pathfrom, "rb");
     if (fd_from == NULL)
         return -1;
 
-    FILE* owner fd_to = fopen(pathto, "wb");
+    FILE* _Owner fd_to = fopen(pathto, "wb");
     if (fd_to == NULL)
     {
         fclose(fd_from);
@@ -245,7 +245,7 @@ int copy_folder(const char* from, const char* to)
         return errcode;
     }
 
-    DIR* owner dir = opendir(from);
+    DIR* _Owner dir = opendir(from);
 
     if (dir == NULL)
     {
@@ -365,10 +365,10 @@ char* dirname(char* path)
 
 #ifndef MOCKFILES
 
-char* owner read_file(const char* const path)
+char* _Owner read_file(const char* const path)
 {
-    char* owner data = NULL;
-    FILE* owner file = NULL;
+    char* _Owner data = NULL;
+    FILE* _Owner file = NULL;
     struct stat info = { 0 };
 
     if (stat(path, &info) != 0)
@@ -980,19 +980,19 @@ const char* file_ownership_h =
 "\n"
 "#pragma ownership enable\n"
 "#ifdef __STDC_OWNERSHIP__\n"
-"#define out _Out\n"
-"#define opt _Opt\n"
-"#define owner _Owner\n"
-"#define obj_owner  _Obj_owner\n"
-"#define view _View\n"
+"#define _Out _Out\n"
+"#define _Opt _Opt\n"
+"#define _Owner _Owner\n"
+"#define _Obj_owner  _Obj_owner\n"
+"#define _View _View\n"
 
 "\n"
 "#else\n"
-"#define out \n"
-"#define opt \n"
-"#define owner\n"
-"#define obj_owner\n"
-"#define view\n"
+"#define _Out \n"
+"#define _Opt \n"
+"#define _Owner\n"
+"#define _Obj_owner\n"
+"#define _View\n"
 "#define static_debug(x)\n"
 "#define static_set(x, s)\n"
 
@@ -1051,7 +1051,7 @@ const char* file_limits_h =
 "";
 
 
-char* owner read_file(const char* path)
+char* _Owner read_file(const char* path)
 {
     if (strcmp(path, "c:/stdio.h") == 0)
         return strdup(file_stdio_h);

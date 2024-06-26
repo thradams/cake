@@ -165,7 +165,7 @@ static void object_state_to_string_core(enum object_state e)
 
 }
 
-void flow_object_state_delete(struct flow_object_state* owner opt p)
+void flow_object_state_delete(struct flow_object_state* _Owner _Opt p)
 {
     if (p)
     {
@@ -228,7 +228,7 @@ void object_swap(struct flow_object* a, struct flow_object* b)
     *b = temp;
 }
 
-void object_delete(struct flow_object* owner opt p)
+void object_delete(struct flow_object* _Owner _Opt p)
 {
     if (p)
     {
@@ -242,14 +242,14 @@ void object_set_pointer(struct flow_object* p_object, struct flow_object* p_obje
     p_object->current.pointed = p_object2;
 }
 
-void object_destroy(struct flow_object* obj_owner p)
+void object_destroy(struct flow_object* _Obj_owner p)
 {
     objects_view_destroy(&p->members);
 
-    struct flow_object_state* owner p_flow_object_state = p->current.next;
+    struct flow_object_state* _Owner p_flow_object_state = p->current.next;
     while (p_flow_object_state)
     {
-        struct flow_object_state* owner temp = p_flow_object_state->next;
+        struct flow_object_state* _Owner temp = p_flow_object_state->next;
         p_flow_object_state->next = NULL;
         flow_object_state_delete(p_flow_object_state);
         p_flow_object_state = temp;
@@ -257,7 +257,7 @@ void object_destroy(struct flow_object* obj_owner p)
     objects_view_destroy(&p->current.alternatives);
 }
 
-void flow_object_destroy(struct flow_object_state* obj_owner opt p)
+void flow_object_destroy(struct flow_object_state* _Obj_owner _Opt p)
 {
     assert(p->next == NULL);
     objects_view_destroy(&p->alternatives);
@@ -294,7 +294,7 @@ void flow_object_set_current_state_to_is_null(struct flow_object* p)
     }
 }
 
-int flow_object_add_state(struct flow_object* p, struct flow_object_state* owner pnew)
+int flow_object_add_state(struct flow_object* p, struct flow_object_state* _Owner pnew)
 {
     assert(pnew->next == NULL);
     pnew->next = p->current.next;
@@ -306,7 +306,7 @@ int flow_object_add_state(struct flow_object* p, struct flow_object_state* owner
 
 
 
-void objects_view_destroy(struct objects_view* obj_owner p)
+void objects_view_destroy(struct objects_view* _Obj_owner p)
 {
     free(p->data);
 }
@@ -321,7 +321,7 @@ int objects_view_reserve(struct objects_view* p, int n)
             return EOVERFLOW;
         }
 
-        void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
 
         static_set(p->data, "moved"); //p->data was moved to pnew
@@ -412,7 +412,7 @@ bool objects_view_find(const struct objects_view* p, const struct flow_object* p
     }
     return false;
 }
-void objects_destroy(struct objects* obj_owner p) /*unchecked*/
+void objects_destroy(struct objects* _Obj_owner p)
 {
     for (int i = 0; i < p->size; i++)
     {
@@ -439,7 +439,7 @@ int objects_reserve(struct objects* p, int n)
             return EOVERFLOW;
         }
 
-        void* owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
 
         static_set(p->data, "moved"); //p->data was moved to pnew
@@ -460,7 +460,7 @@ const struct flow_object* objects_find(const struct objects* p_objects, const st
     return NULL;
 }
 
-int objects_push_back(struct objects* p, struct flow_object* owner p_object)
+int objects_push_back(struct objects* p, struct flow_object* _Owner p_object)
 {
     if (p->size == INT_MAX)
     {
@@ -689,7 +689,7 @@ struct token* object_get_token(const struct flow_object* object)
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number)
 {
-    struct flow_object_state* owner pnew = calloc(1, sizeof * pnew);
+    struct flow_object_state* _Owner pnew = calloc(1, sizeof * pnew);
     if (pnew == NULL) return;//ENOMEM;
 
     pnew->dbg_name = name;
@@ -711,7 +711,7 @@ void object_remove_state(struct flow_object* object, int state_number)
     {
         if (it->state_number == state_number)
         {
-            struct flow_object_state* owner p_it_next = it->next;
+            struct flow_object_state* _Owner p_it_next = it->next;
             it->next = NULL;
             flow_object_state_delete(previous->next);
             previous->next = p_it_next;
@@ -2283,7 +2283,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     const struct token* position_token,
     bool check_pointed_object)
 {
-    const char* owner s = NULL;
+    const char* _Owner s = NULL;
     const char* name = "";
     if (p_object->p_declarator_origin)
         name = p_object->p_declarator_origin->name ? p_object->p_declarator_origin->name->lexeme : "?";
@@ -2292,7 +2292,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
         if (p_object->p_expression_origin->first_token &&
             p_object->p_expression_origin->last_token)
         {
-            view struct token_list list = { .head = p_object->p_expression_origin->first_token,
+            _View struct token_list list = { .head = p_object->p_expression_origin->first_token,
                                             .tail = p_object->p_expression_origin->last_token
             };
             s = get_code_as_we_see(&list, true);
@@ -2315,7 +2315,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     check_pointed_object,
     name,
     s_visit_number++);
-    free((void* owner)s);
+    free((void* _Owner)s);
 }
 
 
@@ -2498,7 +2498,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
         }
         else if (type_is_owner(p_visitor->p_type) && !type_is_pointer(p_visitor->p_type))
         {
-            //non-pointer owner
+            //non-pointer _Owner
             if (p_visitor->p_object->current.state == OBJECT_STATE_UNINITIALIZED ||
                 p_visitor->p_object->current.state == OBJECT_STATE_NULL ||
                 p_visitor->p_object->current.state == OBJECT_STATE_MOVED)
@@ -2631,7 +2631,7 @@ static void flow_assignment_core(
         return;
     }
 
-    /*general check passing possible null to non opt*/
+    /*general check passing possible null to non _Opt*/
     if (type_is_pointer(p_visitor_a->p_type) &&
         (!type_is_nullable(p_visitor_a->p_type, ctx->ctx->options.null_checks_enabled)) &&
         p_visitor_b->p_object->current.state & OBJECT_STATE_NULL)
@@ -2697,7 +2697,7 @@ static void flow_assignment_core(
         }
     }
 
-    /*copying to void * owner*/
+    /*copying to void * _Owner*/
     if (type_is_void_ptr(p_visitor_a->p_type) && type_is_pointer(p_visitor_b->p_type))
     {
         p_visitor_a->p_object->current.state = p_visitor_b->p_object->current.state;
@@ -2707,7 +2707,7 @@ static void flow_assignment_core(
 
         if (!a_type_is_view && type_is_owner(p_visitor_a->p_type))
         {
-            //*b must be empty before copying to void* owner
+            //*b must be empty before copying to void* _Owner
             struct type t = type_remove_pointer(p_visitor_b->p_type);
 
 
@@ -2766,7 +2766,7 @@ static void flow_assignment_core(
 #endif
         struct type t = type_remove_pointer(p_visitor_a->p_type);
 
-        /*if the parameter points to out object, then we don´t need to check
+        /*if the parameter points to _Out object, then we don´t need to check
           argument pointed object.
         */
         const bool checked_pointed_object_read = !type_is_out(&t);

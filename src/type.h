@@ -153,12 +153,12 @@ enum assigment_type
 
 
 struct type_list {
-    struct type* owner head;
+    struct type* _Owner head;
     struct type* tail;
 };
 
-void type_list_push_back(struct type_list* books, struct type* owner new_book);
-void type_list_push_front(struct type_list* books, struct type* owner new_book);
+void type_list_push_back(struct type_list* books, struct type* _Owner new_book);
+void type_list_push_front(struct type_list* books, struct type* _Owner new_book);
 
 
 struct param;
@@ -166,12 +166,12 @@ struct param;
 struct param_list {
     bool is_var_args;
     bool is_void;
-    struct param* owner head;
+    struct param* _Owner head;
     struct param* tail;
 };
 
-void param_list_destroy(struct param_list* obj_owner p);
-void param_list_add(struct param_list*  p, struct param* owner p_item);
+void param_list_destroy(struct param_list* _Obj_owner p);
+void param_list_add(struct param_list*  p, struct param* _Owner p_item);
 
 struct type
 {
@@ -182,7 +182,7 @@ struct type
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
 
-    const char* owner name_opt;
+    const char* _Owner name_opt;
 
     struct struct_or_union_specifier* struct_or_union_specifier;
     const struct enum_specifier* enum_specifier;
@@ -195,19 +195,19 @@ struct type
 
     /*
       address_of is true when the type is created by address of operator.
-      This is used to create obj_owner pointer.
+      This is used to create _Obj_owner pointer.
     */
     bool address_of;
 
     struct param_list params;
-    struct type* owner next;
+    struct type* _Owner next;
 };
 
 const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
 
 struct param {
     struct type type;
-    struct param* owner next;
+    struct param* _Owner next;
 };
 
 struct expression;
@@ -224,12 +224,12 @@ void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
 
-void type_destroy(struct type* obj_owner p_type);
+void type_destroy(struct type* _Obj_owner p_type);
 
 
 
 
-int type_common(struct type* p_type1, struct type* p_type2, struct type* out);
+int type_common(struct type* p_type1, struct type* p_type2, struct type* _Out);
 struct type get_array_item_type(const struct type* p_type);
 struct type type_remove_pointer(const struct type* p_type);
 

@@ -96,16 +96,16 @@ void print_type_qualifier_flags(struct osstream* ss, bool* first, enum type_qual
         print_item(ss, first, "volatile");
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_OWNER)
-        print_item(ss, first, "owner");
+        print_item(ss, first, "_Owner");
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_OBJ_OWNER)
-        print_item(ss, first, "obj_owner");
+        print_item(ss, first, "_Obj_owner");
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_VIEW)
-        print_item(ss, first, "view");
+        print_item(ss, first, "_View");
 
     if (e_type_qualifier_flags & TYPE_QUALIFIER_NULLABLE)
-        print_item(ss, first, "opt");
+        print_item(ss, first, "_Opt");
 
 }
 
@@ -450,7 +450,7 @@ enum type_category type_get_category(const struct type* p_type)
     return p_type->category;
 }
 
-void param_list_add(struct param_list* list, struct param* owner p_item)
+void param_list_add(struct param_list* list, struct param* _Owner p_item)
 {
     if (list->head == NULL)
     {
@@ -464,34 +464,34 @@ void param_list_add(struct param_list* list, struct param* owner p_item)
     list->tail = p_item;
 }
 
-void param_list_destroy(struct param_list* obj_owner p)
+void param_list_destroy(struct param_list* _Obj_owner p)
 {
-    struct param* owner item = p->head;
+    struct param* _Owner item = p->head;
     while (item)
     {
-        struct param* owner next = item->next;
+        struct param* _Owner next = item->next;
         type_destroy(&item->type);
         free(item);
         item = next;
     }
 }
 
-void type_destroy_one(struct type* obj_owner p_type)
+void type_destroy_one(struct type* _Obj_owner p_type)
 {
-    free((void* owner)p_type->name_opt);
+    free((void* _Owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
     assert(p_type->next == NULL);
 }
 
-void type_destroy(struct type* obj_owner p_type)
+void type_destroy(struct type* _Obj_owner p_type)
 {
-    free((void* owner)p_type->name_opt);
+    free((void* _Owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
 
-    struct type* owner item = p_type->next;
+    struct type* _Owner item = p_type->next;
     while (item)
     {
-        struct type* owner next = item->next;
+        struct type* _Owner next = item->next;
         item->next = NULL;
         type_destroy_one(item);
         free(item);
@@ -605,8 +605,8 @@ bool type_is_owner(const struct type* p_type)
             //The objective here is fix a type later.
             /*
              struct X;
-             struct X f(); //X is owner?
-             struct X { char * owner p; };
+             struct X f(); //X is _Owner?
+             struct X { char * _Owner p; };
              int main()
              {
                struct X x = 1 ? f() : f();
@@ -882,10 +882,10 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
     struct type* paramer_type,
     int param_num)
 {
-    //            owner     obj_owner  view parameter
-    // owner      OK                   OK
-    // obj_owner  X         OK         OK
-    // view       X (NULL)  X          OK
+    //            _Owner     _Obj_owner  _View parameter
+    // _Owner      OK                   OK
+    // _Obj_owner  X         OK         OK
+    // _View       X (NULL)  X          OK
 
     const bool paramer_is_obj_owner = type_is_obj_owner(paramer_type);
     const bool paramer_is_owner = type_is_owner(paramer_type);
@@ -912,7 +912,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token,
-                "passing a temporary owner to a view");
+                "passing a temporary _Owner to a _View");
         }
 
     }////////////////////////////////////////////////////////////
@@ -921,7 +921,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
         compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
             ctx,
             current_argument->expression->first_token,
-            "cannot move obj_owner to owner");
+            "cannot move _Obj_owner to _Owner");
     }
     else if (argument_is_obj_owner && paramer_is_obj_owner)
     {
@@ -936,7 +936,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token,
-                "passing a temporary owner to a view");
+                "passing a temporary _Owner to a _View");
         }
 
 
@@ -948,12 +948,12 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                 ctx,
                 current_argument->expression->first_token,
-                "passing a view argument to a owner parameter");
+                "passing a _View argument to a _Owner parameter");
         }
     }
     else if (argument_is_view && paramer_is_obj_owner)
     {
-        //check if the contented of pointer is owner.
+        //check if the contented of pointer is _Owner.
         if (type_is_pointer(argument_type))
         {
             struct type t2 = type_remove_pointer(argument_type);
@@ -963,19 +963,19 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
                 compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token,
-                    "pointed object is not owner");
+                    "pointed object is not _Owner");
 
             }
             else
             {
-                //pointer object is owner
+                //pointer object is _Owner
                 if (!argument_type->address_of)
                 {
                     //we need something created with address of.
                     compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
                         ctx,
                         current_argument->expression->first_token,
-                        "obj_owner pointer must be created using address of operator &");
+                        "_Obj_owner pointer must be created using address of operator &");
                 }
             }
 
@@ -988,7 +988,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
                 compiler_diagnostic_message(W_OWNERSHIP_MOVE_ASSIGNMENT_OF_NON_OWNER,
                     ctx,
                     current_argument->expression->first_token,
-                    "passing a view argument to a obj_owner parameter");
+                    "passing a _View argument to a _Obj_owner parameter");
             }
         }
 
@@ -1016,7 +1016,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
                 {
                     compiler_diagnostic_message(W_OWNERSHIP_NOT_OWNER, ctx,
                         current_argument->expression->first_token,
-                        "parameter %d requires a pointer to owner object",
+                        "parameter %d requires a pointer to _Owner object",
                         param_num);
                 }
             }
@@ -1024,7 +1024,7 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
             {
                 compiler_diagnostic_message(W_OWNERSHIP_NOT_OWNER, ctx,
                     current_argument->expression->first_token,
-                    "parameter %d requires a pointer to owner type",
+                    "parameter %d requires a pointer to _Owner type",
                     param_num);
             }
         }
@@ -1086,9 +1086,9 @@ void check_argument_and_parameter(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_pointer(paramer_type))
     {
-        //TODO void F(int * [[opt]] p)
+        //TODO void F(int * [[_Opt]] p)
         // F(0) when passing null we will check if the parameter
-        //have the anotation [[opt]]
+        //have the anotation [[_Opt]]
 
         /*can be converted to any type*/
         check_ownership_qualifiers_of_argument_and_parameter(ctx,
@@ -1269,7 +1269,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!is_null_pointer_constant)
         {
-            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, "cannot assign a non-owner to owner");
+            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, "cannot assign a non-_Owner to _Owner");
             type_destroy(&lvalue_right_type);
             type_destroy(&t2);
             return;
@@ -1283,7 +1283,7 @@ void check_assigment(struct parser_ctx* ctx,
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 p_b_expression->first_token,
-                "cannot assign a temporary owner to no-owner object.");
+                "cannot assign a temporary _Owner to no-_Owner object.");
             type_destroy(&lvalue_right_type);
             type_destroy(&t2);
             return;
@@ -1299,7 +1299,7 @@ void check_assigment(struct parser_ctx* ctx,
                 compiler_diagnostic_message(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
                     ctx,
                     p_b_expression->first_token,
-                    "cannot return a automatic storage duration owner to non-owner");
+                    "cannot return a automatic storage duration _Owner to non-_Owner");
                 type_destroy(&lvalue_right_type);
                 type_destroy(&t2);
                 return;
@@ -1317,7 +1317,7 @@ void check_assigment(struct parser_ctx* ctx,
             compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
                        ctx,
                        p_b_expression->first_token,
-                       "source expression of obj_owner must be addressof");
+                       "source expression of _Obj_owner must be addressof");
         }
     }
 
@@ -1369,9 +1369,9 @@ void check_assigment(struct parser_ctx* ctx,
 
     if (is_null_pointer_constant && type_is_pointer(p_a_type))
     {
-        //TODO void F(int * [[opt]] p)
+        //TODO void F(int * [[_Opt]] p)
         // F(0) when passing null we will check if the parameter
-        //have the anotation [[opt]]
+        //have the anotation [[_Opt]]
 
         /*can be converted to any type*/
 
@@ -1522,7 +1522,7 @@ struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled
 {
     struct type r = type_dup(p_type);
 
-    struct type* owner p = calloc(1, sizeof(struct type));
+    struct type* _Owner p = calloc(1, sizeof(struct type));
     *p = r;
     r = (struct type){ 0 };
     r.next = p;
@@ -1573,7 +1573,7 @@ struct type get_array_item_type(const struct type* p_type)
     struct type r2 = *r.next;
 
     free(r.next);
-    free((void* owner) r.name_opt);
+    free((void* _Owner) r.name_opt);
     param_list_destroy(&r.params);
 
     return r2;
@@ -1727,10 +1727,10 @@ struct type type_dup(const struct type* p_type)
     const struct type* p = p_type;
     while (p)
     {
-        struct type* owner p_new = calloc(1, sizeof(struct type));
+        struct type* _Owner p_new = calloc(1, sizeof(struct type));
         *p_new = *p;
 
-        //actually I was not the owner of p_new->next
+        //actually I was not the _Owner of p_new->next
         static_set(p_new->next, "uninitialized");
         p_new->next = NULL;
 
@@ -1752,7 +1752,7 @@ struct type type_dup(const struct type* p_type)
             struct param* p_param = p->params.head;
             while (p_param)
             {
-                struct param* owner p_new_param = calloc(1, sizeof * p_new_param);
+                struct param* _Owner p_new_param = calloc(1, sizeof * p_new_param);
                 p_new_param->type = type_dup(&p_param->type);
                 
                 param_list_add(&p_new->params, p_new_param);
@@ -2440,7 +2440,7 @@ struct type make_void_ptr_type()
     struct type t = { 0 };
     t.category = TYPE_CATEGORY_POINTER;
 
-    struct type* owner p = calloc(1, sizeof * p);
+    struct type* _Owner p = calloc(1, sizeof * p);
     p->category = TYPE_CATEGORY_ITSELF;
     p->type_specifier_flags = TYPE_SPECIFIER_VOID;
     t.next = p;
@@ -2496,7 +2496,7 @@ struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flag
     t.category = TYPE_CATEGORY_ARRAY;
     t.num_of_elements = size_in_bytes / char_size;
 
-    struct type* owner p2 = calloc(1, sizeof(struct type));
+    struct type* _Owner p2 = calloc(1, sizeof(struct type));
     p2->category = TYPE_CATEGORY_ITSELF;
     p2->type_specifier_flags = chartype;
     t.next = p2;
@@ -2652,9 +2652,9 @@ bool type_is_same(const struct type* a, const struct type* b, bool compare_quali
 }
 
 
-void type_swap(view struct type* a, view struct type* b)
+void type_swap(_View struct type* a, _View struct type* b)
 {
-    view struct type temp = *a;
+    _View struct type temp = *a;
     *a = *b;
     *b = temp;
 }
@@ -2781,7 +2781,7 @@ void type_set_attributes_using_declarator(struct type* p_type, struct declarator
 }
 
 
-void type_list_push_front(struct type_list* books, struct type* owner new_book)
+void type_list_push_front(struct type_list* books, struct type* _Owner new_book)
 {
     assert(books != NULL);
     assert(new_book != NULL);
@@ -2800,7 +2800,7 @@ void type_list_push_front(struct type_list* books, struct type* owner new_book)
 }
 
 
-void type_list_push_back(struct type_list* type_list, struct type* owner new_book)
+void type_list_push_back(struct type_list* type_list, struct type* _Owner new_book)
 {
     assert(type_list != NULL);
     assert(new_book != NULL);
@@ -2841,7 +2841,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 list);
         }
 
-        struct type* owner p_func = calloc(1, sizeof(struct type));
+        struct type* _Owner p_func = calloc(1, sizeof(struct type));
         p_func->category = TYPE_CATEGORY_FUNCTION;
 
 
@@ -2857,7 +2857,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             while (p)
             {
-                struct param* owner p_new_param = calloc(1, sizeof(struct param));
+                struct param* _Owner p_new_param = calloc(1, sizeof(struct param));
                 p_new_param->type = type_dup(&p->declarator->type);
                 param_list_add(&p_func->params, p_new_param);
                 p = p->next;
@@ -2878,7 +2878,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 list);
         }
 
-        struct type* owner p = calloc(1, sizeof(struct type));
+        struct type* _Owner p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ARRAY;
 
         p->num_of_elements =
@@ -2919,7 +2919,7 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
     struct pointer* pointer = pdeclarator->pointer;
     while (pointer)
     {
-        struct type* owner p_flat = calloc(1, sizeof(struct type));
+        struct type* _Owner p_flat = calloc(1, sizeof(struct type));
 
         if (pointer->type_qualifier_list_opt)
         {
@@ -2952,7 +2952,7 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
 
     while (pointers.head)
     {
-        struct type* owner p = pointers.head;
+        struct type* _Owner p = pointers.head;
         pointers.head = p->next;
         p->next = NULL;
         type_list_push_back(list, p);
@@ -3031,7 +3031,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         struct type nt =
             type_dup(&declarator_get_typeof_specifier(pdeclarator)->type);
 
-        struct type* owner p_nt = calloc(1, sizeof(struct type));
+        struct type* _Owner p_nt = calloc(1, sizeof(struct type));
         *p_nt = nt;
 
         bool head = list.head != NULL;
@@ -3057,7 +3057,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         struct type nt =
             type_dup(&p_typedef_declarator->type);
 
-        struct type* owner p_nt = calloc(1, sizeof(struct type));
+        struct type* _Owner p_nt = calloc(1, sizeof(struct type));
         *p_nt = nt;
 
 
@@ -3079,7 +3079,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     }
     else
     {
-        struct type* owner p = calloc(1, sizeof(struct type));
+        struct type* _Owner p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ITSELF;
 
 
@@ -3131,7 +3131,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
 
     if (pdeclarator->name)
     {
-        free((void* owner) list.head->name_opt);
+        free((void* _Owner) list.head->name_opt);
         list.head->name_opt = strdup(pdeclarator->name->lexeme);
     }
 
@@ -3155,7 +3155,7 @@ void type_remove_names(struct type* p_type)
     {
         if (p->name_opt)
         {
-            free((void* owner) p->name_opt);
+            free((void* _Owner) p->name_opt);
             p->name_opt = NULL;
         }
         p = p->next;
