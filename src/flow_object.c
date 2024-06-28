@@ -1,3 +1,4 @@
+
 #include "ownership.h"
 #include "flow_object.h"
 #include "parser.h"
@@ -246,7 +247,7 @@ void object_destroy(struct flow_object* _Obj_owner p)
 {
     objects_view_destroy(&p->members);
 
-    struct flow_object_state* _Owner p_flow_object_state = p->current.next;
+    struct flow_object_state* _Owner _Opt p_flow_object_state = p->current.next;
     while (p_flow_object_state)
     {
         struct flow_object_state* _Owner temp = p_flow_object_state->next;
@@ -522,7 +523,7 @@ bool has_name(const char* name, struct object_name_list* list)
     return false;
 }
 
-struct flow_object* make_object_core(struct flow_visit_ctx* ctx,
+struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
     struct type* p_type,
     struct object_name_list* list,
     const struct declarator* p_declarator_opt,
@@ -573,7 +574,7 @@ struct flow_object* make_object_core(struct flow_visit_ctx* ctx,
                     {
                         if (p_member_declarator->declarator)
                         {
-                            char* tag = NULL;
+                            char* _Opt tag = NULL;
                             if (p_member_declarator->declarator->type.struct_or_union_specifier)
                             {
                                 tag = p_member_declarator->declarator->type.struct_or_union_specifier->tag_name;
@@ -657,7 +658,7 @@ struct flow_object* make_object_core(struct flow_visit_ctx* ctx,
     return p_object;
 }
 
-struct flow_object* make_object(struct flow_visit_ctx* ctx,
+struct flow_object* _Opt make_object(struct flow_visit_ctx* ctx,
     struct type* p_type,
                            const struct declarator* p_declarator_opt,
                            const struct expression* p_expression_origin)

@@ -1,4 +1,5 @@
 
+
 #include "ownership.h"
 #include <limits.h>
 #include <stdlib.h>
@@ -520,7 +521,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
 {
     try
     {
-        struct param* p_current_parameter_type = NULL;
+        struct param* _Opt p_current_parameter_type = NULL;
 
         const struct param_list* p_param_list = type_get_func_or_func_ptr_params(p_type);
 
@@ -530,7 +531,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
         }
 
 
-        struct argument_expression* p_current_argument = p_argument_expression_list->head;
+        struct argument_expression* _Opt p_current_argument = p_argument_expression_list->head;
 
         while (p_current_argument && p_current_parameter_type)
         {
@@ -671,7 +672,7 @@ bool is_first_of_primary_expression(struct parser_ctx* ctx)
 
 struct generic_association* _Owner _Opt generic_association(struct parser_ctx* ctx)
 {
-    struct generic_association* _Owner p_generic_association = NULL;
+    struct generic_association* _Owner _Opt p_generic_association = NULL;
     try
     {
         p_generic_association = calloc(1, sizeof * p_generic_association);
@@ -731,7 +732,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
         {
             parser_match(ctx);
 
-            struct generic_association* _Owner p_generic_association2 = generic_association(ctx);
+            struct generic_association* _Owner _Opt p_generic_association2 = generic_association(ctx);
             if (p_generic_association2 == NULL)
                 throw;
 
@@ -842,7 +843,7 @@ struct generic_selection* _Owner generic_selection(struct parser_ctx* ctx)
 
         struct type lvalue_type = { 0 };
 
-        struct type* p_type = NULL;
+        struct type* _Opt p_type = NULL;
 
         if (p_generic_selection->expression)
         {
@@ -1079,7 +1080,7 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
 
 struct expression* _Owner character_constant_expression(struct parser_ctx* ctx)
 {
-    struct expression* _Owner p_expression_node = calloc(1, sizeof * p_expression_node);
+    struct expression* _Owner _Opt p_expression_node = calloc(1, sizeof * p_expression_node);
     if (p_expression_node == NULL)
         return NULL;
 
@@ -4028,14 +4029,14 @@ bool expression_is_null_pointer_constant(const struct expression* expression)
     return false;
 }
 
-struct expression* _Owner conditional_expression(struct parser_ctx* ctx)
+struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
 {
     /*
       conditional-expression:
       logical-OR-expression
       logical-OR-expression ? expression : conditional-expression
     */
-    struct expression* _Owner p_expression_node = NULL;
+    struct expression* _Owner _Opt p_expression_node = NULL;
     struct type left_type = { 0 };
     struct type right_type = { 0 };
     try
@@ -4224,9 +4225,9 @@ struct expression* _Owner conditional_expression(struct parser_ctx* ctx)
     return p_expression_node;
 }
 
-struct expression* _Owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant)
+struct expression* _Owner _Opt constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant)
 {
-    struct expression* _Owner p_expression = conditional_expression(ctx);
+    struct expression* _Owner _Opt p_expression = conditional_expression(ctx);
 
     if (show_error_if_not_constant &&
         p_expression &&

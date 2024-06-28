@@ -72,7 +72,7 @@ struct flow_object_state {
     struct flow_object* pointed;
     enum object_state state;
     struct objects_view alternatives;
-    struct flow_object_state* _Owner next;
+    struct flow_object_state* _Owner _Opt next;
 };
 
 void flow_object_state_copy(struct flow_object_state *to, const struct flow_object_state * from);

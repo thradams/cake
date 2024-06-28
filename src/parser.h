@@ -32,8 +32,8 @@ void scope_destroy(struct scope* _Obj_owner p);
 
 struct scope_list
 {
-    struct scope* head;
-    struct scope* tail;
+    struct scope* _Opt head;
+    struct scope* _Opt tail;
 };
 void scope_list_push(struct scope_list* list, struct scope* s);
 void scope_list_pop(struct scope_list* list);
@@ -61,19 +61,19 @@ struct report
 struct switch_value 
 {
     long long value; 
-    struct label* p_label;
-    struct switch_value* next; 
+    struct label* _Opt p_label;
+    struct switch_value* _Owner _Opt next; 
 };
 
 struct  switch_value_list
 {
-    struct switch_value * head;
-    struct switch_value * tail;
-    struct switch_value * p_default;
+    struct switch_value * _Owner _Opt head;
+    struct switch_value * _Opt tail;
+    struct switch_value * _Owner _Opt p_default;
 };
 
 void switch_value_destroy(struct switch_value_list* _Obj_owner list);
-void switch_value_list_push(struct switch_value_list* list, struct switch_value* pnew);
+void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
 struct switch_value * switch_value_list_find(struct switch_value_list* list, long long value);
 
 struct parser_ctx
@@ -1099,7 +1099,7 @@ struct selection_statement
        switch ( init-statement _Opt condition ) secondary-block
     */
     struct init_statement* _Owner p_init_statement;
-    struct condition* _Owner condition;
+    struct condition* _Owner _Opt condition;
 
     struct secondary_block* _Owner secondary_block;
     struct secondary_block* _Owner else_secondary_block_opt;

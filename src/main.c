@@ -55,9 +55,7 @@ int main(int argc, char** argv)
       /nologo ?
     */
     printf("Cake " CAKE_VERSION "\n");
-    printf("\n\n");
-
-
+    
     if (argc < 2)
     {
         print_help();
