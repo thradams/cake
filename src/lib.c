@@ -10534,66 +10534,70 @@ int fill_options(struct options* options,
 
 void print_help()
 {
+#define CAKE LIGHTCYAN "cake " RESET 
+
     const char* options =
-        "cake [options] source1.c source2.c ...\n"
+        LIGHTGREEN "Usage :" RESET CAKE LIGHTBLUE "[OPTIONS] source1.c source2.c ...\n" RESET
         "\n"
-        WHITE "SAMPLES\n" RESET
+        LIGHTGREEN "Samples:\n" RESET
         "\n"
-        WHITE "    cake source.c\n" RESET
+        WHITE "    " CAKE " source.c\n" RESET
         "    Compiles source.c and outputs /_Out/source.c\n"
         "\n"
-        WHITE "    cake -target=C11 source.c\n" RESET
+        WHITE "    " CAKE " -target=C11 source.c\n" RESET
         "    Compiles source.c and outputs C11 code at /_Out/source.c\n"
         "\n"
-        WHITE "cake file.c -o file.cc && cl file.cc\n" RESET
+        WHITE "    " CAKE " file.c -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc then use cl to compile file.cc\n"
         "\n"
-        WHITE "cake file.c -direct-compilation -o file.cc && cl file.cc\n" RESET
+        WHITE "    " CAKE " file.c -direct-compilation -o file.cc && cl file.cc\n" RESET
         "    Compiles file.c and outputs file.cc for direct compilation then use cl to compile file.cc\n"
         "\n"
-        WHITE "OPTIONS\n" RESET
+        LIGHTGREEN "Options:\n" RESET
         "\n"
-        WHITE "  -I                   " RESET " Adds a directory to the list of directories searched for include files \n"
+        LIGHTCYAN "  -I                   " RESET " Adds a directory to the list of directories searched for include files \n"
         "                        (On windows, if you run cake at the visual studio command prompt cake \n"
         "                        uses the same include files used by msvc )\n"
         "\n"
-        WHITE "  -no-output            " RESET "Cake will not generate ouput\n"
+        LIGHTCYAN "  -autoconfig           " RESET "Generates cakeconfig.h with include directories\n"
         "\n"
-        WHITE "  -D                    " RESET "Defines a preprocessing symbol for a source file \n"
+        LIGHTCYAN "  -no-output            " RESET "Cake will not generate ouput\n"
         "\n"
-        WHITE "  -E                    " RESET "Copies preprocessor output to standard output \n"
+        LIGHTCYAN "  -D                    " RESET "Defines a preprocessing symbol for a source file \n"
         "\n"
-        WHITE "  -o name.c             " RESET "Defines the ouput name. used when we compile one file\n"
+        LIGHTCYAN "  -E                    " RESET "Copies preprocessor output to standard output \n"
         "\n"
-        WHITE "  -remove-comments      " RESET "Remove all comments from the ouput file \n"
+        LIGHTCYAN "  -o name.c             " RESET "Defines the ouput name. used when we compile one file\n"
         "\n"
-        WHITE "  -direct-compilation   " RESET "output without macros/preprocessor parts\n"
+        LIGHTCYAN "  -remove-comments      " RESET "Remove all comments from the ouput file \n"
         "\n"
-        WHITE "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c2x, cxx) \n"
+        LIGHTCYAN "  -direct-compilation   " RESET "output without macros/preprocessor parts\n"
+        "\n"
+        LIGHTCYAN "  -target=standard      " RESET "Output target C standard (c89, c99, c11, c2x, cxx) \n"
         "                        C99 is the default and C89 (ANSI C) is the minimum target \n"
         "\n"
-        WHITE "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
+        LIGHTCYAN "  -std=standard         " RESET "Assume that the input sources are for standard (c89, c99, c11, c2x, cxx) \n"
         "                        (not implemented yet, input is considered C23)                    \n"
         "\n"
-        WHITE "  -fi                   " RESET "Format input (format before language convertion)\n"
+        LIGHTCYAN "  -fi                   " RESET "Format input (format before language convertion)\n"
         "\n"
-        WHITE "  -fo                   " RESET "Format output (format after language convertion, result parsed again)\n"
+        LIGHTCYAN "  -fo                   " RESET "Format output (format after language convertion, result parsed again)\n"
         "\n"
-        WHITE "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
+        LIGHTCYAN "  -no-discard           " RESET "Makes [[nodiscard]] default implicitly \n"
         "\n"
-        WHITE "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
+        LIGHTCYAN "  -Wname -Wno-name      " RESET "Enables or disable warning\n"
         "\n"
-        WHITE "  -fanalyzer            " RESET "Runs flow analysis -  required for onwership\n"
+        LIGHTCYAN "  -fanalyzer            " RESET "Runs flow analysis -  required for onwership\n"
         "\n"
-        WHITE "  -sarif                " RESET "Generates sarif files\n"
+        LIGHTCYAN "  -sarif                " RESET "Generates sarif files\n"
         "\n"
-        WHITE "  -msvc-output          " RESET "Ouput is compatible with visual studio\n"
+        LIGHTCYAN "  -msvc-output          " RESET "Ouput is compatible with visual studio\n"
         "\n"
-        WHITE "  -dump-tokens          " RESET "Output tokens before preprocessor\n"
+        LIGHTCYAN "  -dump-tokens          " RESET "Output tokens before preprocessor\n"
         "\n"
-        WHITE "  -dump-pp-tokens       " RESET "Output tokens after preprocessor\n"
+        LIGHTCYAN "  -dump-pp-tokens       " RESET "Output tokens after preprocessor\n"
         "\n"
-        WHITE "  -disable-assert       " RESET "disables built-in assert\n"
+        LIGHTCYAN "  -disable-assert       " RESET "disables built-in assert\n"
         "\n"
         "More details at http://thradams.com/cake/manual.html\n"
         ;
