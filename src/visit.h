@@ -12,7 +12,7 @@ struct defer_scope
     struct compound_statement* p_function_body;
     struct defer_scope* _Owner lastchild;
 
-    struct defer_scope* _Owner previous;
+    struct defer_scope* _Owner _Opt previous;
 };
 void defer_scope_delete(struct defer_scope * _Owner _Opt p);
 struct visit_ctx

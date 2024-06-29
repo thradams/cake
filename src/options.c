@@ -1,3 +1,5 @@
+//#pragma safety enable
+
 #include "options.h"
 #include <string.h>
 #include "console.h"

@@ -64,15 +64,15 @@ typedef struct TAGDIR DIR;
 #pragma CAKE diagnostic pop
 #endif
 
-DIR* _Owner opendir(const char* name);
+DIR* _Owner _Opt opendir(const char* name);
 int closedir(DIR* _Owner dirp);
-struct dirent* readdir(DIR* dirp);
+struct dirent* _Opt readdir(DIR* dirp);
 
 
 #else
 
 typedef struct __dirstream DIR;
-DIR * _Owner opendir (const char *__name);
+DIR * _Owner _Opt opendir (const char *__name);
 int closedir(DIR* _Owner dirp);
 
 #define MAX_PATH 500
@@ -87,11 +87,11 @@ int closedir(DIR* _Owner dirp);
 
 
 
-char* realpath(const char* restrict path, char* restrict resolved_path);
+char* _Opt realpath(const char* restrict path, char* restrict resolved_path);
 
 int get_self_path(char* buffer, int maxsize);
 
-char* _Owner read_file(const char* path);
+char* _Owner _Opt read_file(const char* path);
 char* dirname(char* path);
 char* basename(const char* filename);
 

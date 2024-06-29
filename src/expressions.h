@@ -105,13 +105,13 @@ struct generic_association
     */
 
     struct type type;
-    struct type_name* _Owner p_type_name;
-    struct expression* _Owner expression;
+    struct type_name* _Owner _Opt p_type_name;
+    struct expression* _Owner _Opt expression;
 
     struct token* first_token;
     struct token* last_token;
 
-    struct generic_association* _Owner next;
+    struct generic_association* _Owner _Opt next;
 };
 
 void generic_association_delete(struct generic_association* _Owner _Opt p);
@@ -193,11 +193,11 @@ struct expression
 
     struct constant_value constant_value;
 
-    struct type_name* _Owner type_name; 
-    struct type_name* _Owner type_name2; /*is_same*/
-    struct braced_initializer* _Owner braced_initializer;
-    struct compound_statement* _Owner compound_statement; //function literal (lambda)
-    struct generic_selection* _Owner generic_selection; //_Generic
+    struct type_name* _Owner _Opt type_name; 
+    
+    struct braced_initializer* _Owner _Opt braced_initializer;
+    struct compound_statement* _Owner _Opt compound_statement; //function literal (lambda)
+    struct generic_selection* _Owner _Opt generic_selection; //_Generic
 
     struct token* first_token;
     struct token* last_token;
@@ -207,15 +207,15 @@ struct expression
 
 
     /*se expressão for um identificador ele aponta para declaração dele*/
-    struct declarator* declarator;
+    struct declarator* _Opt declarator;
     int member_index; //used in post_fix .
 
     /*se for POSTFIX_FUNCTION_CALL post*/
     struct argument_expression_list argument_expression_list; //este node eh uma  chamada de funcao
 
-    struct expression* _Owner condition_expr;
-    struct expression* _Owner left;
-    struct expression* _Owner right;
+    struct expression* _Owner _Opt condition_expr;
+    struct expression* _Owner _Opt left;
+    struct expression* _Owner _Opt right;
 
     bool is_assigment_expression;
     

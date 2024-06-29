@@ -19,12 +19,12 @@ struct label_state
 
 struct flow_visit_ctx
 {
-    struct secondary_block* catch_secondary_block_opt;
+    struct secondary_block* _Opt catch_secondary_block_opt;
 
     struct parser_ctx *ctx;
     _View struct ast ast;    
     struct flow_defer_scope* _Owner tail_block;
-    struct type* _View p_return_type;
+    struct type* _View _Opt p_return_type;
     int parameter_list;
     
     int state_number_generator;

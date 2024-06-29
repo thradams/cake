@@ -1,3 +1,5 @@
+//#pragma safety enable
+
 #include "ownership.h"
 #include <assert.h>
 #include <stdbool.h>
@@ -476,14 +478,14 @@ void param_list_destroy(struct param_list* _Obj_owner p)
     }
 }
 
-void type_destroy_one(struct type* _Obj_owner p_type)
+void type_destroy_one(_Opt struct type* _Obj_owner p_type)
 {
     free((void* _Owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
     assert(p_type->next == NULL);
 }
 
-void type_destroy(struct type* _Obj_owner p_type)
+void type_destroy(_Opt struct type* _Obj_owner p_type)
 {
     free((void* _Owner)p_type->name_opt);
     param_list_destroy(&p_type->params);
@@ -860,7 +862,7 @@ bool type_is_scalar(const struct type* p_type)
 }
 
 
-const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type)
+const struct param_list* _Opt type_get_func_or_func_ptr_params(const struct type* p_type)
 {
     if (p_type->category == TYPE_CATEGORY_FUNCTION)
     {
@@ -1522,7 +1524,7 @@ struct type type_add_pointer(const struct type* p_type, bool null_checks_enabled
 {
     struct type r = type_dup(p_type);
 
-    struct type* _Owner p = calloc(1, sizeof(struct type));
+    struct type* _Owner _Opt  p = calloc(1, sizeof(struct type));
     *p = r;
     r = (struct type){ 0 };
     r.next = p;
@@ -1727,7 +1729,7 @@ struct type type_dup(const struct type* p_type)
     const struct type* p = p_type;
     while (p)
     {
-        struct type* _Owner p_new = calloc(1, sizeof(struct type));
+        struct type* _Owner _Opt p_new = calloc(1, sizeof(struct type));
         *p_new = *p;
 
         //actually I was not the _Owner of p_new->next
@@ -1752,7 +1754,7 @@ struct type type_dup(const struct type* p_type)
             struct param* p_param = p->params.head;
             while (p_param)
             {
-                struct param* _Owner p_new_param = calloc(1, sizeof * p_new_param);
+                struct param* _Owner _Opt p_new_param = calloc(1, sizeof * p_new_param);
                 p_new_param->type = type_dup(&p_param->type);
                 
                 param_list_add(&p_new->params, p_new_param);
@@ -2440,7 +2442,7 @@ struct type make_void_ptr_type()
     struct type t = { 0 };
     t.category = TYPE_CATEGORY_POINTER;
 
-    struct type* _Owner p = calloc(1, sizeof * p);
+    struct type* _Owner _Opt p = calloc(1, sizeof * p);
     p->category = TYPE_CATEGORY_ITSELF;
     p->type_specifier_flags = TYPE_SPECIFIER_VOID;
     t.next = p;
@@ -2496,7 +2498,7 @@ struct type type_make_literal_string(int size_in_bytes, enum type_specifier_flag
     t.category = TYPE_CATEGORY_ARRAY;
     t.num_of_elements = size_in_bytes / char_size;
 
-    struct type* _Owner p2 = calloc(1, sizeof(struct type));
+    struct type* _Owner _Opt p2 = calloc(1, sizeof(struct type));
     p2->category = TYPE_CATEGORY_ITSELF;
     p2->type_specifier_flags = chartype;
     t.next = p2;
@@ -2841,7 +2843,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 list);
         }
 
-        struct type* _Owner p_func = calloc(1, sizeof(struct type));
+        struct type* _Owner _Opt p_func = calloc(1, sizeof(struct type));
         p_func->category = TYPE_CATEGORY_FUNCTION;
 
 
@@ -2857,7 +2859,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
 
             while (p)
             {
-                struct param* _Owner p_new_param = calloc(1, sizeof(struct param));
+                struct param* _Owner _Opt p_new_param = calloc(1, sizeof(struct param));
                 p_new_param->type = type_dup(&p->declarator->type);
                 param_list_add(&p_func->params, p_new_param);
                 p = p->next;
@@ -2878,7 +2880,7 @@ void  make_type_using_direct_declarator(struct parser_ctx* ctx,
                 list);
         }
 
-        struct type* _Owner p = calloc(1, sizeof(struct type));
+        struct type* _Owner _Opt  p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ARRAY;
 
         p->num_of_elements =
@@ -2919,7 +2921,7 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
     struct pointer* pointer = pdeclarator->pointer;
     while (pointer)
     {
-        struct type* _Owner p_flat = calloc(1, sizeof(struct type));
+        struct type* _Owner _Opt p_flat = calloc(1, sizeof(struct type));
 
         if (pointer->type_qualifier_list_opt)
         {
@@ -2960,7 +2962,7 @@ void make_type_using_declarator_core(struct parser_ctx* ctx, struct declarator* 
 
 }
 
-struct enum_specifier* declarator_get_enum_specifier(struct declarator* pdeclarator)
+struct enum_specifier* _Opt declarator_get_enum_specifier(struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers &&
         pdeclarator->declaration_specifiers->enum_specifier)
@@ -2976,7 +2978,7 @@ struct enum_specifier* declarator_get_enum_specifier(struct declarator* pdeclara
 }
 
 
-struct struct_or_union_specifier* declarator_get_struct_or_union_specifier(struct declarator* pdeclarator)
+struct struct_or_union_specifier* _Opt declarator_get_struct_or_union_specifier(struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers &&
         pdeclarator->declaration_specifiers->struct_or_union_specifier)
@@ -2991,7 +2993,7 @@ struct struct_or_union_specifier* declarator_get_struct_or_union_specifier(struc
     return NULL;
 }
 
-struct typeof_specifier* declarator_get_typeof_specifier(struct declarator* pdeclarator)
+struct typeof_specifier* _Opt declarator_get_typeof_specifier(struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -3004,7 +3006,7 @@ struct typeof_specifier* declarator_get_typeof_specifier(struct declarator* pdec
     return NULL;
 }
 
-struct declarator* declarator_get_typedef_declarator(struct declarator* pdeclarator)
+struct declarator* _Opt declarator_get_typedef_declarator(struct declarator* pdeclarator)
 {
     if (pdeclarator->declaration_specifiers)
     {
@@ -3031,7 +3033,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         struct type nt =
             type_dup(&declarator_get_typeof_specifier(pdeclarator)->type);
 
-        struct type* _Owner p_nt = calloc(1, sizeof(struct type));
+        struct type* _Owner _Opt p_nt = calloc(1, sizeof(struct type));
         *p_nt = nt;
 
         bool head = list.head != NULL;
@@ -3057,7 +3059,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
         struct type nt =
             type_dup(&p_typedef_declarator->type);
 
-        struct type* _Owner p_nt = calloc(1, sizeof(struct type));
+        struct type* _Owner _Opt p_nt = calloc(1, sizeof(struct type));
         *p_nt = nt;
 
 
@@ -3079,7 +3081,7 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     }
     else
     {
-        struct type* _Owner p = calloc(1, sizeof(struct type));
+        struct type* _Owner _Opt p = calloc(1, sizeof(struct type));
         p->category = TYPE_CATEGORY_ITSELF;
 
 
@@ -3149,13 +3151,13 @@ void type_remove_names(struct type* p_type)
     /*
       function parameters names are preserved
     */
-    struct type* p = p_type;
+    struct type* _Opt p = p_type;
 
     while (p)
     {
         if (p->name_opt)
         {
-            free((void* _Owner) p->name_opt);
+            free(p->name_opt);
             p->name_opt = NULL;
         }
         p = p->next;

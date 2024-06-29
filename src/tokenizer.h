@@ -10,13 +10,13 @@
 struct include_dir
 {
     const char* _Owner path;
-    struct include_dir* _Owner next;
+    struct include_dir* _Owner _Opt next;
 };
 
 struct include_dir_list
 {
-    struct include_dir* _Owner head;
-    struct include_dir* tail;
+    struct include_dir* _Owner _Opt head;
+    struct include_dir* _Opt tail;
 };
 
 
@@ -36,7 +36,7 @@ struct preprocessor_ctx
     /*map of pragma once already included files*/
     struct hash_map pragma_once_map;
     
-    struct token* current;
+    struct token* _Opt current;
     struct token_list input_list;
     unsigned int count_macro_value;
     bool conditional_inclusion;
@@ -55,7 +55,7 @@ struct tokenizer_ctx
     int n_errors;    
 };
 
-struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* filename_opt, int level, enum token_flags addflags);
+struct token_list tokenizer(struct tokenizer_ctx* ctx, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
 void add_standard_macros(struct preprocessor_ctx* ctx);
 struct include_dir* include_dir_add(struct include_dir_list* list, const char* path);
 
@@ -80,7 +80,7 @@ void token_list_paste_string_after(struct token_list* list,
 void token_list_paste_string_before(struct token_list* list,
     struct token* before,
     const char* s);
-struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* filename_opt, int level, enum token_flags addflags);
+struct token_list tokenizer(struct tokenizer_ctx* p, const char* text, const char* _Opt filename_opt, int level, enum token_flags addflags);
 
 void print_code_as_we_see(struct token_list* list, bool remove_comments);
 const char* _Owner get_code_as_we_see(struct token_list* list, bool remove_comments);

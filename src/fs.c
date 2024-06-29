@@ -1,5 +1,6 @@
-#include "fs.h"
+//#pragma safety enable
 
+#include "fs.h"
 
 
 #include <sys/types.h>
@@ -88,7 +89,7 @@ struct TAGDIR
 #pragma CAKE diagnostic pop
 #endif
 
-DIR* _Owner opendir(const char* name)
+DIR* _Owner _Opt opendir(const char* name)
 {
     assert(name != 0);
     WIN32_FIND_DATAA fdfile = { 0 };
@@ -101,7 +102,7 @@ DIR* _Owner opendir(const char* name)
 
     if (handle != INVALID_HANDLE_VALUE)
     {
-        DIR* _Owner p = calloc(1, sizeof * p);
+        DIR* _Owner _Opt p = calloc(1, sizeof * p);
         if (p)
         {
             p->handle = handle;
@@ -128,7 +129,7 @@ int closedir(DIR* _Owner dirp)
     return 0;
 }
 
-struct dirent* readdir(DIR* dirp)
+struct dirent* _Opt readdir(DIR* dirp)
 {
     WIN32_FIND_DATAA fdfile = { 0 };
     BOOL b = FindNextFileA(dirp->handle, &fdfile);
@@ -165,7 +166,7 @@ struct dirent* readdir(DIR* dirp)
        resolved_path are undefined, and errno is set to indicate the
        error.
 */
-char* realpath(const char* restrict path, char* restrict resolved_path)
+char* _Opt realpath(const char* restrict path, char* restrict resolved_path)
 {
     /*
     * _fullpath
@@ -245,14 +246,14 @@ int copy_folder(const char* from, const char* to)
         return errcode;
     }
 
-    DIR* _Owner dir = opendir(from);
+    DIR* _Owner _Opt dir = opendir(from);
 
     if (dir == NULL)
     {
         return errno;
     }
 
-    struct dirent* dp;
+    struct dirent* _Opt dp;
     while ((dp = readdir(dir)) != NULL)
     {
         if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
@@ -321,9 +322,9 @@ int get_self_path(char* buffer, int maxsize)
 #if !defined __EMSCRIPTEN__
 
 /* Find the last occurrence of c1 or c2 in s. */
-char * strrchr_ex (const char *s, int c1, int c2)
+char * _Opt strrchr_ex (const char *s, int c1, int c2)
 {
-  const char *last = 0;
+  const char * _Opt last = NULL;
   const char * p = s;
   while (*p)
   {
@@ -338,7 +339,7 @@ char * strrchr_ex (const char *s, int c1, int c2)
 
 char* basename(const char* filename)
 {
-    char* p = strrchr_ex(filename, '/', '\\'); //added \ to windows path
+    char* _Opt p = strrchr_ex(filename, '/', '\\'); //added \ to windows path
     return p ? p + 1 : (char*)filename;
 }
 
@@ -365,10 +366,10 @@ char* dirname(char* path)
 
 #ifndef MOCKFILES
 
-char* _Owner read_file(const char* const path)
+char* _Owner _Opt read_file(const char* const path)
 {
-    char* _Owner data = NULL;
-    FILE* _Owner file = NULL;
+    char* _Owner _Opt data = NULL;
+    FILE* _Owner _Opt file = NULL;
     struct stat info = { 0 };
 
     if (stat(path, &info) != 0)

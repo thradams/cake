@@ -1,3 +1,5 @@
+//#pragma safety enable
+
 #include <stdbool.h>
 #include "osstream.h"
 #include <errno.h>
@@ -29,7 +31,7 @@ static int reserve(struct osstream* stream, int size)
     int errorcode = 0;
     if (size > stream->capacity)
     {
-        void* _Owner pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
+        void* _Owner _Opt pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
             static_set(stream->c_str, "moved");

@@ -1,3 +1,5 @@
+//#pragma safety enable
+
 #include "ownership.h"
 #include <assert.h>
 #include <stdio.h>
@@ -51,10 +53,10 @@ void print_literal2(const char* s);
 
 void token_list_clear(struct token_list* list)
 {
-    struct token* _Owner p = list->head;
+    struct token* _Owner _Opt p = list->head;
     while (p)
     {
-        struct token* _Owner next = p->next;
+        struct token* _Owner _Opt next = p->next;
         p->next = NULL;
         token_delete(p);
         p = next;
@@ -143,7 +145,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     token_delete(p);
 }
 
-struct token* _Owner token_list_pop_front_get(struct token_list* list)  /*unchecked*/
+struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)  /*unchecked*/
 {
     if (list->head == NULL)
         return NULL;
@@ -480,8 +482,10 @@ bool token_is_identifier_or_keyword(enum token_type t)
 }
 
 
-bool token_is_blank(struct token* p)
+bool token_is_blank(struct token*  p )
 {
+  
+
     return p->type == TK_BEGIN_OF_FILE ||
         p->type == TK_BLANKS ||
         p->type == TK_LINE_COMMENT ||
@@ -539,9 +543,9 @@ void token_list_append_list(struct token_list* dest, struct token_list* source)
 }
 
 
-struct token* _Owner clone_token(struct token* p)
+struct token* _Owner _Opt clone_token(struct token* p)
 {
-    struct token* _Owner token = calloc(1, sizeof * token);
+    struct token* _Owner _Opt token = calloc(1, sizeof * token);
     if (token)
     {
         char* _Owner lexeme = strdup(p->lexeme);

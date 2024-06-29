@@ -87,11 +87,11 @@ struct flow_object
     //used to avoid infinite recursion
     unsigned int visit_number;
 
-    struct flow_object* parent;
+    struct flow_object* _Opt parent;
 
     /*object are the result of expressions or they are declarators*/
-    const struct declarator* p_declarator_origin;
-    const struct expression* p_expression_origin;
+    const struct declarator* _Opt p_declarator_origin;
+    const struct expression* _Opt p_expression_origin;
 
     struct objects_view members;
     
@@ -142,8 +142,8 @@ void print_object_state_to_str(enum object_state e, char str[], int sz);
 struct declarator;
 struct flow_object* make_object(struct flow_visit_ctx* ctx,
                                  struct type* p_type,
-                            const struct declarator* p_declarator_opt,
-                            const struct expression* p_expression_origin);
+                            const struct declarator* _Opt p_declarator_opt,
+                            const struct expression* _Opt p_expression_origin);
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number);
 struct token* object_get_token(const struct flow_object* object);

@@ -1,3 +1,5 @@
+//#pragma safety enable
+
 #include "ownership.h"
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +11,7 @@
 /*imagine tou press DEL key*/
 static void del(struct token* from, struct token* to)
 {
-    struct token* p = from;
+    struct token* _Opt p = from;
     while (p)
     {
         p->flags |= TK_C_BACKEND_FLAG_HIDE;
@@ -24,7 +26,7 @@ static void del(struct token* from, struct token* to)
 static struct token_list cut(struct token* from, struct token* to)
 {
     struct token_list l = { 0 };
-    struct token* p = from;
+    struct token* _Opt p = from;
     while (p)
     {
         if (p->level == 0 &&
@@ -59,10 +61,11 @@ void visit_ctx_destroy(struct visit_ctx* _Obj_owner ctx)
 static void visit_attribute_specifier_sequence(struct visit_ctx* ctx, struct attribute_specifier_sequence* p_visit_attribute_specifier_sequence);
 static void visit_declaration(struct visit_ctx* ctx, struct declaration* p_declaration);
 
-struct token* next_parser_token(struct token* token)
+struct token* _Opt next_parser_token(struct token* token)
 {
-    struct token* r = token->next;
-    while (!(r->flags & TK_FLAG_FINAL))
+    struct token* _Opt r = token->next;
+
+    while (r && !(r->flags & TK_FLAG_FINAL))
     {
         r = r->next;
     }
@@ -198,7 +201,7 @@ bool find_label_unlabeled_statement(struct unlabeled_statement* p_unlabeled_stat
     {
         if (p_unlabeled_statement->primary_block->compound_statement)
         {
-            struct block_item* block_item =
+            struct block_item* _Opt block_item =
                 p_unlabeled_statement->primary_block->compound_statement->block_item_list.head;
             while (block_item)
             {
@@ -352,7 +355,7 @@ void print_all_defer_until_label(struct defer_scope* deferblock, const char* lab
 
 void print_all_defer_until_iter(struct defer_scope* deferblock, struct osstream* ss)
 {
-    struct defer_scope* p_defer = deferblock;
+    struct defer_scope* _Opt p_defer = deferblock;
     while (p_defer != NULL)
     {
         print_block_defer(p_defer, ss, false);
@@ -366,7 +369,7 @@ void print_all_defer_until_iter(struct defer_scope* deferblock, struct osstream*
 
 void print_all_defer_until_end(struct defer_scope* deferblock, struct osstream* ss)
 {
-    struct defer_scope* p_defer = deferblock;
+    struct defer_scope* _Opt p_defer = deferblock;
     while (p_defer != NULL)
     {
         print_block_defer(p_defer, ss, false);
@@ -380,7 +383,7 @@ static void visit_secondary_block(struct visit_ctx* ctx, struct secondary_block*
 }
 struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
 {
-    struct defer_scope* _Owner p_defer = calloc(1, sizeof * p_defer);
+    struct defer_scope* _Owner _Opt p_defer = calloc(1, sizeof * p_defer);
     p_defer->previous = ctx->tail_block->lastchild;
     ctx->tail_block->lastchild = p_defer;
 
@@ -390,10 +393,16 @@ struct defer_scope* visit_ctx_push_tail_child(struct visit_ctx* ctx)
 
 struct defer_scope* visit_ctx_push_tail_block(struct visit_ctx* ctx)
 {
-    struct defer_scope* _Owner p_defer = calloc(1, sizeof * p_defer);
-    p_defer->previous = ctx->tail_block;
-    ctx->tail_block = p_defer;
-
+    struct defer_scope* _Owner _Opt p_defer = calloc(1, sizeof * p_defer);
+    if (p_defer)
+    {
+        p_defer->previous = ctx->tail_block;
+        ctx->tail_block = p_defer;
+    }
+    else
+    {
+        //ops
+    }
     return ctx->tail_block;
 }
 static void visit_defer_statement(struct visit_ctx* ctx, struct defer_statement* p_defer_statement)
@@ -451,7 +460,7 @@ static void visit_try_statement(struct visit_ctx* ctx, struct try_statement* p_t
         token_list_insert_after(&ctx->ast.token_list, p_try_statement->secondary_block->last_token->prev, &l);
 
 
-        visit_ctx_pop_tail_block(ctx);        
+        visit_ctx_pop_tail_block(ctx);
 
         free(p_try_statement->first_token->lexeme);
         p_try_statement->first_token->lexeme = strdup("if (1) /*try*/");
@@ -509,8 +518,11 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
 
 static void visit_init_declarator(struct visit_ctx* ctx, struct init_declarator* p_init_declarator)
 {
-    visit_declarator(ctx, p_init_declarator->p_declarator);
-    visit_initializer(ctx, p_init_declarator->initializer);
+    if (p_init_declarator->p_declarator)
+      visit_declarator(ctx, p_init_declarator->p_declarator);
+
+    if (p_init_declarator->initializer)
+      visit_initializer(ctx, p_init_declarator->initializer);
 }
 static void visit_condition(struct visit_ctx* ctx, struct condition* p_condition)
 {
@@ -572,7 +584,7 @@ static void visit_compound_statement(struct visit_ctx* ctx, struct compound_stat
 
 
 
-char* remove_char(char* input, char ch)
+char* _Opt remove_char(char* input, char ch)
 {
     if (input == NULL)
         return NULL;
@@ -764,7 +776,7 @@ static void visit_type_name(struct visit_ctx* ctx, struct type_name* p_type_name
 
 static void visit_argument_expression_list(struct visit_ctx* ctx, struct argument_expression_list* p_argument_expression_list)
 {
-    struct argument_expression* p_argument_expression =
+    struct argument_expression* _Opt p_argument_expression =
         p_argument_expression_list->head;
     while (p_argument_expression)
     {
@@ -2443,7 +2455,7 @@ int visit_literal_string(struct visit_ctx* ctx, struct token* current)
 
 int visit_tokens(struct visit_ctx* ctx)
 {
-    struct token* current = ctx->ast.token_list.head;
+    struct token* _Opt current = ctx->ast.token_list.head;
     while (current)
     {
 
@@ -2520,7 +2532,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     long double d = strtold(current->lexeme, 0);
                     char buffer[50] = { 0 };
                     snprintf(buffer, sizeof buffer, "%Lg", d);
-                    free(current->lexeme);                    
+                    free(current->lexeme);
                     current->lexeme = strdup(buffer);
                 }
             }

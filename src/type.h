@@ -153,8 +153,8 @@ enum assigment_type
 
 
 struct type_list {
-    struct type* _Owner head;
-    struct type* tail;
+    struct type* _Owner _Opt head;
+    struct type* _Opt tail;
 };
 
 void type_list_push_back(struct type_list* books, struct type* _Owner new_book);
@@ -166,8 +166,8 @@ struct param;
 struct param_list {
     bool is_var_args;
     bool is_void;
-    struct param* _Owner head;
-    struct param* tail;
+    struct param* _Owner _Opt head;
+    struct param* _Opt tail;
 };
 
 void param_list_destroy(struct param_list* _Obj_owner p);
@@ -182,13 +182,13 @@ struct type
     enum type_qualifier_flags type_qualifier_flags;
     enum storage_class_specifier_flags storage_class_specifier_flags;
 
-    const char* _Owner name_opt;
+    const char* _Owner _Opt name_opt;
 
-    struct struct_or_union_specifier* struct_or_union_specifier;
-    const struct enum_specifier* enum_specifier;
+    struct struct_or_union_specifier* _Opt struct_or_union_specifier;
+    const struct enum_specifier* _Opt enum_specifier;
 
     //Expression used as array size. Can be constant or not constant (VLA)
-    const struct expression* array_num_elements_expression;
+    const struct expression* _Opt array_num_elements_expression;
 
     int num_of_elements;
     bool static_array;
@@ -200,7 +200,7 @@ struct type
     bool address_of;
 
     struct param_list params;
-    struct type* _Owner next;
+    struct type* _Owner _Opt next;
 };
 
 const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_type);
@@ -224,7 +224,7 @@ void print_item(struct osstream* ss, bool* first, const char* item);
 struct type type_dup(const struct type* p_type);
 void type_set(struct type* a, const struct type* b);
 
-void type_destroy(struct type* _Obj_owner p_type);
+void type_destroy(_Opt struct type* _Obj_owner p_type);
 
 
 

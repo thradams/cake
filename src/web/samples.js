@@ -1625,147 +1625,6 @@ void f()
 }
 `;
 
-sample["flow-analysis"] = [];
-sample["flow-analysis"]["if-else 1"] =
-`
-#pragma safety enable
-
-void* _Owner malloc(unsigned long size);
-void free(void* _Owner ptr);
-
-void f1()
-{
-    void * _Owner p = malloc(1);
-    if (p) {
-      static_state(p, "not-null");
-    }
-
-    static_state(p, "null | not-null");
-    free(p);
-}
-
-void f2(int condition)
-{
-    void * _Owner p = malloc(1);
-    if (condition) {
-      static_state(p, "null | not-null");
-    }
-
-    static_state(p, "null | not-null");
-    free(p);
-}
-
-void f3(int condition)
-{
-    void * _Owner p = malloc(1);
-    
-    if (condition) {
-       free(p);
-    }
-    else {
-       free(p);
-    }
-
-    static_state(p, "uninitialized");    
-}
-
-void f3(int condition)
-{
-    void * _Owner p = malloc(1);
-    
-    if (condition) {
-       
-    }
-    else {
-       free(p);
-    }
-
-    static_state(p, "uninitialized | null | not-null");    
-}
-
-
-void f4(int condition)
-{
-    void * _Owner p = malloc(1);
-    
-    if (condition) {
-       free(p);
-    }
-    else {
-       
-    }
-
-    static_state(p, "uninitialized | maybe_null");    
-}
-
-void f5(int condition)
-{
-    void * _Owner p = malloc(1);
-    
-    if (p) {
-       free(p);
-       return;
-    }
-    
-    static_state(p, "null");    
-}
-
-`;
-
-sample["flow-analysis"]["while"] =
-`    
-void * f();
-void * next(void* p);
-
-void f1()
-{
-    void * p = f();
-    static_state(p, "null | not-null");
-
-    while (p) {
-      p = next(p);
-    }
-    static_state(p, "null");
-}
-`;
-
-
-sample["flow-analysis"]["switch"] =
-`    
-    
-void * f();
-
-
-void f1(int condition)
-{
-    void * p = f();    
-    switch (condition)
-    {
-        case 1:
-            p = 0;
-        break;
-    }
-    static_state(p, "null | not-null");
-}
-
-
-void f2(int condition)
-{
-    void * p = f();    
-    switch (condition)
-    {
-        case 1:
-          p = 0;
-        break;
-      default:
-         p = 0;
-        break;
-    }
-    static_state(p, "null");
-}
-`;
-
-
 sample["safe-mode"]["mtx_t"] =
 `
 #pragma safety enable
@@ -1990,7 +1849,7 @@ sample["find the bug"]["Bug #1"] =
 #include <string.h>
 
 struct X {
-  char *_Owner name;
+  char *_Owner _Opt name;
 };
 
 struct X f(int condition)
@@ -2011,13 +1870,14 @@ int main()
 
 sample["find the bug"]["Bug #2"] =
 `
+
 #pragma safety enable
 
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char *_Owner name;
+  char *_Owner _Opt name;
 };
 
 void delete(struct X * _Owner p)
@@ -2028,7 +1888,7 @@ void delete(struct X * _Owner p)
 
 int main()
 {
-    struct X * _Owner p = calloc(1, sizeof * p);
+    struct X * _Owner _Opt p = calloc(1, sizeof * p);
     if (p)
     {
         p->name = strdup("a");
@@ -2041,14 +1901,15 @@ int main()
 
 sample["find the bug"]["Bug #3"] =
 `
+
 #pragma safety enable
 
 #include <stdlib.h>
 #include <string.h>
 
 struct X {
-  char *_Owner name;
-  char *_Owner surname;
+  char *_Owner _Opt name;
+  char *_Owner _Opt surname;
 };
 
 void delete(struct X * _Owner p)
@@ -2062,7 +1923,7 @@ void delete(struct X * _Owner p)
 
 int main()
 {
-    struct X * _Owner p = malloc(sizeof * p);
+    struct X * _Owner _Opt p = malloc(sizeof * p);
     if (p)
     {
         p->name = strdup("a");
@@ -2071,10 +1932,13 @@ int main()
 }
 
 
+
+
 `;
 
 sample["find the bug"]["Bug #4"] =
 `
+
 #pragma safety enable
 
 #include <stdlib.h>
@@ -2082,8 +1946,8 @@ sample["find the bug"]["Bug #4"] =
 #include <string.h>
 
 struct X {
-  char *_Owner name;
-  char *_Owner surname;
+  char *_Owner _Opt name;
+  char *_Owner _Opt surname;
 };
 
 void change(struct X * p)
@@ -2098,6 +1962,8 @@ int main()
     change(&x);
     printf("%s", x.name);
 }
+
+
 
 `;
 

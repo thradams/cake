@@ -170,7 +170,7 @@
       <PreprocessorDefinitions>_CRT_NONSTDC_NO_WARNINGS;_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalOptions>/wd4996 /utf-8  /wd4100 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/wd4996 /utf-8  /wd4100 /wd4068 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

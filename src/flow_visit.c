@@ -1,4 +1,4 @@
-
+//#pragma safety enable
 
 #include "ownership.h"
 
@@ -28,22 +28,22 @@ struct flow_defer_scope
 {
 
     //things must called at end of scope
-    struct declarator* declarator; // declarator
-    struct defer_statement* defer_statement; // defer
+    struct declarator* _Opt declarator; // declarator
+    struct defer_statement* _Opt defer_statement; // defer
 
     //statements for controling where jump like break, throw stop.
 
-    struct try_statement* p_try_statement; //try
-    struct selection_statement* p_selection_statement; //if switch
-    struct iteration_statement* p_iteration_statement; //for do while
-    struct statement* p_statement;//
-    struct compound_statement* p_compound_statement;
-    struct compound_statement* p_function_body;
-    struct secondary_block* p_secondary_block;
-    struct primary_block* p_primary_block;
+    struct try_statement* _Opt p_try_statement; //try
+    struct selection_statement* _Opt p_selection_statement; //if switch
+    struct iteration_statement* _Opt p_iteration_statement; //for do while
+    struct statement* _Opt p_statement;//
+    struct compound_statement* _Opt p_compound_statement;
+    struct compound_statement* _Opt p_function_body;
+    struct secondary_block* _Opt p_secondary_block;
+    struct primary_block* _Opt p_primary_block;
 
-    struct flow_defer_scope* _Owner last_child; /**/
-    struct flow_defer_scope* _Owner previous;
+    struct flow_defer_scope* _Owner _Opt last_child; /**/
+    struct flow_defer_scope* _Owner _Opt previous;
 };
 
 void flow_visit_declaration(struct flow_visit_ctx* ctx, struct declaration* p_declaration);
@@ -81,14 +81,13 @@ struct declarator_array
     // 
     //The number of variables determines the possible number of combinations.
     //10 variables requires 2^10 = 1024 evaluations.
-    struct declarator_array_item* _Owner data;
+    struct declarator_array_item* _Owner _Opt data;
     int size;
     int capacity;
 };
 
 void declarator_array_clear(struct declarator_array* p)
 {
-
     free(p->data);
     p->data = NULL;
     p->size = 0;
@@ -109,7 +108,7 @@ int declarator_array_reserve(struct declarator_array* p, int n)
             return EOVERFLOW;
         }
 
-        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL)
             return ENOMEM;
         static_set(p->data, "moved");
@@ -365,17 +364,31 @@ struct visit_objects {
 
 static struct flow_defer_scope* flow_visit_ctx_push_tail_block(struct flow_visit_ctx* ctx)
 {
-    struct flow_defer_scope* _Owner p_block = calloc(1, sizeof * p_block);
-    p_block->previous = ctx->tail_block;
-    ctx->tail_block = p_block;
+    struct flow_defer_scope* _Owner _Opt p_block = calloc(1, sizeof * p_block);
+    if (p_block)
+    {
+        p_block->previous = ctx->tail_block;
+        ctx->tail_block = p_block;
+    }
+    else
+    {
+        //ops
+    }
     return ctx->tail_block;
 }
 
 static struct flow_defer_scope* flow_visit_ctx_push_child(struct flow_visit_ctx* ctx)
 {
-    struct flow_defer_scope* _Owner child = calloc(1, sizeof * child);
-    child->previous = ctx->tail_block->last_child;
-    ctx->tail_block->last_child = child;
+    struct flow_defer_scope* _Owner _Opt child = calloc(1, sizeof * child);
+    if (child)
+    {
+        child->previous = ctx->tail_block->last_child;
+        ctx->tail_block->last_child = child;
+    }
+    else
+    {
+        //ops
+    }
     return ctx->tail_block->last_child;
 }
 
@@ -384,10 +397,10 @@ static void flow_defer_scope_delete_one(struct flow_defer_scope* _Owner p)
     struct flow_defer_scope* _Owner p_block = p;
     if (p_block != NULL)
     {
-        struct flow_defer_scope* _Owner child = p_block->last_child;
+        struct flow_defer_scope* _Owner _Opt child = p_block->last_child;
         while (child != NULL)
         {
-            struct flow_defer_scope* _Owner previous = child->previous;
+            struct flow_defer_scope* _Owner _Opt previous = child->previous;
             child->previous = NULL;
             flow_defer_scope_delete_one(child);
             child = previous;
@@ -402,7 +415,7 @@ static void flow_visit_ctx_pop_tail_block(struct flow_visit_ctx* ctx)
 {
     if (ctx->tail_block)
     {
-        struct flow_defer_scope* _Owner previous = ctx->tail_block->previous;
+        struct flow_defer_scope* _Owner _Opt previous = ctx->tail_block->previous;
         ctx->tail_block->previous = NULL;
         flow_defer_scope_delete_one(ctx->tail_block);
         ctx->tail_block = previous;
@@ -415,7 +428,7 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
 {
     bool found_error = false;
 
-    struct flow_defer_scope* deferchild = deferblock->last_child;
+    struct flow_defer_scope* _Opt deferchild = deferblock->last_child;
     while (deferchild != NULL)
     {
         if (deferchild->defer_statement)
@@ -457,7 +470,7 @@ static bool check_all_defer_until_try(struct flow_visit_ctx* ctx, struct flow_de
     struct token* position_token)
 {
     bool found_error = false;
-    struct flow_defer_scope* p_defer = deferblock;
+    struct flow_defer_scope* _Opt p_defer = deferblock;
     while (p_defer != NULL)
     {
         if (check_defer_and_variables(ctx, p_defer, position_token))
@@ -475,7 +488,7 @@ static bool check_all_defer_until_try(struct flow_visit_ctx* ctx, struct flow_de
 
 static bool flow_find_label_block_item_list(struct flow_visit_ctx* ctx, struct block_item_list* p_block_item, const char* label)
 {
-    struct block_item* block_item = p_block_item->head;
+    struct block_item* _Opt block_item = p_block_item->head;
     while (block_item)
     {
         if (block_item->label &&
@@ -753,7 +766,7 @@ static int arena_add_empty_state(struct flow_visit_ctx* ctx, const char* name)
     for (int i = 0; i < ctx->arena.size; i++)
     {
         struct flow_object* p_object = ctx->arena.data[i];
-        struct flow_object_state* _Owner p_flow_object_state = calloc(1, sizeof * p_flow_object_state);
+        struct flow_object_state* _Owner _Opt p_flow_object_state = calloc(1, sizeof * p_flow_object_state);
         if (p_flow_object_state)
         {
             p_flow_object_state->dbg_name = name;
@@ -815,7 +828,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                     struct flow_object* _Opt p_new_object = arena_new_object(ctx);
                     if (p_new_object == NULL) throw;
 
-                    struct flow_object_state* _Owner p_new_state = calloc(1, sizeof * p_new_state);
+                    struct flow_object_state* _Owner _Opt p_new_state = calloc(1, sizeof * p_new_state);
                     if (p_new_state == NULL) throw;
 
                     p_new_state->state_number = state_number;
@@ -838,7 +851,7 @@ static int flow_object_merge_current_with_state(struct flow_visit_ctx* ctx, stru
                             struct flow_object* child1 = object->current.pointed->members.data[j];
                             struct flow_object* child2 = it->pointed->members.data[j];
 
-                            struct flow_object_state* _Owner p_child_new_state = calloc(1, sizeof * p_child_new_state);
+                            struct flow_object_state* _Owner _Opt p_child_new_state = calloc(1, sizeof * p_child_new_state);
                             if (p_child_new_state == NULL) throw;
 
                             p_child_new_state->state_number = state_number;
@@ -1153,6 +1166,7 @@ static void flow_visit_if_statement(struct flow_visit_ctx* ctx, struct selection
 
     if (p_selection_statement->condition->expression)
     {
+        flow_check_pointer_used_as_bool(ctx, p_selection_statement->condition->expression);
         flow_visit_expression(ctx, p_selection_statement->condition->expression, &declarator_array);
     }
 
@@ -1684,7 +1698,7 @@ void object_push_states_from(const struct flow_object* p_object_from, struct flo
 #endif
 
         it_from = it_from->next;
-    }
+}
 
     for (int i = 0; i < p_object_to->members.size; i++)
     {
@@ -2105,7 +2119,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
         //object_destroy(&temp_obj2);
     }
     break;
-     case MULTIPLICATIVE_EXPRESSION_DIV:
+    case MULTIPLICATIVE_EXPRESSION_DIV:
     {
         if (p_expression->left)
         {
@@ -2132,7 +2146,7 @@ static void flow_visit_expression(struct flow_visit_ctx* ctx, struct expression*
     }
     break;
     case CAST_EXPRESSION:
-    case MULTIPLICATIVE_EXPRESSION_MULT:    
+    case MULTIPLICATIVE_EXPRESSION_MULT:
     case MULTIPLICATIVE_EXPRESSION_MOD:
     case ADDITIVE_EXPRESSION_PLUS:
     case ADDITIVE_EXPRESSION_MINUS:
@@ -2589,7 +2603,7 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
     if (p_iteration_statement->declaration &&
         p_iteration_statement->declaration->init_declarator_list.head)
     {
-       flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
+        flow_visit_init_declarator_list(ctx, &p_iteration_statement->declaration->init_declarator_list);
     }
     struct declarator_array d = { 0 };
     if (p_iteration_statement->expression0)
@@ -2599,12 +2613,10 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
 
     if (p_iteration_statement->expression1)
     {
+        flow_check_pointer_used_as_bool(ctx, p_iteration_statement->expression1);
         flow_visit_expression(ctx, p_iteration_statement->expression1, &d);
     }
-    if (p_iteration_statement->expression2)
-    {
-        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
-    }
+    
 
 
     if (p_iteration_statement->secondary_block)
@@ -2614,6 +2626,11 @@ static void flow_visit_for_statement(struct flow_visit_ctx* ctx, struct iteratio
         flow_visit_secondary_block(ctx, p_iteration_statement->secondary_block);
         check_defer_and_variables(ctx, p_defer, p_iteration_statement->secondary_block->last_token);
         flow_visit_ctx_pop_tail_block(ctx);
+    }
+
+    if (p_iteration_statement->expression2)
+    {        
+        flow_visit_expression(ctx, p_iteration_statement->expression2, &d);
     }
 
     /*we visit again*/
@@ -3072,7 +3089,7 @@ static void flow_visit_static_assert_declaration(struct flow_visit_ctx* ctx, str
 
 static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type);
+    struct type* _Opt p_type);
 
 
 static void flow_visit_direct_declarator(struct flow_visit_ctx* ctx, struct direct_declarator* p_direct_declarator)
@@ -3201,12 +3218,12 @@ static void flow_visit_declarator(struct flow_visit_ctx* ctx, struct declarator*
                 if (p_declarator->p_object->pointed)
                 {
                     set_object(&t2, p_declarator->p_object->pointed, (OBJECT_STATE_NOT_NULL | OBJECT_STATE_NULL));
-                }
-                type_destroy(&t2);
             }
-#endif
+                type_destroy(&t2);
         }
+#endif
     }
+}
 
     /*if (p_declarator->pointer)
     {
@@ -3410,7 +3427,7 @@ static void flow_visit_declaration_specifier(struct flow_visit_ctx* ctx, struct 
 
 static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
     struct declaration_specifiers* p_declaration_specifiers,
-    struct type* p_type_opt)
+    struct type* _Opt p_type_opt)
 {
     /*
         * Se tiver typeof ou auto vamos apagar todos type specifiers.
@@ -3438,7 +3455,7 @@ static void flow_visit_declaration_specifiers(struct flow_visit_ctx* ctx,
 /*
 * retorna true se o ultimo item for um return
 */
-static bool flow_is_last_item_return(struct compound_statement* p_compound_statement)
+static bool flow_is_last_item_return(struct compound_statement* _Opt p_compound_statement)
 {
     if (p_compound_statement &&
         p_compound_statement->block_item_list.tail &&
@@ -3560,7 +3577,7 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
 
 struct flow_object* arena_new_object(struct flow_visit_ctx* ctx)
 {
-    struct flow_object* _Owner p = calloc(1, sizeof * p);
+    struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
     if (p != NULL)
     {
         p->id = ctx->arena.size + 1;
@@ -3577,7 +3594,7 @@ void flow_visit_ctx_destroy(struct flow_visit_ctx* _Obj_owner p)
 
 void flow_analysis_visit(struct flow_visit_ctx* ctx)
 {
-    struct declaration* p_declaration = ctx->ast.declaration_list.head;
+    struct declaration* _Opt p_declaration = ctx->ast.declaration_list.head;
     while (p_declaration)
     {
         flow_visit_declaration(ctx, p_declaration);

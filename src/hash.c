@@ -1,3 +1,7 @@
+
+#pragma safety enable
+
+
 #include "hash.h"
 #include <string.h>
 
