@@ -30,10 +30,10 @@
 */
 #ifdef __CAKE__
 #pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wdiscard-_Owner"
+#pragma cake diagnostic ignored "-Wdiscard-owner"
 #pragma cake diagnostic ignored "-Wmissing-destructor"
-#pragma cake diagnostic ignored "-Wnon-_Owner-move"
-#pragma cake diagnostic ignored "-Wnon-_Owner-to-_Owner-move"
+#pragma cake diagnostic ignored "-Wnon-owner-move"
+#pragma cake diagnostic ignored "-Wnon-owner-to-_Owner-move"
 #endif
 
 //#pragma cake diagnostic pop

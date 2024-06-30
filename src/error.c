@@ -166,7 +166,7 @@ const char* get_posix_error_message(int error)
         return "Transport endpoint is not connected";
 
     case  ETIMEDOUT:
-        return "Connection timed _Out";
+        return "Connection timed out";
     case  ECONNREFUSED:
         return "Connection refused";
 
@@ -180,7 +180,7 @@ const char* get_posix_error_message(int error)
     case  ENOTBLK:
         return "Block device required";
     case  ECHRNG:
-        return "Channel number _Out of range";
+        return "Channel number out of range";
     case  EL2NSYNC:
         return "Level 2 not synchronized";
     case  EL3HLT:
@@ -188,7 +188,7 @@ const char* get_posix_error_message(int error)
     case  EL3RST:
         return "Level 3 reset";
     case  ELNRNG:
-        return "Link number _Out of range";
+        return "Link number out of range";
     case  EUNATCH:
         return "Protocol driver not attached";
     case  ENOCSI:
@@ -247,7 +247,7 @@ const char* get_posix_error_message(int error)
     case  ELIBBAD:
         return "Accessing a corrupted shared library";
     case  ELIBSCN:
-        return ".lib section in a._Out corrupted";
+        return ".lib section in a.out corrupted";
     case  ELIBMAX:
         return "Attempting to link in too many shared libraries";
     case  ELIBEXEC:

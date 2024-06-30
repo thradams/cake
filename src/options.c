@@ -70,7 +70,7 @@ s_warnings[] = {
 
 };
 
-static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64);
+_Static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64, "");
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
@@ -94,7 +94,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
     {
-        //TODO should be everthing that starts with FLOW
+        //TODO should be everything that starts with FLOW
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:
     case W_FLOW_MOVED:

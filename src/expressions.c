@@ -896,12 +896,12 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
             }
             current = current->next;
         }
-        
+
         type_destroy(&lvalue_type);
 
         if (ctx->current == NULL) throw;
         p_generic_selection->last_token = ctx->current;
-        
+
         if (parser_match_tk(ctx, ')') != 0)
         {
             throw;
@@ -1211,6 +1211,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
         {
             int c = 0;
             p = utf8_decode(p, &c);
+
             if (c == '\\')
                 p = escape_sequences_decode_opt(p, &c);
 
@@ -1562,6 +1563,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == '(')
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
+            if (p_expression_node == NULL) throw;
+
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PARENTESIS;
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
@@ -1747,8 +1750,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             if (ctx->current->type == '[')
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
-
-                static_set(*p_expression_node_new, "zero");
+                if (p_expression_node_new == NULL) throw;
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
@@ -1811,8 +1813,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             else if (ctx->current->type == '(')
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                if (p_expression_node_new == NULL) throw;
 
-                static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
 
@@ -1850,7 +1852,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             else if (ctx->current->type == '.')
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
-                static_set(*p_expression_node_new, "zero");
+                if (p_expression_node_new == NULL) throw;
+
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
@@ -1926,7 +1929,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             else if (ctx->current->type == '->')
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
-                static_set(*p_expression_node_new, "zero");
+                if (p_expression_node_new == NULL) throw;
+
                 p_expression_node_new->first_token = p_expression_node->first_token;// ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
 
@@ -2029,8 +2033,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                if (p_expression_node_new == NULL) throw;
 
-                static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
 
@@ -2046,7 +2050,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     compiler_diagnostic_message(C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
                                                 ctx,
                                                 p_expression_node->first_token,
-                                                "operator -- cannot be used in _Owner pointers");
+                                                "operator -- cannot be used in owner pointers");
                 }
 
                 if (!expression_is_lvalue(p_expression_node))
@@ -2058,8 +2062,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                if (p_expression_node_new == NULL) throw;
 
-                static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
 
@@ -2291,6 +2295,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
             new_expression->first_token = ctx->current;
 
             static_set(*new_expression, "zero");
@@ -2314,7 +2320,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         {
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
-            static_set(*new_expression, "zero");
+            if (new_expression == NULL) throw;
+
             new_expression->first_token = ctx->current;
 
             struct token* op_position = ctx->current; // marcar posicao
@@ -2453,8 +2460,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
             parser_match(ctx);
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
 
             if (first_of_type_name_ahead(ctx))
@@ -2520,8 +2527,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             struct token* traits_token = ctx->current;
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_TRAITS;
 
@@ -2618,6 +2625,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == TK_KEYWORD_ASSERT)
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
             static_set(*new_expression, "zero");
             new_expression->expression_type = UNARY_EXPRESSION_ASSERT;
@@ -2650,8 +2658,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
-            static_set(*new_expression, "zero");
             new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
             new_expression->first_token = ctx->current;
             parser_match(ctx);
@@ -2743,6 +2751,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                 // Achar que era um cast_expression foi um engano...
                 // porque apareceu o { então é compound literal que eh postfix.
                 struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name);
+                if (new_expression == NULL) throw;
+
                 p_expression_node->type_name = NULL; // MOVED
 
                 expression_delete(p_expression_node);
@@ -3492,7 +3502,6 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
-            static_set(*new_expression, "zero");
 
             new_expression->first_token = ctx->current;
             new_expression->expression_type = AND_EXPRESSION;
@@ -3554,7 +3563,6 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
             if (new_expression == NULL)
                 throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
@@ -4002,7 +4010,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
                 if (p_expression_node_new == NULL)
                     throw;
 
-                static_set(*p_expression_node_new, "zero");
+
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
@@ -4077,7 +4085,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof * p_conditional_expression);
             if (p_conditional_expression == NULL) throw;
 
-            static_set(*p_conditional_expression, "zero");
+
             p_conditional_expression->first_token = ctx->current;
             p_conditional_expression->expression_type = CONDITIONAL_EXPRESSION;
             p_conditional_expression->condition_expr = p_expression_node;

@@ -1031,10 +1031,10 @@ int stringify(const char* input, int n, char output[]);
 */
 #ifdef __CAKE__
 #pragma cake diagnostic push
-#pragma cake diagnostic ignored "-Wdiscard-_Owner"
+#pragma cake diagnostic ignored "-Wdiscard-owner"
 #pragma cake diagnostic ignored "-Wmissing-destructor"
-#pragma cake diagnostic ignored "-Wnon-_Owner-move"
-#pragma cake diagnostic ignored "-Wnon-_Owner-to-_Owner-move"
+#pragma cake diagnostic ignored "-Wnon-owner-move"
+#pragma cake diagnostic ignored "-Wnon-owner-to-_Owner-move"
 #endif
 
 //#pragma cake diagnostic pop
@@ -10016,33 +10016,6 @@ static const char* file_stddef_h =
 "typedef typeof(nullptr) nullptr_t;\n"
 "\n";
 
-const char* file_ownership_h =
-"#ifndef __OWNERSHIP_H__\n"
-"#define __OWNERSHIP_H__\n"
-"\n"
-"#pragma ownership enable\n"
-"#ifdef __STDC_OWNERSHIP__\n"
-"#define _Out _Out\n"
-"#define _Opt _Opt\n"
-"#define _Owner _Owner\n"
-"#define _Obj_owner  _Obj_owner\n"
-"#define _View _View\n"
-
-"\n"
-"#else\n"
-"#define _Out \n"
-"#define _Opt \n"
-"#define _Owner\n"
-"#define _Obj_owner\n"
-"#define _View\n"
-"#define static_debug(x)\n"
-"#define static_set(x, s)\n"
-
-"#endif\n"
-"\n"
-"#endif\n"
-"\n"
-"";
 
 const char* file_limits_h =
 "//\n"
@@ -10109,8 +10082,6 @@ char* _Owner read_file(const char* path)
         return strdup(file_string_h);
     else if (strcmp(path, "c:/assert.h") == 0)
         return strdup(file_assert_h);
-    else if (strcmp(path, "c:/ownership.h") == 0)
-        return strdup(file_ownership_h);
     else if (strcmp(path, "c:/limits.h") == 0)
         return strdup(file_limits_h);
     printf("read %s\n", path);
@@ -10187,7 +10158,7 @@ s_warnings[] = {
 
 };
 
-static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64);
+_Static_assert((sizeof(s_warnings) / sizeof(s_warnings[0])) < 64, "");
 
 int get_diagnostic_type(struct diagnostic* d, enum diagnostic_id w)
 {
@@ -10211,7 +10182,7 @@ int get_diagnostic_phase(enum diagnostic_id w)
 {
     switch (w)
     {
-        //TODO should be everthing that starts with FLOW
+        //TODO should be everything that starts with FLOW
     case W_FLOW_MISSING_DTOR:
     case W_FLOW_UNINITIALIZED:
     case W_FLOW_MOVED:
@@ -11332,8 +11303,8 @@ struct flow_object_state {
     struct flow_object_state* _Owner _Opt next;
 };
 
-void flow_object_state_copy(struct flow_object_state *to, const struct flow_object_state * from);
-void flow_object_state_delete(struct flow_object_state * _Owner _Opt p);
+void flow_object_state_copy(struct flow_object_state* to, const struct flow_object_state* from);
+void flow_object_state_delete(struct flow_object_state* _Owner _Opt p);
 
 
 /*
@@ -11351,11 +11322,11 @@ struct flow_object
     const struct expression* _Opt p_expression_origin;
 
     struct objects_view members;
-    
+
     struct flow_object_state current;
 
     int id; //helps debugging
-    bool is_temporary;    
+    bool is_temporary;
 };
 
 void flow_object_set_is_moved(struct flow_object* p_object);
@@ -11365,7 +11336,7 @@ void flow_object_update_current(struct flow_object* p);
 void flow_object_set_current_state_to_can_be_null(struct flow_object* p);
 void flow_object_set_current_state_to_is_null(struct flow_object* p);
 
-int flow_object_add_state(struct flow_object* p, struct flow_object_state *_Owner pnew);
+int flow_object_add_state(struct flow_object* p, struct flow_object_state* _Owner pnew);
 
 bool flow_object_is_zero_or_null(const struct flow_object* p_object);
 
@@ -11397,10 +11368,10 @@ void print_object_line(struct flow_object* p_object, int cols);
 void print_object_state_to_str(enum object_state e, char str[], int sz);
 
 struct declarator;
-struct flow_object* make_object(struct flow_visit_ctx* ctx,
-                                 struct type* p_type,
-                            const struct declarator* _Opt p_declarator_opt,
-                            const struct expression* _Opt p_expression_origin);
+struct flow_object* _Opt make_object(struct flow_visit_ctx* ctx,
+                                     struct type* p_type,
+                                     const struct declarator* _Opt p_declarator_opt,
+                                     const struct expression* _Opt p_expression_origin);
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number);
 struct token* object_get_token(const struct flow_object* object);
@@ -13803,12 +13774,12 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
             }
             current = current->next;
         }
-        
+
         type_destroy(&lvalue_type);
 
         if (ctx->current == NULL) throw;
         p_generic_selection->last_token = ctx->current;
-        
+
         if (parser_match_tk(ctx, ')') != 0)
         {
             throw;
@@ -14118,6 +14089,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
         {
             int c = 0;
             p = utf8_decode(p, &c);
+
             if (c == '\\')
                 p = escape_sequences_decode_opt(p, &c);
 
@@ -14469,6 +14441,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == '(')
         {
             p_expression_node = calloc(1, sizeof * p_expression_node);
+            if (p_expression_node == NULL) throw;
+
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PARENTESIS;
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
@@ -14654,8 +14628,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             if (ctx->current->type == '[')
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
-
-                static_set(*p_expression_node_new, "zero");
+                if (p_expression_node_new == NULL) throw;
 
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARRAY;
@@ -14718,8 +14691,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             else if (ctx->current->type == '(')
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                if (p_expression_node_new == NULL) throw;
 
-                static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = p_expression_node->first_token;
                 p_expression_node_new->expression_type = POSTFIX_FUNCTION_CALL;
 
@@ -14757,7 +14730,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             else if (ctx->current->type == '.')
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
-                static_set(*p_expression_node_new, "zero");
+                if (p_expression_node_new == NULL) throw;
+
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DOT;
                 p_expression_node_new->left = p_expression_node;
@@ -14833,7 +14807,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             else if (ctx->current->type == '->')
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
-                static_set(*p_expression_node_new, "zero");
+                if (p_expression_node_new == NULL) throw;
+
                 p_expression_node_new->first_token = p_expression_node->first_token;// ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
 
@@ -14936,8 +14911,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                if (p_expression_node_new == NULL) throw;
 
-                static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_INCREMENT;
 
@@ -14953,7 +14928,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                     compiler_diagnostic_message(C_ERROR_OPERATOR_DECREMENT_CANNOT_BE_USED_IN_OWNER,
                                                 ctx,
                                                 p_expression_node->first_token,
-                                                "operator -- cannot be used in _Owner pointers");
+                                                "operator -- cannot be used in owner pointers");
                 }
 
                 if (!expression_is_lvalue(p_expression_node))
@@ -14965,8 +14940,8 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
+                if (p_expression_node_new == NULL) throw;
 
-                static_set(*p_expression_node_new, "zero");
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_DECREMENT;
 
@@ -15198,6 +15173,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         if (ctx->current->type == '++' || ctx->current->type == '--')
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
+
             new_expression->first_token = ctx->current;
 
             static_set(*new_expression, "zero");
@@ -15221,7 +15198,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         {
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
-            static_set(*new_expression, "zero");
+            if (new_expression == NULL) throw;
+
             new_expression->first_token = ctx->current;
 
             struct token* op_position = ctx->current; // marcar posicao
@@ -15360,8 +15338,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
             parser_match(ctx);
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
 
             if (first_of_type_name_ahead(ctx))
@@ -15427,8 +15405,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             struct token* traits_token = ctx->current;
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = UNARY_EXPRESSION_TRAITS;
 
@@ -15525,6 +15503,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == TK_KEYWORD_ASSERT)
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
             static_set(*new_expression, "zero");
             new_expression->expression_type = UNARY_EXPRESSION_ASSERT;
@@ -15557,8 +15536,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
         else if (ctx->current->type == TK_KEYWORD__ALIGNOF)
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
-            static_set(*new_expression, "zero");
             new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
             new_expression->first_token = ctx->current;
             parser_match(ctx);
@@ -15650,6 +15629,8 @@ struct expression* _Owner _Opt cast_expression(struct parser_ctx* ctx)
                 // Achar que era um cast_expression foi um engano...
                 // porque apareceu o { então é compound literal que eh postfix.
                 struct expression* _Owner _Opt new_expression = postfix_expression_type_name(ctx, p_expression_node->type_name);
+                if (new_expression == NULL) throw;
+
                 p_expression_node->type_name = NULL; // MOVED
 
                 expression_delete(p_expression_node);
@@ -16399,7 +16380,6 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
             new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
-            static_set(*new_expression, "zero");
 
             new_expression->first_token = ctx->current;
             new_expression->expression_type = AND_EXPRESSION;
@@ -16461,7 +16441,6 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
             if (new_expression == NULL)
                 throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = EXCLUSIVE_OR_EXPRESSION;
             new_expression->left = p_expression_node;
@@ -16909,7 +16888,7 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
                 if (p_expression_node_new == NULL)
                     throw;
 
-                static_set(*p_expression_node_new, "zero");
+
                 p_expression_node_new->first_token = ctx->current;
                 p_expression_node_new->expression_type = ASSIGNMENT_EXPRESSION;
                 p_expression_node_new->left = p_expression_node;
@@ -16984,7 +16963,7 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             struct expression* _Owner _Opt p_conditional_expression = calloc(1, sizeof * p_conditional_expression);
             if (p_conditional_expression == NULL) throw;
 
-            static_set(*p_conditional_expression, "zero");
+
             p_conditional_expression->first_token = ctx->current;
             p_conditional_expression->expression_type = CONDITIONAL_EXPRESSION;
             p_conditional_expression->condition_expr = p_expression_node;
@@ -18930,7 +18909,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token,
-                "passing a temporary _Owner to a _View");
+                "passing a temporary owner to a view");
         }
 
     }////////////////////////////////////////////////////////////
@@ -18954,7 +18933,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token,
-                "passing a temporary _Owner to a _View");
+                "passing a temporary owner to a view");
         }
 
 
@@ -19287,7 +19266,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!is_null_pointer_constant)
         {
-            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, "cannot assign a non-_Owner to _Owner");
+            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, "cannot assign a non-owner to owner");
             type_destroy(&lvalue_right_type);
             type_destroy(&t2);
             return;
@@ -19317,7 +19296,7 @@ void check_assigment(struct parser_ctx* ctx,
                 compiler_diagnostic_message(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
                     ctx,
                     p_b_expression->first_token,
-                    "cannot return a automatic storage duration _Owner to non-_Owner");
+                    "cannot return a automatic storage duration _Owner to non-owner");
                 type_destroy(&lvalue_right_type);
                 type_destroy(&t2);
                 return;
@@ -21450,7 +21429,7 @@ void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, stru
         struct type t2 = type_remove_pointer(p_type);
         if (!type_is_void(&t2))
         {
-            struct flow_object* p_object2 = make_object(ctx, &t2, p_object->p_declarator_origin, p_object->p_expression_origin);
+            struct flow_object* _Opt p_object2 = make_object(ctx, &t2, p_object->p_declarator_origin, p_object->p_expression_origin);
             if (p_object2)
             {
                 const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
@@ -21567,7 +21546,7 @@ int objects_view_reserve(struct objects_view* p, int n)
             return EOVERFLOW;
         }
 
-        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
 
         static_set(p->data, "moved"); //p->data was moved to pnew
@@ -21815,7 +21794,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
             {
                 if (p_member_declaration->member_declarator_list_opt)
                 {
-                    struct member_declarator* p_member_declarator =
+                    struct member_declarator* _Opt p_member_declarator =
                         p_member_declaration->member_declarator_list_opt->head;
 
                     while (p_member_declarator)
@@ -24816,7 +24795,7 @@ void print_object_line(struct flow_object* p_object, int extra_cols)
 
 
     int cols = 0;
-    struct flow_object_state* p_state = &p_object->current;
+    struct flow_object_state* _Opt p_state = &p_object->current;
     while (p_state)
     {
         cols++;
@@ -24853,7 +24832,7 @@ void format_visit(struct format_visit_ctx* ctx);
 
 //#pragma once
 
-#define CAKE_VERSION "0.9.3"
+#define CAKE_VERSION "0.9.4"
 
 
 
@@ -40093,7 +40072,7 @@ const char* get_posix_error_message(int error)
         return "Transport endpoint is not connected";
 
     case  ETIMEDOUT:
-        return "Connection timed _Out";
+        return "Connection timed out";
     case  ECONNREFUSED:
         return "Connection refused";
 
@@ -40107,7 +40086,7 @@ const char* get_posix_error_message(int error)
     case  ENOTBLK:
         return "Block device required";
     case  ECHRNG:
-        return "Channel number _Out of range";
+        return "Channel number out of range";
     case  EL2NSYNC:
         return "Level 2 not synchronized";
     case  EL3HLT:
@@ -40115,7 +40094,7 @@ const char* get_posix_error_message(int error)
     case  EL3RST:
         return "Level 3 reset";
     case  ELNRNG:
-        return "Link number _Out of range";
+        return "Link number out of range";
     case  EUNATCH:
         return "Protocol driver not attached";
     case  ENOCSI:
@@ -40174,7 +40153,7 @@ const char* get_posix_error_message(int error)
     case  ELIBBAD:
         return "Accessing a corrupted shared library";
     case  ELIBSCN:
-        return ".lib section in a._Out corrupted";
+        return ".lib section in a.out corrupted";
     case  ELIBMAX:
         return "Attempting to link in too many shared libraries";
     case  ELIBEXEC:

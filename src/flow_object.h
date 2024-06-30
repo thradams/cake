@@ -75,8 +75,8 @@ struct flow_object_state {
     struct flow_object_state* _Owner _Opt next;
 };
 
-void flow_object_state_copy(struct flow_object_state *to, const struct flow_object_state * from);
-void flow_object_state_delete(struct flow_object_state * _Owner _Opt p);
+void flow_object_state_copy(struct flow_object_state* to, const struct flow_object_state* from);
+void flow_object_state_delete(struct flow_object_state* _Owner _Opt p);
 
 
 /*
@@ -94,11 +94,11 @@ struct flow_object
     const struct expression* _Opt p_expression_origin;
 
     struct objects_view members;
-    
+
     struct flow_object_state current;
 
     int id; //helps debugging
-    bool is_temporary;    
+    bool is_temporary;
 };
 
 void flow_object_set_is_moved(struct flow_object* p_object);
@@ -108,7 +108,7 @@ void flow_object_update_current(struct flow_object* p);
 void flow_object_set_current_state_to_can_be_null(struct flow_object* p);
 void flow_object_set_current_state_to_is_null(struct flow_object* p);
 
-int flow_object_add_state(struct flow_object* p, struct flow_object_state *_Owner pnew);
+int flow_object_add_state(struct flow_object* p, struct flow_object_state* _Owner pnew);
 
 bool flow_object_is_zero_or_null(const struct flow_object* p_object);
 
@@ -140,10 +140,10 @@ void print_object_line(struct flow_object* p_object, int cols);
 void print_object_state_to_str(enum object_state e, char str[], int sz);
 
 struct declarator;
-struct flow_object* make_object(struct flow_visit_ctx* ctx,
-                                 struct type* p_type,
-                            const struct declarator* _Opt p_declarator_opt,
-                            const struct expression* _Opt p_expression_origin);
+struct flow_object* _Opt make_object(struct flow_visit_ctx* ctx,
+                                     struct type* p_type,
+                                     const struct declarator* _Opt p_declarator_opt,
+                                     const struct expression* _Opt p_expression_origin);
 
 void flow_object_add_new_state_as_a_copy_of_current_state(struct flow_object* object, const char* name, int state_number);
 struct token* object_get_token(const struct flow_object* object);

@@ -914,7 +914,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token,
-                "passing a temporary _Owner to a _View");
+                "passing a temporary owner to a view");
         }
 
     }////////////////////////////////////////////////////////////
@@ -938,7 +938,7 @@ void check_ownership_qualifiers_of_argument_and_parameter(struct parser_ctx* ctx
             compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
                 ctx,
                 current_argument->expression->first_token,
-                "passing a temporary _Owner to a _View");
+                "passing a temporary owner to a view");
         }
 
 
@@ -1271,7 +1271,7 @@ void check_assigment(struct parser_ctx* ctx,
     {
         if (!is_null_pointer_constant)
         {
-            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, "cannot assign a non-_Owner to _Owner");
+            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, "cannot assign a non-owner to owner");
             type_destroy(&lvalue_right_type);
             type_destroy(&t2);
             return;
@@ -1301,7 +1301,7 @@ void check_assigment(struct parser_ctx* ctx,
                 compiler_diagnostic_message(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
                     ctx,
                     p_b_expression->first_token,
-                    "cannot return a automatic storage duration _Owner to non-_Owner");
+                    "cannot return a automatic storage duration _Owner to non-owner");
                 type_destroy(&lvalue_right_type);
                 type_destroy(&t2);
                 return;

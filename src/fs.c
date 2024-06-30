@@ -975,33 +975,6 @@ static const char* file_stddef_h =
 "typedef typeof(nullptr) nullptr_t;\n"
 "\n";
 
-const char* file_ownership_h =
-"#ifndef __OWNERSHIP_H__\n"
-"#define __OWNERSHIP_H__\n"
-"\n"
-"#pragma ownership enable\n"
-"#ifdef __STDC_OWNERSHIP__\n"
-"#define _Out _Out\n"
-"#define _Opt _Opt\n"
-"#define _Owner _Owner\n"
-"#define _Obj_owner  _Obj_owner\n"
-"#define _View _View\n"
-
-"\n"
-"#else\n"
-"#define _Out \n"
-"#define _Opt \n"
-"#define _Owner\n"
-"#define _Obj_owner\n"
-"#define _View\n"
-"#define static_debug(x)\n"
-"#define static_set(x, s)\n"
-
-"#endif\n"
-"\n"
-"#endif\n"
-"\n"
-"";
 
 const char* file_limits_h =
 "//\n"
@@ -1068,8 +1041,6 @@ char* _Owner read_file(const char* path)
         return strdup(file_string_h);
     else if (strcmp(path, "c:/assert.h") == 0)
         return strdup(file_assert_h);
-    else if (strcmp(path, "c:/ownership.h") == 0)
-        return strdup(file_ownership_h);
     else if (strcmp(path, "c:/limits.h") == 0)
         return strdup(file_limits_h);
     printf("read %s\n", path);

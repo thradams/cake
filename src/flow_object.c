@@ -212,7 +212,7 @@ void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, stru
         struct type t2 = type_remove_pointer(p_type);
         if (!type_is_void(&t2))
         {
-            struct flow_object* p_object2 = make_object(ctx, &t2, p_object->p_declarator_origin, p_object->p_expression_origin);
+            struct flow_object* _Opt p_object2 = make_object(ctx, &t2, p_object->p_declarator_origin, p_object->p_expression_origin);
             if (p_object2)
             {
                 const bool is_nullable = type_is_nullable(&t2, nullable_enabled);
@@ -329,7 +329,7 @@ int objects_view_reserve(struct objects_view* p, int n)
             return EOVERFLOW;
         }
 
-        void* _Owner pnew = realloc(p->data, n * sizeof(p->data[0]));
+        void* _Owner _Opt pnew = realloc(p->data, n * sizeof(p->data[0]));
         if (pnew == NULL) return ENOMEM;
 
         static_set(p->data, "moved"); //p->data was moved to pnew
@@ -577,7 +577,7 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
             {
                 if (p_member_declaration->member_declarator_list_opt)
                 {
-                    struct member_declarator* p_member_declarator =
+                    struct member_declarator* _Opt p_member_declarator =
                         p_member_declaration->member_declarator_list_opt->head;
 
                     while (p_member_declarator)
@@ -3578,7 +3578,7 @@ void print_object_line(struct flow_object* p_object, int extra_cols)
 
 
     int cols = 0;
-    struct flow_object_state* p_state = &p_object->current;
+    struct flow_object_state* _Opt p_state = &p_object->current;
     while (p_state)
     {
         cols++;
