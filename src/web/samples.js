@@ -1880,7 +1880,7 @@ struct X {
   char *_Owner _Opt name;
 };
 
-void delete(struct X * _Owner p)
+void delete(struct X * _Owner _Opt p)
 {
     if (p)
      free(p);
@@ -1912,7 +1912,7 @@ struct X {
   char *_Owner _Opt surname;
 };
 
-void delete(struct X * _Owner p)
+void delete(struct X * _Owner _Opt p)
 {
     if (p)
     {
