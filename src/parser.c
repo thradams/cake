@@ -610,7 +610,7 @@ struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme)
     return NULL;
 }
 
-struct map_entry* _Opt find_variables(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt)
+struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt)
 {
     if (ppscope_opt != NULL)
         *ppscope_opt = NULL; // _Out
@@ -691,7 +691,7 @@ struct declarator* _Opt find_declarator(struct parser_ctx* ctx, const char* lexe
     return NULL;
 }
 
-struct enumerator* _Opt find_enumerator(struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt)
+struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt)
 {
     struct map_entry* _Opt p_entry = find_variables(ctx, lexeme, ppscope_opt);
 

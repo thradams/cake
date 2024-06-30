@@ -3157,7 +3157,7 @@ void type_remove_names(struct type* p_type)
     {
         if (p->name_opt)
         {
-            free(p->name_opt);
+            free((void*_Owner _Opt)p->name_opt);
             p->name_opt = NULL;
         }
         p = p->next;

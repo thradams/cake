@@ -540,7 +540,7 @@ static int compare_function_arguments(struct parser_ctx* ctx,
         if (p_current_argument != NULL && !p_param_list->is_var_args)
         {
             compiler_diagnostic_message(C_ERROR_TOO_MANY_ARGUMENTS, ctx,
-                                        p_argument_expression_list->tail->expression->first_token,
+                                        p_current_argument->expression->first_token,
                                         "too many arguments");
             throw;
         }
@@ -677,9 +677,13 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
     struct generic_association* _Owner _Opt p_generic_association = NULL;
     try
     {
+        if (ctx->current == NULL)
+            throw;
+
         p_generic_association = calloc(1, sizeof * p_generic_association);
         if (p_generic_association == NULL)
             throw;
+
 
         static_set(*p_generic_association, "zero");
         p_generic_association->first_token = ctx->current;
@@ -687,7 +691,7 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
             type-name : assignment-expression
             default : assignment-expression
             */
-        if (ctx->current && ctx->current->type == TK_KEYWORD_DEFAULT)
+        if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
             parser_match(ctx);
         }
@@ -696,6 +700,11 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
             bool old = ctx->inside_generic_association;
             ctx->inside_generic_association = true;
             p_generic_association->p_type_name = type_name(ctx);
+
+            if (p_generic_association == NULL) throw;
+            if (p_generic_association->p_type_name == NULL) throw;
+            if (p_generic_association->p_type_name->declarator == NULL) throw;
+
             ctx->inside_generic_association = old;
             p_generic_association->type = make_type_using_declarator(ctx, p_generic_association->p_type_name->declarator);
         }
@@ -705,7 +714,10 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         }
         if (parser_match_tk(ctx, ':') != 0)
             throw;
+
         p_generic_association->expression = assignment_expression(ctx);
+        if (p_generic_association->expression == NULL) throw;
+        if (ctx->current == NULL) throw;
         p_generic_association->last_token = ctx->current;
     }
     catch
@@ -766,6 +778,7 @@ void generic_assoc_list_add(struct generic_assoc_list* list, struct generic_asso
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = pitem;
     }
@@ -813,6 +826,8 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
     struct generic_selection* _Owner _Opt p_generic_selection = NULL;
     try
     {
+        if (ctx->current == NULL) throw;
+
         p_generic_selection = calloc(1, sizeof * p_generic_selection);
         if (p_generic_selection == NULL)
             throw;
@@ -842,6 +857,7 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
             throw;
 
         p_generic_selection->generic_assoc_list = generic_association_list(ctx);
+        if (p_generic_selection->generic_assoc_list.head == NULL) throw;
 
         struct type lvalue_type = { 0 };
 
@@ -880,10 +896,12 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
             }
             current = current->next;
         }
-
-        p_generic_selection->last_token = ctx->current;
+        
         type_destroy(&lvalue_type);
 
+        if (ctx->current == NULL) throw;
+        p_generic_selection->last_token = ctx->current;
+        
         if (parser_match_tk(ctx, ')') != 0)
         {
             throw;
@@ -921,7 +939,7 @@ const unsigned char* _Opt utf8_decode(const unsigned char* s, int* c)
         return NULL; /*end*/
     }
 
-    const unsigned char* next = 0;
+    const unsigned char* _Opt next = NULL;
     if (s[0] < 0x80)
     {
         *c = s[0];
@@ -1092,7 +1110,7 @@ struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* 
     p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
     p_expression_node->type.category = TYPE_CATEGORY_ITSELF;
 
-    const unsigned char* p = (const unsigned char*)ctx->current->lexeme;
+    const unsigned char* _Opt p = (const unsigned char*)ctx->current->lexeme;
 
     if (p[0] == 'u' && p[1] == '8')
     {
@@ -1909,7 +1927,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             {
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 static_set(*p_expression_node_new, "zero");
-                p_expression_node_new->first_token = ctx->current;
+                p_expression_node_new->first_token = p_expression_node->first_token;// ctx->current;
                 p_expression_node_new->expression_type = POSTFIX_ARROW;
 
                 // the result of a member access through pointer -> operator is lvalue
@@ -2519,6 +2537,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
                 new_expression->type_name = type_name(ctx);
+                if (new_expression->type_name == NULL) throw;
+
                 new_expression->last_token = ctx->current;
                 if (parser_match_tk(ctx, ')') != 0)
                 {
@@ -3174,6 +3194,7 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
                    ctx->current->type == '<<'))
         {
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
+            if (new_expression == NULL) throw;
 
             new_expression->first_token = ctx->current;
             static_set(*new_expression, "zero");
@@ -3587,6 +3608,8 @@ struct expression* _Owner  _Opt inclusive_or_expression(struct parser_ctx* ctx)
         {
             struct token* operator_token = ctx->current;
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
@@ -3891,6 +3914,7 @@ void argument_expression_list_push(struct argument_expression_list* list, struct
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = pitem;
     }
@@ -3972,6 +3996,8 @@ struct expression* _Owner _Opt expression(struct parser_ctx* ctx)
             while (ctx->current->type == ',')
             {
                 parser_match(ctx);
+                if (ctx->current == NULL) throw;
+
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL)
                     throw;
@@ -4019,15 +4045,14 @@ bool is_first_of_conditional_expression(struct parser_ctx* ctx)
 
 bool expression_is_null_pointer_constant(const struct expression* expression)
 {
-    if (expression)
+
+    if (type_is_nullptr_t(&expression->type) ||
+        (constant_value_is_valid(&expression->constant_value) &&
+            constant_value_to_ull(&expression->constant_value) == 0))
     {
-        if (type_is_nullptr_t(&expression->type) ||
-            (constant_value_is_valid(&expression->constant_value) &&
-                constant_value_to_ull(&expression->constant_value) == 0))
-        {
-            return true;
-        }
+        return true;
     }
+
     return false;
 }
 
@@ -4292,7 +4317,7 @@ bool expression_is_zero(struct expression* p_expression)
 /*
  * Returns true if the type of expression is subjected to type_lvalue_conversion
  */
-bool expression_is_subjected_to_lvalue_conversion(struct expression* expression)
+bool expression_is_subjected_to_lvalue_conversion(const struct expression* expression)
 {
 
     switch (expression->expression_type)

@@ -233,7 +233,7 @@ void expression_delete(struct expression* _Owner _Opt p);
 struct expression* _Owner assignment_expression(struct parser_ctx* ctx);
 struct expression* _Owner expression(struct parser_ctx* ctx);
 struct expression* _Owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
-bool expression_is_subjected_to_lvalue_conversion(struct expression*);
+bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
 bool expression_is_zero(struct expression*);
 bool expression_is_lvalue(const struct expression* expr);
 

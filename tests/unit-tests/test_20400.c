@@ -12,10 +12,10 @@ struct X {
     struct Y* _Opt pY;
 };
 
-void f(struct X* _Opt left, struct X* _Opt right)
+void f(struct X* _Opt p)
 {
-    if (left && right)
+    if (p && p->pY && p->pY->pZ)
     {
-        
+        p->pY->pZ->i = 1;
     }
 }

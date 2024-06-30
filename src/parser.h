@@ -134,8 +134,8 @@ int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 struct token* previous_parser_token(struct token* token);
 struct declarator* find_declarator(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
-struct enumerator* find_enumerator(struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
-struct map_entry* find_variables(struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
+struct enumerator* _Opt find_enumerator(const struct parser_ctx* ctx, const char* lexeme, struct scope** _Opt ppscope_opt);
+struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* lexeme, struct scope** ppscope_opt);
 
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme);
 bool first_is(struct parser_ctx* ctx, enum token_type type);
@@ -841,7 +841,7 @@ struct type_name
     struct token* first_token;
     struct token* last_token;
     struct specifier_qualifier_list* _Owner specifier_qualifier_list;
-    struct declarator* _Owner _Opt declarator;
+    struct declarator* _Owner declarator;
     struct type type;
 };
 
