@@ -1237,9 +1237,9 @@ int main()
 
 `;
 
-sample["safe-mode"]=[];
+sample["Enable Safety"]=[];
 
-sample["safe-mode"]["malloc/free"] =
+sample["Enable Safety"]["malloc/free"] =
 `
 #pragma safety enable
 
@@ -1253,7 +1253,7 @@ int main() {
 
 `;
 
-sample["safe-mode"]["static_state/static_debug"] =
+sample["Enable Safety"]["static_state/static_debug"] =
 `
 #pragma safety enable
 
@@ -1274,7 +1274,7 @@ int main() {
 
 `;
 
-sample["safe-mode"]["implementing a destructor I"] =
+sample["Enable Safety"]["implementing a destructor I"] =
 `
 #pragma safety enable
 
@@ -1300,7 +1300,7 @@ int main() {
 `;
 
 
-sample["safe-mode"]["implementing a destructor II"] =
+sample["Enable Safety"]["implementing a destructor II"] =
 `
 #pragma safety enable
 
@@ -1324,7 +1324,7 @@ int main() {
 
 `;
 
-sample["safe-mode"]["_View qualifier"] =
+sample["Enable Safety"]["_View qualifier"] =
 `
 #pragma safety enable 
 
@@ -1355,7 +1355,7 @@ int main() {
 
 
 
-sample["safe-mode"]["implementing delete"] =
+sample["Enable Safety"]["implementing delete"] =
 `
 #pragma safety enable 
 
@@ -1389,7 +1389,7 @@ int main() {
 `;
 
 
-sample["safe-mode"]["fix-me 1"] =
+sample["Enable Safety"]["fix-me 1"] =
 `
 #pragma safety disable
 
@@ -1406,7 +1406,7 @@ int main() {
 }
 `;
 
-sample["safe-mode"]["Linked list"] =
+sample["Enable Safety"]["Linked list"] =
 `#pragma safety enable
 
 #include <stdlib.h>
@@ -1497,7 +1497,7 @@ int main(int argc, char* argv[])
 }
 `;
 
-sample["safe-mode"]["dynamic array"] =
+sample["Enable Safety"]["dynamic array"] =
 `
 #pragma safety enable
 
@@ -1576,7 +1576,7 @@ int main()
 }
 `;
 
-sample["safe-mode"]["using moved object"] =
+sample["Enable Safety"]["using moved object"] =
 `
 #pragma safety enable
 
@@ -1601,7 +1601,7 @@ int main()
 }
 `;
 
-sample["safe-mode"]["static_set/realloc"] =
+sample["Enable Safety"]["static_set/realloc"] =
 `
 #pragma safety enable
 
@@ -1625,7 +1625,7 @@ void f()
 }
 `;
 
-sample["safe-mode"]["mtx_t"] =
+sample["Enable Safety"]["mtx_t"] =
 `
 #pragma safety enable
 
@@ -1663,7 +1663,7 @@ int main()
 
 `;
 
-sample["safe-mode"]["socket"] =
+sample["Enable Safety"]["socket"] =
 `
 _Owner int socket();
 void close(_Owner int fd);
@@ -1683,7 +1683,7 @@ int main()
 `;
 
 
-sample["safe-mode"]["assignment"] =
+sample["Enable Safety"]["assignment"] =
 `
 #pragma safety enable
 
@@ -1704,7 +1704,7 @@ int main()
 
 
 
-sample["safe-mode"]["takes_ownership"] =
+sample["Enable Safety"]["takes_ownership"] =
 `
 #pragma safety enable
 
@@ -1730,7 +1730,7 @@ int main()
 `;
 
 
-sample["safe-mode"]["gives ownership"] =
+sample["Enable Safety"]["gives ownership"] =
 `
 #pragma safety enable
 
@@ -1749,7 +1749,7 @@ int main(){
 
 `;
 
-sample["safe-mode"]["moving parts of _View"] =
+sample["Enable Safety"]["moving parts of _View"] =
 `
 #pragma safety enable
 
@@ -1786,7 +1786,7 @@ int main() {
 
 `;
 
-sample["safe-mode"]["_Owner pointer owns two objects"] =
+sample["Enable Safety"]["_Owner pointer owns two objects"] =
 `
 #pragma safety enable
 
@@ -1815,7 +1815,7 @@ int main()
 `;
 
 
-sample["safe-mode"]["checking double free"] =
+sample["Enable Safety"]["checking double free"] =
 `
 #pragma safety enable
 
@@ -1840,8 +1840,8 @@ void x_destroy(struct X * _Obj_owner p)
 }
 `;
 
-sample["find the bug"] = [];
-sample["find the bug"]["Bug #1"] =
+sample["Find the bug"] = [];
+sample["Find the bug"]["Bug #1"] =
 `
 #pragma safety enable
 
@@ -1868,7 +1868,7 @@ int main()
 
 `;
 
-sample["find the bug"]["Bug #2"] =
+sample["Find the bug"]["Bug #2"] =
 `
 
 #pragma safety enable
@@ -1899,7 +1899,7 @@ int main()
 `;
 
 
-sample["find the bug"]["Bug #3"] =
+sample["Find the bug"]["Bug #3"] =
 `
 
 #pragma safety enable
@@ -1936,7 +1936,7 @@ int main()
 
 `;
 
-sample["find the bug"]["Bug #4"] =
+sample["Find the bug"]["Bug #4"] =
 `
 
 #pragma safety enable
@@ -1967,7 +1967,7 @@ int main()
 
 `;
 
-sample["find the bug"]["Bug #5"] =
+sample["Find the bug"]["Bug #5"] =
 `
 
 
@@ -1988,7 +1988,7 @@ void f(int condition)
 }
 `;
 
-sample["find the bug"]["Bug #5"] =
+sample["Find the bug"]["Bug #5"] =
 `
 #pragma safety enable
 
@@ -2023,7 +2023,7 @@ int main()
 
 `;
 
-sample["find the bug"]["Bug #6"] =
+sample["Find the bug"]["Bug #6"] =
 `
 #pragma safety enable
 
@@ -2054,7 +2054,7 @@ void main()
 }
 `;
 
-sample["find the bug"]["Bug #7 K & R"] =
+sample["Find the bug"]["Bug #7 K & R"] =
 `
 /*
   This code is from 
@@ -2112,7 +2112,7 @@ struct nlist *install(char *name, char *defn)
 }
 `;
 
-sample["find the bug"]["Bug #8"] =
+sample["Find the bug"]["Bug #8"] =
 `
 #pragma safety enable
 
@@ -2130,7 +2130,7 @@ void  f(int i)
 int main() {}
 `;
 
-sample["find the bug"]["Bug #9"] =
+sample["Find the bug"]["Bug #9"] =
 `
 enum E1 {A, B};
 enum E2 {C, D};
