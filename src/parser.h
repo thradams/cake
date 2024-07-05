@@ -24,8 +24,8 @@ struct scope
     struct hash_map tags;
     struct hash_map variables;
 
-    struct scope* next;
-    struct scope* previous;
+    struct scope* _Opt next;
+    struct scope* _Opt previous;
 };
 
 void scope_destroy(struct scope* _Obj_owner p);
@@ -128,7 +128,7 @@ void parser_ctx_destroy(struct parser_ctx* _Obj_owner ctx);
 
 struct token* parser_look_ahead(struct parser_ctx* ctx);
 
-struct token* parser_match(struct parser_ctx* ctx);
+void parser_match(struct parser_ctx* ctx);
 NODISCARD
 int parser_match_tk(struct parser_ctx* ctx, enum token_type type);
 struct token* parser_look_ahead(struct parser_ctx* ctx);
@@ -545,7 +545,7 @@ struct enum_specifier
 
     struct enumerator_list enumerator_list;
 
-    struct token* tag_token;
+    struct token* _Opt tag_token;
     struct token* first_token;
     /*points to the complete enum (can be self pointed)*/
     struct enum_specifier* _Opt complete_enum_specifier2;
@@ -683,7 +683,7 @@ struct declarator
     struct declaration_specifiers* _View declaration_specifiers;
     const struct specifier_qualifier_list* _View specifier_qualifier_list;
 
-    struct token* name; //shortcut
+    struct token* _Opt name_opt; //shortcut , null for abstract declarator
 
     struct compound_statement* _View _Opt function_body;
 

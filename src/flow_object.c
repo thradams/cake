@@ -566,10 +566,10 @@ struct flow_object* _Opt make_object_core(struct flow_visit_ctx* ctx,
             struct member_declaration* _Opt p_member_declaration =
                 p_struct_or_union_specifier->member_declaration_list.head;
 
-            struct object_name_list l = 
+            struct object_name_list l =
             {
              .name = p_struct_or_union_specifier->tag_name,
-             .previous = list 
+             .previous = list
             };
 
             //int member_index = 0;
@@ -684,7 +684,7 @@ struct token* _Opt object_get_token(const struct flow_object* object)
 {
     if (object->p_declarator_origin)
     {
-        return object->p_declarator_origin->name;
+        return object->p_declarator_origin->name_opt;
     }
     if (object->p_expression_origin)
     {
@@ -780,7 +780,7 @@ void print_object_core(int ident,
                     {
                         if (p_member_declarator->declarator)
                         {
-                            const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "";
+                            const char* name = p_member_declarator->declarator->name_opt ? p_member_declarator->declarator->name_opt->lexeme : "";
 
                             char buffer[200] = { 0 };
                             if (is_pointer)
@@ -905,10 +905,10 @@ void print_object_core(int ident,
                 visitor.p_object = p_visitor->p_object->current.ref.data[i];
                 print_object_core(ident + 1, &visitor, buffer, is_pointer, short_version, visit_number);
             }
-    }
+        }
 #endif
         type_destroy(&t2);
-}
+    }
     else
     {
         printf("%*c", ident, ' ');
@@ -1085,7 +1085,7 @@ int object_merge_current_state_with_state_number_core(struct flow_object* object
                 object_merge_current_state_with_state_number_core(pointed, state_number, visit_number);
             }
 
-}
+        }
 #endif
     }
     return 1;
@@ -1237,9 +1237,9 @@ void object_set_uninitialized_core(struct object_visitor* p_visitor)
                 object_set_nothing(&t2, pointed);
             }
             type_destroy(&t2);
-    }
+        }
 #endif
-}
+    }
     else
     {
         p_visitor->p_object->current.state = OBJECT_STATE_UNINITIALIZED;
@@ -1292,7 +1292,7 @@ static void checked_empty_core(struct flow_visit_ctx* ctx,
 
                     if (p_member_declarator->declarator)
                     {
-                        const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "";
+                        const char* name = p_member_declarator->declarator->name_opt ? p_member_declarator->declarator->name_opt->lexeme : "";
                         char buffer[200] = { 0 };
                         if (type_is_pointer(p_type))
                             snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
@@ -1630,9 +1630,9 @@ static void object_set_deleted_core(struct type* p_type, struct flow_object* p_o
                 object_set_deleted_core(&t2, pointed, visit_number);
                 type_destroy(&t2);
             }
-    }
+        }
 #endif
-}
+    }
     else
     {
         if (!type_is_struct_or_union(p_type))
@@ -1892,7 +1892,7 @@ void object_get_name_core(
 
                     if (p_member_declarator->declarator)
                     {
-                        const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "";
+                        const char* name = p_member_declarator->declarator->name_opt ? p_member_declarator->declarator->name_opt->lexeme : "";
                         char buffer[200] = { 0 };
                         if (type_is_pointer(p_type))
                             snprintf(buffer, sizeof buffer, "%s->%s", previous_names, name);
@@ -1937,11 +1937,11 @@ void object_get_name_core(
                         outname,
                         out_size,
                         visit_number);
-        }
+                }
 #endif
-    }
+            }
             type_destroy(&t2);
-}
+        }
     }
 }
 
@@ -1956,7 +1956,7 @@ void object_get_name(const struct type* p_type,
     if (p_object->p_declarator_origin)
     {
 
-        const char* root_name = p_object->p_declarator_origin->name ? p_object->p_declarator_origin->name->lexeme : "?";
+        const char* root_name = p_object->p_declarator_origin->name_opt ? p_object->p_declarator_origin->name_opt->lexeme : "?";
         //snprintf(outname, out_size, "%s",root_name);
 
         const struct flow_object* root = p_object->p_declarator_origin->p_object;
@@ -2056,11 +2056,11 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                         p_object->current.ref.data[i],
                         position_token,
                         visit_number);
-            }
+                }
 #endif
                 type_destroy(&t2);
+            }
         }
-    }
 
         if (p_object->current.state & OBJECT_STATE_MOVED)
         {
@@ -2098,7 +2098,7 @@ void checked_moved_core(struct flow_visit_ctx* ctx,
                 compiler_diagnostic_message(W_LOCATION, ctx->ctx, name_pos, "parameter", name);
             }
         }
-}
+    }
 }
 
 void checked_moved(struct flow_visit_ctx* ctx,
@@ -2156,7 +2156,7 @@ void checked_read_object_core(struct flow_visit_ctx* ctx,
                     if (p_member_declarator->declarator)
                     {
                         const char* name =
-                            p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "?";
+                            p_member_declarator->declarator->name_opt ? p_member_declarator->declarator->name_opt->lexeme : "?";
 
                         char buffer[200] = { 0 };
                         if (type_is_pointer(p_visitor->p_type))
@@ -2297,7 +2297,7 @@ void checked_read_object(struct flow_visit_ctx* ctx,
     const char* _Owner s = NULL;
     const char* name = "";
     if (p_object->p_declarator_origin)
-        name = p_object->p_declarator_origin->name ? p_object->p_declarator_origin->name->lexeme : "?";
+        name = p_object->p_declarator_origin->name_opt ? p_object->p_declarator_origin->name_opt->lexeme : "?";
     else if (p_object->p_expression_origin)
     {
         if (p_object->p_expression_origin->first_token &&
@@ -2392,7 +2392,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
 
                         if (p_member_declarator->declarator)
                         {
-                            const char* name = p_member_declarator->declarator->name ? p_member_declarator->declarator->name->lexeme : "?";
+                            const char* name = p_member_declarator->declarator->name_opt ? p_member_declarator->declarator->name_opt->lexeme : "?";
 
                             char buffer[200] = { 0 };
                             if (type_is_pointer(p_visitor->p_type))
@@ -2454,7 +2454,7 @@ static void end_of_storage_visit_core(struct flow_visit_ctx* ctx,
         const char* name = previous_names;
         const struct token* position = NULL;
         if (p_visitor->p_object->p_declarator_origin)
-            position = p_visitor->p_object->p_declarator_origin->name ? p_visitor->p_object->p_declarator_origin->name : p_visitor->p_object->p_declarator_origin->first_token;
+            position = p_visitor->p_object->p_declarator_origin->name_opt ? p_visitor->p_object->p_declarator_origin->name_opt : p_visitor->p_object->p_declarator_origin->first_token;
         else if (p_visitor->p_object->p_expression_origin)
             position = p_visitor->p_object->p_expression_origin->first_token;
         else
@@ -2812,13 +2812,10 @@ static void flow_assignment_core(
                 if (p_visitor_b->p_object->current.pointed)
                 {
                     struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
-                    if (pointed)
-                    {
 
-                        struct type t2 = type_remove_pointer(p_visitor_b->p_type);
-                        object_set_deleted(&t2, pointed);
-                        type_destroy(&t2);
-                    }
+                    struct type t2 = type_remove_pointer(p_visitor_b->p_type);
+                    object_set_deleted(&t2, pointed);
+                    type_destroy(&t2);
                 }
 
 
@@ -2850,12 +2847,10 @@ static void flow_assignment_core(
                     if (p_visitor_b->p_object->current.pointed)
                     {
                         struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
-                        if (pointed)
-                        {
-                            struct type t2 = type_remove_pointer(p_visitor_b->p_type);
-                            object_set_uninitialized(&t2, pointed);
-                            type_destroy(&t2);
-                        }
+
+                        struct type t2 = type_remove_pointer(p_visitor_b->p_type);
+                        object_set_uninitialized(&t2, pointed);
+                        type_destroy(&t2);
                     }
 
                 }
@@ -2874,12 +2869,10 @@ static void flow_assignment_core(
                         if (p_visitor_b->p_object->current.pointed)
                         {
                             struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
-                            if (pointed)
-                            {
-                                struct type t2 = type_remove_pointer(p_visitor_b->p_type);
-                                object_set_uninitialized(&t2, pointed);
-                                type_destroy(&t2);
-                            }
+
+                            struct type t2 = type_remove_pointer(p_visitor_b->p_type);
+                            object_set_uninitialized(&t2, pointed);
+                            type_destroy(&t2);
                         }
 
 
@@ -2915,13 +2908,10 @@ static void flow_assignment_core(
                     if (p_visitor_b->p_object->current.pointed)
                     {
                         struct flow_object* pointed = p_visitor_b->p_object->current.pointed;
-                        if (pointed)
-                        {
 
-                            bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
-                            const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
-                            object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
-                        }
+                        bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
+                        const bool t3_is_nullable = type_is_nullable(&t3, nullable_enabled);
+                        object_set_unknown(&t3, t3_is_nullable, pointed, nullable_enabled);
                     }
 
 
@@ -3172,7 +3162,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
 #endif
         }
         return NULL;
-    }
+        }
     else if (p_expression->expression_type == POSTFIX_ARROW)
     {
         struct flow_object* p_obj = expression_get_object(ctx, p_expression->left, nullable_enabled);
@@ -3232,11 +3222,11 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
                     }
                 }
                 return p_object;
-        }
+            }
 #endif
-    }
+        }
         return NULL;
-}
+        }
     else if (p_expression->expression_type == UNARY_EXPRESSION_CONTENT)
     {
         struct flow_object* p_obj = expression_get_object(ctx, p_expression->right, nullable_enabled);
@@ -3380,7 +3370,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     printf("null object");
     //assert(false);
     return NULL;
-}
+    }
 
 void flow_assignment(
     struct flow_visit_ctx* ctx,
@@ -3542,12 +3532,12 @@ void print_object_line(struct flow_object* p_object, int extra_cols)
         int line = 0, col = 0;
         if (p_object->p_declarator_origin)
         {
-            if (p_object->p_declarator_origin->name)
+            if (p_object->p_declarator_origin->name_opt)
             {
-                line = p_object->p_declarator_origin->name->line;
-                col = p_object->p_declarator_origin->name->col;
+                line = p_object->p_declarator_origin->name_opt->line;
+                col = p_object->p_declarator_origin->name_opt->col;
                 ss_fprintf(&ss, "%2d:%2d ", line, col);
-                ss_fprintf(&ss, "%s", p_object->p_declarator_origin->name->lexeme);
+                ss_fprintf(&ss, "%s", p_object->p_declarator_origin->name_opt->lexeme);
             }
             else
             {

@@ -106,7 +106,7 @@ struct generic_association
 
     struct type type;
     struct type_name* _Owner _Opt p_type_name;
-    struct expression* _Owner _Opt expression;
+    struct expression* _Owner expression;
 
     struct token* first_token;
     struct token* last_token;
@@ -202,10 +202,7 @@ struct expression
     struct token* first_token;
     struct token* last_token;
 
-    /*token used in _add_attr, _has_attr, _del_attr, return*/
-    struct token* contract_arg_token;
-
-
+    
     /*se expressão for um identificador ele aponta para declaração dele*/
     struct declarator* _Opt declarator;
     int member_index; //used in post_fix .
@@ -217,12 +214,8 @@ struct expression
     struct expression* _Owner _Opt left;
     struct expression* _Owner _Opt right;
 
-    bool is_assigment_expression;
-    
-    //used to simulate boolean expression results
-    int value_emulation;
-    bool emulation_used;
-};
+    bool is_assignment_expression;
+ };
 
 //built-in semantics
 bool expression_is_malloc(const struct expression* p);
@@ -234,7 +227,7 @@ struct expression* _Owner assignment_expression(struct parser_ctx* ctx);
 struct expression* _Owner expression(struct parser_ctx* ctx);
 struct expression* _Owner constant_expression(struct parser_ctx* ctx, bool show_error_if_not_constant);
 bool expression_is_subjected_to_lvalue_conversion(const struct expression*);
-bool expression_is_zero(struct expression*);
+bool expression_is_zero(const struct expression*);
 bool expression_is_lvalue(const struct expression* expr);
 
 

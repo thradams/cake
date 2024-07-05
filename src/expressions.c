@@ -694,14 +694,15 @@ struct generic_association* _Owner _Opt generic_association(struct parser_ctx* c
         if (ctx->current->type == TK_KEYWORD_DEFAULT)
         {
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
         }
         else if (first_of_type_name(ctx))
         {
             bool old = ctx->inside_generic_association;
             ctx->inside_generic_association = true;
-            p_generic_association->p_type_name = type_name(ctx);
 
-            if (p_generic_association == NULL) throw;
+
+            p_generic_association->p_type_name = type_name(ctx);
             if (p_generic_association->p_type_name == NULL) throw;
             if (p_generic_association->p_type_name->declarator == NULL) throw;
 
@@ -745,6 +746,7 @@ struct generic_assoc_list generic_association_list(struct parser_ctx* ctx)
         while (ctx->current->type == ',')
         {
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
 
             struct generic_association* _Owner _Opt p_generic_association2 = generic_association(ctx);
             if (p_generic_association2 == NULL)
@@ -873,12 +875,16 @@ struct generic_selection* _Owner _Opt generic_selection(struct parser_ctx* ctx)
                 p_type = &lvalue_type;
             }
         }
-        else
+        else if (p_generic_selection->type_name)
         {
             p_type = &p_generic_selection->type_name->declarator->type;
         }
+        else
+        {
+            throw;
+        }
 
-        struct generic_association* current = p_generic_selection->generic_assoc_list.head;
+        struct generic_association* _Opt current = p_generic_selection->generic_assoc_list.head;
         while (current)
         {
             if (current->p_type_name)
@@ -1100,179 +1106,215 @@ static const unsigned char* escape_sequences_decode_opt(const unsigned char* p, 
 
 struct expression* _Owner _Opt character_constant_expression(struct parser_ctx* ctx)
 {
-    struct expression* _Owner _Opt p_expression_node = calloc(1, sizeof * p_expression_node);
-    if (p_expression_node == NULL)
-        return NULL;
-
-    p_expression_node->expression_type = PRIMARY_EXPRESSION_CHAR_LITERAL;
-    p_expression_node->first_token = ctx->current;
-    p_expression_node->last_token = p_expression_node->first_token;
-    p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
-    p_expression_node->type.category = TYPE_CATEGORY_ITSELF;
-
-    const unsigned char* _Opt p = (const unsigned char*)ctx->current->lexeme;
-
-    if (p[0] == 'u' && p[1] == '8')
+    struct expression* _Owner _Opt p_expression_node = NULL;
+    try
     {
-        p++;
-        p++;
-        p++;
+        if (ctx->current == NULL)
+            throw;
 
-        // A UTF-8 character constant has type char8_t.
-        p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
+        p_expression_node = calloc(1, sizeof * p_expression_node);
+        if (p_expression_node == NULL)
+            throw;
 
-        int c = 0;
-        p = utf8_decode(p, &c);
-        if (c == '\\')
-            p = escape_sequences_decode_opt(p, &c);
+        p_expression_node->expression_type = PRIMARY_EXPRESSION_CHAR_LITERAL;
+        p_expression_node->first_token = ctx->current;
+        p_expression_node->last_token = p_expression_node->first_token;
+        p_expression_node->type.attributes_flags |= CAKE_HIDDEN_ATTRIBUTE_LIKE_CHAR;
+        p_expression_node->type.category = TYPE_CATEGORY_ITSELF;
 
-        if (p && *p != '\'')
+        const unsigned char* _Opt p = (const unsigned char*)ctx->current->lexeme;
+
+        if (p[0] == 'u' && p[1] == '8')
         {
-            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
-        }
+            p++;
+            p++;
+            p++;
 
-        if (c > 0x80)
-        {
-            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
-        }
+            // A UTF-8 character constant has type char8_t.
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR;
 
-        p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
-    }
-    else if (p[0] == 'u')
-    {
-        p++;
-        p++;
-
-        // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
-        p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
-
-        int c = 0;
-        p = utf8_decode(p, &c);
-        if (c == '\\')
-            p = escape_sequences_decode_opt(p, &c);
-
-        if (p && *p != '\'')
-        {
-            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
-        }
-
-        if (c > USHRT_MAX)
-        {
-            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
-        }
-
-        p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
-    }
-    else if (p[0] == 'U')
-    {
-        p++;
-        p++;
-
-        // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
-        p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
-
-        int c = 0;
-        p = utf8_decode(p, &c);
-        if (c == '\\')
-            p = escape_sequences_decode_opt(p, &c);
-
-        if (p && *p != '\'')
-        {
-            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
-        }
-
-        if (c > UINT_MAX)
-        {
-            compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
-        }
-
-        p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
-    }
-    else if (p[0] == 'L')
-    {
-        // A wchar_t character constant is prefixed by the letter L
-        p++;
-        p++;
-
-        p_expression_node->type.type_specifier_flags = CAKE_WCHAR_T_TYPE_SPECIFIER;
-
-        /*
-         wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
-         the <stddef.h> header. The value of a wchar_t character constant containing a single multibyte
-         character that maps to a single member of the extended execution character set is the wide character
-         corresponding to that multibyte character in the implementation-defined wide literal encoding
-         (6.2.9). The value of a wchar_t character constant containing more than one multibyte character or a
-         single multibyte character that maps to multiple members of the extended execution character set,
-         or containing a multibyte character or escape sequence not represented in the extended execution
-         character set, is implementation-defined.
-        */
-        long long value = 0;
-        while (*p != '\'')
-        {
             int c = 0;
             p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
 
             if (c == '\\')
                 p = escape_sequences_decode_opt(p, &c);
 
-            if (p == 0)
-                break;
-            // TODO \u
-            value = value * 256 + c;
+            if (p && *p != '\'')
+            {
+                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > 0x80)
+            {
+                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
+            }
+
+            p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
+        }
+        else if (p[0] == 'u')
+        {
+            p++;
+            p++;
+
+            // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT;
+
+            int c = 0;
+            p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
+
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
+            if (p && *p != '\'')
+            {
+                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > USHRT_MAX)
+            {
+                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
+            }
+
+            p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
+        }
+        else if (p[0] == 'U')
+        {
+            p++;
+            p++;
+
+            // A UTF-16 character constant has type char16_t which is an unsigned integer types defined in the <uchar.h> header
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT;
+
+            int c = 0;
+            p = utf8_decode(p, &c);
+            if (p == NULL)
+            {
+                throw;
+            }
+
+            if (c == '\\')
+                p = escape_sequences_decode_opt(p, &c);
+
+            if (p && *p != '\'')
+            {
+                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Unicode character literals may not contain multiple characters.");
+            }
+
+            if (c > UINT_MAX)
+            {
+                compiler_diagnostic_message(W_MULTICHAR_ERROR, ctx, ctx->current, "Character too large for enclosing character literal type.");
+            }
+
+            p_expression_node->constant_value = make_constant_value_ll(c, ctx->evaluation_is_disabled);
+        }
+        else if (p[0] == 'L')
+        {
+            // A wchar_t character constant is prefixed by the letter L
+            p++;
+            p++;
+
+            p_expression_node->type.type_specifier_flags = CAKE_WCHAR_T_TYPE_SPECIFIER;
+
+            /*
+             wchar_t character constant prefixed by the letter L has type wchar_t, an integer type defined in
+             the <stddef.h> header. The value of a wchar_t character constant containing a single multibyte
+             character that maps to a single member of the extended execution character set is the wide character
+             corresponding to that multibyte character in the implementation-defined wide literal encoding
+             (6.2.9). The value of a wchar_t character constant containing more than one multibyte character or a
+             single multibyte character that maps to multiple members of the extended execution character set,
+             or containing a multibyte character or escape sequence not represented in the extended execution
+             character set, is implementation-defined.
+            */
+            long long value = 0;
+            while (*p != '\'')
+            {
+                int c = 0;
+                p = utf8_decode(p, &c);
+                if (p == NULL)
+                {
+                    throw;
+                }
+                if (c == '\\')
+                    p = escape_sequences_decode_opt(p, &c);
+
+                if (p == 0)
+                    break;
+                // TODO \u
+                value = value * 256 + c;
 #ifdef _WIN32
-            if (value > USHRT_MAX)
-            {
-                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
-                break;
-            }
+                if (value > USHRT_MAX)
+                {
+                    compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+                    break;
+                }
 #else
-            if (value > UINT_MAX)
-            {
-                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
-                break;
-            }
+                if (value > UINT_MAX)
+                {
+                    compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+                    break;
+                }
 #endif
-        }
-
-        p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
-    }
-    else
-    {
-        p++;
-        p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
-
-        /*
-          An integer character constant has type int. The value of an integer character constant containing
-          a single character that maps to a single value in the literal encoding (6.2.9) is the numerical value
-          of the representation of the mapped character in the literal encoding interpreted as an integer.
-          The value of an integer character constant containing more than one character (e.g., ’ab’), or
-          containing a character or escape sequence that does not map to a single value in the literal encoding,
-          is implementation-defined. If an integer character constant contains a single character or escape
-          sequence, its value is the one that results when an object with type char whose value is that of the
-          single character or escape sequence is converted to type int.
-        */
-        long long value = 0;
-        while (*p != '\'')
-        {
-            int c = 0;
-            p = utf8_decode(p, &c);
-            if (c == '\\')
-                p = escape_sequences_decode_opt(p, &c);
-            if (p == 0)
-                break;
-            value = value * 256 + c;
-            if (value > INT_MAX)
-            {
-                compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
-                break;
             }
+
+            p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
         }
-        p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
+        else
+        {
+            p++;
+            p_expression_node->type.type_specifier_flags = TYPE_SPECIFIER_INT;
+
+            /*
+              An integer character constant has type int. The value of an integer character constant containing
+              a single character that maps to a single value in the literal encoding (6.2.9) is the numerical value
+              of the representation of the mapped character in the literal encoding interpreted as an integer.
+              The value of an integer character constant containing more than one character (e.g., ’ab’), or
+              containing a character or escape sequence that does not map to a single value in the literal encoding,
+              is implementation-defined. If an integer character constant contains a single character or escape
+              sequence, its value is the one that results when an object with type char whose value is that of the
+              single character or escape sequence is converted to type int.
+            */
+            long long value = 0;
+            while (*p != '\'')
+            {
+                int c = 0;
+                p = utf8_decode(p, &c);
+                if (p == NULL)
+                {
+                    throw;
+                }
+
+                if (c == '\\')
+                    p = escape_sequences_decode_opt(p, &c);
+                if (p == 0)
+                    break;
+                value = value * 256 + c;
+                if (value > INT_MAX)
+                {
+                    compiler_diagnostic_message(W_OUT_OF_BOUNDS, ctx, ctx->current, "character constant too long for its type", ctx->current->lexeme);
+                    break;
+                }
+            }
+            p_expression_node->constant_value = make_constant_value_ll(value, ctx->evaluation_is_disabled);
+        }
+
+        parser_match(ctx);
+        if (ctx->current == NULL) throw;
+
+        // warning: character constant too long for its type
     }
-
-    parser_match(ctx);
-
-    // warning: character constant too long for its type
+    catch
+    {
+        expression_delete(p_expression_node);
+        p_expression_node = NULL;
+    }
     return p_expression_node;
 }
 
@@ -1427,7 +1469,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                    works for now
                 */
                 const char* funcname =
-                    ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
+                    ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme;
 
                 p_expression_node->expression_type = PRIMARY_EXPRESSION__FUNC__;
                 p_expression_node->first_token = ctx->current;
@@ -1441,6 +1483,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                 throw;
             }
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
         }
         else if (ctx->current->type == TK_STRING_LITERAL)
         {
@@ -1467,6 +1510,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->type = type_make_literal_string(string_literal_byte_size(ctx->current->lexeme), char_type);
 
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
 
             /*
             string concatenation deveria ser em uma phase anterior
@@ -1476,6 +1520,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
                    ctx->current->type == TK_STRING_LITERAL)
             {
                 parser_match(ctx);
+                if (ctx->current == NULL) throw;
             }
         }
         else if (ctx->current->type == TK_CHAR_CONSTANT)
@@ -1501,6 +1546,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->type.type_qualifier_flags = 0;
 
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
         }
         else if (ctx->current->type == TK_KEYWORD_NULLPTR)
         {
@@ -1519,6 +1565,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->type.type_qualifier_flags = 0;
 
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
         }
         else if (is_integer_or_floating_constant(ctx->current->type))
         {
@@ -1533,6 +1580,7 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             convert_to_number(ctx->current, p_expression_node, ctx->evaluation_is_disabled);
 
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
         }
         else if (ctx->current->type == TK_KEYWORD__GENERIC)
         {
@@ -1568,6 +1616,8 @@ struct expression* _Owner _Opt primary_expression(struct parser_ctx* ctx)
             p_expression_node->expression_type = PRIMARY_EXPRESSION_PARENTESIS;
             p_expression_node->first_token = ctx->current;
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
             p_expression_node->right = expression(ctx);
             if (p_expression_node->right == NULL)
                 throw;
@@ -1638,6 +1688,7 @@ struct argument_expression_list argument_expression_list(struct parser_ctx* ctx)
         while (ctx->current->type == ',')
         {
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
 
             struct argument_expression* _Owner _Opt p_argument_expression_2 = calloc(1, sizeof * p_argument_expression_2);
             if (p_argument_expression_2 == NULL)
@@ -1774,6 +1825,12 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 }
 
                 parser_match(ctx);
+                if (ctx->current == NULL)
+                {
+                    expression_delete(p_expression_node_new);
+                    throw;
+                }
+
                 /*contem a expresao de dentro do  [ ] */
                 p_expression_node_new->right = expression(ctx);
                 if (p_expression_node_new->right == NULL)
@@ -1832,6 +1889,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->type = get_function_return_type(&p_expression_node->type);
 
                 parser_match(ctx);
+                if (ctx->current == NULL)
+                {
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
+
                 if (ctx->current->type != ')')
                 {
                     p_expression_node_new->argument_expression_list = argument_expression_list(ctx);
@@ -1862,6 +1926,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 p_expression_node_new->declarator = p_expression_node_new->left->declarator;
 
                 parser_match(ctx);
+                if (ctx->current == NULL)
+                {
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
+
                 if (p_expression_node_new->left->type.type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
                 {
                     struct struct_or_union_specifier* p =
@@ -1883,7 +1954,7 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                                             &p_member_declarator->declarator->type);
                         }
                         else
-                        {
+                        {                            
                             if (p_expression_node_new->type.struct_or_union_specifier)
                             {
                                 compiler_diagnostic_message(C_ERROR_STRUCT_MEMBER_NOT_FOUND,
@@ -1928,6 +1999,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
             }
             else if (ctx->current->type == '->')
             {
+                /*
+                             p_expression_node_new
+                           (left)   /  \  (right)
+                                   /    \
+                  p_expression_node      NULL
+                */
+
                 struct expression* _Owner _Opt p_expression_node_new = calloc(1, sizeof * p_expression_node_new);
                 if (p_expression_node_new == NULL) throw;
 
@@ -1937,6 +2015,12 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
                 // the result of a member access through pointer -> operator is lvalue
 
                 parser_match(ctx);
+                if (ctx->current == NULL)
+                {
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
 
                 if (type_is_pointer_or_array(&p_expression_node->type))
                 {
@@ -2040,6 +2124,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
+                if (ctx->current == NULL)
+                {
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
+
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -2069,6 +2160,13 @@ struct expression* _Owner _Opt postfix_expression_tail(struct parser_ctx* ctx, s
 
                 p_expression_node_new->type = type_dup(&p_expression_node->type);
                 parser_match(ctx);
+                if (ctx->current == NULL)
+                {
+                    expression_delete(p_expression_node_new);
+                    p_expression_node_new = NULL;
+                    throw;
+                }
+
                 p_expression_node_new->left = p_expression_node;
                 p_expression_node = p_expression_node_new;
             }
@@ -2305,6 +2403,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             else
                 new_expression->expression_type = UNARY_EXPRESSION_DECREMENT;
             parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
             new_expression->right = unary_expression(ctx);
             if (new_expression->right == NULL)
             {
@@ -2327,6 +2430,11 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             struct token* op_position = ctx->current; // marcar posicao
             enum token_type op = ctx->current->type;
             parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
 #if 0
             //visual studio formater is adding spaces..
             if (style_has_space(ctx->current))
@@ -2427,7 +2535,7 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                                                     ctx,
                                                     new_expression->right->first_token,
                                                     "address of register variable 'x' requested",
-                                                    new_expression->right->declarator->name->lexeme);
+                                                    new_expression->right->declarator->name_opt->lexeme);
                     }
                     else
                     {
@@ -2459,6 +2567,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             // defer would be nice here...
 
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL) throw;
 
@@ -2533,6 +2643,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->expression_type = UNARY_EXPRESSION_TRAITS;
 
             parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
 
             struct type* p_type = NULL;
             if (first_of_type_name_ahead(ctx))
@@ -2544,7 +2660,12 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
                 new_expression->type_name = type_name(ctx);
-                if (new_expression->type_name == NULL) throw;
+                if (new_expression->type_name == NULL)
+                {
+                    expression_delete(new_expression);
+                    new_expression = NULL;
+                    throw;
+                }
 
                 new_expression->last_token = ctx->current;
                 if (parser_match_tk(ctx, ')') != 0)
@@ -2632,7 +2753,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
 
             parser_match(ctx);
-            if (parser_match_tk(ctx, '(') != 0)
+
+            if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
                 new_expression = NULL;
@@ -2663,7 +2785,8 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
             new_expression->expression_type = UNARY_EXPRESSION_ALIGNOF;
             new_expression->first_token = ctx->current;
             parser_match(ctx);
-            if (parser_match_tk(ctx, '(') != 0)
+
+            if (ctx->current == NULL || parser_match_tk(ctx, '(') != 0)
             {
                 expression_delete(new_expression);
                 new_expression = NULL;
@@ -2879,6 +3002,12 @@ struct expression* _Owner _Opt multiplicative_expression(struct parser_ctx* ctx)
             new_expression->first_token = ctx->current;
             enum token_type op = ctx->current->type;
             parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                expression_delete(new_expression);
+                throw;
+            }
+
             new_expression->left = p_expression_node;
             p_expression_node = NULL; // MOVED
 
@@ -3005,9 +3134,15 @@ struct expression* _Owner _Opt additive_expression(struct parser_ctx* ctx)
 
             new_expression->first_token = ctx->current;
 
-            static_set(*new_expression, "zero");
             enum token_type op = ctx->current->type;
             parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -3211,6 +3346,13 @@ struct expression* _Owner _Opt shift_expression(struct parser_ctx* ctx)
 
             enum token_type op = ctx->current->type;
             parser_match(ctx);
+            if (ctx->current == NULL)
+            {
+                expression_delete(new_expression);
+                new_expression = NULL;
+                throw;
+            }
+
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -3286,11 +3428,11 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
             {
                 throw;
             }
-            static_set(*new_expression, "zero");
-
             new_expression->first_token = ctx->current;
             enum token_type op = ctx->current->type;
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -3332,6 +3474,7 @@ struct expression* _Owner _Opt relational_expression(struct parser_ctx* ctx)
     }
     catch
     {
+        expression_delete(new_expression);
         expression_delete(p_expression_node);
         p_expression_node = NULL;
     }
@@ -3426,6 +3569,8 @@ struct expression* _Owner _Opt equality_expression(struct parser_ctx* ctx)
             static_set(*new_expression, "zero");
             struct token* operator_token = ctx->current;
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
             new_expression->left = p_expression_node;
             p_expression_node = NULL; /*MOVED*/
 
@@ -3497,6 +3642,7 @@ struct expression* _Owner _Opt and_expression(struct parser_ctx* ctx)
         while (ctx->current != NULL && ctx->current->type == '&')
         {
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
 
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
@@ -3557,6 +3703,7 @@ struct expression* _Owner _Opt  exclusive_or_expression(struct parser_ctx* ctx)
                (ctx->current->type == '^'))
         {
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
 
             assert(new_expression == NULL);
             new_expression = calloc(1, sizeof * new_expression);
@@ -3683,11 +3830,12 @@ struct expression* _Owner  _Opt logical_and_expression(struct parser_ctx* ctx)
                (ctx->current->type == '&&'))
         {
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = LOGICAL_AND_EXPRESSION;
             new_expression->left = p_expression_node;
@@ -3743,11 +3891,12 @@ struct expression* _Owner  _Opt logical_or_expression(struct parser_ctx* ctx)
                (ctx->current->type == '||'))
         {
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
+
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = LOGICAL_OR_EXPRESSION;
             new_expression->left = p_expression_node;
@@ -3826,14 +3975,15 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
                    ctx->current->type == '^=' ||
                    ctx->current->type == '|='))
         {
+
             const struct token* const op_token = ctx->current;
             parser_match(ctx);
+            if (ctx->current == NULL) throw;
 
             struct expression* _Owner _Opt new_expression = calloc(1, sizeof * new_expression);
             if (new_expression == NULL)
                 throw;
 
-            static_set(*new_expression, "zero");
             new_expression->first_token = ctx->current;
             new_expression->expression_type = ASSIGNMENT_EXPRESSION;
             new_expression->left = p_expression_node;
@@ -3899,9 +4049,9 @@ struct expression* _Owner _Opt assignment_expression(struct parser_ctx* ctx)
             check_diferent_enuns(ctx, op_token, new_expression->left, new_expression->right,
             "assignment of different enums.");
 
-            new_expression->left->is_assigment_expression = true;
+            new_expression->left->is_assignment_expression = true;
             if (new_expression->left->left)
-                new_expression->left->left->is_assigment_expression = true;
+                new_expression->left->left->is_assignment_expression = true;
             p_expression_node = new_expression;
         }
     }
@@ -3943,27 +4093,25 @@ void argument_expression_list_destroy(struct argument_expression_list* _Obj_owne
 
 bool expression_is_malloc(const struct expression* p)
 {
-    if (p &&
-        p->expression_type == POSTFIX_FUNCTION_CALL &&
+    if (p->expression_type == POSTFIX_FUNCTION_CALL &&
         p->left &&
         p->left->declarator &&
-        p->left->declarator->name)
+        p->left->declarator->name_opt)
     {
-        if (strcmp(p->left->declarator->name->lexeme, "malloc") == 0)
+        if (strcmp(p->left->declarator->name_opt->lexeme, "malloc") == 0)
             return true;
     }
     return false;
 }
 
-bool expression_is_calloc(const struct expression* _Opt p)
+bool expression_is_calloc(const struct expression* p)
 {
-    if (p &&
-        p->expression_type == POSTFIX_FUNCTION_CALL &&
+    if (p->expression_type == POSTFIX_FUNCTION_CALL &&
         p->left &&
         p->left->declarator &&
-        p->left->declarator->name)
+        p->left->declarator->name_opt)
     {
-        if (strcmp(p->left->declarator->name->lexeme, "calloc") == 0)
+        if (strcmp(p->left->declarator->name_opt->lexeme, "calloc") == 0)
             return true;
     }
     return false;
@@ -4092,6 +4240,11 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             p_expression_node = NULL; /*MOVED*/
 
             parser_match(ctx); //?
+            if (ctx->current == NULL)
+            {
+                expression_delete(p_conditional_expression);
+                throw;
+            }
 
             struct expression* _Owner _Opt p_left = expression(ctx);
             if (p_left == NULL)
@@ -4102,6 +4255,12 @@ struct expression* _Owner _Opt conditional_expression(struct parser_ctx* ctx)
             p_conditional_expression->left = p_left;
 
             parser_match(ctx); //:
+            if (ctx->current == NULL)
+            {
+                expression_delete(p_conditional_expression);
+                throw;
+            }
+
             struct expression* _Owner _Opt p_right = conditional_expression(ctx);
             if (p_right == NULL)
             {
@@ -4309,7 +4468,7 @@ bool expression_is_lvalue(const struct expression* expr)
     return false;
 }
 
-bool expression_is_zero(struct expression* p_expression)
+bool expression_is_zero(const struct expression* p_expression)
 {
     bool is_zero = false;
 

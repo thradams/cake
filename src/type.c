@@ -3131,10 +3131,10 @@ struct type make_type_using_declarator(struct parser_ctx* ctx, struct declarator
     }
 #endif
 
-    if (pdeclarator->name)
+    if (pdeclarator->name_opt)
     {
         free((void* _Owner) list.head->name_opt);
-        list.head->name_opt = strdup(pdeclarator->name->lexeme);
+        list.head->name_opt = strdup(pdeclarator->name_opt->lexeme);
     }
 
     struct type r = *list.head;

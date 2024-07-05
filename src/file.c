@@ -5,6 +5,7 @@ struct Z {
 };
 
 struct Y {
+    int i;
     struct Z* _Opt pZ;
 };
 
@@ -12,10 +13,20 @@ struct X {
     struct Y* _Opt pY;
 };
 
-void f(struct X* _Opt left, struct X* _Opt right)
+void f(struct X* _Opt p)
 {
-    if (left && right)
+    /*
+               &&
+             /   \
+           &&     \
+         /   \     \ 
+       p    p->pY   \
+                     \
+                      p->pY->pZ
+    */
+
+    if (p && p->pY && p->pY->pZ)
     {
-        
+        p->pY->pZ->i = 1;
     }
 }

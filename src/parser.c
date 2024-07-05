@@ -1,4 +1,5 @@
 //#pragma safety enable
+
 #include "ownership.h"
 
 #include <stdlib.h>
@@ -186,6 +187,7 @@ void scope_list_push(struct scope_list* list, struct scope* pnew)
     }
     else
     {
+        assert(list->tail != NULL);
         pnew->previous = list->tail;
         list->tail->next = pnew;
         list->tail = pnew;
@@ -197,7 +199,7 @@ void scope_list_pop(struct scope_list* list)
 
     if (list->head == NULL)
         return;
-
+    assert(list->tail != NULL);
     struct scope* p = list->tail;
     if (list->head == list->tail)
     {
@@ -206,10 +208,10 @@ void scope_list_pop(struct scope_list* list)
     }
     else
     {
-
         list->tail = list->tail->previous;
         if (list->tail == list->head)
         {
+            assert(list->tail != NULL);
             list->tail->next = NULL;
             list->tail->previous = NULL;
         }
@@ -245,6 +247,7 @@ void switch_value_list_push(struct switch_value_list* list, struct switch_value*
     }
     else
     {
+        assert(list->tail != NULL);
         assert(list->tail->next == NULL);
         list->tail->next = pnew;
         list->tail = pnew;
@@ -253,7 +256,7 @@ void switch_value_list_push(struct switch_value_list* list, struct switch_value*
 
 struct switch_value* _Opt switch_value_list_find(struct switch_value_list* list, long long value)
 {
-    struct switch_value* p = list->head;
+    struct switch_value* _Opt p = list->head;
     while (p)
     {
         if (p->value == value)
@@ -278,8 +281,6 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     const struct token* _Opt p_token,
     const char* fmt, ...)
 {
-
-
     bool is_error = false;
     bool is_warning = false;
     bool is_note = false;
@@ -311,7 +312,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     else if (is_warning)
     {
         /*warnings inside headers are ignored*/
-        if (p_token->level != 0)
+        if (p_token && p_token->level != 0)
         {
             return false;
         }
@@ -321,7 +322,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     else if (is_note)
     {
         /*notes inside headers are ignored*/
-        if (p_token->level != 0)
+        if (p_token && p_token->level != 0)
         {
             return false;
         }
@@ -340,7 +341,7 @@ _Bool compiler_diagnostic_message(enum diagnostic_id w,
     const char* func_name = "module";
     if (ctx->p_current_function_opt)
     {
-        func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme;
+        func_name = ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme;
     }
 
     char buffer[200] = { 0 };
@@ -536,7 +537,7 @@ bool first_of_atomic_type_specifier(struct parser_ctx* ctx)
 
     if (ctx->current->type == TK_KEYWORD__ATOMIC)
     {
-        struct token* ahead = parser_look_ahead(ctx);
+        struct token* _Opt ahead = parser_look_ahead(ctx);
         if (ahead != NULL)
         {
             return ahead->type == '(';
@@ -597,10 +598,10 @@ bool first_of_type_qualifier(struct parser_ctx* ctx)
 
 struct map_entry* _Opt find_tag(struct parser_ctx* ctx, const char* lexeme)
 {
-    struct scope* scope = ctx->scopes.tail;
+    struct scope* _Opt scope = ctx->scopes.tail;
     while (scope)
     {
-        struct map_entry* p_entry = hashmap_find(&scope->tags, lexeme);
+        struct map_entry* _Opt p_entry = hashmap_find(&scope->tags, lexeme);
         if (p_entry)
         {
             return p_entry;
@@ -632,7 +633,7 @@ struct map_entry* _Opt find_variables(const struct parser_ctx* ctx, const char* 
 
 struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* lexeme)
 {
-    struct enum_specifier* best = NULL;
+    struct enum_specifier* _Opt best = NULL;
     struct scope* scope = ctx->scopes.tail;
     while (scope)
     {
@@ -655,7 +656,7 @@ struct enum_specifier* find_enum_specifier(struct parser_ctx* ctx, const char* l
 
 struct struct_or_union_specifier* find_struct_or_union_specifier(struct parser_ctx* ctx, const char* lexeme)
 {
-    struct struct_or_union_specifier* p = NULL;
+    struct struct_or_union_specifier* _Opt p = NULL;
     struct scope* scope = ctx->scopes.tail;
     while (scope)
     {
@@ -929,7 +930,7 @@ bool first_of_designator(struct parser_ctx* ctx)
 
 struct token* _Opt previous_parser_token(struct token* token)
 {
-    if (token == NULL)
+    if (token == NULL || token->prev == NULL)
     {
         return NULL;
     }
@@ -1226,7 +1227,7 @@ static void token_promote(struct token* token)
     }
 }
 
-struct token* parser_look_ahead(struct parser_ctx* ctx)
+struct token* _Opt parser_look_ahead(struct parser_ctx* ctx)
 {
     struct token* p = ctx->current->next;
     while (p && !(p->flags & TK_FLAG_FINAL))
@@ -1756,13 +1757,11 @@ static struct token* parser_skip_blanks(struct parser_ctx* ctx)
     return ctx->current;
 }
 
-struct token* parser_match(struct parser_ctx* ctx)
+void parser_match(struct parser_ctx* ctx)
 {
     ctx->previous = ctx->current;
     ctx->current = ctx->current->next;
-    parser_skip_blanks(ctx);
-
-    return ctx->current;
+    parser_skip_blanks(ctx);    
 }
 
 NODISCARD
@@ -1813,7 +1812,7 @@ void print_declaration_specifiers(struct osstream* ss, struct declaration_specif
     }
     else if (p_declaration_specifiers->typedef_declarator)
     {
-        print_item(ss, &first, p_declaration_specifiers->typedef_declarator->name->lexeme);
+        print_item(ss, &first, p_declaration_specifiers->typedef_declarator->name_opt->lexeme);
     }
     else
     {
@@ -2281,10 +2280,12 @@ struct declaration* _Owner  _Opt function_definition_or_declaration(struct parse
 
             struct diagnostic before_function_diagnostics = ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index];
 
-            assert(p_declaration->function_body == NULL);
-            p_declaration->function_body = function_body(ctx);
-            if (p_declaration->function_body == NULL)
+            struct compound_statement* _Owner _Opt p_function_body = function_body(ctx);
+            if (p_function_body == NULL)
                 throw;
+
+            assert(p_declaration->function_body == NULL);
+            p_declaration->function_body = p_function_body;
 
             p_declaration->init_declarator_list.head->p_declarator->function_body = p_declaration->function_body;
 
@@ -2304,7 +2305,7 @@ struct declaration* _Owner  _Opt function_definition_or_declaration(struct parse
                 flow_visit_ctx_destroy(&ctx2);
             }
 
-            struct parameter_declaration* parameter = NULL;
+            struct parameter_declaration* _Opt parameter = NULL;
 
             if (p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator &&
                 p_declaration->init_declarator_list.head->p_declarator->direct_declarator->function_declarator->parameter_type_list_opt &&
@@ -2319,15 +2320,15 @@ struct declaration* _Owner  _Opt function_definition_or_declaration(struct parse
                 if (!type_is_maybe_unused(&parameter->declarator->type) &&
                     parameter->declarator->num_uses == 0)
                 {
-                    if (parameter->declarator->name &&
-                        parameter->declarator->name->level == 0 /*direct source*/
+                    if (parameter->declarator->name_opt &&
+                        parameter->declarator->name_opt->level == 0 /*direct source*/
                         )
                     {
                         compiler_diagnostic_message(W_UNUSED_PARAMETER,
                             ctx,
-                            parameter->declarator->name,
+                            parameter->declarator->name_opt,
                             "'%s': unreferenced formal parameter",
-                            parameter->declarator->name->lexeme);
+                            parameter->declarator->name_opt->lexeme);
                     }
                 }
                 parameter = parameter->next;
@@ -2489,7 +2490,7 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
 
         if (p_init_declarator->p_declarator == NULL)
             throw;
-        p_init_declarator->p_declarator->name = tkname;
+        p_init_declarator->p_declarator->name_opt = tkname;
 
         if (tkname == NULL)
         {
@@ -2498,7 +2499,7 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
         }
 
         p_init_declarator->p_declarator->declaration_specifiers = p_declaration_specifiers;
-        p_init_declarator->p_declarator->name = tkname;
+        p_init_declarator->p_declarator->name_opt = tkname;
 
         if (p_init_declarator->p_declarator->declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_AUTO)
         {
@@ -2515,7 +2516,7 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
 #pragma cake diagnostic pop
         }
 
-        const char* name = p_init_declarator->p_declarator->name->lexeme;
+        const char* name = p_init_declarator->p_declarator->name_opt->lexeme;
         if (name)
         {
             /*
@@ -2539,7 +2540,7 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
                 }
             }
 
-            struct scope* out_scope = NULL;
+            struct scope* _Opt out_scope = NULL;
             struct declarator* previous = find_declarator(ctx, name, &out_scope);
             if (previous)
             {
@@ -2558,7 +2559,7 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
                     else
                     {
                         compiler_diagnostic_message(C_ERROR_REDECLARATION, ctx, ctx->current, "redeclaration");
-                        compiler_diagnostic_message(W_NOTE, ctx, previous->name, "previous declaration");
+                        compiler_diagnostic_message(W_NOTE, ctx, previous->name_opt, "previous declaration");
                     }
                 }
                 else
@@ -2661,7 +2662,7 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
 
                     type_remove_names(&t);
                     assert(t.name_opt == NULL);
-                    t.name_opt = strdup(p_init_declarator->p_declarator->name->lexeme);
+                    t.name_opt = strdup(p_init_declarator->p_declarator->name_opt->lexeme);
 
                     type_set_qualifiers_using_declarator(&t, p_init_declarator->p_declarator);
 
@@ -2719,9 +2720,9 @@ struct init_declarator* _Owner  _Opt init_declarator(struct parser_ctx* ctx,
             // gcc "error: storage size of '%s' isn't known"
             compiler_diagnostic_message(C_ERROR_STORAGE_SIZE,
                 ctx,
-                p_init_declarator->p_declarator->name,
+                p_init_declarator->p_declarator->name_opt,
                 "storage size of '%s' isn't known",
-                p_init_declarator->p_declarator->name->lexeme);
+                p_init_declarator->p_declarator->name_opt->lexeme);
         }
         else
         {
@@ -3431,10 +3432,10 @@ struct member_declarator* _Owner  _Opt member_declarator(
     */
     struct member_declarator* _Owner _Opt p_member_declarator = calloc(1, sizeof(struct member_declarator));
 
-    struct token* p_token_name = NULL;
+    struct token* _Opt p_token_name = NULL;
 
     p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/ NULL, false, &p_token_name);
-    p_member_declarator->declarator->name = p_token_name;
+    p_member_declarator->declarator->name_opt = p_token_name;
     p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
 #pragma cake diagnostic push
@@ -3449,8 +3450,8 @@ struct member_declarator* _Owner  _Opt member_declarator(
         p_struct_or_union_specifier->is_owner = true;
     }
 
-    if (p_member_declarator->declarator->name)
-        naming_convention_struct_member(ctx, p_member_declarator->declarator->name, &p_member_declarator->declarator->type);
+    if (p_member_declarator->declarator->name_opt)
+        naming_convention_struct_member(ctx, p_member_declarator->declarator->name_opt, &p_member_declarator->declarator->type);
 
     if (ctx->current->type == ':')
     {
@@ -3640,7 +3641,7 @@ struct member_declarator* _Opt find_member_declarator(struct member_declaration_
 
             while (p_member_declarator)
             {
-                if (p_member_declarator->declarator->name && strcmp(p_member_declarator->declarator->name->lexeme, name) == 0)
+                if (p_member_declarator->declarator->name_opt && strcmp(p_member_declarator->declarator->name_opt->lexeme, name) == 0)
                 {
                     return p_member_declarator;
                 }
@@ -3685,7 +3686,7 @@ void print_specifier_qualifier_list(struct osstream* ss, bool* first, struct spe
     }
     else if (p_specifier_qualifier_list->typedef_declarator)
     {
-        print_item(ss, first, p_specifier_qualifier_list->typedef_declarator->name->lexeme);
+        print_item(ss, first, p_specifier_qualifier_list->typedef_declarator->name_opt->lexeme);
     }
     else
     {
@@ -4107,6 +4108,8 @@ struct enumerator* _Owner  _Opt enumerator(struct parser_ctx* ctx,
         {
             parser_match(ctx);
             p_enumerator->constant_expression_opt = constant_expression(ctx, true);
+            if (p_enumerator->constant_expression_opt == NULL) throw;
+
             p_enumerator->value = constant_value_to_ll(&p_enumerator->constant_expression_opt->constant_value);
             *p_next_enumerator_value = p_enumerator->value;
             (*p_next_enumerator_value)++; // TODO overflow  and size check
@@ -4911,7 +4914,7 @@ struct parameter_declaration* _Owner  _Opt parameter_declaration(struct parser_c
         p_parameter_declaration->declaration_specifiers,
         true /*can be abstract*/,
         &p_token_name);
-    p_parameter_declaration->declarator->name = p_token_name;
+    p_parameter_declaration->declarator->name_opt = p_token_name;
 
     p_parameter_declaration->declarator->declaration_specifiers = p_parameter_declaration->declaration_specifiers;
 
@@ -4933,18 +4936,18 @@ struct parameter_declaration* _Owner  _Opt parameter_declaration(struct parser_c
         p_parameter_declaration->declarator->type.attributes_flags |= CAKE_ATTRIBUTE_IMPLICT;
     }
 
-    if (p_parameter_declaration->declarator->name)
-        naming_convention_parameter(ctx, p_parameter_declaration->declarator->name, &p_parameter_declaration->declarator->type);
+    if (p_parameter_declaration->declarator->name_opt)
+        naming_convention_parameter(ctx, p_parameter_declaration->declarator->name_opt, &p_parameter_declaration->declarator->type);
 
     // coloca o pametro no escpo atual que deve apontar para escopo paramtros
     //  da funcao .
     //
     // assert ctx->current_scope->variables parametrosd
-    if (p_parameter_declaration->declarator->name)
+    if (p_parameter_declaration->declarator->name_opt)
     {
         // parametro void nao te name
         hashmap_set(&ctx->scopes.tail->variables,
-            p_parameter_declaration->declarator->name->lexeme,
+            p_parameter_declaration->declarator->name_opt->lexeme,
             p_parameter_declaration->declarator,
             TAG_TYPE_ONLY_DECLARATOR);
         // print_scope(ctx->current_scope);
@@ -6621,8 +6624,8 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                     continue;
                 }
 
-                struct declarator* p_declarator = NULL;
-                struct init_declarator* p_init_declarator = NULL;
+                struct declarator* _Opt p_declarator = NULL;
+                struct init_declarator* _Opt p_init_declarator = NULL;
                 if (entry->type == TAG_TYPE_INIT_DECLARATOR)
                 {
                     p_init_declarator = entry->p;
@@ -6639,13 +6642,13 @@ struct compound_statement* _Owner _Opt compound_statement(struct parser_ctx* ctx
                     if (!type_is_maybe_unused(&p_declarator->type) &&
                         p_declarator->num_uses == 0)
                     {
-                        if (p_declarator->name->token_origin->level == 0)
+                        if (p_declarator->name_opt->token_origin->level == 0)
                         {
                             compiler_diagnostic_message(W_UNUSED_VARIABLE,
                                 ctx,
-                                p_declarator->name,
+                                p_declarator->name_opt,
                                 "'%s': unreferenced declarator",
-                                p_declarator->name->lexeme);
+                                p_declarator->name_opt->lexeme);
                         }
                     }
                 }
@@ -6804,9 +6807,9 @@ struct block_item* _Owner  _Opt block_item(struct parser_ctx* ctx)
             struct init_declarator* p = p_block_item->declaration->init_declarator_list.head;
             while (p)
             {
-                if (p->p_declarator && p->p_declarator->name)
+                if (p->p_declarator && p->p_declarator->name_opt)
                 {
-                    naming_convention_local_var(ctx, p->p_declarator->name, &p->p_declarator->type);
+                    naming_convention_local_var(ctx, p->p_declarator->name_opt, &p->p_declarator->type);
                 }
                 p = p->next;
             }
@@ -7063,8 +7066,14 @@ struct selection_statement* _Owner _Opt selection_statement(struct parser_ctx* c
         struct  switch_value_list  switch_value_list = { 0 };
         ctx->p_switch_value_list = &switch_value_list;
 
+        struct secondary_block* _Owner _Opt p_secondary_block = secondary_block(ctx);
+        if (p_secondary_block == NULL) {
+            switch_value_destroy(&switch_value_list);
+            throw;        
+        }
+        
         assert(p_selection_statement->secondary_block == NULL);
-        p_selection_statement->secondary_block = secondary_block(ctx);
+        p_selection_statement->secondary_block = p_secondary_block;
 
         if (p_selection_statement->first_token->type == TK_KEYWORD_SWITCH)
         {
@@ -7350,7 +7359,7 @@ struct jump_statement* _Owner  _Opt jump_statement(struct parser_ctx* ctx)
                             ctx,
                             p_return_token,
                             "void function '%s' should not return a value",
-                            ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name->lexeme);
+                            ctx->p_current_function_opt->init_declarator_list.head->p_declarator->name_opt->lexeme);
                     }
                     else
                     {
@@ -7632,8 +7641,8 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                 continue;
             }
 
-            struct declarator* p_declarator = NULL;
-            struct init_declarator* p_init_declarator = NULL;
+            struct declarator* _Opt p_declarator = NULL;
+            struct init_declarator* _Opt p_init_declarator = NULL;
             if (entry->type == TAG_TYPE_INIT_DECLARATOR)
             {
                 p_init_declarator = entry->p;
@@ -7655,8 +7664,8 @@ static void show_unused_file_scope(struct parser_ctx* ctx)
                 {
                     compiler_diagnostic_message(W_UNUSED_VARIABLE,
                         ctx,
-                        p_declarator->name,
-                        "declarator '%s' not used", p_declarator->name->lexeme);
+                        p_declarator->name_opt,
+                        "declarator '%s' not used", p_declarator->name_opt->lexeme);
                 }
             }
 
@@ -7735,10 +7744,10 @@ int fill_preprocessor_options(int argc, const char** argv, struct preprocessor_c
 }
 
 #ifdef _WIN32
-WINBASEAPI DWORD WINAPI GetEnvironmentVariableA(
-    LPCSTR lpName,
-    LPSTR lpBuffer,
-    DWORD nSize
+WINBASEAPI unsigned long WINAPI GetEnvironmentVariableA(
+    const char* lpName,
+    char lpBuffer,
+    unsigned long nSize
 );
 
 #else
@@ -8083,7 +8092,8 @@ int compile_one_file(const char* file_name,
 
         if (options->dump_pptokens)
         {
-            print_tokens(ast.token_list.head);
+            if (ast.token_list.head != NULL)
+              print_tokens(ast.token_list.head);
         }
 
         if (options->preprocess_only)

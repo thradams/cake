@@ -174,11 +174,11 @@ static void true_false_set_swap(struct true_false_set* a, struct true_false_set*
     *b = temp;
 }
 
-static int find_item_index_by_expression(struct true_false_set* a, struct expression* p_expression)
+static int find_item_index_by_expression(const struct true_false_set* a, const struct expression* p_expression)
 {
     for (int i = 0; i < a->size; i++)
     {
-        if (a->data[i].p_expression->declarator == p_expression->declarator)
+        if (a->data[i].p_expression == p_expression)
             return i;
     }
     return -1;
@@ -424,7 +424,7 @@ static bool check_defer_and_variables(struct flow_visit_ctx* ctx,
         else if (deferchild->declarator)
         {
             struct declarator* p_declarator = deferchild->declarator;
-            const char* name = p_declarator->name ? p_declarator->name->lexeme : "?";
+            const char* name = p_declarator->name_opt ? p_declarator->name_opt->lexeme : "?";
 
             end_of_storage_visit(ctx,
                 &p_declarator->type,
@@ -1606,7 +1606,7 @@ static void compare_function_arguments3(struct flow_visit_ctx* ctx,
 
 static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p_expression)
 {
-    if (p_expression->is_assigment_expression)
+    if (p_expression->is_assignment_expression)
         return;
 
     const bool nullable_enabled = ctx->ctx->options.null_checks_enabled;
@@ -1626,11 +1626,11 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
         {
             if (p_expression->expression_type == PRIMARY_EXPRESSION_DECLARATOR &&
                 p_expression->declarator &&
-                p_expression->declarator->name)
+                p_expression->declarator->name_opt)
             {
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
-                    p_expression->first_token, "using a uninitialized object '%s'", p_expression->declarator->name->lexeme);
+                    p_expression->first_token, "using a uninitialized object '%s'", p_expression->declarator->name_opt->lexeme);
             }
             else
             {
@@ -1641,11 +1641,11 @@ static void check_uninitialized(struct flow_visit_ctx* ctx, struct expression* p
         }
         else if (p_object && p_object->current.state & OBJECT_STATE_UNINITIALIZED)
         {
-            if (p_expression->declarator && p_expression->declarator->name)
+            if (p_expression->declarator && p_expression->declarator->name_opt)
             {
                 compiler_diagnostic_message(W_FLOW_UNINITIALIZED,
                     ctx->ctx,
-                    p_expression->declarator->name, "object '%s' can be uninitialized ", p_expression->declarator->name->lexeme);
+                    p_expression->declarator->name_opt, "object '%s' can be uninitialized ", p_expression->declarator->name_opt->lexeme);
             }
             else
             {
@@ -3552,16 +3552,25 @@ void flow_start_visit_declaration(struct flow_visit_ctx* ctx, struct declaration
     objects_clear(&ctx->arena);
 }
 
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wanalyzer-maybe-uninitialized" 
+
 struct flow_object* arena_new_object(struct flow_visit_ctx* ctx)
 {
     struct flow_object* _Owner _Opt p = calloc(1, sizeof * p);
     if (p != NULL)
     {
         p->id = ctx->arena.size + 1;
-        objects_push_back(&ctx->arena, p);
+        if (objects_push_back(&ctx->arena, p) != 0)
+        {
+            p = NULL;
+        }
     }
-    return p;
+    return (struct flow_object*)p; //warning removed
 }
+
+#pragma CAKE diagnostic pop
+
 
 void flow_visit_ctx_destroy(struct flow_visit_ctx* _Obj_owner p)
 {

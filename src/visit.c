@@ -130,7 +130,7 @@ void convert_if_statement(struct visit_ctx* ctx, struct selection_statement* p_s
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->first_token, ";");
 
         token_list_paste_string_before(&ctx->ast.token_list, p_selection_statement->close_parentesis_token,
-            p_selection_statement->condition->p_init_declarator->p_declarator->name->lexeme
+            p_selection_statement->condition->p_init_declarator->p_declarator->name_opt->lexeme
         );
 
     }
@@ -1665,10 +1665,10 @@ static void visit_declarator(struct visit_ctx* ctx, struct declarator* p_declara
         struct type new_type = type_convert_to(&p_declarator->type, ctx->target);
 
         type_remove_names(&new_type);
-        if (p_declarator->name)
+        if (p_declarator->name_opt)
         {
             free((void* _Owner)new_type.name_opt);
-            new_type.name_opt = strdup(p_declarator->name->lexeme);
+            new_type.name_opt = strdup(p_declarator->name_opt->lexeme);
         }
 
         print_type_declarator(&ss, &new_type);
