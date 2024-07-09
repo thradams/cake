@@ -23,11 +23,11 @@ void hashmap_remove_all(struct hash_map* map)
     {
         for (int i = 0; i < map->capacity; i++)
         {
-            struct map_entry* _Owner pentry = map->table[i];
+            struct map_entry* _Owner _Opt pentry = map->table[i];
 
             while (pentry != NULL)
             {
-                struct map_entry* _Owner next = pentry->next;
+                struct map_entry* _Owner _Opt next = pentry->next;
                 free(pentry->key);
                 free(pentry);
                 pentry = next;
@@ -54,7 +54,7 @@ struct map_entry* _Opt hashmap_find(struct hash_map* map, const char* key)
     const unsigned int hash = string_hash(key);
     const int index = hash % map->capacity;
 
-    struct map_entry* pentry = map->table[index];
+    struct map_entry* _Opt pentry = map->table[index];
 
     for (; pentry != NULL; pentry = pentry->next)
     {
@@ -308,6 +308,8 @@ void* _Owner _Opt owner_hashmap_set(struct owner_hash_map* map, const char* key,
     }
     catch
     {
+        //if caller receives the same pointer p then it is an error
+        return (void* _Owner _Opt) p;
     }
     return previous;
 }

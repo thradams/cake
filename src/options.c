@@ -36,6 +36,7 @@ s_warnings[] = {
     {W_COMMENT,"comment"},
     {W_LINE_SLICING,"line-slicing"},
     {W_SWITCH, "switch"},
+    {W_UNSUAL_NULL_POINTER_CONSTANT, "unusual-null"},
 
     {W_DISCARDED_QUALIFIERS, "discarded-qualifiers"},
     {W_UNINITIALZED, "uninitialized"},

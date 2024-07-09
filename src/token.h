@@ -260,7 +260,23 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 void token_range_add_show(struct token* first, struct token* last);
 
 void print_tokens_html(struct token* p_token);
-void print_line_and_token(const struct token* _Opt p_token, bool visual_studio_ouput_format);
+
+struct marker {    
+    
+    const char* file;
+    int line;
+    int col;
+
+    // Line
+    //~~~~~~~~^~~~~~~~~
+    //begin  caret   end
+
+    const struct token* _Opt p_token_caret;
+    const struct token* _Opt p_token_begin;
+    const struct token* _Opt p_token_end;
+};
+void print_line_and_token(const struct marker* p_marker, bool visual_studio_ouput_format);
+
 void print_position(const char* path, int line, int col, bool msvc_format);
 
 struct stream

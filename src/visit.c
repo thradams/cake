@@ -1564,12 +1564,6 @@ static void visit_direct_declarator(struct visit_ctx* ctx, struct direct_declara
 
         while (parameter)
         {
-            if (parameter->implicit_token)
-            {
-                free(parameter->implicit_token->lexeme);
-                parameter->implicit_token->lexeme = strdup("/*_Implicit*/");
-            }
-
             if (parameter->attribute_specifier_sequence_opt)
             {
                 visit_attribute_specifier_sequence(ctx, parameter->attribute_specifier_sequence_opt);
@@ -2514,7 +2508,7 @@ int visit_tokens(struct visit_ctx* ctx)
                 * We are converting to C99 hex.
                 */
                 current->type = TK_COMPILER_HEXADECIMAL_CONSTANT;
-                int value = strtol(current->lexeme + 2, 0, 2);
+                int value = strtol(current->lexeme + 2, NULL, 2);
                 char buffer[33 + 2] = { '0', 'x' };
                 snprintf(buffer, sizeof buffer, "0x%x", value);
                 free(current->lexeme);
@@ -2529,7 +2523,7 @@ int visit_tokens(struct visit_ctx* ctx)
                     /*
                      * C99 Hexadecimal floating constants to C89.
                      */
-                    long double d = strtold(current->lexeme, 0);
+                    long double d = strtold(current->lexeme, NULL);
                     char buffer[50] = { 0 };
                     snprintf(buffer, sizeof buffer, "%Lg", d);
                     free(current->lexeme);

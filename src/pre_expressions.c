@@ -67,23 +67,23 @@ static int ppnumber_to_longlong(struct token* token, long long* result)
         buffer[1] == 'x')
     {
         // hex
-        *result = strtoll(buffer + 2, 0, 16);
+        *result = strtoll(buffer + 2, NULL, 16);
     }
     else if (buffer[0] == '0' &&
              buffer[1] == 'b')
     {
         // binario
-        *result = strtoll(buffer + 2, 0, 2);
+        *result = strtoll(buffer + 2, NULL, 2);
     }
     else if (buffer[0] == '0')
     {
         // octal
-        *result = strtoll(buffer, 0, 8);
+        *result = strtoll(buffer, NULL, 8);
     }
     else
     {
         // decimal
-        *result = strtoll(buffer, 0, 10);
+        *result = strtoll(buffer, NULL, 10);
     }
 
     return 0;

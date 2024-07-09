@@ -69,7 +69,7 @@ struct flow_object_state {
     const char* dbg_name;
     int state_number;
 
-    struct flow_object* pointed;
+    struct flow_object* _Opt pointed;
     enum object_state state;
     struct objects_view alternatives;
     struct flow_object_state* _Owner _Opt next;
@@ -198,4 +198,4 @@ bool object_is_expansible(const struct flow_object* p_object);
 void expand_pointer_object(struct flow_visit_ctx* ctx, struct type* p_type, struct flow_object* p_object);
 void object_push_states_from(const struct flow_object* p_object_from, struct flow_object* p_object_to);
 
-struct flow_object* expression_get_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled);
+struct flow_object* _Opt expression_get_object(struct flow_visit_ctx* ctx, struct expression* p_expression, bool nullable_enabled);

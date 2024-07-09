@@ -69,7 +69,7 @@ void token_list_clear(struct token_list* list)
 
 void token_range_add_show(struct token* first, struct token* last)
 {
-    for (struct token* current = first;
+    for (struct token* _Opt current = first;
         current != last->next;
         current = current->next)
     {
@@ -79,7 +79,7 @@ void token_range_add_show(struct token* first, struct token* last)
 
 void token_range_remove_flag(struct token* first, struct token* last, enum token_flags flag)
 {
-    for (struct token* current = first;
+    for (struct token* _Opt current = first;
         current != last->next;
         current = current->next)
     {
@@ -89,7 +89,7 @@ void token_range_remove_flag(struct token* first, struct token* last, enum token
 
 void token_range_add_flag(struct token* first, struct token* last, enum token_flags flag)
 {
-    for (struct token* current = first;
+    for (struct token* _Opt current = first;
         current != last->next;
         current = current->next)
     {
@@ -97,31 +97,30 @@ void token_range_add_flag(struct token* first, struct token* last, enum token_fl
     }
 }
 
-void token_list_pop_back(struct token_list* list) /*unchecked*/
+void token_list_pop_back(struct token_list* list)
 {
     if (list->head == NULL)
         return;
 
-    struct token* p = list->tail;
-    assert(p->next == NULL);
     if (list->head == list->tail)
     {
+        token_delete(list->head);
         list->head = NULL;
         list->tail = NULL;
     }
     else
     {
+        assert(list->tail != NULL);
+        assert(list->tail->prev != NULL);
         list->tail = list->tail->prev;
+        token_delete(list->tail->next);
         list->tail->next = NULL;
         if (list->tail == list->head)
         {
             list->tail->prev = NULL;
         }
     }
-    p->next = NULL;
-    p->prev = NULL;
-    p->next = NULL;
-    token_delete(p);
+
 }
 
 void token_list_pop_front(struct token_list* list) /*unchecked*/
@@ -129,7 +128,7 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     if (list->head == NULL)
         return;
 
-    struct token* _Owner p = list->head;
+    struct token* _Owner _Opt p = list->head;
     //assert(p->prev == NULL);
     if (list->head == list->tail)
     {
@@ -145,26 +144,29 @@ void token_list_pop_front(struct token_list* list) /*unchecked*/
     token_delete(p);
 }
 
-struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)  /*unchecked*/
+struct token* _Owner _Opt token_list_pop_front_get(struct token_list* list)
 {
     if (list->head == NULL)
         return NULL;
 
-    struct token* p = list->head;
+    struct token* _Owner _Opt head = list->head;
 
     if (list->head == list->tail)
     {
         list->head = NULL;
         list->tail = NULL;
-    }
-    else
-    {
-        list->head = list->head->next;
-    }
-    p->next = NULL;
-    p->prev = NULL;
 
-    return p;
+        head->next = NULL;
+        head->prev = NULL;
+
+        return head;
+    }
+
+    list->head = head->next;
+    head->next = NULL;
+    head->prev = NULL;
+
+    return head;
 }
 
 void token_list_swap(struct token_list* a, struct token_list* b)
@@ -174,7 +176,7 @@ void token_list_swap(struct token_list* a, struct token_list* b)
     *b = temp;
 }
 
-void token_delete(struct token* _Owner p)
+void token_delete(struct token* _Owner _Opt p)
 {
     if (p)
     {
@@ -191,7 +193,7 @@ void token_delete(struct token* _Owner p)
 void token_list_set_file(struct token_list* list, struct token* filetoken, int line, int col)
 {
     //assert(filetoken != NULL);
-    struct token* p = list->head;
+    struct token* _Opt p = list->head;
     while (p)
     {
         p->token_origin = filetoken;
@@ -203,23 +205,23 @@ void token_list_set_file(struct token_list* list, struct token* filetoken, int l
 
 void token_list_destroy(struct token_list* _Obj_owner list)
 {
-    struct token* _Owner p = list->head;
+    struct token* _Owner _Opt p = list->head;
     while (p)
     {
-        struct token* _Owner next = p->next;
+        struct token* _Owner _Opt next = p->next;
         p->next = NULL;
         token_delete(p);
         p = next;
     }
 }
 
-char* _Owner token_list_join_tokens(struct token_list* list, bool bliteral)
+char* _Owner _Opt token_list_join_tokens(struct token_list* list, bool bliteral)
 {
     struct osstream ss = { 0 };
     if (bliteral)
         ss_fprintf(&ss, "\"");
     bool has_space = false;
-    struct token* current = list->head;
+    struct token* _Opt current = list->head;
 
     while (current)
     {
@@ -252,7 +254,7 @@ char* _Owner token_list_join_tokens(struct token_list* list, bool bliteral)
     if (bliteral)
         ss_fprintf(&ss, "\"");
 
-    char* _Owner cstr = ss.c_str;
+    char* _Owner _Opt cstr = ss.c_str;
     ss.c_str = NULL; /*MOVED*/
 
     ss_close(&ss);
@@ -291,6 +293,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
 
     if (after == NULL)
     {
+        assert(append_list->tail != NULL);
         assert(append_list->tail->next == NULL);
         append_list->tail->next = token_list->head;
         token_list->head->prev = append_list->tail;
@@ -300,7 +303,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
     }
     else
     {
-        struct token* _Owner follow = after->next;
+        struct token* _Owner _Opt follow = after->next;
         if (token_list->tail == after)
         {
             token_list->tail = append_list->tail;
@@ -308,6 +311,7 @@ void token_list_insert_after(struct token_list* token_list, struct token* after,
         else if (token_list->head == after)
         {
         }
+        assert(append_list->tail != NULL);
         assert(append_list->tail->next == NULL);
         append_list->tail->next = follow;
         follow->prev = append_list->tail;
@@ -450,7 +454,7 @@ bool token_is_identifier_or_keyword(enum token_type t)
     case TK_KEYWORD__OBJ_OWNER:
     case TK_KEYWORD__VIEW:
     case TK_KEYWORD__OPT:
-    
+
 
         /*extension compile time functions*/
     case TK_KEYWORD_STATIC_DEBUG: /*extension*/
@@ -482,19 +486,17 @@ bool token_is_identifier_or_keyword(enum token_type t)
 }
 
 
-bool token_is_blank(struct token*  p )
+bool token_is_blank(struct token* p)
 {
-  
-
     return p->type == TK_BEGIN_OF_FILE ||
         p->type == TK_BLANKS ||
         p->type == TK_LINE_COMMENT ||
         p->type == TK_COMMENT;
 }
 
-struct token* token_list_clone_and_add(struct token_list* list, struct token* pnew)
+struct token* _Opt token_list_clone_and_add(struct token_list* list, struct token* pnew)
 {
-    struct token* _Owner clone = clone_token(pnew);
+    struct token* _Owner _Opt clone = clone_token(pnew);
     return token_list_add(list, clone);
 }
 
@@ -569,7 +571,7 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
     struct token_list r = { 0 };
 
     struct token* before_first = first->prev;
-    struct token* _Owner after_last = last->next; /*MOVED*/
+    struct token* _Owner _Opt after_last = last->next; /*MOVED*/
     last->next = NULL; /*MOVED*/
 
     before_first->next = after_last;
@@ -583,8 +585,6 @@ struct token_list token_list_remove_get(struct token_list* list, struct token* f
 
     return r;
 }
-
-
 
 void token_list_remove(struct token_list* list, struct token* first, struct token* last)
 {
@@ -601,11 +601,9 @@ bool token_list_is_empty(struct token_list* p)
     return p->head == NULL;
 }
 
-
-
 void print_list(struct token_list* list)
 {
-    struct token* current = list->head;
+    struct token* _Opt current = list->head;
     while (current)
     {
         if (current != list->head)
@@ -789,7 +787,7 @@ void print_token_html(struct token* p_token)
 void print_tokens_html(struct token* p_token)
 {
     printf("<pre>\n");
-    struct token* current = p_token;
+    struct token* _Opt current = p_token;
     while (current)
     {
         print_token_html(current);
@@ -813,13 +811,14 @@ void print_position(const char* path, int line, int col, bool visual_studio_oupu
     }
 }
 
-void print_line_and_token(const struct token* _Opt p_token, bool visual_studio_ouput_format)
+void print_line_and_token(const struct marker* p_marker, bool visual_studio_ouput_format)
 {
+    const struct token* p_token = p_marker->p_token_caret ? p_marker->p_token_caret : p_marker->p_token_begin;
+
     if (p_token == NULL)
         return;
 
-
-    int line = p_token->line;
+    const int line = p_marker->line;
 
     if (!visual_studio_ouput_format)
         COLOR_ESC_PRINT(printf(LIGHTGRAY));
@@ -828,67 +827,83 @@ void print_line_and_token(const struct token* _Opt p_token, bool visual_studio_o
     int n = snprintf(nbuffer, sizeof nbuffer, "%d", line);
     printf(" %s |", nbuffer);
 
-    int offset = 0;
-    bool stop_offset = false;
 
-    const struct token* prev = p_token;
-    while (prev && prev->prev && (prev->prev->type != TK_NEWLINE && prev->prev->type != TK_BEGIN_OF_FILE))
+    //lets find the begin of line
+    const struct token* p_line_begin = p_token;
+    while (p_line_begin && p_line_begin->prev && (p_line_begin->prev->type != TK_NEWLINE && p_line_begin->prev->type != TK_BEGIN_OF_FILE))
     {
-        prev = prev->prev;
+        if (p_line_begin->prev == NULL)
+            break;
+        p_line_begin = p_line_begin->prev;
     }
-    const struct token* next = prev;
-    while (next && (next->type != TK_NEWLINE && next->type != TK_BEGIN_OF_FILE))
+
+
+    const struct token* p_item = p_line_begin;
+    while (p_item)
     {
-        if (p_token == next)
-            stop_offset = true;
-
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+        if (!visual_studio_ouput_format)
         {
-            if (next->flags & TK_FLAG_HAS_SPACE_BEFORE)
-            {
-                if (!stop_offset) offset++;
-                printf(" ");
-            }
+            if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
+                COLOR_ESC_PRINT(printf(DARKGRAY));
         }
-        if (next->flags & TK_FLAG_MACRO_EXPANDED)
+
+        const char* p = p_item->lexeme;
+        while (*p)
         {
-            if (!stop_offset)
-                offset += strlen(next->lexeme);
-
-            if (!visual_studio_ouput_format)
-                printf(DARKGRAY "%s" RESET, next->lexeme);
-            else
-                printf("%s", next->lexeme);
-
+            putc(*p, stdout);
+            p++;
         }
-        else
-            printf("%s", next->lexeme);
 
-        next = next->next;
+        if (!visual_studio_ouput_format)
+        {
+            if (p_item->flags & TK_FLAG_MACRO_EXPANDED)
+                COLOR_ESC_PRINT(printf(RESET));
+        }
+
+        if (p_item->type == TK_NEWLINE)
+            break;
+        p_item = p_item->next;
     }
-    printf("\n");
 
-    if (!visual_studio_ouput_format)
-        COLOR_ESC_PRINT(printf(LIGHTGRAY));
+    const struct token * p_token_begin = p_marker->p_token_begin ? p_marker->p_token_begin : p_marker->p_token_caret;
+    const struct token * p_token_end = p_marker->p_token_end ? p_marker->p_token_end : p_marker->p_token_caret;
+
+    if (p_item == NULL) printf("\n");
 
     printf(" %*s |", n, " ");
-
-    for (int i = 1; i <= (p_token->col - 1) + offset; i++)
+    bool onoff = false;
+    p_item = p_line_begin;
+    while (p_item)
     {
-        printf(" ");
-    }
+        if (p_item == p_token_begin)
+        {
+            if (!visual_studio_ouput_format)
+                COLOR_ESC_PRINT(printf(LIGHTGREEN));
+            onoff = true;
+        }
 
-    if (!visual_studio_ouput_format)
-        COLOR_ESC_PRINT(printf(LIGHTGREEN));
+        const char* p = p_item->lexeme;
+        while (*p)
+        {
 
-    printf("^");
+            if (onoff)
+                putc('~', stdout);
+            else
+                putc(' ', stdout);
+            p++;
+        }
 
+        if (p_item->type == TK_NEWLINE)
+            break;
 
-    char* p = p_token->lexeme + 1;
-    while (p && *p)
-    {
-        printf("~");
-        p++;
+        if (p_item == p_token_end)
+        {
+            onoff = false;
+            if (!visual_studio_ouput_format)
+                COLOR_ESC_PRINT(printf(RESET));
+        }
+
+        p_item = p_item->next;
     }
 
     if (!visual_studio_ouput_format)

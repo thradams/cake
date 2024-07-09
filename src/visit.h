@@ -4,12 +4,12 @@
 
 struct defer_scope
 {
-    struct defer_statement* defer_statement; // defer 
-    struct try_statement* p_try_statement; //try
-    struct selection_statement* p_selection_statement2; //if swith
-    struct iteration_statement* p_iteration_statement; //for do while
-    struct statement* p_statement; //
-    struct compound_statement* p_function_body;
+    struct defer_statement* _Opt defer_statement; // defer 
+    struct try_statement* _Opt p_try_statement; //try
+    struct selection_statement* _Opt p_selection_statement2; //if swith
+    struct iteration_statement* _Opt p_iteration_statement; //for do while
+    struct statement* _Opt p_statement; //
+    struct compound_statement* _Opt p_function_body;
     struct defer_scope* _Owner lastchild;
 
     struct defer_scope* _Owner _Opt previous;

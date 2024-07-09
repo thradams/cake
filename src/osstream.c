@@ -12,7 +12,7 @@ void ss_swap(_View struct osstream* a, _View struct osstream* b)
 {
     _View struct osstream r = *a;
     *a = *b;
-    *b = r;    
+    *b = r;
 }
 
 void ss_clear(struct osstream* stream)
@@ -21,9 +21,9 @@ void ss_clear(struct osstream* stream)
 }
 
 
-void ss_close( struct osstream * _Obj_owner stream)
+void ss_close(struct osstream* _Obj_owner stream)
 {
-    free(stream->c_str);    
+    free(stream->c_str);
 }
 
 static int reserve(struct osstream* stream, int size)
@@ -31,7 +31,7 @@ static int reserve(struct osstream* stream, int size)
     int errorcode = 0;
     if (size > stream->capacity)
     {
-        void* _Owner _Opt pnew = realloc( stream->c_str, (size + 1) * sizeof(char));
+        void* _Owner _Opt pnew = realloc(stream->c_str, (size + 1) * sizeof(char));
         if (pnew)
         {
             static_set(stream->c_str, "moved");
@@ -52,13 +52,22 @@ int ss_vafprintf(struct osstream* stream, const char* fmt, va_list args)
 {
     assert(fmt != 0);
     int size = 0;
-    va_list tmpa = {0};
+
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
+#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
+
+
+
+    va_list tmpa = { 0 };
 
     va_copy(tmpa, args);
 
     size = vsnprintf(stream->c_str + stream->size, stream->capacity - stream->size, fmt, tmpa);
 
     va_end(tmpa);
+
+#pragma CAKE diagnostic pop
 
     if (size < 0)
     {
@@ -95,10 +104,17 @@ int ss_putc(char ch, struct osstream* stream)
 
 int ss_fprintf(struct osstream* stream, const char* fmt, ...)
 {
-    va_list args = {0};
+#pragma CAKE diagnostic push
+#pragma CAKE diagnostic ignored "-Wnullable-to-non-nullable"
+#pragma CAKE diagnostic ignored "-Wanalyzer-null-dereference"
+
+    va_list args = { 0 };
     va_start(args, fmt);
     int size = ss_vafprintf(stream, fmt, args);
     va_end(args);
+
+#pragma CAKE diagnostic pop
+
     return size;
 }
 

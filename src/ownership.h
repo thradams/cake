@@ -15,6 +15,12 @@ void* _Owner _Opt malloc(size_t size);
 void* _Owner _Opt realloc(void* _Opt ptr, size_t size);
 char* _Owner _Opt strdup(const char* src);
 
+long strtol(
+    char const* _String,
+    char**     _Opt _EndPtr,
+    int         _Radix
+    );
+
 int snprintf(_Out char* const _Buffer,
              size_t const _BufferCount,
              char const* const _Format,

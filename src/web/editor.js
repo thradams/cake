@@ -32,7 +32,7 @@ function validate(model) {
                     if (marks.charAt(k) == "|")
                       {line_start = k;
                       }
-                    if (marks.charAt(k) == "^")
+                    if (marks.charAt(k) == "^" || marks.charAt(k) == "~")
                     { 
                         start_col = k;
                         end_col = k;

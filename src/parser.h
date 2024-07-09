@@ -50,7 +50,7 @@ struct report
     int test_failed;
     int test_succeeded;
 
-    enum diagnostic_id last_diagnostic_id;
+    enum diagnostic_id last_diagnostics_ids[2];
 
     /*
       direct commands like -autoconfig doesnt use report
@@ -58,23 +58,23 @@ struct report
     bool ignore_this_report;
 };
 
-struct switch_value 
+struct switch_value
 {
-    long long value; 
+    long long value;
     struct label* _Opt p_label;
-    struct switch_value* _Owner _Opt next; 
+    struct switch_value* _Owner _Opt next;
 };
 
 struct  switch_value_list
 {
-    struct switch_value * _Owner _Opt head;
-    struct switch_value * _Opt tail;
-    struct switch_value * _Owner _Opt p_default;
+    struct switch_value* _Owner _Opt head;
+    struct switch_value* _Opt tail;
+    struct switch_value* _Owner _Opt p_default;
 };
 
 void switch_value_destroy(struct switch_value_list* _Obj_owner list);
 void switch_value_list_push(struct switch_value_list* list, struct switch_value* _Owner pnew);
-struct switch_value * switch_value_list_find(struct switch_value_list* list, long long value);
+struct switch_value* switch_value_list_find(struct switch_value_list* list, long long value);
 
 struct parser_ctx
 {
@@ -100,7 +100,7 @@ struct parser_ctx
     */
     const struct selection_statement* _Opt p_current_selection_statement;
 
-    struct  switch_value_list *_Opt p_switch_value_list;
+    struct  switch_value_list* _Opt p_switch_value_list;
 
     FILE* _Owner _Opt sarif_file;
 
@@ -143,10 +143,14 @@ void print_scope(struct scope_list* e);
 
 char* CompileText(const char* options, const char* content);
 
+
+
 _Bool compiler_diagnostic_message(enum diagnostic_id w,
     struct parser_ctx* ctx,
     const struct token* _Opt p_token,
+    const struct marker* _Opt p_marker,
     const char* fmt, ...);
+
 
 int compile(int argc, const char** argv, struct report* error);
 
@@ -824,7 +828,6 @@ struct parameter_declaration
 
     struct declaration_specifiers* _Owner declaration_specifiers;
     struct declarator* _Owner _Opt  declarator;
-    struct token* implicit_token;
     struct parameter_declaration* _Owner _Opt next;
 };
 struct parameter_declaration* _Owner _Opt parameter_declaration(struct parser_ctx* ctx);

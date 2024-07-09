@@ -1,32 +1,24 @@
+
 #pragma safety enable
 
-struct Z {
-    int i;
-};
 
-struct Y {
-    int i;
-    struct Z* _Opt pZ;
-};
+void* _Owner _Opt malloc(int i);
+void free(void* _Owner _Opt);
 
 struct X {
-    struct Y* _Opt pY;
+    char* _Owner _Opt name;
 };
 
-void f(struct X* _Opt p)
+#define XY p->name
+int main()
 {
-    /*
-               &&
-             /   \
-           &&     \
-         /   \     \ 
-       p    p->pY   \
-                     \
-                      p->pY->pZ
-    */
-
-    if (p && p->pY && p->pY->pZ)
+    struct X* _Owner _Opt p = malloc(sizeof(struct X));
+    if (p)
     {
-        p->pY->pZ->i = 1;
+        if (*XY)
+        {
+
+        }
     }
+
 }

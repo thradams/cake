@@ -28,7 +28,7 @@ enum attribute_flags
     STD_ATTRIBUTE_NORETURN = 1 << 4,
     STD_ATTRIBUTE_UNSEQUENCED = 1 << 5,
     STD_ATTRIBUTE_REPRODUCIBLE = 1 << 6,
-    CAKE_ATTRIBUTE_IMPLICT = 1 << 7,
+    
     /*
      1 == 2 results in int in C
      lets add extra flag here
@@ -157,6 +157,7 @@ struct type_list {
     struct type* _Opt tail;
 };
 
+void type_list_destroy(struct type_list* _Obj_owner p_type_list);
 void type_list_push_back(struct type_list* books, struct type* _Owner new_book);
 void type_list_push_front(struct type_list* books, struct type* _Owner new_book);
 
@@ -207,7 +208,7 @@ const struct param_list* type_get_func_or_func_ptr_params(const struct type* p_t
 
 struct param {
     struct type type;
-    struct param* _Owner next;
+    struct param* _Owner _Opt next;
 };
 
 struct expression;
@@ -251,6 +252,7 @@ bool type_is_pointer_to_out(const struct type* p_type);
 bool type_is_out(const struct type* p_type);
 bool type_is_nullptr_t(const struct type* p_type);
 bool type_is_void_ptr(const struct type* p_type);
+bool type_is_exactly_int(const struct type* p_type);
 bool type_is_integer(const struct type* p_type);
 bool type_is_unsigned_integer(const struct type* p_type);
 bool type_is_floating_point(const struct type* p_type);
