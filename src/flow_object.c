@@ -3380,7 +3380,7 @@ struct flow_object* _Opt  expression_get_object(struct flow_visit_ctx* ctx, stru
     return NULL;
 }
 
-void flow_assignment(
+void flow_check_assignment(
     struct flow_visit_ctx* ctx,
     const struct token* error_position,
     enum assigment_type assigment_type,

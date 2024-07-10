@@ -1,24 +1,8 @@
 
-#pragma safety enable
 
+#pragma cake diagnostic check "-E74"
 
-void* _Owner _Opt malloc(int i);
-void free(void* _Owner _Opt);
-
-struct X {
-    char* _Owner _Opt name;
+struct X{    
+    int b[sizeof(struct X)];
 };
-
-#define XY p->name
-int main()
-{
-    struct X* _Owner _Opt p = malloc(sizeof(struct X));
-    if (p)
-    {
-        if (*XY)
-        {
-
-        }
-    }
-
-}
+int main(){}

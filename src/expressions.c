@@ -2366,6 +2366,64 @@ bool is_first_of_unary_expression(struct parser_ctx* ctx)
         is_first_of_compiler_function(ctx);
 }
 
+static int check_sizeof_argument(struct parser_ctx* ctx,
+    const struct expression* p_expression,
+    const struct type* const p_type)
+{
+    //sizeof(type)  p_expression is the sizeof expression
+    //sizeof(expression) p_expression is expression
+
+
+    enum type_category category = type_get_category(p_type);
+
+    if (category == TYPE_CATEGORY_FUNCTION)
+    {
+        //In GCC returns 1
+
+        //The sizeof operator shall not be applied to an expression that has function type or an incomplete type
+    }
+    else if (category == TYPE_CATEGORY_ITSELF &&
+            p_type->type_specifier_flags & TYPE_SPECIFIER_STRUCT_OR_UNION)
+    {
+        struct struct_or_union_specifier* p_complete =
+            get_complete_struct_or_union_specifier(p_type->struct_or_union_specifier);
+        if (p_complete == NULL)
+        {
+            //The sizeof operator shall not be applied to an expression that has function type or an incomplete type
+            compiler_diagnostic_message(C_ERROR_STRUCT_IS_INCOMPLETE,
+                                       ctx,
+                                       p_expression->first_token,
+                                       NULL,
+                                       "struct is incomplete type");
+            return -1;
+        }
+    }
+    else if (category == TYPE_CATEGORY_ARRAY)
+    {
+        if (type_is_vla(p_type))
+        {
+            return 0;
+        }
+
+        if (p_type->storage_class_specifier_flags & STORAGE_SPECIFIER_PARAMETER)
+        {
+            //GCC
+            //<source>:4:21: warning: 'sizeof' on array function parameter 'a' will return size of 'int *' [-Wsizeof-array-argument]
+            //CLANG
+            //<source>:4:21: warning: sizeof on array function parameter will return size of 'int *' instead of 'int[]' [-Wsizeof-array-argument]
+
+            compiler_diagnostic_message(W_SIZEOF_ARRAY_ARGUMENT,
+                                        ctx,
+                                        p_expression->first_token,
+                                        NULL,
+                                        "sizeof applied to array function parameter");
+
+        }
+    }
+
+    return 0; //ok
+}
+
 struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 {
     /*
@@ -2595,7 +2653,20 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
                     throw;
                 }
 
-                new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
+                if (check_sizeof_argument(ctx, new_expression, &new_expression->type_name->type) != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (type_is_vla(&new_expression->type_name->declarator->type))
+                {
+                    //not constant
+                }
+                else
+                {
+                    new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->type_name->declarator->type), false);
+                }
             }
             else
             {
@@ -2610,7 +2681,20 @@ struct expression* _Owner _Opt unary_expression(struct parser_ctx* ctx)
 
                 new_expression->expression_type = UNARY_EXPRESSION_SIZEOF_EXPRESSION;
 
-                new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->right->type), false);
+                if (check_sizeof_argument(ctx, new_expression->right, &new_expression->right->type) != 0)
+                {
+                    expression_delete(new_expression);
+                    throw;
+                }
+
+                if (type_is_vla(&new_expression->right->type))
+                {
+                    //not constant
+                }
+                else
+                {
+                    new_expression->constant_value = make_constant_value_ll(type_get_sizeof(&new_expression->right->type), false);
+                }
             }
 
             type_destroy(&new_expression->type);
@@ -4502,4 +4586,293 @@ bool expression_is_subjected_to_lvalue_conversion(const struct expression* expre
     }
 
     return true;
+}
+
+void check_assigment(struct parser_ctx* ctx,
+    struct type* p_a_type, /*this is not expression because function parameters*/
+    struct expression* p_b_expression,
+    enum assigment_type assignment_type /*ASSIGMENT_TYPE_RETURN, ASSIGMENT_TYPE_PARAMETER, ASSIGMENT_TYPE_OBJECTS*/)
+{
+    struct type* const p_b_type = &p_b_expression->type;
+    bool is_null_pointer_constant = false;
+
+    if (type_is_nullptr_t(&p_b_expression->type) ||
+        (constant_value_is_valid(&p_b_expression->constant_value) &&
+            constant_value_to_ull(&p_b_expression->constant_value) == 0))
+    {
+        is_null_pointer_constant = true;
+    }
+
+    if (type_is_pointer(p_a_type))
+    {
+        if (!type_is_nullptr_t(p_b_type) &&
+            !type_is_pointer_or_array(p_b_type) &&
+            !type_is_function(p_b_type))
+        {
+            if (is_null_pointer_constant)
+            {
+                if (p_b_expression->expression_type == PRIMARY_EXPRESSION_NUMBER)
+                {
+                    // This is the only exception.
+                    // p = 0;
+                    compiler_diagnostic_message(W_STYLE, ctx, p_b_expression->first_token, NULL, "use NULL instead of 0");
+                }
+                else
+                {
+                    //Everthing else is unusual
+                    // p = false;
+                    // p = 1-1;
+                    // p = '\0';
+                    compiler_diagnostic_message(W_UNSUAL_NULL_POINTER_CONSTANT, ctx, p_b_expression->first_token, NULL, "unusual type used as null pointer constant");
+                }
+            }
+            else
+            {
+                compiler_diagnostic_message(C_ERROR_INT_TO_POINTER, ctx, p_b_expression->first_token, NULL, "non-pointer to pointer");
+            }
+        }
+    }
+
+    struct type lvalue_right_type = { 0 };
+    struct type t2 = { 0 };
+
+    if (expression_is_subjected_to_lvalue_conversion(p_b_expression))
+    {
+        lvalue_right_type = type_lvalue_conversion(p_b_type, ctx->options.null_checks_enabled);
+    }
+    else
+    {
+        lvalue_right_type = type_dup(p_b_type);
+    }
+
+
+    if (type_is_owner(p_a_type) && !type_is_owner(&p_b_expression->type))
+    {
+        if (!is_null_pointer_constant)
+        {
+            compiler_diagnostic_message(W_OWNERSHIP_NON_OWNER_TO_OWNER_ASSIGN, ctx, p_b_expression->first_token, NULL, "cannot assign a non-owner to owner");
+            type_destroy(&lvalue_right_type);
+            type_destroy(&t2);
+            return;
+        }
+    }
+
+    if (!type_is_owner(p_a_type) && type_is_any_owner(&p_b_expression->type))
+    {
+        if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_FUNCTION_RETURN)
+        {
+            compiler_diagnostic_message(W_OWNERSHIP_USING_TEMPORARY_OWNER,
+                ctx,
+                p_b_expression->first_token, NULL,
+                "cannot assign a temporary _Owner to no-_Owner object.");
+            type_destroy(&lvalue_right_type);
+            type_destroy(&t2);
+            return;
+        }
+    }
+
+    if (assignment_type == ASSIGMENT_TYPE_RETURN)
+    {
+        if (!type_is_owner(p_a_type) && type_is_any_owner(&p_b_expression->type))
+        {
+            if (p_b_expression->type.storage_class_specifier_flags & STORAGE_SPECIFIER_AUTOMATIC_STORAGE)
+            {
+                compiler_diagnostic_message(C_ERROR_RETURN_LOCAL_OWNER_TO_NON_OWNER,
+                    ctx,
+                    p_b_expression->first_token, NULL,
+                    "cannot return a automatic storage duration _Owner to non-owner");
+                type_destroy(&lvalue_right_type);
+                type_destroy(&t2);
+                return;
+            }
+        }
+    }
+
+    if (type_is_obj_owner(p_a_type) && type_is_pointer(p_a_type))
+    {
+        if (type_is_owner(p_b_type))
+        {
+        }
+        else if (!p_b_type->address_of)
+        {
+            compiler_diagnostic_message(W_MUST_USE_ADDRESSOF,
+                       ctx,
+                       p_b_expression->first_token, NULL,
+                       "source expression of _Obj_owner must be addressof");
+        }
+    }
+
+
+    if (type_is_pointer(p_a_type) &&
+        !type_is_nullable(p_a_type, ctx->options.null_checks_enabled) &&
+        is_null_pointer_constant)
+    {
+
+        compiler_diagnostic_message(W_FLOW_NULLABLE_TO_NON_NULLABLE,
+            ctx,
+            p_b_expression->first_token, NULL,
+            "cannot convert a null pointer constant to non-nullable pointer");
+
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+
+        return;
+
+    }
+
+
+
+    /*
+       less generic tests are first
+    */
+    if (type_is_enum(p_b_type) && type_is_enum(p_a_type))
+    {
+        if (!type_is_same(p_b_type, p_a_type, false))
+        {
+            compiler_diagnostic_message(W_INCOMPATIBLE_ENUN_TYPES, ctx,
+                p_b_expression->first_token, NULL,
+                " incompatible types ");
+        }
+
+
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+        return;
+    }
+
+    if (type_is_arithmetic(p_b_type) && type_is_arithmetic(p_a_type))
+    {
+
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+        return;
+    }
+
+    if (is_null_pointer_constant && type_is_pointer(p_a_type))
+    {
+        //TODO void F(int * [[_Opt]] p)
+        // F(0) when passing null we will check if the parameter
+        //have the anotation [[_Opt]]
+
+        /*can be converted to any type*/
+
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+        return;
+    }
+
+    if (is_null_pointer_constant && type_is_array(p_a_type))
+    {
+        compiler_diagnostic_message(W_FLOW_NON_NULL,
+            ctx,
+            p_b_expression->first_token, NULL,
+            " passing null as array");
+
+
+        type_destroy(&lvalue_right_type);
+        type_destroy(&t2);
+        return;
+    }
+
+    /*
+       We have two pointers or pointer/array combination
+    */
+    if (type_is_pointer_or_array(p_b_type) && type_is_pointer_or_array(p_a_type))
+    {
+        if (type_is_void_ptr(p_b_type))
+        {
+            /*void pointer can be converted to any type*/
+
+            type_destroy(&lvalue_right_type);
+            type_destroy(&t2);
+            return;
+        }
+
+        if (type_is_void_ptr(p_a_type))
+        {
+            /*any pointer can be converted to void* */
+
+            type_destroy(&lvalue_right_type);
+            type_destroy(&t2);
+            return;
+        }
+
+
+        //TODO  lvalue
+
+        if (type_is_array(p_a_type))
+        {
+            int parameter_array_size = p_a_type->num_of_elements;
+            if (type_is_array(p_b_type))
+            {
+                int argument_array_size = p_b_type->num_of_elements;
+                if (parameter_array_size != 0 &&
+                    argument_array_size < parameter_array_size)
+                {
+                    compiler_diagnostic_message(C_ERROR_ARGUMENT_SIZE_SMALLER_THAN_PARAMETER_SIZE, ctx,
+                        p_b_expression->first_token, NULL,
+                        " argument of size [%d] is smaller than parameter of size [%d]", argument_array_size, parameter_array_size);
+                }
+            }
+            else if (is_null_pointer_constant || type_is_nullptr_t(p_b_type))
+            {
+                compiler_diagnostic_message(W_PASSING_NULL_AS_ARRAY, ctx,
+                    p_b_expression->first_token, NULL,
+                    " passing null as array");
+            }
+            t2 = type_lvalue_conversion(p_a_type, ctx->options.null_checks_enabled);
+        }
+        else
+        {
+            t2 = type_dup(p_a_type);
+        }
+
+
+
+        if (!type_is_same(&lvalue_right_type, &t2, false))
+        {
+            type_print(&lvalue_right_type);
+            type_print(&t2);
+
+            compiler_diagnostic_message(C_ERROR_INCOMPATIBLE_TYPES, ctx,
+                p_b_expression->first_token, NULL,
+                " incompatible types at argument ");
+            //disabled for now util it works correctly
+            //return false;
+        }
+
+        if (type_is_pointer(&lvalue_right_type) && type_is_pointer(&t2))
+        {
+            //parameter pointer do non const
+            //argument const.
+            struct type argument_pointer_to = type_remove_pointer(&lvalue_right_type);
+            struct type parameter_pointer_to = type_remove_pointer(&t2);
+            if (type_is_const(&argument_pointer_to) && !type_is_const(&parameter_pointer_to))
+            {
+                compiler_diagnostic_message(W_DISCARDED_QUALIFIERS, ctx,
+                    p_b_expression->first_token, NULL,
+                    " discarding const at argument ");
+            }
+            type_destroy(&argument_pointer_to);
+            type_destroy(&parameter_pointer_to);
+        }
+        //return true;
+    }
+
+    if (!type_is_same(p_a_type, &lvalue_right_type, false))
+    {
+        //TODO more rules..but it is good to check worst case!
+        //
+        //  compiler_diagnostic_message(C1, ctx,
+        //      right->first_token,
+        //      " incompatible types ");
+    }
+
+
+
+
+
+    type_destroy(&lvalue_right_type);
+    type_destroy(&t2);
+
 }

@@ -243,3 +243,8 @@ void check_diferent_enuns(struct parser_ctx* ctx,
                                  struct expression* left,
                                  struct expression* right,
                                  const char * message);
+
+void check_assigment(struct parser_ctx* ctx,
+    struct type* left_type,
+    struct expression* right,
+    enum assigment_type assigment_type);

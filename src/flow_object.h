@@ -161,7 +161,7 @@ struct token;
 
 void print_object(struct type* p_type, struct flow_object* p_object, bool short_version);
 
-void flow_assignment(struct flow_visit_ctx* ctx,
+void flow_check_assignment(struct flow_visit_ctx* ctx,
     const struct token* error_position,
     enum  assigment_type assigment_type,
     bool check_uninitialized_b,

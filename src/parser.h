@@ -50,7 +50,15 @@ struct report
     int test_failed;
     int test_succeeded;
 
+    /*
+     Warnings are removed (-test-mode) on demand at next line,
+     but we can have more than one warning at same line then we need this array
+    */
     enum diagnostic_id last_diagnostics_ids[2];
+
+    //this error is expected in test-mode
+    //it is used when the error aborts parsing
+    enum diagnostic_id fatal_error_expected;
 
     /*
       direct commands like -autoconfig doesnt use report

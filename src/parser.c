@@ -2080,6 +2080,7 @@ struct declaration_specifiers* _Owner  _Opt declaration_specifiers(struct parser
             }
 
             struct declaration_specifier* _Owner  _Opt p_declaration_specifier = declaration_specifier(ctx);
+            if (p_declaration_specifier == NULL) throw;
 
             if (p_declaration_specifier->type_specifier_qualifier)
             {
@@ -2145,25 +2146,26 @@ struct declaration_specifiers* _Owner  _Opt declaration_specifiers(struct parser
             }
         }
         p_declaration_specifiers->last_token = previous_parser_token(ctx->current);
+
+        if (p_declaration_specifiers)
+        {
+            // int main() { static int i; } // i is not automatic
+            final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
+        }
+
+        p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
+
+        if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
+        {
+            //
+            p_declaration_specifiers->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
+        }
     }
     catch
     {
+        declaration_specifiers_delete(p_declaration_specifiers);
+        p_declaration_specifiers = NULL;
     }
-
-    if (p_declaration_specifiers)
-    {
-        // int main() { static int i; } // i is not automatic
-        final_specifier(ctx, &p_declaration_specifiers->type_specifier_flags);
-    }
-
-    p_declaration_specifiers->storage_class_specifier_flags |= default_storage_flag;
-
-    if (p_declaration_specifiers->storage_class_specifier_flags & STORAGE_SPECIFIER_STATIC)
-    {
-        //
-        p_declaration_specifiers->storage_class_specifier_flags &= ~STORAGE_SPECIFIER_AUTOMATIC_STORAGE;
-    }
-
     return p_declaration_specifiers;
 }
 
@@ -2214,6 +2216,7 @@ struct declaration* _Owner  _Opt declaration_core(struct parser_ctx* ctx,
             if (first_of_declaration_specifier(ctx))
             {
                 p_declaration->declaration_specifiers = declaration_specifiers(ctx, default_storage_class_specifier_flags);
+                if (p_declaration->declaration_specifiers == NULL) throw;
 
                 if (p_declaration->p_attribute_specifier_sequence_opt)
                 {
@@ -2491,21 +2494,34 @@ struct declaration_specifier* _Owner  _Opt declaration_specifier(struct parser_c
     //    type-specifier-qualifier
     //    function-specifier
     struct declaration_specifier* _Owner _Opt p_declaration_specifier = calloc(1, sizeof * p_declaration_specifier);
-    if (first_of_storage_class_specifier(ctx))
+    try
     {
-        p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
+        if (p_declaration_specifier == NULL) throw;
+
+        if (first_of_storage_class_specifier(ctx))
+        {
+            p_declaration_specifier->storage_class_specifier = storage_class_specifier(ctx);
+            if (p_declaration_specifier->storage_class_specifier == NULL) throw;
+        }
+        else if (first_of_type_specifier_qualifier(ctx))
+        {
+            p_declaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx);
+            if (p_declaration_specifier->type_specifier_qualifier == NULL) throw;
+        }
+        else if (first_of_function_specifier(ctx))
+        {
+            p_declaration_specifier->function_specifier = function_specifier(ctx);
+            if (p_declaration_specifier->function_specifier == NULL) throw;
+        }
+        else
+        {
+            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
+        }
     }
-    else if (first_of_type_specifier_qualifier(ctx))
+    catch
     {
-        p_declaration_specifier->type_specifier_qualifier = type_specifier_qualifier(ctx);
-    }
-    else if (first_of_function_specifier(ctx))
-    {
-        p_declaration_specifier->function_specifier = function_specifier(ctx);
-    }
-    else
-    {
-        compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, ctx->current, NULL, "unexpected");
+        declaration_specifier_delete(p_declaration_specifier);
+        p_declaration_specifier = NULL;
     }
     return p_declaration_specifier;
 }
@@ -3066,6 +3082,7 @@ struct type_specifier* _Owner  _Opt type_specifier(struct parser_ctx* ctx)
     */
 
     struct type_specifier* _Owner _Opt p_type_specifier = calloc(1, sizeof * p_type_specifier);
+
     if (p_type_specifier == NULL)
         return NULL;
 
@@ -3204,24 +3221,45 @@ struct type_specifier* _Owner  _Opt type_specifier(struct parser_ctx* ctx)
         p_type_specifier->token = ctx->current;
         p_type_specifier->flags = TYPE_SPECIFIER_TYPEOF;
         p_type_specifier->typeof_specifier = typeof_specifier(ctx);
+        if (p_type_specifier->typeof_specifier == NULL)
+        {
+            type_specifier_delete(p_type_specifier);
+            return NULL;
+        }
+
     }
     else if (first_of_atomic_type_specifier(ctx))
     {
         p_type_specifier->token = ctx->current;
         p_type_specifier->flags = TYPE_SPECIFIER_ATOMIC;
         p_type_specifier->atomic_type_specifier = atomic_type_specifier(ctx);
+        if (p_type_specifier->atomic_type_specifier == NULL)
+        {
+            type_specifier_delete(p_type_specifier);
+            return NULL;
+        }
     }
     else if (first_of_struct_or_union(ctx))
     {
         p_type_specifier->token = ctx->current;
         p_type_specifier->flags = TYPE_SPECIFIER_STRUCT_OR_UNION;
         p_type_specifier->struct_or_union_specifier = struct_or_union_specifier(ctx);
+        if (p_type_specifier->struct_or_union_specifier == NULL)
+        {
+            type_specifier_delete(p_type_specifier);
+            return NULL;
+        }
     }
     else if (first_of_enum_specifier(ctx))
     {
         p_type_specifier->token = ctx->current;
         p_type_specifier->flags = TYPE_SPECIFIER_ENUM;
         p_type_specifier->enum_specifier = enum_specifier(ctx);
+        if (p_type_specifier->enum_specifier == NULL)
+        {
+            type_specifier_delete(p_type_specifier);
+            return NULL;
+        }
     }
     else if (ctx->current->type == TK_IDENTIFIER)
     {
@@ -3430,6 +3468,8 @@ struct struct_or_union_specifier* _Owner  _Opt struct_or_union_specifier(struct 
                 p_struct_or_union_specifier->member_declaration_list = member_declaration_list(ctx, p_struct_or_union_specifier);
 #pragma cake diagnostic pop
 
+                //we cannot have an empty struct
+                if (p_struct_or_union_specifier->member_declaration_list.head == NULL) throw;
             }
             p_struct_or_union_specifier->member_declaration_list.first_token = firsttoken;
             p_struct_or_union_specifier->last_token = ctx->current;
@@ -3482,32 +3522,43 @@ struct member_declarator* _Owner  _Opt member_declarator(
      declaratoropt : constant-expression
     */
     struct member_declarator* _Owner _Opt p_member_declarator = calloc(1, sizeof(struct member_declarator));
+    try
+    {
+        if (p_member_declarator == NULL) throw;
 
-    struct token* _Opt p_token_name = NULL;
+        struct token* _Opt p_token_name = NULL;
 
-    p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/ NULL, false, &p_token_name);
-    p_member_declarator->declarator->name_opt = p_token_name;
-    p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
+        p_member_declarator->declarator = declarator(ctx, p_specifier_qualifier_list, /*declaration_specifiers*/ NULL, false, &p_token_name);
+        if (p_member_declarator->declarator == NULL) throw;
+
+        p_member_declarator->declarator->name_opt = p_token_name;
+        p_member_declarator->declarator->specifier_qualifier_list = p_specifier_qualifier_list;
 
 #pragma cake diagnostic push
 #pragma cake diagnostic ignored "-Wmissing-destructor"    
-    p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
+        p_member_declarator->declarator->type = make_type_using_declarator(ctx, p_member_declarator->declarator);
 #pragma cake diagnostic pop
 
-    /*extension*/
-    if (type_is_owner(&p_member_declarator->declarator->type))
-    {
-        /*having at least 1 _Owner member, the struct type is _Owner by default*/
-        p_struct_or_union_specifier->is_owner = true;
+        /*extension*/
+        if (type_is_owner(&p_member_declarator->declarator->type))
+        {
+            /*having at least 1 _Owner member, the struct type is _Owner by default*/
+            p_struct_or_union_specifier->is_owner = true;
+        }
+
+        if (p_member_declarator->declarator->name_opt)
+            naming_convention_struct_member(ctx, p_member_declarator->declarator->name_opt, &p_member_declarator->declarator->type);
+
+        if (ctx->current->type == ':')
+        {
+            parser_match(ctx);
+            p_member_declarator->constant_expression = constant_expression(ctx, true);
+        }
     }
-
-    if (p_member_declarator->declarator->name_opt)
-        naming_convention_struct_member(ctx, p_member_declarator->declarator->name_opt, &p_member_declarator->declarator->type);
-
-    if (ctx->current->type == ':')
+    catch
     {
-        parser_match(ctx);
-        p_member_declarator->constant_expression = constant_expression(ctx, true);
+        member_declarator_delete(p_member_declarator);
+        p_member_declarator = NULL;
     }
     return p_member_declarator;
 }
@@ -3558,12 +3609,31 @@ struct member_declarator_list* _Owner  _Opt member_declarator_list(
     const struct specifier_qualifier_list* p_specifier_qualifier_list)
 {
     struct member_declarator_list* _Owner _Opt p_member_declarator_list = calloc(1, sizeof(struct member_declarator_list));
-    member_declarator_list_add(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
-    while (ctx->current->type == ',')
+    try
     {
-        parser_match(ctx);
-        member_declarator_list_add(p_member_declarator_list, member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list));
+        if (p_member_declarator_list == NULL) throw;
+
+        struct member_declarator* _Opt _Owner p_member_declarator = member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list);
+        if (p_member_declarator == NULL) throw;
+
+        member_declarator_list_add(p_member_declarator_list, p_member_declarator);
+
+        while (ctx->current->type == ',')
+        {
+            parser_match(ctx);
+
+            struct member_declarator* _Opt _Owner p_member_declarator2 = member_declarator(ctx, p_struct_or_union_specifier, p_specifier_qualifier_list);
+            if (p_member_declarator2 == NULL) throw;
+
+            member_declarator_list_add(p_member_declarator_list, p_member_declarator2);
+        }
     }
+    catch
+    {
+        member_declarator_list_delete(p_member_declarator_list);
+        p_member_declarator_list = NULL;
+    }
+
     return p_member_declarator_list;
 }
 
@@ -3620,6 +3690,8 @@ struct member_declaration_list member_declaration_list(struct parser_ctx* ctx, s
     }
     catch
     {
+        member_declaration_list_destroy(&list);
+        list = (struct member_declaration_list){ 0 };
     }
 
     return list;
@@ -3666,6 +3738,7 @@ struct member_declaration* _Owner  _Opt member_declaration(struct parser_ctx* ct
                 p_member_declaration->member_declarator_list_opt = member_declarator_list(ctx,
                     p_struct_or_union_specifier,
                     p_member_declaration->specifier_qualifier_list);
+                if (p_member_declaration->member_declarator_list_opt == NULL) throw;
             }
             if (parser_match_tk(ctx, ';') != 0)
                 throw;
@@ -3895,24 +3968,37 @@ void type_specifier_qualifier_delete(struct type_specifier_qualifier* _Owner _Op
 struct type_specifier_qualifier* _Owner  _Opt type_specifier_qualifier(struct parser_ctx* ctx)
 {
     struct type_specifier_qualifier* _Owner _Opt type_specifier_qualifier = calloc(1, sizeof * type_specifier_qualifier);
-    // type_specifier
-    // type_qualifier
-    // alignment_specifier
-    if (first_of_type_specifier(ctx))
+    try
     {
-        type_specifier_qualifier->type_specifier = type_specifier(ctx);
+        if (type_specifier_qualifier == NULL) throw;
+
+        // type_specifier
+        // type_qualifier
+        // alignment_specifier
+        if (first_of_type_specifier(ctx))
+        {
+            type_specifier_qualifier->type_specifier = type_specifier(ctx);
+            if (type_specifier_qualifier->type_specifier == NULL) throw;
+        }
+        else if (first_of_type_qualifier(ctx))
+        {
+            type_specifier_qualifier->type_qualifier = type_qualifier(ctx);
+            if (type_specifier_qualifier->type_qualifier == NULL) throw;
+        }
+        else if (first_of_alignment_specifier(ctx))
+        {
+            type_specifier_qualifier->alignment_specifier = alignment_specifier(ctx);
+            if (type_specifier_qualifier->alignment_specifier == NULL) throw;
+        }
+        else
+        {
+            assert(false);
+        }
     }
-    else if (first_of_type_qualifier(ctx))
+    catch
     {
-        type_specifier_qualifier->type_qualifier = type_qualifier(ctx);
-    }
-    else if (first_of_alignment_specifier(ctx))
-    {
-        type_specifier_qualifier->alignment_specifier = alignment_specifier(ctx);
-    }
-    else
-    {
-        assert(false);
+        type_specifier_qualifier_delete(type_specifier_qualifier);
+        type_specifier_qualifier = NULL;
     }
     return type_specifier_qualifier;
 }
@@ -4392,20 +4478,31 @@ struct declarator* _Owner  _Opt declarator(struct parser_ctx* ctx,
       pointer_opt direct-declarator
     */
     struct declarator* _Owner _Opt p_declarator = calloc(1, sizeof(struct declarator));
-    p_declarator->first_token = ctx->current;
-    p_declarator->pointer = pointer_opt(ctx);
-    p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
-
-    if (ctx->current != p_declarator->first_token)
+    try
     {
-        p_declarator->last_token = previous_parser_token(ctx->current);
+        if (p_declarator == NULL) throw;
+
+        p_declarator->first_token = ctx->current;
+        p_declarator->pointer = pointer_opt(ctx);
+        p_declarator->direct_declarator = direct_declarator(ctx, p_specifier_qualifier_list, p_declaration_specifiers, abstract_acceptable, pp_token_name);
+        if (p_declarator->direct_declarator == NULL) throw;
+
+        if (ctx->current != p_declarator->first_token)
+        {
+            p_declarator->last_token = previous_parser_token(ctx->current);
+        }
+        else
+        {
+            /*empty declarator*/
+
+            p_declarator->last_token = p_declarator->first_token;
+            p_declarator->first_token = NULL; /*this is the way we can know...first is null*/
+        }
     }
-    else
+    catch
     {
-        /*empty declarator*/
-
-        p_declarator->last_token = p_declarator->first_token;
-        p_declarator->first_token = NULL; /*this is the way we can know...first is null*/
+        declarator_delete(p_declarator);
+        p_declarator = NULL;
     }
 
     return p_declarator;
@@ -4513,10 +4610,13 @@ struct direct_declarator* _Owner  _Opt direct_declarator(struct parser_ctx* ctx,
             (ctx->current->type == '[' || ctx->current->type == '('))
         {
             struct direct_declarator* _Owner _Opt p_direct_declarator2 = calloc(1, sizeof(struct direct_declarator));
+            if (p_direct_declarator2 == NULL) throw;
             static_set(*p_direct_declarator2, "zero");
             if (ctx->current->type == '[')
             {
                 p_direct_declarator2->array_declarator = array_declarator(p_direct_declarator, ctx);
+                p_direct_declarator = NULL; //MOVED
+                if (p_direct_declarator2->array_declarator == NULL) throw;
             }
             else
             {
@@ -4527,6 +4627,8 @@ struct direct_declarator* _Owner  _Opt direct_declarator(struct parser_ctx* ctx,
     }
     catch
     {
+        direct_declarator_delete(p_direct_declarator);
+        p_direct_declarator = NULL;
     }
 
     return p_direct_declarator;
@@ -4568,7 +4670,9 @@ struct array_declarator* _Owner  _Opt array_declarator(struct direct_declarator*
     {
         p_array_declarator = calloc(1, sizeof * p_array_declarator);
         if (p_array_declarator == NULL)
+        {
             throw;
+        }
 
         p_array_declarator->direct_declarator = p_direct_declarator;
         p_direct_declarator = NULL; /*MOVED*/
@@ -4623,7 +4727,7 @@ struct array_declarator* _Owner  _Opt array_declarator(struct direct_declarator*
                 const bool evaluation_is_disabled = ctx->evaluation_is_disabled;
                 ctx->evaluation_is_disabled = false;
                 p_array_declarator->assignment_expression = assignment_expression(ctx);
-
+                if (p_array_declarator->assignment_expression == NULL) throw;
                 /*restore*/
                 ctx->evaluation_is_disabled = evaluation_is_disabled;
                 if (p_array_declarator->assignment_expression == NULL)
@@ -4639,9 +4743,9 @@ struct array_declarator* _Owner  _Opt array_declarator(struct direct_declarator*
     }
     catch
     {
-        if (p_array_declarator)
-        {
-        }
+        array_declarator_delete(p_array_declarator);
+        p_array_declarator = NULL;
+
     }
 
     direct_declarator_delete(p_direct_declarator);
@@ -5564,40 +5668,49 @@ void execute_pragma(struct parser_ctx* ctx, struct pragma_declaration* p_pragma,
             p_pragma_token = pragma_match(p_pragma_token);
 
             if (p_pragma_token && p_pragma_token->type == TK_STRING_LITERAL)
-            {
-                enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1);
-
-                if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) ||
-                    (on_flow_analysis && get_diagnostic_phase(id) == 2))
+            {                
+                if (p_pragma_token->lexeme[2] == 'E')
                 {
-                    bool found = false;
-                    for (int i = 0;
-                         i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
-                         i++)
-                    {
-                        if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
+                    //fatal errors are kept here and checked at end
+                    ctx->p_report->fatal_error_expected = atoi(p_pragma_token->lexeme + 3);                    
+                }
+                else
+                {
+                    enum diagnostic_id id = get_warning(p_pragma_token->lexeme + 1);
+                    //warnings errors are removed on demand..
 
-                        if (ctx->p_report->last_diagnostics_ids[i] == id)
+                    if ((!on_flow_analysis && get_diagnostic_phase(id) != 2) ||
+                        (on_flow_analysis && get_diagnostic_phase(id) == 2))
+                    {
+                        bool found = false;
+                        for (int i = 0;
+                             i < (int)(sizeof(ctx->p_report->last_diagnostics_ids) / sizeof(ctx->p_report->last_diagnostics_ids[0]));
+                             i++)
                         {
-                            // lets remove this error/warning/info from the final report.
-                            found = true;
-                            int t =
-                                get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
-                                    id);
-                            if (t == 3)
-                                ctx->p_report->error_count--;
-                            else if (t == 2)
-                                ctx->p_report->warnings_count--;
-                            else if (t == 1)
-                                ctx->p_report->info_count--;
+                            if (ctx->p_report->last_diagnostics_ids[i] == 0) break;
 
-                            break;
+                            if (ctx->p_report->last_diagnostics_ids[i] == id)
+                            {
+                                // lets remove this error/warning/info from the final report.
+                                found = true;
+                                int t =
+                                    get_diagnostic_type(&ctx->options.diagnostic_stack[ctx->options.diagnostic_stack_top_index],
+                                        id);
+                                if (t == 3)
+                                    ctx->p_report->error_count--;
+                                else if (t == 2)
+                                    ctx->p_report->warnings_count--;
+                                else if (t == 1)
+                                    ctx->p_report->info_count--;
+
+                                break;
+                            }
                         }
-                    }
 
-                    if (!found)
-                    {
-                        compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "pragma check failed");
+                        if (!found)
+                        {
+                            compiler_diagnostic_message(C_ERROR_UNEXPECTED, ctx, p_pragma_token, NULL, "pragma check failed");
+                        }
                     }
                 }
             }
@@ -6490,11 +6603,11 @@ struct unlabeled_statement* _Owner  _Opt unlabeled_statement(struct parser_ctx* 
                             p_unlabeled_statement->expression_statement->expression_opt->first_token,
                             "expression not used");
 #endif
-                    }
                 }
             }
         }
     }
+}
     catch
     {
         unlabeled_statement_delete(p_unlabeled_statement);
@@ -8267,6 +8380,13 @@ int compile_one_file(const char* file_name,
             free(content_expected);
         }
 
+        if (report->fatal_error_expected != 0)
+        {
+            if (report->last_diagnostics_ids[0] == report->fatal_error_expected)
+            {
+                report->error_count--;
+            }
+        }
         if (report->error_count > 0 || report->warnings_count > 0)
         {
             printf("-------------------------------------------\n");
@@ -8363,6 +8483,7 @@ int compile_many_files(const char* file_name,
                                  &report_local);
 
 
+                report->fatal_error_expected = report_local.fatal_error_expected;
                 report->error_count += report_local.error_count;
                 report->warnings_count += report_local.warnings_count;
                 report->info_count += report_local.info_count;
@@ -8455,7 +8576,7 @@ static int create_multiple_paths(const char* root, const char* outdir)
 #else
     return -1;
 #endif
-}
+    }
 
 int compile(int argc, const char** argv, struct report* report)
 {
